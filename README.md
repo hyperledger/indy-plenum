@@ -1,6 +1,6 @@
-Async Byzantine Fault Tolerant Protocol
+##Zeno Byzantine Fault Tolerant Protocol
 
-zeno makes extensive use of coroutines and the async/await keywords in Python, 
+Zeno makes extensive use of coroutines and the async/await keywords in Python, 
 and as such, requires Python version 3.5.0 or later.
  
 After cloning the repo, from the root directory of the repo, install it:
@@ -18,7 +18,7 @@ python -m zeno.cli
 or
 
 ```
-./cli
+scripts/cli
 ```
 
 Or you can run the tests:
