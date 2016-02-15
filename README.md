@@ -1,4 +1,6 @@
-##Zeno Byzantine Fault Tolerant Protocol
+# Zeno Byzantine Fault Tolerant Protocol
+
+**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/zeno/wiki).**
 
 Zeno makes extensive use of coroutines and the async/await keywords in Python, 
 and as such, requires Python version 3.5.0 or later.
