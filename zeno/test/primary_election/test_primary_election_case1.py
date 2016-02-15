@@ -16,6 +16,7 @@ nodeCount = 4
 whitelist = ['already got nomination',
              'doing nothing for now']
 
+
 @pytest.fixture()
 def case1Setup(startedNodes: TestNodeSet):
     nodes = startedNodes
@@ -59,11 +60,6 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     """
     nodes = keySharedNodes
     nodeA, nodeB, nodeC, nodeD = [nodes.getNode(nm) for nm in nodes.nodeNames]
-    # nodeNames = nodeSet.nodeNames
-    # nodeA = nodeSet.getNode(nodeNames[0])
-    # nodeB = nodeSet.getNode(nodeNames[1])
-    # nodeC = nodeSet.getNode(nodeNames[2])
-    # nodeD = nodeSet.getNode(nodeNames[3])
 
     # Doesn't matter if nodes reach the ready state or not. Just start them
     looper.run(checkNodesConnected(nodes))

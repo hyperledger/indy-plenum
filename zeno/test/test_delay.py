@@ -64,8 +64,8 @@ def testSelfNominationDelay(tdir_for_func):
                 # nodesBCD.append(nodeSet.addNode(name, i+1, AutoMode.never))
                 nodesBCD.append(addNodeBack(nodeSet, looper, name))
 
-            # Ensuring that NodeA is started before any other node to demonstrate that it is delaying
-            # self nomination
+            # Ensuring that NodeA is started before any other node to demonstrate
+            # that it is delaying self nomination
             looper.run(
                     eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
                                timeout=5))
@@ -80,7 +80,8 @@ def testSelfNominationDelay(tdir_for_func):
                                retryWait=1,
                                timeout=10))
 
-            # Make sure that after at the most 30 seconds, nodeA's `startElection` is called
+            # Make sure that after at the most 30 seconds, nodeA's
+            # `startElection` is called
             looper.run(eventually(lambda: assertExp(
                     len(nodeA.spylog.getAll(
                             Node.decidePrimaries.__name__)) > 0),
