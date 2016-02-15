@@ -1,0 +1,6 @@
+#! /usr/bin/env python3
+"""
+Convenience script for calling the zeno command line interface.
+"""
+from zeno.cli.__main__ import main
+main()
