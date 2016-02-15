@@ -10,8 +10,8 @@ from zeno.server.suspicion_codes import Suspicions
 from zeno.test.helper import getNonPrimaryReplicas, getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
 
-# TODO: Copy pasted code, use fixtures
 from zeno.test.testing_utils import adict
+
 
 whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
              'cannot process incoming COMMIT']

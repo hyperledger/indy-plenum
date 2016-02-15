@@ -824,12 +824,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reqDict = msg.request
         request = Request(**reqDict)
 
-        # TODO it appears this signature validation is redundant
-        # try:
-        #     self.verifySignature(reqDict)
-        # except Exception as ex:
-        #     raise SuspiciousNode from ex
-
         self.requests.addPropagate(request, frm)
 
         self.propagate(request)

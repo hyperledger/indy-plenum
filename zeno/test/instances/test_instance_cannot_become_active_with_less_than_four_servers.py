@@ -75,10 +75,3 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                 else:
                     expectedStatus = Status.started
                 addNodeBackAndCheck(i, expectedStatus)
-
-            # TODO RAET complains if a node A tries to connectF to node B, and B is not available, but then B
-            #     tries to connect to A, and then gets an error because A is still trying to connect. A needs to
-            #     respond to that by trying to connect to B again.
-
-            # TODO What if status is hungry, not started_hungry, and a
-            #     previously key-shared node comes up? We still need to be able to connect.

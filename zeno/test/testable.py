@@ -47,9 +47,6 @@ class SpyLog(list):
 
 
 def Spyable(name: str = None, methods: SpyableMethods = None):
-    # TODO figure out a better way to ensure we don't double import
-    # checkDblImp()
-
     def spy(func, isInit, shouldSpy):
 
         sig = inspect.signature(func)
