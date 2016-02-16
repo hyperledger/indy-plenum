@@ -433,7 +433,6 @@ class NodeStacked(Batched):
             self.checkConns()
             self.maintainConnections()
 
-
     def maintainConnections(self):
         """
         Try to connect to all the nodes.
@@ -448,12 +447,25 @@ class NodeStacked(Batched):
         """
         cur = time.perf_counter()
         if cur > self.nextCheck:
-            if any(r.joinInProcess() or r.allowInProcess()
-                   for r in self.nodestack.remotes.values()):
-                logger.trace("{} joins or allows already in process, so "
+            for r in self.nodestack.remotes.values():
+                if r.joinInProcess():
+                    logger.trace("{} join already in process, so "
                              "waiting to check for reconnects".format(self))
-                self.nextCheck = cur + 3
-                return False
+                    self.nextCheck = cur + 3
+                    return False
+
+            for r in self.nodestack.remotes.values():
+                if r.allowInProcess():
+                    logger.trace("{} allow already in process, so "
+                             "waiting to check for reconnects".format(self))
+                    self.nextCheck = cur + 3
+                    return False
+            # if any(r.joinInProcess() or r.allowInProcess()
+            #        for r in self.nodestack.remotes.values()):
+            #     logger.trace("{} joins or allows already in process, so "
+            #                  "waiting to check for reconnects".format(self))
+            #     self.nextCheck = cur + 3
+            #     return False
             self.nextCheck = cur + 15
             # check again in 15 seconds,
             # unless sooner because of retries below
@@ -487,13 +499,22 @@ class NodeStacked(Batched):
                     if disconn.joinInProcess():
                         logger.debug("waiting, because join is already in "
                                      "progress")
+                    elif disconn.joined:
+                        self.nodestack.updateStamp()
+                        self.nodestack.allow(uid=disconn.uid,
+                                             cascade=True)
+                        logger.debug("{} disconnected node is joined".format(
+                            self), extra={"cli": "STATUS"})
                     else:
                         logger.info("{} reconnecting to {} at {}:{}".
                                     format(self, dname, *disconn.ha))
                         # update the store time so the allow timer works
                         self.nodestack.updateStamp()
-                        self.nodestack.allow(uid=disconn.uid,
+                        self.nodestack.join(uid=disconn.uid,
                                              cascade=True)
+                        logger.debug("{} disconnected node was not "
+                                     "joined".format(
+                            self), extra={"cli": "STATUS"})
             # remove items that have been connected
             for connected in conns:
                 self.lastcheck.pop(connected.uid, None)
@@ -545,13 +566,19 @@ class NodeStacked(Batched):
                     conflicts.add((r.name, r.ha))
                     error("ha for {} doesn't match".format(r.name))
             else:
-                regName = [nm for nm, ha in self.nodeReg.items() if ha == r.ha]
+                regName = [nm for nm, ha in self.nodeReg.items() if ha ==
+                           r.ha]
+
+                # This change fixes test
+                # `testNodeConnectionAfterKeysharingRestarted` in
+                # `test_node_connection`
+                # regName = [nm for nm, ha in self.nodeReg.items() if ha ==
+                #            r.ha and (r.joined or r.joinInProcess())]
                 logging.debug("unmatched remote is {} {}".format(r.uid, r.ha))
-                # assert len(regName) == 1
                 if regName:
-                    logger.debug("forgiving name mismatch for {} with same "
+                    logger.debug("{} forgiving name mismatch for {} with same "
                                  "ha {} using another name {}".
-                                 format(regName, r.ha, r.name))
+                                 format(self, regName, r.ha, r.name))
                     matches.add(regName[0])
                 else:
                     logger.debug("{} found a legacy remote {} "
@@ -560,7 +587,7 @@ class NodeStacked(Batched):
                     legacy.add(r)
 
         # missing from remotes... need to connect
-        missing = set(nm for nm, ha in self.nodeReg.items() if nm not in matches)
+        missing = set(self.nodeReg.keys()) - matches
 
         if len(missing) + len(matches) + len(conflicts) != len(self.nodeReg):
             logger.error("Error reconciling nodeReg with remotes")
@@ -577,13 +604,8 @@ class NodeStacked(Batched):
                 logger.error("{} found legacy entry [{}, {}] in remotes, "
                              "that were not in registry".
                              format(self, l.name, l.ha))
-
-                # TODO Remove this. Why are we raising error. Someone might
-                # attempt to connect to a node and might end up in its nodestack
-
-                # error("found legacy entries {} in remotes, that were not "
-                #       "in registry".format(legacy))
-                # this could happen if we are somehow re-using the same temp directory
+                # TODO probably need to reap
+                l.reap()
         return missing
 
     @staticmethod

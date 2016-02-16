@@ -1127,6 +1127,24 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                         extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.once
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
+            # old = []
+            for r in self.nodestack.remotes.values():
+                # Remove every join or allow transaction in process
+                for t in r.joinInProcess():
+                    logger.debug("removing in process join {} of {}"
+                                 .format(t, r))
+                    t.remove()
+                for t in r.allowInProcess():
+                    logger.debug("removing in process allow {} of {}"
+                                 .format(t, r))
+                    t.remove()
+                # if r.joinInProcess() or r.allowInProcess():
+                #     logger.debug("joins or allows before process {}".format(
+                #         r.joinInProcess() or r.allowInProcess()))
+                #     r.process()
+                #     logger.debug("joins or allows after process  {}".format(
+                #         r.joinInProcess() or r.allowInProcess()))
+                #     old.append(r)
             self.bootstrap()
 
     def stopKeySharing(self, timedOut=False):

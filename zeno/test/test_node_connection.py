@@ -10,7 +10,7 @@ from zeno.test.helper import checkNodesConnected, checkProtocolInstanceSetup
 
 logger = getlogger()
 
-whitelist = ['discarding message']
+whitelist = ['discarding message', 'found legacy entry']
 
 nodeReg = {
     'Alpha': ('127.0.0.1', 7560),
@@ -121,6 +121,32 @@ def testNodeConnection():
             A.start()
             looper.runFor(4)
             B.start()
+            looper.run(checkNodesConnected([A, B]))
+
+
+def testNodeConnectionAfterKeysharingRestarted():
+    console = getConsole()
+    console.reinit(flushy=True, verbosity=console.Wordage.verbose)
+    with TemporaryDirectory() as td:
+        print("temporary directory: {}".format(td))
+        with Looper() as looper:
+            timeout = 60
+            names = ["Alpha", "Beta"]
+            print(names)
+            nrg = {n: nodeReg[n] for n in names}
+            A, B = [Node(name, nrg, basedirpath=td)
+                    for name in names]
+            looper.add(A)
+            A.startKeySharing(timeout=timeout)
+            looper.runFor(timeout+1)
+            print("done waiting for A's timeout")
+            looper.add(B)
+            B.startKeySharing(timeout=timeout)
+            looper.runFor(timeout+1)
+            print("done waiting for B's timeout")
+            A.startKeySharing(timeout=timeout)
+            B.startKeySharing(timeout=timeout)
+            looper.runFor(timeout)
             looper.run(checkNodesConnected([A, B]))
 
             # TODO need to vary the times between nodes coming up in order to
