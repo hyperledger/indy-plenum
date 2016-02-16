@@ -377,13 +377,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if forced is None:
             forced = False
         super().bootstrap(forced=forced)
-        if not forced:
-            logger.debug("{} unforced bootstrap just run, so waiting to run "
-                         "it again".format(self))
-            # if it wasn't forced, then run it again in 3 seconds to
-            # make sure we connected to all
-            wait = min(3, len(self.nodeReg) / 4)
-            self._schedule(partial(self.bootstrap, forced=True), wait)
+        # run reconnect soon to make sure we connected to all
+        self.nextCheck = min(self.nextCheck, 3, len(self.nodeReg) / 4)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1119,25 +1114,26 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         :param timeout: the time till which key sharing is active
         """
-        if self.nodestack.keep.auto != AutoMode.never:
+        if self.isKeySharing:
             logger.info("{} already key sharing".format(self),
                         extra={"cli": "LOW_STATUS"})
         else:
             logger.info("{} starting key sharing".format(self),
                         extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.once
+            self.nodestack.keep.auto = AutoMode.always
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
             # old = []
-            for r in self.nodestack.remotes.values():
+            # for r in self.nodestack.remotes.values():
                 # Remove every join or allow transaction in process
-                for t in r.joinInProcess():
-                    logger.debug("removing in process join {} of {}"
-                                 .format(t, r))
-                    t.remove()
-                for t in r.allowInProcess():
-                    logger.debug("removing in process allow {} of {}"
-                                 .format(t, r))
-                    t.remove()
+                # for t in r.joinInProcess():
+                #     logger.debug("removing in process join {} of {}"
+                #                  .format(t, r))
+                #     t.remove()
+                # for t in r.allowInProcess():
+                #     logger.debug("removing in process allow {} of {}"
+                #                  .format(t, r))
+                #     t.remove()
+
                 # if r.joinInProcess() or r.allowInProcess():
                 #     logger.debug("joins or allows before process {}".format(
                 #         r.joinInProcess() or r.allowInProcess()))
@@ -1145,13 +1141,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 #     logger.debug("joins or allows after process  {}".format(
                 #         r.joinInProcess() or r.allowInProcess()))
                 #     old.append(r)
-            self.bootstrap()
+            self._retryConnections(force=True)
 
     def stopKeySharing(self, timedOut=False):
         """
         Stop key sharing, i.e don't allow any more nodes to join this node.
         """
-        if self.nodestack.keep.auto != AutoMode.never:
+        if self.isKeySharing:
             if timedOut:
                 logger.info("{} key sharing timed out; was not able to "
                             "connect to {}".

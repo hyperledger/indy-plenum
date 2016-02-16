@@ -167,7 +167,7 @@ class Cli:
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
         setupLogging(TRACE_LOG_LEVEL,
-                     Console.Wordage.mute,
+                     Console.Wordage.terse,
                      filename="log/cli.log")
         self.logger = getlogger("cli")
         print("\nzeno-CLI (c) 2016 Evernym, Inc.")
