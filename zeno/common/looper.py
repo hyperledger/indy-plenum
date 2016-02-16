@@ -1,6 +1,8 @@
 import asyncio
 import inspect
+import signal
 import time
+from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
 
@@ -82,8 +84,8 @@ class Looper:
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
-        self.inContext = False  # type: bool
         self.loop.set_debug(debug)
+        self.loop.add_signal_handler(signal.SIGINT, self.onSigInt)
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
             self.startall()
@@ -171,7 +173,16 @@ class Looper:
             if len(results) == 1:
                 return results[0]
             return results
-        return self.loop.run_until_complete(wrapper())
+        if coros:
+            what = wrapper()
+        else:
+            # if no coros supplied, then assume we run forever
+            what = self.runFut
+        return self.loop.run_until_complete(what)
+
+    def onSigInt(self):
+        logger.info("SIGINT received, stopping looper...")
+        self.running = False
 
     async def shutdown(self):
         """
@@ -188,7 +199,6 @@ class Looper:
                     extra={"cli": False})
 
     def __enter__(self):
-        self.inContext = True
         return self
 
     def shutdownSync(self):

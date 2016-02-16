@@ -495,18 +495,20 @@ Commands:
             entered on the command line.
         :return:
         """
-        # First handle any initial commands
+        # First handle any commands passed in
         for command in commands:
             print("\nRunning command: '{}'...\n".format(command))
             self.parse(command)
 
-        # Run echo loop. Read text from stdin, and reply it back.
+        # then handle commands from the prompt
         while interactive:
             try:
                 result = await self.cli.run_async()
                 self.parse(result.text)
             except (EOFError, KeyboardInterrupt, Exit):
                 return
+
+        print('Goodbye.')
 
     def parse(self, cmdText):
         m = self.grammar.match(cmdText)

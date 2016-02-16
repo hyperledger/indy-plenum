@@ -1,122 +1,186 @@
+"""
+This tutorial illustrates a client request round trip with a simple consensus
+pool.
+"""
+from tempfile import TemporaryDirectory
+
 from ioflo.base.consoling import getConsole
 
 from zeno.client.client import Client
 from zeno.common.looper import Looper
 from zeno.server.node import Node
-from zeno.server.client_authn import SimpleAuthNr
 from zeno.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
 
 console = getConsole()
 console.reinit(verbosity=console.Wordage.terse)
 
-# The looper runs a message loop that the nodes run on
-looper = Looper()
-
-# Dictionary of Node names and their IP Addresses and port numbers.
-nodeReg = {
-    'Alpha': ('127.0.0.1', 7560),
-    'Beta': ('127.0.0.1', 7562),
-    'Gamma': ('127.0.0.1', 7564),
-    'Delta': ('127.0.0.1', 7566)}
-
-alpha = Node('Alpha', nodeReg, SimpleAuthNr())
-alpha.start()
-alpha.startKeySharing()
-looper.add(alpha)
-
-beta = Node('Beta', nodeReg, SimpleAuthNr())
-beta.start()
-beta.startKeySharing()
-looper.add(beta)
-
-gamma = Node('Gamma', nodeReg, SimpleAuthNr())
-gamma.start()
-gamma.startKeySharing()
-looper.add(gamma)
-
-delta = Node('Delta', nodeReg, SimpleAuthNr())
-delta.start()
-delta.startKeySharing()
-looper.add(delta)
-looper.runFor(30)
-
-cliNodeReg = {
-    'AlphaC': ('127.0.0.1', 7561),
-    'BetaC': ('127.0.0.1', 7563),
-    'GammaC': ('127.0.0.1', 7565),
-    'DeltaC': ('127.0.0.1', 7567)}
-
-client_addr = ("127.0.0.1", 8080)
-
-# create a client with the above address
-client = Client(clientId="my_client_id", ha=client_addr, nodeReg=cliNodeReg)
-client.start()
-looper.add(client)
-
-idAndKey = client.signer.identifier, client.signer.verkey
-
-for node in alpha, beta, gamma, delta:
-    node.clientAuthNr.addClient(*idAndKey)
-
-# client connects
-looper.runFor(8)
-
-# Sending the nodes a random msg to nodes
-# msg = {"type": "buy", "amount": 100}
-msg = {"The_Answer_to_life_is": 42}
-
-# Submit the request to the nodes
-request, = client.submit(msg)
-
-# Know the request ID for the submitted request
-requestId = request.reqId
-
-# give time for the message to be processed
-looper.runFor(20)
-
-# You can get the reply and consensus status of a request by passing the request ID to the getReplyAndStatus
-reply, status = client.getReply(requestId)
-
-# print the reply and also, is consensus reached?
-print("Reply for the request: {}\n".format(reply))
-print("Status: {}\n".format(status))
-
-# Show the reply details of a request
-client.showReplyDetails(requestId)
-
-# makeFaulty(alpha, doesntPropagate, altersSignature, subvertsElection)
-
-# As we are using 4 nodes and the consensus can be still achieved with one node being faulty.
-makeNodeFaulty(beta, changesRequest)
-
-# Let's send a new message now
-msg = {"type": "sell", "amount": 101}
-
-# Submit the msg to the nodes
-request2, = client.submit(msg)
-
-# Know the request ID for the submitted request
-requestId2 = request2.reqId  # Type: List[ClientRequest]
-
-# give time for the message to be processed
-looper.runFor(20)
-
-reply, consensusReached = client.getReply(requestId2)
-print("Reply for the request: {}\n".format(reply))
-print("Consensus Reached?: {}\n".format(consensusReached))
-
-client.showReplyDetails(requestId2)
-
-looper.runFor(20)
-
-# TODO
 """
-[X] We need to clean up creation of a client, the stack should be invisible.
-[X] Add some methods to client to make it super simple to expose the messages that came in.
-[X] Make it simple to show that consensus was reached on the request.
-[ ] Make the one of the nodes malicious, and demonstrate that the protocol still runs.
-
-Also, demonstrate two ways to bootstrap a consensus pool:
-1. Pre-shared keys
-2. Key-sharing party
+Nodes persist keys when bootstrapping to other nodes and reconnecting using an
+ephemeral temporary directory when proving a concept is a nice way to keep
+things tidy.
 """
+with TemporaryDirectory() as tmpdir:
+
+    """
+    Looper runs an asynchronous message loop that services the nodes and client.
+    It's also a context manager, so it cleans up after itself.
+    """
+    with Looper(debug=False) as looper:
+
+        """
+        A node registry is a dictionary of Node names and their IP addresses
+        and port numbers.
+        """
+        nodeReg = {
+            'Alpha': ('127.0.0.1', 7560),
+            'Beta': ('127.0.0.1', 7562),
+            'Gamma': ('127.0.0.1', 7564),
+            'Delta': ('127.0.0.1', 7566)}
+
+        """
+        Create a node called Alpha
+        """
+        alpha = Node('Alpha', nodeReg, basedirpath=tmpdir)
+
+        """
+        Add the Alpha node to the looper, so it can be serviced.
+        """
+        looper.add(alpha)
+
+        """
+        Start key sharing among nodes. Key sharing is a way to bootstrap a
+        consensus pool when you don't want to manually construct keys
+        beforehand. See the github wiki for more details on key sharing.
+        """
+        alpha.startKeySharing()
+
+        """
+        Do the same process for the other nodes. Ordinarily, we would never have
+        more than one node on a machine, but this is for demonstration purposes.
+        """
+        beta = Node('Beta', nodeReg, basedirpath=tmpdir)
+        looper.add(beta)
+        beta.startKeySharing()
+
+        gamma = Node('Gamma', nodeReg, basedirpath=tmpdir)
+        looper.add(gamma)
+        gamma.startKeySharing()
+
+        delta = Node('Delta', nodeReg, basedirpath=tmpdir)
+        looper.add(delta)
+        delta.startKeySharing()
+
+        """
+        Give the nodes time to come up, find each other, share long-term keys,
+        and establish connections.
+        """
+        looper.runFor(5)
+
+        """
+        The client has a slightly different node registry than the nodes. The
+        Nodes have two network interfaces, one for other nodes, and one for
+        client. This registry points to the nodes' client-facing interfaces.
+        """
+        cliNodeReg = {
+            'AlphaC': ('127.0.0.1', 7561),
+            'BetaC': ('127.0.0.1', 7563),
+            'GammaC': ('127.0.0.1', 7565),
+            'DeltaC': ('127.0.0.1', 7567)}
+
+        """
+        A bi-directional connection is made from the client. This is the ip
+        address and port for the client's interfact to the nodes.
+        """
+        client_addr = ("127.0.0.1", 8000)
+
+        """
+        Create a client.
+        """
+        clientId = "my_client_id"
+        client = Client(clientId=clientId,
+                        ha=client_addr,
+                        nodeReg=cliNodeReg,
+                        basedirpath=tmpdir)
+        looper.add(client)
+
+        """
+        A client signs its requests. By default, a simple yet secure signing
+        mechanism is created for a client.
+        """
+        idAndKey = client.signer.identifier, client.signer.verkey
+
+        """
+        A client's signature verification key must be bootstrapped out of band
+        into the consensus pool. For demonstration, we'll add it directly to
+        each node.
+        """
+        for node in alpha, beta, gamma, delta:
+            node.clientAuthNr.addClient(*idAndKey)
+
+        """
+        We give the client a little time to connect
+        """
+        looper.runFor(3)
+
+        """
+        Create a simple message.
+        """
+        msg = {'life_answer': 42}
+
+        """
+        And submit it to the pool.
+        """
+        request, = client.submit(msg)
+
+        """
+        Allow some time for the request to be executed.
+        """
+        looper.runFor(3)
+
+        """
+        Let's get the reply.
+        """
+        reply, status = client.getReply(request.reqId)
+
+        """
+        Check the reply and see if consensus has been reached.
+        """
+        print("Reply: {}\n".format(reply))
+        print("Status: {}\n".format(status))
+
+        """
+        See the reply details of a request.
+        """
+        client.showReplyDetails(request.reqId)
+
+        """
+        As we are using 4 nodes, we have an f-value of 1, which means that
+        consensus can be still achieved with one faulty node. In this example,
+        we're going to cause Beta to be malicious, altering a client's request
+        before propagating to other nodes.
+        """
+        makeNodeFaulty(beta, changesRequest)
+
+        """
+        Create a new message.
+        """
+        msg = {"type": "sell", "amount": 101}
+
+        """
+        And submit it.
+        """
+        request2, = client.submit(msg)
+
+        """
+        Allow time for the message to be executed.
+        """
+        looper.runFor(3)
+
+        """
+        Observe that consensus is still reached
+        """
+        reply, consensusReached = client.getReply(request2.reqId)
+        print("Reply for the request: {}\n".format(reply))
+        print("Consensus Reached?: {}\n".format(consensusReached))
+
+        client.showReplyDetails(request2.reqId)
