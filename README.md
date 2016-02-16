@@ -32,7 +32,7 @@ python -m zeno.test
 **Installation Steps:**
 
 *Ubuntu:*
-
+===
 1. Run ```sudo add-apt-repository ppa:fkrull/deadsnakes```
 
 2. Run ```sudo apt-get update```
@@ -49,13 +49,13 @@ python -m zeno.test
 7. Run ```sudo apt-get install libsodium13```
 
 *CentOS/Redhat:*
-
+===
 1. Run ```sudo yum install python3.5```
 
 2. Run ```sudo yum install libsodium-devel```
 
 *Mac:*
-
+===
 1. Go to https://www.python.org and from the "Downloads" menu, download the Python 3.5.1 package(python-3.5.1-macosx10.6.pkg).
 
 2. Open the downloaded file to install it.
