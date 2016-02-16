@@ -153,8 +153,8 @@ def nodeRegGen(hagen):
         """
         if names is None:
             names = genNodeNames(count)
-        nr = OrderedDict((n, NodeDetail(hagen.next(), n + CLIENT_STACK_SUFFIX,
-                                        hagen.next())) for n in names)
+        nr = OrderedDict((n, NodeDetail(hagen.prod(), n + CLIENT_STACK_SUFFIX,
+                                        hagen.prod())) for n in names)
 
         def extractCliNodeReg(self):
             return OrderedDict((n.cliname, n.cliha) for n in self.values())
@@ -164,19 +164,6 @@ def nodeRegGen(hagen):
 
     return inner
 
-
-# @pytest.fixture(scope="function")
-# def testClient(nodeSet, nodeReg, tdir, hagen):
-#     ha = hagen.next()
-#     clientId = "testClient{}".format(ha.port)
-#     stack = dict(name=clientId,
-#                  ha=ha,
-#                  main=True,
-#                  auto=AutoMode.always)
-#     stack['basedirpath'] = tdir
-#     return TestClient(clientId, nodeReg=nodeReg.extractCliNodeReg(), stack=stack)
-#
-#
 
 @pytest.fixture(scope="module")
 def pool(tmpdir_factory, counter):
@@ -244,22 +231,6 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
 
     return sent1
 
-
-# class FixtureConfig:
-#     def __init__(self, config: Sequence[Tuple[Any, Any]]):
-#         self.config = config
-#
-#     def get(self, key, default=None):
-#         for k, v in self.config:
-#             if k == key:
-#                 return v
-#         return default
-#
-#
-# @pytest.fixture(scope="module")
-# def conf(request):
-#     config = getValueFromModule(request, "fixtureConfig", [])
-#     return FixtureConfig(config)
 
 @pytest.fixture(scope="module")
 def faultyNodes(request):

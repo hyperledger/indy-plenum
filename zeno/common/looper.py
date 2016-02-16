@@ -12,37 +12,40 @@ from zeno.common.util import getlogger
 logger = getlogger()
 
 
-class Nextable:
+class Prodable:
     """
-    An interface that defines the methods next, start and get_status
+    An interface for declaring classes that can be started and prodded. When an
+    object is prodedd, it just means that the event loop is giving it a chance
+    to do something.
     """
 
-    async def next(self, limit) -> int:
+    async def prod(self, limit) -> int:
         """
-        Actions to be performed each time the Nextable object gets a chunk of CPU time.
+        Action to be performed each time the Prodable object gets processor
+        resources.
 
-        :param limit: the number of messages to be processed.
+        :param limit: the number of messages to be processed
         """
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
 
     def start(self):
         """
-        Actions to be performed when the Nextable is starting up.
+        Actions to be performed when the Prodable is starting up.
         """
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
 
     def stop(self):
         """
-        Actions to be performed when the Nextable is starting up.
+        Actions to be performed when the Prodable is starting up.
         """
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
 
     def get_status(self) -> Status:
         """
-        Get the current status of this Nextable
+        Get the current status of this Prodable
         """
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
@@ -54,19 +57,20 @@ class Looper:
     """
 
     def __init__(self,
-                 nextables: List[Nextable]=None,
+                 prodables: List[Prodable]=None,
                  loop=None,
                  debug=True,
                  autoStart=True):
         """
         Initialize looper with an event loop.
 
-        :param nextables: a list of nextables that this event loop will execute
+        :param prodables: a list of prodables that this event loop will execute
         :param loop: the event loop to use
         :param debug: set_debug on event loop will be set to this value
         :param autoStart: start immediately?
         """
-        self.nextables = list(nextables) if nextables is not None else []  # type: List[Nextable]
+        self.prodables = list(prodables) if prodables is not None \
+            else []  # type: List[Prodable]
 
         if loop:
             self.loop = loop
@@ -90,43 +94,43 @@ class Looper:
         if self.autoStart:
             self.startall()
 
-    async def runOnce(self):
+    async def prodAllOnce(self):
         """
-        Call `next` once for each Nextable in this Looper
+        Call `prod` once for each Prodable in this Looper
 
         :return: the sum of the number of events executed successfully
         """
         limit = None
         s = 0
-        for n in self.nextables:
-            s += await n.next(limit)
+        for n in self.prodables:
+            s += await n.prod(limit)
         return s
 
-    def add(self, nextable: Nextable) -> None:
+    def add(self, prodable: Prodable) -> None:
         """
-        Add one Nextable object to this Looper's list of Nextables
+        Add one Prodable object to this Looper's list of Prodables
 
-        :param nextable: the Nextable object to add
+        :param prodable: the Prodable object to add
         """
-        self.nextables.append(nextable)
+        self.prodables.append(prodable)
         if self.autoStart:
-            nextable.start()
+            prodable.start()
 
-    def removeNextable(self, nextable: Nextable) -> None:
+    def removeProdable(self, prodable: Prodable) -> None:
         """
-        Remove the specified Nextable object from this Looper's list of Nextables
+        Remove the specified Prodable object from this Looper's list of Prodables
 
-        :param nextable: the Nextable to remove
+        :param prodable: the Prodable to remove
         """
-        self.nextables.remove(nextable)
+        self.prodables.remove(prodable)
 
     async def runOnceNicely(self):
         """
-        Execute `runOnce` with a small tolerance of 0.01 seconds so that the Nextables
+        Execute `runOnce` with a small tolerance of 0.01 seconds so that the Prodables
         can complete their other asynchronous tasks not running on the event-loop.
         """
         start = time.perf_counter()
-        msgsProcessed = await self.runOnce()
+        msgsProcessed = await self.prodAllOnce()
         if msgsProcessed == 0:
             await asyncio.sleep(0.01)  # if no let other stuff run
         dur = time.perf_counter() - start
@@ -217,11 +221,11 @@ class Looper:
 
     def startall(self):
         """
-        Start all the Nextables in this Looper's `nextables`
+        Start all the Prodables in this Looper's `prodables`
         """
-        for n in self.nextables:
+        for n in self.prodables:
             n.start()
 
     def stopall(self):
-        for n in self.nextables:
+        for n in self.prodables:
             n.stop()

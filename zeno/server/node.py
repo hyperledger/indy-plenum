@@ -271,7 +271,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.actionQueue.clear()
         self.elector = None
 
-    async def next(self, limit: int=None) -> int:
+    async def prod(self, limit: int=None) -> int:
         """
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.

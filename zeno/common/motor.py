@@ -1,10 +1,10 @@
 import logging
 
-from zeno.common.looper import Nextable
+from zeno.common.looper import Prodable
 from zeno.common.startable import Status
 
 
-class Motor(Nextable):
+class Motor(Prodable):
     """
     Helper functions for Status.
     """
@@ -78,5 +78,5 @@ class Motor(Nextable):
         """
         raise NotImplementedError("{} must implement this method".format(self))
 
-    def next(self, limit) -> int:
+    def prod(self, limit) -> int:
         raise NotImplementedError("{} must implement this method".format(self))

@@ -875,11 +875,11 @@ class HaGen(object):
             cls.__instance.gen = itertools.count()
         return cls.__instance
 
-    def next(self):
+    def getNext(self):
         return HA("127.0.0.1", 7532 + (next(self.gen)))
 
 
-genHa = HaGen().next
+genHa = HaGen().getNext
 
 
 # curPort = -1 + 8
@@ -987,7 +987,7 @@ def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
 
     # Remove all the nodes
     for n in list(nodeSet.nodes.keys()):
-        looper.removeNextable(nodeSet.nodes[n])
+        looper.removeProdable(nodeSet.nodes[n])
         nodeSet.removeNode(n, shouldClean=False)
 
 
@@ -1105,8 +1105,8 @@ class Pool:
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):
-        return self.tmpdir_factory.getbasetemp().strpath + '/' + str(
-                next(self.counter))
+        return self.tmpdir_factory.getbasetemp().strpath + \
+               '/' + str(next(self.counter))
 
 
 def checkPropagateReqCountOfNode(node: TestNode, clientId: str, reqId: int):

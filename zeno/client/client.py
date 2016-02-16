@@ -82,7 +82,7 @@ class Client(NodeStacked, Motor):
             self.startNodestack()
             self.bootstrap()
 
-    async def next(self, limit) -> int:
+    async def prod(self, limit) -> int:
         """
         async function that returns the number of events
 
