@@ -162,7 +162,10 @@ def getMaxFailures(nodeCount: int) -> int:
     :param nodeCount: number of nodes in the system
     :return: maximum permissible Byzantine failures in the system
     """
-    return floor((nodeCount - 1) / 3)
+    f = floor((nodeCount - 1) / 3)
+    if f < 0:
+        return 0
+    return f
 
 
 def getQuorum(nodeCount: int = None, f: int = None) -> int:
