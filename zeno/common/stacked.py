@@ -17,7 +17,7 @@ from zeno.common.motor import Motor
 from zeno.common.ratchet import Ratchet
 from zeno.common.request_types import Request, Batch, TaggedTupleBase
 from zeno.common.util import error, distributedConnectionMap, \
-    MessageProcessor, getlogger
+    MessageProcessor, getlogger, checkPortAvailable
 
 logger = getlogger()
 
@@ -151,6 +151,8 @@ class Stack(RoadStack):
         :param stack: a dictionary of Roadstack constructor arguments.
         :return: the new instance of stack created.
         """
+        if not checkPortAvailable(stack['ha']):
+            error("Address {} already in use".format(stack['ha']))
         stk = cls(**stack)
         if stk.ha[1] != stack['ha'].port:
             error("the stack port number has changed, likely due to "

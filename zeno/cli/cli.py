@@ -27,7 +27,7 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL
+    TRACE_LOG_LEVEL, checkPortAvailable
 from zeno.server.node import Node
 
 
@@ -458,8 +458,7 @@ Commands:
     def newClient(self, clientId):
         try:
             self.ensureValidClientId(clientId)
-            client_addr = self.getNextAvailableAddr()
-
+            client_addr = self.nextAvailableClientAddr()
             client = Client(clientId,
                             ha=client_addr,
                             nodeReg=self.cliNodeReg,
@@ -610,10 +609,17 @@ Commands:
         print("Invalid command: '{}'\n".format(cmdText))
         self.printCmdHelper(command=None)
 
-    def getNextAvailableAddr(self):
-        self.curClientPort = self.curClientPort or 8100
+    def nextAvailableClientAddr(self, curClientPort=8100):
+        self.curClientPort = self.curClientPort or curClientPort
         self.curClientPort += 1
-        return "127.0.0.1", self.curClientPort
+        host = "127.0.0.1"
+        if checkPortAvailable((host, self.curClientPort)):
+            return host, self.curClientPort
+        else:
+            tokens = [(Token.Error, "Port {} already in use, "
+                                    "trying another port.".format(self.curClientPort))]
+            self.printTokens(tokens)
+            return self.nextAvailableClientAddr(self.curClientPort)
 
 
 class Exit(Exception):
