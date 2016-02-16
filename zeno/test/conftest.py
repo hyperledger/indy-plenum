@@ -190,7 +190,6 @@ def ensureView(nodeSet, looper, up):
     return looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
 
 
-
 @pytest.fixture("module")
 def delayedPerf(nodeSet):
     for node in nodeSet:
@@ -296,5 +295,6 @@ def replied1(looper, nodeSet, client1, committed1):
                 client1.inBox,
                 committed1.reqId,
                 2,
-                retryWait=2, timeout=30))
+                retryWait=2,
+                timeout=30))
     return committed1
