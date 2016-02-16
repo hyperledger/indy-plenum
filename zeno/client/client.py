@@ -14,7 +14,7 @@ from zeno.common.motor import Motor
 from zeno.common.request_types import Request, Reply, OP_FIELD_NAME, f
 from zeno.common.startable import Status
 from zeno.common.txn import REPLY
-from zeno.common.util import getMaxFailures, getlogger
+from zeno.common.util import getMaxFailures, getlogger, checkPortAvailable
 from raet.raeting import AutoMode
 
 from zeno.client.signer import Signer, SimpleSigner
