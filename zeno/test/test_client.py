@@ -20,7 +20,8 @@ F = getMaxFailures(nodeCount)
 
 whitelist = ['signer not configured so not signing',
              'for EmptySignature',
-             'discarding message']  # warnings
+             'discarding message',
+             'found legacy entry']  # warnings
 
 
 # noinspection PyIncorrectDocstring
