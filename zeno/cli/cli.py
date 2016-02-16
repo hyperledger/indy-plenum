@@ -342,8 +342,28 @@ Commands:
             print(client)
 
     def keyshare(self, nodeName):
-        node = self.nodes[nodeName]
-        node.startKeySharing()
+        node = self.nodes.get(nodeName, None)
+        if node is not None:
+            node = self.nodes[nodeName]
+            node.startKeySharing()
+        elif nodeName not in self.nodeReg:
+            tokens = [(Token.Error, "Invalid node name '{}'. ".format(nodeName))]
+            self.printTokens(tokens)
+            self.showValidNodes()
+            return
+        else:
+            tokens = [(Token.Error, "Node '{}' not started. ".format(nodeName))]
+            self.printTokens(tokens)
+            self.showStartedNodes()
+            return
+
+    def showStartedNodes(self):
+        self.printTokens([(Token, "Started nodes are: ")])
+        startedNodes = self.nodes.keys()
+        if startedNodes:
+            self.printNames(self.nodes.keys(), newline=True)
+        else:
+            self.print("None", newline=True)
 
     def newNode(self, nodeName):
         if nodeName in self.nodes:
