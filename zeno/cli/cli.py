@@ -416,6 +416,7 @@ Commands:
                               (Token.Name, client.name)],
                              separator=' ', end='\n')
             self.print("    age (seconds): {:.0f}".format(time.perf_counter() - client.created))
+            self.print("    status: {}".format(client.status.name))
             self.print("    connected to: ", newline=False)
             if client._conns:
                 self.printNames(client._conns, newline=True)
