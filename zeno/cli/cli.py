@@ -27,7 +27,7 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL
+    TRACE_LOG_LEVEL, getMaxFailures
 from zeno.server.node import Node
 
 
@@ -324,22 +324,30 @@ Commands:
         self.cli.print_tokens(t, style=self.style)
 
     def getStatus(self):
-        if len(self.nodes) > 1:
-            print("The following nodes are up and running: ")
-        elif len(self.nodes) == 1:
-            print("The following node is up and running: ")
+        nodes = clients = ""
+        if len(self.nodes) == 0:
+            nodes = "No nodes are running. Try typing 'new node <name>'."
         else:
-            print("No nodes are running. Try typing 'new node <name>'.")
-        for node in self.nodes:
-            print(node)
-        if len(self.nodes) > 1:
-            print("The following clients are up and running: ")
-        elif len(self.nodes) == 1:
-            print("The following client is up and running: ")
+            nodes = ", ".join(self.nodes)
+        if len(self.clients) == 0:
+            clients = "No clients are running. Try typing 'new client <name>'."
         else:
-            print("No clients are running. Try typing 'new client <name>'.")
-        for client in self.clients:
-            print(client)
+            clients = ",".join(self.clients.keys())
+        print("Nodes: "+nodes)
+        print("Clients: "+clients)
+        f = getMaxFailures(len(self.nodes))
+        print("f-value (number of possible faulty nodes): {}".format(f))
+        if f != 0 and len(self.nodes) >= 2*f + 1:
+            head = list(self.nodes.values())[0]
+            primary = head.replicas[head.masterInst].primaryName
+            backups = [v for k, v in enumerate(head.replicas)
+                      if k != head.masterInst]
+            backup = backups[0].primaryName
+            print("Instances: {}".format(f+1))
+            print("   Master (primary is {})".format(primary[:-2]))
+            print("   Backup (primary is {})".format(backup[:-2]))
+        else:
+            print("Instances: Not enough nodes to create protocol instances")
 
     def keyshare(self, nodeName):
         node = self.nodes.get(nodeName, None)
