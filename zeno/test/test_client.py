@@ -20,7 +20,8 @@ F = getMaxFailures(nodeCount)
 
 whitelist = ['signer not configured so not signing',
              'for EmptySignature',
-             'discarding message']  # warnings
+             'discarding message',
+             'found legacy entry']  # warnings
 
 
 # noinspection PyIncorrectDocstring
@@ -54,8 +55,6 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
 
     async def go(ctx):
-        # TODO need to make default behavior of node stack autoMode.never
-
         for n in ctx.nodeset:
             n.nodestack.keep.auto = AutoMode.never
 
@@ -205,29 +204,3 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                                  duplicateRequestRepliesLen),
             retryWait=.25,
             timeout=20))
-
-
-# TODO Need to implement this and need tests for this
-# Implement client request retransmission on request timeout(Client sends a
-# request but does not receive f+1 replies
-#  in a predeclared time interval). Take care of cases where the client
-# retransmits request but the previous request
-#  is still being processed. Consider edge cases around request sequence
-# numbers.
-
-# TODO Need tests for these
-"""
-1. Client sends 3 requests with sequence numbers s1, s2, s3 in order. For s2
-client does not get the reply in time
-    so it retransmits the request with the sequence number s2.
-    a. Request with sequence number s2 reached only a faulty node(which did
-    some tampering with the request,
-    probably changing the request sequence number) and was later rejected by
-    the other nodes so it was not processed
-    b. Processing request with sequence number s2 is taking time probably
-    because nodes are busy under a high load
-    or the request has an expensive operation to perform.
-
-2. What if client get f+1 replies but with different results from different
-replicas?
-"""

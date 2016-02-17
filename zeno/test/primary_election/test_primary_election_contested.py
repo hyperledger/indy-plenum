@@ -46,9 +46,6 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     All see the others have sent Primary A, and then the nodes record who is the Primary.
     """
 
-    # TODO what if not all send out Primary(A)?
-    # TODO what if there are big delays in messages getting delivered?
-
     nodeSet = keySharedNodes
     A, B, C, D = nodeSet.nodes.values()
 

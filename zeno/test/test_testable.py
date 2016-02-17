@@ -6,8 +6,6 @@ from unittest import TestCase
 from zeno.server.node import Node
 from zeno.test.testable import Spyable
 
-#from zeno.test.testing_utils import setupTestLogging
-
 
 pr = slice(3, 5)  # params and result
 
@@ -153,7 +151,8 @@ class NewTestableTests(TestHelpers):
                           ({'inp': 'hi'}, None))
 
     def testSpyOnCertainClass(self):
-        # known limitation... when super() is called, we are not spy-wrapping base base class methods.
+        # known limitation... when super() is called, we are not spy-wrapping
+        # base base class methods.
         SpySubClass = Spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
             SubClassWithOverrideAndSuperCall)
         z = SpySubClass('a', 'b')

@@ -83,29 +83,5 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
     for node in nodeSet.nodes.values():
         node.resetDelays()
 
-    # TODO Check for spylog of `eatReelection` after putting spy on eaters too
-
     checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
                                timeout=60)
-
-    # TODO testPrimaryElectionWithTieButOneNodeDoesntKnowIt
-    # TODO add E back in after election is complete, or even before it's
-    # complete (E jumps in right in the middle of an election)
-    #       When E joins, it needs to be able to ping the others for the
-    #       current state (A could send to E the votes of the other nodes,
-    #       so E would know if B is being maliciious), and the others respond,
-    #       and E can make a determination based on those responses, even if
-    #       one is malicious.
-
-    # TODO We need to trap for the case when a node is being inconsistent. For example:
-    """
-        A is malicious
-        A sends NOMINATE(id, C) to B
-        A sends NOMINATE(id, B) to C and D
-        B forwards A's signed NOMINATE(id, C) to C and D
-        C forwards A's signed NOMINATE(id, B) to B and D
-        D forwards A's signed NOMINATE(id, B) to B and C
-        C and D and B can all see that A is being inconsistent, and they all blacklist A
-
-        If A is using different ID's for each record, then we can see that as well.
-    """
