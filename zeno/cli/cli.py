@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import configparser
 import os
 from configparser import ConfigParser
 import zeno.cli.ensure_logging_not_setup
@@ -620,10 +621,21 @@ Commands:
                     self.printCmdHelper("sendmsg")
 
             elif matchedVars.get('load') == 'load':
-                fileName = matchedVars.get("file_name")
-                self.loadFromFile(fileName)
-                print("Node registry loaded.")
-                self.showNodeRegistry()
+                file = matchedVars.get("file_name")
+                if os.path.exists(file):
+                    try:
+                        self.loadFromFile(file)
+                        print("Node registry loaded.")
+                        self.showNodeRegistry()
+                    except configparser.ParsingError:
+                        self.logger.warn("Could not parse file. "
+                                         "Please ensure that the file "
+                                         "has sections node_reg "
+                                         "and client_node_reg.",
+                                         extra={'cli': 'WARNING'})
+                else:
+                    self.logger.warn("File {} not found.".format(file),
+                                extra={"cli": "WARNING"})
 
             # Fall back to the help saying, invalid command.
             else:
