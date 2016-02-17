@@ -6,7 +6,7 @@ from zeno.cli.cli import Cli
 from zeno.common.looper import Looper
 
 
-def main(logfile: str=None, isTesting=None, cliClass=None):
+def main(logfile: str=None, debug=None, cliClass=None):
     nodeReg = OrderedDict([
         ('Alpha', ('127.0.0.1', 8001)),
         ('Beta', ('127.0.0.1', 8003)),
@@ -31,9 +31,9 @@ def main(logfile: str=None, isTesting=None, cliClass=None):
                            nodeReg=nodeReg,
                            cliNodeReg=cliNodeReg,
                            logfile=logfile,
-                           isTesting=isTesting)
+                           debug=debug)
 
-            if not isTesting:
+            if not debug:
                 looper.run(cli.shell(*sys.argv[1:]))
                 print('Goodbye.')
             return cli

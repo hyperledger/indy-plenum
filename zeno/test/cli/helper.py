@@ -36,3 +36,11 @@ class TestCli(cli.Cli):
 
 def isErrorToken(token: Token):
     return token == Token.Error
+
+
+def isHeadingToken(token: Token):
+    return token == Token.Heading
+
+
+def isNameToken(token: Token):
+    return token == Token.Name

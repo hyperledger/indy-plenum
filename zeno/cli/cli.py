@@ -51,7 +51,7 @@ class Cli:
 
     # noinspection PyPep8
     def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, logfile=None,
-                 isTesting=None):
+                 debug=False):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
@@ -79,7 +79,7 @@ class Cli:
         self.commands.update(self.nodeCmds)
         self.node_or_cli = ['node', 'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
-        self.isTesting = isTesting
+        self.debug = debug
 
         '''
         examples:
@@ -152,6 +152,8 @@ class Cli:
 
         self.functionMappings = self.createFunctionMappings()
 
+        self.voidMsg = "<none>"
+
         # Create an asyncio `EventLoop` object. This is a wrapper around the
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
@@ -175,6 +177,7 @@ class Cli:
         setupLogging(TRACE_LOG_LEVEL,
                      Console.Wordage.mute,
                      filename=logging if logfile else "log/cli.log")
+
         self.logger = getlogger("cli")
         self.print("\nzeno-CLI (c) 2016 Evernym, Inc.")
         self.print("Node registry loaded.")
@@ -193,10 +196,10 @@ class Cli:
             self.print("status command helper")
 
         def nodeHelper():
-            self.print("Can be used to create a new node")
+            self.print("It is used to create a new node")
 
         def clientHelper():
-            self.print("Can be used to create a new client")
+            self.print("It is used to create a new client")
 
         def listHelper():
             self.print("List all the commands, you can use in this CLI.")
@@ -220,17 +223,13 @@ class Cli:
         limitations under the License.
             """)
 
-        def sendmsgHelper():
+        def sendHelper():
             self.print("""Used to send a message from a client to nodes"
-                     Usage: sendmsg <clientName> <{Message}>""")
+                     Usage: client <clientName> send <{Message}>""")
 
-        def getreplyHelper():
-            self.print("""Used to send a message from a client to nodes"
-                     Usage: getreply <clientName> <reqID>""")
-
-        def showdetailsHelper():
-            self.print("""Used to send a message from a client to nodes"
-                     Usage: showdetails <clientName> <reqID>""")
+        def showHelper():
+            self.print("""Used to show status of request sent by the client"
+                     Usage: client <clientName> show <reqID>""")
 
         def defaultHelper():
             self.printHelp()
@@ -242,9 +241,8 @@ class Cli:
             'node': nodeHelper,
             'client': clientHelper,
             'license': licenseHelper,
-            'sendmsg': sendmsgHelper,
-            'getreply': getreplyHelper,
-            'showdetails': showdetailsHelper,
+            'send': sendHelper,
+            'show': showHelper,
             'exit': exitHelper
         }
 
@@ -254,10 +252,13 @@ class Cli:
         if newline:
             msg += "\n"
         part = partial(self.cli.print_tokens, [(token, msg)])
-        if self.isTesting:
+        if self.debug:
             part()
         else:
             self.cli.run_in_terminal(part)
+
+    def printVoid(self):
+        self.print(self.voidMsg)
 
     def out(self, record, extra_cli_value=None):
         """
@@ -340,9 +341,9 @@ Commands:
             self.print("No nodes are running. Try typing 'new node <name>'.")
         for node in self.nodes:
             self.print(node)
-        if len(self.nodes) > 1:
+        if len(self.clients) > 1:
             self.print("The following clients are up and running: ")
-        elif len(self.nodes) == 1:
+        elif len(self.clients) == 1:
             self.print("The following client is up and running: ")
         else:
             self.print("No clients are running. Try typing 'new client <name>'.")
@@ -429,7 +430,7 @@ Commands:
             if client._conns:
                 self.printNames(client._conns, newline=True)
             else:
-                self.print("<none>")
+                self.printVoid()
             self.print("    identifier: {}".format(client.signer.identifier))
             self.print("    verification key: {}".format(client. signer.verkey))
             self.print("    submissions: {}".format(client.lastReqId))
@@ -440,7 +441,7 @@ Commands:
                 self.statusNode(nm)
             return
         if nodeName not in self.nodes:
-            self.print("node not found", Token.Error)
+            self.print("Node {} not found".format(nodeName), Token.Error)
         else:
             node = self.nodes[nodeName]  # type: Node
 
@@ -450,19 +451,25 @@ Commands:
             self.print("    status: {}".format(node.status.name))
             self.print("    age (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
+
             self.print("    connected nodes: ", newline=False)
             if node._conns:
                 self.printNames(node._conns, newline=True)
             else:
-                self.print("<none>")
+                self.printVoid()
+
             self.print("    connected clients: ", newline=False)
             clis = node.clientstack.connecteds()
             if clis:
                 self.printNames(clis, newline=True)
             else:
-                self.print("<none>")
-            self.print("    client verification keys: {}".
-                       format(node.clientAuthNr.clients))
+                self.printVoid()
+
+            self.print("    client verification keys: ", newline=False)
+            if clis and node.clientAuthNr.clients:
+                self.print(str(node.clientAuthNr.clients))
+            else:
+                self.printVoid()
 
     def newClient(self, clientId):
         try:

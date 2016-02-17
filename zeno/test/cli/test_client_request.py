@@ -5,7 +5,7 @@ from zeno.test.helper import checkSufficientRepliesRecvd
 
 def testClientRequest(cli, validNodeNames, looper, allNodesUp):
     """
-    Test client sending request and checking its status
+    Test client sending request and checking reply and status
     """
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
@@ -24,6 +24,13 @@ def testClientRequest(cli, validNodeNames, looper, allNodesUp):
                 retryWait=2,
                 timeout=30))
 
+    txn, status = client.getReply(client.lastReqId)
+
     # Ensure the cli shows appropriate output
     cli.enterCmd('client {} show {}'.format(cName, client.lastReqId))
-    assert cli.lastPrintArgs['msg'] == "Status: CONFIRMED"
+    printeds = cli.printeds
+    printedReply = printeds[1]
+    printedStatus = printeds[0]
+    assert printedReply['msg'] == "Reply for the request: {{'txnId': '{}" \
+                                  "'}}".format(txn['txnId'])
+    assert printedStatus['msg'] == "Status: {}".format(status)

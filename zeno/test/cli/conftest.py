@@ -11,7 +11,7 @@ from zeno.test.cli.helper import TestCli
 
 @pytest.fixture("module")
 def cli(looper):
-    Cli = main(isTesting=True, cliClass=TestCli)
+    Cli = main(debug=True, cliClass=TestCli)
     # A new cli should have no nodes
     assert Cli.nodes == {}
     Cli.looper = looper
@@ -30,4 +30,5 @@ def createAllNodes(cli):
 
 @pytest.fixture("module")
 def allNodesUp(cli, createAllNodes, up):
-    pass
+    # Let nodes complete election and the output be rendered on the screen
+    cli.looper.runFor(5)
