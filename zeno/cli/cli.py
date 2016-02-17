@@ -28,7 +28,7 @@ from pygments.token import Token
 from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures
-from zeno.server.node import Node
+from zeno.server.node import Node, CLIENT_STACK_SUFFIX
 
 
 class CustomOutput(Vt100_Output):
@@ -325,11 +325,11 @@ Commands:
 
     def getStatus(self):
         nodes = clients = ""
-        if len(self.nodes) == 0:
+        if not self.nodes:
             nodes = "No nodes are running. Try typing 'new node <name>'."
         else:
             nodes = ", ".join(self.nodes)
-        if len(self.clients) == 0:
+        if not self.clients:
             clients = "No clients are running. Try typing 'new client <name>'."
         else:
             clients = ",".join(self.clients.keys())
@@ -418,20 +418,19 @@ Commands:
         if clientId not in self.clients:
             self.print("client not found", Token.Error)
         else:
+            print("    Name: "+clientId)
             client = self.clients[clientId]  # type: Client
 
-            self.printTokens([(Token.Heading, 'Status for client:'),
-                              (Token.Name, client.name)],
-                             separator=' ', end='\n')
-            self.print("    age (seconds): {:.0f}".format(time.perf_counter() - client.created))
-            self.print("    connected to: ", newline=False)
+            print('    Status: {}'.format(client.status.name))
+            self.print("    Up time (seconds): {:.0f}".format(time.perf_counter() - client.created))
+            self.print("    Connections: ", newline=False)
             if client._conns:
                 self.printNames(client._conns, newline=True)
             else:
                 self.print("<none>")
-            self.print("    identifier: {}".format(client.signer.identifier))
-            self.print("    verification key: {}".format(client. signer.verkey))
-            self.print("    submissions: {}".format(client.lastReqId))
+            self.print("    Identifier: {}".format(client.signer.identifier))
+            self.print("    Verification key: {}".format(client. signer.verkey))
+            self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
@@ -439,29 +438,37 @@ Commands:
                 self.statusNode(nm)
             return
         if nodeName not in self.nodes:
-            self.print("node not found", Token.Error)
+            print("node not found")
         else:
+            print("    Name: "+nodeName)
             node = self.nodes[nodeName]  # type: Node
-
-            self.printTokens([(Token.Heading, 'Status for node:'),
-                              (Token.Name, node.name)],
+            nha = ":".join([str(i) for i in self.nodeReg.get(nodeName)])
+            print("    Node listener: "+nha)
+            cha = ":".join([str(i) for i in
+                            self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX)])
+            print("    Client listener: "+cha)
+            print("    Status: {}".format(node.status.name))
+            connecteds = [(Token.Name, n) for n in node.nodestack.connecteds()]
+            self.printTokens([(Token.Heading, '    Connections:')] + connecteds,
                              separator=' ', end='\n')
-            self.print("    status: {}".format(node.status.name))
-            self.print("    age (seconds): {:.0f}".
+            notConnecteds = list({(Token.Name, r) for r in self.nodes.keys()
+                             if r not in node.nodestack.connecteds()
+                             and r != nodeName})
+            if notConnecteds:
+                self.printTokens([(Token.Heading, '    Not connected:')] + notConnecteds,
+                                 separator=' ', end='\n')
+            if node.masterInst == 0:
+                print("    Replicas: Primary on Master, Replica on Backup")
+            else:
+                print("    Replicas: Replica on Master, Primary on Backup")
+            print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
-            self.print("    connected nodes: ", newline=False)
-            if node._conns:
-                self.printNames(node._conns, newline=True)
+            self.print("    Clients: ", newline=False)
+            clients = node.clientstack.connecteds()
+            if clients:
+                self.printNames(clients, newline=True)
             else:
                 self.print("<none>")
-            self.print("    connected clients: ", newline=False)
-            clis = node.clientstack.connecteds()
-            if clis:
-                self.printNames(clis, newline=True)
-            else:
-                self.print("<none>")
-            self.print("    client verification keys: {}".
-                       format(node.clientAuthNr.clients))
 
     def newClient(self, clientId):
         try:
