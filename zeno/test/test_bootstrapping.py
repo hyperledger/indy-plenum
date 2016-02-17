@@ -53,7 +53,3 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
                         if n == ex.args[0]]
             except Exception:
                 raise
-
-# TODO Test Bootstrapping Nodes
-
-# TODO Test Bootstrapping Clients

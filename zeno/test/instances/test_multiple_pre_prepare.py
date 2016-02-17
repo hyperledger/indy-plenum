@@ -33,11 +33,6 @@ def setup(nodeSet, up):
     # The node of the primary replica above should not be blacklisted by any
     # other node since we are simulating multiple PRE-PREPARE messages and
     # want to check for a particular suspicion
-    # for node in nodeSet:
-    #     if node != primaryRep.node:
-    #         node.whitelistNode(primaryRep.node.name,
-    #                            Suspicions.DUPLICATE_PPR_SENT.code)
-
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps)
 

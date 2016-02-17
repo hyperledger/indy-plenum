@@ -9,7 +9,7 @@ from ioflo.base.consoling import getConsole
 from zeno.client.client import Client
 from zeno.common.looper import Looper
 from zeno.server.node import Node
-from zeno.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
+from zeno.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
 
 console = getConsole()
 console.reinit(verbosity=console.Wordage.terse)
@@ -159,7 +159,7 @@ with TemporaryDirectory() as tmpdir:
         we're going to cause Beta to be malicious, altering a client's request
         before propagating to other nodes.
         """
-        makeNodeFaulty(beta, changesRequest)
+        makeNodeFaulty(beta, faultyReply)
 
         """
         Create a new message.
@@ -167,17 +167,17 @@ with TemporaryDirectory() as tmpdir:
         msg = {"type": "sell", "amount": 101}
 
         """
-        And submit it.
+        And submit it to the pool.
         """
         request2, = client.submit(msg)
 
         """
         Allow time for the message to be executed.
         """
-        looper.runFor(3)
+        looper.runFor(10)
 
         """
-        Observe that consensus is still reached
+        Observe that consensus is still reached with one node replying with a different response.
         """
         reply, consensusReached = client.getReply(request2.reqId)
         print("Reply for the request: {}\n".format(reply))
