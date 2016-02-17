@@ -22,7 +22,7 @@ def checkDblImp():
               'importlib/_bootstrap.py',
               'importlib/_bootstrap_external.py',
               'helpers/pycharm/pytestrunner.py',
-              'test/__init__.py',  # TODO why is this loaded more than once?
+              'test/__init__.py',
               'site-packages/pytest.py',
               'python3.5/os.py',
               'python3.5/re.py'}

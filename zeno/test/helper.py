@@ -403,17 +403,6 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
-        # nstack = dict(name=name,
-        #               ha=ha,
-        #               main=True,
-        #               auto=auto if auto is not None else AutoMode.always)
-        #
-        # # TODO Should the `auto` for client stack always be `AutoMode.always`
-        # cstack = dict(name=cliname,
-        #               ha=cliha,
-        #               main=True,
-        #               auto=AutoMode.always)  # client stack is promiscuous, for now
-
         node = self.enter_context(
                 TestNode(name=name,
                          ha=ha,
@@ -566,7 +555,6 @@ def expectedWait(nodeCount):
     return w
 
 
-# TODO should be using StackTester.ensureConnectedToNodes for stuff like this
 async def checkNodesConnected(stacks: Iterable[NodeStacked],
                               expectedRemoteState=None,
                               overrideTimeout=None):
@@ -582,31 +570,6 @@ async def checkNodesConnected(stacks: Iterable[NodeStacked],
                         retryWait=.5,
                         totalTimeout=wait,
                         acceptableExceptions=[AssertionError, RemoteNotFound])
-
-
-# async def connectAll(nodes: TestNodeSet, expectedRemoteState: RemoteState=None):
-#     raise DeprecationWarning("Don't use connectAll any more. "
-#                              "Just run Looper.startAll and the "
-#                              "nodes should connect automatically. "
-#                              "use checkNodesConnected")
-#     # nodes.connectAll()
-#     # await checkNodesConnected(nodes, expectedRemoteState)
-
-
-# async def startAll(loop: BaseEventLoop, *nodes: Union[Node, Iterable[Node]]):
-#     raise DeprecationWarning("Don't use connectAll any more. "
-#                              "Just run Looper.startAll and the "
-#                              "nodes should connect automatically. "
-#                              "use checkNodesConnected")
-#     # ns = []
-#     # for n in nodes:  # type: Node
-#     #     if isinstance(n, Iterable):
-#     #         await startAll(loop, *n)
-#     #     else:
-#     #         n.start(loop)
-#     #         ns.append(n)
-#     # if ns:
-#     #     await checkNodesConnected(ns)
 
 
 def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
@@ -740,7 +703,6 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
-# TODO Change this to a better name like `checkIfPoolIsValid` or `checkIfValidPoolValid`
 def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                timeout: float = None):
@@ -880,16 +842,6 @@ class HaGen(object):
 
 
 genHa = HaGen().getNext
-
-
-# curPort = -1 + 8
-# def genHa(offset=None):
-#     global curPort
-#
-#     if offset is None:
-#         curPort += 1
-#         offset = curPort
-#     return HA("127.0.0.1", 7532 + offset)
 
 
 def genTestClient(nodes: TestNodeSet = None,
@@ -1132,16 +1084,12 @@ def checkPrePrepareReqSent(replica: TestReplica, req: Request):
 
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
-    # TODO Check whether the PrePrepare request was received by non-primary
-    # nodes by putting spy on eatPrePrepare
     for replica in replicas:
         params = getAllArgs(replica, replica.canProcessPrePrepare)
         assert expectedRequest in [p['pp'] for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, clientId: str, reqId: int):
-    # TODO Check whether the Prepare request was received by nodes by putting
-    # spy on eatPrePrepare
     paramsList = getAllArgs(replica, replica.canSendPrepare)
     rv = getReturnValsForAllCallsToAMethod(replica,
                                            replica.canSendPrepare)
