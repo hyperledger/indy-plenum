@@ -62,6 +62,6 @@ python -m zeno.test
 
 3. If you are homebrew fan, you can install it using this brew command: ```brew install python3``` 
 
-4. To homebrew package manager see: http://brew.sh/
+4. To install homebrew package manager see: http://brew.sh/
 
 5. Once you have the homebrew installed on your machine, run ```brew install libsodium``` to install libsodium. 
