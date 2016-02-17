@@ -205,7 +205,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 logger.info("{} first time running; waiting for key sharing..."
                             "".format(self))
             else:
-                self.bootstrap()
+                self.maintainConnections()
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -263,6 +263,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.clientstack = None
         self.reset()
         self.logstats()
+        self.conns.clear()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -372,13 +373,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.debug("{} sending election message {} to lagged node {}"
                                      .format(self, msg, nodeName))
             self.send(msg, rid)
-
-    def bootstrap(self, forced: bool=None) -> None:
-        if forced is None:
-            forced = False
-        super().bootstrap(forced=forced)
-        # run reconnect soon to make sure we connected to all
-        self.nextCheck = min(self.nextCheck, 3, len(self.nodeReg) / 4)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1122,26 +1116,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                         extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.always
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
-            # old = []
-            # for r in self.nodestack.remotes.values():
-                # Remove every join or allow transaction in process
-                # for t in r.joinInProcess():
-                #     logger.debug("removing in process join {} of {}"
-                #                  .format(t, r))
-                #     t.remove()
-                # for t in r.allowInProcess():
-                #     logger.debug("removing in process allow {} of {}"
-                #                  .format(t, r))
-                #     t.remove()
 
-                # if r.joinInProcess() or r.allowInProcess():
-                #     logger.debug("joins or allows before process {}".format(
-                #         r.joinInProcess() or r.allowInProcess()))
-                #     r.process()
-                #     logger.debug("joins or allows after process  {}".format(
-                #         r.joinInProcess() or r.allowInProcess()))
-                #     old.append(r)
-            self._retryConnections(force=True)
+            # remove any unjoined remotes
+            for r in list(self.nodestack.remotes.values()):
+                if not r.joined:
+                    logger.debug("{} removing unjoined remote {}"
+                                 .format(self, r))
+                    self.nodestack.removeRemote(r)
+
+            # if just starting, then bootstrap
+            force = time.perf_counter() - self.created > 5
+            self.maintainConnections(force=force)
 
     def stopKeySharing(self, timedOut=False):
         """

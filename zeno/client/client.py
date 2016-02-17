@@ -72,6 +72,8 @@ class Client(NodeStacked, Motor):
 
         self.signer = signer if signer else SimpleSigner(self.clientId)
 
+        self.connectNicelyUntil = 0  # don't need to connect nicely as a client
+
     def start(self):
         oldstatus = self.status
         super().start()
@@ -80,7 +82,7 @@ class Client(NodeStacked, Motor):
                         format(self, self.status.name))
         else:
             self.startNodestack()
-            self.bootstrap()
+            self.maintainConnections()
 
     async def prod(self, limit) -> int:
         """
@@ -175,9 +177,6 @@ class Client(NodeStacked, Motor):
         if cons:
             return cons, "CONFIRMED"
         return None, "UNCONFIRMED"
-
-    def bootstrap(self, forced=None):
-        super().bootstrap(forced=True)
 
     def getRepliesFromAllNodes(self, reqId: int):
         """

@@ -292,6 +292,9 @@ class NodeStacked(Batched):
         # holds the last time we checked remotes
         self.nextCheck = 0
 
+        # courteous bi-directional joins
+        self.connectNicelyUntil = None
+
         self._conns = set()  # type: Set[str]
 
     def __repr__(self):
@@ -346,6 +349,15 @@ class NodeStacked(Batched):
         for i in ins:
             logger.info("{} now connected to {}".format(self, i),
                         extra={"cli": "IMPORTANT"})
+
+            # remove remotes for same ha when a connection is made
+            remote = self.nodestack.getRemote(i)
+            others = [r for r in self.nodestack.remotes.values()
+                      if r.ha == remote.ha and r.name != i]
+            for o in others:
+                logger.debug("{} removing other remote".format(self))
+                self.nodestack.removeRemote(o)
+
         self.onConnsChanged(ins, outs)
 
     def onConnsChanged(self, ins: Set[str], outs: Set[str]):
@@ -395,6 +407,7 @@ class NodeStacked(Batched):
                 node_ha = self.nodeReg[name]
             else:
                 raise AttributeError()
+
             remote = RemoteEstate(stack=self.nodestack,
                                   ha=node_ha)
             self.nodestack.addRemote(remote)
@@ -445,27 +458,14 @@ class NodeStacked(Batched):
             self.checkConns()
             self.maintainConnections()
 
-    def maintainConnections(self):
+    def maintainConnections(self, force=False):
         """
-        Try to connect to all the nodes.
-        """
-        self._retryConnections()
+        Ensure appropriate connections.
 
-    def _retryConnections(self, force=False):
-        """
-        Try connecting to disconnected nodes again.
-
-        :return: whether the retry attempt was successful
         """
         cur = time.perf_counter()
         if cur > self.nextCheck or force:
 
-            # if any(r.joinInProcess() or r.allowInProcess()
-            #        for r in self.nodestack.remotes.values()):
-            #     logger.trace("{} joins or allows already in process, so "
-            #                  "waiting to check for reconnects".format(self))
-            #     self.nextCheck = cur + 3
-            #     return False
             self.nextCheck = cur + (3 if self.isKeySharing else 15)
             # check again in 15 seconds,
             # unless sooner because of retries below
@@ -479,37 +479,60 @@ class NodeStacked(Batched):
             for connected in conns:
                 self.lastcheck.pop(connected.uid, None)
 
-            missing = self.reconcileNodeReg()
-            for name in missing:
-                self.connect(name)
+            self.connectToMissing(cur)
 
             logger.debug("{} next check for retries in {:.2f} seconds".
                          format(self, self.nextCheck - cur))
             return True
         return False
 
+    def connectToMissing(self, currentTime):
+        missing = self.reconcileNodeReg()
+        if missing:
+            logger.debug("{} found the following missing connections: {}".
+                         format(self, ", ".join(missing)))
+            if self.connectNicelyUntil is None:
+                self.connectNicelyUntil = currentTime + 3
+            if currentTime <= self.connectNicelyUntil:
+                names = list(self.nodeReg.keys())
+                names.append(self.name)
+                nices = set(distributedConnectionMap(names)[self.name])
+                for name in nices:
+                    logger.debug("{} being nice and waiting for {} to join".
+                                 format(self, name))
+                missing = missing.difference(nices)
+
+            for name in missing:
+                self.connect(name)
+
     def handleDisconnecteRemote(self, cur, disconn):
         """
 
         :param disconn: disconnected remote
         """
+
+        # if disconn.main:
+        #     logger.trace("{} remote {} is main, so skipping".
+        #                  format(self, disconn.uid))
+        #     return
+
         if disconn.joinInProcess():
             logger.trace("{} join already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = cur + 3
+            self.nextCheck = min(self.nextCheck, cur + 3)
             return
 
         if disconn.allowInProcess():
             logger.trace("{} allow already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = cur + 3
+            self.nextCheck = min(self.nextCheck, cur + 3)
             return
 
         if disconn.name not in self.nodeReg:
             # TODO this is almost identical to line 615; make sure we refactor
-            regName = self.findInNodeRegByHA(disconn)
+            regName = self.findInNodeRegByHA(disconn.ha)
             if regName:
                 logger.debug("{} forgiving name mismatch for {} with same "
                              "ha {} using another name {}".
@@ -520,67 +543,48 @@ class NodeStacked(Batched):
                              format(self, disconn.name))
                 return
         count, last = self.lastcheck.get(disconn.uid, (0, 0))
-        secsSinceLastCheck = cur - last
-        secsToWait = self.ratchet.get(count)
-        secsToWaitNext = self.ratchet.get(count + 1)
-        if secsSinceLastCheck > secsToWait:
-            dname = self.getRemoteName(disconn)
-            logger.debug("{} retrying to connect with {}".
-                         format(self.name, dname) +
-                         ("" if not last else "; needed to wait at "
-                                              "least {} and waited "
-                                              "{} (next try will "
-                                              "be {} seconds)".
-                          format(round(secsToWait, 2),
-                                 round(secsSinceLastCheck, 2),
-                                 round(secsToWaitNext, 2))))
-            self.lastcheck[disconn.uid] = count + 1, cur
-            self.nextCheck = min(self.nextCheck,
-                                 cur + secsToWaitNext)
-            if disconn.joinInProcess():
-                logger.debug("waiting, because join is already in "
-                             "progress")
-            elif disconn.joined:
-                self.nodestack.updateStamp()
-                self.nodestack.allow(uid=disconn.uid, cascade=True, timeout=20)
-                logger.debug("{} disconnected node is joined".format(
-                    self), extra={"cli": "STATUS"})
-            else:
-                self.connect(dname, disconn.uid)
-                # # update the store time so the allow timer works
-                # self.nodestack.updateStamp()
-                # self.nodestack.join(uid=disconn.uid, cascade=True, timeout=20)
-                # logger.debug("{} disconnected node was not joined".
-                #              format(self), extra={"cli": "STATUS"})
+        # TODO come back to ratcheting retries
+        # secsSinceLastCheck = cur - last
+        # secsToWait = self.ratchet.get(count)
+        # secsToWaitNext = self.ratchet.get(count + 1)
+        # if secsSinceLastCheck > secsToWait:
+        dname = self.getRemoteName(disconn)
+        # extra = "" if not last else "; needed to wait at least {} and " \
+        #                             "waited {} (next try will be {} " \
+        #                             "seconds)".format(round(secsToWait, 2),
+        #                                         round(secsSinceLastCheck, 2),
+        #                                         round(secsToWaitNext, 2)))
 
-    def findInNodeRegByHA(self, remote):
-        regName = [nm for nm, ha in self.nodeReg.items() if ha == remote.ha]
+        logger.debug("{} retrying to connect with {}".
+                     format(self.name, dname))
+        self.lastcheck[disconn.uid] = count + 1, cur
+        # self.nextCheck = min(self.nextCheck,
+        #                      cur + secsToWaitNext)
+        if disconn.joinInProcess():
+            logger.debug("waiting, because join is already in "
+                         "progress")
+        elif disconn.joined:
+            self.nodestack.updateStamp()
+            self.nodestack.allow(uid=disconn.uid, cascade=True, timeout=20)
+            logger.debug("{} disconnected node is joined".format(
+                self), extra={"cli": "STATUS"})
+        else:
+            self.connect(dname, disconn.uid)
+
+    def findInNodeRegByHA(self, remoteHa):
+        regName = [nm for nm, ha in self.nodeReg.items() if ha == remoteHa]
         assert len(regName) <= 1
         if regName:
             return regName[0]
         return None
 
-    def bootstrap(self, forced: bool=None):
-        """
-        Connect to all nodes in the node registry.
-        """
-        logging.info("{} is bootstrapping, forced is {}".format(self, forced),
-                     extra={"cli": False})
-        missing = self.reconcileNodeReg()
-        if missing:
-            logger.debug("{} found the following missing connections: {}".
-                         format(self, ", ".join(missing)))
-            if not forced:
-                names = list(self.nodeReg.keys())
-                names.append(self.name)
-                nices = set(distributedConnectionMap(names)[self.name])
-                for name in nices:
-                    logger.debug("{} being nice and waiting for {} to join".
-                                 format(self, name))
-                missing = missing.difference(nices)
-            for name in missing:
-                self.connect(name)
-        # self.bootstrapped = True
+    def findInRemotesByHA(self, remoteHa):
+        remotes = [r for r in self.nodestack.remotes.values()
+                   if r.ha == remoteHa]
+        assert len(remotes) <= 1
+        if remotes:
+            return remotes[0]
+        return None
 
     def reconcileNodeReg(self):
         """
@@ -617,7 +621,7 @@ class NodeStacked(Batched):
                     conflicts.add((r.name, r.ha))
                     error("{} ha for {} doesn't match".format(self, r.name))
             else:
-                regName = self.findInNodeRegByHA(r)
+                regName = self.findInNodeRegByHA(r.ha)
 
                 # This change fixes test
                 # `testNodeConnectionAfterKeysharingRestarted` in
