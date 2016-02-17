@@ -69,10 +69,10 @@ class Cli:
         self.cliCmds = {'new', 'status', 'list'}
         self.nodeCmds = {'new', 'status', 'list', 'keyshare'}
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'help', 'exit',
+        self.simpleCmds = {'status', 'exit',
                            'quit',
                            'license'}
-        self.commands = {'list'} | self.simpleCmds
+        self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
@@ -95,16 +95,15 @@ class Cli:
 
         grams = [
             "(\s* (?P<simple>{}) \s*) |".format(re(self.simpleCmds)),
-            "(\s* (?P<command>{}) \s*) |".format(re(self.commands)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(re(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+) \s*) |".format(re(self.nodeCmds)),
+            "(\s* (?P<command>{}) (\s+ (?P<helpable>[a-zA-Z0-9]+) )?\s*) "
+            "|".format(re(self.commands)),
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |"
+                .format(re(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+) \s*) |"
+                .format(re(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  "
-            # "(\s* (?P<command>help) \s+ (?P<helpable>[a-zA-Z0-9]+) \s*)                            |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>[a-zA-Z0-9]+) \s*)                            |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>client)       \s+ (?P<arg2>[a-zA-Z0-9]+) \s*) |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>[a-zA-Z0-9]+) \s+ (?P<arg2>\{\s*\".*\})  \s*) |",
-            # "(\s* (?P<client_name>[a-z]+) \s+ (?P<cli_action>[a-zA-Z0-9]+) \s+ (?P<msg>\{\s*\".*\})  \s*)  "
+
             ]
 
         self.grammar = compile("".join(grams))
@@ -112,6 +111,7 @@ class Cli:
         lexer = GrammarLexer(self.grammar, lexers={
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
+            'helpable': SimpleLexer(Token.Keyword),
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg2': SimpleLexer(Token.Name),
             'node_name': SimpleLexer(Token.Name),
@@ -539,18 +539,16 @@ Commands:
             # Check for helper commands
             if matchedVars.get('simple'):
                 cmd = matchedVars.get('simple')
-                if cmd == "help":
-                    self.printHelp()
-                elif cmd == 'status':
+                if cmd == 'status':
                     self.getStatus()
                 elif cmd == 'license':
                     self.printCmdHelper('license')
                 elif cmd in ['exit', 'quit']:
                     raise Exit
             elif matchedVars.get('command') == 'help':
-                arg1 = matchedVars.get('arg1')
-                if arg1:
-                    self.printCmdHelper(command=arg1)
+                helpable = matchedVars.get('helpable')
+                if helpable:
+                    self.printCmdHelper(command=helpable)
                 else:
                     self.printHelp()
             elif matchedVars.get('command') == 'list':
@@ -589,15 +587,6 @@ Commands:
                     self.getReply(client_name, req_id)
                 else:
                     self.printCmdHelper("sendmsg")
-
-            # check for the showdetails commmand
-            elif matchedVars.get('command') == 'showdetails':
-                arg1 = matchedVars.get('arg1')
-                arg2 = matchedVars.get('arg2')
-                if arg1 and arg2:
-                    self.showDetails(arg1, arg2)
-                else:
-                    self.printCmdHelper("showstatus")
 
             # Fall back to the help saying, invalid command.
             else:
