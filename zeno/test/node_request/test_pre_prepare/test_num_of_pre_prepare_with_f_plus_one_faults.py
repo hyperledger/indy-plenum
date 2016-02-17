@@ -15,6 +15,7 @@ whitelist = ['InvalidSignature',
              'discarding message',
              'cannot process incoming PREPARE']
 
+
 @pytest.fixture(scope="module")
 def setup(startedNodes):
     A = startedNodes.Alpha

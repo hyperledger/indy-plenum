@@ -1,12 +1,3 @@
-
-# TODO Test that a node cannot start if either of its ports are already in use
-# import socket
-# sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# result = sock.connect_ex(('127.0.0.1', 7560))
-# if result == 0:
-#    print("Port is open")
-# else:
-#    print("Port is not open")
 import pytest
 
 from zeno.common.stacked import HA
@@ -23,9 +14,8 @@ def overlapNodePorts(nodeReg):
     A = nodeReg['Alpha']
     betaPort = nodeReg['Beta'].ha.port
     betaClientPort = nodeReg['Beta'].cliha.port
-    # nodeReg['Alpha'] = NodeDetail(HA(A.ha.host, A.ha.port), A.cliname, HA(A.cliha.host, A.cliha.port))
-    nodeReg['Alpha'] = NodeDetail(HA(A.ha.host, betaPort), A.cliname, HA(A.cliha.host, A.cliha.port))
-
+    nodeReg['Alpha'] = NodeDetail(HA(A.ha.host, betaPort), A.cliname,
+                                  HA(A.cliha.host, A.cliha.port))
 
 
 # noinspection PyIncorrectDocstring
@@ -35,5 +25,3 @@ def testOverlappingNodePorts(up):
      should still be able to come up.
     """
     pass
-
-# TODO why is count initially moving from None to 1 when there isn't a connection???
