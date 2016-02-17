@@ -28,6 +28,7 @@ def run_cli():
     with Looper(debug=False) as looper:
         with TemporaryDirectory() as tmpdir:
             cfg = ConfigParser()
+            cfg.optionxform = str
             cfg.read('scripts/node_reg.conf')
 
             nodeReg = Cli.loadNodeReg(cfg)

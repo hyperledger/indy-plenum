@@ -101,10 +101,8 @@ class Cli:
             "(\s* (?P<command>{}) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
             "?P<node_or_cli>{}) )?\s*) "
             "|".format(re(self.commands), re(self.node_or_cli)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |"
-                .format(re(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+) \s*) |"
-                .format(re(self.nodeCmds)),
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+)(?P<more_clients>(,\s*[a-zA-Z0-9]+)*) \s*) |".format(re(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*) |".format(re(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
             "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)".format(os.path.sep)
@@ -120,6 +118,7 @@ class Cli:
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg1': SimpleLexer(Token.Name),
             'node_name': SimpleLexer(Token.Name),
+            'more_nodes': SimpleLexer(Token.Name),
             'simple': SimpleLexer(Token.Keyword),
             'client_command': SimpleLexer(Token.Keyword),
         })
@@ -133,6 +132,7 @@ class Cli:
             'command': WordCompleter(self.commands),
             'node_or_cli': WordCompleter(self.node_or_cli),
             'node_name': WordCompleter(self.nodeNames),
+            'more_nodes': WordCompleter(self.nodeNames),
             'helpable': WordCompleter(self.helpablesCommands),
             'load': WordCompleter('load'),
             'client_name': self.clientWC,
@@ -285,7 +285,7 @@ class Cli:
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>
-    new - creates a new node or client
+    new - creates one or more new nodes or clients
     keyshare - manually starts key sharing of a node
     status - Shows general status of the sandbox
     status <node_name>|<client_name> - Shows specific status
@@ -351,32 +351,32 @@ Commands:
         registry = OrderedDict()
         for n in cfg.items(reg):
             host, port = n[1].split()
-            registry.update({n[0].capitalize(): (host, int(port))})
+            registry.update({n[0]: (host, int(port))})
         return registry
 
     def getStatus(self):
-        nodes = clients = ""
+        self.print('Nodes: ', newline=False)
         if not self.nodes:
-            nodes = "No nodes are running. Try typing 'new node <name>'."
+            self.print("No nodes are running. Try typing 'new node <name>'.")
         else:
-            nodes = ", ".join(self.nodes)
+            self.printNames(self.nodes, newline=True)
+        clients = ""
         if not self.clients:
             clients = "No clients are running. Try typing 'new client <name>'."
         else:
             clients = ",".join(self.clients.keys())
-        print("Nodes: "+nodes)
         print("Clients: "+clients)
         f = getMaxFailures(len(self.nodes))
         print("f-value (number of possible faulty nodes): {}".format(f))
         if f != 0 and len(self.nodes) >= 2*f + 1:
-            head = list(self.nodes.values())[0]
-            primary = head.replicas[head.masterInst].primaryName
-            backups = [v for k, v in enumerate(head.replicas)
-                      if k != head.masterInst]
-            backup = backups[0].primaryName
+            firstNode = list(self.nodes.values())[0]
+            mPrimary = firstNode.replicas[firstNode.masterInst].primaryName
+            backups = [v for k, v in enumerate(firstNode.replicas)
+                      if k != firstNode.masterInst]
+            bPrimary = backups[0].primaryName
             print("Instances: {}".format(f+1))
-            print("   Master (primary is {})".format(primary[:-2]))
-            print("   Backup (primary is {})".format(backup[:-2]))
+            print("   Master (primary is {})".format(mPrimary[:-2]))
+            print("   Backup (primary is {})".format(bPrimary[:-2]))
         else:
             print("Instances: Not enough nodes to create protocol instances")
 
@@ -404,7 +404,7 @@ Commands:
         else:
             self.print("None", newline=True)
 
-    def newNode(self, nodeName):
+    def newNode(self, nodeName: str):
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -474,12 +474,11 @@ Commands:
         else:
             print("    Name: "+nodeName)
             node = self.nodes[nodeName]  # type: Node
-            nha = ":".join([str(i) for i in self.nodeReg.get(nodeName)])
-            print("    Node listener: "+nha)
-            cha = ":".join([str(i) for i in
-                            self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX)])
-            print("    Client listener: "+cha)
-            print("    Status: {}".format(node.status.name))
+            nha = "{}:{}".format(*self.nodeReg.get(nodeName))
+            self.print("    Node listener: "+nha)
+            cha = "{}:{}".format(*self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX))
+            self.print("    Client listener: "+cha)
+            self.print("    Status: {}".format(node.status.name))
             connecteds = [(Token.Name, n) for n in node.nodestack.connecteds()]
             self.printTokens([(Token.Heading, '    Connections:')] + connecteds,
                              separator=' ', end='\n')
@@ -610,8 +609,8 @@ Commands:
 
             # Check for new commands
             elif matchedVars.get('node_command') == 'new':
-                name = matchedVars.get('node_name')
-                self.newNode(name)
+                self.createEntities('node_name', 'more_nodes',
+                                    matchedVars, self.newNode)
 
             elif matchedVars.get('node_command') == 'status':
                 node = matchedVars.get('node_name')
@@ -622,8 +621,8 @@ Commands:
                 self.keyshare(name)
 
             elif matchedVars.get('client_command') == 'new':
-                client = matchedVars.get('client_name')
-                self.newClient(client)
+                self.createEntities('client_name', 'more_clients',
+                                    matchedVars, self.newClient)
 
             elif matchedVars.get('client_command') == 'status':
                 client = matchedVars.get('client_name')
@@ -661,9 +660,18 @@ Commands:
             # Fall back to the help saying, invalid command.
             else:
                 self.invalidCmd(cmdText)
+
         else:
             if cmdText != "":
                 self.invalidCmd(cmdText)
+
+    @staticmethod
+    def createEntities(name: str, more: str, matchedVars, initializer):
+        entity = matchedVars.get(name)
+        more = matchedVars.get(more)
+        names = [n for n in [entity] + more.split(',') if len(n) != 0]
+        for name in names:
+            initializer(name.strip())
 
     def invalidCmd(self, cmdText):
         self.print("Invalid command: '{}'\n".format(cmdText))
