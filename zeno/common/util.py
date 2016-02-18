@@ -348,6 +348,7 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
             connmap[b].append(a)
     return connmap
 
+
 def checkPortAvailable(ha):
     available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -360,6 +361,7 @@ def checkPortAvailable(ha):
     finally:
         sock.close()
     return available
+
 
 class MessageProcessor:
     """
