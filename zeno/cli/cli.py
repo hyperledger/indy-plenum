@@ -349,7 +349,7 @@ Commands:
         registry = OrderedDict()
         for n in cfg.items(reg):
             host, port = n[1].split()
-            registry.update({n[0].capitalize(): (host, int(port))})
+            registry.update({n[0]: (host, int(port))})
         return registry
 
     def getStatus(self):
@@ -479,7 +479,6 @@ Commands:
             node = self.nodes[nodeName]  # type: Node
             nha = "{}:{}".format(*self.nodeReg.get(nodeName))
             self.print("    Node listener: "+nha)
-            self.print("**************{}".format(self.cliNodeReg))
             cha = "{}:{}".format(*self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX))
             self.print("    Client listener: "+cha)
             self.print("    Status: {}".format(node.status.name))
