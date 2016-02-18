@@ -1083,6 +1083,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
 
+        key = (req['clientId'], req['reqId'])
+        if key in self.requests and self.requests[key].forwarded:
+            return
+
         identifier = self.clientAuthNr.authenticate(req)
         logger.debug("{} authenticated {} signature on {}request {}".
                      format(self, identifier, typ, req['reqId']),

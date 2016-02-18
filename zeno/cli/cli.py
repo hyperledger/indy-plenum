@@ -73,10 +73,10 @@ class Cli:
         self.cliCmds = {'new', 'status', 'list'}
         self.nodeCmds = {'new', 'status', 'list', 'keyshare'}
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'help', 'exit',
+        self.simpleCmds = {'status', 'exit',
                            'quit',
                            'license'}
-        self.commands = {'list'} | self.simpleCmds
+        self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
@@ -625,7 +625,7 @@ Commands:
                 if os.path.exists(file):
                     try:
                         self.loadFromFile(file)
-                        print("Node registry loaded.")
+                        self.print("Node registry loaded.")
                         self.showNodeRegistry()
                     except configparser.ParsingError:
                         self.logger.warn("Could not parse file. "
