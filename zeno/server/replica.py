@@ -697,7 +697,7 @@ class Replica(MessageProcessor):
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
-                self.processPrePrepare(prepare, sender)
+                self.processPrepare(prepare, sender)
 
     def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:
         key = (viewNo, ppSeqNo)
