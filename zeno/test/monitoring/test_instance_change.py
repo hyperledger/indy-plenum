@@ -2,29 +2,33 @@ from functools import partial
 
 import pytest
 
-from zeno.common.util import getMaxFailures
+from zeno.common.util import getMaxFailures, getNoInstances
+from zeno.test.conftest import nodeSet
 from zeno.test.eventually import eventually
-from zeno.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, icDelay
+from zeno.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes
 from zeno.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
-from zeno.test.testing_utils import adict
 
 nodeCount = 7
-faultyNodes = 2
 whitelist = ["discarding message"]
 
+
 @pytest.fixture(scope="module")
-def setup(startedNodes):
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
-    E = startedNodes.Epsilon
-    for node in B, G, E:
-        makeNodeFaulty(node, partial(delaysPrePrepareProcessing, delay=1, instId=0))
-    return startedNodes, adict(faulties=(B, G, E))
+def setup(startedNodes, up):
+    def isPrimaryInNode(node):
+        any(replica.isPrimary for replica in node.replicas)
+
+    count = 0
+    for node in startedNodes:
+        if not isPrimaryInNode(node) and count <= 3:
+            count += 1
+            makeNodeFaulty(node, partial(delaysPrePrepareProcessing, delay=1, instId=0))
+    return startedNodes
 
 
 @pytest.fixture(scope="module")
-def requests(setup, looper, client1):
+def nodesAndRequests(setup, looper, client1):
+    startedNodes = setup
     fValue = getMaxFailures(nodeCount)
     requests = []
     for i in range(5):
@@ -32,10 +36,25 @@ def requests(setup, looper, client1):
         looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox, req.reqId, fValue,
                               retryWait=1, timeout=60))
         requests.append(req)
-    return setup[0], requests
+    return startedNodes, requests
 
 
-def testInstChangeWithMoreReqLat(requests):
-    for node in requests[0]:
-        for rq in requests[1]:
-            assert node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] <= node.monitor.Lambda
+def testInstChangeWithMoreReqLat(looper, nodesAndRequests):
+    startedNodes, requests = nodesAndRequests
+    for node in startedNodes:
+        assert any(node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] >= node.monitor.Lambda
+                   for rq in requests)
+    looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
+                          retryWait=1, timeout=40))
+
+
+def testInstChangeWithDiffGreaterThanOmega(looper, client1, nodesAndRequests):
+    startedNodes = nodesAndRequests[0]
+    instIds = range(getNoInstances(len(nodeSet)))
+    masterInstId = instIds[0]
+    backupInstIds = instIds[1:]
+    assert any(node.monitor.getAvgLatencyForClient(client1, masterInstId) -
+               node.monitor.getAvgLatencyForClient(*backupInstIds) >= node.monitor.Omega
+               for node in startedNodes)
+    looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
+                          retryWait=1, timeout=40))
