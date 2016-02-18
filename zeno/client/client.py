@@ -247,7 +247,7 @@ class Client(NodeStacked, Motor):
         else:
             print("No replies received from Nodes!")
 
-    def onConnsChanged(self, newConns: Set[str], staleConns: Set[str]):
+    def onConnsChanged(self, newConns: Set[str], lostConns: Set[str]):
         if self.isGoing():
             if len(self.conns) == len(self.nodeReg):
                 self.status = Status.started
