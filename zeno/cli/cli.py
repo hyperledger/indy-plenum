@@ -33,7 +33,6 @@ from zeno.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from zeno.server.node import Node, CLIENT_STACK_SUFFIX
 from zeno.server.replica import Replica
-from zeno.server.node import Node
 from collections import OrderedDict
 
 
