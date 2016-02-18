@@ -8,7 +8,7 @@ def testDefaultHelp(cli):
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>
-    new - creates a new node or client
+    new - creates one or more new nodes or clients
     keyshare - manually starts key sharing of a node
     status - Shows general status of the sandbox
     status <node_name>|<client_name> - Shows specific status

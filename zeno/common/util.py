@@ -162,7 +162,10 @@ def getMaxFailures(nodeCount: int) -> int:
     :param nodeCount: number of nodes in the system
     :return: maximum permissible Byzantine failures in the system
     """
-    return floor((nodeCount - 1) / 3)
+    if nodeCount >= 4:
+        return floor((nodeCount - 1) / 3)
+    else:
+        return 0
 
 
 def getQuorum(nodeCount: int = None, f: int = None) -> int:
@@ -345,6 +348,7 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
             connmap[b].append(a)
     return connmap
 
+
 def checkPortAvailable(ha):
     available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -357,6 +361,7 @@ def checkPortAvailable(ha):
     finally:
         sock.close()
     return available
+
 
 class MessageProcessor:
     """

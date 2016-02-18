@@ -23,6 +23,7 @@ def cli(cliLooper, tdir):
     cfg = ConfigParser()
     cfgPath = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(
         __file__)), '../../../scripts/node_reg.conf'))
+    cfg.optionxform = str
     cfg.read(cfgPath)
 
     nodeReg = TestCli.loadNodeReg(cfg)
