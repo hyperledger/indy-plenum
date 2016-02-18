@@ -1,3 +1,6 @@
+import os
+from configparser import ConfigParser
+
 import pytest
 
 import zeno.common.util
@@ -5,16 +8,23 @@ from zeno.test.helper import checkPoolReady
 
 zeno.common.util.loggingConfigured = False
 
-from zeno.cli.__main__ import main
 from zeno.test.cli.helper import TestCli
 
 
 @pytest.fixture("module")
-def cli(looper):
-    Cli = main(debug=True, cliClass=TestCli)
-    # A new cli should have no nodes
-    assert Cli.nodes == {}
-    Cli.looper = looper
+def cli(cliLooper, tdir):
+    cfg = ConfigParser()
+    cfgPath = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(
+        __file__)), '../../../scripts/node_reg.conf'))
+    cfg.read(cfgPath)
+
+    nodeReg = TestCli.loadNodeReg(cfg)
+    cliNodeReg = TestCli.loadCliNodeReg(cfg)
+    Cli = TestCli(looper=cliLooper,
+                  tmpdir=tdir,
+                  nodeReg=nodeReg,
+                  cliNodeReg=cliNodeReg,
+                  debug=True)
     return Cli
 
 
