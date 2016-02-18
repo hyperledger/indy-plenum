@@ -14,9 +14,9 @@ $ scripts/cli "new nodes all"
 
 """
 import sys
+from configparser import ConfigParser
 from tempfile import TemporaryDirectory
 
-from scripts import conf
 from zeno.cli.cli import Cli
 from zeno.common.looper import Looper
 
@@ -27,8 +27,12 @@ def run_cli():
 
     with Looper(debug=False) as looper:
         with TemporaryDirectory() as tmpdir:
-            nodeReg = conf.nodeReg
-            cliNodeReg = conf.cliNodeReg
+            cfg = ConfigParser()
+            cfg.optionxform = str
+            cfg.read('scripts/node_reg.conf')
+
+            nodeReg = Cli.loadNodeReg(cfg)
+            cliNodeReg = Cli.loadCliNodeReg(cfg)
 
             cli = Cli(looper=looper,
                       tmpdir=tmpdir,
