@@ -37,7 +37,8 @@ def run_cli():
             cli = Cli(looper=looper,
                       tmpdir=tmpdir,
                       nodeReg=nodeReg,
-                      cliNodeReg=cliNodeReg)
+                      cliNodeReg=cliNodeReg,
+                      logFileName='log/cli.log')
 
             looper.run(cli.shell(*commands))
 

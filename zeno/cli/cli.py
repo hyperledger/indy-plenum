@@ -55,7 +55,8 @@ class Cli:
     electedPrimaries = set()
 
     # noinspection PyPep8
-    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, debug=False):
+    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, debug=False,
+                 logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
@@ -186,7 +187,7 @@ class Cli:
         sys.stdout = self.cli.stdout_proxy()
         setupLogging(TRACE_LOG_LEVEL,
                      Console.Wordage.mute,
-                     filename="log/cli.log")
+                     filename=logFileName)
 
         self.logger = getlogger("cli")
         self.print("\nzeno-CLI (c) 2016 Evernym, Inc.")
