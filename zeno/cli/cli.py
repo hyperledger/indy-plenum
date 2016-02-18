@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import configparser
+import os
+from configparser import ConfigParser
 import zeno.cli.ensure_logging_not_setup
 
 import time
@@ -29,6 +32,7 @@ from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL
 from zeno.server.node import Node
+from collections import OrderedDict
 
 
 class CustomOutput(Vt100_Output):
@@ -102,8 +106,8 @@ class Cli:
             "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+) \s*) |"
                 .format(re(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  "
-
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)".format(os.path.sep)
             ]
 
         self.grammar = compile("".join(grams))
@@ -112,6 +116,7 @@ class Cli:
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
+            'load': SimpleLexer(Token.Keyword),
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg2': SimpleLexer(Token.Name),
             'node_name': SimpleLexer(Token.Name),
@@ -129,6 +134,7 @@ class Cli:
             'node_or_cli': WordCompleter(self.node_or_cli),
             'node_name': WordCompleter(self.nodeNames),
             'helpable': WordCompleter(self.helpablesCommands),
+            'load': WordCompleter('load'),
             'client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
             'simple': WordCompleter(self.simpleCmds)
@@ -323,6 +329,28 @@ Commands:
             t.append((Token, ": {}:{}\n".format(ip, port)))
         self.cli.print_tokens(t, style=self.style)
 
+    def loadFromFile(self, file: str) -> None:
+        cfg = ConfigParser()
+        cfg.read(file)
+        self.nodeReg = Cli.loadNodeReg(cfg)
+        self.cliNodeReg = Cli.loadCliNodeReg(cfg)
+
+    @classmethod
+    def loadNodeReg(cls, cfg: ConfigParser) -> OrderedDict:
+        return cls._loadRegistry(cfg, 'node_reg')
+
+    @classmethod
+    def loadCliNodeReg(cls, cfg: ConfigParser) -> OrderedDict:
+        return cls._loadRegistry(cfg, 'client_node_reg')
+
+    @classmethod
+    def _loadRegistry(cls, cfg: ConfigParser, reg: str):
+        registry = OrderedDict()
+        for n in cfg.items(reg):
+            host, port = n[1].split()
+            registry.update({n[0].capitalize(): (host, int(port))})
+        return registry
+
     def getStatus(self):
         if len(self.nodes) > 1:
             print("The following nodes are up and running: ")
@@ -415,7 +443,8 @@ Commands:
             self.printTokens([(Token.Heading, 'Status for client:'),
                               (Token.Name, client.name)],
                              separator=' ', end='\n')
-            self.print("    age (seconds): {:.0f}".format(time.perf_counter() - client.created))
+            self.print("    age (seconds): {:.0f}".
+                       format(time.perf_counter() - client.created))
             self.print("    connected to: ", newline=False)
             if client._conns:
                 self.printNames(client._conns, newline=True)
@@ -536,6 +565,7 @@ Commands:
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
                              extra={"cli": False})
+
             # Check for helper commands
             if matchedVars.get('simple'):
                 cmd = matchedVars.get('simple')
@@ -545,12 +575,14 @@ Commands:
                     self.printCmdHelper('license')
                 elif cmd in ['exit', 'quit']:
                     raise Exit
+
             elif matchedVars.get('command') == 'help':
                 helpable = matchedVars.get('helpable')
                 if helpable:
                     self.printCmdHelper(command=helpable)
                 else:
                     self.printHelp()
+
             elif matchedVars.get('command') == 'list':
                 for cmd in self.commands:
                     print(cmd)
@@ -587,6 +619,23 @@ Commands:
                     self.getReply(client_name, req_id)
                 else:
                     self.printCmdHelper("sendmsg")
+
+            elif matchedVars.get('load') == 'load':
+                file = matchedVars.get("file_name")
+                if os.path.exists(file):
+                    try:
+                        self.loadFromFile(file)
+                        self.print("Node registry loaded.")
+                        self.showNodeRegistry()
+                    except configparser.ParsingError:
+                        self.logger.warn("Could not parse file. "
+                                         "Please ensure that the file "
+                                         "has sections node_reg "
+                                         "and client_node_reg.",
+                                         extra={'cli': 'WARNING'})
+                else:
+                    self.logger.warn("File {} not found.".format(file),
+                                extra={"cli": "WARNING"})
 
             # Fall back to the help saying, invalid command.
             else:
