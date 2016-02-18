@@ -44,12 +44,7 @@ log/
 dist/*/*
 
 # PyCharm settings
-.idea/*xml
-.idea/*iml
-.name
-
-# Project specific settings
-.idea/inspectionProfiles/profiles_settings.xml
+.idea/
 
 # Dolphin file manager (KDE)
 .directory

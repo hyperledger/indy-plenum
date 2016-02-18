@@ -122,6 +122,3 @@ def testNodeConnection():
             looper.runFor(4)
             B.start()
             looper.run(checkNodesConnected([A, B]))
-
-            # TODO need to vary the times between nodes coming up in order to
-            # TODO     see where issues are

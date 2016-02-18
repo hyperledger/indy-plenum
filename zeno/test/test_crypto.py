@@ -126,6 +126,3 @@ def testSimpleSigningWithSimpleKeys():
     assert len(pubkey) == 32
     msg = b'1234'
     cmsg = crypto_sign(msg, prikey)
-    # TODO would like to know the details as to why the lines below don't work
-    # dmsg = crypto_sign_open(cmsg, pubkey)
-    # assert msg == dmsg  # why can't we sign with a "regular" key pair?
