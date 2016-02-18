@@ -87,7 +87,6 @@ async def eventually(coroFunc: FlexFunc,
 
     if acceptableExceptions and not isinstance(acceptableExceptions, Iterable):
             acceptableExceptions = [acceptableExceptions]
-    # TODO make smarter. Have an optional initial_wait. ratchet up to timeout
     start = time.perf_counter()
 
     ratchet = Ratchet.fromGoalDuration(retryWait, ratchetSteps, timeout).gen() if ratchetSteps else None

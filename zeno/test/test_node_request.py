@@ -95,8 +95,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             nodeC.delaySelfNomination(30)
             nodeD.delaySelfNomination(30)
 
-            # Node D delays receiving PRIMARY messages from all nodes so it will not know
-            # whether it is primary or not
+            # Node D delays receiving PRIMARY messages from all nodes so it
+            # will not know whether it is primary or not
 
             # nodeD.nodestack.delay(delayer(20, PRIMARY))
 
@@ -112,7 +112,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
             for i in range(3):
                 node = nodeSet.getNode(nodeNames[i])
-                # Nodes A, B and C should have received PROPAGATE request from Node D
+                # Nodes A, B and C should have received PROPAGATE request
+                # from Node D
                 looper.run(
                     eventually(checkIfPropagateRecvdFromNode, node, nodeD,
                                request.clientId,
@@ -141,33 +142,12 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                     0), retryWait=1, timeout=20))
 
 
-# TODO this is not used; delete?
-# def getLastPropagateRequestToNode(node: TestNode) -> PropagateRequest:
-#     entry = node.spylog.getLast('processPropagateRequestFromServer')
-#     return entry.params[0] if entry is not None else None
-
-
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
                                         senderNode: TestNode, clientId: str,
                                         reqId: int):
     key = clientId, reqId
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
-
-
-# def checkPrePrepareReqSent(replica: TestReplica, expectedRequest: ClientRequest):
-#     params = getArgumentsForAllCallsToAMethod(replica, "sendPrePrepareRequest")
-#     assert (expectedRequest.clientId,
-#             expectedRequest.reqId,
-#             replica.node.getRequestDigest(expectedRequest)) in \
-#         [p[0] for p in params]
-#
-#
-# def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica], expectedRequest: PrePrepareRequest):
-#     # TODO Check whether the PrePrepare request was received by non-primary nodes by putting spy on eatPrePrepare
-#     for replica in replicas:
-#         params = getArgumentsForAllCallsToAMethod(replica, "canProcessPrePrepareReq")
-#         assert expectedRequest in [p[0] for p in params]
 
 
 # noinspection PyIncorrectDocstring
@@ -194,7 +174,8 @@ def testMultipleRequests(tdir_for_func):
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)
 
-                # TODO verify the correct number of expected PROPAGATE, PRE-PREPARE, PREPARE, and COMMITs occurred
+                # TODO verify the correct number of expected PROPAGATE,
+                # PRE-PREPARE, PREPARE, and COMMITs occurred
                 pprint(ss2)
                 print("----------------------------------------------")
                 pprint(diff)

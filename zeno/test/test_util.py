@@ -22,9 +22,6 @@ def test_even_compare():
     for v in vals:
         print("{}: {}".format(v, hashit(v)))
 
-    # TODO it appears this algorithm gives us something that is no better than alphabetical.
-    # TODO we need to have an algorithm that has every node connecting to approximately half of the nodes.
-
 
 def test_distributedConnectionMap():
     for nodeCount in range(2, 25):

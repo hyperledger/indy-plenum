@@ -18,9 +18,6 @@ def nodeChangesRequest(nodeSet):
     alpha = nodeSet.Alpha
 
     # Alpha should not be blacklisted for Invalid Signature by all other nodes
-    # for node in nodeSet:
-    #     if node != alpha:
-    #         node.whitelistNode(alpha.name, 100)
     whitelistNode(alpha.name,
                   [node for node in nodeSet if node != alpha],
                   100)
