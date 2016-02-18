@@ -351,8 +351,9 @@ def checkPortAvailable(ha):
     try:
         sock.bind(ha)
     except:
+        logging.warning("Checked port availability for opening "
+                        "and address was already in use: {}".format(ha))
         available = False
-        pass
     finally:
         sock.close()
     return available
