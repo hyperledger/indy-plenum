@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import random
+import socket
 import string
 from collections import Counter
 from collections import OrderedDict
@@ -347,6 +348,18 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
             connmap[b].append(a)
     return connmap
 
+def checkPortAvailable(ha):
+    available = True
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.bind(ha)
+    except:
+        logging.warning("Checked port availability for opening "
+                        "and address was already in use: {}".format(ha))
+        available = False
+    finally:
+        sock.close()
+    return available
 
 class MessageProcessor:
     """
