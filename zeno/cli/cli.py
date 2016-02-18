@@ -134,7 +134,7 @@ class Cli:
             'node_name': WordCompleter(self.nodeNames),
             'more_nodes': WordCompleter(self.nodeNames),
             'helpable': WordCompleter(self.helpablesCommands),
-            'load': WordCompleter('load'),
+            'load': WordCompleter(['load']),
             'client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
             'simple': WordCompleter(self.simpleCmds)
@@ -472,27 +472,35 @@ Commands:
         if nodeName not in self.nodes:
             self.print("Node {} not found".format(nodeName), Token.Error)
         else:
-            print("    Name: "+nodeName)
+            self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
             nha = "{}:{}".format(*self.nodeReg.get(nodeName))
             self.print("    Node listener: "+nha)
             cha = "{}:{}".format(*self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX))
             self.print("    Client listener: "+cha)
             self.print("    Status: {}".format(node.status.name))
-            connecteds = [(Token.Name, n) for n in node.nodestack.connecteds()]
-            self.printTokens([(Token.Heading, '    Connections:')] + connecteds,
-                             separator=' ', end='\n')
-            notConnecteds = list({(Token.Name, r) for r in self.nodes.keys()
-                             if r not in node.nodestack.connecteds()
-                             and r != nodeName})
-            if notConnecteds:
-                self.printTokens([(Token.Heading, '    Not connected:')] + notConnecteds,
-                                 separator=' ', end='\n')
-            if node.masterInst == 0:
-                print("    Replicas: Primary on Master, Replica on Backup")
+            self.print('    Connections: ', newline=False)
+            connecteds = node.nodestack.connecteds()
+            if connecteds:
+                self.printNames(connecteds, newline=True)
             else:
-                print("    Replicas: Replica on Master, Primary on Backup")
-            print("    Up time (seconds): {:.0f}".
+                self.printVoid()
+            notConnecteds = list({r for r in self.nodes.keys()
+                                  if r not in connecteds
+                                  and r != nodeName})
+            if notConnecteds:
+                self.print('    Not connected: ', newline=False)
+                self.printNames(notConnecteds, newline=True)
+            self.print("    Replicas: {}".format(len(node.replicas)),
+                       newline=False)
+            if node.hasPrimary:
+                if node.primaryReplicaNo == 0:
+                    self.print("  (primary of Master)")
+                else:
+                    self.print("  (primary of Backup)")
+            else:
+                print("   (no primary replicas)")
+            self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
             clients = node.clientstack.connecteds()
