@@ -1,6 +1,3 @@
-from functools import partial
-from statistics import mean
-
 import pytest
 
 from zeno.test.eventually import eventually
