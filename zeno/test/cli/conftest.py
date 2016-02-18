@@ -1,3 +1,6 @@
+import os
+from configparser import ConfigParser
+
 import pytest
 
 import zeno.common.util
@@ -6,7 +9,6 @@ from zeno.test.helper import ensureElectionsDone
 
 zeno.common.util.loggingConfigured = False
 
-from scripts import conf
 from zeno.test.cli.helper import TestCli
 
 
@@ -18,8 +20,13 @@ def cliLooper():
 
 @pytest.fixture("module")
 def cli(cliLooper, tdir):
-    nodeReg = conf.nodeReg
-    cliNodeReg = conf.cliNodeReg
+    cfg = ConfigParser()
+    cfgPath = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(
+        __file__)), '../../../scripts/node_reg.conf'))
+    cfg.read(cfgPath)
+
+    nodeReg = TestCli.loadNodeReg(cfg)
+    cliNodeReg = TestCli.loadCliNodeReg(cfg)
     Cli = TestCli(looper=cliLooper,
                   tmpdir=tdir,
                   nodeReg=nodeReg,
