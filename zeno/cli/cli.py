@@ -29,6 +29,7 @@ from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures
 from zeno.server.node import Node, CLIENT_STACK_SUFFIX
+from zeno.server.replica import Replica
 
 
 class CustomOutput(Vt100_Output):
@@ -69,10 +70,10 @@ class Cli:
         self.cliCmds = {'new', 'status', 'list'}
         self.nodeCmds = {'new', 'status', 'list', 'keyshare'}
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'help', 'exit',
+        self.simpleCmds = {'status', 'exit',
                            'quit',
                            'license'}
-        self.commands = {'list'} | self.simpleCmds
+        self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
@@ -100,11 +101,7 @@ class Cli:
             "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*) |".format(re(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  "
-            # "(\s* (?P<command>help) \s+ (?P<helpable>[a-zA-Z0-9]+) \s*)                            |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>[a-zA-Z0-9]+) \s*)                            |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>client)       \s+ (?P<arg2>[a-zA-Z0-9]+) \s*) |",
-            # "(\s* (?P<command>[a-z]+) \s+ (?P<arg1>[a-zA-Z0-9]+) \s+ (?P<arg2>\{\s*\".*\})  \s*) |",
-            # "(\s* (?P<client_name>[a-z]+) \s+ (?P<cli_action>[a-zA-Z0-9]+) \s+ (?P<msg>\{\s*\".*\})  \s*)  "
+
             ]
 
         self.grammar = compile("".join(grams))
@@ -112,6 +109,7 @@ class Cli:
         lexer = GrammarLexer(self.grammar, lexers={
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
+            'helpable': SimpleLexer(Token.Keyword),
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg2': SimpleLexer(Token.Name),
             'node_name': SimpleLexer(Token.Name),
@@ -336,20 +334,23 @@ Commands:
             clients = "No clients are running. Try typing 'new client <name>'."
         else:
             clients = ",".join(self.clients.keys())
-        print("Clients: "+clients)
+        self.print("Clients: "+clients)
         f = getMaxFailures(len(self.nodes))
-        print("f-value (number of possible faulty nodes): {}".format(f))
+        self.print("f-value (number of possible faulty nodes): {}".format(f))
         if f != 0 and len(self.nodes) >= 2*f + 1:
             firstNode = list(self.nodes.values())[0]
             mPrimary = firstNode.replicas[firstNode.masterInst].primaryName
-            backups = [v for k, v in enumerate(firstNode.replicas)
-                      if k != firstNode.masterInst]
+            backups = [r for r in firstNode.replicas
+                      if r.instId != firstNode.masterInst]
             bPrimary = backups[0].primaryName
-            print("Instances: {}".format(f+1))
-            print("   Master (primary is {})".format(mPrimary[:-2]))
-            print("   Backup (primary is {})".format(bPrimary[:-2]))
+            self.print("Instances: {}".format(f+1))
+            self.print("   Master (primary is on {})".
+                       format(Replica.getNodeName(mPrimary)))
+            self.print("   Backup (primary is on {})".
+                       format(Replica.getNodeName(bPrimary)))
         else:
-            print("Instances: Not enough nodes to create protocol instances")
+            self.print("Instances: "
+                       "Not enough nodes to create protocol instances")
 
     def keyshare(self, nodeName):
         node = self.nodes.get(nodeName, None)
@@ -357,12 +358,12 @@ Commands:
             node = self.nodes[nodeName]
             node.startKeySharing()
         elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'. ".format(nodeName))]
+            tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
             self.printTokens(tokens)
             self.showValidNodes()
             return
         else:
-            tokens = [(Token.Error, "Node '{}' not started. ".format(nodeName))]
+            tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
             self.printTokens(tokens)
             self.showStartedNodes()
             return
@@ -431,7 +432,7 @@ Commands:
             else:
                 self.print("<none>")
             self.print("    Identifier: {}".format(client.signer.identifier))
-            self.print("    Verification key: {}".format(client. signer.verkey))
+            self.print("    Verification key: {}".format(client.signer.verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -440,30 +441,29 @@ Commands:
                 self.statusNode(nm)
             return
         if nodeName not in self.nodes:
-            print("node not found")
+            self.print("node not found")
         else:
-            print("    Name: "+nodeName)
+            self.print("    Name: "+nodeName)
             node = self.nodes[nodeName]  # type: Node
-            nha = ":".join([str(i) for i in self.nodeReg.get(nodeName)])
-            print("    Node listener: "+nha)
-            cha = ":".join([str(i) for i in
-                            self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX)])
-            print("    Client listener: "+cha)
-            print("    Status: {}".format(node.status.name))
+            nha = "{}:{}".format(*self.nodeReg.get(nodeName))
+            self.print("    Node listener: "+nha)
+            cha = "{}:{}".format(*self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX))
+            self.print("    Client listener: "+cha)
+            self.print("    Status: {}".format(node.status.name))
             connecteds = [(Token.Name, n) for n in node.nodestack.connecteds()]
-            self.printTokens([(Token.Heading, '    Connections:')] + connecteds,
-                             separator=' ', end='\n')
-            notConnecteds = list({(Token.Name, r) for r in self.nodes.keys()
+            self.print('    Connections: ', newline=False)
+            self.printNames(node.nodestack.connecteds(), newline=True)
+            notConnecteds = list({r for r in self.nodes.keys()
                              if r not in node.nodestack.connecteds()
                              and r != nodeName})
             if notConnecteds:
-                self.printTokens([(Token.Heading, '    Not connected:')] + notConnecteds,
-                                 separator=' ', end='\n')
+                self.print('    Not connected: ', newline=False)
+                self.printNames(notConnecteds, newline=True)
             if node.masterInst == 0:
-                print("    Replicas: Primary on Master, Replica on Backup")
+                self.print("    Replicas: Primary on Master, Replica on Backup")
             else:
-                print("    Replicas: Replica on Master, Primary on Backup")
-            print("    Up time (seconds): {:.0f}".
+                self.print("    Replicas: Replica on Master, Primary on Backup")
+            self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
             clients = node.clientstack.connecteds()
@@ -557,9 +557,7 @@ Commands:
             # Check for helper commands
             if matchedVars.get('simple'):
                 cmd = matchedVars.get('simple')
-                if cmd == "help":
-                    self.printHelp()
-                elif cmd == 'status':
+                if cmd == 'status':
                     self.getStatus()
                 elif cmd == 'license':
                     self.printCmdHelper('license')
@@ -567,9 +565,9 @@ Commands:
                     raise Exit
 
             elif matchedVars.get('command') == 'help':
-                arg1 = matchedVars.get('arg1')
-                if arg1:
-                    self.printCmdHelper(command=arg1)
+                helpable = matchedVars.get('helpable')
+                if helpable:
+                    self.printCmdHelper(command=helpable)
                 else:
                     self.printHelp()
 
@@ -609,15 +607,6 @@ Commands:
                     self.getReply(client_name, req_id)
                 else:
                     self.printCmdHelper("sendmsg")
-
-            # check for the showdetails commmand
-            elif matchedVars.get('command') == 'showdetails':
-                arg1 = matchedVars.get('arg1')
-                arg2 = matchedVars.get('arg2')
-                if arg1 and arg2:
-                    self.showDetails(arg1, arg2)
-                else:
-                    self.printCmdHelper("showstatus")
 
             # Fall back to the help saying, invalid command.
             else:
