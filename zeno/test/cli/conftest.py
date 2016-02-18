@@ -1,20 +1,30 @@
 import pytest
 
 import zeno.common.util
-from zeno.test.helper import checkPoolReady
+from zeno.common.looper import Looper
+from zeno.test.helper import ensureElectionsDone
 
 zeno.common.util.loggingConfigured = False
 
-from zeno.cli.__main__ import main
+from scripts import conf
 from zeno.test.cli.helper import TestCli
 
 
+@pytest.yield_fixture(scope="module")
+def cliLooper():
+    with Looper(debug=False) as l:
+        yield l
+
+
 @pytest.fixture("module")
-def cli(looper):
-    Cli = main(debug=True, cliClass=TestCli)
-    # A new cli should have no nodes
-    assert Cli.nodes == {}
-    Cli.looper = looper
+def cli(cliLooper, tdir):
+    nodeReg = conf.nodeReg
+    cliNodeReg = conf.cliNodeReg
+    Cli = TestCli(looper=cliLooper,
+                  tmpdir=tdir,
+                  nodeReg=nodeReg,
+                  cliNodeReg=cliNodeReg,
+                  debug=True)
     return Cli
 
 
@@ -29,6 +39,10 @@ def createAllNodes(cli):
 
 
 @pytest.fixture("module")
-def allNodesUp(cli, createAllNodes, up):
+def allNodesUp(cli, createAllNodes, cliLooper):
     # Let nodes complete election and the output be rendered on the screen
     cli.looper.runFor(5)
+    ensureElectionsDone(looper=cliLooper,
+                        nodes=cli.nodes.values(),
+                        retryWait=1,
+                        timeout=30)
