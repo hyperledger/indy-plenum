@@ -4,11 +4,16 @@ from configparser import ConfigParser
 import pytest
 
 import zeno.common.util
-from zeno.test.helper import checkPoolReady
-
 zeno.common.util.loggingConfigured = False
 
 from zeno.test.cli.helper import TestCli
+from zeno.common.looper import Looper
+
+
+@pytest.yield_fixture(scope="module")
+def cliLooper():
+    with Looper(debug=False) as l:
+        yield l
 
 
 @pytest.fixture("module")

@@ -365,20 +365,20 @@ Commands:
             clients = "No clients are running. Try typing 'new client <name>'."
         else:
             clients = ",".join(self.clients.keys())
-        print("Clients: "+clients)
+        self.print("Clients: "+clients)
         f = getMaxFailures(len(self.nodes))
-        print("f-value (number of possible faulty nodes): {}".format(f))
+        self.print("f-value (number of possible faulty nodes): {}".format(f))
         if f != 0 and len(self.nodes) >= 2*f + 1:
             firstNode = list(self.nodes.values())[0]
             mPrimary = firstNode.replicas[firstNode.masterInst].primaryName
             backups = [v for k, v in enumerate(firstNode.replicas)
                       if k != firstNode.masterInst]
             bPrimary = backups[0].primaryName
-            print("Instances: {}".format(f+1))
-            print("   Master (primary is {})".format(mPrimary[:-2]))
-            print("   Backup (primary is {})".format(bPrimary[:-2]))
+            self.print("Instances: {}".format(f+1))
+            self.print("   Master (primary is {})".format(mPrimary[:-2]))
+            self.print("   Backup (primary is {})".format(bPrimary[:-2]))
         else:
-            print("Instances: Not enough nodes to create protocol instances")
+            self.print("Instances: Not enough nodes to create protocol instances")
 
     def keyshare(self, nodeName):
         node = self.nodes.get(nodeName, None)
@@ -450,10 +450,10 @@ Commands:
         if clientId not in self.clients:
             self.print("client not found", Token.Error)
         else:
-            print("    Name: "+clientId)
+            self.print("    Name: "+clientId)
             client = self.clients[clientId]  # type: Client
 
-            print('    Status: {}'.format(client.status.name))
+            self.print('    Status: {}'.format(client.status.name))
             self.print("    Up time (seconds): {:.0f}".format(time.perf_counter() - client.created))
             self.print("    Connections: ", newline=False)
             if client._conns:
@@ -499,7 +499,7 @@ Commands:
                 else:
                     self.print("  (primary of Backup)")
             else:
-                print("   (no primary replicas)")
+                self.print("   (no primary replicas)")
             self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
