@@ -342,27 +342,11 @@ def msgCountOK(nodesSize,
                numOfMsgsWithZNF,
                numOfSufficientMsgs):
     if faultyNodes == 0:
-        logging.info("With ZFN: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
         return actualMessagesReceived == numOfMsgsWithZNF
 
     elif faultyNodes <= getMaxFailures(nodesSize):
-        logging.info("With faults: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
         return actualMessagesReceived >= numOfSufficientMsgs
     else:
-        logging.info("With faults greater than system can tolerate: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
-
         # Less than or equal to `numOfSufficientMsgs` since the faults may
         # not reduce the number of correct messages
         return actualMessagesReceived <= numOfSufficientMsgs
