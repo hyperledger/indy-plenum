@@ -2,23 +2,6 @@ from zeno.common.util import getMaxFailures
 from zeno.test.cli.helper import isNameToken
 
 
-def checkNodeStatusToken(node, msgs):
-
-    assert "Name: {}".format(node.name) in msgs[0]['msg']
-    assert "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                         node.nodestack.ha[1]) in msgs[1]['msg']
-    assert "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                           node.clientstack.ha[1]) in msgs[2]['msg']
-    assert "Status:" in msgs[3]['msg']
-    assert "Connections:" in msgs[4]['msg']
-    assert not msgs[4]['newline']
-    assert msgs[5]['msg'] == '<none>'
-    assert "Replicas: 2".format() in msgs[6]['msg']
-    assert "Up time (seconds)" in msgs[7]['msg']
-    assert "Clients: " in msgs[8]['msg']
-    assert not msgs[8]['newline']
-
-
 def checkForNamedTokens(printedTokens, expectedNames):
     # Looking for the expected names in given tokens
 
@@ -88,6 +71,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
 def testStatusAfterAllNodesUp(cli, validNodeNames, allNodesUp):
     # Checking the output after command `status`. Testing the pool status here
     cli.enterCmd("status")
+    cli.looper.runFor(1)
     printeds = cli.printeds
     clientStatus = printeds[4]
     fValue = printeds[3]['msg']
@@ -101,24 +85,16 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, allNodesUp):
         # Checking the output after command `status node <name>`. Testing
         # the node status here
         cli.enterCmd("status node {}".format(name))
+        cli.looper.runFor(1)
         otherNodeNames = (set(validNodeNames) - {name, })
-        cli.looper.runFor(3)
-        # checkNodeStatusToken(cli.nodes[name], list(reversed(cli.printeds[:10])))
-        msgs = list(reversed(cli.printeds[:10]))
         node = cli.nodes[name]
-        assert "Name: {}".format(node.name) in msgs[0]['msg']
-        assert "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                             node.nodestack.ha[1]) in msgs[1]['msg']
-        assert "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                               node.clientstack.ha[1]) in msgs[2]['msg']
-        assert "Status:" in msgs[3]['msg']
-        assert "Connections:" in msgs[4]['msg']
-        assert not msgs[4]['newline']
-        assert msgs[5]['msg'] == '<none>'
-        assert "Replicas: 2".format() in msgs[5]['msg']
-        assert "Up time (seconds)" in msgs[7]['msg']
-        assert "Clients: " in msgs[8]['msg']
-        assert not msgs[8]['newline']
+        if hasPrimary(node):
+            msgs = list(reversed(cli.printeds[:10]))
+            primaryLogs(node, msgs)
+        else:
+            msgs = list(reversed(cli.printeds[:9]))
+            nonPrimaryLogs(node, msgs)
+
         checkForNamedTokens(cli.printedTokens[1], otherNodeNames)
         if cli.clients:
             checkForNamedTokens(cli.printedTokens[1], cli.voidMsg)
@@ -135,7 +111,55 @@ def testStatusAfterClientAdded(cli, validNodeNames, allNodesUp):
         # the node status here after the client is connected
         cli.enterCmd("status node {}".format(name))
         otherNodeNames = (set(validNodeNames) - {name, })
-        checkNodeStatusToken(cli.nodes[name], list(reversed(cli.printeds[:10])))
+        node = cli.nodes[name]
+        if hasPrimary(node):
+            msgs = list(reversed(cli.printeds[:9]))
+            primaryLogs(node, msgs)
+        else:
+            msgs = list(reversed(cli.printeds[:8]))
+            nonPrimaryLogs(node, msgs)
         checkForNamedTokens(cli.printedTokens[3], otherNodeNames)
         if cli.clients:
             checkForNamedTokens(cli.printedTokens[1], {clientName, })
+
+
+def primaryLogs(node, msgs):
+    commonLogs(node, msgs)
+    assert "Replicas: 2".format() in msgs[5]['msg']
+    assert "(primary of " in msgs[6]['msg']
+    assert "Up time (seconds)" in msgs[7]['msg']
+    assert "Clients: " in msgs[8]['msg']
+    assert not msgs[8]['newline']
+
+
+def nonPrimaryLogs(node, msgs):
+    commonLogs(node, msgs)
+    assert not msgs[4]['newline']
+    assert not msgs[5]['newline']
+    assert "Replicas: 2".format() in msgs[5]['msg']
+    assert "Up time (seconds)" in msgs[6]['msg']
+    assert "Clients: " in msgs[7]['msg']
+    assert not msgs[7]['newline']
+
+
+def checkNodeStatusToken(node, msgs):
+    assert not msgs[4]['newline']
+    assert msgs[5]['msg'] == '<none>'
+    assert "Replicas: 2".format() in msgs[6]['msg']
+    assert "Up time (seconds)" in msgs[7]['msg']
+    assert "Clients: " in msgs[8]['msg']
+    assert not msgs[8]['newline']
+
+
+def commonLogs(node, msgs):
+    assert "Name: {}".format(node.name) in msgs[0]['msg']
+    assert "Node listener: {}:{}".format(node.nodestack.ha[0],
+                                         node.nodestack.ha[1]) in msgs[1]['msg']
+    assert "Client listener: {}:{}".format(node.clientstack.ha[0],
+                                           node.clientstack.ha[1]) in msgs[2]['msg']
+    assert "Status:" in msgs[3]['msg']
+    assert "Connections:" in msgs[4]['msg']
+
+
+def hasPrimary(node):
+    return any(replica.isPrimary for replica in node.replicas)
