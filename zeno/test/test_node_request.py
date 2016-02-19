@@ -56,7 +56,6 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
 
             nodeB = nodeSet.getNode(nodeNames[1])
             # Node B delays PREPREPARE from node A(which would be the primary) for a long time.
-            # TODO: Have a method to ignore a particular message from a node
             nodeB.nodeIbStasher.delay(
                 delayerMsgTuple(120, PrePrepare, nodeA.name))
 

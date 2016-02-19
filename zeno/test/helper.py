@@ -580,7 +580,7 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
     for remote in node.nodestack.remotes.values():
         try:
             s = states[remote.name] if states else state
-            checkState(s, remote)
+            checkState(s, remote, "from: {}, to: {}".format(node, remote.name))
         except Exception as ex:
             logging.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
@@ -592,21 +592,20 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
 
 
 # noinspection PyProtectedMember
-def checkState(state: RemoteState, obj: Any):
+def checkState(state: RemoteState, obj: Any, details: str=None):
     if state is not None:
         checkedItems = {}
         for key, s in state._asdict().items():
             checkedItems[key] = 'N/A' if s == 'N/A' else getattr(obj, key)
         actualState = RemoteState(**checkedItems)
-        assert actualState == state, "actual {} did not match expected {}". \
-            format(actualState, state)
+        assert actualState == state
 
 
 def checkRemoteExists(frm: Stack,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)
-    checkState(state, remote)
+    checkState(state, remote, "{}'s remote {}".format(frm.name, to))
 
 
 def checkPoolReady(looper: Looper, nodes: Sequence[TestNode],
