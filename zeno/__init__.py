@@ -10,12 +10,4 @@ if sys.version_info < (3, 5, 0):
 
 
 import importlib
-
-#__all__ = ['core']
-
-#_modules = ['core']
-
-#for m in _modules:
-#    importlib.import_module(".{0}".format(m), package='zeno')
-
 from .__metadata__ import *

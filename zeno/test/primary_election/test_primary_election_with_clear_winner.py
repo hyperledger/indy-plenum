@@ -54,11 +54,6 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
     A, B, C, D = nodeSet.nodes.values()
     nodesBCD = [B, C, D]
 
-    # attempting to use a raet stack delay... not successful
-    # nodeBPort = nodesBCD[0].stack.ha[1]
-    # delayRef = RaetDelay(TrnsKind.alive, PcktKind.ack, nodeBPort)
-    # nodeA.stack.delay(4, delayRef)
-
     checkPoolReady(looper, nodeSet)
 
     # Checking whether one of the replicas of Node A nominated itself

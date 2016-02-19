@@ -8,13 +8,13 @@ import json
 import logging
 import time
 from collections import deque
-from typing import List, Union, Dict, Optional, Mapping, Tuple
+from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
 from zeno.common.motor import Motor
 from zeno.common.request_types import Request, Reply, OP_FIELD_NAME, f
 from zeno.common.startable import Status
 from zeno.common.txn import REPLY
-from zeno.common.util import getMaxFailures, getlogger
+from zeno.common.util import getMaxFailures, getlogger, checkPortAvailable
 from raet.raeting import AutoMode
 
 from zeno.client.signer import Signer, SimpleSigner
@@ -44,6 +44,7 @@ class Client(NodeStacked, Motor):
         self.clientId = clientId
         self.lastReqId = lastReqId
         self._clientStack = None
+        self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
 
         cha = ha if isinstance(ha, HA) else HA(*ha)
         stackargs = dict(name=clientId,
@@ -244,6 +245,13 @@ class Client(NodeStacked, Motor):
                 print(replyInfo.format(frm, reply['result']))
         else:
             print("No replies received from Nodes!")
+
+    def onConnsChanged(self, newConns: Set[str], lostConns: Set[str]):
+        if self.isGoing():
+            if len(self.conns) == len(self.nodeReg):
+                self.status = Status.started
+            elif len(self.conns) >= self.minimumNodes:
+                self.status = Status.started_hungry
 
 
 class ClientProvider:

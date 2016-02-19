@@ -147,6 +147,3 @@ def testNodeConnectionAfterKeysharingRestarted():
             A.startKeySharing(timeout=timeout)
             B.startKeySharing(timeout=timeout)
             looper.run(checkNodesConnected([A, B]))
-
-            # TODO need to vary the times between nodes coming up in order to
-            # TODO     see where issues are
