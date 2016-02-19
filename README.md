@@ -60,7 +60,7 @@ python -m zeno.test
 
 2. Open the downloaded file to install it.
 
-3. If you are homebrew fan, you can install it using this brew command: ```brew install python3``` 
+3. If you are a homebrew fan, you can install it using this brew command: ```brew install python3``` 
 
 4. To install homebrew package manager see: http://brew.sh/
 
