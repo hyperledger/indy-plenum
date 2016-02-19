@@ -205,7 +205,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 logger.info("{} first time running; waiting for key sharing..."
                             "".format(self))
             else:
-                self.bootstrap()
+                self.maintainConnections()
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -263,6 +263,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.clientstack = None
         self.reset()
         self.logstats()
+        self.conns.clear()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -372,18 +373,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.debug("{} sending election message {} to lagged node {}"
                                      .format(self, msg, nodeName))
             self.send(msg, rid)
-
-    def bootstrap(self, forced: bool=None) -> None:
-        if forced is None:
-            forced = False
-        super().bootstrap(forced=forced)
-        if not forced:
-            logger.debug("{} unforced bootstrap just run, so waiting to run "
-                         "it again".format(self))
-            # if it wasn't forced, then run it again in 3 seconds to
-            # make sure we connected to all
-            wait = min(3, len(self.nodeReg) / 4)
-            self._schedule(partial(self.bootstrap, forced=True), wait)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1118,21 +1107,31 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         :param timeout: the time till which key sharing is active
         """
-        if self.nodestack.keep.auto != AutoMode.never:
+        if self.isKeySharing:
             logger.info("{} already key sharing".format(self),
                         extra={"cli": "LOW_STATUS"})
         else:
             logger.info("{} starting key sharing".format(self),
                         extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.once
+            self.nodestack.keep.auto = AutoMode.always
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
-            self.bootstrap()
+
+            # remove any unjoined remotes
+            for r in list(self.nodestack.remotes.values()):
+                if not r.joined:
+                    logger.debug("{} removing unjoined remote {}"
+                                 .format(self, r))
+                    self.nodestack.removeRemote(r)
+
+            # if just starting, then bootstrap
+            force = time.perf_counter() - self.created > 5
+            self.maintainConnections(force=force)
 
     def stopKeySharing(self, timedOut=False):
         """
         Stop key sharing, i.e don't allow any more nodes to join this node.
         """
-        if self.nodestack.keep.auto != AutoMode.never:
+        if self.isKeySharing:
             if timedOut:
                 logger.info("{} key sharing timed out; was not able to "
                             "connect to {}".

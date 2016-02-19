@@ -265,6 +265,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     if filename:
         mode = 'w'
         h = logging.FileHandler(filename, mode)
+
     else:
         h = logging.StreamHandler(sys.stdout)
     handlers = [h]
