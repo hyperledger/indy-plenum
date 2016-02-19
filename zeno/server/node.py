@@ -886,7 +886,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                  .format(frm), logger.debug)
                     return
             else:
-                if self.instanceChanges.hasVoteFromSender(instChg.viewNo, frm):
+                if self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
                     logger.debug("{} already received instance change request "
                                  "with view no {} from {}"
                                  .format(self, instChg.viewNo, frm))
@@ -1033,17 +1033,18 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def canViewChange(self, proposedViewNo: int) -> bool:
         """
         Return whether there's quorum for view change for the proposed view
-        number
+        number and its view is less than or equal to the proposed view
         """
-        return self.instanceChanges.hasQuorum(proposedViewNo, self.f)
+        return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
+               self.viewNo <= proposedViewNo
 
-    def startViewChange(self, newViewNo: int):
+    def startViewChange(self, proposedViewNo: int):
         """
         Trigger the view change process.
 
-        :param newViewNo: the new view number after view change.
+        :param proposedViewNo: the new view number after view change.
         """
-        self.viewNo = newViewNo + 1
+        self.viewNo = proposedViewNo + 1
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
