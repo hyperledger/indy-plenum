@@ -8,6 +8,7 @@ from typing import Dict, Any
 import pytest
 from zeno.common.looper import Looper
 from zeno.common.util import getNoInstances, TestingHandler
+from zeno.server.primary_selector import PrimarySelector
 from zeno.test.eventually import eventually, eventuallyAll
 from zeno.test.greek import genNodeNames
 from zeno.test.node_request.node_request_helper import checkPrePrepared, \
