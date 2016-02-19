@@ -559,7 +559,8 @@ class Replica(MessageProcessor):
             if primaryStatus is False:
                 if self.prepares.hasVoteFromSender(prepare, sender):
                     self.raiseSuspicion(sender, Suspicions.DUPLICATE_PR_SENT)
-                # If PRE-PREPARE not received for the PREPARE, might be slow network
+                # If PRE-PREPARE not received for the PREPARE,
+                # might be slow network
                 elif key not in ppReqs:
                     self.enqueuePrepare(prepare, sender)
                 elif prepare.digest != ppReqs[key][2]:

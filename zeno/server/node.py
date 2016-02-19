@@ -341,7 +341,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         a = self.elector._serviceActions()
         return o + i + a
 
-    def onConnsChanged(self, newConns: Set[str], staleConns: Set[str]):
+    def onConnsChanged(self, newConns: Set[str], lostConns: Set[str]):
         """
         A series of operations to perform once a connection count has changed.
 
@@ -364,6 +364,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.checkInstances()
             if isinstance(self.elector, PrimaryElector):
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
+                logger.debug("{} has msgs {} for new nodes {}".format(self,
+                                                                      msgs, newConns))
                 for n in newConns:
                     self.sendElectionMsgsToLaggedNode(n, msgs)
 
@@ -871,8 +873,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug("Node {} received instance change request: {} from {}".
                      format(self, instChg, frm))
         if instChg.viewNo < self.viewNo:
-            self.discard(instChg, "Received instance change request with view"
-                                    " no {} which is less than its view no {}"
+            self.discard(instChg, "Received instance change request with view "
+                                  "no {} which is less than its view no {}"
                          .format(instChg.viewNo, self.viewNo), logger.debug)
         else:
             if not self.instanceChanges.hasView(instChg.viewNo):
@@ -881,8 +883,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     self.sendInstanceChange(instChg.viewNo)
                 else:
                     self.discard(instChg, "received instance change message "
-                                            "from {} but did not find the "
-                                            "master to be slow"
+                                          "from {} but did not find the master "
+                                          "to be slow"
                                  .format(frm), logger.debug)
                     return
             else:
@@ -913,9 +915,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              "Sending an instance change with viewNo {}".
                              format(self, self.viewNo))
                 self.sendInstanceChange(self.viewNo)
-            else:
-                logger.debug("{}'s master has higher performance than backups".
-                             format(self))
 
         self._schedule(self.checkPerformance, self.perfCheckFreq)
 
@@ -951,7 +950,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.debug("{}'s master throughput is lower.".format(self))
             return True
         else:
-            logger.debug("{}'s master throughput is ok.".format(self))
             return False
 
     @property
@@ -965,9 +963,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if r:
             logger.debug("{} found master's latency to be higher than the "
                          "threshold for some or all requests.".format(self))
-        else:
-            logger.debug("{} found master's latency to be lower than the "
-                         "threshold for all requests.".format(self))
         return r
 
     @property
@@ -992,10 +987,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if r:
             logger.debug("{} found difference between master's and backups's "
                          "avg latency to be higher than the threshold".
-                         format(self))
-        else:
-            logger.debug("{} found difference between master's and backups's "
-                         "avg latency to be lower than the threshold".
                          format(self))
         return r
 
