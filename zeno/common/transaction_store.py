@@ -45,7 +45,7 @@ class TransactionStore:
         # client is an asyncio Queue
         self.responses = {}  # type: Dict[str, asyncio.Queue]
 
-        # dictionary with key as transaction id as key and `ClientReply` as
+        # dictionary with key as transaction id and `Reply` as
         # value
         self.transactions = {}  # type: Dict[str, Reply]
 
@@ -118,9 +118,9 @@ class TransactionStore:
             self.processedRequests[clientId] = {}
         self.processedRequests[clientId][reply.reqId] = txnId
 
-    async def reply(self, clientId: str, reply: Reply, txnId: str=None) -> None:
+    async def addReply(self, clientId: str, reply: Reply, txnId: str=None) -> None:
         """
-        Add the given clientReply to this transaction store's list of responses.
+        Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.
         """
         logging.debug("Reply being sent {}".format(reply))

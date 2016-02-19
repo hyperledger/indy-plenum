@@ -1011,7 +1011,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         txnId = reply.result['txnId']
         self.txnStore.addToProcessedRequests(req.clientId, req.reqId,
                                              txnId, reply)
-        asyncio.ensure_future(self.txnStore.reply(
+        asyncio.ensure_future(self.txnStore.addReply(
             clientId=req.clientId, reply=reply, txnId=txnId))
 
     def sendInstanceChange(self, viewNo: int):
