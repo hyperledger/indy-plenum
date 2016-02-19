@@ -1,6 +1,6 @@
 import logging
 import time
-from collections import deque
+from collections import deque, namedtuple
 from typing import Dict
 from typing import Optional, Any
 from typing import Set
@@ -9,7 +9,7 @@ from typing import Tuple
 import zeno.server.node
 from zeno.common.exceptions import SuspiciousNode
 from zeno.common.request_types import ReqDigest, PrePrepare, \
-    Prepare, Commit, Ordered, ThreePhaseMsg
+    Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
 from zeno.common.util import MessageProcessor, getlogger
 from zeno.server.models import Commits, Prepares
 from zeno.server.router import Router
@@ -121,6 +121,9 @@ class Replica(MessageProcessor):
         # type: Dict[Tuple[int, int], Tuple[str, Set[str]]]
 
         self.commits = Commits()
+
+        # Set of tuples to keep track of ordered requests
+        self.ordered = set()        # type: Set[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -421,10 +424,7 @@ class Replica(MessageProcessor):
         """
         if self.isValidPrepare(prepare, sender):
             self.addToPrepares(prepare, sender)
-            if self.canSendCommit(prepare):
-                self.sendCommit(prepare)
-            else:
-                logger.debug("{} not yet able to send COMMIT".format(self))
+            self.trySendingCommitFor(prepare)
         else:
             logger.warning("{} cannot process incoming PREPARE".format(self))
 
@@ -436,17 +436,27 @@ class Replica(MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
+        logger.debug("{} received commit {} from {}".format(self, commit, sender))
         try:
             if self.isValidCommit(commit, sender):
                 self.addToCommits(commit, sender)
-            if self.canOrder(commit):
-                logging.debug("{} returning request to node".format(self))
-                self.order(commit)
-            else:
-                logger.trace("{} cannot return request to node".format(self))
+            self.trySendingOrderedFor(commit)
         except SuspiciousNode as ex:
             logger.warning("{} cannot process incoming COMMIT".format(self))
             self.discard(commit, ex.reason, logger.debug)
+
+    def trySendingCommitFor(self, prepare: Prepare):
+        if self.canSendCommit(prepare):
+            self.sendCommit(prepare)
+        else:
+            logger.debug("{} not yet able to send COMMIT".format(self))
+
+    def trySendingOrderedFor(self, commit: Commit):
+        if self.canOrder(commit):
+            logging.debug("{} returning request to node".format(self))
+            self.order(commit)
+        else:
+            logger.trace("{} cannot return request to node".format(self))
 
     def sendPrePrepare(self, reqDigest: ReqDigest) -> None:
         """
@@ -471,16 +481,18 @@ class Replica(MessageProcessor):
                           pp.viewNo,
                           pp.ppSeqNo,
                           pp.digest)
-        self.addToPrepares(prepare, self.name)
         self.send(prepare)
+        self.addToPrepares(prepare, self.name)
+        self.trySendingCommitFor(prepare)
 
     def sendCommit(self, p: Prepare):
         commit = Commit(self.instId,
                         p.viewNo,
                         p.ppSeqNo,
                         p.digest)
-        self.addToCommits(commit, self.name)
         self.send(commit)
+        self.addToCommits(commit, self.name)
+        self.trySendingOrderedFor(commit)
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str):
         """
@@ -557,7 +569,7 @@ class Replica(MessageProcessor):
         # If non primary replica
         try:
             if primaryStatus is False:
-                if self.prepares.hasVoteFromSender(prepare, sender):
+                if self.prepares.hasPrepareFrom(prepare, sender):
                     self.raiseSuspicion(sender, Suspicions.DUPLICATE_PR_SENT)
                 # If PRE-PREPARE not received for the PREPARE, might be slow network
                 elif key not in ppReqs:
@@ -568,7 +580,7 @@ class Replica(MessageProcessor):
                     return True
         # If primary replica
             else:
-                if self.prepares.hasVoteFromSender(prepare, sender):
+                if self.prepares.hasPrepareFrom(prepare, sender):
                     self.raiseSuspicion(sender, Suspicions.DUPLICATE_PR_SENT)
                 # If PRE-PREPARE was not sent for this PREPARE, certainly
                 # malicious behavior
@@ -599,7 +611,10 @@ class Replica(MessageProcessor):
 
         :param request: the PREPARE
         """
-        return self.prepares.hasQuorum(request, self.f)
+        return self.prepares.hasQuorum(request, self.f) and \
+               not self.commits.hasCommitFrom(ThreePhaseKey(
+                                                request.viewNo, request.ppSeqNo),
+                                              self.name)
 
     def isValidCommit(self, request: Commit, sender: str):
         """
@@ -612,7 +627,7 @@ class Replica(MessageProcessor):
         if key not in self.prepares and \
                         key not in self.preparesWaitingForPrePrepare:
             self.raiseSuspicion(sender, Suspicions.UNKNOWN_CM_SENT)
-        elif self.commits.hasVoteFromSender(request, sender):
+        elif self.commits.hasCommitFrom(request, sender):
             self.raiseSuspicion(sender, Suspicions.DUPLICATE_CM_SENT)
         else:
             if request.digest != self.getDigestFromPrepare(*key):
@@ -644,7 +659,8 @@ class Replica(MessageProcessor):
 
         :param commit: the COMMIT
         """
-        return self.commits.hasQuorum(commit, self.f)
+        return self.commits.hasQuorum(commit, self.f) and \
+               (commit.viewNo, commit.ppSeqNo) not in self.ordered
 
     def order(self, commit: Commit) -> None:
         """
@@ -675,11 +691,15 @@ class Replica(MessageProcessor):
                          "request {} to node".format(self, commit),
                          logger.warning)
 
+        self.addToOrdered(commit.viewNo, commit.ppSeqNo)
         self.send(Ordered(self.instId,
                           commit.viewNo,
                           clientId,
                           reqId,
                           digest))
+
+    def addToOrdered(self, viewNo: int, ppSeqNo: int):
+        self.ordered.add((viewNo, ppSeqNo))
 
     def enqueuePrepare(self, request: Prepare, sender: str):
         logging.debug("Queueing prepares due to unavailability of "
@@ -694,6 +714,8 @@ class Replica(MessageProcessor):
         if key in self.preparesWaitingForPrePrepare:
             logging.debug("Processing prepares waiting for pre-prepare for "
                           "view no {} and seq no {}".format(viewNo, ppSeqNo))
+
+            # Keys of pending prepares that will be processed below
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()

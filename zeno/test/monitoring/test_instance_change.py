@@ -22,7 +22,8 @@ def setup(startedNodes, up):
     for node in startedNodes:
         if not isPrimaryInNode(node) and count <= 3:
             count += 1
-            makeNodeFaulty(node, partial(delaysPrePrepareProcessing, delay=1, instId=0))
+            makeNodeFaulty(node, partial(delaysPrePrepareProcessing, delay=1,
+                                         instId=0))
     return startedNodes
 
 
@@ -39,18 +40,30 @@ def nodesAndRequests(setup, looper, client1):
     return startedNodes, requests
 
 
-@pytest.mark.xfail(reason="Known bug in implementation")
+@pytest.mark.xfail(reason="Monitor stats are reset on view change. Delaying "
+                          "the "
+                          "request this way will drop the throughput request "
+                          "latency check wont be triggered")
 def testInstChangeWithMoreReqLat(looper, nodesAndRequests):
+    # TODO: Set Delta to be high so that throughput check always passes but
+    # latency check fails
     startedNodes, requests = nodesAndRequests
     for node in startedNodes:
-        assert any(node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] >= node.monitor.Lambda
-                   for rq in requests)
+        assert any(node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] >=
+                   node.monitor.Lambda for rq in requests)
     looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
                           retryWait=1, timeout=40))
 
 
-@pytest.mark.xfail(reason="Known bug in implementation")
-def testInstChangeWithDiffGreaterThanOmega(looper, client1, nodesAndRequests):
+@pytest.mark.xfail(reason="Monitor stats are on view change. Delaying the "
+                          "request this way will drop the throughput request "
+                          "latency check wont be triggered")
+def testInstChangeWithDiffGreaterThanOmega(looper, nodeSet, client1,
+                                           nodesAndRequests):
+    # TODO: Set Delta to be high so that throughput check always passes. Also
+    # have requests from multiple clients and delay requests only from a
+    # particular client and set Lambda to be high enough that test for master
+    # request latency passes but test for Omega fails
     startedNodes = nodesAndRequests[0]
     instIds = range(getNoInstances(len(nodeSet)))
     masterInstId = instIds[0]
@@ -62,8 +75,7 @@ def testInstChangeWithDiffGreaterThanOmega(looper, client1, nodesAndRequests):
                           retryWait=1, timeout=40))
 
 
-@pytest.mark.xfail(reason="Known bug in implementation")
-def testInstChangeWithLowerRatioThanDelta(looper, nodesAndRequests):
+def testInstChangeWithLowerRatioThanDelta(looper, nodeSet, nodesAndRequests):
     startedNodes = nodesAndRequests[0]
     instIds = range(getNoInstances(len(nodeSet)))
     masterInstId = instIds[0]

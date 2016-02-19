@@ -225,7 +225,8 @@ class TestReplica(replica.Replica):
                   Node.propagate,
                   Node.forward,
                   Node.send,
-                  Node.processInstanceChange])
+                  Node.processInstanceChange,
+                  Node.highMasterReqLatency])
 class TestNode(Node, StackedTester):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -353,7 +354,7 @@ def getAllArgs(obj: Any, method: Union[str, Callable]) -> List[Any]:
     return [m.params for m in obj.spylog.getAll(methodName)]
 
 
-def getReturnValsForAllCallsToAMethod(obj: Any, method: SpyableMethod) -> List[Any]:
+def getAllReturnVals(obj: Any, method: SpyableMethod) -> List[Any]:
     # params should return a List
     methodName = method if isinstance(method, str) else getCallableName(method)
     return [m.result for m in obj.spylog.getAll(methodName)]
@@ -1091,8 +1092,8 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
 
 def checkPrepareReqSent(replica: TestReplica, clientId: str, reqId: int):
     paramsList = getAllArgs(replica, replica.canSendPrepare)
-    rv = getReturnValsForAllCallsToAMethod(replica,
-                                           replica.canSendPrepare)
+    rv = getAllReturnVals(replica,
+                          replica.canSendPrepare)
     for params in paramsList:
         req = params['request']
         assert req.clientId == clientId
@@ -1126,6 +1127,12 @@ def checkReqAck(client, node, reqId):
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
+    """
+    Checks if all the given nodes have the expected view no
+    :param nodes: The nodes to check for
+    :param expectedViewNo: the view no that the nodes are expected to have
+    :return:
+    """
     viewNos = set()
     for node in nodes:
         logging.debug("{}'s view no is {}".format(node, node.viewNo))
@@ -1138,11 +1145,17 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
 
 
 def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
+    """
+    Check if view change initiated for a given node
+    :param node: The node to check for
+    :param oldViewNo: The view no on which the nodes were before the view change
+    :return:
+    """
     params = [args for args in getAllArgs(
             node, TestNode.startViewChange)]
     assert len(params) > 0
     args = params[-1]
-    assert args["newViewNo"] == 0
+    assert args["proposedViewNo"] == oldViewNo
     assert node.viewNo == oldViewNo + 1
     assert node.elector.viewNo == oldViewNo + 1
 

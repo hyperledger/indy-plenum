@@ -3,7 +3,9 @@ from functools import partial
 from zeno.test.eventually import eventually
 
 from zeno.common.looper import Looper
-from zeno.test.helper import TestNodeSet, getNonPrimaryReplicas, ppDelay, checkProtocolInstanceSetup, checkViewChangeInitiatedForNode, sendReqsToNodesAndVerifySuffReplies
+from zeno.test.helper import TestNodeSet, getNonPrimaryReplicas, ppDelay, \
+    checkProtocolInstanceSetup, checkViewChangeInitiatedForNode, \
+    sendReqsToNodesAndVerifySuffReplies
 
 nodeCount = 7
 
@@ -14,7 +16,8 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper, nodeSet: TestNodeS
     Test that a primary election does happen after a view change
     """
 
-    # Delay processing of PRE-PREPARE from all non primary replicas of master so master's throughput falls
+    # Delay processing of PRE-PREPARE from all non primary replicas of master
+    # so master's throughput falls
     # and view changes
     nonPrimReps = getNonPrimaryReplicas(nodeSet, 0)
     for r in nonPrimReps:
@@ -24,8 +27,9 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper, nodeSet: TestNodeS
 
     # Ensure view change happened for both node and its primary elector
     for node in nodeSet:
-        looper.run(eventually(partial(checkViewChangeInitiatedForNode, node, 0), retryWait=1, timeout=20))
+        looper.run(eventually(partial(checkViewChangeInitiatedForNode, node, 0),
+                              retryWait=1, timeout=20))
 
-    # Ensure elections are done again and pool is setup again with appropriate protocol instances and each
-    # protocol instance is setup properly too
+    # Ensure elections are done again and pool is setup again with appropriate
+    # protocol instances and each protocol instance is setup properly too
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=30)
