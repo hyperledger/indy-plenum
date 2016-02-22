@@ -40,6 +40,8 @@ class Suspicions:
         Suspicion(15, "PRIMARY request already received")
     DUPLICATE_REL_SENT = \
         Suspicion(16, "REELECTION request already received")
+    WRONG_PPSEQ_NO = \
+        Suspicion(17, "Wrong PRE-PREPARE seq number")
 
     @classmethod
     def getList(cls):

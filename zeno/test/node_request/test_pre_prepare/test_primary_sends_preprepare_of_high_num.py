@@ -1,9 +1,35 @@
-from zeno.common.util import getNoInstances
-from zeno.test.helper import getPrimaryReplica
+from zeno.common.request_types import ReqDigest, PrePrepare
+from zeno.server.suspicion_codes import Suspicions
+from zeno.test.eventually import eventually
+from zeno.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNodeSuspicions
+
+instId = 0
 
 
-def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
-    for instId in range(getNoInstances(len(nodeSet))):
-        primary = getPrimaryReplica(nodeSet, instId)
-        primary.sendPrePrepare(propagated1.reqDigest)
-    pass
+def testPrePrepareWithHighSeqNo(looper, nodeSet, client1, propagated1):
+    def chk():
+        for r in getNonPrimaryReplicas(nodeSet, instId):
+            nodeSuspicions = len(getNodeSuspicions(
+                    r.node, Suspicions.WRONG_PPSEQ_NO.code))
+            assert nodeSuspicions == 1
+
+    def checkPreprepare(replica, viewNo, ppSeqNo, req, numOfPrePrepares):
+        assert (replica.prePrepares[viewNo, ppSeqNo]) == (req.clientId, req.reqId, req.digest)
+
+    primary = getPrimaryReplica(nodeSet, instId)
+    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
+    req = propagated1.reqDigest
+    primary.sendPrePrepare(req)
+    for np in nonPrimaryReplicas:
+        looper.run(
+                eventually(checkPreprepare, np, primary.viewNo, primary.prePrepareSeqNo - 1,
+                           req, 1,
+                           retryWait=.5, timeout=10))
+
+    newReqDigest = ReqDigest(req.clientId, req.reqId + 1, req.digest)
+    incorrectPrePrepareReq = PrePrepare(instId,
+                               primary.viewNo,
+                               primary.prePrepareSeqNo + 2,
+                               *newReqDigest)
+    primary.send(incorrectPrePrepareReq)
+    looper.run(eventually(chk, retryWait=1, timeout=50))

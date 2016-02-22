@@ -73,7 +73,7 @@ class Replica(MessageProcessor):
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the
         # instance is
-        self._primaryName = None    # type: Optional[str]
+        self._primaryName = None  # type: Optional[str]
 
         # Requests waiting to be processed once the replica is able to decide
         # whether it is primary or not
@@ -123,7 +123,7 @@ class Replica(MessageProcessor):
         self.commits = Commits()
 
         # Set of tuples to keep track of ordered requests
-        self.ordered = set()        # type: Set[Tuple[int, int]]
+        self.ordered = set()  # type: Set[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -172,9 +172,9 @@ class Replica(MessageProcessor):
             self._primaryName = value
             self.primaryNames[self.viewNo] = value
             logger.debug("{} setting primaryName for view no {} to: {}"
-                .format(self, self.viewNo, value))
+                         .format(self, self.viewNo, value))
             logger.debug("{}'s primaryNames for views are: {}"
-                         .format(self,self.primaryNames))
+                         .format(self, self.primaryNames))
             self._stateChanged()
 
     def _stateChanged(self):
@@ -282,7 +282,7 @@ class Replica(MessageProcessor):
                          "view. Request is {}".format(msg))
         else:
             return self.primaryName == sender if self.isMsgForCurrentView(
-                msg) else self.primaryNames[msg.viewNo] == sender
+                    msg) else self.primaryNames[msg.viewNo] == sender
 
     def _preProcessReqDigest(self, rd: ReqDigest) -> None:
         """
@@ -400,8 +400,8 @@ class Replica(MessageProcessor):
         :param pp: a prePrepareRequest
         :param sender: name of the node that sent this message
         """
-        logger.debug("{} Receiving PRE-PREPARE at {}".
-                     format(self, time.perf_counter()))
+        logger.debug("{} Receiving PRE-PREPARE at {},{}".
+                     format(self, pp, time.perf_counter()))
         try:
             if self.canProcessPrePrepare(pp, sender):
                 self.addToPrePrepares(pp)
@@ -517,6 +517,11 @@ class Replica(MessageProcessor):
 
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             self.raiseSuspicion(sender, Suspicions.DUPLICATE_PPR_SENT)
+
+        if len(list(self.prePrepares.keys())) > 0:
+            lastProcessedPrePrepareSeqNo = list(self.prePrepares.keys())[-1][1]
+            if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
+                self.raiseSuspicion(sender, Suspicions.WRONG_PPSEQ_NO)
 
         key = (pp.clientId, pp.reqId)
 
