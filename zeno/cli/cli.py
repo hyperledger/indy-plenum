@@ -72,19 +72,18 @@ class Cli:
         # To store the nodes created
         self.nodes = {}
 
-        self.cliCmds = {'new', 'status', 'list'}
-        self.nodeCmds = {'new', 'status', 'list', 'keyshare'}
+        self.cliCmds = {'status', 'new'}
+        self.nodeCmds = self.cliCmds | {'keyshare'}
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'exit',
-                           'quit',
-                           'license'}
+        self.simpleCmds = {'status', 'exit', 'quit', 'license'}
         self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
-        self.node_or_cli = ['node', 'client']
+        self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
+
 
         '''
         examples:
@@ -102,21 +101,29 @@ class Cli:
 
         grams = [
             "(\s* (?P<simple>{}) \s*) |".format(re(self.simpleCmds)),
-            "(\s* (?P<command>{}) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
-            "?P<node_or_cli>{}) )?\s*) "
-            "|".format(re(self.commands), re(self.node_or_cli)),
+
             "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ "
-            "(?P<client_name>[a-zA-Z0-9]+)(?P<more_clients>(,\s*[a-zA-Z0-9]+)*) "
+            "(?P<client_name>[a-zA-Z0-9]+)"
             "\s*) |".format(re(self.cliCmds)),
+
             "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ "
-            "(?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*)"
+            "(?P<node_name>[a-zA-Z0-9]+)\s*)"
             " |".format(re(self.nodeCmds)),
+
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) "
             "\s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
+
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ "
             "(?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)"
-                .format(os.path.sep)
+
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |"
+                .format(os.path.sep),
+
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
+            "?P<node_or_cli>{}) )?\s*) "
+            "|".format(re(self.node_or_cli)),
+
+            "(\s* (?P<command>list) \s*)".format(re(self.commands))
         ]
 
         self.grammar = compile("".join(grams))
@@ -693,10 +700,11 @@ Commands:
                 self.invalidCmd(cmdText)
 
     @staticmethod
-    def createEntities(name: str, more: str, matchedVars, initializer):
+    def createEntities(name: str, moreNames: str, matchedVars, initializer):
         entity = matchedVars.get(name)
-        more = matchedVars.get(more)
-        names = [n for n in [entity] + more.split(',') if len(n) != 0]
+        more = matchedVars.get(moreNames)
+        more = more.split(',') if more is not None and len(more) > 0 else []
+        names = [n for n in [entity] + more if len(n) != 0]
         for name in names:
             initializer(name.strip())
 
