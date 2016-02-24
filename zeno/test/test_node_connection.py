@@ -6,17 +6,19 @@ from ioflo.aid import getConsole
 from zeno.common.looper import Looper
 from zeno.common.util import getlogger
 from zeno.server.node import Node
-from zeno.test.helper import checkNodesConnected, checkProtocolInstanceSetup
+from zeno.test.helper import checkNodesConnected, checkProtocolInstanceSetup, \
+    genHa
+from zeno.test.testing_utils import PortDispenser
 
 logger = getlogger()
 
 whitelist = ['discarding message', 'found legacy entry']
 
 nodeReg = {
-    'Alpha': ('127.0.0.1', 7560),
-    'Beta': ('127.0.0.1', 7562),
-    'Gamma': ('127.0.0.1', 7564),
-    'Delta': ('127.0.0.1', 7566)}
+    'Alpha': genHa(2)[0],
+    'Beta': genHa(2)[0],
+    'Gamma': genHa(2)[0],
+    'Delta': genHa(2)[0]}
 
 
 def testNodesConnectsWhenOneNodeIsLate():

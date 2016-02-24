@@ -33,7 +33,7 @@ from zeno.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
 from zeno.server.primary_elector import PrimaryElector
 from zeno.test.eventually import eventually, eventuallyAll
 from zeno.test.greek import genNodeNames
-from zeno.test.testing_utils import adict
+from zeno.test.testing_utils import adict, PortDispenser
 
 from zeno.client.client import Client, ClientProvider
 from zeno.common.stacked import NodeStacked, HA, Stack
@@ -828,20 +828,21 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
     return [node.replicas[instId] for node in nodes]
 
 
-class HaGen(object):
-    __instance = None
+# class HaGen(object):
+#     __instance = None
+#
+#     def __new__(cls):
+#         if cls.__instance is None:
+#             cls.__instance = object.__new__(cls)
+#             cls.__instance.gen = itertools.count()
+#         return cls.__instance
+#
+#     def getNext(self):
+#         return HA("127.0.0.1", 7532 + (next(self.gen)))
+#
 
-    def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = object.__new__(cls)
-            cls.__instance.gen = itertools.count()
-        return cls.__instance
-
-    def getNext(self):
-        return HA("127.0.0.1", 7532 + (next(self.gen)))
-
-
-genHa = HaGen().getNext
+genHa = PortDispenser("127.0.0.1").getNext
+# genHa = HaGen().getNext
 
 
 def genTestClient(nodes: TestNodeSet = None,

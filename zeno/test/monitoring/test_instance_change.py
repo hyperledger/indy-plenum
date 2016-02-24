@@ -79,8 +79,15 @@ def testInstChangeWithLowerRatioThanDelta(looper, nodeSet, nodesAndRequests):
     startedNodes = nodesAndRequests[0]
     instIds = range(getNoInstances(len(nodeSet)))
     masterInstId = instIds[0]
-    assert any(node.monitor.getThroughput(masterInstId) /
-               node.monitor.getAvgThroughput(masterInstId) <= node.monitor.Delta
-               for node in startedNodes)
+
+    for node in startedNodes:
+        try:
+            mast = node.monitor.getThroughput(masterInstId)
+            others = node.monitor.getAvgThroughput(masterInstId)
+            assert mast / others <= node.monitor.Delta
+            break
+        except Exception:
+            raise
+
     looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
                           retryWait=1, timeout=40))
