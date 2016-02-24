@@ -142,7 +142,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.forwardedRequests = set()  # type: Set[Tuple[(str, int)]]
 
-        self.monitor = Monitor(.9, 60, 5)
+        self.monitor = Monitor(Delta=.85, Lambda=60, Omega=5)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
@@ -1143,9 +1143,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.nodestack.keep.auto = AutoMode.never
 
     def reportSuspiciousNode(self, nodeName: str, reason=None, code: int=None):
-        logger.warning("{} suspicion raised on node {} for {}; "
-                       "doing nothing for now. Suspicion code is {}".
-                       format(self, nodeName, reason, code))
+        logger.warning("{} suspicion raised on node {} for {}; suspicion code "
+                       "is {}".format(self, nodeName, reason, code))
         if isinstance(reason, InvalidSignature):
             self.blacklistNode(nodeName, reason=reason, code=100)
 
