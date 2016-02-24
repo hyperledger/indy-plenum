@@ -7,6 +7,7 @@ from typing import Callable, TypeVar, Optional, Iterable
 from zeno.common.util import getlogger
 
 from zeno.common.ratchet import Ratchet
+from zeno.test.helper import getSlowFactor
 
 T = TypeVar('T')
 
@@ -15,7 +16,7 @@ logger = getlogger()
 FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 
 # increase this number to allow evenutally to change timeouts proportionatly
-slowFactor = 1.0
+slowFactor = getSlowFactor()
 
 
 async def eventuallySoon(coroFunc: FlexFunc, *args):
