@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 from asyncio.coroutines import CoroWrapper
 from inspect import isawaitable
@@ -7,7 +8,6 @@ from typing import Callable, TypeVar, Optional, Iterable
 from zeno.common.util import getlogger
 
 from zeno.common.ratchet import Ratchet
-from zeno.test.helper import getSlowFactor
 
 T = TypeVar('T')
 
@@ -16,6 +16,15 @@ logger = getlogger()
 FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 
 # increase this number to allow evenutally to change timeouts proportionatly
+def getSlowFactor():
+    numOfCpus = os.cpu_count()
+    if numOfCpus == 8 or numOfCpus is None:
+        return 1
+    elif numOfCpus == 4:
+        return 1.5
+    elif numOfCpus < 4:
+        return 2
+
 slowFactor = getSlowFactor()
 
 

@@ -1,9 +1,7 @@
 import inspect
-import itertools
 import logging
 import math
 import operator
-import os
 import random
 import time
 import types
@@ -1239,16 +1237,6 @@ def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):
 def whitelistNode(toWhitelist: str, frm: Sequence[TestNode], *codes):
     for node in frm:
         node.whitelistNode(toWhitelist, *codes)
-
-
-def getSlowFactor():
-    numOfCpus = os.cpu_count()
-    if numOfCpus == 8 or numOfCpus is None:
-        return 1
-    elif numOfCpus == 4:
-        return 1.5
-    elif numOfCpus < 4:
-        return 2
 
 
 TESTMSG = "TESTMSG"
