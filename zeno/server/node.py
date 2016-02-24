@@ -142,7 +142,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.forwardedRequests = set()  # type: Set[Tuple[(str, int)]]
 
-        self.monitor = Monitor(Delta=.85, Lambda=60, Omega=5)
+        self.monitor = Monitor(Delta=.88, Lambda=60, Omega=5)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
