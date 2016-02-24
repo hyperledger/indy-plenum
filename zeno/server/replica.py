@@ -171,10 +171,10 @@ class Replica(MessageProcessor):
         if not value == self._primaryName:
             self._primaryName = value
             self.primaryNames[self.viewNo] = value
-            logger.debug("{} setting primaryName for view no {} to: {}"
-                         .format(self, self.viewNo, value))
-            logger.debug("{}'s primaryNames for views are: {}"
-                         .format(self, self.primaryNames))
+            logger.debug("{} setting primaryName for view no {} to: {}".
+                         format(self, self.viewNo, value))
+            logger.debug("{}'s primaryNames for views are: {}".
+                         format(self, self.primaryNames))
             self._stateChanged()
 
     def _stateChanged(self):
@@ -400,8 +400,8 @@ class Replica(MessageProcessor):
         :param pp: a prePrepareRequest
         :param sender: name of the node that sent this message
         """
-        logger.debug("{} Receiving PRE-PREPARE at {},{}".
-                     format(self, pp, time.perf_counter()))
+        logger.debug("{} Receiving PRE-PREPARE {}".
+                     format(self, pp))
         try:
             if self.canProcessPrePrepare(pp, sender):
                 self.addToPrePrepares(pp)
@@ -518,7 +518,7 @@ class Replica(MessageProcessor):
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             self.raiseSuspicion(sender, Suspicions.DUPLICATE_PPR_SENT)
 
-        if len(list(self.prePrepares.keys())) > 0:
+        if self.prePrepares:
             lastProcessedPrePrepareSeqNo = list(self.prePrepares.keys())[-1][1]
             if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
                 self.raiseSuspicion(sender, Suspicions.WRONG_PPSEQ_NO)
