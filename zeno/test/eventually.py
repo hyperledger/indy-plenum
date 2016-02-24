@@ -14,10 +14,14 @@ logger = getlogger()
 
 FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 
+# increase this number to allow evenutally to change timeouts proportionatly
+slowFactor = 1.0
+
+
 async def eventuallySoon(coroFunc: FlexFunc, *args):
     return await eventually(coroFunc, *args,
-                            retryWait=0.1,
-                            timeout=3,
+                            retryWait=0.1 * slowFactor,
+                            timeout=3 * slowFactor,
                             ratchetSteps=10)
 
 
@@ -37,6 +41,8 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     """
     start = time.perf_counter()
 
+    totalTimeout = totalTimeout * slowFactor
+
     def remaining():
         return totalTimeout + start - time.perf_counter()
     funcNames = []
@@ -50,7 +56,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
         # noinspection PyBroadException
         try:
             await eventually(cf,
-                             retryWait=retryWait,
+                             retryWait=retryWait * slowFactor,
                              timeout=remaining(),
                              acceptableExceptions=acceptableExceptions,
                              verbose=False)
@@ -89,10 +95,13 @@ async def eventually(coroFunc: FlexFunc,
             acceptableExceptions = [acceptableExceptions]
     start = time.perf_counter()
 
-    ratchet = Ratchet.fromGoalDuration(retryWait, ratchetSteps, timeout).gen() if ratchetSteps else None
+    ratchet = Ratchet.fromGoalDuration(retryWait*slowFactor,
+                                       ratchetSteps,
+                                       timeout*slowFactor).gen() \
+        if ratchetSteps else None
 
     def remaining():
-        return start + timeout - time.perf_counter()
+        return start + timeout*slowFactor - time.perf_counter()
 
     fname = getFuncName(coroFunc)
     while True:
