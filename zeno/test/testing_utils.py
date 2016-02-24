@@ -3,6 +3,8 @@ import os
 import sys
 
 import fcntl
+import tempfile
+
 from ioflo.base.consoling import getConsole
 
 from zeno.common.stacked import HA
@@ -85,9 +87,10 @@ class PortDispenser:
     port numbers. It leverages the filesystem lock mechanism to ensure there
     are no overlaps.
     """
-    def __init__(self, ip: str):
+    def __init__(self, ip: str, filename: str=None):
         self.ip = ip
-        self.FILE = "portmutex3.{}.txt".format(ip)
+        self.FILE = filename or os.path.join(tempfile.gettempdir(),
+                                             'zeno-portmutex.{}.txt'.format(ip))
         self.minPort = 6000
         self.maxPort = 9999
         self.initFile()
