@@ -396,7 +396,7 @@ class Replica(MessageProcessor):
                          "Prepare {}".format(self, (rd.clientId, rd.reqId)))
             self.reqsPendingPrePrepare[(rd.clientId, rd.reqId)] = rd.digest
         else:
-            self.sendPrePrepare(rd)
+            self.doPrePrepare(rd)
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
@@ -434,14 +434,16 @@ class Replica(MessageProcessor):
         try:
             if self.canProcessPrePrepare(pp, sender):
                 self.addToPrePrepares(pp)
-                if self.canSendPrepare(pp):
-                    self.sendPrepare(pp)
-                else:
-                    logger.debug("{} cannot send PREPARE".format(self))
         except SuspiciousNode as ex:
             logger.warning(
                     "{} cannot process incoming PRE-PREPARE".format(self))
             self.discard(pp, ex.reason, logger.debug)
+
+    def tryPrepare(self, pp: PrePrepare):
+        if self.canSendPrepare(pp):
+            self.doPrepare(pp)
+        else:
+            logger.debug("{} cannot send PREPARE".format(self))
 
     def processPrepare(self, prepare: Prepare, sender: str) -> None:
         """
@@ -454,7 +456,6 @@ class Replica(MessageProcessor):
         if self.isValidPrepare(prepare, sender):
             self.addToPrepares(prepare, sender)
             self.stats.inc(TPCStat.PrepareRcvd)
-            self.trySendingCommitFor(prepare)
         else:
             logger.warning("{} cannot process incoming PREPARE".format(self))
 
@@ -471,25 +472,24 @@ class Replica(MessageProcessor):
             if self.isValidCommit(commit, sender):
                 self.stats.inc(TPCStat.CommitRcvd)
                 self.addToCommits(commit, sender)
-            self.trySendingOrderedFor(commit)
         except SuspiciousNode as ex:
             logger.warning("{} cannot process incoming COMMIT".format(self))
             self.discard(commit, ex.reason, logger.debug)
 
-    def trySendingCommitFor(self, prepare: Prepare):
-        if self.canSendCommit(prepare):
-            self.sendCommit(prepare)
+    def tryCommit(self, prepare: Prepare):
+        if self.canCommit(prepare):
+            self.doCommit(prepare)
         else:
             logger.debug("{} not yet able to send COMMIT".format(self))
 
-    def trySendingOrderedFor(self, commit: Commit):
+    def tryOrder(self, commit: Commit):
         if self.canOrder(commit):
             logging.debug("{} returning request to node".format(self))
-            self.order(commit)
+            self.doOrder(commit)
         else:
             logger.trace("{} cannot return request to node".format(self))
 
-    def sendPrePrepare(self, reqDigest: ReqDigest) -> None:
+    def doPrePrepare(self, reqDigest: ReqDigest) -> None:
         """
         Broadcast a PRE-PREPARE to all the replicas.
 
@@ -505,7 +505,7 @@ class Replica(MessageProcessor):
         self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
-    def sendPrepare(self, pp: PrePrepare):
+    def doPrepare(self, pp: PrePrepare):
         logger.debug("{} Sending PREPARE at {}".
                      format(self, time.perf_counter()))
         prepare = Prepare(self.instId,
@@ -514,16 +514,14 @@ class Replica(MessageProcessor):
                           pp.digest)
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
-        self.trySendingCommitFor(prepare)
 
-    def sendCommit(self, p: Prepare):
+    def doCommit(self, p: Prepare):
         commit = Commit(self.instId,
                         p.viewNo,
                         p.ppSeqNo,
                         p.digest)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
-        self.trySendingOrderedFor(commit)
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str):
         """
@@ -568,6 +566,7 @@ class Replica(MessageProcessor):
             (pp.clientId, pp.reqId, pp.digest)
         self.dequeuePrepares(pp.viewNo, pp.ppSeqNo)
         self.stats.inc(TPCStat.PrePrepareRcvd)
+        self.tryPrepare(pp)
 
     def canSendPrepare(self, request) -> None:
         """
@@ -628,8 +627,9 @@ class Replica(MessageProcessor):
 
     def addToPrepares(self, prepare: Prepare, sender: str):
         self.prepares.addVote(prepare, sender)
+        self.tryCommit(prepare)
 
-    def canSendCommit(self, request: Prepare) -> bool:
+    def canCommit(self, request: Prepare) -> bool:
         """
         Return whether the specified PREPARE can proceed to the Commit
         step.
@@ -676,6 +676,7 @@ class Replica(MessageProcessor):
         :param sender: the name of the node that sent the COMMIT
         """
         self.commits.addVote(commit, sender)
+        self.tryOrder(commit)
 
     def canOrder(self, commit: Commit) -> bool:
         """
@@ -694,7 +695,7 @@ class Replica(MessageProcessor):
         return self.commits.hasQuorum(commit, self.f) and \
                (commit.viewNo, commit.ppSeqNo) not in self.ordered
 
-    def order(self, commit: Commit) -> None:
+    def doOrder(self, commit: Commit) -> None:
         """
         Attempt to send an ORDERED request for the specified COMMIT to the
         node.

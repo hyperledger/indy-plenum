@@ -89,11 +89,11 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     evilMethod = types.MethodType(evilMethod, replica)
 
     if msgType == PrePrepare:
-        replica.sendPrePrepare = evilMethod
+        replica.doPrePrepare = evilMethod
     elif msgType == Prepare:
-        replica.sendPrepare = evilMethod
+        replica.doPrepare = evilMethod
     elif msgType == Commit:
-        replica.sendCommit = evilMethod
+        replica.doCommit = evilMethod
     else:
         util.error("Not a 3 phase message")
 

@@ -106,7 +106,7 @@ def checkPrePrepared(looper,
              will be zero and primary must be marked as malicious.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary, primary.sendPrePrepare)
+                              getAllArgs(primary, primary.doPrePrepare)
                               if (param['reqDigest'].clientId,
                                   param['reqDigest'].reqId,
                                   param['reqDigest'].digest) ==

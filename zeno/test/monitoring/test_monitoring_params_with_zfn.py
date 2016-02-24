@@ -20,10 +20,9 @@ def requests(looper, client1):
 def testThroughtputThreshold(nodeSet, requests):
     for node in nodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.masterInst)
-        assert masterThroughput / avgBackupThroughput >= node.monitor.Delta
-    for n in nodeSet:
-        for r in n.replicas:
+        for r in node.replicas:
             print("{} stats: {}".format(r, r.stats.__repr__()))
+        assert masterThroughput / avgBackupThroughput >= node.monitor.Delta
 
 
 def testReqLatencyThreshold(nodeSet, requests):

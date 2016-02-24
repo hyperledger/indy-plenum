@@ -29,7 +29,7 @@ def setup(nodeSet, up):
 
     pr = getPrimaryReplica(nodeSet, instId)
     evilMethod = types.MethodType(dontSendPrePrepareRequest, pr)
-    pr.sendPrePrepare = evilMethod
+    pr.doPrePrepare = evilMethod
 
 
 def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
@@ -39,7 +39,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
     remainingNpr = nonPrimaryReplicas[1:]
 
     def sendPrePrepareFromNonPrimary(replica):
-        firstNpr.sendPrePrepare(propagated1.reqDigest)
+        firstNpr.doPrePrepare(propagated1.reqDigest)
 
         return PrePrepare(
                 replica.instId,

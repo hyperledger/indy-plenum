@@ -195,7 +195,7 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@Spyable(methods=[replica.Replica.sendPrePrepare,
+@Spyable(methods=[replica.Replica.doPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
                   replica.Replica.isValidPrepare,
@@ -203,7 +203,7 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
-                  replica.Replica.sendPrepare])
+                  replica.Replica.doPrepare])
 class TestReplica(replica.Replica):
     pass
 
@@ -1077,7 +1077,7 @@ def checkRequestReturnedToNode(node: TestNode, clientId: str, reqId: int,
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    prePreparesSent = getAllArgs(replica, replica.doPrePrepare)
     expected = req.reqDigest
     assert expected in [p["reqDigest"] for p in prePreparesSent]
 
