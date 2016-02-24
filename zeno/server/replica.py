@@ -1,6 +1,8 @@
 import logging
 import time
-from collections import deque, namedtuple
+from collections import deque, OrderedDict
+from enum import IntEnum
+from enum import unique
 from typing import Dict
 from typing import Optional, Any
 from typing import Set
@@ -18,6 +20,31 @@ from zeno.server.suspicion_codes import Suspicion, Suspicions
 logger = getlogger()
 
 
+@unique
+class TPCStat(IntEnum):  # TPC => Three-Phase Commit
+    ReqDigestRcvd = 0
+    PrePrepareSent = 1
+    PrePrepareRcvd = 2
+    PrepareRcvd = 3
+    PrepareSent = 4
+    CommitRcvd = 5
+    CommitSent = 6
+    OrderSent = 7
+
+
+class Stats:
+    def __init__(self, keys):
+        sort = sorted([k.value for k in keys])
+        self.stats = OrderedDict((s, 0) for s in sort)
+
+    def inc(self, key):
+        self.stats[key] += 1
+
+    def __repr__(self):
+        return OrderedDict((TPCStat(k).name, v)
+                           for k, v in self.stats.items())
+
+
 class Replica(MessageProcessor):
     def __init__(self, node: 'zeno.server.node.Node', instId: int,
                  isMaster: bool = False):
@@ -29,6 +56,7 @@ class Replica(MessageProcessor):
         :param isMaster: is this a replica of the master protocol instance
         """
         super().__init__()
+        self.stats = Stats(TPCStat)
 
         routerArgs = [(ReqDigest, self._preProcessReqDigest)]
 
@@ -362,6 +390,7 @@ class Replica(MessageProcessor):
 
         :param rd: the client request digest to process
         """
+        self.stats.inc(TPCStat.ReqDigestRcvd)
         if self.isPrimary is False:
             logger.debug("Non primary replica {} pended request for Pre "
                          "Prepare {}".format(self, (rd.clientId, rd.reqId)))
@@ -424,6 +453,7 @@ class Replica(MessageProcessor):
         """
         if self.isValidPrepare(prepare, sender):
             self.addToPrepares(prepare, sender)
+            self.stats.inc(TPCStat.PrepareRcvd)
             self.trySendingCommitFor(prepare)
         else:
             logger.warning("{} cannot process incoming PREPARE".format(self))
@@ -439,6 +469,7 @@ class Replica(MessageProcessor):
         logger.debug("{} received commit {} from {}".format(self, commit, sender))
         try:
             if self.isValidCommit(commit, sender):
+                self.stats.inc(TPCStat.CommitRcvd)
                 self.addToCommits(commit, sender)
             self.trySendingOrderedFor(commit)
         except SuspiciousNode as ex:
@@ -472,7 +503,7 @@ class Replica(MessageProcessor):
                                    self.prePrepareSeqNo,
                                    *reqDigest)
         self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
-        self.send(prePrepareReq)
+        self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def sendPrepare(self, pp: PrePrepare):
         logger.debug("{} Sending PREPARE at {}".
@@ -481,7 +512,7 @@ class Replica(MessageProcessor):
                           pp.viewNo,
                           pp.ppSeqNo,
                           pp.digest)
-        self.send(prepare)
+        self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
         self.trySendingCommitFor(prepare)
 
@@ -490,7 +521,7 @@ class Replica(MessageProcessor):
                         p.viewNo,
                         p.ppSeqNo,
                         p.digest)
-        self.send(commit)
+        self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
         self.trySendingOrderedFor(commit)
 
@@ -536,6 +567,7 @@ class Replica(MessageProcessor):
         self.prePrepares[(pp.viewNo, pp.ppSeqNo)] = \
             (pp.clientId, pp.reqId, pp.digest)
         self.dequeuePrepares(pp.viewNo, pp.ppSeqNo)
+        self.stats.inc(TPCStat.PrePrepareRcvd)
 
     def canSendPrepare(self, request) -> None:
         """
@@ -692,11 +724,12 @@ class Replica(MessageProcessor):
                          logger.warning)
 
         self.addToOrdered(commit.viewNo, commit.ppSeqNo)
-        self.send(Ordered(self.instId,
+        ordered = Ordered(self.instId,
                           commit.viewNo,
                           clientId,
                           reqId,
-                          digest))
+                          digest)
+        self.send(ordered, TPCStat.OrderSent)
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
@@ -731,7 +764,7 @@ class Replica(MessageProcessor):
         else:
             return None
 
-    def send(self, msg) -> None:
+    def send(self, msg, stat) -> None:
         """
         Send a message to the node on which this replica resides.
 
@@ -740,6 +773,7 @@ class Replica(MessageProcessor):
         logger.debug("{} sending {}".format(self, msg.__class__.__name__),
                      extra={"cli": True})
         logger.trace("{} sending {}".format(self, msg))
+        self.stats.inc(stat)
         self.outBox.append(msg)
 
     def raiseSuspicion(self, on: str, suspicion: Suspicion):
