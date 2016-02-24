@@ -46,12 +46,3 @@ def validNodeNames(cli):
 def createAllNodes(cli):
     cli.enterCmd("new node all")
 
-
-@pytest.fixture("module")
-def allNodesUp(cli, createAllNodes, cliLooper):
-    # Let nodes complete election and the output be rendered on the screen
-    ensureElectionsDone(looper=cliLooper,
-                        nodes=cli.nodes.values(),
-                        retryWait=1,
-                        timeout=30)
-    cli.looper.runFor(3)

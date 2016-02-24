@@ -68,8 +68,10 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert not msgs[8]['newline']
 
 
-def testStatusAfterAllNodesUp(cli, validNodeNames, allNodesUp):
+def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
+    # waiting here for 5 seconds, So that after creating a node the whole output is printed first.
+    cli.looper.runFor(5)
     cli.enterCmd("status")
     cli.looper.runFor(1)
     printeds = cli.printeds
@@ -100,7 +102,9 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, allNodesUp):
             checkForNamedTokens(cli.printedTokens[1], cli.voidMsg)
 
 
-def testStatusAfterClientAdded(cli, validNodeNames, allNodesUp):
+def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
+    # waiting here for 5 seconds, So that after creating a node the whole output is printed first.
+    cli.looper.runFor(5)
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
     # Let the client get connected to the nodes
