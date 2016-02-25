@@ -17,7 +17,7 @@ PrimaryDecider = PrimarySelector
 
 
 @pytest.fixture()
-def primaryReplicas(nodeSet):
+def primaryReplicas(nodeSet, up):
     instanceCount = getNoInstances(nodeCount)
     return [getPrimaryReplica(nodeSet, i) for i in range(instanceCount)]
 

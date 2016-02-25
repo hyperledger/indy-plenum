@@ -131,43 +131,6 @@ def looper(unstartedLooper):
     return unstartedLooper
 
 
-# TODO looks like this is no longer used
-# @pytest.fixture(scope="session")
-# def hagen():
-#     class HaGen:
-#         def __init__(self):
-#             self.gen = itertools.count()
-#
-#         def next(self):
-#             return HA("127.0.0.1", 7532 + (next(self.gen)))
-#
-#     return HaGen()
-
-
-# TODO looks like this is no longer used
-# @pytest.fixture(scope="session")
-# def nodeRegGen(hagen):
-#     def inner(count=None, names=None) -> Dict[str, NodeDetail]:
-#         """
-#
-#         :param count: number of nodes, mutually exclusive with names
-#         :param names: iterable with names of nodes, mutually exclusive with count
-#         :return: dictionary of name: (node stack HA, client stack name, client stack HA)
-#         """
-#         if names is None:
-#             names = genNodeNames(count)
-#         nr = OrderedDict((n, NodeDetail(hagen.prod(), n + CLIENT_STACK_SUFFIX,
-#                                         hagen.prod())) for n in names)
-#
-#         def extractCliNodeReg(self):
-#             return OrderedDict((n.cliname, n.cliha) for n in self.values())
-#
-#         nr.extractCliNodeReg = types.MethodType(extractCliNodeReg, nr)
-#         return nr
-#
-#     return inner
-
-
 @pytest.fixture(scope="module")
 def pool(tmpdir_factory, counter):
     return Pool(tmpdir_factory, counter)

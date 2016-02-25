@@ -34,7 +34,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                 for entry in entries:
                     arg = entry.params['ordered']
                     result = entry.result
-                    if arg.instId == node.masterInst:
+                    if arg.instId == node.instances.masterId:
                         assert result
                     else:
                         assert result is None

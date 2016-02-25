@@ -62,5 +62,8 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
 
     looper.run(eventually(chk,
                           retryWait=.5, timeout=5))
-    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, 1), retryWait=1,
-                          timeout=20))
+
+    # TODO Why is this here? Why would a suspicious PRE-PREPARE from a
+    # non-primary warrant a view change? Need more of a story about the scenario
+    # looper.run(eventually(checkViewNoForNodes, nodeSet, 1,
+    #                       retryWait=1, timeout=20))

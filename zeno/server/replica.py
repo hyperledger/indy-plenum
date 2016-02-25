@@ -214,8 +214,16 @@ class Replica(MessageProcessor):
         """
         self._unstashInBox()
         if self.isPrimary is not None:
+            # TODO handle suspicous exceptions here
             self.process3PhaseReqsQueue()
-            self.processPostElectionMsgs()
+            # TODO handle suspicous exceptions here
+            try:
+                self.processPostElectionMsgs()
+            except SuspiciousNode as ex:
+                self.outBox.append(ex)
+                self.discard(ex.msg, ex.reason, logger.warning)
+
+
 
     def _stashInBox(self, msg):
         """
@@ -331,6 +339,7 @@ class Replica(MessageProcessor):
         :param limit: the maximum number of messages to process
         :return: the number of messages successfully processed
         """
+        # TODO should handle SuspiciousNode here
         return await self.inBoxRouter.handleAll(self.inBox, limit)
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
@@ -341,9 +350,9 @@ class Replica(MessageProcessor):
         complete.
         """
         while self.postElectionMsgs:
-            req = self.postElectionMsgs.popleft()
-            logger.debug("{} processing pended request {}".format(self, req))
-            self.dispatchThreePhaseMsg(*req)
+            msg = self.postElectionMsgs.popleft()
+            logger.debug("{} processing pended msg {}".format(self, msg))
+            self.dispatchThreePhaseMsg(*msg)
 
     def process3PhaseReqsQueue(self):
         """
@@ -372,8 +381,7 @@ class Replica(MessageProcessor):
         """
         return self.node.quorum
 
-    def dispatchThreePhaseMsg(self, request: ThreePhaseMsg,
-                              sender: str) -> Any:
+    def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
         """
         Create a three phase request to be handled by the threePhaseRouter.
 
@@ -381,7 +389,11 @@ class Replica(MessageProcessor):
         :param senderRep: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
-        self.threePhaseRouter.handleSync((request, senderRep))
+        try:
+            self.threePhaseRouter.handleSync((msg, senderRep))
+        except SuspiciousNode as ex:
+            # self.node.reportSuspiciousNode(nodeName, suspicion.reason, suspicion.code)
+            self.node.reportSuspiciousNodeEx(ex)
 
     def processReqDigest(self, rd: ReqDigest):
         """
@@ -431,13 +443,8 @@ class Replica(MessageProcessor):
         """
         logger.debug("{} Receiving PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
-        try:
-            if self.canProcessPrePrepare(pp, sender):
-                self.addToPrePrepares(pp)
-        except SuspiciousNode as ex:
-            logger.warning(
-                    "{} cannot process incoming PRE-PREPARE".format(self))
-            self.discard(pp, ex.reason, logger.debug)
+        if self.canProcessPrePrepare(pp, sender):
+            self.addToPrePrepares(pp)
 
     def tryPrepare(self, pp: PrePrepare):
         if self.canSendPrepare(pp):
@@ -453,11 +460,16 @@ class Replica(MessageProcessor):
         :param prepare: a PREPARE msg
         :param sender: name of the node that sent the PREPARE
         """
-        if self.isValidPrepare(prepare, sender):
-            self.addToPrepares(prepare, sender)
-            self.stats.inc(TPCStat.PrepareRcvd)
-        else:
-            logger.warning("{} cannot process incoming PREPARE".format(self))
+        # TODO move this try/except up higher
+        try:
+            if self.isValidPrepare(prepare, sender):
+                self.addToPrepares(prepare, sender)
+                self.stats.inc(TPCStat.PrepareRcvd)
+            else:
+                # TODO let's have isValidPrepare throw an exception that gets handled and possibly logged higher
+                logger.warning("{} cannot process incoming PREPARE".format(self))
+        except SuspiciousNode as ex:
+            self.node.reportSuspiciousNodeEx(ex)
 
     def processCommit(self, commit: Commit, sender: str) -> None:
         """
@@ -468,13 +480,9 @@ class Replica(MessageProcessor):
         :param sender: name of the node that sent the COMMIT
         """
         logger.debug("{} received commit {} from {}".format(self, commit, sender))
-        try:
-            if self.isValidCommit(commit, sender):
-                self.stats.inc(TPCStat.CommitRcvd)
-                self.addToCommits(commit, sender)
-        except SuspiciousNode as ex:
-            logger.warning("{} cannot process incoming COMMIT".format(self))
-            self.discard(commit, ex.reason, logger.debug)
+        if self.isValidCommit(commit, sender):
+            self.stats.inc(TPCStat.CommitRcvd)
+            self.addToCommits(commit, sender)
 
     def tryCommit(self, prepare: Prepare):
         if self.canCommit(prepare):
@@ -538,20 +546,20 @@ class Replica(MessageProcessor):
         """
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pp, sender):
-            self.raiseSuspicion(sender, Suspicions.PPR_FRM_NON_PRIMARY)
+            raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pp) is True:
-            self.raiseSuspicion(sender, Suspicions.PPR_TO_PRIMARY)
+            raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
-            self.raiseSuspicion(sender, Suspicions.DUPLICATE_PPR_SENT)
+            raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         key = (pp.clientId, pp.reqId)
 
-        if key in self.reqsPendingPrePrepare and \
-                        self.reqsPendingPrePrepare[key] != pp.digest:
-            self.raiseSuspicion(sender, Suspicions.PPR_DIGEST_WRONG)
+        if (key in self.reqsPendingPrePrepare and
+                    self.reqsPendingPrePrepare[key] != pp.digest):
+            raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
 
         return True
 
@@ -595,35 +603,31 @@ class Replica(MessageProcessor):
 
         # PREPARE should not be sent from primary
         if self.isMsgFromPrimary(prepare, sender):
-            self.raiseSuspicion(sender, Suspicions.PR_FRM_PRIMARY)
+            raise SuspiciousNode(sender, Suspicions.PR_FRM_PRIMARY, prepare)
 
         # If non primary replica
-        try:
-            if primaryStatus is False:
-                if self.prepares.hasPrepareFrom(prepare, sender):
-                    self.raiseSuspicion(sender, Suspicions.DUPLICATE_PR_SENT)
-                # If PRE-PREPARE not received for the PREPARE, might be slow network
-                elif key not in ppReqs:
-                    self.enqueuePrepare(prepare, sender)
-                elif prepare.digest != ppReqs[key][2]:
-                    self.raiseSuspicion(sender, Suspicions.PR_DIGEST_WRONG)
-                else:
-                    return True
-        # If primary replica
+        if primaryStatus is False:
+            if self.prepares.hasPrepareFrom(prepare, sender):
+                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            # If PRE-PREPARE not received for the PREPARE, might be slow network
+            if key not in ppReqs:
+                self.enqueuePrepare(prepare, sender)
+            elif prepare.digest != ppReqs[key][2]:
+                raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
             else:
-                if self.prepares.hasPrepareFrom(prepare, sender):
-                    self.raiseSuspicion(sender, Suspicions.DUPLICATE_PR_SENT)
-                # If PRE-PREPARE was not sent for this PREPARE, certainly
-                # malicious behavior
-                elif key not in ppReqs:
-                    self.raiseSuspicion(sender, Suspicions.UNKNOWN_PR_SENT)
-                elif prepare.digest != ppReqs[key][2]:
-                    self.raiseSuspicion(sender, Suspicions.PR_DIGEST_WRONG)
-                else:
-                    return True
-        except SuspiciousNode as ex:
-            logger.warn("Invalid prepare message received: {}".format(prepare))
-            self.discard(prepare, ex.reason, logger.debug)
+                return True
+        # If primary replica
+        else:
+            if self.prepares.hasPrepareFrom(prepare, sender):
+                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            # If PRE-PREPARE was not sent for this PREPARE, certainly
+            # malicious behavior
+            elif key not in ppReqs:
+                raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
+            elif prepare.digest != ppReqs[key][2]:
+                raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
+            else:
+                return True
 
     def addToPrepares(self, prepare: Prepare, sender: str):
         self.prepares.addVote(prepare, sender)
@@ -648,24 +652,22 @@ class Replica(MessageProcessor):
                                                 request.viewNo, request.ppSeqNo),
                                               self.name)
 
-    def isValidCommit(self, request: Commit, sender: str):
+    def isValidCommit(self, commit: Commit, sender: str):
         """
         Return whether the COMMIT specified is valid.
 
-        :param request: the COMMIT to validate
+        :param commit: the COMMIT to validate
         :return: True if `request` is valid, False otherwise
         """
-        key = (request.viewNo, request.ppSeqNo)
-        if key not in self.prepares and \
-                        key not in self.preparesWaitingForPrePrepare:
-            self.raiseSuspicion(sender, Suspicions.UNKNOWN_CM_SENT)
-        elif self.commits.hasCommitFrom(request, sender):
-            self.raiseSuspicion(sender, Suspicions.DUPLICATE_CM_SENT)
-        else:
-            if request.digest != self.getDigestFromPrepare(*key):
-                self.raiseSuspicion(sender, Suspicions.CM_DIGEST_WRONG)
-            else:
-                return True
+        key = (commit.viewNo, commit.ppSeqNo)
+        if (key not in self.prepares and
+                key not in self.preparesWaitingForPrePrepare):
+            raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
+        if self.commits.hasCommitFrom(commit, sender):
+            raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
+        if commit.digest != self.getDigestFromPrepare(*key):
+            raise SuspiciousNode(sender, Suspicions.CM_DIGEST_WRONG, commit)
+        return True
 
     def addToCommits(self, commit: Commit, sender: str):
         """
@@ -777,7 +779,3 @@ class Replica(MessageProcessor):
         self.stats.inc(stat)
         self.outBox.append(msg)
 
-    def raiseSuspicion(self, on: str, suspicion: Suspicion):
-        nodeName = self.getNodeName(on)
-        self.node.reportSuspiciousNode(nodeName, suspicion.reason, suspicion.code)
-        raise SuspiciousNode(suspicion)

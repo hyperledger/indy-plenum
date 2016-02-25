@@ -1,5 +1,8 @@
+from typing import Sequence
+
 import pytest
 
+from zeno.server.node import Node
 from zeno.test.eventually import eventually
 from zeno.test.helper import checkSufficientRepliesRecvd, sendRandomRequest
 
@@ -18,8 +21,8 @@ def requests(looper, client1):
 
 
 def testThroughtputThreshold(nodeSet, requests):
-    for node in nodeSet:
-        masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.masterInst)
+    for node in nodeSet:  # type: Node
+        masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.instances.masterId)
         for r in node.replicas:
             print("{} stats: {}".format(r, r.stats.__repr__()))
         assert masterThroughput / avgBackupThroughput >= node.monitor.Delta
@@ -28,12 +31,14 @@ def testThroughtputThreshold(nodeSet, requests):
 def testReqLatencyThreshold(nodeSet, requests):
     for node in nodeSet:
         for rq in requests:
-            assert node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] <= node.monitor.Lambda
+            key = rq.clientId, rq.reqId
+            assert key in node.monitor.masterReqLatencies
+            assert node.monitor.masterReqLatencies[key] <= node.monitor.Lambda
 
 
-def testClientLatencyThreshold(nodeSet, requests):
+def testClientLatencyThreshold(nodeSet: Sequence[Node], requests):
     rq = requests[0]
-    for node in nodeSet:
-        latc = node.monitor.getAvgLatency(node.masterInst)[rq.clientId]
-        avglat = node.monitor.getAvgLatency(*node.nonMasterInsts)[rq.clientId]
+    for node in nodeSet:  # type: Node
+        latc = node.monitor.getAvgLatency(node.instances.masterId)[rq.clientId]
+        avglat = node.monitor.getAvgLatency(*node.instances.backupIds)[rq.clientId]
         assert latc - avglat <= node.monitor.Omega

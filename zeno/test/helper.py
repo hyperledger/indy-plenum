@@ -1,5 +1,4 @@
 import inspect
-import itertools
 import logging
 import math
 import operator
@@ -12,7 +11,7 @@ from copy import copy
 from functools import partial
 from itertools import combinations, permutations
 from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
-    Any, Sequence
+    Any, Sequence, Iterator
 from typing import Union, Callable
 
 from typing import Set
@@ -205,7 +204,12 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processCommit,
                   replica.Replica.doPrepare])
 class TestReplica(replica.Replica):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Each TestReplica gets it's own outbox stasher, all of which TestNode
+        # processes in its overridden serviceReplicaOutBox
+        self.outBoxTestStasher = \
+            Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
 
 # noinspection PyShadowingNames,PyShadowingNames
@@ -226,7 +230,7 @@ class TestReplica(replica.Replica):
                   Node.forward,
                   Node.send,
                   Node.processInstanceChange,
-                  Node.highMasterReqLatency])
+                  Node.checkPerformance])
 class TestNode(Node, StackedTester):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -310,6 +314,11 @@ class TestNode(Node, StackedTester):
     async def eatTestMsg(self, msg, frm):
         logging.debug("{0} received Test message: {1} from {2}".
                       format(self.nodestack.name, msg, frm))
+
+    def serviceReplicaOutBox(self, *args, **kwargs) -> int:
+        for r in self.replicas:  # type: TestReplica
+            r.outBoxTestStasher.process()
+        return super().serviceReplicaOutBox(*args, **kwargs)
 
 
 def randomMsg() -> TaggedTuple:
@@ -428,10 +437,10 @@ class TestNodeSet(ExitStack):
         # for node in self:
         #     node.removeNodeFromRegistry(name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TestNode]:
         return self.nodes.values().__iter__()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> TestNode:
         return self.nodes.get(key)
 
     def __len__(self):
@@ -491,14 +500,17 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
-                                        numReqs: int, timeout: float = None):
+                                        numReqs: int, fVal: int=None,
+                                        timeout: float=None):
     nodeCount = len(client.nodeReg)
-    f = getMaxFailures(nodeCount)
-    requests = [sendRandomRequest(client) for i in range(numReqs)]
+    fVal = fVal or getMaxFailures(nodeCount)
+    timeout = timeout or 3 * nodeCount
+
+    requests = sendRandomRequests(client, numReqs)
     for request in requests:
         looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
-                              request.reqId, f,
-                              retryWait=1, timeout=3 * nodeCount))
+                              request.reqId, fVal,
+                              retryWait=1, timeout=timeout))
     return requests
 
 
@@ -810,9 +822,9 @@ def getPrimaryReplica(nodes: Sequence[TestNode],
     preplicas = [node.replicas[instId] for node in nodes if
                  node.replicas[instId].isPrimary]
     if len(preplicas) > 1:
-        error("More than one primary node found")
+        raise RuntimeError('More than one primary node found')
     elif len(preplicas) < 1:
-        error("No primary node found")
+        raise RuntimeError('No primary node found')
     else:
         return preplicas[0]
 
@@ -895,6 +907,11 @@ def randomOperation():
 
 def sendRandomRequest(client: Client):
     return client.submit(randomOperation())[0]
+
+
+def sendRandomRequests(client: Client, count: int):
+    ops = [randomOperation() for _ in range(count)]
+    return client.submit(*ops)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
