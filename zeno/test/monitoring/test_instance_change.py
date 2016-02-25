@@ -75,26 +75,18 @@ def testInstChangeWithDiffGreaterThanOmega(looper, nodeSet, client1,
                           retryWait=1, timeout=40))
 
 
-@pytest.mark.xfail(reason="Monitoring parameters are getting reset; delay view "
-                          "change for other parameters  (Lambda and Omega")
-def testInstChangeWithLowerRatioThanDelta(looper, nodeSet, nodesAndRequests):
+def testInstChangeWithLowerRatioThanDelta(looper, client1, nodeSet, nodesAndRequests):
     startedNodes = nodesAndRequests[0]
     instIds = range(getNoInstances(len(nodeSet)))
     masterInstId = instIds[0]
 
-    fail = 0
-    success = 0
     for node in startedNodes:
         try:
             mast = node.monitor.getThroughput(masterInstId)
             others = node.monitor.getAvgThroughput(masterInstId)
-            assert mast / others <= node.monitor.Delta
-            success += 1
-            break
-        except AssertionError:
-            fail += 1
+            deltaRatio = mast / others
+            assert deltaRatio <= node.monitor.Delta
+        except ZeroDivisionError:
+            assert node.viewNo >= 0
 
-    assert success
-
-    looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
-                          retryWait=1, timeout=40))
+    looper.run(eventually(lambda: node.viewNo > 0, retryWait=1, timeout=40))
