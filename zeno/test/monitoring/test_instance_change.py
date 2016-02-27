@@ -171,3 +171,20 @@ def testInstChangeWithDiffGreaterThanOmega(looper, nodeSet, client1,
                for node in startedNodes)
     looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
                           retryWait=1, timeout=40))
+
+
+def testInstChangeWithLowerRatioThanDelta(looper, client1, nodeSet, nodesAndRequests):
+    startedNodes = nodesAndRequests[0]
+    instIds = range(getNoInstances(len(nodeSet)))
+    masterInstId = instIds[0]
+
+    for node in startedNodes:
+        try:
+            mast = node.monitor.getThroughput(masterInstId)
+            others = node.monitor.getAvgThroughput(masterInstId)
+            deltaRatio = mast / others
+            assert deltaRatio <= node.monitor.Delta
+        except ZeroDivisionError:
+            assert node.viewNo >= 0
+
+    looper.run(eventually(lambda: node.viewNo > 0, retryWait=1, timeout=40))
