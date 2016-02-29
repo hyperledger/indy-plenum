@@ -37,8 +37,8 @@ def afterElection(setup, up):
 
 
 def testNumOfPrePrepareWithFPlusOneFaults(afterElection,
-                                                  preprepared1,
-                                                  nodeSet: TestNodeSet):
+                                          preprepared1,
+                                          nodeSet: TestNodeSet):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:

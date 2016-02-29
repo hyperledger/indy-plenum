@@ -207,3 +207,8 @@ ThreePhaseMsg = TypeVar("3PhaseMsg",
                         PrePrepare,
                         Prepare,
                         Commit)
+
+ThreePhaseKey = NamedTuple("ThreePhaseKey", [
+                        f.VIEW_NO,
+                        f.PP_SEQ_NO
+                    ])

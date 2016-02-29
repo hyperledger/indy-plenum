@@ -162,10 +162,10 @@ def getMaxFailures(nodeCount: int) -> int:
     :param nodeCount: number of nodes in the system
     :return: maximum permissible Byzantine failures in the system
     """
-    f = floor((nodeCount - 1) / 3)
-    if f < 0:
+    if nodeCount >= 4:
+        return floor((nodeCount - 1) / 3)
+    else:
         return 0
-    return f
 
 
 def getQuorum(nodeCount: int = None, f: int = None) -> int:
@@ -265,6 +265,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     if filename:
         mode = 'w'
         h = logging.FileHandler(filename, mode)
+
     else:
         h = logging.StreamHandler(sys.stdout)
     handlers = [h]
@@ -348,6 +349,7 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
             connmap[b].append(a)
     return connmap
 
+
 def checkPortAvailable(ha):
     available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -360,6 +362,7 @@ def checkPortAvailable(ha):
     finally:
         sock.close()
     return available
+
 
 class MessageProcessor:
     """

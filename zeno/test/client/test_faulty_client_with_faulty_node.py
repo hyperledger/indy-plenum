@@ -1,4 +1,6 @@
 import pytest
+
+from zeno.common.exceptions import InvalidSignature
 from zeno.test.client.conftest import passThroughReqAcked1
 from zeno.test.helper import whitelistNode
 from zeno.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
@@ -20,7 +22,7 @@ def nodeChangesRequest(nodeSet):
     # Alpha should not be blacklisted for Invalid Signature by all other nodes
     whitelistNode(alpha.name,
                   [node for node in nodeSet if node != alpha],
-                  100)
+                  InvalidSignature.code)
     makeNodeFaulty(alpha, changesRequest,)
 
 

@@ -17,7 +17,7 @@ PrimaryDecider = PrimarySelector
 
 
 @pytest.fixture()
-def primaryReplicas(nodeSet):
+def primaryReplicas(nodeSet, up):
     instanceCount = getNoInstances(nodeCount)
     return [getPrimaryReplica(nodeSet, i) for i in range(instanceCount)]
 
@@ -25,8 +25,8 @@ def primaryReplicas(nodeSet):
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
     """
-    Once the pool is ready(node has connected to at least 3 other nodes), appropriate primary
-    replicas should be selected.
+    Once the pool is ready(node has connected to at least 3 other nodes),
+    appropriate primary replicas should be selected.
     """
 
     def checkPrimaryPlacement():

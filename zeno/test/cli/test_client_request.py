@@ -3,20 +3,20 @@ from zeno.test.eventually import eventually
 from zeno.test.helper import checkSufficientRepliesRecvd
 
 
-def testClientRequest(cli, validNodeNames, looper, allNodesUp):
+def testClientRequest(cli, validNodeNames, cliLooper, createAllNodes):
     """
     Test client sending request and checking reply and status
     """
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
-    looper.runFor(3)
+    cliLooper.runFor(3)
     # Send request to all nodes
     cli.enterCmd('client {} send {}'.format(cName, '{"Hello"}'))
     client = cli.clients[cName]
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
-    looper.run(eventually(
+    cliLooper.run(eventually(
                 checkSufficientRepliesRecvd,
                 client.inBox,
                 client.lastReqId,

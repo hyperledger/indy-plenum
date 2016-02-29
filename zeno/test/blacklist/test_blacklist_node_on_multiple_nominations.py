@@ -8,7 +8,6 @@ whitelist = ['already got nomination',
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-@pytest.mark.xfail(reason="blacklisting over nomination is disabled")
 def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
     """
     A node that sends multiple nominations must be blacklisted by other nodes
@@ -16,9 +15,9 @@ def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
     nodeSet = keySharedNodes
     A, B, C, D = nodeSet.nodes.values()
 
-    # B sends more than one nomination
-    B.send(Nomination(D.name, 0, B.viewNo))
-    B.send(Nomination(D.name, 0, B.viewNo))
+    # B sends more than 2 nominations
+    for i in range(3):
+        B.send(Nomination(D.name, 0, B.viewNo))
 
     # B should be blacklisted by A, C, D
     def chk():

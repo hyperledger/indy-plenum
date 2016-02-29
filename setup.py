@@ -42,7 +42,7 @@ exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 REQ = {'SERVER': ['raet'],
        'COMMON': ['jsonpickle'],
-       'CLI': ['prompt_toolkit'],
+       'CLI': ['prompt_toolkit', 'pygments'],
        'TEST': ['pytest']}
 REQUIRES = set(sum(REQ.values(), []))
 EXTRAS = {}
