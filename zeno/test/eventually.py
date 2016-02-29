@@ -15,7 +15,8 @@ logger = getlogger()
 
 FlexFunc = TypeVar('flexFunc', CoroWrapper, Callable[[], T])
 
-# increase this number to allow evenutally to change timeouts proportionatly
+
+# increase this number to allow eventually to change timeouts proportionatly
 def getSlowFactor():
     numOfCpus = os.cpu_count()
     if numOfCpus == 8 or numOfCpus is None:

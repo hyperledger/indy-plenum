@@ -971,8 +971,8 @@ async def msgAll(nodes: TestNodeSet):
 async def sendMsgAndCheck(nodes: TestNodeSet,
                           frm: NodeRef,
                           to: NodeRef,
-                          msg: Optional[Tuple] = None,
-                          timeout: Optional[int] = 15
+                          msg: Optional[Tuple]=None,
+                          timeout: Optional[int]=15
                           ):
     logging.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
