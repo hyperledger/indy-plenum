@@ -3,7 +3,7 @@ from zeno.test.eventually import eventually
 from zeno.test.helper import checkSufficientRepliesRecvd
 
 
-def testClientRequest(cli, validNodeNames, cliLooper, allNodesUp):
+def testClientRequest(cli, validNodeNames, cliLooper, createAllNodes):
     """
     Test client sending request and checking reply and status
     """
