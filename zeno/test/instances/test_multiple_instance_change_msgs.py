@@ -9,7 +9,6 @@ from zeno.test.helper import getAllArgs, getNodeSuspicions
 
 nodeCount = 7
 
-
 @pytest.mark.xfail(reason="Not yet implemented")
 def testDuplicateInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     maliciousNode = nodeSet.Alpha

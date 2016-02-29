@@ -27,5 +27,5 @@ def run(test, stopOnFail=True, maxTimes=None):
         print("current stats: successes: {} fails: {}".format(passes, fails))
 
 
-run("monitoring/test_instance_change.py::testStep2",
+run("monitoring/test_instance_change_with_Delta.py",
     stopOnFail=False, maxTimes=100)

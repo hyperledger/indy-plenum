@@ -877,10 +877,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     return
             else:
                 if self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                    logger.debug("{} already received instance change request "
-                                 "with view no {} from {}".
-                                 format(self, instChg.viewNo, frm))
-                    return
+                    self.reportSuspiciousNode(frm,
+                                              code=Suspicions.DUPLICATE_INST_CHNG)
                 else:
                     self.instanceChanges.addVote(instChg.viewNo, frm)
 

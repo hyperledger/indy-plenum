@@ -17,12 +17,7 @@ whitelist = ["discarding message"]
 
 """
 We start with a 7 node consensus pool
-7 nodes, means we must have an f value of 2
-An f value of 2 means we must have 3 instances:
-    1 master instance
-    2 backup instances
-the master instance has a primary replica, call it P
-verify P is performing well
+Lets call the master instance's primary replica P
 make P faulty: slow to send PRE-PREPAREs
 verify that throughput has dropped
 verify a view change happens
@@ -40,11 +35,12 @@ def step1(looper, startedNodes, up, client1):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    requests = sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,
-                 nodes=startedNodes)
+                 nodes=startedNodes,
+                 requests=requests)
 
 
 @pytest.fixture(scope="module")
@@ -62,13 +58,11 @@ def step2(step1, looper):
 
     # verify all nodes say that P is performing OK, and that no view changes
     # have been proposed
-    # TODO This is failing intermittently. Our thresholds may be too stringent.
     for n in step1.nodes:
         assert n.viewNo == 0
         assert newPerfChecks[n.name].result  # True: no view change proposed
 
     # verify Primary is still the same
-    # TODO This is failing intermittently. Our thresholds may be too stringent.
     assert getPrimaryReplica(step1.nodes) == step1.P
 
     step1.perfChecks = newPerfChecks
@@ -82,8 +76,7 @@ def latestPerfChecks(nodes):
     :param nodes: an iterable of Node
     :return: a dictionary of node names to the most recent checkPerformance call
     """
-    return {n.name: n.spylog.getLast(Node.checkPerformance.__name__)
-            for n in nodes}
+    return {n.name: n.spylog.getLast(Node.checkPerformance) for n in nodes}
 
 
 def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
@@ -103,10 +96,6 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
                                           retryWait=1,
                                           timeout=perfCheckFreq + 1))
     return newPerfChecks
-
-
-def testStep2(step2):
-    print("Done")
 
 
 @pytest.fixture(scope="module")
@@ -134,40 +123,4 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, client1):
     #     assert newPerfChecks[n.name].result is False
 
     # verify all nodes have undergone an instance change
-    for n in step3.nodes:
-        assert n.viewNo == 1
-
-
-@pytest.mark.xfail(reason="Monitor stats are reset on view change. Delaying "
-                          "the "
-                          "request this way will drop the throughput request "
-                          "latency check wont be triggered")
-def testInstChangeWithMoreReqLat(looper, nodesAndRequests):
-    # TODO: Set Delta to be high so that throughput check always passes but
-    # latency check fails
-    startedNodes, requests = nodesAndRequests
-    for node in startedNodes:
-        assert any(node.monitor.masterReqLatencies[(rq.clientId, rq.reqId)] >=
-                   node.monitor.Lambda for rq in requests)
-    looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
-                          retryWait=1, timeout=40))
-
-
-@pytest.mark.xfail(reason="Monitor stats are on view change. Delaying the "
-                          "request this way will drop the throughput request "
-                          "latency check wont be triggered")
-def testInstChangeWithDiffGreaterThanOmega(looper, nodeSet, client1,
-                                           nodesAndRequests):
-    # TODO: Set Delta to be high so that throughput check always passes. Also
-    # have requests from multiple clients and delay requests only from a
-    # particular client and set Lambda to be high enough that test for master
-    # request latency passes but test for Omega fails
-    startedNodes = nodesAndRequests[0]
-    instIds = range(getNoInstances(len(nodeSet)))
-    masterInstId = instIds[0]
-    backupInstIds = instIds[1:]
-    assert any(node.monitor.getAvgLatencyForClient(client1, masterInstId) -
-               node.monitor.getAvgLatencyForClient(*backupInstIds) >= node.monitor.Omega
-               for node in startedNodes)
-    looper.run(eventually(partial(checkViewNoForNodes, startedNodes, 1),
-                          retryWait=1, timeout=40))
+    checkViewNoForNodes(step3.nodes, 1)

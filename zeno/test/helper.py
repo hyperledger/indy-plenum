@@ -28,6 +28,8 @@ from zeno.common.util import randomString, error, getMaxFailures, \
 from raet.raeting import AutoMode, TrnsKind, PcktKind
 
 from zeno.server.client_authn import SimpleAuthNr
+from zeno.server.instances import Instances
+from zeno.server.monitor import Monitor
 from zeno.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
 from zeno.server.primary_elector import PrimaryElector
 from zeno.test.eventually import eventually, eventuallyAll
@@ -183,6 +185,12 @@ class TestClient(Client, StackedTester):
         return txnIds
 
 
+@Spyable(methods=[Monitor.isMasterThroughputTooLow,
+                    Monitor.isMasterReqLatencyTooHigh])
+class TestMonitor(Monitor):
+    pass
+
+
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -247,6 +255,13 @@ class TestNode(Node, StackedTester):
 
         self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
 
+        # Reinitialize the monitor
+        d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
+        self.instances = Instances()
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances)
+        for i in range(len(self.replicas)):
+            self.monitor.addInstance()
+
     @staticmethod
     def stackType():
         return TestStack
@@ -287,6 +302,8 @@ class TestNode(Node, StackedTester):
         logging.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays()
+        for r in self.replicas:
+            r.outBoxTestStasher.resetDelays()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedNodes:
