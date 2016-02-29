@@ -343,6 +343,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.checkInstances()
             if isinstance(self.elector, PrimaryElector):
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
+                logger.debug("{} has msgs {} for new nodes {}".format(self,
+                                                                      msgs, newConns))
                 for n in newConns:
                     self.sendElectionMsgsToLaggedNode(n, msgs)
 

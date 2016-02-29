@@ -223,8 +223,6 @@ class Replica(MessageProcessor):
                 self.outBox.append(ex)
                 self.discard(ex.msg, ex.reason, logger.warning)
 
-
-
     def _stashInBox(self, msg):
         """
         Stash the specified message into the inBoxStash of this replica.
@@ -392,7 +390,6 @@ class Replica(MessageProcessor):
         try:
             self.threePhaseRouter.handleSync((msg, senderRep))
         except SuspiciousNode as ex:
-            # self.node.reportSuspiciousNode(nodeName, suspicion.reason, suspicion.code)
             self.node.reportSuspiciousNodeEx(ex)
 
     def processReqDigest(self, rd: ReqDigest):

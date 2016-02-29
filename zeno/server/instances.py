@@ -1,9 +1,8 @@
 from typing import Optional, Sequence
-
 import time
 
 
-class Instances:  # TODO Change to Instances:
+class Instances:
     def __init__(self):
         self.count = 0
 

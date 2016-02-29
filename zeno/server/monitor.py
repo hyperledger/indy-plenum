@@ -154,15 +154,10 @@ class Monitor:
         instances.
         """
         masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
-        # logger.debug("{}'s master throughput is {}, average backup throughput "
-        #              "is {}".format(self, masterThrp, backupThrp))
 
         # Backup throughput may be 0 so moving ahead only if it is not 0
         r = masterThrp / backupThrp if backupThrp and masterThrp is not None \
             else None
-        # logger.debug("{} ratio of master throughput to average backup "
-        #              "throughput is {} and Delta is {}".
-        #              format(self, r, self.Delta))
         return r
 
     def isMasterThroughputTooLow(self):

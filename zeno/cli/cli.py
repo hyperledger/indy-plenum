@@ -379,11 +379,9 @@ Commands:
         f = getMaxFailures(len(self.nodes))
         self.print("f-value (number of possible faulty nodes): {}".format(f))
         if f != 0 and len(self.nodes) >= 2 * f + 1:
-            firstNode = list(self.nodes.values())[0]
-            mPrimary = firstNode.replicas[firstNode.masterId].primaryName
-            backups = [r for r in firstNode.replicas
-                       if r.instId != firstNode.masterId]
-            bPrimary = backups[0].primaryName
+            node = list(self.nodes.values())[0]
+            mPrimary = node.replicas[node.instances.masterId].primaryName
+            bPrimary = node.replicas[node.instances.backupIds[0]].primaryName
             self.print("Instances: {}".format(f + 1))
             self.print("   Master (primary is on {})".
                        format(Replica.getNodeName(mPrimary)))
