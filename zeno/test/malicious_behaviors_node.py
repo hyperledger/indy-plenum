@@ -7,6 +7,7 @@ from zeno.common.request_types import Propagate, Request, \
 
 from zeno.common import util
 from zeno.common.util import getlogger, updateNamedTuple
+from zeno.server.replica import TPCStat
 from zeno.test.helper import TestNode, TestReplica
 from zeno.test.helper import ppDelay
 
@@ -45,7 +46,7 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
         prePrepare = PrePrepare(self.instId, self.viewNo,
                                 self.prePrepareSeqNo, *reqDigest)
         self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
-        sendDup(self, prePrepare, count)
+        sendDup(self, prePrepare, TPCStat.PrePrepareSent, count)
 
     def evilSendPrepare(self, request):
         logger.debug("EVIL: Creating prepare message for request {}".
@@ -55,7 +56,7 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
                           request.ppSeqNo,
                           request.digest)
         self.addToPrepares(prepare, self.name)
-        sendDup(self, prepare, count)
+        sendDup(self, prepare, TPCStat.PrepareSent, count)
 
     def evilSendCommit(self, request):
         logger.debug("EVIL: Creating commit message for request {}".
@@ -65,11 +66,11 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
                         request.ppSeqNo,
                         request.digest)
         self.addToCommits(commit, self.name)
-        sendDup(self, commit, count)
+        sendDup(self, commit, TPCStat.CommitSent, count)
 
-    def sendDup(sender, msg, count: int):
+    def sendDup(sender, msg, stat, count: int):
         for i in range(count):
-            sender.send(msg)
+            sender.send(msg, stat)
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,
@@ -89,11 +90,11 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     evilMethod = types.MethodType(evilMethod, replica)
 
     if msgType == PrePrepare:
-        replica.sendPrePrepare = evilMethod
+        replica.doPrePrepare = evilMethod
     elif msgType == Prepare:
-        replica.sendPrepare = evilMethod
+        replica.doPrepare = evilMethod
     elif msgType == Commit:
-        replica.sendCommit = evilMethod
+        replica.doCommit = evilMethod
     else:
         util.error("Not a 3 phase message")
 
@@ -117,7 +118,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prePrepare = PrePrepare(self.instId, self.viewNo,
                                 self.prePrepareSeqNo, *reqDigest)
         self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
-        self.send(prePrepare)
+        self.send(prePrepare, TPCStat.PrePrepareSent)
 
     def evilSendPrepare(self, request):
         logger.debug("EVIL: Creating prepare message for request {}".
@@ -128,7 +129,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           request.ppSeqNo,
                           digest)
         self.addToPrepares(prepare, self.name)
-        self.send(prepare)
+        self.send(prepare, TPCStat.PrepareSent)
 
     def evilSendCommit(self, request):
         logger.debug("EVIL: Creating commit message for request {}".
@@ -138,8 +139,9 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                         request.viewNo,
                         request.ppSeqNo,
                         digest)
+        self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
-        self.send(commit)
+
 
     methodMap = {
         PrePrepare: evilSendPrePrepareRequest,

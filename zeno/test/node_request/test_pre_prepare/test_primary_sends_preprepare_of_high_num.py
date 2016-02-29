@@ -1,4 +1,5 @@
 from zeno.common.request_types import ReqDigest, PrePrepare
+from zeno.server.replica import TPCStat
 from zeno.server.suspicion_codes import Suspicions
 from zeno.test.eventually import eventually
 from zeno.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNodeSuspicions
@@ -19,7 +20,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, client1, propagated1):
     primary = getPrimaryReplica(nodeSet, instId)
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
     req = propagated1.reqDigest
-    primary.sendPrePrepare(req)
+    primary.doPrePrepare(req)
     for np in nonPrimaryReplicas:
         looper.run(
                 eventually(checkPreprepare, np, primary.viewNo, primary.prePrepareSeqNo - 1,
@@ -31,5 +32,5 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, client1, propagated1):
                                primary.viewNo,
                                primary.prePrepareSeqNo + 2,
                                *newReqDigest)
-    primary.send(incorrectPrePrepareReq)
+    primary.send(incorrectPrePrepareReq,TPCStat.PrePrepareSent)
     looper.run(eventually(chk, retryWait=1, timeout=50))

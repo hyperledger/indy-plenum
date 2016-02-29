@@ -21,7 +21,7 @@ from raet.raeting import AutoMode
 
 from zeno.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, InvalidSignature
+    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc
 from zeno.common.motor import Motor
 from zeno.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
@@ -34,6 +34,7 @@ from zeno.server import primary_elector
 from zeno.server.blacklister import Blacklister, SimpleBlacklister
 from zeno.server.client_authn import ClientAuthNr, SimpleAuthNr
 from zeno.server.has_action_queue import HasActionQueue
+from zeno.server.instances import Instances
 from zeno.server.models import InstanceChanges
 from zeno.server.monitor import Monitor
 from zeno.server.primary_decider import PrimaryDecider
@@ -127,9 +128,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.txnStore = TransactionStore()
 
-        # Stores which protocol instance is master
-        self._masterInst = None  # type: Optional[int]
-
         self.replicas = []  # type: List[replica.Replica]
 
         self.instanceChanges = InstanceChanges()
@@ -142,7 +140,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.forwardedRequests = set()  # type: Set[Tuple[(str, int)]]
 
-        self.monitor = Monitor(.9, 60, 5)
+        self.instances = Instances()
+
+        self.monitor = Monitor(self.name,
+                               Delta=.8, Lambda=60, Omega=5,
+                               instances=self.instances)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
@@ -216,29 +218,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return self.primaryDecider
         else:
             return primary_elector.PrimaryElector(self)
-
-    @property
-    def masterInst(self):
-        """
-        Return the index of the replica that belongs to the master protocol
-        instance
-        """
-        return self._masterInst
-
-    @masterInst.setter
-    def masterInst(self, value):
-        """
-        Set the value of masterProt to the specified value
-        """
-        self._masterInst = value
-
-    @property
-    def nonMasterInsts(self):
-        """
-        Return the list of replicas that don't belong to the master protocol
-        instance
-        """
-        return [i for i in range(len(self.replicas)) if i != self.masterInst]
 
     @property
     def nodeCount(self) -> int:
@@ -427,7 +406,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         """
         instId = len(self.replicas)
         if len(self.replicas) == 0:
-            self.masterInst = 0
             isMaster = True
             instDesc = "master"
         else:
@@ -477,6 +455,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     self.send(msg)
                 elif isinstance(msg, Ordered):
                     self.processOrdered(msg)
+                elif isinstance(msg, Exception):
+                    self.processEscalatedException(msg)
                 else:
                     logger.error("Received msg {} and don't know how to "
                                  "handle it".format(msg))
@@ -559,6 +539,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param msg: the node message to validate
         """
         if msg.instId >= len(self.msgsToReplicas):
+            # TODO should we raise suspicion here?
             self.discard(msg, "non-existent protocol instance {}"
                          .format(msg.instId))
             return False
@@ -598,10 +579,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             if vmsg:
                 self.unpackNodeMsg(*vmsg)
         except SuspiciousNode as ex:
-            msg, frm = wrappedMsg
-            exc = ex.__cause__ if ex.__cause__ else ex
-            self.reportSuspiciousNode(frm, exc)
-            self.discard(msg, exc)
+            self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
             msg, frm = wrappedMsg
             self.discard(msg, ex)
@@ -632,8 +610,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             raise InvalidNodeMsg from ex
         try:
             self.verifySignature(cMsg)
-        except Exception as ex:
-            raise SuspiciousNode from ex
+        # TODO why must we catch and raise? Is there a way to know earlier that
+        # the signature exception is suspicious? If so, how suspicious?
+        except BaseExc as ex:
+            raise SuspiciousNode(frm, ex, cMsg) from ex  # TODO are both needed?
         logger.debug("{} received node message from {}: {}".
                      format(self, frm, cMsg),
                      extra={"cli": False})
@@ -671,9 +651,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             try:
                 await self.nodeMsgRouter.handle(m)
             except SuspiciousNode as ex:
-                _, frm = m
-                exc = ex.__cause__ if ex.__cause__ else ex
-                self.reportSuspiciousNode(frm, exc)
+                self.reportSuspiciousNodeEx(ex)
                 self.discard(m, ex)
 
     def handleOneClientMsg(self, wrappedMsg):
@@ -835,11 +813,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.monitor.requestOrdered(clientId,
                                     reqId,
                                     instId,
-                                    byMaster=(instId == self.masterInst))
+                                    byMaster=(instId == self.instances.masterId))
 
         # Only the request ordered by master protocol instance are executed by
         # the client
-        if instId == self.masterInst:
+        if instId == self.instances.masterId:
             key = (clientId, reqId)
             if key in self.requests:
                 req = self.requests[key].request
@@ -861,6 +839,15 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.trace("{} got ordered request from backup replica".
                          format(self))
 
+    def processEscalatedException(self, ex):
+        """
+        Process an exception escalated from a Replica
+        """
+        if isinstance(ex, SuspiciousNode):
+            self.reportSuspiciousNodeEx(ex)
+        else:
+            raise RuntimeError("unhandled replica-escalated exception") from ex
+
     def processInstanceChange(self, instChg: InstanceChange, frm: str) -> None:
         """
         Validate and process an instance change request.
@@ -871,25 +858,26 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug("Node {} received instance change request: {} from {}".
                      format(self, instChg, frm))
         if instChg.viewNo < self.viewNo:
-            self.discard(instChg, "Received instance change request with view"
-                                    " no {} which is less than its view no {}"
-                         .format(instChg.viewNo, self.viewNo), logger.debug)
+            self.discard(instChg,
+                         "Received instance change request with view no {} "
+                         "which is less than its view no {}".
+                         format(instChg.viewNo, self.viewNo), logger.debug)
         else:
             if not self.instanceChanges.hasView(instChg.viewNo):
-                if self.isMasterSlow:
+                if self.monitor.isMasterDegraded():
                     self.instanceChanges.addVote(instChg.viewNo, frm)
                     self.sendInstanceChange(instChg.viewNo)
                 else:
-                    self.discard(instChg, "received instance change message "
-                                            "from {} but did not find the "
-                                            "master to be slow"
-                                 .format(frm), logger.debug)
+                    self.discard(instChg,
+                                 "received instance change message from {} but "
+                                 "did not find the master to be slow".
+                                 format(frm), logger.debug)
                     return
             else:
                 if self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
                     logger.debug("{} already received instance change request "
-                                 "with view no {} from {}"
-                                 .format(self, instChg.viewNo, frm))
+                                 "with view no {} from {}".
+                                 format(self, instChg.viewNo, frm))
                     return
                 else:
                     self.instanceChanges.addVote(instChg.viewNo, frm)
@@ -905,99 +893,24 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def checkPerformance(self):
         """
         Check if master instance is slow and send an instance change request.
+        :returns True if master performance is OK, otherwise False
         """
         logger.debug("{} checking its performance".format(self))
-        if self.masterInst is not None:
-            if self.isMasterSlow:
-                logger.debug("{}'s master has lower performance than backups. "
-                             "Sending an instance change with viewNo {}".
-                             format(self, self.viewNo))
+        self._schedule(self.checkPerformance, self.perfCheckFreq)
+
+        if self.instances.masterId is not None:
+            if self.monitor.isMasterDegraded():
+                logger.info("{} master has lower performance than backups. "
+                            "Sending an instance change with viewNo {}".
+                            format(self, self.viewNo))
+                logger.info("{} metrics for monitor: {}".
+                            format(self, self.monitor.prettymetrics))
                 self.sendInstanceChange(self.viewNo)
+                return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
                              format(self))
-
-        self._schedule(self.checkPerformance, self.perfCheckFreq)
-
-    @property
-    def isMasterSlow(self):
-        """
-        Return whether the master instance is slow.
-        """
-        return self.masterInst is not None and \
-               (self.lowMasterThroughput or
-                self.highMasterReqLatency or
-                self.highMasterAvgReqLatency)
-
-    @property
-    def lowMasterThroughput(self):
-        """
-        Return whether the throughput of the master instance is greater than the
-        acceptable threshold
-        """
-        masterThrp, backupThrp = self.monitor.getThroughputs(self.masterInst)
-        logger.debug("{}'s master throughput is {}, average backup throughput "
-                     "is {}".format(self, masterThrp, backupThrp))
-
-        # Backup throughput may be 0 so moving ahead only if it is not 0
-        if not backupThrp or masterThrp is None:
-            return False
-
-        r = masterThrp / backupThrp
-        logger.debug("{}'s ratio of master throughput to average backup "
-                     "throughput is {} and Delta is {}".
-                     format(self, r, self.monitor.Delta))
-        if r < self.monitor.Delta:
-            logger.debug("{}'s master throughput is lower.".format(self))
-            return True
-        else:
-            logger.debug("{}'s master throughput is ok.".format(self))
-            return False
-
-    @property
-    def highMasterReqLatency(self):
-        """
-        Return whether the request latency of the master instance is greater
-        than the acceptable threshold
-        """
-        r = any([lat > self.monitor.Lambda for lat
-                 in self.monitor.masterReqLatencies.values()])
-        if r:
-            logger.debug("{} found master's latency to be higher than the "
-                         "threshold for some or all requests.".format(self))
-        else:
-            logger.debug("{} found master's latency to be lower than the "
-                         "threshold for all requests.".format(self))
-        return r
-
-    @property
-    def highMasterAvgReqLatency(self):
-        """
-        Return whether the average request latency of the master instance is
-        greater than the acceptable threshold
-        """
-        avgLatM = self.monitor.getAvgLatency(self.masterInst)
-        avgLatB = self.monitor.getAvgLatency(*self.nonMasterInsts)
-        logger.debug("{}'s master's avg request latency is {} and backup's "
-                     "avg request latency is {} ".
-                     format(self, avgLatM, avgLatB))
-        r = False
-        # If latency of the master for any client is greater than that of
-        # backups by more than the threshold `Omega`, then a view change
-        # needs to happen
-        for cid, lat in avgLatB.items():
-            if avgLatM[cid] - lat > self.monitor.Omega:
-                r = True
-                break
-        if r:
-            logger.debug("{} found difference between master's and backups's "
-                         "avg latency to be higher than the threshold".
-                         format(self))
-        else:
-            logger.debug("{} found difference between master's and backups's "
-                         "avg latency to be lower than the threshold".
-                         format(self))
-        return r
+        return True
 
     def executeRequest(self, viewNo: int, req: Request) -> None:
         """
@@ -1142,17 +1055,28 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
 
-    def reportSuspiciousNode(self, nodeName: str, reason=None, code: int=None):
-        logger.warning("{} suspicion raised on node {} for {}; "
-                       "doing nothing for now. Suspicion code is {}".
-                       format(self, nodeName, reason, code))
-        if isinstance(reason, InvalidSignature):
-            self.blacklistNode(nodeName, reason=reason, code=100)
+    def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
+        self.reportSuspiciousNode(ex.node, ex.reason, ex.code, ex.offendingMsg)
+
+    def reportSuspiciousNode(self,
+                             nodeName: str,
+                             reason=None,
+                             code: int=None,
+                             offendingMsg=None):
+        logger.warning("{} suspicion raised on node {} for {}; suspicion code "
+                       "is {}".format(self, nodeName, reason, code))
+        # TODO need a more general solution here
+        if code == InvalidSignature.code:
+            self.blacklistNode(nodeName,
+                               reason=InvalidSignature.reason,
+                               code=InvalidSignature.code)
 
         if code in self.suspicions:
             self.blacklistNode(nodeName,
                                reason=self.suspicions[code],
                                code=code)
+        if offendingMsg:
+            self.discard(offendingMsg, reason, logger.warning)
 
     def reportSuspiciousClient(self, clientName: str, reason):
         logger.warning("{} suspicion raised on client {} for {}; "
@@ -1203,7 +1127,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     format(time.perf_counter() - self.nextCheck))
         l("node connections        : {}".format(self._conns))
         l("f                       : {}".format(self.f))
-        l("master instance         : {}".format(self._masterInst))
+        l("master instance         : {}".format(self.instances.masterId))
         l("replicas                : {}".format(len(self.replicas)))
         l("view no                 : {}".format(self.viewNo))
         l("rank                    : {}".format(self.rank))

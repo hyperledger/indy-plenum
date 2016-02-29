@@ -10,20 +10,20 @@ python3 -m pytest
 
 Jason recommends Grep Console if using PyCharm
 
+Because we have PortDispenser, our tests won't trip over each others 
+ports. This means we can run tests in parallel, even when they are run from 
+different python interpreters. (Hint, we're using good (arguable) old-fashioned 
+(no question) file locking as a system-wide semaphore.)
 
-# TODO this should be AutoMode.none: look at keeping.py
-# poll for connection state for now, but a comment to go back and add event publishing
+To speed up tests, Jason recommends using the xdist plugin: 
 
+https://pytest.org/latest/xdist.html
+
+
+# TODO poll for connection state for now, but a comment to go back and add event publishing
 # joins can be allowed either way, but roles can control that
-
-# change channel mode to immutable
-
 # TODO establish list of faults (malicious and otherwise) and build tests for these
-# TODO stand up a "cluster" of nodes that know who each other are and work to establish
-#     connections with each other cooperatively
-
 # TODO tests for adding and removing servers from the pool
-
 # TODO Benign faults
 """
 1. Replicas only accept PRE-PREPARE, PREPARE and COMMIT message when the replica is in the same view number as these
@@ -47,59 +47,7 @@ from node for ordering
 """
 
 
-@pytest.skip
-def testTxnValidation():
-    # TODO JASON: convert existing TestNodeSet to use a long-running serviceNodes loop, like in example3
-    # TODO LOVESH: create an API that receives a JSON transaction, and responds with a server-sent event (SSE)
-    # TODO LOVESH: create a client for that REST API
-    # TODO set up Nodes as asynchronous REST servers (aiohttp)
-    # TODO send a transaction from the client to the node
-    # TODO validate the transaction is properly formed and valid
-    pass
-
-
-@pytest.skip
-def testTxnPropagation():
-    # TODO select a primary (elect a leader)
-    # TODO any node that receives a transaction must propagate it to all other nodes
-    # TODO all other nodes vote on that transaction and send their decision to the primary (leader)
-
     """
-    f = 1
-    nodeNames = genNodeNames(3*f + 1)
-    with self.subTestV("share keys"):
-        with TestNodeSet(names=nodeNames, auto=AutoMode.always) as nodes:
-            Looper(nodes).run(self.connectAll(nodes))
-
-    # all nodes receives a request from client
-    # TODO: Make client do this broadcast
-    msg = PropagateMsg("c1", "o1", "r1")
-
-    # Propagate message to all nodes if message is valid
-    with self.subTestV("send propagate message to all nodes"):
-        with TestNodeSet(names=nodeNames, auto=AutoMode.always) as nodes:
-            for i, node in enumerate(nodes):
-                if node.validate_propogated_msg(msg):
-                    other_nodes = nodes[:i] + nodes[i+1:]
-                    map(lambda n: node.transmit(msg._asdict(), node.name), other_nodes)
-    """
-
-"""
-TODO
-add a transaction to a node
-propagate a transaction across nodes
-verify transaction
-vote on transaction
-commit transaction
-elect a leader (new primary)
-failover to a new leader (other instance)
-multiple protocol instances: Master, Backup
-    With each protocal instance, you have...
-        primary (leader node), and
-        replicas (non-leader nodes)
-respond to all the conditions in the README
-Test what happens if the number of nodes drops below 4
-"""
 
 """ RBFT Doc Scenarios
 
