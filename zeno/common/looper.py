@@ -15,7 +15,7 @@ logger = getlogger()
 class Prodable:
     """
     An interface for declaring classes that can be started and prodded. When an
-    object is prodedd, it just means that the event loop is giving it a chance
+    object is prodded, it just means that the event loop is giving it a chance
     to do something.
     """
 
@@ -59,7 +59,7 @@ class Looper:
     def __init__(self,
                  prodables: List[Prodable]=None,
                  loop=None,
-                 debug=True,
+                 debug=False,
                  autoStart=True):
         """
         Initialize looper with an event loop.

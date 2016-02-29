@@ -4,17 +4,19 @@ from __future__ import unicode_literals
 import configparser
 import os
 from configparser import ConfigParser
-from functools import reduce, partial
-import logging
-import sys
-from collections import defaultdict, OrderedDict
-import time
-
 import zeno.cli.ensure_logging_not_setup
+
+import time
 
 from prompt_toolkit.history import FileHistory
 
+from functools import reduce, partial
+import logging
+import sys
+from collections import defaultdict
+
 from ioflo.aid.consoling import Console
+
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -26,11 +28,12 @@ from prompt_toolkit.layout.lexers import SimpleLexer
 from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
-
 from zeno.client.client import Client
 from zeno.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, checkPortAvailable, getMaxFailures
+    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from zeno.server.node import Node, CLIENT_STACK_SUFFIX
+from zeno.server.replica import Replica
+from collections import OrderedDict
 
 
 class CustomOutput(Vt100_Output):
@@ -38,6 +41,7 @@ class CustomOutput(Vt100_Output):
     Subclassing Vt100 just to override the `ask_for_cpr` method which prints
     an escape character on the console. Not printing the escape character
     """
+
     def ask_for_cpr(self):
         """
         Asks for a cursor position report (CPR).
@@ -46,13 +50,13 @@ class CustomOutput(Vt100_Output):
 
 
 class Cli:
-
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
 
     # noinspection PyPep8
-    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, debug=False):
+    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, debug=False,
+                 logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
@@ -101,12 +105,19 @@ class Cli:
             "(\s* (?P<command>{}) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
             "?P<node_or_cli>{}) )?\s*) "
             "|".format(re(self.commands), re(self.node_or_cli)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+)(?P<more_clients>(,\s*[a-zA-Z0-9]+)*) \s*) |".format(re(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*) |".format(re(self.nodeCmds)),
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)".format(os.path.sep)
-            ]
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ "
+            "(?P<client_name>[a-zA-Z0-9]+)(?P<more_clients>(,\s*[a-zA-Z0-9]+)*) "
+            "\s*) |".format(re(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ "
+            "(?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*)"
+            " |".format(re(self.nodeCmds)),
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) "
+            "\s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ "
+            "(?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)"
+                .format(os.path.sep)
+        ]
 
         self.grammar = compile("".join(grams))
 
@@ -167,16 +178,16 @@ class Cli:
                                         style=self.style,
                                         history=pers_hist)
         self.cli = CommandLineInterface(
-                application=app,
-                eventloop=eventloop,
-                output=CustomOutput.from_pty(sys.__stdout__, true_color=True))
+            application=app,
+            eventloop=eventloop,
+            output=CustomOutput.from_pty(sys.__stdout__, true_color=True))
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
         setupLogging(TRACE_LOG_LEVEL,
                      Console.Wordage.mute,
-                     filename="log/cli.log")
+                     filename=logFileName)
 
         self.logger = getlogger("cli")
         self.print("\nzeno-CLI (c) 2016 Evernym, Inc.")
@@ -360,25 +371,25 @@ Commands:
             self.print("No nodes are running. Try typing 'new node <name>'.")
         else:
             self.printNames(self.nodes, newline=True)
-        clients = ""
         if not self.clients:
             clients = "No clients are running. Try typing 'new client <name>'."
         else:
             clients = ",".join(self.clients.keys())
-        self.print("Clients: "+clients)
+        self.print("Clients: " + clients)
         f = getMaxFailures(len(self.nodes))
         self.print("f-value (number of possible faulty nodes): {}".format(f))
-        if f != 0 and len(self.nodes) >= 2*f + 1:
-            firstNode = list(self.nodes.values())[0]
-            mPrimary = firstNode.replicas[firstNode.masterInst].primaryName
-            backups = [v for k, v in enumerate(firstNode.replicas)
-                      if k != firstNode.masterInst]
-            bPrimary = backups[0].primaryName
-            self.print("Instances: {}".format(f+1))
-            self.print("   Master (primary is {})".format(mPrimary[:-2]))
-            self.print("   Backup (primary is {})".format(bPrimary[:-2]))
+        if f != 0 and len(self.nodes) >= 2 * f + 1:
+            node = list(self.nodes.values())[0]
+            mPrimary = node.replicas[node.instances.masterId].primaryName
+            bPrimary = node.replicas[node.instances.backupIds[0]].primaryName
+            self.print("Instances: {}".format(f + 1))
+            self.print("   Master (primary is on {})".
+                       format(Replica.getNodeName(mPrimary)))
+            self.print("   Backup (primary is on {})".
+                       format(Replica.getNodeName(bPrimary)))
         else:
-            self.print("Instances: Not enough nodes to create protocol instances")
+            self.print("Instances: "
+                       "Not enough nodes to create protocol instances")
 
     def keyshare(self, nodeName):
         node = self.nodes.get(nodeName, None)
@@ -386,12 +397,12 @@ Commands:
             node = self.nodes[nodeName]
             node.startKeySharing()
         elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'. ".format(nodeName))]
+            tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
             self.printTokens(tokens)
             self.showValidNodes()
             return
         else:
-            tokens = [(Token.Error, "Node '{}' not started. ".format(nodeName))]
+            tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
             self.printTokens(tokens)
             self.showStartedNodes()
             return
@@ -412,7 +423,8 @@ Commands:
         if nodeName == "all":
             names = set(self.nodeReg.keys()) - set(self.nodes.keys())
         elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'. ".format(nodeName))]
+            tokens = [
+                (Token.Error, "Invalid node name '{}'. ".format(nodeName))]
             self.printTokens(tokens)
             self.showValidNodes()
             return
@@ -450,18 +462,22 @@ Commands:
         if clientId not in self.clients:
             self.print("client not found", Token.Error)
         else:
-            self.print("    Name: "+clientId)
+            self.print("    Name: " + clientId)
             client = self.clients[clientId]  # type: Client
 
-            self.print('    Status: {}'.format(client.status.name))
-            self.print("    Up time (seconds): {:.0f}".format(time.perf_counter() - client.created))
-            self.print("    Connections: ", newline=False)
+            self.printTokens([(Token.Heading, 'Status for client:'),
+                              (Token.Name, client.name)],
+                             separator=' ', end='\n')
+            self.print("    age (seconds): {:.0f}".format(
+                time.perf_counter() - client.created))
+            self.print("    status: {}".format(client.status.name))
+            self.print("    connected to: ", newline=False)
             if client._conns:
                 self.printNames(client._conns, newline=True)
             else:
-                self.print("<none>")
+                self.printVoid()
             self.print("    Identifier: {}".format(client.signer.identifier))
-            self.print("    Verification key: {}".format(client. signer.verkey))
+            self.print("    Verification key: {}".format(client.signer.verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -475,9 +491,10 @@ Commands:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
             nha = "{}:{}".format(*self.nodeReg.get(nodeName))
-            self.print("    Node listener: "+nha)
-            cha = "{}:{}".format(*self.cliNodeReg.get(nodeName+CLIENT_STACK_SUFFIX))
-            self.print("    Client listener: "+cha)
+            self.print("    Node listener: " + nha)
+            cha = "{}:{}".format(
+                *self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX))
+            self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
             self.print('    Connections: ', newline=False)
             connecteds = node.nodestack.connecteds()
@@ -499,7 +516,7 @@ Commands:
                 else:
                     self.print("  (primary of Backup)")
             else:
-                self.print("   (no primary replicas)")
+                print("   (no primary replicas)")
             self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
@@ -507,7 +524,7 @@ Commands:
             if clients:
                 self.printNames(clients, newline=True)
             else:
-                self.print("<none>")
+                self.printVoid()
 
     def newClient(self, clientId):
         try:
@@ -581,7 +598,7 @@ Commands:
             except (EOFError, KeyboardInterrupt, Exit):
                 return
 
-        print('Goodbye.')
+        self.print('Goodbye.')
 
     def parse(self, cmdText):
         m = self.grammar.match(cmdText)
@@ -653,7 +670,7 @@ Commands:
                 if os.path.exists(file):
                     try:
                         self.loadFromFile(file)
-                        print("Node registry loaded.")
+                        self.print("Node registry loaded.")
                         self.showNodeRegistry()
                     except configparser.ParsingError:
                         self.logger.warn("Could not parse file. "
@@ -663,7 +680,7 @@ Commands:
                                          extra={'cli': 'WARNING'})
                 else:
                     self.logger.warn("File {} not found.".format(file),
-                                extra={"cli": "WARNING"})
+                                     extra={"cli": "WARNING"})
 
             # Fall back to the help saying, invalid command.
             else:
@@ -693,7 +710,8 @@ Commands:
             return host, self.curClientPort
         else:
             tokens = [(Token.Error, "Port {} already in use, "
-                                    "trying another port.".format(self.curClientPort))]
+                                    "trying another port.".format(
+                self.curClientPort))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 

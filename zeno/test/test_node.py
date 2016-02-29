@@ -13,8 +13,6 @@ from zeno.test.helper import checkNodesConnected, randomMsg, \
 
 nodeCount = 4
 
-# TODO 3.116 seconds to run once nicely? Need to find out why.
-
 
 @pytest.fixture(scope="module")
 def pool(looper, nodeSet):
@@ -50,9 +48,9 @@ def testCorrectNumOfProtocolInstances(pool):
         # num of protocol instances running on a node must be f + 1
         assert len(getProtocolInstanceNums(node)) == fValue + 1
         # There should be one running and up master Instance
-        assert node.masterInst is not None
+        assert node.masterId is not None
         # There should be exactly f non master instances
-        assert len(node.nonMasterInsts) == fValue
+        assert len(node.backupIds) == fValue
 
 
 def testCorrectNumOfReplicas(pool):

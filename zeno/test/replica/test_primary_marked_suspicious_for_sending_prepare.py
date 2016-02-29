@@ -13,7 +13,7 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, preprepared1):
         primary = getPrimaryReplica(nodeSet, instId)
         preprepared1.viewNo = instId
         preprepared1.ppSeqNo = primary.prePrepareSeqNo
-        primary.sendPrepare(preprepared1)
+        primary.doPrepare(preprepared1)
         for r in getNonPrimaryReplicas(nodeSet, instId):
             l = len([param for param in getAllArgs(r, r.processPrepare)
                      if param['sender'] == primary.name])

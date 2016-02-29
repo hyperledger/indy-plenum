@@ -4,7 +4,7 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Sequence, List, Any
+from typing import Sequence, Any
 
 from zeno.common.request_types import Nomination, Reelection, Primary, \
     f, BlacklistMsg
@@ -12,7 +12,7 @@ from zeno.server import replica
 from zeno.server.router import Router
 from zeno.common.util import mostCommonElement, getQuorum, getlogger
 from zeno.server.primary_decider import PrimaryDecider
-from zeno.server.suspicion_codes import Suspicion, Suspicions
+from zeno.server.suspicion_codes import Suspicions
 
 logger = getlogger()
 
@@ -32,13 +32,13 @@ class PrimaryElector(PrimaryDecider):
 
         self.nominations = {}
 
-        self.reElectionProposals = {}
-
-        self.reElectionRounds = {}
-
         self.primaryDeclarations = {}
 
         self.scheduledPrimaryDecisions = {}
+
+        self.reElectionProposals = {}
+
+        self.reElectionRounds = {}
 
         routerArgs = [(Nomination, self.processNominate),
                       (Primary, self.processPrimary),
@@ -46,6 +46,13 @@ class PrimaryElector(PrimaryDecider):
         self.inBoxRouter = Router(*routerArgs)
 
         self.pendingMsgsForViews = {}  # Dict[int, deque]
+
+        # Keeps track of duplicate messages received. Used to blacklist if
+        # nodes send more than 1 duplicate messages. Useful to blacklist
+        # nodes. This number `1` is configurable. The reason 1 duplicate
+        # message is tolerated is because sometimes when a node communicates
+        # to an already lagged node, an extra NOMINATE or PRIMARY might be sent
+        self.duplicateMsgs = {}   # Dict[Tuple, int]
 
     def __repr__(self):
         return "{}".format(self.name)
@@ -235,9 +242,10 @@ class PrimaryElector(PrimaryDecider):
         Set defaults for parameters used in the election process.
         """
         self.nominations[instId] = {}
-        self.reElectionProposals[instId] = {}
         self.primaryDeclarations[instId] = {}
         self.scheduledPrimaryDecisions[instId] = None
+        self.reElectionProposals[instId] = {}
+        self.duplicateMsgs = {}
 
     def processNominate(self, nom: Nomination, sender: str):
         """
@@ -262,6 +270,7 @@ class PrimaryElector(PrimaryDecider):
                          extra={"cli": "PLAIN"})
         else:
             logger.debug("{} already nominated".format(replica.name))
+
         # Nodes should not be able to vote more than once
         if sndrRep not in self.nominations[instId]:
             self.nominations[instId][sndrRep] = nom.name
@@ -273,6 +282,12 @@ class PrimaryElector(PrimaryDecider):
                          "already got nomination from {}".
                          format(replica, sndrRep),
                          logger.warning)
+
+            key = (Nomination.typename, instId, sndrRep)
+            self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
+            # If got more than one duplicate message then blacklist
+            if self.duplicateMsgs[key] > 1:
+                self.send(BlacklistMsg(Suspicions.DUPLICATE_NOM_SENT.code, sender))
 
     def processPrimary(self, prim: Primary, sender: str) -> None:
         """
@@ -350,6 +365,13 @@ class PrimaryElector(PrimaryDecider):
                          format(replica, sndrRep),
                          logger.warning)
 
+            key = (Primary.typename, instId, sndrRep)
+            self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
+            # If got more than one duplicate message then blacklist
+            if self.duplicateMsgs[key] > 1:
+                self.send(BlacklistMsg(
+                    Suspicions.DUPLICATE_PRI_SENT.code, sender))
+
     def processReelection(self, reelection: Reelection, sender: str):
         """
         Process reelection requests sent by other nodes.
@@ -423,15 +445,18 @@ class PrimaryElector(PrimaryDecider):
 
     def hasReelectionQuorum(self, instId: int) -> bool:
         """
-        Are there at least `quorum` number of reelection requests received by this replica?
+        Are there at least `quorum` number of reelection requests received by
+        this replica?
 
-        :return: True if number of reelection requests is greater than quorum, False otherwise
+        :return: True if number of reelection requests is greater than quorum,
+        False otherwise
         """
-        return len(self.reElectionProposals[instId]) == self.quorum
+        return len(self.reElectionProposals[instId]) >= self.quorum
 
     def hasNominationQuorum(self, instId: int) -> bool:
         """
-        Are there at least `quorum` number of nominations received by this replica?
+        Are there at least `quorum` number of nominations received by this
+        replica?
 
         :return: True if number of nominations is greater than quorum,
         False otherwise

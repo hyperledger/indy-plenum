@@ -9,7 +9,6 @@ whitelist = ['got primary declaration',
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.xfail(reason="blacklisting over primary declaration is disabled")
 def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
                                                    keySharedNodes,
                                                    ready):
@@ -20,9 +19,9 @@ def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
     nodeSet = keySharedNodes
     A, B, C, D = nodeSet.nodes.values()
 
-    # B sends more than one primary declaration
-    B.send(Primary(D.name, 0, B.viewNo))
-    B.send(Primary(D.name, 0, B.viewNo))
+    # B sends more than 2 primary declarations
+    for i in range(3):
+        B.send(Primary(D.name, 0, B.viewNo))
 
     # B should be blacklisted by A, C, D
     def chk():

@@ -70,7 +70,8 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
 # noinspection PyIncorrectDocstring
 def testSendRequestWithoutSignatureFails(pool):
     """
-    A client request sent without a signature fails with an EmptySignature exception
+    A client request sent without a signature fails with an EmptySignature
+    exception
     """
 
     async def go(ctx):
@@ -127,7 +128,8 @@ def testRequestFullRoundTrip(replied1):
 # noinspection PyIncorrectDocstring
 def testEveryNodeRepliesWithNoFaultyNodes(looper, client1, replied1):
     """
-    Every node will send a reply to the client when there are no faulty nodes in the system
+    Every node will send a reply to the client when there are no faulty nodes in
+    the system
     """
 
     def chk():
@@ -194,7 +196,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                           retryWait=.25,
                           timeout=5))
     orignalRquestResponsesLen = nodeCount * 2
-    duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to send reply only not any ACK.
+    duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
+    #  send reply only not any ACK.
     client1._enqueueIntoAllRemotes(sent1)
     # Since view no is always zero in the current setup
     looper.run(eventually(

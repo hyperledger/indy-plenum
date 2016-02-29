@@ -27,5 +27,5 @@ def run(test, stopOnFail=True, maxTimes=None):
         print("current stats: successes: {} fails: {}".format(passes, fails))
 
 
-run("view_change/test_queueing_req_from_future_view.py",
-    stopOnFail=False, maxTimes=20)
+run("monitoring/test_instance_change_with_Delta.py",
+    stopOnFail=False, maxTimes=100)

@@ -1,7 +1,6 @@
 import itertools
 import logging
 import types
-from collections import OrderedDict
 from functools import partial
 from typing import Dict, Any
 
@@ -9,12 +8,10 @@ import pytest
 from zeno.common.looper import Looper
 from zeno.common.util import getNoInstances, TestingHandler
 from zeno.test.eventually import eventually, eventuallyAll
-from zeno.test.greek import genNodeNames
 from zeno.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 
 from zeno.common.stacked import HA
-from zeno.server.node import CLIENT_STACK_SUFFIX, NodeDetail
 from zeno.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
@@ -112,7 +109,7 @@ def tdir_for_func(tmpdir_factory, counter):
 
 
 @pytest.fixture(scope="module")
-def nodeReg(request, hagen) -> Dict[str, HA]:
+def nodeReg(request) -> Dict[str, HA]:
     nodeCount = getValueFromModule(request, "nodeCount", 4)
     return genNodeReg(count=nodeCount)
 
@@ -128,41 +125,6 @@ def looper(unstartedLooper):
     unstartedLooper.autoStart = True
     unstartedLooper.startall()
     return unstartedLooper
-
-
-@pytest.fixture(scope="session")
-def hagen():
-    class HaGen:
-        def __init__(self):
-            self.gen = itertools.count()
-
-        def next(self):
-            return HA("127.0.0.1", 7532 + (next(self.gen)))
-
-    return HaGen()
-
-
-@pytest.fixture(scope="session")
-def nodeRegGen(hagen):
-    def inner(count=None, names=None) -> Dict[str, NodeDetail]:
-        """
-
-        :param count: number of nodes, mutually exclusive with names
-        :param names: iterable with names of nodes, mutually exclusive with count
-        :return: dictionary of name: (node stack HA, client stack name, client stack HA)
-        """
-        if names is None:
-            names = genNodeNames(count)
-        nr = OrderedDict((n, NodeDetail(hagen.prod(), n + CLIENT_STACK_SUFFIX,
-                                        hagen.prod())) for n in names)
-
-        def extractCliNodeReg(self):
-            return OrderedDict((n.cliname, n.cliha) for n in self.values())
-
-        nr.extractCliNodeReg = types.MethodType(extractCliNodeReg, nr)
-        return nr
-
-    return inner
 
 
 @pytest.fixture(scope="module")
@@ -279,7 +241,7 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 @pytest.fixture(scope="module")
 def replied1(looper, nodeSet, client1, committed1):
     for instId in range(getNoInstances(len(nodeSet))):
-        primaryReplica = getPrimaryReplica(nodeSet, instId)
+        getPrimaryReplica(nodeSet, instId)
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,

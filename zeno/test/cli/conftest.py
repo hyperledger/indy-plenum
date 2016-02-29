@@ -1,13 +1,17 @@
 import os
+from collections import OrderedDict
 from configparser import ConfigParser
 
 import pytest
 
 import zeno.common.util
+from zeno.common.looper import Looper
+from zeno.test.helper import ensureElectionsDone, genHa
+from zeno.test.testing_utils import adict
+
 zeno.common.util.loggingConfigured = False
 
 from zeno.test.cli.helper import TestCli
-from zeno.common.looper import Looper
 
 
 @pytest.yield_fixture(scope="module")
@@ -17,18 +21,21 @@ def cliLooper():
 
 
 @pytest.fixture("module")
-def cli(cliLooper, tdir):
-    cfg = ConfigParser()
-    cfgPath = os.path.abspath(os.path.join(os.path.abspath(os.path.dirname(
-        __file__)), '../../../scripts/node_reg.conf'))
-    cfg.read(cfgPath)
+def nodeRegsForCLI():
+    nodeNames = ['Alpha', 'Beta', 'Gamma', 'Delta']
+    has = [genHa(2) for _ in nodeNames]
+    nodeNamesC = [n + 'C' for n in nodeNames]
+    nodeReg = OrderedDict((n, has[i][0]) for i, n in enumerate(nodeNames))
+    cliNodeReg = OrderedDict((n, has[i][1]) for i, n in enumerate(nodeNamesC))
+    return adict(nodeReg=nodeReg, cliNodeReg = cliNodeReg)
 
-    nodeReg = TestCli.loadNodeReg(cfg)
-    cliNodeReg = TestCli.loadCliNodeReg(cfg)
+
+@pytest.fixture("module")
+def cli(nodeRegsForCLI, cliLooper, tdir):
     Cli = TestCli(looper=cliLooper,
                   tmpdir=tdir,
-                  nodeReg=nodeReg,
-                  cliNodeReg=cliNodeReg,
+                  nodeReg=nodeRegsForCLI.nodeReg,
+                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
                   debug=True)
     return Cli
 

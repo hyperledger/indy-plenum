@@ -106,7 +106,7 @@ def checkPrePrepared(looper,
              will be zero and primary must be marked as malicious.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary, primary.sendPrePrepare)
+                              getAllArgs(primary, primary.doPrePrepare)
                               if (param['reqDigest'].clientId,
                                   param['reqDigest'].reqId,
                                   param['reqDigest'].digest) ==
@@ -342,27 +342,11 @@ def msgCountOK(nodesSize,
                numOfMsgsWithZNF,
                numOfSufficientMsgs):
     if faultyNodes == 0:
-        logging.info("With ZFN: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
         return actualMessagesReceived == numOfMsgsWithZNF
 
     elif faultyNodes <= getMaxFailures(nodesSize):
-        logging.info("With faults: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
         return actualMessagesReceived >= numOfSufficientMsgs
     else:
-        logging.info("With faults greater than system can tolerate: "
-                     "Actual Messages: {}, withZeroFaultRequired: {}, "
-                     "sufficientRequired: {}".format(actualMessagesReceived,
-                                                     numOfMsgsWithZNF,
-                                                     numOfSufficientMsgs))
-
         # Less than or equal to `numOfSufficientMsgs` since the faults may
         # not reduce the number of correct messages
         return actualMessagesReceived <= numOfSufficientMsgs

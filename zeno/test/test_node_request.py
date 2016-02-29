@@ -17,6 +17,7 @@ from zeno.test.profiler import profile_this
 
 whitelist = ['cannot process incoming PREPARE']
 
+
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
@@ -33,7 +34,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                 for entry in entries:
                     arg = entry.params['ordered']
                     result = entry.result
-                    if arg.instId == node.masterInst:
+                    if arg.instId == node.instances.masterId:
                         assert result
                     else:
                         assert result is None
@@ -48,15 +49,15 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
         with Looper(nodeSet) as looper:
             prepareNodeSet(looper, nodeSet)
             logging.debug("Add the seven nodes back in")
-            # Every node except A delays self nomination so A can become  primary
+            # Every node except A delays self nomination so A can become primary
             nodeA = addNodeBack(nodeSet, looper, nodeNames[0])
             for i in range(1, 7):
                 node = addNodeBack(nodeSet, looper, nodeNames[i])
                 node.delaySelfNomination(15)
 
             nodeB = nodeSet.getNode(nodeNames[1])
-            # Node B delays PREPREPARE from node A(which would be the primary) for a long time.
-            # TODO: Have a method to ignore a particular message from a node
+            # Node B delays PREPREPARE from node A(which would be the primary)
+            # for a long time.
             nodeB.nodeIbStasher.delay(
                 delayerMsgTuple(120, PrePrepare, nodeA.name))
 
@@ -91,7 +92,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             nodeA, nodeB, nodeC, nodeD = tuple(
                 addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
 
-            # Nodes C and D delays self nomination so A and B can become primaries
+            # Nodes C and D delays self nomination so A and B can become
+            # primaries
             nodeC.delaySelfNomination(30)
             nodeD.delaySelfNomination(30)
 
@@ -134,7 +136,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
             looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=10))
 
-            # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT requests
+            # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
+            # requests
             for reqType in [PrePrepare, Prepare, Commit]:
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
@@ -174,8 +177,6 @@ def testMultipleRequests(tdir_for_func):
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)
 
-                # TODO verify the correct number of expected PROPAGATE,
-                # PRE-PREPARE, PREPARE, and COMMITs occurred
                 pprint(ss2)
                 print("----------------------------------------------")
                 pprint(diff)

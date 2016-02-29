@@ -36,9 +36,7 @@ class TrackedMsgs(dict):
 
     def hasEnoughVotes(self, msg, count):
         key = self.getKey(msg)
-        # this method is called? Then we will never have quorum technically.
-        # Shouldn't hasQuorum be true when the condition is >=, not ==?
-        return self.hasMsg(msg) and len(self[key].voters) == count
+        return self.hasMsg(msg) and len(self[key].voters) >= count
 
 
 class Prepares(TrackedMsgs):
@@ -72,7 +70,7 @@ class Prepares(TrackedMsgs):
         return super().hasMsg(prepare)
 
     # noinspection PyMethodMayBeStatic
-    def hasVoteFromSender(self, prepare: Prepare, voter: str) -> bool:
+    def hasPrepareFrom(self, prepare: Prepare, voter: str) -> bool:
         return super().hasVote(prepare, voter)
 
     def hasQuorum(self, prepare: Prepare, f: int) -> bool:
@@ -109,7 +107,7 @@ class Commits(TrackedMsgs):
         return super().hasMsg(commit)
 
     # noinspection PyMethodMayBeStatic
-    def hasVoteFromSender(self, commit: Commit, voter: str) -> bool:
+    def hasCommitFrom(self, commit: Commit, voter: str) -> bool:
         return super().hasVote(commit, voter)
 
     def hasQuorum(self, commit: Commit, f: int) -> bool:
@@ -137,7 +135,7 @@ class InstanceChanges(TrackedMsgs):
         return super().hasMsg(viewNo)
 
     # noinspection PyMethodMayBeStatic
-    def hasVoteFromSender(self, viewNo: int, voter: str) -> bool:
+    def hasInstChngFrom(self, viewNo: int, voter: str) -> bool:
         return super().hasVote(viewNo, voter)
 
     def hasQuorum(self, viewNo: int, f: int) -> bool:

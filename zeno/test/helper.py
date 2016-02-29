@@ -1,5 +1,4 @@
 import inspect
-import itertools
 import logging
 import math
 import operator
@@ -12,7 +11,7 @@ from copy import copy
 from functools import partial
 from itertools import combinations, permutations
 from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
-    Any, Sequence
+    Any, Sequence, Iterator
 from typing import Union, Callable
 
 from typing import Set
@@ -20,8 +19,8 @@ from typing import Set
 from zeno.client.signer import SimpleSigner
 from zeno.common.exceptions import RemoteNotFound
 from zeno.common.looper import Looper
-from zeno.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, Reply, f, Ordered, PrePrepare, \
-    InstanceChange, TaggedTuples
+from zeno.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, \
+    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples
 from zeno.common.startable import Status
 from zeno.common.txn import REPLY, REQACK
 from zeno.common.util import randomString, error, getMaxFailures, \
@@ -29,11 +28,13 @@ from zeno.common.util import randomString, error, getMaxFailures, \
 from raet.raeting import AutoMode, TrnsKind, PcktKind
 
 from zeno.server.client_authn import SimpleAuthNr
+from zeno.server.instances import Instances
+from zeno.server.monitor import Monitor
 from zeno.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
 from zeno.server.primary_elector import PrimaryElector
 from zeno.test.eventually import eventually, eventuallyAll
 from zeno.test.greek import genNodeNames
-from zeno.test.testing_utils import adict
+from zeno.test.testing_utils import adict, PortDispenser
 
 from zeno.client.client import Client, ClientProvider
 from zeno.common.stacked import NodeStacked, HA, Stack
@@ -184,6 +185,12 @@ class TestClient(Client, StackedTester):
         return txnIds
 
 
+@Spyable(methods=[Monitor.isMasterThroughputTooLow,
+                    Monitor.isMasterReqLatencyTooHigh])
+class TestMonitor(Monitor):
+    pass
+
+
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -195,7 +202,7 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@Spyable(methods=[replica.Replica.sendPrePrepare,
+@Spyable(methods=[replica.Replica.doPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
                   replica.Replica.isValidPrepare,
@@ -203,9 +210,14 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
-                  replica.Replica.sendPrepare])
+                  replica.Replica.doPrepare])
 class TestReplica(replica.Replica):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Each TestReplica gets it's own outbox stasher, all of which TestNode
+        # processes in its overridden serviceReplicaOutBox
+        self.outBoxTestStasher = \
+            Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
 
 # noinspection PyShadowingNames,PyShadowingNames
@@ -225,7 +237,8 @@ class TestReplica(replica.Replica):
                   Node.propagate,
                   Node.forward,
                   Node.send,
-                  Node.processInstanceChange])
+                  Node.processInstanceChange,
+                  Node.checkPerformance])
 class TestNode(Node, StackedTester):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -241,6 +254,13 @@ class TestNode(Node, StackedTester):
         self.authnWhitelist = self.authnWhitelist + (TestMsg,)
 
         self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
+
+        # Reinitialize the monitor
+        d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
+        self.instances = Instances()
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances)
+        for i in range(len(self.replicas)):
+            self.monitor.addInstance()
 
     @staticmethod
     def stackType():
@@ -282,6 +302,8 @@ class TestNode(Node, StackedTester):
         logging.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays()
+        for r in self.replicas:
+            r.outBoxTestStasher.resetDelays()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedNodes:
@@ -309,6 +331,11 @@ class TestNode(Node, StackedTester):
     async def eatTestMsg(self, msg, frm):
         logging.debug("{0} received Test message: {1} from {2}".
                       format(self.nodestack.name, msg, frm))
+
+    def serviceReplicaOutBox(self, *args, **kwargs) -> int:
+        for r in self.replicas:  # type: TestReplica
+            r.outBoxTestStasher.process()
+        return super().serviceReplicaOutBox(*args, **kwargs)
 
 
 def randomMsg() -> TaggedTuple:
@@ -353,7 +380,7 @@ def getAllArgs(obj: Any, method: Union[str, Callable]) -> List[Any]:
     return [m.params for m in obj.spylog.getAll(methodName)]
 
 
-def getReturnValsForAllCallsToAMethod(obj: Any, method: SpyableMethod) -> List[Any]:
+def getAllReturnVals(obj: Any, method: SpyableMethod) -> List[Any]:
     # params should return a List
     methodName = method if isinstance(method, str) else getCallableName(method)
     return [m.result for m in obj.spylog.getAll(methodName)]
@@ -427,10 +454,10 @@ class TestNodeSet(ExitStack):
         # for node in self:
         #     node.removeNodeFromRegistry(name)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TestNode]:
         return self.nodes.values().__iter__()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> TestNode:
         return self.nodes.get(key)
 
     def __len__(self):
@@ -490,14 +517,17 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
-                                        numReqs: int, timeout: float = None):
+                                        numReqs: int, fVal: int=None,
+                                        timeout: float=None):
     nodeCount = len(client.nodeReg)
-    f = getMaxFailures(nodeCount)
-    requests = [sendRandomRequest(client) for i in range(numReqs)]
+    fVal = fVal or getMaxFailures(nodeCount)
+    timeout = timeout or 3 * nodeCount
+
+    requests = sendRandomRequests(client, numReqs)
     for request in requests:
         looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
-                              request.reqId, f,
-                              retryWait=1, timeout=3 * nodeCount))
+                              request.reqId, fVal,
+                              retryWait=1, timeout=timeout))
     return requests
 
 
@@ -580,7 +610,7 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
     for remote in node.nodestack.remotes.values():
         try:
             s = states[remote.name] if states else state
-            checkState(s, remote)
+            checkState(s, remote, "from: {}, to: {}".format(node, remote.name))
         except Exception as ex:
             logging.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
@@ -592,21 +622,20 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
 
 
 # noinspection PyProtectedMember
-def checkState(state: RemoteState, obj: Any):
+def checkState(state: RemoteState, obj: Any, details: str=None):
     if state is not None:
         checkedItems = {}
         for key, s in state._asdict().items():
             checkedItems[key] = 'N/A' if s == 'N/A' else getattr(obj, key)
         actualState = RemoteState(**checkedItems)
-        assert actualState == state, "actual {} did not match expected {}". \
-            format(actualState, state)
+        assert actualState == state
 
 
 def checkRemoteExists(frm: Stack,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)
-    checkState(state, remote)
+    checkState(state, remote, "{}'s remote {}".format(frm.name, to))
 
 
 def checkPoolReady(looper: Looper, nodes: Sequence[TestNode],
@@ -810,9 +839,9 @@ def getPrimaryReplica(nodes: Sequence[TestNode],
     preplicas = [node.replicas[instId] for node in nodes if
                  node.replicas[instId].isPrimary]
     if len(preplicas) > 1:
-        error("More than one primary node found")
+        raise RuntimeError('More than one primary node found')
     elif len(preplicas) < 1:
-        error("No primary node found")
+        raise RuntimeError('No primary node found')
     else:
         return preplicas[0]
 
@@ -828,20 +857,8 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
     return [node.replicas[instId] for node in nodes]
 
 
-class HaGen(object):
-    __instance = None
-
-    def __new__(cls):
-        if cls.__instance is None:
-            cls.__instance = object.__new__(cls)
-            cls.__instance.gen = itertools.count()
-        return cls.__instance
-
-    def getNext(self):
-        return HA("127.0.0.1", 7532 + (next(self.gen)))
-
-
-genHa = HaGen().getNext
+genHa = PortDispenser("127.0.0.1").getNext
+# genHa = HaGen().getNext
 
 
 def genTestClient(nodes: TestNodeSet = None,
@@ -894,6 +911,11 @@ def randomOperation():
 
 def sendRandomRequest(client: Client):
     return client.submit(randomOperation())[0]
+
+
+def sendRandomRequests(client: Client, count: int):
+    ops = [randomOperation() for _ in range(count)]
+    return client.submit(*ops)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -953,8 +975,8 @@ async def msgAll(nodes: TestNodeSet):
 async def sendMsgAndCheck(nodes: TestNodeSet,
                           frm: NodeRef,
                           to: NodeRef,
-                          msg: Optional[Tuple] = None,
-                          timeout: Optional[int] = 15
+                          msg: Optional[Tuple]=None,
+                          timeout: Optional[int]=15
                           ):
     logging.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
@@ -1077,7 +1099,7 @@ def checkRequestReturnedToNode(node: TestNode, clientId: str, reqId: int,
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    prePreparesSent = getAllArgs(replica, replica.doPrePrepare)
     expected = req.reqDigest
     assert expected in [p["reqDigest"] for p in prePreparesSent]
 
@@ -1091,8 +1113,8 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
 
 def checkPrepareReqSent(replica: TestReplica, clientId: str, reqId: int):
     paramsList = getAllArgs(replica, replica.canSendPrepare)
-    rv = getReturnValsForAllCallsToAMethod(replica,
-                                           replica.canSendPrepare)
+    rv = getAllReturnVals(replica,
+                          replica.canSendPrepare)
     for params in paramsList:
         req = params['request']
         assert req.clientId == clientId
@@ -1126,6 +1148,12 @@ def checkReqAck(client, node, reqId):
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
+    """
+    Checks if all the given nodes have the expected view no
+    :param nodes: The nodes to check for
+    :param expectedViewNo: the view no that the nodes are expected to have
+    :return:
+    """
     viewNos = set()
     for node in nodes:
         logging.debug("{}'s view no is {}".format(node, node.viewNo))
@@ -1138,11 +1166,17 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
 
 
 def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
+    """
+    Check if view change initiated for a given node
+    :param node: The node to check for
+    :param oldViewNo: The view no on which the nodes were before the view change
+    :return:
+    """
     params = [args for args in getAllArgs(
             node, TestNode.startViewChange)]
     assert len(params) > 0
     args = params[-1]
-    assert args["newViewNo"] == 0
+    assert args["proposedViewNo"] == oldViewNo
     assert node.viewNo == oldViewNo + 1
     assert node.elector.viewNo == oldViewNo + 1
 
