@@ -1,4 +1,5 @@
 from zeno.server.suspicion_codes import Suspicion
+from re import compile, match
 
 
 class NodeError(Exception):
@@ -19,6 +20,9 @@ class RemoteNotFound(RemoteError):
 
 
 class BaseExc(Exception):
+    # def __init__(self, code: int=None, reason: str=None):
+    #     self.code = code
+    #     self.reason = reason
     def __str__(self):
         return "{}{}".format(self.__class__.__name__, self.args)
 
@@ -27,38 +31,49 @@ class SigningException(BaseExc):
     pass
 
 
-class InvalidSignature(SigningException):
-    pass
-
-
 class CouldNotAuthenticate(SigningException):
-    pass
-
-
-class EmptySignature(SigningException):
-    pass
+    code = 110
+    reason = 'could not authenticate'
 
 
 class MissingSignature(SigningException):
-    pass
+    code = 120
+    reason = 'missing signature'
 
 
-class EmptyIdentifier(SigningException):
-    pass
+class EmptySignature(SigningException):
+    code = 121
+    reason = 'empty signature'
+
+
+class InvalidSignature(SigningException):
+    code = 125
+    reason = 'invalid signature'
 
 
 class MissingIdentifier(SigningException):
-    pass
+    code = 130
+    reason = 'missing identifier'
+
+
+class EmptyIdentifier(SigningException):
+    code = 131
+    reason = 'empty identifier'
 
 
 class InvalidIdentifier(SigningException):
-    pass
+    code = 135
+    reason = 'invalid identifier'
 
 
-class SuspiciousNode(Exception):
-    def __init__(self, suspicion: Suspicion=None):
+class SuspiciousNode(BaseExc):
+    def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
         self.code = suspicion.code if suspicion else None
         self.reason = suspicion.reason if suspicion else None
+        p = compile(r'(\b\w+)(:(\d+))?')
+        m = p.match(node)
+        self.node = m.groups()[0] if m else node
+        self.offendingMsg = offendingMsg
 
     def __repr__(self):
         return "Error code: {}. {}".format(self.code, self.reason)

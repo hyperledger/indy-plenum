@@ -33,7 +33,7 @@ def testTestNodeDelay(tdir_for_func):
                     "set delay, then send another message and find that it doesn't arrive")
             msg = randomMsg()
 
-            nodeB.nodeIbStasher.delay(delayerMsgTuple(4, type(msg), nodeA.name))
+            nodeB.nodeIbStasher.delay(delayerMsgTuple(5, type(msg), nodeA.name))
 
             with pytest.raises(AssertionError):
                 looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 3))

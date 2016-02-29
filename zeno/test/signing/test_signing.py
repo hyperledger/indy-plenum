@@ -49,7 +49,7 @@ def testOneNodeAltersAClientRequest(looper,
             frm = params["nodeName"]
             reason = params["reason"]
             assert frm == 'Alpha'
-            assert isinstance(reason, InvalidSignature)
+            assert reason == InvalidSignature.reason
 
             # ensure Alpha's propagates were ignored by the other nodes
             key = sent1.clientId, sent1.reqId

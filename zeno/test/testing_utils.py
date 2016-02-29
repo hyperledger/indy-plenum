@@ -1,9 +1,15 @@
 import logging
+import os
 import sys
+
+import fcntl
+import tempfile
 
 from ioflo.base.consoling import getConsole
 
-from zeno.common.util import error, addTraceToLogging, TRACE_LOG_LEVEL
+from zeno.common.stacked import HA
+from zeno.common.util import error, addTraceToLogging, TRACE_LOG_LEVEL, \
+    checkPortAvailable
 
 
 def checkDblImp():
@@ -69,3 +75,55 @@ class adict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
+
+
+class PortDispenser:
+    """
+    This class provides a system-wide mechanism to provide a available socket
+    ports for testing. Tests should call getNext to get the next available port.
+    There is no guarantee of sequential port numbers, as other tests running
+    concurrently might grab a port before one process is done getting all the
+    ports it needs. This should pose no problem, as tests shouldn't depend on
+    port numbers. It leverages the filesystem lock mechanism to ensure there
+    are no overlaps.
+    """
+    def __init__(self, ip: str, filename: str=None):
+        self.ip = ip
+        self.FILE = filename or os.path.join(tempfile.gettempdir(),
+                                             'zeno-portmutex.{}.txt'.format(ip))
+        self.minPort = 6000
+        self.maxPort = 9999
+        self.initFile()
+
+    def initFile(self):
+        if not os.path.exists(self.FILE):
+            with open(self.FILE, "w") as file:
+                file.write(str(self.minPort))
+
+    def get(self, count: int=1, readOnly: bool=False):
+        with open(self.FILE, "r+") as file:
+            fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+            ports = []
+            while len(ports) < count:
+                file.seek(0)
+                port = int(file.readline())
+                if readOnly:
+                    return port
+                port += 1
+                if port > self.maxPort:
+                    port = self.minPort
+                file.seek(0)
+                file.write(str(port))
+                if checkPortAvailable(HA(self.ip, port)):
+                    ports.append(port)
+                    print("new port dispensed: {}".format(port))
+                else:
+                    print("new port not available: {}".format(port))
+            return ports
+
+    def getNext(self, count: int=1):
+        has = [HA(self.ip, port) for port in self.get(count)]
+        if len(has) == 1:
+            return has[0]
+        else:
+            return has
