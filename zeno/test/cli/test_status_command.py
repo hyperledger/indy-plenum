@@ -90,12 +90,12 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
         cli.looper.runFor(1)
         otherNodeNames = (set(validNodeNames) - {name, })
         node = cli.nodes[name]
-        if hasPrimary(node):
+        if node.hasPrimary:
             msgs = list(reversed(cli.printeds[:10]))
-            primaryLogs(node, msgs)
+            checkPrimaryLogs(node, msgs)
         else:
             msgs = list(reversed(cli.printeds[:9]))
-            nonPrimaryLogs(node, msgs)
+            checkNonPrimaryLogs(node, msgs)
 
         checkForNamedTokens(cli.printedTokens[1], otherNodeNames)
         if cli.clients:
@@ -116,19 +116,19 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
         cli.enterCmd("status node {}".format(name))
         otherNodeNames = (set(validNodeNames) - {name, })
         node = cli.nodes[name]
-        if hasPrimary(node):
+        if node.hasPrimary:
             msgs = list(reversed(cli.printeds[:9]))
-            primaryLogs(node, msgs)
+            checkPrimaryLogs(node, msgs)
         else:
             msgs = list(reversed(cli.printeds[:8]))
-            nonPrimaryLogs(node, msgs)
+            checkNonPrimaryLogs(node, msgs)
         checkForNamedTokens(cli.printedTokens[3], otherNodeNames)
         if cli.clients:
             checkForNamedTokens(cli.printedTokens[1], {clientName, })
 
 
-def primaryLogs(node, msgs):
-    commonLogs(node, msgs)
+def checkPrimaryLogs(node, msgs):
+    checkCommonLogs(node, msgs)
     assert "Replicas: 2".format() in msgs[5]['msg']
     assert "(primary of " in msgs[6]['msg']
     assert "Up time (seconds)" in msgs[7]['msg']
@@ -136,8 +136,8 @@ def primaryLogs(node, msgs):
     assert not msgs[8]['newline']
 
 
-def nonPrimaryLogs(node, msgs):
-    commonLogs(node, msgs)
+def checkNonPrimaryLogs(node, msgs):
+    checkCommonLogs(node, msgs)
     assert not msgs[4]['newline']
     assert not msgs[5]['newline']
     assert "Replicas: 2".format() in msgs[5]['msg']
@@ -155,7 +155,7 @@ def checkNodeStatusToken(node, msgs):
     assert not msgs[8]['newline']
 
 
-def commonLogs(node, msgs):
+def checkCommonLogs(node, msgs):
     assert "Name: {}".format(node.name) in msgs[0]['msg']
     assert "Node listener: {}:{}".format(node.nodestack.ha[0],
                                          node.nodestack.ha[1]) in msgs[1]['msg']
@@ -164,6 +164,3 @@ def commonLogs(node, msgs):
     assert "Status:" in msgs[3]['msg']
     assert "Connections:" in msgs[4]['msg']
 
-
-def hasPrimary(node):
-    return any(replica.isPrimary for replica in node.replicas)
