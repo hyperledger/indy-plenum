@@ -8,7 +8,7 @@ Glossary
       any message passed between the nodes
 
    instance
-      usually means the zeno protocol instance. When talking about "instance on the node" it means the replica of the protocol instance on the node
+      usually means the plen um protocol instance. When talking about "instance on the node" it means the replica of the protocol instance on the node
 
    election
       process to decide which replica in a protocol instance would be the primary
