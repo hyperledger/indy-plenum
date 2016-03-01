@@ -59,7 +59,7 @@ dist/*/*
 include/
 
 # cli command history file
-.zeno-cli-history
+.*-cli-history
 
 # generated doc files
 docs/source/api_docs/
