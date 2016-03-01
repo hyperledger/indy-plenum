@@ -113,14 +113,14 @@ class Monitor:
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
 
-        # TODO remove this after troubleshooting
-        logger.info("{}    ----inst {} time {:.2f} reqOrdStarted {:.2f}".format(
-            self,
-            instId,
-            time.perf_counter(),
-            self.requestOrderingStarted[(clientId, reqId)]))
-        logger.info("{}    ----inst {} adding {:.2f} to {:.2f} to get {:.2f}".
-                    format(self, instId, duration, tm, duration + tm))
+        # troubleshooting
+        # logger.info("{}    ----inst {} time {:.2f} reqOrdStarted {:.2f}".format(
+        #     self,
+        #     instId,
+        #     time.perf_counter(),
+        #     self.requestOrderingStarted[(clientId, reqId)]))
+        # logger.info("{}    ----inst {} adding {:.2f} to {:.2f} to get {:.2f}".
+        #             format(self, instId, duration, tm, duration + tm))
 
         if byMaster:
             self.masterReqLatencies[(clientId, reqId)] = duration
