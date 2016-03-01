@@ -2,25 +2,19 @@
 
 **Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
 
-plenum makes extensive use of coroutines and the async/await keywords in Python, 
+Plenum makes extensive use of coroutines and the async/await keywords in Python, 
 and as such, requires Python version 3.5.0 or later and libsodium. See the "Installation Steps" section for help.   
- 
-After cloning the repo, from the root directory of the repo, install it:
+
+To install...
 
 ```
-pip install -e .
+pip install plenum
 ```
 
 From here, you can play with the command-line interface:
 
 ```
-python -m plenum.cli
-```
-
-or
-
-```
-scripts/cli
+plenum
 ```
 
 Or you can run the tests:
@@ -29,10 +23,10 @@ Or you can run the tests:
 python -m plenum.test
 ```
 
-**Installation Steps:**
+**Plenum requires libsodium. To install...**
 
 *Ubuntu:*
-===
+
 1. Run ```sudo add-apt-repository ppa:fkrull/deadsnakes```
 
 2. Run ```sudo apt-get update```
@@ -49,13 +43,13 @@ python -m plenum.test
 7. Run ```sudo apt-get install libsodium13```
 
 *CentOS/Redhat:*
-===
+
 1. Run ```sudo yum install python3.5```
 
 2. Run ```sudo yum install libsodium-devel```
 
 *Mac:*
-===
+
 1. Go to https://www.python.org and from the "Downloads" menu, download the Python 3.5.1 package(python-3.5.1-macosx10.6.pkg).
 
 2. Open the downloaded file to install it.
