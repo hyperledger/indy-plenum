@@ -68,15 +68,30 @@ class Router:
 
     async def handleAll(self, deq: deque, limit=None) -> int:
         """
-        Handle multiple messages passed as a deque.
+        Handle all items in a deque. Can call asynchronous handlers.
 
-        :param deq: a deque of messages to be handled by this router
-        :param limit: the number of messages in the deque to the handled
-        :return: the number of message handled successfully
+        :param deq: a deque of items to be handled by this router
+        :param limit: the number of items in the deque to the handled
+        :return: the number of items handled successfully
+        """
+        count = 0
+        while deq and (not limit or count < limit):
+            count += 1
+            item = deq.popleft()
+            await self.handle(item)
+        return count
+
+    def handleAllSync(self, deq: deque, limit=None) -> int:
+        """
+        Synchronously handle all items in a deque.
+
+        :param deq: a deque of items to be handled by this router
+        :param limit: the number of items in the deque to the handled
+        :return: the number of items handled successfully
         """
         count = 0
         while deq and (not limit or count < limit):
             count += 1
             msg = deq.popleft()
-            await self.handle(msg)
+            self.handleSync(msg)
         return count

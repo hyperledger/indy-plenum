@@ -330,7 +330,7 @@ class Replica(MessageProcessor):
         else:
             self._stashInBox(rd)
 
-    async def serviceQueues(self, limit=None):
+    def serviceQueues(self, limit=None):
         """
         Process `limit` number of messages in the inBox.
 
@@ -338,7 +338,7 @@ class Replica(MessageProcessor):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        return await self.inBoxRouter.handleAll(self.inBox, limit)
+        return self.inBoxRouter.handleAllSync(self.inBox, limit)
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 

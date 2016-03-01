@@ -263,14 +263,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
-            c += await self.serviceReplicas(limit)
+            c += self.serviceReplicas(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
             c += await self.serviceElector()
             self.flushOutBoxes()
         return c
 
-    async def serviceReplicas(self, limit) -> int:
+    def serviceReplicas(self, limit) -> int:
         """
         Execute `serviceReplicaMsgs`, `serviceReplicaOutBox` and
         `serviceReplicaInBox` with `limit` number of messages. See the
@@ -282,7 +282,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         """
         a = self.serviceReplicaMsgs(limit)
         b = self.serviceReplicaOutBox(limit)
-        c = await self.serviceReplicaInBox(limit)
+        c = self.serviceReplicaInBox(limit)
         return a + b + c
 
     async def serviceNodeMsgs(self, limit: int) -> int:
@@ -464,7 +464,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                  "handle it".format(msg))
         return msgCount
 
-    async def serviceReplicaInBox(self, limit: int=None):
+    def serviceReplicaInBox(self, limit: int=None):
         """
         Process `limit` number of messages in the replica inbox for each replica
         on this node.
@@ -474,7 +474,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         """
         msgCount = 0
         for replica in self.replicas:
-            msgCount += await replica.serviceQueues(limit)
+            msgCount += replica.serviceQueues(limit)
         return msgCount
 
     def serviceElectorOutBox(self, limit: int=None) -> int:
