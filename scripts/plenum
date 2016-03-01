@@ -6,13 +6,14 @@ Protocol, and not for creating a live consensus pool. For that, it's as simple
 as defining a node registry, creating a looper, creating a node, and running it.
 See the example folder or the tutorial folder.
 
-$ scripts/cli
+$ scripts/plenum
 
 or supply a command to be executed first
 
-$ scripts/cli "new nodes all"
+$ scripts/plenum "new nodes all"
 
 """
+import os
 import sys
 from configparser import ConfigParser
 from tempfile import TemporaryDirectory
@@ -29,7 +30,11 @@ def run_cli():
         with TemporaryDirectory() as tmpdir:
             cfg = ConfigParser()
             cfg.optionxform = str
-            cfg.read('scripts/node_reg.conf')
+            configFile = 'scripts/node_reg.conf'
+            if os.path.isfile(configFile):
+                cfg.read(configFile)
+            else:
+                cfg.read_string(default_config)
 
             nodeReg = Cli.loadNodeReg(cfg)
             cliNodeReg = Cli.loadCliNodeReg(cfg)
@@ -41,6 +46,21 @@ def run_cli():
                       logFileName='log/cli.log')
 
             looper.run(cli.shell(*commands))
+
+
+default_config = """
+[node_reg]
+Alpha = 127.0.0.1 8001
+Beta = 127.0.0.1 8003
+Gamma = 127.0.0.1 8005
+Delta = 127.0.0.1 8007
+
+[client_node_reg]
+AlphaC = 127.0.0.1 8002
+BetaC = 127.0.0.1 8004
+GammaC = 127.0.0.1 8006
+DeltaC = 127.0.0.1 8008
+"""
 
 
 if __name__ == '__main__':

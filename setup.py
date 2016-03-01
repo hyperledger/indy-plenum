@@ -44,7 +44,7 @@ setup(
     download_url='https://github.com/evernym/plenum/tarball/{}'.
         format(__version__),
     author=__author__,
-    author_email='',
+    author_email='dev@evernym.us',
     license=__license__,
     keywords='Byzantine plenum',
     packages=find_packages(exclude=['test', 'test.*',
@@ -54,4 +54,4 @@ setup(
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=REQUIRES,
     extras_require=EXTRAS,
-    scripts=[])
+    scripts=['scripts/plenum'])
