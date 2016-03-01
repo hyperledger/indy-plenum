@@ -10,9 +10,9 @@ TODO: demonstrate client verification key bootstrapping
 from collections import OrderedDict
 from tempfile import TemporaryDirectory
 
-from zeno.client.client import Client
-from zeno.client.signer import SimpleSigner
-from zeno.common.looper import Looper
+from plenum.client.client import Client
+from plenum.client.signer import SimpleSigner
+from plenum.common.looper import Looper
 
 
 def run_node():

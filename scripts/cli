@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 """
-Convenience script for calling the zeno command line interface (CLI). For now,
-the CLI is designed for experimenting with the Zeno Byzantine Fault Tolerant
+Convenience script for calling the plenum command line interface (CLI). For now,
+the CLI is designed for experimenting with the Plenum Byzantine Fault Tolerant
 Protocol, and not for creating a live consensus pool. For that, it's as simple
 as defining a node registry, creating a looper, creating a node, and running it.
 See the example folder or the tutorial folder.
@@ -17,8 +17,8 @@ import sys
 from configparser import ConfigParser
 from tempfile import TemporaryDirectory
 
-from zeno.cli.cli import Cli
-from zeno.common.looper import Looper
+from plenum.cli.cli import Cli
+from plenum.common.looper import Looper
 
 
 def run_cli():

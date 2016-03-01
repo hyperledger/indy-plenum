@@ -10,7 +10,7 @@ pip3 install sphinx
 
 # Building documentation:
 
-To build api-docs, run `sphinx-apidoc -e -E -f -l -o docs/source/api_docs zeno` from the project root.
+To build api-docs, run `sphinx-apidoc -e -E -f -l -o docs/source/api_docs plen um` from the project root.
 
 To build html documentation, run `make html` from the docs directory. The generated docs can be found in _build_ directory.
 

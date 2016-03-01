@@ -13,8 +13,8 @@ import sys
 from collections import OrderedDict
 from tempfile import TemporaryDirectory
 
-from zeno.common.looper import Looper
-from zeno.server.node import Node
+from plenum.common.looper import Looper
+from plenum.server.node import Node
 
 
 def run_node():

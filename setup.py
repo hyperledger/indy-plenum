@@ -36,7 +36,7 @@ if SETUP_DIRNAME != '':
 
 SETUP_DIRNAME = os.path.abspath(SETUP_DIRNAME)
 
-METADATA = os.path.join(SETUP_DIRNAME, 'zeno', '__metadata__.py')
+METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
@@ -48,12 +48,12 @@ REQUIRES = set(sum(REQ.values(), []))
 EXTRAS = {}
 
 setup(
-    name='zeno',
+    name='plenum',
     version=__version__,
     description='Asynchronous Byzantine Agreement',
     long_description='Asynchronous Byzantine Agreement',
-    url='https://bitbucket.org/evernym/zeno.git',
-    download_url='https://bitbucket.org/evernym/zeno.git',
+    url='https://bitbucket.org/evernym/plenum.git',
+    download_url='https://bitbucket.org/evernym/plenum.git',
     author=__author__,
     author_email='',
     license=__license__,
