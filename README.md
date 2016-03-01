@@ -1,4 +1,4 @@
-# plenum Byzantine Fault Tolerant Protocol
+# Plenum Byzantine Fault Tolerant Protocol
 
 **Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
 
