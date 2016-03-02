@@ -1,13 +1,13 @@
-from zeno.common.request_types import ReqDigest, PrePrepare
-from zeno.server.replica import TPCStat
-from zeno.server.suspicion_codes import Suspicions
-from zeno.test.eventually import eventually
-from zeno.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNodeSuspicions
+from plenum.common.request_types import ReqDigest, PrePrepare
+from plenum.server.replica import TPCStat
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.eventually import eventually
+from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNodeSuspicions
 
 instId = 0
 
 
-def testPrePrepareWithHighSeqNo(looper, nodeSet, client1, propagated1):
+def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     def chk():
         for r in getNonPrimaryReplicas(nodeSet, instId):
             nodeSuspicions = len(getNodeSuspicions(
