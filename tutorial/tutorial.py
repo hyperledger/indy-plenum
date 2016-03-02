@@ -6,10 +6,10 @@ from tempfile import TemporaryDirectory
 
 from ioflo.base.consoling import getConsole
 
-from zeno.client.client import Client
-from zeno.common.looper import Looper
-from zeno.server.node import Node
-from zeno.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
+from plenum.client.client import Client
+from plenum.common.looper import Looper
+from plenum.server.node import Node
+from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
 
 console = getConsole()
 console.reinit(verbosity=console.Wordage.terse)

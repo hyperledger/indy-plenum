@@ -1,15 +1,3 @@
-"""
-setup.py
-
-Basic setup file to enable pip install
-See:
-    https://pythonhosted.org/setuptools/
-    https://bitbucket.org/pypa/setuptools
-
-
-python setup.py register sdist upload
-
-"""
 import sys
 import os
 from setuptools import setup, find_packages, __version__
@@ -36,7 +24,7 @@ if SETUP_DIRNAME != '':
 
 SETUP_DIRNAME = os.path.abspath(SETUP_DIRNAME)
 
-METADATA = os.path.join(SETUP_DIRNAME, 'zeno', '__metadata__.py')
+METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
@@ -48,16 +36,17 @@ REQUIRES = set(sum(REQ.values(), []))
 EXTRAS = {}
 
 setup(
-    name='zeno',
+    name='plenum',
     version=__version__,
-    description='Asynchronous Byzantine Agreement',
-    long_description='Asynchronous Byzantine Agreement',
-    url='https://bitbucket.org/evernym/zeno.git',
-    download_url='https://bitbucket.org/evernym/zeno.git',
+    description='Plenum Byzantine Fault Tolerant Protocol',
+    long_description='Plenum Byzantine Fault Tolerant Protocol',
+    url='https://github.com/evernym/plenum',
+    download_url='https://github.com/evernym/plenum/tarball/{}'.
+        format(__version__),
     author=__author__,
-    author_email='',
+    author_email='dev@evernym.us',
     license=__license__,
-    keywords='Byzantine',
+    keywords='Byzantine plenum',
     packages=find_packages(exclude=['test', 'test.*',
                                     'docs', 'docs*']),
     package_data={
@@ -65,4 +54,4 @@ setup(
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=REQUIRES,
     extras_require=EXTRAS,
-    scripts=[])
+    scripts=['scripts/plenum'])

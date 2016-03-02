@@ -1,4 +1,4 @@
-Zeno documentation
+Plenum documentation
 ==================
 
 Contents:
@@ -6,7 +6,7 @@ Contents:
 .. toctree::
    :maxdepth: 1
 
-   API Documentation <api_docs/zeno.rst>
+   API Documentation <api_docs/plenum.rst>
    abbreviations.rst
    glossary.rst
 
