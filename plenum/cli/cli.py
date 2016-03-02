@@ -4,19 +4,16 @@ from __future__ import unicode_literals
 import configparser
 import os
 from configparser import ConfigParser
-import plenum.cli.ensure_logging_not_setup
-
 import time
-
-from prompt_toolkit.history import FileHistory
-
 from functools import reduce, partial
 import logging
 import sys
 from collections import defaultdict
 
-from ioflo.aid.consoling import Console
+import plenum.cli.ensure_logging_not_setup
 
+from prompt_toolkit.history import FileHistory
+from ioflo.aid.consoling import Console
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -212,6 +209,12 @@ class Cli:
         def clientHelper():
             self.print("It is used to create a new client")
 
+        def statusNodeHelper():
+            self.print("It is used to check status of a created node")
+
+        def statusClientHelper():
+            self.print("It is used to check status of a created client")
+
         def listHelper():
             self.print("List all the commands, you can use in this CLI.")
 
@@ -249,8 +252,10 @@ class Cli:
             'new': newHelper,
             'status': statusHelper,
             'list': listHelper,
-            'node': nodeHelper,
-            'client': clientHelper,
+            'newnode': nodeHelper,
+            'newclient': clientHelper,
+            'statusnode': statusNodeHelper,
+            'statusclient': statusClientHelper,
             'license': licenseHelper,
             'send': sendHelper,
             'show': showHelper,
@@ -622,7 +627,8 @@ Commands:
                 node_or_cli = matchedVars.get('node_or_cli')
                 if helpable:
                     if node_or_cli:
-                        self.printCmdHelper(command=node_or_cli)
+                        self.printCmdHelper(command="{}{}".
+                                            format(helpable, node_or_cli))
                     else:
                         self.printCmdHelper(command=helpable)
                 else:
