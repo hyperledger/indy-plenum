@@ -4,7 +4,6 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Dict
 from typing import Sequence, Any
 
 from plenum.common.request_types import Nomination, Reelection, Primary, \
@@ -446,15 +445,18 @@ class PrimaryElector(PrimaryDecider):
 
     def hasReelectionQuorum(self, instId: int) -> bool:
         """
-        Are there at least `quorum` number of reelection requests received by this replica?
+        Are there at least `quorum` number of reelection requests received by
+        this replica?
 
-        :return: True if number of reelection requests is greater than quorum, False otherwise
+        :return: True if number of reelection requests is greater than quorum,
+        False otherwise
         """
         return len(self.reElectionProposals[instId]) >= self.quorum
 
     def hasNominationQuorum(self, instId: int) -> bool:
         """
-        Are there at least `quorum` number of nominations received by this replica?
+        Are there at least `quorum` number of nominations received by this
+        replica?
 
         :return: True if number of nominations is greater than quorum,
         False otherwise

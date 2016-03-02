@@ -19,6 +19,7 @@ def cliLooper():
     with Looper(debug=False) as l:
         yield l
 
+
 @pytest.fixture("module")
 def nodeRegsForCLI():
     nodeNames = ['Alpha', 'Beta', 'Gamma', 'Delta']
@@ -48,3 +49,8 @@ def validNodeNames(cli):
 def createAllNodes(cli):
     cli.enterCmd("new node all")
 
+
+@pytest.fixture("module")
+def allNodesUp(cli, createAllNodes, up):
+    # Let nodes complete election and the output be rendered on the screen
+    cli.looper.runFor(5)

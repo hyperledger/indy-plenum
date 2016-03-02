@@ -1,26 +1,22 @@
 import itertools
 import logging
-import types
-from collections import OrderedDict
 from functools import partial
 from typing import Dict, Any
 
 import pytest
+
 from plenum.common.looper import Looper
 from plenum.common.util import getNoInstances, TestingHandler
-from plenum.server.primary_selector import PrimarySelector
-from plenum.test.eventually import eventually, eventuallyAll
-from plenum.test.greek import genNodeNames
-from plenum.test.node_request.node_request_helper import checkPrePrepared, \
-    checkPropagated, checkPrepared, checkCommited
-
 from plenum.common.stacked import HA
-from plenum.server.node import CLIENT_STACK_SUFFIX, NodeDetail
+
+from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
     checkSufficientRepliesRecvd, checkViewNoForNodes
+from plenum.test.node_request.node_request_helper import checkPrePrepared, \
+    checkPropagated, checkPrepared, checkCommited
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -245,7 +241,7 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 @pytest.fixture(scope="module")
 def replied1(looper, nodeSet, client1, committed1):
     for instId in range(getNoInstances(len(nodeSet))):
-        primaryReplica = getPrimaryReplica(nodeSet, instId)
+        getPrimaryReplica(nodeSet, instId)
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,

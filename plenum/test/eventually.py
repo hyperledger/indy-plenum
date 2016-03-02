@@ -47,7 +47,8 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     :param totalTimeout:
     :param retryWait:
     :param acceptableExceptions:
-    :param acceptableFails: how many of the passed in coroutines can ultimately fail and still be ok
+    :param acceptableFails: how many of the passed in coroutines can
+            ultimately fail and still be ok
     :return:
     """
     start = time.perf_counter()

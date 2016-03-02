@@ -463,7 +463,8 @@ class Replica(MessageProcessor):
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
             else:
-                # TODO let's have isValidPrepare throw an exception that gets handled and possibly logged higher
+                # TODO let's have isValidPrepare throw an exception that gets
+                # handled and possibly logged higher
                 logger.warning("{} cannot process incoming PREPARE".format(self))
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
@@ -775,4 +776,3 @@ class Replica(MessageProcessor):
         logger.trace("{} sending {}".format(self, msg))
         self.stats.inc(stat)
         self.outBox.append(msg)
-

@@ -19,8 +19,8 @@ from typing import Set
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, Reply, f, Ordered, PrePrepare, \
-    InstanceChange, TaggedTuples
+from plenum.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, \
+    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK
 from plenum.common.util import randomString, error, getMaxFailures, \
@@ -856,19 +856,6 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
         Sequence[TestReplica]:
     return [node.replicas[instId] for node in nodes]
 
-
-# class HaGen(object):
-#     __instance = None
-#
-#     def __new__(cls):
-#         if cls.__instance is None:
-#             cls.__instance = object.__new__(cls)
-#             cls.__instance.gen = itertools.count()
-#         return cls.__instance
-#
-#     def getNext(self):
-#         return HA("127.0.0.1", 7532 + (next(self.gen)))
-#
 
 genHa = PortDispenser("127.0.0.1").getNext
 # genHa = HaGen().getNext

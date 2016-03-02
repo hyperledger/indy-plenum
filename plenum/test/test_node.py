@@ -13,8 +13,6 @@ from plenum.test.helper import checkNodesConnected, randomMsg, \
 
 nodeCount = 4
 
-# TODO 3.116 seconds to run once nicely? Need to find out why.
-
 
 @pytest.fixture(scope="module")
 def pool(looper, nodeSet):

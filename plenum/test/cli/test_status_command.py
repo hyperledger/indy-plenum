@@ -103,7 +103,8 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 
 
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
-    # waiting here for 5 seconds, So that after creating a node the whole output is printed first.
+    # waiting here for 5 seconds, So that after creating a node the whole
+    # output is printed first.
     cli.looper.runFor(5)
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))

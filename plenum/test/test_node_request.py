@@ -177,8 +177,6 @@ def testMultipleRequests(tdir_for_func):
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)
 
-                # TODO verify the correct number of expected PROPAGATE,
-                # PRE-PREPARE, PREPARE, and COMMITs occurred
                 pprint(ss2)
                 print("----------------------------------------------")
                 pprint(diff)
