@@ -1,8 +1,8 @@
-# Zeno Byzantine Fault Tolerant Protocol
+# Plenum Byzantine Fault Tolerant Protocol
 
-**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/zeno/wiki).**
+**Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
 
-Zeno makes extensive use of coroutines and the async/await keywords in Python, 
+Plenum makes extensive use of coroutines and the async/await keywords in Python, 
 and as such, requires Python version 3.5.0 or later and libsodium. See the "Installation Steps" section for help.   
  
 After cloning the repo, from the root directory of the repo, install it:
@@ -14,7 +14,7 @@ pip install -e .
 From here, you can play with the command-line interface:
 
 ```
-python -m zeno.cli
+python -m plenum.cli
 ```
 
 or
@@ -26,7 +26,7 @@ scripts/cli
 Or you can run the tests:
 
 ```
-python -m zeno.test
+python -m plenum.test
 ```
 
 **Installation Steps:**
