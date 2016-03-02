@@ -556,7 +556,7 @@ class Replica(MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         if self.prePrepares:
-            lastProcessedPrePrepareSeqNo = list(self.prePrepares.keys())[-1][1]
+            lastProcessedPrePrepareSeqNo = max([key[1] for key in self.prePrepares.keys()])
             if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
                 raise SuspiciousNode(sender, Suspicions.WRONG_PPSEQ_NO, pp)
 
