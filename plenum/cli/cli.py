@@ -1,16 +1,19 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import plenum.cli.ensure_logging_not_setup
+
 import configparser
 import os
 from configparser import ConfigParser
+
 import time
+import ast
+
 from functools import reduce, partial
 import logging
 import sys
 from collections import defaultdict
-
-import plenum.cli.ensure_logging_not_setup
 
 from prompt_toolkit.history import FileHistory
 from ioflo.aid.consoling import Console
@@ -29,6 +32,7 @@ from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from plenum.server.node import Node, CLIENT_STACK_SUFFIX
+from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict
 
@@ -80,8 +84,7 @@ class Cli:
         self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
-
-
+        self.plugins = []
         '''
         examples:
         status
@@ -102,6 +105,7 @@ class Cli:
             "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(re(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-{}]+) \s*)  |".format(os.path.sep),
             "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(os.path.sep),
             "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(re(self.node_or_cli)),
             "(\s* (?P<command>list) \s*)".format(re(self.commands))
@@ -113,6 +117,7 @@ class Cli:
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
+            'load_plugins': SimpleLexer(Token.Keyword),
             'load': SimpleLexer(Token.Keyword),
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg1': SimpleLexer(Token.Name),
@@ -133,7 +138,7 @@ class Cli:
             'node_name': WordCompleter(self.nodeNames),
             'more_nodes': WordCompleter(self.nodeNames),
             'helpable': WordCompleter(self.helpablesCommands),
-            'load': WordCompleter(['load']),
+            'load_plugins': WordCompleter(['load plugins from']),
             'client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
             'simple': WordCompleter(self.simpleCmds)
@@ -239,6 +244,10 @@ class Cli:
         def defaultHelper():
             self.printHelp()
 
+        def pluginHelper():
+            self.print("""Used to load a plugin from a given directory
+                        Usage: load plugins from <dir>""")
+
         mappings = {
             'new': newHelper,
             'status': statusHelper,
@@ -250,7 +259,8 @@ class Cli:
             'license': licenseHelper,
             'send': sendHelper,
             'show': showHelper,
-            'exit': exitHelper
+            'exit': exitHelper,
+            'plugins': pluginHelper
         }
 
         return defaultdict(lambda: defaultHelper, **mappings)
@@ -287,7 +297,7 @@ class Cli:
             self.print(record.msg, Token)
 
     def printHelp(self):
-        self.print("""plenum-CLI, a simple command-line interface for an plenum
+        self.print("""Plenum-CLI, a simple command-line interface for a Plenum
         protocol sandbox.
 Commands:
     help - Shows this help message
@@ -412,6 +422,7 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
+        opVerifiers = self.plugins['VERIFICATION'] if self.plugins else []
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -427,7 +438,8 @@ Commands:
         else:
             names = [nodeName]
         for name in names:
-            node = Node(name, self.nodeReg, basedirpath=self.tmpdir)
+            node = Node(name, self.nodeReg, basedirpath=self.tmpdir,
+                        opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
@@ -655,12 +667,21 @@ Commands:
                 client_action = matchedVars.get('cli_action')
                 if client_action == 'send':
                     msg = matchedVars.get('msg')
-                    self.sendMsg(client_name, msg)
+                    actualMsgRepr = ast.literal_eval(msg)
+                    self.sendMsg(client_name, actualMsgRepr)
                 elif client_action == 'show':
                     req_id = matchedVars.get('req_id')
                     self.getReply(client_name, req_id)
                 else:
                     self.printCmdHelper("sendmsg")
+
+            elif matchedVars.get('load_plugins') == 'load plugins from':
+                pluginsPath = matchedVars.get('plugin_dir')
+                try:
+                    self.plugins = PluginLoader(pluginsPath).plugins
+                except FileNotFoundError as ex:
+                    _, err = ex.args
+                    self.print(err, Token.BoldOrange)
 
             elif matchedVars.get('load') == 'load':
                 file = matchedVars.get("file_name")
@@ -682,7 +703,6 @@ Commands:
             # Fall back to the help saying, invalid command.
             else:
                 self.invalidCmd(cmdText)
-
         else:
             if cmdText != "":
                 self.invalidCmd(cmdText)
