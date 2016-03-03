@@ -98,28 +98,12 @@ class Cli:
 
         grams = [
             "(\s* (?P<simple>{}) \s*) |".format(re(self.simpleCmds)),
-
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ "
-            "(?P<client_name>[a-zA-Z0-9]+)"
-            "\s*) |".format(re(self.cliCmds)),
-
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ "
-            "(?P<node_name>[a-zA-Z0-9]+)\s*)"
-            " |".format(re(self.nodeCmds)),
-
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) "
-            "\s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
-
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ "
-            "(?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |"
-                .format(os.path.sep),
-
-            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
-            "?P<node_or_cli>{}) )?\s*) "
-            "|".format(re(self.node_or_cli)),
-
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(re(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(re(self.nodeCmds)),
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(os.path.sep),
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(re(self.node_or_cli)),
             "(\s* (?P<command>list) \s*)".format(re(self.commands))
         ]
 
