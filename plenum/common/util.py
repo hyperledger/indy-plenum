@@ -369,7 +369,7 @@ class MessageProcessor:
     Helper functions for messages.
     """
 
-    def discard(self, msg, reason, logMethod=logging.error):
+    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
         """
         Discard a message and log a reason using the specified `logMethod`.
 
@@ -379,4 +379,4 @@ class MessageProcessor:
         """
         reason = "" if not reason else " because {}".format(reason)
         logMethod("{} discarding message {}{}".format(self, msg, reason),
-                  extra={"cli": False})
+                  extra={"cli": cliOutput})

@@ -27,7 +27,7 @@ def nodeRegsForCLI():
     nodeNamesC = [n + 'C' for n in nodeNames]
     nodeReg = OrderedDict((n, has[i][0]) for i, n in enumerate(nodeNames))
     cliNodeReg = OrderedDict((n, has[i][1]) for i, n in enumerate(nodeNamesC))
-    return adict(nodeReg=nodeReg, cliNodeReg = cliNodeReg)
+    return adict(nodeReg=nodeReg, cliNodeReg=cliNodeReg)
 
 
 @pytest.fixture("module")
@@ -48,9 +48,17 @@ def validNodeNames(cli):
 @pytest.fixture("module")
 def createAllNodes(cli):
     cli.enterCmd("new node all")
-
+    cli.looper.runFor(5)
 
 @pytest.fixture("module")
 def allNodesUp(cli, createAllNodes, up):
     # Let nodes complete election and the output be rendered on the screen
     cli.looper.runFor(5)
+
+
+@pytest.fixture("module")
+def loadOpVerificationPlugin(cli):
+    curPath = os.path.dirname(os.path.dirname(__file__))
+    cli.enterCmd("load plugins from {}".format(
+        os.path.join(curPath, 'plugin', 'plugin1')))
+    cli.looper.runFor(2)

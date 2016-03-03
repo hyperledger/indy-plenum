@@ -9,13 +9,8 @@ import time
 from collections import deque
 from functools import partial
 from hashlib import sha256
-from typing import Dict, Any, Mapping
-from typing import List
-from typing import NamedTuple
-from typing import Optional
-from typing import Sequence
-from typing import Set
-from typing import Tuple
+from typing import Dict, Any, Mapping, Iterable, List, NamedTuple, Optional, \
+    Sequence, Set
 
 from raet.raeting import AutoMode
 
@@ -27,14 +22,18 @@ from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f
+from plenum.common.stacked import HA, ClientStacked
+from plenum.common.stacked import NodeStacked
 from plenum.common.startable import Status
 from plenum.common.transaction_store import TransactionStore
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
 from plenum.server import primary_elector
-from plenum.server.blacklister import Blacklister, SimpleBlacklister
+from plenum.server import replica
+from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
+from plenum.server.plugin_loader import PluginLoader
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.primary_decider import PrimaryDecider
@@ -63,7 +62,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                  cliname: str=None,
                  cliha: HA=None,
                  basedirpath: str=None,
-                 primaryDecider: PrimaryDecider = None):
+                 primaryDecider: PrimaryDecider = None,
+                 opVerifiers: Iterable[Any]=None):
         """
         Create a new node.
 
@@ -74,6 +74,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.opVerifiers = opVerifiers or []
+
         self.primaryDecider = primaryDecider
         me = nodeRegistry[name]
 
@@ -671,6 +673,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             exc = ex.__cause__ if ex.__cause__ else ex
             self.reportSuspiciousClient(frm, exc)
             self.discard(wrappedMsg, exc)
+        except InvalidClientRequest as ex:
+            exc = ex.__cause__ if ex.__cause__ else ex
+            reason = "client request invalid: {} {}".\
+                format(exc.__class__.__name__, exc)
+            self.discard(wrappedMsg, reason, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -685,7 +692,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                          .format(frm), logger.info)
             return None
 
-        if all(attr in msg.keys() for attr in [OPERATION, 'clientId', 'reqId']):
+        if all(attr in msg.keys()
+               for attr in [OPERATION, 'clientId', 'reqId']):
+            self.checkValidOperation(msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
@@ -696,8 +705,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 raise InvalidClientMsgType(cls)
         else:
             raise InvalidClientRequest
-        # don't check for signature on Batches from clients, signatures will
-        # be checked on the individual messages when they are unpacked
         try:
             cMsg = cls(**msg)
         except Exception as ex:
@@ -1141,6 +1148,15 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     format(len(self.aqStash), id(self.aqStash)))
 
         logger.info("\n".join(lines), extra={"cli": False})
+
+    def checkValidOperation(self, msg):
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(msg)
+            except Exception as ex:
+                raise InvalidClientRequest from ex
+
 
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"

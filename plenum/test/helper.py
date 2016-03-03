@@ -31,6 +31,7 @@ from plenum.server.client_authn import SimpleAuthNr
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
+from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
@@ -393,13 +394,14 @@ class TestNodeSet(ExitStack):
                  nodeReg=None,
                  tmpdir=None,
                  keyshare=True,
-                 primaryDecider=None):
+                 primaryDecider=None,
+                 opVerificationPluginPath=None):
+        super().__init__()
 
         self.tmpdir = tmpdir
 
-        super().__init__()
-
         self.primaryDecider = primaryDecider
+        self.opVerificationPluginPath = opVerificationPluginPath
 
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
@@ -430,6 +432,12 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
+        if self.opVerificationPluginPath:
+            pl = PluginLoader(self.opVerificationPluginPath)
+            opVerifiers = pl.plugins['VERIFICATION']
+        else:
+            opVerifiers = None
+
         node = self.enter_context(
                 TestNode(name=name,
                          ha=ha,
@@ -438,7 +446,8 @@ class TestNodeSet(ExitStack):
                          cliha=cliha,
                          nodeRegistry=copy(self.nodeReg),
                          basedirpath=self.tmpdir,
-                         primaryDecider=self.primaryDecider))
+                         primaryDecider=self.primaryDecider,
+                         opVerifiers=opVerifiers))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
@@ -828,7 +837,8 @@ def setupNodesAndClientAndSendRandomReq(looper: Looper,
     _client = setupNodesAndClient(looper, nodes, nodeReg, tmpdir)
     request = sendRandomRequest(_client)
     timeout = 3 * len(nodes)
-    looper.run(eventually(checkSufficientRepliesRecvd, _client.inBox,
+    looper.run(eventually(checkSufficientRepliesRecvd,
+                          _client.inBox,
                           request.reqId, 1,
                           retryWait=1, timeout=timeout))
     return _client, request
