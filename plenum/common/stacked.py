@@ -281,7 +281,7 @@ class NodeStacked(Batched):
 
     def __init__(self, stackParams: dict, nodeReg: Dict[str, HA]):
         super().__init__()
-        self.name = stackParams["name"]
+        self._name = stackParams["name"]
         # self.bootstrapped = False
 
         self.nodeStackParams = stackParams
@@ -301,6 +301,14 @@ class NodeStacked(Batched):
 
     def __repr__(self):
         return self.name
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
 
     @property
     def isKeySharing(self):

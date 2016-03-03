@@ -199,10 +199,10 @@ class Replica(MessageProcessor):
         if not value == self._primaryName:
             self._primaryName = value
             self.primaryNames[self.viewNo] = value
-            logger.debug("{} setting primaryName for view no {} to: {}"
-                .format(self, self.viewNo, value))
-            logger.debug("{}'s primaryNames for views are: {}"
-                         .format(self,self.primaryNames))
+            logger.debug("{} setting primaryName for view no {} to: {}".
+                         format(self, self.viewNo, value))
+            logger.debug("{}'s primaryNames for views are: {}".
+                         format(self, self.primaryNames))
             self._stateChanged()
 
     def _stateChanged(self):
@@ -552,6 +552,12 @@ class Replica(MessageProcessor):
 
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
+
+        #TODO: Fix this, how to check last preprepare seq num
+        # if self.prePrepares:
+        #     lastProcessedPrePrepareSeqNo = max([key[1] for key in self.prePrepares.keys()])
+        #     if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
+        #         raise SuspiciousNode(sender, Suspicions.WRONG_PPSEQ_NO, pp)
 
         key = (pp.clientId, pp.reqId)
 

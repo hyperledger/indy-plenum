@@ -260,3 +260,13 @@ def replied1(looper, nodeSet, client1, committed1):
                 retryWait=2,
                 timeout=30))
     return committed1
+
+
+@pytest.yield_fixture(scope="module")
+def nodeSetWithOpValidationPlugin(request, tdir, nodeReg):
+    primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
+    with TestNodeSet(nodeReg=nodeReg,
+                     tmpdir=tdir,
+                     primaryDecider=primaryDecider,
+                     opVerificationPluginPath="/home/rohit/dev/evernym/plenum-priv/plenum/plugins/sample_plugins") as ns:
+        yield ns

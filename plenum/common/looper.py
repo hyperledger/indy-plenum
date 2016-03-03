@@ -19,6 +19,10 @@ class Prodable:
     to do something.
     """
 
+    def name(self):
+        raise NotImplementedError("subclass {} should implement this method"
+                                  .format(self))
+
     async def prod(self, limit) -> int:
         """
         Action to be performed each time the Prodable object gets processor
@@ -112,6 +116,9 @@ class Looper:
 
         :param prodable: the Prodable object to add
         """
+        if prodable.name in [p.name for p in self.prodables]:
+            raise RuntimeError("Prodable {} already added.".
+                               format(prodable.name))
         self.prodables.append(prodable)
         if self.autoStart:
             prodable.start()

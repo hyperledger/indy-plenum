@@ -1,22 +1,22 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import plenum.cli.ensure_logging_not_setup
+
 import configparser
 import os
 from configparser import ConfigParser
-import plenum.cli.ensure_logging_not_setup
 
 import time
-
-from prompt_toolkit.history import FileHistory
+import ast
 
 from functools import reduce, partial
 import logging
 import sys
 from collections import defaultdict
 
+from prompt_toolkit.history import FileHistory
 from ioflo.aid.consoling import Console
-
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -32,6 +32,7 @@ from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from plenum.server.node import Node, CLIENT_STACK_SUFFIX
+from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict
 
@@ -72,20 +73,18 @@ class Cli:
         # To store the nodes created
         self.nodes = {}
 
-        self.cliCmds = {'new', 'status', 'list'}
-        self.nodeCmds = {'new', 'status', 'list', 'keyshare'}
+        self.cliCmds = {'status', 'new'}
+        self.nodeCmds = self.cliCmds | {'keyshare'}
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'exit',
-                           'quit',
-                           'license'}
+        self.simpleCmds = {'status', 'exit', 'quit', 'license'}
         self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
-        self.node_or_cli = ['node', 'client']
+        self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
-
+        self.plugins = []
         '''
         examples:
         status
@@ -102,21 +101,14 @@ class Cli:
 
         grams = [
             "(\s* (?P<simple>{}) \s*) |".format(re(self.simpleCmds)),
-            "(\s* (?P<command>{}) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ ("
-            "?P<node_or_cli>{}) )?\s*) "
-            "|".format(re(self.commands), re(self.node_or_cli)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ "
-            "(?P<client_name>[a-zA-Z0-9]+)(?P<more_clients>(,\s*[a-zA-Z0-9]+)*) "
-            "\s*) |".format(re(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ "
-            "(?P<node_name>[a-zA-Z0-9]+)(?P<more_nodes>(,\s*[a-zA-Z0-9]+)*) \s*)"
-            " |".format(re(self.nodeCmds)),
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) "
-            "\s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ "
-            "(?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*)"
-                .format(os.path.sep)
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(re(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(re(self.nodeCmds)),
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-{}]+) \s*)  |".format(os.path.sep),
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(os.path.sep),
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(re(self.node_or_cli)),
+            "(\s* (?P<command>list) \s*)".format(re(self.commands))
         ]
 
         self.grammar = compile("".join(grams))
@@ -125,6 +117,7 @@ class Cli:
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
+            'load_plugins': SimpleLexer(Token.Keyword),
             'load': SimpleLexer(Token.Keyword),
             'node_or_cli': SimpleLexer(Token.Keyword),
             'arg1': SimpleLexer(Token.Name),
@@ -145,7 +138,7 @@ class Cli:
             'node_name': WordCompleter(self.nodeNames),
             'more_nodes': WordCompleter(self.nodeNames),
             'helpable': WordCompleter(self.helpablesCommands),
-            'load': WordCompleter(['load']),
+            'load_plugins': WordCompleter(['load plugins from']),
             'client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
             'simple': WordCompleter(self.simpleCmds)
@@ -212,6 +205,12 @@ class Cli:
         def clientHelper():
             self.print("It is used to create a new client")
 
+        def statusNodeHelper():
+            self.print("It is used to check status of a created node")
+
+        def statusClientHelper():
+            self.print("It is used to check status of a created client")
+
         def listHelper():
             self.print("List all the commands, you can use in this CLI.")
 
@@ -245,16 +244,23 @@ class Cli:
         def defaultHelper():
             self.printHelp()
 
+        def pluginHelper():
+            self.print("""Used to load a plugin from a given directory
+                        Usage: load plugins from <dir>""")
+
         mappings = {
             'new': newHelper,
             'status': statusHelper,
             'list': listHelper,
-            'node': nodeHelper,
-            'client': clientHelper,
+            'newnode': nodeHelper,
+            'newclient': clientHelper,
+            'statusnode': statusNodeHelper,
+            'statusclient': statusClientHelper,
             'license': licenseHelper,
             'send': sendHelper,
             'show': showHelper,
-            'exit': exitHelper
+            'exit': exitHelper,
+            'plugins': pluginHelper
         }
 
         return defaultdict(lambda: defaultHelper, **mappings)
@@ -291,7 +297,7 @@ class Cli:
             self.print(record.msg, Token)
 
     def printHelp(self):
-        self.print("""plenum-CLI, a simple command-line interface for an plenum
+        self.print("""Plenum-CLI, a simple command-line interface for a Plenum
         protocol sandbox.
 Commands:
     help - Shows this help message
@@ -416,6 +422,7 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
+        opVerifiers = self.plugins['VERIFICATION'] if self.plugins else []
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -431,7 +438,8 @@ Commands:
         else:
             names = [nodeName]
         for name in names:
-            node = Node(name, self.nodeReg, basedirpath=self.tmpdir)
+            node = Node(name, self.nodeReg, basedirpath=self.tmpdir,
+                        opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
@@ -622,7 +630,8 @@ Commands:
                 node_or_cli = matchedVars.get('node_or_cli')
                 if helpable:
                     if node_or_cli:
-                        self.printCmdHelper(command=node_or_cli)
+                        self.printCmdHelper(command="{}{}".
+                                            format(helpable, node_or_cli))
                     else:
                         self.printCmdHelper(command=helpable)
                 else:
@@ -658,12 +667,21 @@ Commands:
                 client_action = matchedVars.get('cli_action')
                 if client_action == 'send':
                     msg = matchedVars.get('msg')
-                    self.sendMsg(client_name, msg)
+                    actualMsgRepr = ast.literal_eval(msg)
+                    self.sendMsg(client_name, actualMsgRepr)
                 elif client_action == 'show':
                     req_id = matchedVars.get('req_id')
                     self.getReply(client_name, req_id)
                 else:
                     self.printCmdHelper("sendmsg")
+
+            elif matchedVars.get('load_plugins') == 'load plugins from':
+                pluginsPath = matchedVars.get('plugin_dir')
+                try:
+                    self.plugins = PluginLoader(pluginsPath).plugins
+                except FileNotFoundError as ex:
+                    _, err = ex.args
+                    self.print(err, Token.BoldOrange)
 
             elif matchedVars.get('load') == 'load':
                 file = matchedVars.get("file_name")
@@ -685,16 +703,16 @@ Commands:
             # Fall back to the help saying, invalid command.
             else:
                 self.invalidCmd(cmdText)
-
         else:
             if cmdText != "":
                 self.invalidCmd(cmdText)
 
     @staticmethod
-    def createEntities(name: str, more: str, matchedVars, initializer):
+    def createEntities(name: str, moreNames: str, matchedVars, initializer):
         entity = matchedVars.get(name)
-        more = matchedVars.get(more)
-        names = [n for n in [entity] + more.split(',') if len(n) != 0]
+        more = matchedVars.get(moreNames)
+        more = more.split(',') if more is not None and len(more) > 0 else []
+        names = [n for n in [entity] + more if len(n) != 0]
         for name in names:
             initializer(name.strip())
 
