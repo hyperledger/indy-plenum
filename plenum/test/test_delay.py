@@ -33,13 +33,13 @@ def testTestNodeDelay(tdir_for_func):
                           "it doesn't arrive")
             msg = randomMsg()
 
-            nodeB.nodeIbStasher.delay(delayerMsgTuple(5, type(msg), nodeA.name))
+            nodeB.nodeIbStasher.delay(delayerMsgTuple(6, type(msg), nodeA.name))
 
             with pytest.raises(AssertionError):
                 looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 3))
             logging.debug("but then find that it arrives after the delay "
                           "duration has passed")
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 2))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 4))
             logging.debug(
                     "reset the delay, and find another message comes quickly")
             nodeB.nodeIbStasher.resetDelays()

@@ -3,6 +3,15 @@ from __future__ import unicode_literals
 # noinspection PyUnresolvedReferences
 import plenum.cli.ensure_logging_not_setup
 
+import re
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
+
+if is_windows():
+    from prompt_toolkit.terminal.win32_output import Win32Output
+    from prompt_toolkit.terminal.conemu_output import ConEmuOutput
+else:
+    from prompt_toolkit.terminal.vt100_output import Vt100_Output
+
 import configparser
 import os
 from configparser import ConfigParser
@@ -56,7 +65,7 @@ class Cli:
     electedPrimaries = set()
 
     # noinspection PyPep8
-    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, debug=False,
+    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
                  logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
@@ -96,19 +105,21 @@ class Cli:
         client Joe show 1
         '''
 
-        def re(seq):
+        def relist(seq):
             return '(' + '|'.join(seq) + ')'
 
+        psep = re.escape(os.path.sep)
+
         grams = [
-            "(\s* (?P<simple>{}) \s*) |".format(re(self.simpleCmds)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(re(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(re(self.nodeCmds)),
+            "(\s* (?P<simple>{}) \s*) |".format(relist(self.simpleCmds)),
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(relist(self.cliCmds)),
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(relist(self.nodeCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-{}]+) \s*)  |".format(os.path.sep),
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(os.path.sep),
-            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(re(self.node_or_cli)),
-            "(\s* (?P<command>list) \s*)".format(re(self.commands))
+            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)  |".format(psep),
+            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(psep),
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(relist(self.node_or_cli)),
+            "(\s* (?P<command>list) \s*)"
         ]
 
         self.grammar = compile("".join(grams))
@@ -170,10 +181,22 @@ class Cli:
                                         completer=completer,
                                         style=self.style,
                                         history=pers_hist)
+
+        if output:
+            out = output
+        else:
+            if is_windows():
+                if is_conemu_ansi():
+                    out = ConEmuOutput(sys.__stdout__)
+                else:
+                    out = Win32Output(sys.__stdout__)
+            else:
+                out = CustomOutput.from_pty(sys.__stdout__, true_color=True)
+
         self.cli = CommandLineInterface(
             application=app,
             eventloop=eventloop,
-            output=CustomOutput.from_pty(sys.__stdout__, true_color=True))
+            output=out)
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
@@ -361,7 +384,10 @@ Commands:
 
     @classmethod
     def loadCliNodeReg(cls, cfg: ConfigParser) -> OrderedDict:
-        return cls._loadRegistry(cfg, 'client_node_reg')
+        try:
+            return cls._loadRegistry(cfg, 'client_node_reg')
+        except configparser.NoSectionError:
+            return OrderedDict()
 
     @classmethod
     def _loadRegistry(cls, cfg: ConfigParser, reg: str):
@@ -724,12 +750,13 @@ Commands:
         self.curClientPort = self.curClientPort or curClientPort
         self.curClientPort += 1
         host = "127.0.0.1"
-        if checkPortAvailable((host, self.curClientPort)):
+        try:
+            checkPortAvailable(self.curClientPort)
             return host, self.curClientPort
-        else:
-            tokens = [(Token.Error, "Port {} already in use, "
+        except Exception as ex:
+            tokens = [(Token.Error, "Cannot bind to port {}: {}, "
                                     "trying another port.".format(
-                self.curClientPort))]
+                self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 

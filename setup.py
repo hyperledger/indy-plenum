@@ -29,7 +29,7 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
 REQ = {'SERVER': ['raet'],
-       'COMMON': ['jsonpickle'],
+       'COMMON': ['jsonpickle', 'portalocker'],
        'CLI': ['prompt_toolkit', 'pygments'],
        'TEST': ['pytest']}
 REQUIRES = set(sum(REQ.values(), []))

@@ -1,15 +1,16 @@
 import logging
 import os
 import sys
-
-import fcntl
+import portalocker
 import tempfile
 
 from ioflo.base.consoling import getConsole
 
 from plenum.common.stacked import HA
 from plenum.common.util import error, addTraceToLogging, TRACE_LOG_LEVEL, \
-    checkPortAvailable
+    checkPortAvailable, getlogger
+
+logger = getlogger()
 
 
 def checkDblImp():
@@ -87,6 +88,9 @@ class PortDispenser:
     port numbers. It leverages the filesystem lock mechanism to ensure there
     are no overlaps.
     """
+
+    maxportretries = 3
+
     def __init__(self, ip: str, filename: str=None):
         self.ip = ip
         self.FILE = filename or os.path.join(tempfile.gettempdir(),
@@ -100,9 +104,9 @@ class PortDispenser:
             with open(self.FILE, "w") as file:
                 file.write(str(self.minPort))
 
-    def get(self, count: int=1, readOnly: bool=False):
+    def get(self, count: int=1, readOnly: bool=False, recurlvl=0):
         with open(self.FILE, "r+") as file:
-            fcntl.flock(file.fileno(), fcntl.LOCK_EX)
+            portalocker.lock(file, portalocker.LOCK_EX)
             ports = []
             while len(ports) < count:
                 file.seek(0)
@@ -114,11 +118,19 @@ class PortDispenser:
                     port = self.minPort
                 file.seek(0)
                 file.write(str(port))
-                if checkPortAvailable(HA(self.ip, port)):
+                try:
+                    checkPortAvailable(port)
                     ports.append(port)
-                    print("new port dispensed: {}".format(port))
-                else:
-                    print("new port not available: {}".format(port))
+                    logger.debug("new port dispensed: {}".format(port))
+                except:
+                    if recurlvl < self.maxportretries:
+                        logger.debug("port {} unavailable, trying again...".
+                                     format(port))
+                    else:
+                        logger.debug("port {} unavailable, max retries {} "
+                                     "reached".
+                                     format(port, self.maxportretries))
+                        raise
             return ports
 
     def getNext(self, count: int=1):

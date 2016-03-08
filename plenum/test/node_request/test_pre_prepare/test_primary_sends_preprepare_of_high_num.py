@@ -8,9 +8,10 @@ from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNode
 
 instId = 0
 
-@pytest.mark.xfail(reason="Not implemented in replica. "
-                          "Add a check in replica to check value of preprepare "
-                          "seq number.")
+
+@pytest.mark.skipif(True, reason="Not implemented in replica. Add a check in "
+                                 "replica to check value of preprepare "
+                                 "seq number.")
 def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     def chk():
         for r in getNonPrimaryReplicas(nodeSet, instId):
@@ -27,8 +28,8 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     primary.doPrePrepare(req)
     for np in nonPrimaryReplicas:
         looper.run(
-                eventually(checkPreprepare, np, primary.viewNo, primary.prePrepareSeqNo - 1,
-                           req, 1,
+                eventually(checkPreprepare, np, primary.viewNo,
+                           primary.prePrepareSeqNo - 1, req, 1,
                            retryWait=.5, timeout=10))
 
     newReqDigest = ReqDigest(req.clientId, req.reqId + 1, req.digest)

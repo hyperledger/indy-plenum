@@ -95,6 +95,14 @@ def getFuncName(f):
         return "<unknown>"
 
 
+def recordFail(fname, timeout):
+    pass
+
+
+def recordSuccess(fname, timeout, param, remain):
+    pass
+
+
 async def eventually(coroFunc: FlexFunc,
                      *args,
                      retryWait: float=0.1,
@@ -127,6 +135,8 @@ async def eventually(coroFunc: FlexFunc,
             if isawaitable(res):
                 res = await res
             if verbose:
+                recordSuccess(fname, timeout, timeout*slowFactor, remain)
+
                 logger.debug("{} succeeded with {:.2f} seconds to spare".
                              format(fname, remain))
             return res
@@ -139,6 +149,7 @@ async def eventually(coroFunc: FlexFunc,
                                  "remaining...".format(fname, remain))
                 await asyncio.sleep(next(ratchet) if ratchet else retryWait)
             else:
+                recordFail(fname, timeout)
                 logger.error("{} failed; not trying any more because {} "
                              "seconds have passed; args were {}".
                              format(fname, timeout, args))

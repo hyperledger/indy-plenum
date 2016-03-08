@@ -14,7 +14,6 @@ from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower
 
 from plenum.common.exceptions import RemoteNotFound
-from plenum.common.motor import Motor
 from plenum.common.ratchet import Ratchet
 from plenum.common.request_types import Request, Batch, TaggedTupleBase
 from plenum.common.util import error, distributedConnectionMap, \
@@ -76,8 +75,17 @@ class Stack(RoadStack):
                 self._serviceStack(self.age)
                 l = len(self.rxMsgs)
             except Exception as ex:
-                logger.exception("Error servicing stack: {}".
-                                 format(type(ex), ex.args))
+                if isinstance(ex, OSError) and \
+                        len(ex.args) > 0 and \
+                        ex.args[0] == 22:
+                    logger.error("Error servicing stack: {}. This could be "
+                                 "due to binding to an internal network "
+                                 "and trying to route to an external one.".
+                                 format(ex), extra={'cli': 'WARNING'})
+                else:
+                    logger.error("Error servicing stack: {} {}".
+                                 format(ex, ex.args),
+                                 extra={'cli': 'WARNING'})
                 l = 0
             yield l
 
@@ -151,8 +159,7 @@ class Stack(RoadStack):
         :param stack: a dictionary of Roadstack constructor arguments.
         :return: the new instance of stack created.
         """
-        if not checkPortAvailable(stack['ha']):
-            error("Address {} already in use".format(stack['ha']))
+        checkPortAvailable(stack['ha'][1])
         stk = cls(**stack)
         if stk.ha[1] != stack['ha'].port:
             error("the stack port number has changed, likely due to "
@@ -278,6 +285,8 @@ class NodeStacked(Batched):
     """
     Behaviors that provides Node Stack functionality to Nodes and Clients
     """
+
+    localips = ['127.0.0.1', '0.0.0.0']
 
     def __init__(self, stackParams: dict, nodeReg: Dict[str, HA]):
         super().__init__()
@@ -426,7 +435,7 @@ class NodeStacked(Batched):
             self.nodestack.addRemote(remote)
         # updates the store time so the join timer is accurate
         self.nodestack.updateStamp()
-        self.nodestack.join(uid=remote.uid, cascade=True, timeout=20)
+        self.nodestack.join(uid=remote.uid, cascade=True, timeout=30)
         logger.info("{} looking for {} at {}:{}".
                     format(self.name, name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN"})
@@ -585,8 +594,11 @@ class NodeStacked(Batched):
             self.connect(dname, disconn.uid)
 
     def findInNodeRegByHA(self, remoteHa):
-        regName = [nm for nm, ha in self.nodeReg.items() if ha == remoteHa]
-        assert len(regName) <= 1
+        regName = [nm for nm, ha in self.nodeReg.items()
+                   if self.sameAddr(ha, remoteHa)]
+        if len(regName) > 1:
+            raise RuntimeError("more than one node registry entry with the "
+                               "same ha {}: {}".format(remoteHa, regName))
         if regName:
             return regName[0]
         return None
@@ -626,7 +638,7 @@ class NodeStacked(Batched):
                       format(self, self.nodestack.remotes.values()))
         for r in self.nodestack.remotes.values():
             if r.name in self.nodeReg:
-                if r.ha == self.nodeReg[r.name]:
+                if self.sameAddr(r.ha, self.nodeReg[r.name]):
                     matches.add(r.name)
                     logging.debug("{} matched remote is {} {}".
                                   format(self, r.uid, r.ha))
@@ -697,3 +709,11 @@ class NodeStacked(Batched):
             assert len(find) == 1
             return find[0]
         return remote.name
+
+    def sameAddr(self, ha, ha2):
+        if ha == ha2:
+            return True
+        elif ha[1] != ha2[1]:
+            return False
+        else:
+            return ha[0] in self.localips and ha2[0] in self.localips
