@@ -1,12 +1,34 @@
 # Plenum Byzantine Fault Tolerant Protocol
 
+### Installing Plenum
+
+```
+pip install plenum
+```
+
+From here, you can play with the command-line interface (see the [tutorial](https://github.com/evernym/plenum/wiki))...
+
+```
+plenum
+```
+
+...or run the tests.
+
+```
+python -m plenum.test
+```
+
 **Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
 
-Plenum makes extensive use of coroutines and the async/await keywords in 
-Python, 
-and as such, requires Python version 3.5.0 or later and libsodium. 
 
 ## Installation Steps:
+
+Plenum makes extensive use of coroutines and the async/await keywords in 
+Python, and as such, requires Python version 3.5.0 or later. 
+
+Plenum also depends on libsodium, an awesome crypto library.
+
+Plenum has other dependencies, including the impressive [RAET](https://github.com/saltstack/raet) for secure reliable communication over UDP.
 
 ### Install python 3.5 and libsodium:
 
@@ -37,68 +59,27 @@ and as such, requires Python version 3.5.0 or later and libsodium.
 
 1. Go to https://www.python.org and from the "Downloads" menu, download the Python 3.5.1 package(python-3.5.1-macosx10.6.pkg).
 
-2. Open the downloaded file to install it.
+1. Open the downloaded file to install it.
 
-3. If you are a homebrew fan, you can install it using this brew command: ```brew install python3``` 
+1. If you are a homebrew fan, you can install it using this brew command: ```brew install python3``` 
 
-4. To install homebrew package manager see: http://brew.sh/
+1. To install homebrew package manager, see: http://brew.sh/
 
-5. Once you have the homebrew installed on your machine, run ```brew install libsodium``` to install libsodium. 
+1. Once you have homebrew installed, run ```brew install libsodium``` to install libsodium. 
 
 
-### Using a virtual environment(recommended but not necessary)
-We recommend creating a new virtual environment for trying out Plenum. 
-Virtual environment is a Python environment which is isolated from the 
-system's default Python environment(you can change that) and any other 
-virtual environment you create. You can create a new virtual environment with
+### Using a virtual environment (recommended)
+We recommend creating a new Python virtual environment for trying out Plenum. 
+a virtual environment is a Python environment which is isolated from the 
+system's default Python environment (you can change that) and any other 
+virtual environment you create. You can create a new virtual environment by:
 
 ```
-virtaulenv -p python3.5 <name of virtual environment>
+virtualenv -p python3.5 <name of virtual environment>
 ```
 
-and now activate the virtual environment with
+And activate it by:
 
 ```
 source <name of virtual environment>/bin/activate
-```
-
-### Installing the Plenum project
-
-You can install Plenum using pip by
-
-```
-pip install plenum
-```
-
-Or you can clone this repo and then from the root directory of the repo, 
-install it:
-
-```
-pip install -e .
-```
-
-From here on, you can play with the command-line interface:
-
-```
-plenum
-```
-
-or
-
-From the repo
-
-```
-python -m plenum.cli
-```
-
-or
-
-```
-scripts/cli
-```
-
-Or you can run the tests:
-
-```
-python -m plenum.test
 ```
