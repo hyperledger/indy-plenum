@@ -1,5 +1,15 @@
 # Plenum Byzantine Fault Tolerant Protocol
 
+Plenum makes extensive use of coroutines and the async/await keywords in 
+Python, and as such, requires Python version 3.5.0 or later. Plenum also 
+depends on libsodium, an awesome crypto library. These need to be installed 
+separately. Read below to see how.
+
+Plenum has other dependencies, including the impressive 
+[RAET](https://github.com/saltstack/raet) for secure reliable communication 
+over UDP, but this and other dependencies are installed automatically with 
+Plenum.
+
 ### Installing Plenum
 
 ```
@@ -20,17 +30,7 @@ python -m plenum.test
 
 **Details about the protocol, including a great tutorial, can be found on the [wiki](https://github.com/evernym/plenum/wiki).**
 
-
-## Installation Steps:
-
-Plenum makes extensive use of coroutines and the async/await keywords in 
-Python, and as such, requires Python version 3.5.0 or later. 
-
-Plenum also depends on libsodium, an awesome crypto library.
-
-Plenum has other dependencies, including the impressive [RAET](https://github.com/saltstack/raet) for secure reliable communication over UDP.
-
-### Install python 3.5 and libsodium:
+### Installing python 3.5 and libsodium:
 
 **Ubuntu:**
 
