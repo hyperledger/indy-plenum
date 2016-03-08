@@ -14,7 +14,7 @@ from plenum.common.motor import Motor
 from plenum.common.request_types import Request, Reply, OP_FIELD_NAME, f
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY
-from plenum.common.util import getMaxFailures, getlogger, checkPortAvailable
+from plenum.common.util import getMaxFailures, getlogger
 from raet.raeting import AutoMode
 
 from plenum.client.signer import Signer, SimpleSigner

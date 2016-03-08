@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import signal
 import time
+import sys
 from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
@@ -80,6 +81,9 @@ class Looper:
             self.loop = loop
         else:
             try:
+                if sys.platform == 'win32':
+                    loop = asyncio.ProactorEventLoop()
+                    asyncio.set_event_loop(loop)
                 l = asyncio.get_event_loop()
                 if l.is_closed():
                     raise RuntimeError("event loop was closed")
@@ -93,7 +97,10 @@ class Looper:
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
         self.loop.set_debug(debug)
-        self.loop.add_signal_handler(signal.SIGINT, self.onSigInt)
+        if sys.platform == 'win32':
+            signal.signal(signal.SIGINT, self.onSigInt)
+        else:
+            self.loop.add_signal_handler(signal.SIGINT, self.onSigInt)
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
             self.startall()

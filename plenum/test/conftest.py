@@ -1,5 +1,6 @@
 import itertools
 import logging
+import os
 from functools import partial
 from typing import Dict, Any
 
@@ -69,7 +70,7 @@ def logcapture(request, whitelist):
     def tester(record):
         isBenign = record.levelno not in [logging.ERROR, logging.CRITICAL]
         # TODO is this sufficient to test if a log is from test or not?
-        isTest = '/test' in record.pathname
+        isTest = os.path.sep + 'test' in record.pathname
         isWhiteListed = bool([w for w in whiteListedExceptions
                               if w in record.msg])
         assert isBenign or isTest or isWhiteListed
@@ -96,14 +97,14 @@ def counter():
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory, counter):
-    tempdir = tmpdir_factory.getbasetemp().strpath + '/' + str(next(counter))
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath, str(next(counter)))
     logging.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 
 @pytest.fixture(scope='function')
 def tdir_for_func(tmpdir_factory, counter):
-    tempdir = tmpdir_factory.getbasetemp().strpath + '/' + str(next(counter))
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath, str(next(counter)))
     logging.debug("function-level temporary directory: {}".format(tempdir))
     return tempdir
 

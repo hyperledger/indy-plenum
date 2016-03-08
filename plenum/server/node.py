@@ -1037,7 +1037,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
 
             # remove any unjoined remotes
-            for r in list(self.nodestack.remotes.values()):
+            for r in self.nodestack.nameRemotes.values():
                 if not r.joined:
                     logger.debug("{} removing unjoined remote {}"
                                  .format(self, r))

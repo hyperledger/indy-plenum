@@ -1,12 +1,12 @@
 import os
 from collections import OrderedDict
-from configparser import ConfigParser
 
 import pytest
 
 import plenum.common.util
 from plenum.common.looper import Looper
-from plenum.test.helper import ensureElectionsDone, genHa
+from plenum.test.cli.mock_output import MockOutput
+from plenum.test.helper import genHa
 from plenum.test.testing_utils import adict
 
 plenum.common.util.loggingConfigured = False
@@ -32,10 +32,13 @@ def nodeRegsForCLI():
 
 @pytest.fixture("module")
 def cli(nodeRegsForCLI, cliLooper, tdir):
+    mockOutput = MockOutput()
+
     Cli = TestCli(looper=cliLooper,
                   tmpdir=tdir,
                   nodeReg=nodeRegsForCLI.nodeReg,
                   cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                  output=mockOutput,
                   debug=True)
     return Cli
 
@@ -59,6 +62,6 @@ def allNodesUp(cli, createAllNodes, up):
 @pytest.fixture("module")
 def loadOpVerificationPlugin(cli):
     curPath = os.path.dirname(os.path.dirname(__file__))
-    cli.enterCmd("load plugins from {}".format(
-        os.path.join(curPath, 'plugin', 'plugin1')))
+    fullPath = os.path.join(curPath, 'plugin', 'plugin1')
+    cli.enterCmd("load plugins from {}".format(fullPath))
     cli.looper.runFor(2)
