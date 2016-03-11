@@ -1,10 +1,14 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+from typing import Dict
+
 import plenum.cli.ensure_logging_not_setup
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+
+from plenum.client.signer import SimpleSigner
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -81,6 +85,7 @@ class Cli:
         self.requests = {}
         # To store the nodes created
         self.nodes = {}
+        self.externalClientKeys = {}  # type: Dict[str,str]
 
         self.cliCmds = {'status', 'new'}
         self.nodeCmds = self.cliCmds | {'keyshare'}
@@ -117,6 +122,7 @@ class Cli:
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
             "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)  |".format(psep),
+            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)  |",
             "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(psep),
             "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(relist(self.node_or_cli)),
             "(\s* (?P<command>list) \s*)"
@@ -136,6 +142,10 @@ class Cli:
             'more_nodes': SimpleLexer(Token.Name),
             'simple': SimpleLexer(Token.Keyword),
             'client_command': SimpleLexer(Token.Keyword),
+            'add_key': SimpleLexer(Token.Keyword),
+            'verkey': SimpleLexer(Token.Literal),
+            'for_client': SimpleLexer(Token.Keyword),
+            'identifier': SimpleLexer(Token.Name),
         })
 
         self.clientWC = WordCompleter([])
@@ -152,7 +162,9 @@ class Cli:
             'load_plugins': WordCompleter(['load plugins from']),
             'client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
-            'simple': WordCompleter(self.simpleCmds)
+            'simple': WordCompleter(self.simpleCmds),
+            'add_key': WordCompleter(['add key']),
+            'for_client': WordCompleter(['for client']),
         })
 
         self.style = PygmentsStyle.from_defaults({
@@ -471,6 +483,8 @@ Commands:
             node.startKeySharing()
             for client in self.clients.values():
                 self.bootstrapClientKey(client, node)
+            for identifier, verkey in self.externalClientKeys.items():
+                node.clientAuthNr.addClient(identifier, verkey)
 
     def ensureValidClientId(self, clientId):
         """
@@ -560,13 +574,16 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientId):
+    def newClient(self, clientId, seed=None):
         try:
             self.ensureValidClientId(clientId)
             client_addr = self.nextAvailableClientAddr()
+            signer = SimpleSigner(clientId, seed.encode("utf-8")) \
+                if seed else None
             client = Client(clientId,
                             ha=client_addr,
                             nodeReg=self.cliNodeReg,
+                            signer=signer,
                             basedirpath=self.tmpdir)
             self.looper.add(client)
             for node in self.nodes.values():
@@ -725,6 +742,17 @@ Commands:
                 else:
                     self.logger.warn("File {} not found.".format(file),
                                      extra={"cli": "WARNING"})
+            elif matchedVars.get('add_key') == 'add key':
+                verkey = matchedVars.get('verkey')
+                # TODO make verkey case insensitive
+                identifier = matchedVars.get('identifier')
+
+                if identifier in self.externalClientKeys:
+                    self.print("identifier already added", Token.Error)
+                    return
+                self.externalClientKeys[identifier] = verkey
+                for n in self.nodes.values():
+                    n.clientAuthNr.addClient(identifier, verkey)
 
             # Fall back to the help saying, invalid command.
             else:
@@ -739,8 +767,12 @@ Commands:
         more = matchedVars.get(moreNames)
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
-        for name in names:
-            initializer(name.strip())
+        seed = matchedVars.get("seed")
+        if len(names) == 1 and seed:
+            initializer(name.strip(), seed=seed)
+        else:
+            for name in names:
+                initializer(name.strip())
 
     def invalidCmd(self, cmdText):
         self.print("Invalid command: '{}'\n".format(cmdText))
