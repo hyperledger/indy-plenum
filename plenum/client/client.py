@@ -75,9 +75,9 @@ class Client(NodeStacked, Motor):
 
         self.connectNicelyUntil = 0  # don't need to connect nicely as a client
 
-    def start(self):
+    def start(self, loop):
         oldstatus = self.status
-        super().start()
+        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))

@@ -350,13 +350,18 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
     return connmap
 
 
-def checkPortAvailable(port):
+def checkPortAvailable(ha):
+    available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock.bind(('', port))
+        sock.bind(ha)
+    except:
+        logging.warning("Checked port availability for opening "
+                        "and address was already in use: {}".format(ha))
+        available = False
     finally:
         sock.close()
-
+    return available
 
 class MessageProcessor:
     """

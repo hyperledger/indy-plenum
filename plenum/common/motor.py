@@ -46,7 +46,7 @@ class Motor(Prodable):
         """
         return self.status in Status.going()
 
-    def start(self):
+    def start(self, loop):
         """
         Set the status to Status.starting
         """

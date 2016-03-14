@@ -783,7 +783,7 @@ Commands:
         self.curClientPort += 1
         host = "127.0.0.1"
         try:
-            checkPortAvailable(self.curClientPort)
+            checkPortAvailable((host,self.curClientPort))
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "

@@ -34,7 +34,7 @@ class Prodable:
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
 
-    def start(self):
+    def start(self, loop):
         """
         Actions to be performed when the Prodable is starting up.
         """
@@ -128,7 +128,7 @@ class Looper:
                                format(prodable.name))
         self.prodables.append(prodable)
         if self.autoStart:
-            prodable.start()
+            prodable.start(self.loop)
 
     def removeProdable(self, prodable: Prodable) -> None:
         """
@@ -238,7 +238,7 @@ class Looper:
         Start all the Prodables in this Looper's `prodables`
         """
         for n in self.prodables:
-            n.start()
+            n.start(self.loop)
 
     def stopall(self):
         for n in self.prodables:

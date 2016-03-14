@@ -90,7 +90,7 @@ def testNodesComingUpAtDifferentTimes():
             for n in nodes:
                 n.stop()
             for i, n in enumerate(nodes):
-                n.start()
+                n.start(looper.loop)
                 looper.runFor(rwaits[i])
             looper.runFor(3)
             looper.run(checkNodesConnected(nodes,
@@ -120,9 +120,9 @@ def testNodeConnection():
             looper.runFor(4)
             looper.run(checkNodesConnected([A, B]))
             looper.stopall()
-            A.start()
+            A.start(looper.loop)
             looper.runFor(4)
-            B.start()
+            B.start(looper.loop)
             looper.run(checkNodesConnected([A, B]))
 
 

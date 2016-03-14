@@ -119,7 +119,7 @@ class PortDispenser:
                 file.seek(0)
                 file.write(str(port))
                 try:
-                    checkPortAvailable(port)
+                    checkPortAvailable(("",port))
                     ports.append(port)
                     logger.debug("new port dispensed: {}".format(port))
                 except:

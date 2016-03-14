@@ -98,3 +98,38 @@ And activate it by:
 ```
 source <name of virtual environment>/bin/activate
 ```
+
+### Installing MongoDB (recommended)
+
+```
+1. sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
+```
+
+```
+2. echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.0.list
+```
+
+```
+3. sudo apt-get update
+```
+
+```
+4. sudo apt-get install -y mongodb-org
+```
+
+### Installing RethinkDB
+```
+1. source /etc/lsb-release && echo "deb http://download.rethinkdb.com/apt $DISTRIB_CODENAME main" | sudo tee /etc/apt/sources.list.d/rethinkdb.list
+```
+
+```
+2. wget -qO- https://download.rethinkdb.com/apt/pubkey.gpg | sudo apt-key add -
+```
+
+```
+3. sudo apt-get update
+```
+
+```
+4. sudo apt-get install rethinkdb
+```

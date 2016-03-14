@@ -159,7 +159,7 @@ class Stack(RoadStack):
         :param stack: a dictionary of Roadstack constructor arguments.
         :return: the new instance of stack created.
         """
-        checkPortAvailable(stack['ha'][1])
+        checkPortAvailable(stack['ha'])
         stk = cls(**stack)
         if stk.ha[1] != stack['ha'].port:
             error("the stack port number has changed, likely due to "

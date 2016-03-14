@@ -31,7 +31,8 @@ exec(compile(open(METADATA).read(), METADATA, 'exec'))
 REQ = {'SERVER': ['raet'],
        'COMMON': ['jsonpickle', 'portalocker'],
        'CLI': ['prompt_toolkit', 'pygments'],
-       'TEST': ['pytest']}
+       'TEST': ['pytest'],
+       'DRIVER': ['rethinkdb', 'motor']}
 REQUIRES = set(sum(REQ.values(), []))
 EXTRAS = {}
 

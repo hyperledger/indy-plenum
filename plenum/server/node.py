@@ -1,8 +1,3 @@
-"""
-A node in an RBFT system.
-Nodes communicate with each other via the RAET protocol. https://github.com/saltstack/raet
-"""
-
 import asyncio
 import random
 import time
@@ -33,24 +28,24 @@ from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
-from plenum.server.plugin_loader import PluginLoader
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
-
-from plenum.common.stacked import HA, ClientStacked
-from plenum.common.stacked import NodeStacked
-from plenum.server import replica
 from plenum.server.suspicion_codes import Suspicions
+from plenum.storage.storage import Storage
 
 logger = getlogger()
 
 
 class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
            Propagator, MessageProcessor):
+    """
+    A node in a plenum system. Nodes communicate with each other via the RAET
+    protocol. https://github.com/saltstack/raet
+    """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
 
@@ -63,7 +58,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                  cliha: HA=None,
                  basedirpath: str=None,
                  primaryDecider: PrimaryDecider = None,
-                 opVerifiers: Iterable[Any]=None):
+                 opVerifiers: Iterable[Any]=None,
+                 storage: Storage=None):
+
         """
         Create a new node.
 
@@ -110,6 +107,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if basedirpath:
             nstack['basedirpath'] = basedirpath
             cstack['basedirpath'] = basedirpath
+        self.basedirpath = basedirpath
 
         self.clientAuthNr = clientAuthNr or SimpleAuthNr()
 
@@ -128,7 +126,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
 
-        self.txnStore = TransactionStore()
+        self.txnStore = storage if storage is not None else TransactionStore()
 
         self.replicas = []  # type: List[replica.Replica]
 
@@ -192,13 +190,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                Commit, InstanceChange)
         self.addReplicas()
 
-    def start(self):
+    def start(self, loop):
         oldstatus = self.status
-        super().start()
+        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            self.txnStore.start(loop)
             self.startNodestack()
             self.startClientstack()
 
@@ -245,6 +244,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.reset()
         self.logstats()
         self.conns.clear()
+        # Stop the txn store
+        self.txnStore.stop()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -771,11 +772,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # If request is already processed(there is a reply for the request in
         # the node's transaction store then return the reply from the
         # transaction store)
-        txnId = self.txnStore.isRequestAlreadyProcessed(request)
-        if txnId:
+        reply = await self.txnStore.getTxn(request.clientId, request.reqId)
+        if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
-            reply = self.txnStore.transactions[txnId]
             self.transmitToClient(reply, request.clientId)
         else:
             self.transmitToClient(RequestAck(request.reqId), frm)
@@ -929,9 +929,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reply = self.generateReply(viewNo, req)
         self.transmitToClient(reply, req.clientId)
         txnId = reply.result['txnId']
-        self.txnStore.addToProcessedRequests(req.clientId, req.reqId,
-                                             txnId, reply)
-        asyncio.ensure_future(self.txnStore.addReply(
+        asyncio.ensure_future(self.txnStore.insertTxn(
             clientId=req.clientId, reply=reply, txnId=txnId))
 
     def sendInstanceChange(self, viewNo: int):
@@ -1017,8 +1015,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         txnId = sha256("{}{}{}".format(viewNo, req.clientId, req.reqId).
                        encode('utf-8')).hexdigest()
         return Reply(viewNo,
-                     req.reqId,
-                     {"txnId": txnId})
+                      req.reqId,
+                      {"txnId": txnId})
 
     def startKeySharing(self, timeout=60):
         """

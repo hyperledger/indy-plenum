@@ -33,6 +33,7 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
+from plenum.storage.rethinkdb_server import RethinkDB
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testing_utils import adict, PortDispenser
@@ -418,7 +419,8 @@ class TestNodeSet(ExitStack):
             self.nodeReg = genNodeReg(
                     names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
-            node = self.addNode(name)
+
+            self.addNode(name)
 
         # The following lets us access the nodes by name as attributes of the
         # NodeSet. It's not a problem unless a node name shadows a member.

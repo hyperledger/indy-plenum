@@ -49,9 +49,9 @@ def keySharedNodes(startedNodes):
 
 
 @pytest.fixture(scope="module")
-def startedNodes(nodeSet):
+def startedNodes(nodeSet, looper):
     for n in nodeSet:
-        n.start()
+        n.start(looper.loop)
     return nodeSet
 
 

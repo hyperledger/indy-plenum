@@ -28,7 +28,8 @@ logging.root.setLevel(logging.INFO)
 
 
 @pytest.fixture(scope="module")
-def step1(looper, startedNodes, up, client1):
+def step1(looper, nodeSet, up, client1):
+    startedNodes = nodeSet
     """
     stand up a pool of nodes and send 5 requests to client
     """
