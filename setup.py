@@ -1,6 +1,7 @@
 import sys
 import os
 from setuptools import setup, find_packages, __version__
+from pip.req import parse_requirements
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -8,6 +9,7 @@ if sys.version_info < (3, 5):
           "but setup.py was run using {}.{}.{}"
     v = sys.version_info
     print(msg.format(v.major, v.minor, v.micro))
+    # noinspection PyPackageRequirements
     print("NOTE: Installation failed. Run setup.py using python3")
     sys.exit(1)
 
@@ -32,8 +34,10 @@ REQ = {'SERVER': ['raet'],
        'COMMON': ['jsonpickle', 'portalocker'],
        'CLI': ['prompt_toolkit', 'pygments'],
        'TEST': ['pytest'],
-       'DRIVER': ['rethinkdb', 'motor']}
-REQUIRES = set(sum(REQ.values(), []))
+       'DRIVER': ['rethinkdb', 'motor','plyvel']}
+
+install_reqs = parse_requirements("requirements.txt", session=False)
+REQUIRES = set(sum(REQ.values(), []) + [str(ir.ori) for ir in install_reqs])
 EXTRAS = {}
 
 setup(
@@ -55,6 +59,5 @@ setup(
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=REQUIRES,
     extras_require=EXTRAS,
-    scripts=['scripts/plenum'],
-    dependency_links=['http://github.com/evernym/ledger-priv/tarball/start#egg=package-1.0']
+    scripts=['scripts/plenum']
 )

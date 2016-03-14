@@ -18,5 +18,5 @@ def checkReplyIsPersisted(nodes, lpr, reply1):
         assert reply.reqId == 1
         assert reply.result is not None
 
-        for node in nodes:
-            lpr.run(eventually(chk, node, retryWait=1, timeout=20))
+    for node in nodes:
+        lpr.run(eventually(chk, node, retryWait=1, timeout=20))
