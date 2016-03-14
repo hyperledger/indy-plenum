@@ -396,7 +396,8 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None):
+                 opVerificationPluginPath=None,
+                 testNodeClass=TestNode):
         super().__init__()
 
         self.tmpdir = tmpdir
@@ -404,6 +405,7 @@ class TestNodeSet(ExitStack):
         self.primaryDecider = primaryDecider
         self.opVerificationPluginPath = opVerificationPluginPath
 
+        self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
@@ -440,8 +442,9 @@ class TestNodeSet(ExitStack):
         else:
             opVerifiers = None
 
+        testNodeClass = self.testNodeClass
         node = self.enter_context(
-                TestNode(name=name,
+                testNodeClass(name=name,
                          ha=ha,
                          clientAuthNr=SimpleAuthNr(),
                          cliname=cliname,
@@ -876,7 +879,8 @@ genHa = PortDispenser("127.0.0.1").getNext
 def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
-                  signer=None) -> TestClient:
+                  signer=None,
+                  testClientClass=TestClient) -> TestClient:
     nReg = nodeReg
     if nodeReg:
         assert isinstance(nodeReg, dict)
@@ -894,7 +898,7 @@ def genTestClient(nodes: TestNodeSet = None,
 
     signer = signer if signer else SimpleSigner(clientId)
 
-    tc = TestClient(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
+    tc = testClientClass(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
     if nodes:
         bootstrapClientKeys(tc, nodes)
     return tc
@@ -1074,13 +1078,14 @@ def delayerMethod(method, delay):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter):
+    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
         self.counter = counter
+        self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
         tmpdir = self.fresh_tdir()
-        with TestNodeSet(count=nodecount, tmpdir=tmpdir) as nodeset:
+        with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
                 for n in nodeset:
                     n.startKeySharing()
