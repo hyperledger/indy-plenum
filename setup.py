@@ -55,4 +55,6 @@ setup(
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=REQUIRES,
     extras_require=EXTRAS,
-    scripts=['scripts/plenum'])
+    scripts=['scripts/plenum'],
+    dependency_links=['http://github.com/evernym/ledger-priv/tarball/start#egg=package-1.0']
+)
