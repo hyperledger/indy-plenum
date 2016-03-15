@@ -112,3 +112,7 @@ class TransactionStore(Storage):
 
     def size(self) -> int:
         return len(self.transactions)
+
+    # TODO: Cleanup stores transactions? Why Result object, why viewNo
+    def getAllTxn(self):
+        return {k: v.result for k, v in self.transactions.items()}

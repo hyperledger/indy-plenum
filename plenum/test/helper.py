@@ -909,8 +909,9 @@ def bootstrapClientKeys(client, nodes):
 
 def genTestClientProvider(nodes: TestNodeSet = None,
                           nodeReg=None,
-                          tmpdir=None):
-    clbk = partial(genTestClient, nodes, nodeReg, tmpdir)
+                          tmpdir=None,
+                          clientGnr=genTestClient):
+    clbk = partial(clientGnr, nodes, nodeReg, tmpdir)
     return ClientProvider(clbk)
 
 
