@@ -790,10 +790,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, request.clientId)
         else:
+            await self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
-            await self.checkRequestAuthorized(request)
             self.recordAndPropagate(request)
 
     # noinspection PyUnusedLocal
