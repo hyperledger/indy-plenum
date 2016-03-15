@@ -274,9 +274,6 @@ class ClientProvider:
             if not self.client:
                 self.client = self.clientGenerator()
             if hasattr(self.client, attr):
-                logger.info(
-                    "Client provider providing access to attribute {}".format(
-                        attr))
                 return getattr(self.client, attr)
             raise AttributeError(
                 "Client has no attribute named {}".format(attr))
