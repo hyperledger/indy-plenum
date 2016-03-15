@@ -37,7 +37,7 @@ REQ = {'SERVER': ['raet'],
        'DRIVER': ['rethinkdb', 'motor','plyvel']}
 
 install_reqs = parse_requirements("requirements.txt", session=False)
-REQUIRES = set(sum(REQ.values(), []) + [str(ir.ori) for ir in install_reqs])
+REQUIRES = set(sum(REQ.values(), []) + [str(ir.req) for ir in install_reqs])
 EXTRAS = {}
 
 setup(
