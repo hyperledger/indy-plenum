@@ -155,6 +155,10 @@ class RethinkDB(Storage):
         return Reply(jsonReply["viewNo"], jsonReply["reqId"],
                      jsonReply["result"])
 
+    async def size(self):
+        with r.connect(host=self.host, port=self.port) as rdbConn:
+            return r.db(self.dbName).table(self.txnTB).count().run(rdbConn)
+
     def __enter__(self):
         return self
 

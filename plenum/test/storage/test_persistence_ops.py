@@ -25,13 +25,14 @@ def testRethinkDB(tdir):
         await rdb.insertTxn(clientId, reply, txnId)
         txn_in_db = await rdb.getTxn(clientId, reply.reqId)
         assert txn_in_db == reply
+        assert await rdb.size() == 1
         rdb.stop()
 
     loop.run_until_complete(go())
 
 
 def testMongoDB():
-    port = 27017
+    port = 27018
 
     async def go():
         mdb = MongoDBServer(host="127.0.0.1",
@@ -46,7 +47,8 @@ def testMongoDB():
         await mdb.insertTxn(clientId, reply, txnId)
         txn_in_db = await mdb.getTxn(clientId, reply.reqId)
         assert txn_in_db == reply
-        mdb.stop()
+        assert await mdb.size() == 1
+        await mdb.stop()
 
     loop.run_until_complete(go())
     loop.close()

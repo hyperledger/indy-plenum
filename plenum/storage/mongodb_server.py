@@ -144,6 +144,9 @@ class MongoDBServer(Storage):
                      jsonReply["reqId"],
                      jsonReply["result"])
 
+    async def size(self):
+        return await self.txnTB.count()
+
     def __enter__(self):
         return self
 
