@@ -36,9 +36,12 @@ REQ = {'SERVER': ['raet'],
        'TEST': ['pytest'],
        'DRIVER': ['rethinkdb', 'motor','plyvel']}
 
-install_reqs = parse_requirements("requirements.txt", session=False)
-REQUIRES = set(sum(REQ.values(), []) + [str(ir.req) for ir in install_reqs])
-EXTRAS = {}
+REQUIRES = set(sum(REQ.values(), []))
+
+reqs = ['git+https://github.com/evernym/ledger-priv.git@start#egg=ledger']
+
+for url in reqs:
+    os.system('pip install {}'.format(url))
 
 setup(
     name='plenum',
@@ -58,6 +61,5 @@ setup(
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=REQUIRES,
-    extras_require=EXTRAS,
     scripts=['scripts/plenum']
 )
