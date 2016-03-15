@@ -719,7 +719,12 @@ Commands:
                 client_action = matchedVars.get('cli_action')
                 if client_action == 'send':
                     msg = matchedVars.get('msg')
-                    actualMsgRepr = ast.literal_eval(msg)
+                    try:
+                        actualMsgRepr = ast.literal_eval(msg)
+                    except Exception as ex:
+                        self.print("error evaluating msg expression: {}".
+                                   format(ex), Token.BoldOrange)
+                        return
                     self.sendMsg(client_name, actualMsgRepr)
                 elif client_action == 'show':
                     req_id = matchedVars.get('req_id')
