@@ -48,7 +48,7 @@ def testMongoDB():
         txn_in_db = await mdb.getTxn(clientId, reply.reqId)
         assert txn_in_db == reply
         assert await mdb.size() == 1
-        await mdb.stop()
+        mdb.stop()
 
     loop.run_until_complete(go())
     loop.close()
