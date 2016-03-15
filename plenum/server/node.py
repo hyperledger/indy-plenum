@@ -781,6 +781,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
+            await self.checkRequestAuthorized(request)
             self.recordAndPropagate(request)
 
     # noinspection PyUnusedLocal
@@ -1154,6 +1155,16 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     v.verify(msg)
             except Exception as ex:
                 raise InvalidClientRequest from ex
+
+    async def checkRequestAuthorized(self, request):
+        """
+        Subclasses can implement this method to throw an exception if the
+        request is not authorized.
+
+        If a request makes it this far, the signature has been verified to match
+        the clientId.
+        """
+        pass
 
 
 CLIENT_STACK_SUFFIX = "C"
