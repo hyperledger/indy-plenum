@@ -67,6 +67,11 @@ class Cli:
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
+    name = 'plenum'
+    properName = 'Plenum'
+    fullName = 'Plenum protocol'
+
+
 
     # noinspection PyPep8
     def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
@@ -185,10 +190,10 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        pers_hist = FileHistory('.plenum-cli-history')
+        pers_hist = FileHistory('.{}-cli-history'.format(self.name))
 
         # Create interface.
-        app = create_prompt_application('plenum> ',
+        app = create_prompt_application('{}> '.format(self.name),
                                         lexer=lexer,
                                         completer=completer,
                                         style=self.style,
@@ -218,7 +223,7 @@ class Cli:
                      filename=logFileName)
 
         self.logger = getlogger("cli")
-        self.print("\nplenum-CLI (c) 2016 Evernym, Inc.")
+        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         self.print("Node registry loaded.")
         self.print("None of these are created or running yet.")
 
@@ -332,8 +337,8 @@ class Cli:
             self.print(record.msg, Token)
 
     def printHelp(self):
-        self.print("""Plenum-CLI, a simple command-line interface for a Plenum
-        protocol sandbox.
+        self.print("""{}-CLI, a simple command-line interface for a
+        {} sandbox.
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>
@@ -343,7 +348,8 @@ Commands:
     status <node_name>|<client_name> - Shows specific status
     list - Shows the list of commands you can run
     license - Show the license
-    exit - exit the command-line interface ('quit' also works)""")
+    exit - exit the command-line interface ('quit' also works)""".
+                   format(self.properName, self.fullName))
 
     def printCmdHelper(self, command=None):
         self.functionMappings[command]()
