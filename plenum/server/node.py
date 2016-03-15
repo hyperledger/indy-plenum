@@ -677,12 +677,15 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.reportSuspiciousClient(frm, exc)
             self.discard(wrappedMsg, exc)
         except InvalidClientMessageException as ex:
-            _, frm = wrappedMsg
-            exc = ex.__cause__ if ex.__cause__ else ex
-            reason = "client request invalid: {} {}".\
-                format(exc.__class__.__name__, exc)
-            self.transmitToClient(RequestNack(ex.reqId, reason), frm)
-            self.discard(wrappedMsg, reason, logger.warning, cliOutput=True)
+            self.handleInvalidClientMsg(ex, wrappedMsg)
+
+    def handleInvalidClientMsg(self, ex, wrappedMsg):
+        _, frm = wrappedMsg
+        exc = ex.__cause__ if ex.__cause__ else ex
+        reason = "client request invalid: {} {}". \
+            format(exc.__class__.__name__, exc)
+        self.transmitToClient(RequestNack(ex.reqId, reason), frm)
+        self.discard(wrappedMsg, reason, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -759,7 +762,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.debug("{} processing {} request {}".
                          format(self.clientstack.name, frm, req.reqId),
                          extra={"cli": True})
-            await self.clientMsgRouter.handle(m)
+            try:
+                await self.clientMsgRouter.handle(m)
+            except InvalidClientMessageException as ex:
+                handleInvalidClientMsg(ex, m)
 
     async def processRequest(self, request: Request, frm: str):
         """
