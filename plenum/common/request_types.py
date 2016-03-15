@@ -5,7 +5,7 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST
+    BLACKLIST, REQNACK
 
 Field = namedtuple("Field", ["nm", "tp"])
 
@@ -29,6 +29,7 @@ class f:  # provides a namespace for reusable field constants
     SIG = Field('signature', Optional[str])
     SUSP_CODE = Field('suspicionCode', int)
     ELECTION_DATA = Field('electionData', Any)
+    REASON = Field('reason', Any)
 
 OP_FIELD_NAME = "op"
 
@@ -145,6 +146,10 @@ class ReqDigest(NamedTuple(REQDIGEST, [f.CLIENT_ID,
 
 RequestAck = TaggedTuple(REQACK, [
     f.REQ_ID])
+
+RequestNack = TaggedTuple(REQNACK, [
+    f.REQ_ID,
+    f.REASON])
 
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,

@@ -1153,10 +1153,11 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         assert received > minimum
 
 
-def checkReqAck(client, node, reqId):
-    expected = ({OP_FIELD_NAME: REQACK,
-                 'reqId': reqId},
-                node.clientstack.name)
+def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQACK, 'reqId': reqId}
+    if update:
+        rec.update(update)
+    expected = (rec, node.clientstack.name)
     # one and only one matching message should be in the client's inBox
     assert sum(1 for x in client.inBox if x == expected) == 1
 

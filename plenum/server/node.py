@@ -11,12 +11,14 @@ from raet.raeting import AutoMode
 
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc
+    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
+    InvalidClientMessageException
 from plenum.common.motor import Motor
 from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
-    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f
+    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
+    RequestNack
 from plenum.common.stacked import HA, ClientStacked
 from plenum.common.stacked import NodeStacked
 from plenum.common.startable import Status
@@ -674,11 +676,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             exc = ex.__cause__ if ex.__cause__ else ex
             self.reportSuspiciousClient(frm, exc)
             self.discard(wrappedMsg, exc)
-        except InvalidClientRequest as ex:
+        except InvalidClientMessageException as ex:
+            _, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
             reason = "client request invalid: {} {}".\
                 format(exc.__class__.__name__, exc)
-            self.discard(wrappedMsg, reason, cliOutput=True)
+            self.transmitToClient(RequestNack(ex.reqId, reason), frm)
+            self.discard(wrappedMsg, reason, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -694,8 +698,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return None
 
         if all(attr in msg.keys()
-               for attr in [OPERATION, 'clientId', 'reqId']):
-            self.checkValidOperation(msg[OPERATION])
+               for attr in [OPERATION, f.CLIENT_ID.nm, f.REQ_ID.nm]):
+            self.checkValidOperation(msg[f.CLIENT_ID.nm],
+                                     msg[f.REQ_ID.nm],
+                                     msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
@@ -1148,21 +1154,21 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         logger.info("\n".join(lines), extra={"cli": False})
 
-    def checkValidOperation(self, msg):
+    def checkValidOperation(self, clientId, reqId, msg):
         if self.opVerifiers:
             try:
                 for v in self.opVerifiers:
                     v.verify(msg)
             except Exception as ex:
-                raise InvalidClientRequest from ex
+                raise InvalidClientRequest(clientId, reqId) from ex
 
     async def checkRequestAuthorized(self, request):
         """
-        Subclasses can implement this method to throw an exception if the
-        request is not authorized.
+        Subclasses can implement this method to throw an
+        UnauthorizedClientRequest if the request is not authorized.
 
-        If a request makes it this far, the signature has been verified to match
-        the clientId.
+        If a request makes it this far, the signature has been verified to
+        match the clientId.
         """
         pass
 

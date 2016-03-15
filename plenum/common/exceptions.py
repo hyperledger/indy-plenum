@@ -92,7 +92,10 @@ class InvalidNodeMessageException(InvalidMessageException):
 
 
 class InvalidClientMessageException(InvalidMessageException):
-    pass
+    def __init__(self, clientId, reqId, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clientId = clientId
+        self.reqId = reqId
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):
@@ -123,3 +126,5 @@ class InvalidClientOp(InvalidClientRequest):
     pass
 
 
+class UnauthorizedClientRequest(InvalidClientMessageException):
+    pass
