@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from typing import Dict
 from typing import Optional
 
 from plenum.common.request_types import Reply
@@ -109,3 +110,5 @@ class TransactionStore(Storage):
                 reply.reqId not in self.processedRequests[clientId]) and \
                txnId is not None
 
+    def size(self) -> int:
+        return len(self.transactions)

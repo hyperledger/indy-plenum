@@ -2,6 +2,7 @@ from plenum.common.request_types import Reply
 
 
 class Storage:
+
     def start(self, loop):
         raise NotImplementedError()
 
@@ -12,4 +13,7 @@ class Storage:
         raise NotImplementedError()
 
     async def getTxn(self, clientId: str, reqId: int):
+        raise NotImplementedError()
+
+    def size(self) -> int:
         raise NotImplementedError()
