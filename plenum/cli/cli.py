@@ -71,7 +71,8 @@ class Cli:
     properName = 'Plenum'
     fullName = 'Plenum protocol'
 
-
+    NodeClass = Node
+    ClientClass = Client
 
     # noinspection PyPep8
     def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
@@ -482,8 +483,10 @@ Commands:
         else:
             names = [nodeName]
         for name in names:
-            node = Node(name, self.nodeReg, basedirpath=self.tmpdir,
-                        opVerifiers=opVerifiers)
+            node = self.NodeClass(name,
+                                  self.nodeReg,
+                                  basedirpath=self.tmpdir,
+                                  opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
@@ -586,11 +589,11 @@ Commands:
             client_addr = self.nextAvailableClientAddr()
             signer = SimpleSigner(clientId, seed.encode("utf-8")) \
                 if seed else None
-            client = Client(clientId,
-                            ha=client_addr,
-                            nodeReg=self.cliNodeReg,
-                            signer=signer,
-                            basedirpath=self.tmpdir)
+            client = self.ClientClass(clientId,
+                                      ha=client_addr,
+                                      nodeReg=self.cliNodeReg,
+                                      signer=signer,
+                                      basedirpath=self.tmpdir)
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)
