@@ -765,7 +765,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
-                handleInvalidClientMsg(ex, m)
+                self.handleInvalidClientMsg(ex, m)
 
     async def processRequest(self, request: Request, frm: str):
         """
