@@ -1,9 +1,9 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
-from typing import Dict
-
 import plenum.cli.ensure_logging_not_setup
+
+from typing import Dict
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
@@ -67,6 +67,12 @@ class Cli:
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
+    name = 'plenum'
+    properName = 'Plenum'
+    fullName = 'Plenum protocol'
+
+    NodeClass = Node
+    ClientClass = Client
 
     # noinspection PyPep8
     def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
@@ -98,7 +104,7 @@ class Cli:
         self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
-        self.plugins = []
+        self.plugins = {}
         '''
         examples:
         status
@@ -185,10 +191,10 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        pers_hist = FileHistory('.plenum-cli-history')
+        pers_hist = FileHistory('.{}-cli-history'.format(self.name))
 
         # Create interface.
-        app = create_prompt_application('plenum> ',
+        app = create_prompt_application('{}> '.format(self.name),
                                         lexer=lexer,
                                         completer=completer,
                                         style=self.style,
@@ -218,7 +224,7 @@ class Cli:
                      filename=logFileName)
 
         self.logger = getlogger("cli")
-        self.print("\nplenum-CLI (c) 2016 Evernym, Inc.")
+        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         self.print("Node registry loaded.")
         self.print("None of these are created or running yet.")
 
@@ -332,8 +338,8 @@ class Cli:
             self.print(record.msg, Token)
 
     def printHelp(self):
-        self.print("""Plenum-CLI, a simple command-line interface for a Plenum
-        protocol sandbox.
+        self.print("""{}-CLI, a simple command-line interface for a
+        {} sandbox.
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>
@@ -343,7 +349,8 @@ Commands:
     status <node_name>|<client_name> - Shows specific status
     list - Shows the list of commands you can run
     license - Show the license
-    exit - exit the command-line interface ('quit' also works)""")
+    exit - exit the command-line interface ('quit' also works)""".
+                   format(self.properName, self.fullName))
 
     def printCmdHelper(self, command=None):
         self.functionMappings[command]()
@@ -476,8 +483,10 @@ Commands:
         else:
             names = [nodeName]
         for name in names:
-            node = Node(name, self.nodeReg, basedirpath=self.tmpdir,
-                        opVerifiers=opVerifiers)
+            node = self.NodeClass(name,
+                                  self.nodeReg,
+                                  basedirpath=self.tmpdir,
+                                  opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
@@ -580,11 +589,11 @@ Commands:
             client_addr = self.nextAvailableClientAddr()
             signer = SimpleSigner(clientId, seed.encode("utf-8")) \
                 if seed else None
-            client = Client(clientId,
-                            ha=client_addr,
-                            nodeReg=self.cliNodeReg,
-                            signer=signer,
-                            basedirpath=self.tmpdir)
+            client = self.ClientClass(clientId,
+                                      ha=client_addr,
+                                      nodeReg=self.cliNodeReg,
+                                      signer=signer,
+                                      basedirpath=self.tmpdir)
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)
@@ -710,7 +719,12 @@ Commands:
                 client_action = matchedVars.get('cli_action')
                 if client_action == 'send':
                     msg = matchedVars.get('msg')
-                    actualMsgRepr = ast.literal_eval(msg)
+                    try:
+                        actualMsgRepr = ast.literal_eval(msg)
+                    except Exception as ex:
+                        self.print("error evaluating msg expression: {}".
+                                   format(ex), Token.BoldOrange)
+                        return
                     self.sendMsg(client_name, actualMsgRepr)
                 elif client_action == 'show':
                     req_id = matchedVars.get('req_id')

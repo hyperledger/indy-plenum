@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from plenum.server.node import Node
 from plenum.test.helper import TestNodeSet
 
 

@@ -4,6 +4,7 @@ from os import listdir
 from os.path import isfile, join
 import sys
 import re
+from typing import Any, Set, Dict
 
 from plenum.common.util import getlogger
 
@@ -64,7 +65,7 @@ class PluginLoader:
                                "loaded".format(m))
         return mods
 
-    def _load(self):
+    def _load(self) -> Dict[str, Set[Any]]:
         mods = self._getModules()
         plugins = {}
 
