@@ -3,8 +3,8 @@ def testDefaultHelp(cli):
     Testing `help` command
     """
     cli.enterCmd("help")
-    defaultHelpMsg = """Plenum-CLI, a simple command-line interface for a Plenum
-        protocol sandbox.
+    defaultHelpMsg = """Plenum-CLI, a simple command-line interface for a
+        Plenum protocol sandbox.
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>

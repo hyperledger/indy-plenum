@@ -33,7 +33,6 @@ from plenum.server.monitor import Monitor
 from plenum.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
-from plenum.storage.rethinkdb_server import RethinkDB
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testing_utils import adict, PortDispenser
@@ -179,13 +178,6 @@ class TestClient(Client, StackedTester):
     def stackType():
         return TestStack
 
-    # TODO Might need in the actual Client object.
-    def getReqToTxnIdMap(self, reqIds):
-        txnIds = {}
-        for reqId in reqIds:
-            txnIds[reqId] = self.getReply(reqId)['result']['txnId']
-        return txnIds
-
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                     Monitor.isMasterReqLatencyTooHigh])
@@ -222,28 +214,9 @@ class TestReplica(replica.Replica):
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
 
-# noinspection PyShadowingNames,PyShadowingNames
-@Spyable(methods=[Node.handleOneNodeMsg,
-                  Node.processRequest,
-                  Node.processOrdered,
-                  Node.postToClientInBox,
-                  Node.postToNodeInBox,
-                  "eatTestMsg",
-                  Node.decidePrimaries,
-                  Node.startViewChange,
-                  Node.discard,
-                  Node.reportSuspiciousNode,
-                  Node.reportSuspiciousClient,
-                  Node.processRequest,
-                  Node.processPropagate,
-                  Node.propagate,
-                  Node.forward,
-                  Node.send,
-                  Node.processInstanceChange,
-                  Node.checkPerformance])
-class TestNode(Node, StackedTester):
+# noinspection PyUnresolvedReferences
+class TestNodeCore(StackedTester):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.nodeMsgRouter.routes[TestMsg] = self.eatTestMsg
         self.nodeIbStasher = Stasher(self.nodeInBox,
                                      "nodeInBoxStasher~" + self.name)
@@ -287,7 +260,6 @@ class TestNode(Node, StackedTester):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimaryElector
         return pdCls(self)
-        # return TestPrimaryElector(name, replicas, viewNo)
 
     def delaySelfNomination(self, delay: Seconds):
         logging.debug("{} delaying start election".format(self))
@@ -338,6 +310,31 @@ class TestNode(Node, StackedTester):
         for r in self.replicas:  # type: TestReplica
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
+
+
+# noinspection PyShadowingNames,PyShadowingNames
+@Spyable(methods=[Node.handleOneNodeMsg,
+                  Node.processRequest,
+                  Node.processOrdered,
+                  Node.postToClientInBox,
+                  Node.postToNodeInBox,
+                  "eatTestMsg",
+                  Node.decidePrimaries,
+                  Node.startViewChange,
+                  Node.discard,
+                  Node.reportSuspiciousNode,
+                  Node.reportSuspiciousClient,
+                  Node.processRequest,
+                  Node.processPropagate,
+                  Node.propagate,
+                  Node.forward,
+                  Node.send,
+                  Node.processInstanceChange,
+                  Node.checkPerformance])
+class TestNode(TestNodeCore, Node):
+    def __init__(self, *args, **kwargs):
+        Node.__init__(self, *args, **kwargs)
+        TestNodeCore.__init__(self)
 
 
 def randomMsg() -> TaggedTuple:
@@ -396,7 +393,8 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None):
+                 opVerificationPluginPath=None,
+                 testNodeClass=TestNode):
         super().__init__()
 
         self.tmpdir = tmpdir
@@ -404,6 +402,7 @@ class TestNodeSet(ExitStack):
         self.primaryDecider = primaryDecider
         self.opVerificationPluginPath = opVerificationPluginPath
 
+        self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
@@ -440,8 +439,9 @@ class TestNodeSet(ExitStack):
         else:
             opVerifiers = None
 
+        testNodeClass = self.testNodeClass
         node = self.enter_context(
-                TestNode(name=name,
+                testNodeClass(name=name,
                          ha=ha,
                          clientAuthNr=SimpleAuthNr(),
                          cliname=cliname,
@@ -876,7 +876,8 @@ genHa = PortDispenser("127.0.0.1").getNext
 def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
-                  signer=None) -> TestClient:
+                  signer=None,
+                  testClientClass=TestClient) -> TestClient:
     nReg = nodeReg
     if nodeReg:
         assert isinstance(nodeReg, dict)
@@ -894,7 +895,7 @@ def genTestClient(nodes: TestNodeSet = None,
 
     signer = signer if signer else SimpleSigner(clientId)
 
-    tc = TestClient(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
+    tc = testClientClass(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
     if nodes:
         bootstrapClientKeys(tc, nodes)
     return tc
@@ -1074,13 +1075,14 @@ def delayerMethod(method, delay):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter):
+    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
         self.counter = counter
+        self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
         tmpdir = self.fresh_tdir()
-        with TestNodeSet(count=nodecount, tmpdir=tmpdir) as nodeset:
+        with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
                 for n in nodeset:
                     n.startKeySharing()
