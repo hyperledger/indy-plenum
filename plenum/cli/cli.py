@@ -1,9 +1,9 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
-from typing import Dict
-
 import plenum.cli.ensure_logging_not_setup
+
+from typing import Dict
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
@@ -98,7 +98,7 @@ class Cli:
         self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
-        self.plugins = []
+        self.plugins = {}
         '''
         examples:
         status
