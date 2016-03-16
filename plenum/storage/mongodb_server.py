@@ -114,7 +114,7 @@ class MongoDBServer(Storage):
             # Get
             if processedReq:
                 txnId = processedReq["txnId"]
-                replyQuery = {"txnId": txnId}
+                replyQuery = {"_id": txnId}
                 jsonReply = await self.txnTB.find_one(replyQuery)
                 return self._fromMongoJsonReply(jsonReply)
             else:
@@ -127,7 +127,7 @@ class MongoDBServer(Storage):
 
     def _createReplyRecord(self, txnId, reply: Reply):
         return {
-            "txnId": txnId,
+            "_id": txnId,
             "viewNo": reply.viewNo,
             "reqId": reply.reqId,
             "result": reply.result}
