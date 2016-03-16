@@ -69,7 +69,7 @@ class RethinkDB(Storage):
 
     # this async does not make it async,
     # it is just in convention with storage intrface
-    async def insertTxn(self, clientId: str, reply: Reply, txnId: str):
+    async def append(self, clientId: str, reply: Reply, txnId: str):
         with r.connect(host=self.host, port=self.port) as rdbConn:
             try:
                 # add txn to table
@@ -87,7 +87,7 @@ class RethinkDB(Storage):
                              "reply {}, and txnId {}: {}".
                              format(clientId, reply, txnId, ex))
 
-    async def getTxn(self, clientId, reqId):
+    async def get(self, clientId, reqId):
         with r.connect(host=self.host, port=self.port) as rdbConn:
             try:
                 key = str(clientId) + "-" + str(reqId)

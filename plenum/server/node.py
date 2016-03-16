@@ -772,7 +772,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # If request is already processed(there is a reply for the request in
         # the node's transaction store then return the reply from the
         # transaction store)
-        reply = await self.txnStore.getTxn(request.clientId, request.reqId)
+        reply = await self.txnStore.get(request.clientId, request.reqId)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -930,7 +930,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reply = self.generateReply(viewNo, req)
         self.transmitToClient(reply, req.clientId)
         txnId = reply.result['txnId']
-        asyncio.ensure_future(self.txnStore.insertTxn(
+        asyncio.ensure_future(self.txnStore.append(
             clientId=req.clientId, reply=reply, txnId=txnId))
 
     def sendInstanceChange(self, viewNo: int):

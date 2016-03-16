@@ -79,7 +79,7 @@ class MongoDBServer(Storage):
         except Exception as ex:
             logger.error("error creating database and tables: {}".format(ex))
 
-    async def insertTxn(self, clientId: str, reply: Reply, txnId: str):
+    async def append(self, clientId: str, reply: Reply, txnId: str):
         try:
             # add reply to txn table
             jsonReply = self._createReplyRecord(txnId, reply)
@@ -105,7 +105,7 @@ class MongoDBServer(Storage):
                          "reply {}, and txnId {}: {}".
                          format(clientId, reply, txnId, ex))
 
-    async def getTxn(self, clientId: str, reqId: int):
+    async def get(self, clientId: str, reqId: int):
         try:
             # Get processedReq from clientId and reqId
             processedReqQuery = {"clientId": clientId, "reqId": reqId}

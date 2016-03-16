@@ -22,8 +22,8 @@ def testRethinkDB(tdir):
         # rdb.reset()
         # rdb._bootstrapDB()
         # insert an entry
-        await rdb.insertTxn(clientId, reply, txnId)
-        txn_in_db = await rdb.getTxn(clientId, reply.reqId)
+        await rdb.append(clientId, reply, txnId)
+        txn_in_db = await rdb.get(clientId, reply.reqId)
         assert txn_in_db == reply
         assert await rdb.size() == 1
         rdb.stop()
@@ -44,8 +44,8 @@ def testMongoDB():
         reply = Reply(1, 1, "theresult")
         await mdb.reset()
         # insert an entry
-        await mdb.insertTxn(clientId, reply, txnId)
-        txn_in_db = await mdb.getTxn(clientId, reply.reqId)
+        await mdb.append(clientId, reply, txnId)
+        txn_in_db = await mdb.get(clientId, reply.reqId)
         assert txn_in_db == reply
         assert await mdb.size() == 1
         mdb.stop()

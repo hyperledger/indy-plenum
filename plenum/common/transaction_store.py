@@ -80,8 +80,8 @@ class TransactionStore(Storage):
             self.processedRequests[clientId] = {}
         self.processedRequests[clientId][reply.reqId] = txnId
 
-    async def insertTxn(self, clientId: str, reply: Reply,
-                        txnId: str = None) -> None:
+    async def append(self, clientId: str, reply: Reply,
+                     txnId: str = None) -> None:
         """
         Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.
@@ -93,7 +93,7 @@ class TransactionStore(Storage):
             self.responses[clientId] = asyncio.Queue()
         self.responses[clientId].put(reply)
 
-    async def getTxn(self, clientId, reqId) -> Optional[Reply]:
+    async def get(self, clientId, reqId) -> Optional[Reply]:
         if clientId in self.processedRequests:
             if reqId in self.processedRequests[clientId]:
                 txnId = self.processedRequests[clientId][reqId]

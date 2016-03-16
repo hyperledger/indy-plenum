@@ -12,8 +12,8 @@ def checkReplyIsPersisted(nodes, lpr, reply1):
     """
 
     async def chk(node):
-        reply = await node.txnStore.getTxn(reply1.clientId,
-                                           reply1.reqId)
+        reply = await node.txnStore.get(reply1.clientId,
+                                        reply1.reqId)
         assert reply.viewNo == 0
         assert reply.reqId == 1
         assert reply.result is not None
