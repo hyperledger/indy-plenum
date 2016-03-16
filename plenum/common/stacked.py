@@ -13,6 +13,7 @@ from raet.road.estating import RemoteEstate
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower
 
+from plenum.client.signer import Signer
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
 from plenum.common.request_types import Request, Batch, TaggedTupleBase
@@ -192,7 +193,9 @@ class ClientStacked:
         :param msg: a message
         :param remoteName: the name of the remote
         """
-        payload = self.prepForSending(msg)
+        # At this time, nodes are not signing messages to clients, beyond what
+        # happens inherently with RAET
+        payload = self.prepForSending(msg, None)
         try:
             self.clientstack.send(payload, remoteName)
         except Exception as ex:
@@ -211,28 +214,28 @@ class Batched(MessageProcessor):
         """
         self.outBoxes = {}  # type: Dict[int, deque]
 
-    def _enqueue(self, msg: Any, rid: int) -> None:
+    def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
         Enqueue the message into the remote's queue.
 
         :param msg: the message to enqueue
         :param rid: the id of the remote node
         """
-        payload = self.prepForSending(msg)
+        payload = self.prepForSending(msg, signer)
         if rid not in self.outBoxes:
             self.outBoxes[rid] = deque()
         self.outBoxes[rid].append(payload)
 
-    def _enqueueIntoAllRemotes(self, msg: Any) -> None:
+    def _enqueueIntoAllRemotes(self, msg: Any, signer: Signer) -> None:
         """
         Enqueue the specified message into all the remotes in the nodestack.
 
         :param msg: the message to enqueue
         """
         for rid in self.nodestack.remotes.keys():
-            self._enqueue(msg, rid)
+            self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: int) -> None:
+    def send(self, msg: Any, *rids: int, signer: Signer=None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
          or into the outBoxes of all the remotes if rids is None
@@ -243,9 +246,9 @@ class Batched(MessageProcessor):
         """
         if rids:
             for r in rids:
-                self._enqueue(msg, r)
+                self._enqueue(msg, r, signer)
         else:
-            self._enqueueIntoAllRemotes(msg)
+            self._enqueueIntoAllRemotes(msg, signer)
 
     def flushOutBoxes(self) -> None:
         """
@@ -270,7 +273,9 @@ class Batched(MessageProcessor):
                     batch = Batch([], None)
                     while msgs:
                         batch.messages.append(msgs.popleft())
-                    payload = self.prepForSending(batch)
+                    # don't need to sign the batch, when the composed msgs are
+                    # signed
+                    payload = self.prepForSending(batch, None)
                     self.nodestack.transmit(payload, rid)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
@@ -441,7 +446,7 @@ class NodeStacked(Batched):
                     extra={"cli": "PLAIN"})
         return remote.uid
 
-    def sign(self, msg: Mapping) -> Mapping:
+    def sign(self, msg: Dict, signer: Signer) -> Dict:
         """
         No signing is implemented in NodeStacked. Returns the msg as it is.
 
@@ -449,21 +454,24 @@ class NodeStacked(Batched):
         """
         return msg  # don't sign by default
 
-    def prepForSending(self, msg: Mapping) -> Mapping:
+    def prepForSending(self, msg: Dict, signer: Signer) -> Dict:
         """
         Return a dictionary form of the message
 
         :param msg: the message to be sent
-        :raises: ValueError if msg cannot be converted to an appropriate format for transmission
+        :raises: ValueError if msg cannot be converted to an appropriate format
+            for transmission
         """
         if isinstance(msg, TaggedTupleBase):
             tmsg = msg.melted()
         elif isinstance(msg, Request):
             tmsg = msg.__getstate__()
         else:
-            raise ValueError("Message cannot be converted to an appropriate format for transmission")
-        smsg = self.sign(tmsg)
-        return smsg
+            raise ValueError("Message cannot be converted to an appropriate "
+                             "format for transmission")
+        if signer:
+            return self.sign(tmsg, signer)
+        return tmsg
 
     def handleOneNodeMsg(self, wrappedMsg):
         raise NotImplementedError("{} must implement this method".format(self))

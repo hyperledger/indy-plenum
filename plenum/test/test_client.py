@@ -78,9 +78,9 @@ def testSendRequestWithoutSignatureFails(pool):
         client1 = genTestClient(ctx.nodeset, tmpdir=ctx.tmpdir)
 
         # remove the client's ability to sign
-        assert client1.signer
-        client1.signer = None
-        assert not client1.signer
+        assert client1.getSigner()
+        client1.signers[client1.defaultIdentifier] = None
+        assert not client1.getSigner()
 
         ctx.looper.add(client1)
         await client1.ensureConnectedToNodes()
@@ -198,7 +198,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     orignalRquestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
     #  send reply only not any ACK.
-    client1._enqueueIntoAllRemotes(sent1)
+    client1._enqueueIntoAllRemotes(sent1, client1.getSigner())
     # Since view no is always zero in the current setup
     looper.run(eventually(
             lambda: assertLength([response for response in client1.inBox

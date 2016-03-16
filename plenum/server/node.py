@@ -354,8 +354,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def sendElectionMsgsToLaggedNode(self, nodeName: str, msgs: List[Any]):
         rid = self.nodestack.getRemote(nodeName).uid
         for msg in msgs:
-            logger.debug("{} sending election message {} to lagged node {}"
-                                     .format(self, msg, nodeName))
+            logger.debug("{} sending election message {} to lagged node {}".
+                         format(self, msg, nodeName))
             self.send(msg, rid)
 
     def _statusChanged(self, old: Status, new: Status) -> None:

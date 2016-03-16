@@ -28,14 +28,6 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-REQ = {'SERVER': ['raet'],
-       'COMMON': ['jsonpickle', 'portalocker'],
-       'CLI': ['prompt_toolkit', 'pygments'],
-       'TEST': ['pytest'],
-       'DRIVER': ['rethinkdb', 'motor']}
-REQUIRES = set(sum(REQ.values(), []))
-EXTRAS = {}
-
 setup(
     name='plenum',
     version=__version__,
@@ -53,6 +45,12 @@ setup(
     package_data={
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
-    install_requires=REQUIRES,
-    extras_require=EXTRAS,
-    scripts=['scripts/plenum'])
+    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
+                      'pygments'],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest', 'pytest-xdist'],
+    extras_require={
+        'persistence': ['rethinkdb', 'motor']
+    },
+    scripts=['scripts/plenum']
+)

@@ -1,4 +1,5 @@
-from typing import Mapping
+from abc import abstractproperty
+from typing import Mapping, Dict
 
 from libnacl import randombytes
 from libnacl.encode import base64_encode
@@ -12,7 +13,11 @@ class Signer:
     """
     Interface that defines a sign method.
     """
-    def sign(self, msg):
+    @abstractproperty
+    def identifier(self) -> str:
+        raise NotImplementedError()
+
+    def sign(self, msg: Dict) -> Dict:
         raise NotImplementedError()
 
 
@@ -23,6 +28,7 @@ class SimpleSigner(Signer):
     This signer creates a public key and a private key using the seed value provided in the constructor.
     It internally uses the NaclSigner to generate the signature and keys.
     """
+
     def __init__(self, identifier, seed=None):
 
         """
@@ -32,7 +38,7 @@ class SimpleSigner(Signer):
         :param seed: the seed used to generate a signing key.
         """
 
-        self.identifier = identifier
+        self._identifier = identifier
 
         # should be stored securely/privately
         self.seed = seed if seed else randombytes(32)
@@ -49,7 +55,11 @@ class SimpleSigner(Signer):
 
         self.verstr = base64_encode(self.naclSigner.keyraw).decode('utf-8')
 
-    def sign(self, msg: Mapping) -> Mapping:
+    @property
+    def identifier(self) -> str:
+        return self._identifier
+
+    def sign(self, msg: Dict) -> Dict:
         """
         Return a signature for the given message.
         """
