@@ -904,7 +904,7 @@ def genTestClient(nodes: TestNodeSet = None,
 def bootstrapClientKeys(client, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(client.clientId, client.signer.verkey)
+        n.clientAuthNr.addClient(client.clientId, client.getSigner().verkey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
