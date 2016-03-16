@@ -904,7 +904,9 @@ def genTestClient(nodes: TestNodeSet = None,
 def bootstrapClientKeys(client, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(client.clientId, client.getSigner().verkey)
+        sig = client.getSigner()
+        idAndKey = sig.identifier, sig.verkey
+        n.clientAuthNr.addClient(*idAndKey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
@@ -1104,12 +1106,12 @@ def checkPropagateReqCountOfNode(node: TestNode, clientId: str, reqId: int):
     assert len(node.requests[key].propagates) >= node.f + 1
 
 
-def checkRequestReturnedToNode(node: TestNode, clientId: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                digest: str, instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no from each ordered request
     recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:] for p in params]
-    expected = (instId, clientId, reqId, digest)
+    expected = (instId, identifier, reqId, digest)
     assert expected in recvdOrderedReqs
 
 

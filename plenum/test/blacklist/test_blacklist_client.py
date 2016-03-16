@@ -21,6 +21,6 @@ def testBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
     # Every node should blacklist the client
     def chk():
         for node in nodeSet:
-            assert node.isClientBlacklisted(client1.clientId)
+            assert node.isClientBlacklisted(client1.name)
 
     looper.run(eventually(chk, retryWait=1, timeout=3))

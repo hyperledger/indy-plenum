@@ -46,7 +46,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
             primaryRepl.instId,
             primaryRepl.viewNo,
             primaryRepl.prePrepareSeqNo,
-            client1.clientId,
+            client1.defaultIdentifier,
             request2.reqId,
             request2.digest)
 
