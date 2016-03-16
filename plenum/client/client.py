@@ -31,6 +31,7 @@ class Client(NodeStacked, Motor):
                  ha: Union[HA, Tuple[str, int]]=None,
                  lastReqId: int = 0,
                  signer: Signer=None,
+                 signers: Dict[str, Signer]=None,
                  basedirpath: str=None):
         """
         Creates a new client.
@@ -71,7 +72,18 @@ class Client(NodeStacked, Motor):
 
         self.inBox = deque()
 
-        self.signer = signer if signer else SimpleSigner(self.clientId)
+        if signer and signers:
+            raise ValueError("only one of 'signer' or 'signers' can be used")
+        if signer:
+            self.signers = {signer.identifier: signer}
+            self.defaultIdentifier = signer.identifier
+        elif signers:
+            self.signers = signers
+            self.defaultIdentifier = None
+        else:
+            self.signers = {self.clientId: SimpleSigner(self.clientId)}
+            self.defaultIdentifier = self.clientId
+
 
         self.connectNicelyUntil = 0  # don't need to connect nicely as a client
 
@@ -109,21 +121,28 @@ class Client(NodeStacked, Motor):
         self.lastReqId += 1
         return request
 
-    def submit(self, *operations: Mapping) -> List[Request]:
+    def submit(self, *operations: Mapping, identifier: str=None) -> List[Request]:
         """
         Sends an operation to the consensus pool
 
         :param operations: a sequence of operations
+        :param identifier: an optional identifier to use for signing
         :return: A list of client requests to be sent to the nodes in the system
         """
         requests = []
         for op in operations:
             request = self.createRequest(op)
-            self.send(request)
+            self.send(request, signer=self.getSigner(identifier))
             requests.append(request)
         return requests
 
-    def sign(self, msg: Mapping) -> Mapping:
+    def getSigner(self, identifier: str=None):
+        try:
+            return self.signers[identifier or self.defaultIdentifier]
+        except KeyError:
+            return None
+
+    def sign(self, msg: Dict, signer: Signer) -> Dict:
         """
         Signs the message if a signer is configured
 
@@ -131,8 +150,8 @@ class Client(NodeStacked, Motor):
         :return: message
         """
         if f.SIG.nm not in msg or not msg[f.SIG.nm]:
-            if self.signer:
-                msg[f.SIG.nm] = self.signer.sign(msg)
+            if signer:
+                msg[f.SIG.nm] = signer.sign(msg)
             else:
                 logger.warning("{} signer not configured so not signing {}".
                                format(self, msg))
@@ -274,9 +293,6 @@ class ClientProvider:
             if not self.client:
                 self.client = self.clientGenerator()
             if hasattr(self.client, attr):
-                logger.info(
-                    "Client provider providing access to attribute {}".format(
-                        attr))
                 return getattr(self.client, attr)
             raise AttributeError(
                 "Client has no attribute named {}".format(attr))

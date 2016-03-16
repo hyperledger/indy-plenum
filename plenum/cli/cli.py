@@ -604,7 +604,7 @@ Commands:
 
     @staticmethod
     def bootstrapClientKey(client, node):
-        idAndKey = client.signer.identifier, client.signer.verkey
+        idAndKey = client.getSigner().identifier, client.getSigner().verkey
         node.clientAuthNr.addClient(*idAndKey)
 
     def sendMsg(self, clientName, msg):
