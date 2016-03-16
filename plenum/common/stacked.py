@@ -195,7 +195,7 @@ class ClientStacked:
         """
         # At this time, nodes are not signing messages to clients, beyond what
         # happens inherently with RAET
-        payload = self.prepForSending(msg, None)
+        payload = self.prepForSending(msg)
         try:
             self.clientstack.send(payload, remoteName)
         except Exception as ex:
@@ -275,7 +275,7 @@ class Batched(MessageProcessor):
                         batch.messages.append(msgs.popleft())
                     # don't need to sign the batch, when the composed msgs are
                     # signed
-                    payload = self.prepForSending(batch, None)
+                    payload = self.prepForSending(batch)
                     self.nodestack.transmit(payload, rid)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
@@ -454,7 +454,7 @@ class NodeStacked(Batched):
         """
         return msg  # don't sign by default
 
-    def prepForSending(self, msg: Dict, signer: Signer) -> Dict:
+    def prepForSending(self, msg: Dict, signer: Signer=None) -> Dict:
         """
         Return a dictionary form of the message
 
