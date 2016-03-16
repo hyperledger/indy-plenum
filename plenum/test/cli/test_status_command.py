@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken
 

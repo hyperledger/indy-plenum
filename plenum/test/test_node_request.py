@@ -73,7 +73,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
             # All nodes including B should return their ordered requests
             for node in nodeSet:
                 looper.run(eventually(checkRequestReturnedToNode, node,
-                                      client1.clientId, req.reqId,
+                                      client1.defaultIdentifier, req.reqId,
                                       req.digest,
                                       instNo, retryWait=1, timeout=30))
 

@@ -22,9 +22,9 @@ def testAvgReqLatency(looper: Looper, nodeSet: TestNodeSet, client1):
                               retryWait=1, timeout=5))
 
     for node in nodeSet:  # type: Node
-        mLat = node.monitor.getAvgLatencyForClient(client1.clientId,
+        mLat = node.monitor.getAvgLatencyForClient(client1.defaultIdentifier,
                                                    node.instances.masterId)
-        bLat = node.monitor.getAvgLatencyForClient(client1.clientId,
+        bLat = node.monitor.getAvgLatencyForClient(client1.defaultIdentifier,
                                                    *node.instances.backupIds)
         logging.debug("Avg. master latency : {}. Avg. backup latency: {}".
                       format(mLat, bLat))

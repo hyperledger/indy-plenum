@@ -573,7 +573,7 @@ Commands:
                 else:
                     self.print("  (primary of Backup)")
             else:
-                print("   (no primary replicas)")
+                self.print("   (no primary replicas)")
             self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
