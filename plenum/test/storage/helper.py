@@ -29,4 +29,4 @@ class TestRethinkDB(RethinkDB):
     def __init__(self, host, port, dirpath: str):
         super().__init__(host, port, dirpath)
         self.portOffset = random.randint(1, 100)
-
+        self.driverPort = self.port + self.portOffset

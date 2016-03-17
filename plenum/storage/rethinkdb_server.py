@@ -22,6 +22,7 @@ class RethinkDB(Storage):
         self.host = host
         self.port = port
         self.portOffset = port - 28015
+        self.driverPort = self.port + self.portOffset
         # assert self.portOffset >= 0
         self.dbName = "db{}".format(port)
         self.processedReqTB = "processedRequests"
@@ -33,16 +34,14 @@ class RethinkDB(Storage):
             DB_CMD = 'rethinkdb'
             try:
                 call([DB_CMD,
-                      # '--port-offset',
-                      # '{}'.format(self.portOffset),
                       '--directory',
                       '{}'.format(self.dirpath),
                       '--driver-port',
-                      '{}'.format(self.port + self.portOffset),
+                      '{}'.format(self.driverPort),
                       '--cluster-port',
-                      '{}'.format(self.port + 1000 + self.portOffset),
-                      # '--http-port',
-                      # '{}'.format(self.port + 1000 + self.portOffset)
+                      '{}'.format(self.driverPort + 1000),
+                      '--http-port',
+                      '{}'.format(8080 + self.portOffset)
                       ])
             except Exception as ex:
                 raise RuntimeError("Could not call '{}'; is it installed?".
@@ -51,13 +50,13 @@ class RethinkDB(Storage):
         p = Process(target=startdb)
         p.start()
         time.sleep(15)  # todo: FIX THIS we cannot have blocking code!!!!
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             if self.dbName not in r.db_list().run(rdbConn):
                 self._bootstrapDB()
 
     def stop(self):
         try:
-            with r.connect(host=self.host, port=self.port) as rdbConn:
+            with r.connect(host=self.host, port=self.driverPort) as rdbConn:
                 for status in list(
                         r.db('rethinkdb').table('server_status').run(rdbConn)):
                     pid = int(status['process']['pid'])
@@ -66,7 +65,7 @@ class RethinkDB(Storage):
             logger.warn("RethinkDB already stopped.")
 
     def reset(self):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             r.db_drop(self.dbName).run(rdbConn)
 
     def _bootstrapDB(self):
@@ -74,11 +73,10 @@ class RethinkDB(Storage):
         self._createTable(self.dbName, self.processedReqTB)
         self._createTable(self.dbName, self.txnTB)
 
-
     # this async does not make it async,
     # it is just in convention with storage intrface
     async def append(self, identifier: str, reply: Reply, txnId: str):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             try:
                 # add txn to table
                 reply = self._createReplyRecord(txnId, reply)
@@ -96,7 +94,7 @@ class RethinkDB(Storage):
                              format(identifier, reply, txnId, ex))
 
     async def get(self, identifier, reqId):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             try:
                 key = str(identifier) + "-" + str(reqId)
                 processedRecord = r.db(self.dbName). \
@@ -116,14 +114,14 @@ class RethinkDB(Storage):
                                     identifier, reqId, ex))
 
     def _createDB(self, dbName):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             try:
                 r.db_create(dbName).run(rdbConn)
             except RqlError as ex:
                 logger.error(str(ex))
 
     def _createTable(self, dbName, tableName):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             try:
                 if dbName and tableName:
                     r.db(dbName).table_create(tableName).run(rdbConn)
@@ -164,7 +162,7 @@ class RethinkDB(Storage):
                      jsonReply["result"])
 
     async def size(self):
-        with r.connect(host=self.host, port=self.port) as rdbConn:
+        with r.connect(host=self.host, port=self.driverPort) as rdbConn:
             return r.db(self.dbName).table(self.txnTB).count().run(rdbConn)
 
     def __enter__(self):
