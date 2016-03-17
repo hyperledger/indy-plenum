@@ -694,7 +694,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return None
 
         if all(attr in msg.keys()
-               for attr in [OPERATION, 'clientId', 'reqId']):
+               for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
             self.checkValidOperation(msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
@@ -724,7 +724,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         otherwise add the message to the node's clientInBox.
 
         :param msg: a client message
-        :param frm: the clientId of the client that sent this `msg`
+        :param frm: the name of the client that sent this `msg`
         """
         if isinstance(msg, Batch):
             for m in msg.messages:
@@ -764,7 +764,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         remaining nodes.
 
         :param request: the REQUEST from the client
-        :param frm: the clientId of the client that sent this REQUEST
+        :param frm: the name of the client that sent this REQUEST
         """
         logger.debug("Node {} received client request: {}".
                      format(self.name, request))
@@ -772,11 +772,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # If request is already processed(there is a reply for the request in
         # the node's transaction store then return the reply from the
         # transaction store)
-        reply = await self.txnStore.getTxn(request.clientId, request.reqId)
+        reply = await self.txnStore.getTxn(request.identifier, request.reqId)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
-            self.transmitToClient(reply, request.clientId)
+            self.transmitToClient(reply, request.identifier)
         else:
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
@@ -818,9 +818,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param retryNo: the retry number used in recursion
         :return: True if successful, None otherwise
         """
-        instId, viewNo, clientId, reqId, digest = tuple(ordered)
 
-        self.monitor.requestOrdered(clientId,
+        instId, viewNo, identifier, reqId, digest = tuple(ordered)
+
+        self.monitor.requestOrdered(identifier,
                                     reqId,
                                     instId,
                                     byMaster=(instId == self.instances.masterId))
@@ -828,12 +829,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # Only the request ordered by master protocol instance are executed by
         # the client
         if instId == self.instances.masterId:
-            key = (clientId, reqId)
+            key = (identifier, reqId)
             if key in self.requests:
                 req = self.requests[key].request
                 self.executeRequest(viewNo, req)
                 logger.debug("Node {} executing client request {} {}".
-                             format(self.name, clientId, reqId))
+                             format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
             # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
             # then retry 3 times
@@ -843,7 +844,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 self._schedule(p, random.randint(2, 4))
 
                 logger.debug("Node {} retrying executing client request {} {}".
-                             format(self.name, clientId, reqId))
+                             format(self.name, identifier, reqId))
             return True
         else:
             logger.trace("{} got ordered request from backup replica".
@@ -928,10 +929,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
         reply = self.generateReply(viewNo, req)
-        self.transmitToClient(reply, req.clientId)
+        self.transmitToClient(reply, req.identifier)
         txnId = reply.result['txnId']
         asyncio.ensure_future(self.txnStore.insertTxn(
-            clientId=req.clientId, reply=reply, txnId=txnId))
+            identifier=req.identifier, reply=reply, txnId=txnId))
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -992,7 +993,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
 
-        key = (req['clientId'], req['reqId'])
+        key = (req[f.IDENTIFIER.nm], req[f.REQ_ID.nm])
         if key in self.requests and self.requests[key].forwarded:
             return
 
@@ -1013,7 +1014,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :return: a clientReply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
-        txnId = sha256("{}{}{}".format(viewNo, req.clientId, req.reqId).
+        txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
         return Reply(viewNo,
                       req.reqId,
@@ -1162,7 +1163,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         request is not authorized.
 
         If a request makes it this far, the signature has been verified to match
-        the clientId.
+        the identifier.
         """
         pass
 

@@ -9,10 +9,10 @@ class Storage:
     def stop(self):
         raise NotImplementedError()
 
-    async def insertTxn(self, clientId: str, reply: Reply, txnId: str):
+    async def insertTxn(self, identifier: str, reply: Reply, txnId: str):
         raise NotImplementedError()
 
-    async def getTxn(self, clientId: str, reqId: int):
+    async def getTxn(self, identifier: str, reqId: int):
         raise NotImplementedError()
 
     def size(self) -> int:

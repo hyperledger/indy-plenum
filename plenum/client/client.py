@@ -36,7 +36,7 @@ class Client(NodeStacked, Motor):
         """
         Creates a new client.
 
-        :param clientId: unique identifier for the client
+        :param name: unique identifier for the client
         :param nodeReg: names and host addresses of all nodes in the pool
         :param lastReqId: Request Id of the last request sent by client
         :param stack: node stack or dictionary of node constructor kwargs

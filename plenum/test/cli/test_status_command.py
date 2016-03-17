@@ -54,7 +54,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
                                   "'new client <name>'."
 
     cli.enterCmd("status node {}".format(nodeName))
-    msgs = list(reversed(cli.printeds[:10]))
+    msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
     assert "Name: {}".format(node.name) in msgs[0]['msg']
     assert "Node listener: {}:{}".format(node.nodestack.ha[0],
@@ -66,9 +66,9 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert not msgs[4]['newline']
     assert msgs[5]['msg'] == '<none>'
     assert "Replicas: 2" in msgs[6]['msg']
-    assert "Up time (seconds)" in msgs[7]['msg']
-    assert "Clients: " in msgs[8]['msg']
-    assert not msgs[8]['newline']
+    assert "Up time (seconds)" in msgs[8]['msg']
+    assert "Clients: " in msgs[9]['msg']
+    assert not msgs[9]['newline']
 
 
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
@@ -97,7 +97,7 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
             msgs = list(reversed(cli.printeds[:10]))
             checkPrimaryLogs(node, msgs)
         else:
-            msgs = list(reversed(cli.printeds[:9]))
+            msgs = list(reversed(cli.printeds[:10]))
             checkNonPrimaryLogs(node, msgs)
 
         checkForNamedTokens(cli.printedTokens[1], otherNodeNames)
@@ -154,9 +154,9 @@ def checkNonPrimaryLogs(node, msgs):
     assert not msgs[4]['newline']
     assert not msgs[5]['newline']
     assert "Replicas: 2" in msgs[5]['msg']
-    assert "Up time (seconds)" in msgs[6]['msg']
-    assert "Clients: " in msgs[7]['msg']
-    assert not msgs[7]['newline']
+    assert "Up time (seconds)" in msgs[7]['msg']
+    assert "Clients: " in msgs[8]['msg']
+    assert not msgs[8]['newline']
 
 
 def checkNodeStatusToken(node, msgs):

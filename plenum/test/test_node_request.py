@@ -118,7 +118,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 # from Node D
                 looper.run(
                     eventually(checkIfPropagateRecvdFromNode, node, nodeD,
-                               request.clientId,
+                               request.identifier,
                                request.reqId, retryWait=1, timeout=10))
 
             # Node D should have 1 pending PRE-PREPARE request
@@ -146,9 +146,9 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
-                                        senderNode: TestNode, clientId: str,
+                                        senderNode: TestNode, identifier: str,
                                         reqId: int):
-    key = clientId, reqId
+    key = identifier, reqId
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
 

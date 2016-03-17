@@ -16,14 +16,14 @@ def testRethinkDB(tdir):
     async def go():
         rdb = RethinkDB(host="127.0.0.1", port=28015, dirpath=tdir)
         rdb.start(loop)
-        clientId = "testClientId"
+        identifier = "testClientId"
         txnId = "txnId"
         reply = Reply(1, 1, "theresult")
         # rdb.reset()
         # rdb._bootstrapDB()
         # insert an entry
-        await rdb.insertTxn(clientId, reply, txnId)
-        txn_in_db = await rdb.getTxn(clientId, reply.reqId)
+        await rdb.insertTxn(identifier, reply, txnId)
+        txn_in_db = await rdb.getTxn(identifier, reply.reqId)
         assert txn_in_db == reply
         rdb.stop()
 
@@ -38,13 +38,13 @@ def testMongoDB():
                             port=port,
                             dirpath=getDBPathForMongo(port))
         mdb.start(loop)
-        clientId = "testClientId"
+        identifier = "testClientId"
         txnId = "txnId"
         reply = Reply(1, 1, "theresult")
         await mdb.reset()
         # insert an entry
-        await mdb.insertTxn(clientId, reply, txnId)
-        txn_in_db = await mdb.getTxn(clientId, reply.reqId)
+        await mdb.insertTxn(identifier, reply, txnId)
+        txn_in_db = await mdb.getTxn(identifier, reply.reqId)
         assert txn_in_db == reply
         mdb.stop()
 

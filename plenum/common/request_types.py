@@ -17,7 +17,7 @@ class f:  # provides a namespace for reusable field constants
     NAME = Field("name", str)
     TIE_AMONG = Field("tieAmong", List[str])
     ROUND = Field("round", int)
-    CLIENT_ID = Field('clientId', str)
+    IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     RESULT = Field('result', Any)
@@ -29,6 +29,7 @@ class f:  # provides a namespace for reusable field constants
     SIG = Field('signature', Optional[str])
     SUSP_CODE = Field('suspicionCode', int)
     ELECTION_DATA = Field('electionData', Any)
+    TXN_ID = Field('txnId', str)
 
 OP_FIELD_NAME = "op"
 
@@ -95,11 +96,11 @@ OPERATION = 'operation'
 
 class Request:
     def __init__(self,
-                 clientId: str=None,
+                 identifier: str=None,
                  reqId: int=None,
                  operation: Mapping=None,
                  signature: str=None):
-        self.clientId = clientId
+        self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
         self.signature = signature
@@ -112,7 +113,7 @@ class Request:
 
     @property
     def key(self):
-        return self.clientId, self.reqId
+        return self.identifier, self.reqId
 
     @property
     def digest(self):
@@ -120,7 +121,7 @@ class Request:
 
     @property
     def reqDigest(self):
-        return ReqDigest(self.clientId, self.reqId, self.digest)
+        return ReqDigest(self.identifier, self.reqId, self.digest)
 
     def __getstate__(self):
         return self.__dict__
@@ -136,11 +137,11 @@ class Request:
         return obj
 
 
-class ReqDigest(NamedTuple(REQDIGEST, [f.CLIENT_ID,
+class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
                                        f.REQ_ID,
                                        f.DIGEST])):
     def key(self):
-        return self.clientId, self.reqId
+        return self.identifier, self.reqId
 
 
 RequestAck = TaggedTuple(REQACK, [
@@ -149,7 +150,7 @@ RequestAck = TaggedTuple(REQACK, [
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
-    f.CLIENT_ID,
+    f.IDENTIFIER,
     f.REQ_ID,
     f.DIGEST])
 
@@ -163,7 +164,7 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.CLIENT_ID,
+    f.IDENTIFIER,
     f.REQ_ID,
     f.DIGEST])
 

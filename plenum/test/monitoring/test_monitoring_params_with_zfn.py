@@ -31,7 +31,7 @@ def testThroughtputThreshold(nodeSet, requests):
 def testReqLatencyThreshold(nodeSet, requests):
     for node in nodeSet:
         for rq in requests:
-            key = rq.clientId, rq.reqId
+            key = rq.identifier, rq.reqId
             assert key in node.monitor.masterReqLatencies
             assert node.monitor.masterReqLatencies[key] <= node.monitor.Lambda
 
@@ -39,6 +39,6 @@ def testReqLatencyThreshold(nodeSet, requests):
 def testClientLatencyThreshold(nodeSet: Sequence[Node], requests):
     rq = requests[0]
     for node in nodeSet:  # type: Node
-        latc = node.monitor.getAvgLatency(node.instances.masterId)[rq.clientId]
-        avglat = node.monitor.getAvgLatency(*node.instances.backupIds)[rq.clientId]
+        latc = node.monitor.getAvgLatency(node.instances.masterId)[rq.identifier]
+        avglat = node.monitor.getAvgLatency(*node.instances.backupIds)[rq.identifier]
         assert latc - avglat <= node.monitor.Omega

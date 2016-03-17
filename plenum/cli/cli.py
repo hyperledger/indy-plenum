@@ -86,7 +86,7 @@ class Cli:
         self.cliNodeReg = cliNodeReg
 
         # Used to store created clients
-        self.clients = {}  # clientId -> Client
+        self.clients = {}  # clientName -> Client
         # To store the created requests
         self.requests = {}
         # To store the nodes created
@@ -495,32 +495,32 @@ Commands:
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
 
-    def ensureValidClientId(self, clientId):
+    def ensureValidClientId(self, clientName):
         """
         Ensures client id is not already used or is not starting with node
         names.
 
-        :param clientId:
+        :param clientName:
         :return:
         """
-        if clientId in self.clients:
-            raise ValueError("Client {} already exists.".format(clientId))
+        if clientName in self.clients:
+            raise ValueError("Client {} already exists.".format(clientName))
 
-        if any([clientId.startswith(nm) for nm in self.nodeNames]):
+        if any([clientName.startswith(nm) for nm in self.nodeNames]):
             raise ValueError("Client name cannot start with node names, "
                              "which are {}."
                              .format(', '.join(self.nodeReg.keys())))
 
-    def statusClient(self, clientId):
-        if clientId == "all":
+    def statusClient(self, clientName):
+        if clientName == "all":
             for nm in self.clients:
                 self.statusClient(nm)
             return
-        if clientId not in self.clients:
+        if clientName not in self.clients:
             self.print("client not found", Token.Error)
         else:
-            self.print("    Name: " + clientId)
-            client = self.clients[clientId]  # type: Client
+            self.print("    Name: " + clientName)
+            client = self.clients[clientName]  # type: Client
 
             self.printTokens([(Token.Heading, 'Status for client:'),
                               (Token.Name, client.name)],
@@ -583,13 +583,13 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientId, seed=None):
+    def newClient(self, clientName, seed=None):
         try:
-            self.ensureValidClientId(clientId)
+            self.ensureValidClientId(clientName)
             client_addr = self.nextAvailableClientAddr()
-            signer = SimpleSigner(clientId, seed.encode("utf-8")) \
+            signer = SimpleSigner(clientName, seed.encode("utf-8")) \
                 if seed else None
-            client = self.ClientClass(clientId,
+            client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
                                       signer=signer,
@@ -597,7 +597,7 @@ Commands:
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)
-            self.clients[clientId] = client
+            self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
         except ValueError as ve:
             self.print(ve.args[0], Token.Error)
