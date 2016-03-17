@@ -21,7 +21,7 @@ def alphaDoesntPropagate(startedNodes):
     async def evilProcessPropagate(self, msg, frm):
         logging.info("TEST: Evil {} is not processing PROPAGATE".format(self))
 
-    def evilPropagateRequest(self, request):
+    def evilPropagateRequest(self, request, clientName):
         logging.info("TEST: Evil {} is not PROPAGATing client request".format(self))
 
     epp = types.MethodType(evilProcessPropagate, nodes.Alpha)

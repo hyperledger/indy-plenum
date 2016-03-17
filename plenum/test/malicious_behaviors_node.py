@@ -21,11 +21,11 @@ def makeNodeFaulty(node, *behaviors):
 
 def changesRequest(node):
     def evilCreatePropagate(self,
-                            request: Request) -> Propagate:
+                            request: Request, clientName: str) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
-        return Propagate(request.__getstate__())
+        return Propagate(request.__getstate__(), clientName)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod

@@ -69,7 +69,7 @@ class Propagator:
         self.requests = Requests()
 
     # noinspection PyUnresolvedReferences
-    def propagate(self, request: Request):
+    def propagate(self, request: Request, clientName):
         """
         Broadcast a PROPAGATE to all other nodes
 
@@ -79,14 +79,14 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            propagate = self.createPropagate(request)
-            logger.debug("{} propagating {} request {}".
-                         format(self, request.identifier, request.reqId),
+            propagate = self.createPropagate(request, clientName)
+            logger.debug("{} propagating {} request {} from client {}".
+                         format(self, request.identifier, request.reqId, clientName),
                          extra={"cli": True})
             self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict]) -> Propagate:
+    def createPropagate(request: Union[Request, dict], clientName) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -94,7 +94,7 @@ class Propagator:
         :return: a new PROPAGATE msg
         """
         logging.debug("Creating PROPAGATE for REQUEST {}".format(request))
-        return Propagate(request.__getstate__())
+        return Propagate(request.__getstate__(), clientName)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request) -> bool:
@@ -129,9 +129,9 @@ class Propagator:
         self.monitor.requestUnOrdered(*request.key)
         self.requests.flagAsFowarded(request)
 
-    def recordAndPropagate(self, request: Request):
+    def recordAndPropagate(self, request: Request, clientName):
         self.requests.add(request)
-        self.propagate(request)
+        self.propagate(request, clientName)
         self.tryForwarding(request)
 
     def tryForwarding(self, request: Request):

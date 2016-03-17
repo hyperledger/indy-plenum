@@ -192,6 +192,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                Commit, InstanceChange)
         self.addReplicas()
 
+        # Map of request identifier to client name. Used for
+        # dispatching the processed requests to the correct client remote
+        self.clientIdentifiers = {}     # Dict[str, str]
+
     def start(self, loop):
         oldstatus = self.status
         super().start(loop)
@@ -784,17 +788,20 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # If request is already processed(there is a reply for the request in
         # the node's transaction store then return the reply from the
         # transaction store)
+        if request.identifier not in self.clientIdentifiers:
+            self.clientIdentifiers[request.identifier] = frm
+
         reply = await self.txnStore.get(request.identifier, request.reqId)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
-            self.transmitToClient(reply, request.identifier)
+            self.transmitToClient(reply, frm)
         else:
             await self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
-            self.recordAndPropagate(request)
+            self.recordAndPropagate(request, frm)
 
     # noinspection PyUnusedLocal
     async def processPropagate(self, msg: Propagate, frm):
@@ -813,9 +820,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reqDict = msg.request
         request = Request(**reqDict)
 
+        clientName = msg.senderClient
+
+        if request.identifier not in self.clientIdentifiers:
+            self.clientIdentifiers[request.identifier] = clientName
+
         self.requests.addPropagate(request, frm)
 
-        self.propagate(request)
+        self.propagate(request, clientName)
         self.tryForwarding(request)
 
     def processOrdered(self, ordered: Ordered, retryNo: int = 0):
@@ -941,7 +953,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
         reply = self.generateReply(viewNo, req)
-        self.transmitToClient(reply, req.identifier)
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
         txnId = reply.result['txnId']
         asyncio.ensure_future(self.txnStore.append(
             identifier=req.identifier, reply=reply, txnId=txnId))

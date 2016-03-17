@@ -80,8 +80,8 @@ class TransactionStore(Storage):
             self.processedRequests[identifier] = {}
         self.processedRequests[identifier][reply.reqId] = txnId
 
-    async def append(self, identifier: str, reply: Reply,
-                     txnId: str = None) -> None:
+    async def append(self, identifier: str, reply: Reply, txnId: str = None) \
+            -> None:
         """
         Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.

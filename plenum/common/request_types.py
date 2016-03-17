@@ -31,6 +31,7 @@ class f:  # provides a namespace for reusable field constants
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
     REASON = Field('reason', Any)
+    SENDER_CLIENT = Field('senderClient', str)
 
 OP_FIELD_NAME = "op"
 
@@ -163,7 +164,8 @@ Ordered = NamedTuple(ORDERED, [
 # s = client sequence number (comes from Aardvark paper)
 
 Propagate = TaggedTuple(PROPAGATE, [
-    f.REQUEST])
+    f.REQUEST,
+    f.SENDER_CLIENT])
 
 PrePrepare = TaggedTuple(PREPREPARE, [
     f.INST_ID,
