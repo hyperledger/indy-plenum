@@ -38,11 +38,12 @@ class Client(NodeStacked, Motor):
 
         :param name: unique identifier for the client
         :param nodeReg: names and host addresses of all nodes in the pool
+        :param ha: tuple of host and port
         :param lastReqId: Request Id of the last request sent by client
-        :param stack: node stack or dictionary of node constructor kwargs
-        :param signer: Helper for signer (defines sign method)
+        :param signer: Signer; mutually exclusive of signers
+        :param signers: Dict of identifier -> Signer; useful for clients that
+            need to support multiple signers
         """
-        self.name = name
         self.lastReqId = lastReqId
         self._clientStack = None
         self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
