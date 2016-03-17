@@ -73,19 +73,30 @@ class Client(NodeStacked, Motor):
 
         self.inBox = deque()
 
+        # if signer and signers:
+        #     raise ValueError("only one of 'signer' or 'signers' can be used")
+        # if signer:
+        #     self.signers = {signer.identifier: signer}
+        #     self.defaultIdentifier = signer.identifier
+        # elif signers:
+        #     self.signers = signers
+        #     self.defaultIdentifier = None
+        # else:
+        #     self.signers = {self.name: SimpleSigner(self.name)}
+        #     self.defaultIdentifier = self.name
+        self.signers, self.defaultIdentifier = self.getSigners(signer, signers)
+
+        self.connectNicelyUntil = 0  # don't need to connect nicely as a client
+
+    def getSigners(self, signer=None, signers=None):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
         if signer:
-            self.signers = {signer.identifier: signer}
-            self.defaultIdentifier = signer.identifier
+            return {signer.identifier: signer}, signer.identifier
         elif signers:
-            self.signers = signers
-            self.defaultIdentifier = None
+            return signers, None
         else:
-            self.signers = {self.name: SimpleSigner(self.name)}
-            self.defaultIdentifier = self.name
-
-        self.connectNicelyUntil = 0  # don't need to connect nicely as a client
+            return {self.name: SimpleSigner(self.name)}, self.name
 
     def start(self, loop):
         oldstatus = self.status
