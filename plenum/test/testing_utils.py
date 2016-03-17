@@ -91,12 +91,12 @@ class PortDispenser:
 
     maxportretries = 3
 
-    def __init__(self, ip: str, filename: str=None):
+    def __init__(self, ip: str, filename: str=None, minPort=6000, maxPort=9999):
         self.ip = ip
         self.FILE = filename or os.path.join(tempfile.gettempdir(),
                                              'plenum-portmutex.{}.txt'.format(ip))
-        self.minPort = 6000
-        self.maxPort = 9999
+        self.minPort = minPort
+        self.maxPort = maxPort
         self.initFile()
 
     def initFile(self):
