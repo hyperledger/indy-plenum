@@ -1,6 +1,8 @@
 import asyncio
+import os
 
 from plenum.common.request_types import Reply
+from plenum.common.util import checkPortAvailable
 from plenum.storage.mongodb_server import MongoDBServer
 from plenum.storage.rethinkdb_server import RethinkDB
 from plenum.test.storage.helper import getDBPathForMongo
@@ -12,9 +14,25 @@ def testRethinkDB(tdir):
     """
     This test requires 1 Rethink DB instances running at port: 28015
     """
+    port = 28015
+    def f(port, tdir):
+        if checkPortAvailable(("127.0.0.1", port)):
+            rdir = os.path.join(tdir, str(port))
+            if not os.path.exists(rdir):
+                os.makedirs(rdir)
+            try:
+                return RethinkDB(host='127.0.0.1',
+                                 port=port,
+                                 dirpath=rdir)
+            except Exception as ex:
+                port += 10
+                f(port, tdir)
+        else:
+            port+=10
+            f(port, tdir)
 
     async def go():
-        rdb = RethinkDB(host="127.0.0.1", port=28015, dirpath=tdir)
+        rdb = f(port, tdir)
         rdb.start(loop)
         identifier = "testClientId"
         txnId = "txnId"

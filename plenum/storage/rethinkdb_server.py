@@ -22,7 +22,7 @@ class RethinkDB(Storage):
         self.host = host
         self.port = port
         self.portOffset = port - 28015
-        assert self.portOffset >= 0
+        # assert self.portOffset >= 0
         self.dbName = "db{}".format(port)
         self.processedReqTB = "processedRequests"
         self.txnTB = "txn"
@@ -33,9 +33,17 @@ class RethinkDB(Storage):
             DB_CMD = 'rethinkdb'
             try:
                 call([DB_CMD,
-                      '--port-offset', '{}'.format(self.portOffset),
+                      # '--port-offset',
+                      # '{}'.format(self.portOffset),
                       '--directory',
-                      '{}'.format(self.dirpath)])
+                      '{}'.format(self.dirpath),
+                      '--driver-port',
+                      '{}'.format(self.port + self.portOffset),
+                      '--cluster-port',
+                      '{}'.format(self.port + 1000 + self.portOffset),
+                      # '--http-port',
+                      # '{}'.format(self.port + 1000 + self.portOffset)
+                      ])
             except Exception as ex:
                 raise RuntimeError("Could not call '{}'; is it installed?".
                                    format(DB_CMD)) from ex
