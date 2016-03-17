@@ -7,7 +7,7 @@ import time
 
 import motor.motor_asyncio
 
-from plenum.common.request_types import Reply
+from plenum.common.request_types import Reply, f
 from plenum.common.util import getlogger, checkPortAvailable
 from plenum.storage.storage import Storage
 
@@ -79,7 +79,7 @@ class MongoDBServer(Storage):
         except Exception as ex:
             logger.error("error creating database and tables: {}".format(ex))
 
-    async def append(self, clientId: str, reply: Reply, txnId: str):
+    async def append(self, identifier: str, reply: Reply, txnId: str):
         try:
             # add reply to txn table
             jsonReply = self._createReplyRecord(txnId, reply)
@@ -89,26 +89,26 @@ class MongoDBServer(Storage):
 
             # add txnId to processed transaction table
             reqId = reply.reqId
-            jsonProcessedReq = self._createProcessedReqRecord(clientId,
+            jsonProcessedReq = self._createProcessedReqRecord(identifier,
                                                               reqId,
                                                               txnId)
             processedReqResult = await self.processedReqTB.insert(
                 jsonProcessedReq)
 
             logger.info(
-                "result for inserting processed request with clientId: {} "
+                "result for inserting processed request with identifier: {} "
                 "reqId: {} and txnId: {} is {}".
-                    format(clientId, reqId, txnId, processedReqResult))
+                    format(identifier, reqId, txnId, processedReqResult))
 
         except Exception as ex:
-            logger.error("error inserting transaction for clientId {}, "
+            logger.error("error inserting transaction for identifier {}, "
                          "reply {}, and txnId {}: {}".
-                         format(clientId, reply, txnId, ex))
+                         format(identifier, reply, txnId, ex))
 
-    async def get(self, clientId: str, reqId: int):
+    async def get(self, identifier: str, reqId: int):
         try:
-            # Get processedReq from clientId and reqId
-            processedReqQuery = {"clientId": clientId, "reqId": reqId}
+            # Get processedReq from identifier and reqId
+            processedReqQuery = {"identifier": identifier, "reqId": reqId}
             processedReq = await self.processedReqTB.find_one(processedReqQuery)
 
             # Get
@@ -121,9 +121,9 @@ class MongoDBServer(Storage):
                 return None
         except Exception as ex:
             logger.error("error getting transaction from DB {} and table "
-                         "{} for clientId {} and reqId {}: {}".
+                         "{} for identifier {} and reqId {}: {}".
                          format(self.dbName, self.processedReqTB,
-                                clientId, reqId, ex))
+                                identifier, reqId, ex))
 
     def _createReplyRecord(self, txnId, reply: Reply):
         return {
@@ -132,17 +132,17 @@ class MongoDBServer(Storage):
             "reqId": reply.reqId,
             "result": reply.result}
 
-    def _createProcessedReqRecord(self, clientId, reqId, txnId):
+    def _createProcessedReqRecord(self, identifier, reqId, txnId):
         return {
-            "clientId": clientId,
-            "reqId": reqId,
-            "txnId": txnId
+            f.IDENTIFIER.nm: identifier,
+            f.REQ_ID.nm: reqId,
+            f.TXN_ID.nm: txnId
         }
 
     def _fromMongoJsonReply(self, jsonReply):
-        return Reply(jsonReply["viewNo"],
-                     jsonReply["reqId"],
-                     jsonReply["result"])
+        return Reply(jsonReply[f.VIEW_NO.nm],
+                     jsonReply[f.REQ_ID.nm],
+                     jsonReply[f.RESULT.nm])
 
     async def size(self):
         return await self.txnTB.count()

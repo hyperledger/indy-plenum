@@ -46,7 +46,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
             primaryRepl.instId,
             primaryRepl.viewNo,
             primaryRepl.prePrepareSeqNo,
-            client1.clientId,
+            client1.defaultIdentifier,
             request2.reqId,
             request2.digest)
 
@@ -63,7 +63,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  client1.clientId,
+                                  client1.defaultIdentifier,
                                   request2.reqId,
                                   retryWait=1,
                                   timeout=10))

@@ -28,20 +28,20 @@ def run_node():
         # using an ephemeral temporary directory when proving a concept is a
         # nice way to keep things clean.
         with TemporaryDirectory() as tmpdir:
-            clientId = 'Joe'
+            clientName = 'Joe'
 
             # this seed is used by the signer to deterministically generate
             # a signature verification key that is shared out of band with the
             # consensus pool
             seed = b'a 32 byte super secret seed.....'
             assert len(seed) == 32
-            signer = SimpleSigner(clientId, seed)
+            signer = SimpleSigner(clientName, seed)
             assert signer.verkey == b'cffbb88a142be2f62d1b408818e21a2f' \
                                     b'887c4442ae035a260d4cc2ec28ae24d6'
 
             client_address = ('127.0.0.1', 8000)
 
-            client = Client(clientId,
+            client = Client(clientName,
                             cliNodeReg,
                             ha=client_address,
                             signer=signer,

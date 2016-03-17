@@ -20,7 +20,8 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
             assert nodeSuspicions == 1
 
     def checkPreprepare(replica, viewNo, ppSeqNo, req, numOfPrePrepares):
-        assert (replica.prePrepares[viewNo, ppSeqNo]) == (req.clientId, req.reqId, req.digest)
+        assert (replica.prePrepares[viewNo, ppSeqNo]) == \
+               (req.identifier, req.reqId, req.digest)
 
     primary = getPrimaryReplica(nodeSet, instId)
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
@@ -32,7 +33,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
                            primary.prePrepareSeqNo - 1, req, 1,
                            retryWait=.5, timeout=10))
 
-    newReqDigest = ReqDigest(req.clientId, req.reqId + 1, req.digest)
+    newReqDigest = ReqDigest(req.identifier, req.reqId + 1, req.digest)
     incorrectPrePrepareReq = PrePrepare(instId,
                                primary.viewNo,
                                primary.prePrepareSeqNo + 2,

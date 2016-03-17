@@ -246,7 +246,7 @@ def replied1(looper, nodeSet, client1, committed1):
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,
-                                client1.clientId,
+                                client1.defaultIdentifier,
                                 committed1.reqId,
                                 committed1.digest,
                                 instId,

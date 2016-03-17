@@ -1,7 +1,7 @@
 import logging
 from functools import partial
 
-from plenum.common.request_types import PrePrepare
+from plenum.common.request_types import PrePrepare, OPERATION, f
 from plenum.server.node import Node
 from plenum.test.eventually import eventuallyAll
 
@@ -24,9 +24,9 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
         """
         actualMsgs = len([x for x in
                           getAllArgs(node, Node.processPropagate)
-                          if x['msg'].request['reqId'] == request.reqId and
-                          x['msg'].request['clientId'] == request.clientId and
-                          x['msg'].request['operation'] == request.operation])
+                          if x['msg'].request[f.REQ_ID.nm] == request.reqId and
+                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier and
+                          x['msg'].request[OPERATION] == request.operation])
 
         numOfMsgsWithZFN = nodesSize - 1
         numOfMsgsWithFaults = faultyNodes + 1
@@ -76,7 +76,7 @@ def checkPrePrepared(looper,
                     instId,
                     primary.viewNo,
                     primary.prePrepareSeqNo,
-                    propagated1.clientId,
+                    propagated1.identifier,
                     propagated1.reqId,
                     propagated1.digest)
 
@@ -107,10 +107,10 @@ def checkPrePrepared(looper,
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary, primary.doPrePrepare)
-                              if (param['reqDigest'].clientId,
+                              if (param['reqDigest'].identifier,
                                   param['reqDigest'].reqId,
                                   param['reqDigest'].digest) ==
-                              (propagated1.clientId,
+                              (propagated1.identifier,
                                propagated1.reqId,
                                propagated1.digest)
                               ])
@@ -135,10 +135,10 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr, npr.addToPrePrepares)
-                          if (param['pp'].clientId,
+                          if (param['pp'].identifier,
                               param['pp'].reqId,
                               param['pp'].digest) == (
-                              propagated1.clientId,
+                              propagated1.identifier,
                               propagated1.reqId,
                               propagated1.digest)])
 

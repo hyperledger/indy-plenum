@@ -16,7 +16,7 @@ class ReqState:
 class Requests(Dict[Tuple[str, int], ReqState]):
     """
     Storing client request object corresponding to each client and its
-    request id. Key of the dictionary is a Tuple2 containing clientId,
+    request id. Key of the dictionary is a Tuple2 containing identifier,
     requestId. Used when Node gets an ordered request by a replica and
     needs to execute the request. Once the ordered request is executed
     by the node and returned to the transaction store, the key for that
@@ -47,7 +47,7 @@ class Requests(Dict[Tuple[str, int], ReqState]):
 
     def votes(self, req):
         try:
-            votes = len(self[(req.clientId, req.reqId)].propagates)
+            votes = len(self[(req.identifier, req.reqId)].propagates)
         except KeyError:
             votes = 0
         return votes
@@ -81,7 +81,7 @@ class Propagator:
             self.requests.addPropagate(request, self.name)
             propagate = self.createPropagate(request)
             logger.debug("{} propagating {} request {}".
-                         format(self, request.clientId, request.reqId),
+                         format(self, request.identifier, request.reqId),
                          extra={"cli": True})
             self.send(propagate)
 

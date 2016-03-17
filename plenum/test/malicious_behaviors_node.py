@@ -114,7 +114,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
     def evilSendPrePrepareRequest(self, reqDigest: ReqDigest):
         logger.debug("EVIL: Creating pre-prepare message for request {}".
                      format(reqDigest))
-        reqDigest = ReqDigest(reqDigest.clientId, reqDigest.reqId, "random")
+        reqDigest = ReqDigest(reqDigest.identifier, reqDigest.reqId, "random")
         prePrepare = PrePrepare(self.instId, self.viewNo,
                                 self.prePrepareSeqNo, *reqDigest)
         self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest

@@ -73,7 +73,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
             # All nodes including B should return their ordered requests
             for node in nodeSet:
                 looper.run(eventually(checkRequestReturnedToNode, node,
-                                      client1.clientId, req.reqId,
+                                      client1.defaultIdentifier, req.reqId,
                                       req.digest,
                                       instNo, retryWait=1, timeout=30))
 
@@ -118,7 +118,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 # from Node D
                 looper.run(
                     eventually(checkIfPropagateRecvdFromNode, node, nodeD,
-                               request.clientId,
+                               request.identifier,
                                request.reqId, retryWait=1, timeout=10))
 
             # Node D should have 1 pending PRE-PREPARE request
@@ -146,9 +146,9 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
-                                        senderNode: TestNode, clientId: str,
+                                        senderNode: TestNode, identifier: str,
                                         reqId: int):
-    key = clientId, reqId
+    key = identifier, reqId
     assert key in recvrNode.requests
     assert senderNode.name in recvrNode.requests[key].propagates
 

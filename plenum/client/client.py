@@ -26,7 +26,7 @@ logger = getlogger()
 class Client(NodeStacked, Motor):
 
     def __init__(self,
-                 clientId: str,
+                 name: str,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
                  lastReqId: int = 0,
@@ -36,19 +36,19 @@ class Client(NodeStacked, Motor):
         """
         Creates a new client.
 
-        :param clientId: unique identifier for the client
+        :param name: unique identifier for the client
         :param nodeReg: names and host addresses of all nodes in the pool
         :param lastReqId: Request Id of the last request sent by client
         :param stack: node stack or dictionary of node constructor kwargs
         :param signer: Helper for signer (defines sign method)
         """
-        self.clientId = clientId
+        self.name = name
         self.lastReqId = lastReqId
         self._clientStack = None
         self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
 
         cha = ha if isinstance(ha, HA) else HA(*ha)
-        stackargs = dict(name=clientId,
+        stackargs = dict(name=name,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auto=AutoMode.always)
@@ -81,9 +81,8 @@ class Client(NodeStacked, Motor):
             self.signers = signers
             self.defaultIdentifier = None
         else:
-            self.signers = {self.clientId: SimpleSigner(self.clientId)}
-            self.defaultIdentifier = self.clientId
-
+            self.signers = {self.name: SimpleSigner(self.name)}
+            self.defaultIdentifier = self.name
 
         self.connectNicelyUntil = 0  # don't need to connect nicely as a client
 
@@ -109,15 +108,17 @@ class Client(NodeStacked, Motor):
         self.flushOutBoxes()
         return s
 
-    def createRequest(self, operation: Mapping) -> Request:
+    def createRequest(self, operation: Mapping, identifier: str=None) -> Request:
         """
         Client creates request which include requested operation and request Id
 
         :param operation: requested operation
         :return: New client request
         """
-        request = Request(
-                self.clientId, self.lastReqId + 1, operation)
+
+        request = Request(identifier or self.defaultIdentifier,
+                          self.lastReqId + 1,
+                          operation)
         self.lastReqId += 1
         return request
 
@@ -131,7 +132,7 @@ class Client(NodeStacked, Motor):
         """
         requests = []
         for op in operations:
-            request = self.createRequest(op)
+            request = self.createRequest(op, identifier)
             self.send(request, signer=self.getSigner(identifier))
             requests.append(request)
         return requests
@@ -166,7 +167,7 @@ class Client(NodeStacked, Motor):
         self.inBox.append(wrappedMsg)
         msg, frm = wrappedMsg
         logger.debug("Client {} got msg from node {}: {}".
-                     format(self.clientId, frm, msg),
+                     format(self.name, frm, msg),
                      extra={"cli": True})
 
     def _statusChanged(self, old, new):
