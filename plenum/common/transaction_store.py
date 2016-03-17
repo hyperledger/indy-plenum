@@ -68,7 +68,7 @@ class TransactionStore(Storage):
                                   "complete.".format(self.getsCounter))
 
     def addToProcessedTxns(self,
-                           clientId: str,
+                           identifier: str,
                            txnId: str,
                            reply: Reply) -> None:
         """
@@ -76,38 +76,38 @@ class TransactionStore(Storage):
         requests.
         """
         self.transactions[txnId] = reply
-        if clientId not in self.processedRequests:
-            self.processedRequests[clientId] = {}
-        self.processedRequests[clientId][reply.reqId] = txnId
+        if identifier not in self.processedRequests:
+            self.processedRequests[identifier] = {}
+        self.processedRequests[identifier][reply.reqId] = txnId
 
-    async def append(self, clientId: str, reply: Reply,
+    async def append(self, identifier: str, reply: Reply,
                      txnId: str = None) -> None:
         """
         Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.
         """
         logging.debug("Reply being sent {}".format(reply))
-        if self._isNewTxn(clientId, reply, txnId):
-            self.addToProcessedTxns(clientId, txnId, reply)
-        if clientId not in self.responses:
-            self.responses[clientId] = asyncio.Queue()
-        self.responses[clientId].put(reply)
+        if self._isNewTxn(identifier, reply, txnId):
+            self.addToProcessedTxns(identifier, txnId, reply)
+        if identifier not in self.responses:
+            self.responses[identifier] = asyncio.Queue()
+        self.responses[identifier].put(reply)
 
-    async def get(self, clientId, reqId) -> Optional[Reply]:
-        if clientId in self.processedRequests:
-            if reqId in self.processedRequests[clientId]:
-                txnId = self.processedRequests[clientId][reqId]
+    async def get(self, identifier, reqId) -> Optional[Reply]:
+        if identifier in self.processedRequests:
+            if reqId in self.processedRequests[identifier]:
+                txnId = self.processedRequests[identifier][reqId]
                 return self.transactions[txnId]
         else:
             return None
 
-    def _isNewTxn(self, clientId, reply, txnId) -> bool:
+    def _isNewTxn(self, identifier, reply, txnId) -> bool:
         """
         If client is not in `processedRequests` or requestId is not there in
         processed requests and txnId is present then its a new reply
         """
-        return (clientId not in self.processedRequests or
-                reply.reqId not in self.processedRequests[clientId]) and \
+        return (identifier not in self.processedRequests or
+                reply.reqId not in self.processedRequests[identifier]) and \
                txnId is not None
 
     def size(self) -> int:

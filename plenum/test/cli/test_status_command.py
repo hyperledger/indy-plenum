@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken
 
@@ -52,22 +54,21 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
                                   "'new client <name>'."
 
     cli.enterCmd("status node {}".format(nodeName))
-    msgs = list(reversed(cli.printeds[:10]))
+    msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
     assert "Name: {}".format(node.name) in msgs[0]['msg']
     assert "Node listener: {}:{}".format(node.nodestack.ha[0],
                                          node.nodestack.ha[1]) in msgs[1]['msg']
     assert "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                           node.clientstack.ha[1]) in msgs[2][
-               'msg']
+                                           node.clientstack.ha[1]) in msgs[2]['msg']
     assert "Status:" in msgs[3]['msg']
     assert "Connections:" in msgs[4]['msg']
     assert not msgs[4]['newline']
     assert msgs[5]['msg'] == '<none>'
     assert "Replicas: 2" in msgs[6]['msg']
-    assert "Up time (seconds)" in msgs[7]['msg']
-    assert "Clients: " in msgs[8]['msg']
-    assert not msgs[8]['newline']
+    assert "Up time (seconds)" in msgs[8]['msg']
+    assert "Clients: " in msgs[9]['msg']
+    assert not msgs[9]['newline']
 
 
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
@@ -83,7 +84,7 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
                                   "typing " \
                                   "'new client <name>'."
     assert fValue == "f-value (number of possible faulty nodes): {}".format(
-        getMaxFailures(len(validNodeNames)))
+            getMaxFailures(len(validNodeNames)))
 
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing

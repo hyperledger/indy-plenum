@@ -891,11 +891,15 @@ def genTestClient(nodes: TestNodeSet = None,
         assert type(v) == HA
 
     ha = genHa()
-    clientId = "testClient{}".format(ha.port)
+    identifier = "testClient{}".format(ha.port)
 
-    signer = signer if signer else SimpleSigner(clientId)
+    signer = signer if signer else SimpleSigner(identifier)
 
-    tc = testClientClass(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
+    tc = testClientClass(identifier,
+                         nodeReg=nReg,
+                         ha=ha,
+                         basedirpath=tmpdir,
+                         signer=signer)
     if nodes:
         bootstrapClientKeys(tc, nodes)
     return tc
@@ -904,7 +908,9 @@ def genTestClient(nodes: TestNodeSet = None,
 def bootstrapClientKeys(client, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(client.clientId, client.getSigner().verkey)
+        sig = client.getSigner()
+        idAndKey = sig.identifier, sig.verkey
+        n.clientAuthNr.addClient(*idAndKey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
@@ -1098,18 +1104,18 @@ class Pool:
                '/' + str(next(self.counter))
 
 
-def checkPropagateReqCountOfNode(node: TestNode, clientId: str, reqId: int):
-    key = clientId, reqId
+def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
+    key = identifier, reqId
     assert key in node.requests
     assert len(node.requests[key].propagates) >= node.f + 1
 
 
-def checkRequestReturnedToNode(node: TestNode, clientId: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                digest: str, instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no from each ordered request
     recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:] for p in params]
-    expected = (instId, clientId, reqId, digest)
+    expected = (instId, identifier, reqId, digest)
     assert expected in recvdOrderedReqs
 
 
@@ -1126,13 +1132,13 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest in [p['pp'] for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, clientId: str, reqId: int):
+def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
     paramsList = getAllArgs(replica, replica.canSendPrepare)
     rv = getAllReturnVals(replica,
                           replica.canSendPrepare)
     for params in paramsList:
         req = params['request']
-        assert req.clientId == clientId
+        assert req.identifier == identifier
         assert req.reqId == reqId
     assert all(rv)
 

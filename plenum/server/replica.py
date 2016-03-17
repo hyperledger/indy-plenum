@@ -110,9 +110,9 @@ class Replica(MessageProcessor):
         # Requests that are stored by non primary replica for which it is
         # expecting corresponding pre prepare requests Dictionary that stores
         # a tuple of client id and request id(sequence no) as key and digest as
-        # value. Not creating a set of Tuple3(clientId, reqId, digest) as such a
+        # value. Not creating a set of Tuple3(identifier, reqId, digest) as such a
         # big hashable element is not good. Also this way we can look for the
-        # request on the basis of (clientId, reqId) and compare the digest with
+        # request on the basis of (identifier, reqId) and compare the digest with
         # the received PrePrepare request's digest.
         self.reqsPendingPrePrepare = {}
         # type: Dict[Tuple[str, int], str]
@@ -402,8 +402,8 @@ class Replica(MessageProcessor):
         self.stats.inc(TPCStat.ReqDigestRcvd)
         if self.isPrimary is False:
             logger.debug("Non primary replica {} pended request for Pre "
-                         "Prepare {}".format(self, (rd.clientId, rd.reqId)))
-            self.reqsPendingPrePrepare[(rd.clientId, rd.reqId)] = rd.digest
+                         "Prepare {}".format(self, (rd.identifier, rd.reqId)))
+            self.reqsPendingPrePrepare[(rd.identifier, rd.reqId)] = rd.digest
         else:
             self.doPrePrepare(rd)
 
@@ -499,7 +499,7 @@ class Replica(MessageProcessor):
         """
         Broadcast a PRE-PREPARE to all the replicas.
 
-        :param reqDigest: a tuple with elements clientId, reqId, and digest
+        :param reqDigest: a tuple with elements identifier, reqId, and digest
         """
         logger.debug("{} Sending PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
@@ -559,7 +559,7 @@ class Replica(MessageProcessor):
         #     if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
         #         raise SuspiciousNode(sender, Suspicions.WRONG_PPSEQ_NO, pp)
 
-        key = (pp.clientId, pp.reqId)
+        key = (pp.identifier, pp.reqId)
 
         if (key in self.reqsPendingPrePrepare and
                     self.reqsPendingPrePrepare[key] != pp.digest):
@@ -575,17 +575,17 @@ class Replica(MessageProcessor):
         :param pp: the PRE-PREPARE to add to the list
         """
         self.prePrepares[(pp.viewNo, pp.ppSeqNo)] = \
-            (pp.clientId, pp.reqId, pp.digest)
+            (pp.identifier, pp.reqId, pp.digest)
         self.dequeuePrepares(pp.viewNo, pp.ppSeqNo)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
     def canSendPrepare(self, request) -> None:
         """
-        Return whether the request identified by (clientId, requestId) can
+        Return whether the request identified by (identifier, requestId) can
         proceed to the Prepare step.
 
-        :param request: any object with clientId and requestId attributes
+        :param request: any object with identifier and requestId attributes
         """
         return self.node.requests.canPrepare(request, self.f + 1)
 
@@ -712,17 +712,17 @@ class Replica(MessageProcessor):
         primaryStatus = self.isPrimaryForMsg(commit)
 
         if primaryStatus is True:
-            clientId, reqId, digest = self.sentPrePrepares[key]
+            identifier, reqId, digest = self.sentPrePrepares[key]
         elif primaryStatus is False:
             # When the node received PREPARE requests and PRE-PREPARE request
             if key in self.prePrepares:
-                clientId, reqId, digest = self.prePrepares[key]
+                identifier, reqId, digest = self.prePrepares[key]
             else:
                 digest = self.getDigestFromPrepare(*key)
                 for (cid, rid), dgst \
                         in self.reqsPendingPrePrepare.items():
                     if digest == dgst:
-                        clientId, reqId = cid, rid
+                        identifier, reqId = cid, rid
                         break
         else:
             self.discard(commit,
@@ -733,7 +733,7 @@ class Replica(MessageProcessor):
         self.addToOrdered(commit.viewNo, commit.ppSeqNo)
         ordered = Ordered(self.instId,
                           commit.viewNo,
-                          clientId,
+                          identifier,
                           reqId,
                           digest)
         self.send(ordered, TPCStat.OrderSent)

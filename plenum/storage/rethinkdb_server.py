@@ -7,7 +7,7 @@ from subprocess import call
 import rethinkdb as r
 from rethinkdb.errors import ReqlRuntimeError, RqlError, ReqlError
 
-from plenum.common.request_types import Reply
+from plenum.common.request_types import Reply, f
 from plenum.common.util import checkPortAvailable, getlogger
 from plenum.storage.storage import Storage
 
@@ -69,7 +69,7 @@ class RethinkDB(Storage):
 
     # this async does not make it async,
     # it is just in convention with storage intrface
-    async def append(self, clientId: str, reply: Reply, txnId: str):
+    async def append(self, identifier: str, reply: Reply, txnId: str):
         with r.connect(host=self.host, port=self.port) as rdbConn:
             try:
                 # add txn to table
@@ -77,35 +77,35 @@ class RethinkDB(Storage):
                 r.db(self.dbName).table(self.txnTB).insert(reply).run(rdbConn)
 
                 # add to processed transaction
-                processedReq = self._createProcessedReqRecord(clientId,
+                processedReq = self._createProcessedReqRecord(identifier,
                                                               reply["reqId"],
                                                               txnId)
                 r.db(self.dbName).table(self.processedReqTB).insert(
                     processedReq).run(rdbConn)
             except ReqlError as ex:
-                logger.error("error inserting transaction for clientId {}, "
+                logger.error("error inserting transaction for identifier {}, "
                              "reply {}, and txnId {}: {}".
-                             format(clientId, reply, txnId, ex))
+                             format(identifier, reply, txnId, ex))
 
-    async def get(self, clientId, reqId):
+    async def get(self, identifier, reqId):
         with r.connect(host=self.host, port=self.port) as rdbConn:
             try:
-                key = str(clientId) + "-" + str(reqId)
+                key = str(identifier) + "-" + str(reqId)
                 processedRecord = r.db(self.dbName). \
                     table(self.processedReqTB). \
                     get(key). \
                     run(rdbConn)
                 if processedRecord:
                     jsonReply = r.db(self.dbName).table(self.txnTB).get(
-                        processedRecord["txnId"]).run(rdbConn)
+                        processedRecord[f.TXN_ID.nm]).run(rdbConn)
                     return self._replyFromJson(jsonReply)
                 else:
                     return None
             except ReqlError as ex:
                 logger.error("error getting transaction from DB {} and table "
-                             "{} for clientId {} and reqId {}: {}".
+                             "{} for identifier {} and reqId {}: {}".
                              format(self.dbName, self.processedReqTB,
-                                    clientId, reqId, ex))
+                                    identifier, reqId, ex))
 
     def _createDB(self, dbName):
         with r.connect(host=self.host, port=self.port) as rdbConn:
@@ -132,15 +132,15 @@ class RethinkDB(Storage):
             "reqId": reply.reqId,
             "result": reply.result}
 
-    def _createProcessedReqRecord(self, clientId, reqId, txnId):
+    def _createProcessedReqRecord(self, identifier, reqId, txnId):
         return {
-            "id": str(clientId) + "-" + str(reqId),
+            "id": str(identifier) + "-" + str(reqId),
             "txnId": txnId
         }
 
-    def _createResponseRecord(self, clientId, response: Reply):
+    def _createResponseRecord(self, identifier, response: Reply):
         return {
-            "id": clientId,
+            "id": identifier,
             "responses": [self._replyToJson(response)]
         }
 

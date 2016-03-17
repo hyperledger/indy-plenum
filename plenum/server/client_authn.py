@@ -38,7 +38,7 @@ class SimpleAuthNr(ClientAuthNr):
         Authenticate the client's message with the signature provided.
 
         :param identifier: some unique identifier; if None, then try to use
-        msg['clientId'] as identifier
+        msg['identifier'] as identifier
         :param signature: a utf-8 and base64 encoded signature
         :param msg: the message to authenticate
         :return: the identifier; an exception of type SigningException is
@@ -54,7 +54,7 @@ class SimpleAuthNr(ClientAuthNr):
                     raise MissingSignature
             if not identifier:
                 try:
-                    identifier = msg[f.CLIENT_ID.nm]
+                    identifier = msg[f.IDENTIFIER.nm]
                     if not identifier:
                         raise EmptyIdentifier
                 except KeyError:
