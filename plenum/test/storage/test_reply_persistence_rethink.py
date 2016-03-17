@@ -2,8 +2,7 @@ import os
 
 import pytest
 
-from plenum.common.util import getlogger, checkPortAvailable
-from plenum.storage.rethinkdb_server import RethinkDB
+from plenum.common.util import getlogger
 from plenum.test.helper import genHa
 from plenum.test.storage.helper import checkReplyIsPersisted, TestRethinkDB
 

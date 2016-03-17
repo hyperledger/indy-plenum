@@ -30,7 +30,7 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-reqs = ['git+ssh://git@github.com/evernym/ledger-priv.git@start#egg=ledger']
+reqs = ['git+ssh://git@github.com/evernym/ledger-priv.git@on-file-store#egg=ledger']
 
 for url in reqs:
     os.system('pip install {}'.format(url))

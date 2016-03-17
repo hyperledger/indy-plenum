@@ -23,7 +23,6 @@ class RethinkDB(Storage):
         self.port = port
         self.portOffset = port - 28015
         self.driverPort = self.port + self.portOffset
-        # assert self.portOffset >= 0
         self.dbName = "db{}".format(port)
         self.processedReqTB = "processedRequests"
         self.txnTB = "txn"
