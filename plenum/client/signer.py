@@ -1,4 +1,4 @@
-from abc import abstractproperty
+from abc import abstractproperty, abstractmethod
 from typing import Mapping, Dict
 
 from libnacl import randombytes
@@ -17,6 +17,7 @@ class Signer:
     def identifier(self) -> str:
         raise NotImplementedError()
 
+    @abstractmethod
     def sign(self, msg: Dict) -> Dict:
         raise NotImplementedError()
 
@@ -29,7 +30,7 @@ class SimpleSigner(Signer):
     It internally uses the NaclSigner to generate the signature and keys.
     """
 
-    def __init__(self, identifier, seed=None):
+    def __init__(self, identifier=None, seed=None):
 
         """
         Initialize the signer with an identifier and a seed.
@@ -37,8 +38,6 @@ class SimpleSigner(Signer):
         :param identifier: some identifier that directly or indirectly references this client
         :param seed: the seed used to generate a signing key.
         """
-
-        self._identifier = identifier
 
         # should be stored securely/privately
         self.seed = seed if seed else randombytes(32)
@@ -54,6 +53,8 @@ class SimpleSigner(Signer):
         self.verkey = self.naclSigner.verhex
 
         self.verstr = base64_encode(self.naclSigner.keyraw).decode('utf-8')
+
+        self._identifier = identifier or self.verstr
 
     @property
     def identifier(self) -> str:

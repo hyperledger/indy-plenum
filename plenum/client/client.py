@@ -84,19 +84,24 @@ class Client(NodeStacked, Motor):
         # else:
         #     self.signers = {self.name: SimpleSigner(self.name)}
         #     self.defaultIdentifier = self.name
-        self.signers, self.defaultIdentifier = self.getSigners(signer, signers)
+        if signer and signers:
+            raise ValueError("only one of 'signer' or 'signers' can be used")
+
+        self.signers = None
+        self.defaultIdentifier = None
+        if signer:
+            self.signers = {signer.identifier: signer}
+            self.defaultIdentifier = signer.identifier
+        elif signers:
+            self.signers = signers
+        else:
+            self.setupDefaultSigner()
 
         self.connectNicelyUntil = 0  # don't need to connect nicely as a client
 
-    def getSigners(self, signer=None, signers=None):
-        if signer and signers:
-            raise ValueError("only one of 'signer' or 'signers' can be used")
-        if signer:
-            return {signer.identifier: signer}, signer.identifier
-        elif signers:
-            return signers, None
-        else:
-            return {self.name: SimpleSigner(self.name)}, self.name
+    def setupDefaultSigner(self):
+        self.signers = {self.name: SimpleSigner(self.name)}
+        self.defaultIdentifier = self.name
 
     def start(self, loop):
         oldstatus = self.status

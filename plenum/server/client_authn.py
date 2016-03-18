@@ -1,6 +1,7 @@
 """
 Clients are authenticated with a digital signature.
 """
+from abc import abstractmethod
 from base64 import b64decode
 from typing import Dict
 from typing import Mapping
@@ -17,28 +18,7 @@ class ClientAuthNr:
     """
     Interface for client authenticators.
     """
-    def authenticate(self,
-                     msg: Dict,
-                     identifier: str=None,
-                     signature: str=None) -> str:
-        """
-        :param msg:
-        :param identifier:
-        :param signature:
-        :return: identifier
-        """
-        raise NotImplementedError()
-
-
-class SimpleAuthNr(ClientAuthNr):
-    """
-    Simple client authenticator. Should be replaced with a more robust and
-    secure system.
-    """
-    def __init__(self):
-        # key: some identifier, value: verification key
-        self.clients = {}  # type: Dict[str, str]
-
+    @abstractmethod
     def authenticate(self,
                      msg: Dict,
                      identifier: str=None,
@@ -53,6 +33,31 @@ class SimpleAuthNr(ClientAuthNr):
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
         """
+
+    @abstractmethod
+    def addClient(self, identifier, verkey):
+        """
+        Adding a client should be an auditable and authenticated action.
+        Robust implementations of ClientAuthNr would authenticate this
+        operation.
+
+        :param identifier: an identifier that directly or indirectly identifies
+            a client
+        :param verkey: the public key used to verify a signature
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def getVerkey(self, identifier):
+        pass
+
+
+class NaclAuthNr(ClientAuthNr):
+    def authenticate(self,
+                     msg: Dict,
+                     identifier: str=None,
+                     signature: str=None) -> str:
         try:
             if not signature:
                 try:
@@ -72,7 +77,7 @@ class SimpleAuthNr(ClientAuthNr):
             sig = b64decode(b64sig)
             ser = serializeForSig(msg)
             try:
-                verkey = self.clients[identifier]
+                verkey = self.getVerkey(identifier)
             except KeyError:
                 raise InvalidIdentifier
             vr = Verifier(verkey)
@@ -85,16 +90,28 @@ class SimpleAuthNr(ClientAuthNr):
             raise CouldNotAuthenticate from ex
         return identifier
 
+    @abstractmethod
     def addClient(self, identifier, verkey):
-        """
-        Adding a client should be an auditable and authenticated action.
-        Robust implementations of ClientAuthNr would authenticate this
-        operation.
+        pass
 
-        :param identifier: an identifier that directly or indirectly identifies a client
-        :param verkey: the public key used to verify a signature
-        :return: None
-        """
+    @abstractmethod
+    def getVerkey(self, identifier):
+        pass
+
+
+class SimpleAuthNr(NaclAuthNr):
+    """
+    Simple client authenticator. Should be replaced with a more robust and
+    secure system.
+    """
+    def __init__(self):
+        # key: some identifier, value: verification key
+        self.clients = {}  # type: Dict[str, str]
+
+    def addClient(self, identifier, verkey):
         if identifier in self.clients:
             raise RuntimeError("client already added")
         self.clients[identifier] = verkey
+
+    def getVerkey(self, identifier):
+        return self.clients[identifier]

@@ -443,7 +443,6 @@ class TestNodeSet(ExitStack):
         node = self.enter_context(
                 testNodeClass(name=name,
                          ha=ha,
-                         clientAuthNr=SimpleAuthNr(),
                          cliname=cliname,
                          cliha=cliha,
                          nodeRegistry=copy(self.nodeReg),

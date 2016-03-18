@@ -111,7 +111,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             cstack['basedirpath'] = basedirpath
         self.basedirpath = basedirpath
 
-        self.clientAuthNr = clientAuthNr or SimpleAuthNr()
+        self.txnStore = storage if storage is not None else TransactionStore()
+
+        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -127,8 +129,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
-
-        self.txnStore = storage if storage is not None else TransactionStore()
 
         self.replicas = []  # type: List[replica.Replica]
 
@@ -1186,6 +1186,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         the identifier.
         """
         pass
+
+    def defaultAuthNr(self):
+        return SimpleAuthNr()
 
 
 CLIENT_STACK_SUFFIX = "C"

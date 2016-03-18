@@ -92,9 +92,9 @@ class InvalidNodeMessageException(InvalidMessageException):
 
 
 class InvalidClientMessageException(InvalidMessageException):
-    def __init__(self, clientId, reqId, *args, **kwargs):
+    def __init__(self, identifier, reqId, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.clientId = clientId
+        self.identifier = identifier
         self.reqId = reqId
 
 
