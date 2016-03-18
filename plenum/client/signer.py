@@ -52,7 +52,7 @@ class SimpleSigner(Signer):
         # before-hand with recipient)
         self.verkey = self.naclSigner.verhex
 
-        self.verstr = base64_encode(self.naclSigner.keyraw).decode('utf-8')
+        self.verstr = base64_encode(self.naclSigner.verraw).decode('utf-8')
 
         self._identifier = identifier or self.verstr
 
