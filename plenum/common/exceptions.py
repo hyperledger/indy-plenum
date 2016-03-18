@@ -65,6 +65,10 @@ class InvalidIdentifier(SigningException):
     code = 135
     reason = 'invalid identifier'
 
+    def __init__(self, identifier, reqId):
+        self.identifier = identifier
+        self.reqId = reqId
+
 
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):

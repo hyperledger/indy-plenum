@@ -79,13 +79,14 @@ class NaclAuthNr(ClientAuthNr):
             try:
                 verkey = self.getVerkey(identifier)
             except KeyError:
-                raise InvalidIdentifier
+                # TODO: Should probably be called UnknownIdentifier
+                raise InvalidIdentifier(identifier, msg['reqId'])
             vr = Verifier(verkey)
             isVerified = vr.verify(sig, ser)
             if not isVerified:
                 raise InvalidSignature
-        except SigningException:
-            raise
+        except SigningException as e:
+            raise e
         except Exception as ex:
             raise CouldNotAuthenticate from ex
         return identifier

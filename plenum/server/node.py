@@ -671,6 +671,15 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         :param wrappedMsg: a message from a client
         """
+        # If request if already forwarded then do not process it
+        req = wrappedMsg[0]
+        # The request should not be a batched request
+        if f.IDENTIFIER.nm in req:
+            key = (req[f.IDENTIFIER.nm], req[f.REQ_ID.nm])
+            if key in self.requests and self.requests[key].forwarded:
+                logger.debug("{} skipping handling client request since this "
+                             "request has already been forwarded to the replicas")
+                return
         try:
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
@@ -679,7 +688,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             msg, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
             self.reportSuspiciousClient(frm, exc)
-            self.discard(wrappedMsg, exc)
+            self.handleInvalidClientMsg(exc, wrappedMsg)
         except InvalidClientMessageException as ex:
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
@@ -1114,7 +1123,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def isClientBlacklisted(self, clientName: str):
         return self.clientBlacklister.isBlacklisted(clientName)
 
-    def blacklistClient(self, clientName: str, reason: str=None):
+    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
         msg = "{} blacklisting client {}".format(self, clientName)
         if reason:
             msg += " for reason {}".format(reason)

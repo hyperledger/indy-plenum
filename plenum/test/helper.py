@@ -228,7 +228,17 @@ class TestNodeCore(StackedTester):
         # alter whitelist to allow TestMsg type through without sig
         self.authnWhitelist = self.authnWhitelist + (TestMsg,)
 
-        self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
+        # Nodes that wont be blacklisted by this node if the suspicion code
+        # is among the set of suspicion codes mapped to its name. If the set of
+        # suspicion codes is empty then the node would not be blacklisted for
+        #  any suspicion code
+        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
+
+        # Clients that wont be blacklisted by this node if the suspicion code
+        # is among the set of suspicion codes mapped to its name. If the set of
+        # suspicion codes is empty then the client would not be blacklisted for
+        #  suspicion code
+        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
 
         # Reinitialize the monitor
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
@@ -280,21 +290,38 @@ class TestNodeCore(StackedTester):
             r.outBoxTestStasher.resetDelays()
 
     def whitelistNode(self, nodeName: str, *codes: int):
-        if nodeName not in self.whitelistedNodes:
-            self.whitelistedNodes[nodeName] = set()
-        self.whitelistedNodes[nodeName].update(codes)
+        if nodeName not in self.whitelistedClients:
+            self.whitelistedClients[nodeName] = set()
+        self.whitelistedClients[nodeName].update(codes)
         logging.debug("{} white listing {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
-        if nodeName in self.whitelistedNodes:
+        if nodeName in self.whitelistedClients:
             # If node whitelisted for all codes
-            if len(self.whitelistedNodes[nodeName]) == 0:
+            if len(self.whitelistedClients[nodeName]) == 0:
                 return
             # If no code is provided or node is whitelisted for that code
-            elif code is None or code in self.whitelistedNodes[nodeName]:
+            elif code is None or code in self.whitelistedClients[nodeName]:
                 return
         super().blacklistNode(nodeName, reason, code)
+
+    def whitelistClient(self, clientName: str, *codes: int):
+        if clientName not in self.whitelistedClients:
+            self.whitelistedClients[clientName] = set()
+        self.whitelistedClients[clientName].update(codes)
+        logging.debug("{} white listing {} for codes {}"
+                      .format(self, clientName, codes))
+
+    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+        if clientName in self.whitelistedClients:
+            # If node whitelisted for all codes
+            if len(self.whitelistedClients[clientName]) == 0:
+                return
+            # If no code is provided or node is whitelisted for that code
+            elif code is None or code in self.whitelistedClients[clientName]:
+                return
+        super().blacklistClient(clientName, reason, code)
 
     def validateNodeMsg(self, wrappedMsg):
         nm = TestMsg.__name__
@@ -1281,6 +1308,11 @@ def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):
 def whitelistNode(toWhitelist: str, frm: Sequence[TestNode], *codes):
     for node in frm:
         node.whitelistNode(toWhitelist, *codes)
+
+
+def whitelistClient(toWhitelist: str, frm: Sequence[TestNode], *codes):
+    for node in frm:
+        node.whitelistClient(toWhitelist, *codes)
 
 
 TESTMSG = "TESTMSG"
