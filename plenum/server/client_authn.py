@@ -17,7 +17,16 @@ class ClientAuthNr:
     """
     Interface for client authenticators.
     """
-    def authenticate(self, msg, identifier, signature):
+    def authenticate(self,
+                     msg: Dict,
+                     identifier: str=None,
+                     signature: str=None) -> str:
+        """
+        :param msg:
+        :param identifier:
+        :param signature:
+        :return: identifier
+        """
         raise NotImplementedError()
 
 
@@ -31,9 +40,9 @@ class SimpleAuthNr(ClientAuthNr):
         self.clients = {}  # type: Dict[str, str]
 
     def authenticate(self,
-                     msg: Mapping,
+                     msg: Dict,
                      identifier: str=None,
-                     signature: str=None) -> bool:
+                     signature: str=None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
@@ -47,7 +56,7 @@ class SimpleAuthNr(ClientAuthNr):
         try:
             if not signature:
                 try:
-                    signature = msg["signature"]
+                    signature = msg[f.SIG.nm]
                     if not signature:
                         raise EmptySignature
                 except KeyError:

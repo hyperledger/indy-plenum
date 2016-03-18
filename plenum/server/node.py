@@ -997,7 +997,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
 
-    def verifySignature(self, msg) -> bool:
+    def verifySignature(self, msg):
         """
         Validate the signature of the request
         Note: Batch is whitelisted because the inner messages are checked
@@ -1016,10 +1016,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
-
-        key = (req[f.IDENTIFIER.nm], req[f.REQ_ID.nm])
-        if key in self.requests and self.requests[key].forwarded:
-            return
 
         identifier = self.clientAuthNr.authenticate(req)
         logger.debug("{} authenticated {} signature on {}request {}".
