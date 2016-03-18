@@ -877,7 +877,8 @@ def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
                   signer=None,
-                  testClientClass=TestClient) -> TestClient:
+                  testClientClass=TestClient,
+                  bootstrapKeys=True) -> TestClient:
     nReg = nodeReg
     if nodeReg:
         assert isinstance(nodeReg, dict)
@@ -900,7 +901,7 @@ def genTestClient(nodes: TestNodeSet = None,
                          ha=ha,
                          basedirpath=tmpdir,
                          signer=signer)
-    if nodes:
+    if bootstrapKeys and nodes:
         bootstrapClientKeys(tc, nodes)
     return tc
 
