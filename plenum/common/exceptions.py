@@ -45,6 +45,9 @@ class EmptySignature(SigningException):
     code = 121
     reason = 'empty signature'
 
+    def __init__(self, identifier, reqId):
+        self.identifier = identifier
+        self.reqId = reqId
 
 class InvalidSignature(SigningException):
     code = 125

@@ -671,15 +671,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         :param wrappedMsg: a message from a client
         """
-        # If request if already forwarded then do not process it
-        req = wrappedMsg[0]
-        # The request should not be a batched request
-        if f.IDENTIFIER.nm in req:
-            key = (req[f.IDENTIFIER.nm], req[f.REQ_ID.nm])
-            if key in self.requests and self.requests[key].forwarded:
-                logger.debug("{} skipping handling client request since this "
-                             "request has already been forwarded to the replicas")
-                return
         try:
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
@@ -698,7 +689,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reason = "client request invalid: {} {}". \
             format(exc.__class__.__name__, exc)
         self.transmitToClient(RequestNack(ex.reqId, reason), frm)
-        self.discard(wrappedMsg, reason, logger.warning, cliOutput=True)
+        self.discard(wrappedMsg, ex, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """

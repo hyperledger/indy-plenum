@@ -63,7 +63,7 @@ class NaclAuthNr(ClientAuthNr):
                 try:
                     signature = msg[f.SIG.nm]
                     if not signature:
-                        raise EmptySignature
+                        raise EmptySignature(identifier, msg['reqId'])
                 except KeyError:
                     raise MissingSignature
             if not identifier:

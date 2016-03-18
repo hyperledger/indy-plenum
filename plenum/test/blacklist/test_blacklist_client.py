@@ -4,8 +4,6 @@ from plenum.test.eventually import eventually
 from plenum.test.malicious_behaviors_client import makeClientFaulty, \
     sendsUnsignedRequest
 
-whitelist = ['EmptySignature']
-
 
 @pytest.fixture(scope="module")
 def setup(client1):
