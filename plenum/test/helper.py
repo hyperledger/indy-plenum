@@ -35,7 +35,7 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
-from plenum.test.testing_utils import adict, PortDispenser
+from plenum.test.testing_utils import PortDispenser
 
 from plenum.client.client import Client, ClientProvider
 from plenum.common.stacked import NodeStacked, HA, Stack
