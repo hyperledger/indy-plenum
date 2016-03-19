@@ -121,7 +121,7 @@ class Cli:
 
         psep = re.escape(os.path.sep)
 
-        grams = [
+        self.grams = [
             "(\s* (?P<simple>{}) \s*) |".format(relist(self.simpleCmds)),
             "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(relist(self.cliCmds)),
             "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(relist(self.nodeCmds)),
@@ -134,9 +134,9 @@ class Cli:
             "(\s* (?P<command>list) \s*)"
         ]
 
-        self.grammar = compile("".join(grams))
+        self.grammar = compile("".join(self.grams))
 
-        lexer = GrammarLexer(self.grammar, lexers={
+        self.lexer = GrammarLexer(self.grammar, lexers={
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
@@ -156,7 +156,7 @@ class Cli:
 
         self.clientWC = WordCompleter([])
 
-        completer = GrammarCompleter(self.grammar, {
+        self.completer = GrammarCompleter(self.grammar, {
             'node_command': WordCompleter(self.nodeCmds),
             'client_command': WordCompleter(self.cliCmds),
             'client': WordCompleter(['client']),
@@ -195,8 +195,8 @@ class Cli:
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
-                                        lexer=lexer,
-                                        completer=completer,
+                                        lexer=self.lexer,
+                                        completer=self.completer,
                                         style=self.style,
                                         history=pers_hist)
 
@@ -482,6 +482,8 @@ Commands:
             return
         else:
             names = [nodeName]
+
+        nodes = []
         for name in names:
             node = self.NodeClass(name,
                                   self.nodeReg,
@@ -494,6 +496,7 @@ Commands:
                 self.bootstrapClientKey(client, node)
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
+            nodes.append(node)
 
     def ensureValidClientId(self, clientName):
         """
@@ -599,6 +602,7 @@ Commands:
                 self.bootstrapClientKey(client, node)
             self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
+            return client
         except ValueError as ve:
             self.print(ve.args[0], Token.Error)
 
