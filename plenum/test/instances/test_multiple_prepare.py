@@ -4,7 +4,7 @@ import pytest
 from plenum.test.eventually import eventually
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
-from plenum.test.testing_utils import adict
+from plenum.common.util import adict
 
 from plenum.common.request_types import Prepare
 from plenum.server.suspicion_codes import Suspicions

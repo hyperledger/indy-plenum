@@ -7,7 +7,7 @@ import plenum.common.util
 from plenum.common.looper import Looper
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.helper import genHa
-from plenum.test.testing_utils import adict
+from plenum.common.util import adict
 
 plenum.common.util.loggingConfigured = False
 

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.exceptions import InvalidSignature
-from plenum.common.util import getlogger
+from plenum.common.util import getlogger, adict
 
 from plenum.test.helper import TestNode
 from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty

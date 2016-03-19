@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.util import getNoInstances
+from plenum.common.util import getNoInstances, adict
 from plenum.test.node_request.node_request_helper import checkCommited
 from plenum.test.testing_utils import adict
 

@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 
 from plenum.common.request_types import PrePrepare
-from plenum.common.util import getMaxFailures, getNoInstances
+from plenum.common.util import getMaxFailures, getNoInstances, adict
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \

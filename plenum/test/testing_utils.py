@@ -1,9 +1,9 @@
 import logging
 import os
 import sys
-import portalocker
 import tempfile
 
+import portalocker
 from ioflo.base.consoling import getConsole
 
 from plenum.common.stacked import HA
@@ -52,30 +52,6 @@ def setupTestLogging():
             style='{')
     console = getConsole()
     console.reinit(verbosity=console.Wordage.terse)
-
-
-class adict(dict):
-    marker = object()
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        for key in kwargs:
-            self.__setitem__(key, kwargs[key])
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict) and not isinstance(value, adict):
-            value = adict(**value)
-        super(adict, self).__setitem__(key, value)
-
-    def __getitem__(self, key):
-        found = self.get(key, adict.marker)
-        if found is adict.marker:
-            found = adict()
-            super(adict, self).__setitem__(key, found)
-        return found
-
-    __setattr__ = __setitem__
-    __getattr__ = __getitem__
 
 
 class PortDispenser:

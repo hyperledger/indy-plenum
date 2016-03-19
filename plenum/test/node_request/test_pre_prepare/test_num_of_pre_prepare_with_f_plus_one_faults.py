@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, delaysPrePrepareProcessing, \
     changesRequest
-from plenum.test.testing_utils import adict
+from plenum.common.util import adict
 
 from plenum.test.helper import TestNodeSet
 

@@ -24,7 +24,7 @@ from plenum.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, \
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds
+    Seconds, adict
 from raet.raeting import AutoMode, TrnsKind, PcktKind
 
 from plenum.server.client_authn import SimpleAuthNr
