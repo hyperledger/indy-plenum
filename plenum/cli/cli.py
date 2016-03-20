@@ -116,27 +116,28 @@ class Cli:
         client Joe show 1
         '''
 
-        def relist(seq):
-            return '(' + '|'.join(seq) + ')'
-
         psep = re.escape(os.path.sep)
 
-        self.grams = [
-            "(\s* (?P<simple>{}) \s*) |".format(relist(self.simpleCmds)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(relist(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(relist(self.nodeCmds)),
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*.*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)  |".format(psep),
-            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)  |",
+        self.utilGrams = [
+            "(\s* (?P<simple>{}) \s*) |".format(self.relist(self.simpleCmds)),
             "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(psep),
-            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(relist(self.node_or_cli)),
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(self.relist(self.node_or_cli)),
             "(\s* (?P<command>list) \s*)"
         ]
 
-        self.grammar = compile("".join(self.grams))
+        self.nodeGrams = [
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(self.relist(self.nodeCmds)),
+            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)".format(psep),
+        ]
 
-        self.lexer = GrammarLexer(self.grammar, lexers={
+        self.clientGrams = [
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(self.relist(self.cliCmds)),
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*.*\})  \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)",
+        ]
+
+        self.lexers = {
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
@@ -152,11 +153,11 @@ class Cli:
             'verkey': SimpleLexer(Token.Literal),
             'for_client': SimpleLexer(Token.Keyword),
             'identifier': SimpleLexer(Token.Name),
-        })
+        }
 
         self.clientWC = WordCompleter([])
 
-        self.completer = GrammarCompleter(self.grammar, {
+        self.completers = {
             'node_command': WordCompleter(self.nodeCmds),
             'client_command': WordCompleter(self.cliCmds),
             'client': WordCompleter(['client']),
@@ -171,7 +172,13 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-        })
+        }
+
+        self.initializeGrammar()
+
+        self.initializeGrammarLexer()
+
+        self.initializeGrammarCompleter()
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
@@ -195,8 +202,8 @@ class Cli:
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
-                                        lexer=self.lexer,
-                                        completer=self.completer,
+                                        lexer=self.grammarLexer,
+                                        completer=self.grammarCompleter,
                                         style=self.style,
                                         history=pers_hist)
 
@@ -230,6 +237,22 @@ class Cli:
 
         self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+
+    @staticmethod
+    def relist(seq):
+        return '(' + '|'.join(seq) + ')'
+
+    def initializeGrammar(self):
+        self.utilGrams[-1] += " |"
+        self.nodeGrams[-1] += " |"
+        self.grams = self.utilGrams + self.nodeGrams + self.clientGrams
+        self.grammar = compile("".join(self.grams))
+
+    def initializeGrammarLexer(self):
+        self.grammarLexer = GrammarLexer(self.grammar, lexers=self.lexers)
+
+    def initializeGrammarCompleter(self):
+        self.grammarCompleter = GrammarCompleter(self.grammar, self.completers)
 
     def createFunctionMappings(self):
 
@@ -497,6 +520,7 @@ Commands:
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
             nodes.append(node)
+        return nodes
 
     def ensureValidClientId(self, clientName):
         """
