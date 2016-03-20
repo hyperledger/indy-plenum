@@ -36,20 +36,36 @@ python -m plenum.test
 
 **Ubuntu:**
 
-1. Run ```sudo add-apt-repository ppa:fkrull/deadsnakes```
+Add a repository for python 3.5
+```
+sudo apt-get install software-properties-common
+sudo add-apt-repository ppa:fkrull/deadsnakes
+sudo apt-get update
+```
 
-2. Run ```sudo apt-get update```
+Install python 3.5
+```
+sudo apt-get install python3.5
+```
 
-3. Run ```sudo apt-get install python3.5```
+Install libsodium
+```
+sudo apt-get install libsodium18
+```
 
-4. First, check that the universe repository is enabled by inspecting ```/etc/apt/sources.list``` file with your favorite editor.
-
-5. You will need to use sudo to ensure that you have permissions to edit the file. If universe is not included then modify the file so that it does include the following line:
-```deb http://us.archive.ubuntu.com/ubuntu vivid main universe```
-
-6. Run ```sudo apt-get update```
-
-7. Run ```sudo apt-get install libsodium13```
+> If libsodium18 is not found for your version of ubuntu, you can download and install the deb package directly.
+> 
+> For 64-bit:
+> ```
+> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium18_1.0.8-5_amd64.deb
+> dpkg -i libsodium18_1.0.8-5_amd64.deb
+> ```
+> 
+> For 32-bit:
+> ```
+> http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium18_1.0.8-5_i386.deb
+> dpkg -i libsodium18_1.0.8-5_i386.deb
+> ```
 
 
 **CentOS/Redhat:**
