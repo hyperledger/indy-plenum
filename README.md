@@ -50,21 +50,21 @@ sudo apt-get install python3.5
 
 Install libsodium
 ```
-sudo apt-get install libsodium18
+sudo apt-get install libsodium13
 ```
 
-> If libsodium18 is not found for your version of ubuntu, you can download and install the deb package directly.
+> If libsodium13 is not found for your version of ubuntu, you can download and install the deb package directly.
 > 
 > For 64-bit:
 > ```
-> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium18_1.0.8-5_amd64.deb
-> dpkg -i libsodium18_1.0.8-5_amd64.deb
+> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_amd64.deb
+> dpkg -i libsodium13_1.0.3-1_amd64.deb
 > ```
 > 
 > For 32-bit:
 > ```
-> http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium18_1.0.8-5_i386.deb
-> dpkg -i libsodium18_1.0.8-5_i386.deb
+> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_i386.deb
+> dpkg -i libsodium13_1.0.3-1_i386.deb
 > ```
 
 
