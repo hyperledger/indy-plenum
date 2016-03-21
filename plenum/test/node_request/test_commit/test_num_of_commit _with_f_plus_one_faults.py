@@ -4,8 +4,6 @@ import pytest
 
 from plenum.common.util import getNoInstances, adict
 from plenum.test.node_request.node_request_helper import checkCommited
-from plenum.test.testing_utils import adict
-
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
     changesRequest

@@ -9,8 +9,6 @@ from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
     getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies, getAllArgs
-from plenum.test.profiler import profile_this
-from plenum.test.testing_utils import adict
 
 nodeCount = 7
 whitelist = ["discarding message"]

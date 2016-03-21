@@ -6,7 +6,6 @@ from plenum.common.util import getlogger, adict
 from plenum.test.helper import TestNode
 from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
 from plenum.test.node_request.node_request_helper import checkPropagated
-from plenum.test.testing_utils import adict
 from plenum.test.eventually import eventually
 
 logger = getlogger()

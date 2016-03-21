@@ -4,9 +4,7 @@ import pytest
 
 from plenum.test.helper import TestNode
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
-from plenum.test.testing_utils import adict
-
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, adict
 from plenum.test.helper import checkNodesConnected, randomMsg, \
     sendMsgAndCheck, checkProtocolInstanceSetup, msgAll
 

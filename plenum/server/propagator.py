@@ -31,7 +31,7 @@ class Requests(Dict[Tuple[str, int], ReqState]):
     def forwarded(self, req: Request):
         return self[req.key].forwarded
 
-    def flagAsFowarded(self, req: Request):
+    def flagAsForwarded(self, req: Request):
         self[req.key].forwarded = True
 
     def addPropagate(self, req: Request, sender: str):
@@ -127,7 +127,7 @@ class Propagator:
         for repQueue in self.msgsToReplicas:
             repQueue.append(request.reqDigest)
         self.monitor.requestUnOrdered(*request.key)
-        self.requests.flagAsFowarded(request)
+        self.requests.flagAsForwarded(request)
 
     def recordAndPropagate(self, request: Request, clientName):
         self.requests.add(request)
