@@ -81,9 +81,9 @@ class Looper:
             self.loop = loop
         else:
             try:
-                if sys.platform == 'win32':
-                    loop = asyncio.ProactorEventLoop()
-                    asyncio.set_event_loop(loop)
+                #if sys.platform == 'win32':
+                #    loop = asyncio.ProactorEventLoop()
+                #    asyncio.set_event_loop(loop)
                 l = asyncio.get_event_loop()
                 if l.is_closed():
                     raise RuntimeError("event loop was closed")
