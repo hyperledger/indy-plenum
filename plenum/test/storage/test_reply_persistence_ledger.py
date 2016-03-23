@@ -6,6 +6,7 @@ from ledger.immutable_store.merkle import CompactMerkleTree
 
 from plenum.test.storage.helper import checkReplyIsPersisted
 
+
 @pytest.yield_fixture(scope="module")
 def nodeSetLedger(nodeSet, tdir):
     """
