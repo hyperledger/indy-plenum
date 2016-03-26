@@ -466,6 +466,8 @@ class NodeStacked(Batched):
             tmsg = msg.melted()
         elif isinstance(msg, Request):
             tmsg = msg.__getstate__()
+        elif hasattr(msg, "_asdict"):
+            tmsg = dict(msg._asdict())
         else:
             raise ValueError("Message cannot be converted to an appropriate "
                              "format for transmission")
