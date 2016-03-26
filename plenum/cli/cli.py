@@ -610,12 +610,12 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientName, seed=None):
+    def newClient(self, clientName, seed=None, identifier=None):
         try:
             self.ensureValidClientId(clientName)
             client_addr = self.nextAvailableClientAddr()
-            signer = SimpleSigner(clientName, seed.encode("utf-8")) \
-                if seed else None
+            signer = SimpleSigner(identifier=identifier, seed=seed.encode("utf-8")) \
+                if (seed or identifier) else None
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
@@ -810,8 +810,9 @@ Commands:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
+        identifier = matchedVars.get("identifier")
         if len(names) == 1 and seed:
-            initializer(name.strip(), seed=seed)
+            initializer(name.strip(), seed=seed, identifier=identifier)
         else:
             for name in names:
                 initializer(name.strip())
