@@ -49,6 +49,7 @@ class EmptySignature(SigningException):
         self.identifier = identifier
         self.reqId = reqId
 
+
 class InvalidSignature(SigningException):
     code = 125
     reason = 'invalid signature'

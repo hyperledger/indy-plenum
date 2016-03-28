@@ -714,9 +714,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             op = msg.pop(OP_FIELD_NAME)
             cls = TaggedTuples.get(op, None)
             if not cls:
-                raise InvalidClientOp(op)
+                raise InvalidClientOp(op, msg.get(f.REQ_ID.nm))
             if cls is not Batch:
-                raise InvalidClientMsgType(cls)
+                raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
             raise InvalidClientRequest
         try:

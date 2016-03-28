@@ -560,8 +560,8 @@ Commands:
                 self.printNames(client._conns, newline=True)
             else:
                 self.printVoid()
-            self.print("    Identifier: {}".format(client.signer.identifier))
-            self.print("    Verification key: {}".format(client.signer.verkey))
+            self.print("    Identifier: {}".format(client.defaultIdentifier))
+            self.print("    Verification key: {}".format(client.getSigner().verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -610,12 +610,14 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientName, seed=None, identifier=None):
+    def newClient(self, clientName, seed=None, identifier=None, signer=None):
         try:
             self.ensureValidClientId(clientName)
             client_addr = self.nextAvailableClientAddr()
-            signer = SimpleSigner(identifier=identifier, seed=seed.encode("utf-8")) \
-                if (seed or identifier) else None
+            if not signer:
+                seed = seed.encode("utf-8") if seed else None
+                signer = SimpleSigner(identifier=identifier, seed=seed) \
+                    if (seed or identifier) else None
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
@@ -688,117 +690,239 @@ Commands:
 
         self.print('Goodbye.')
 
+    def _simpleAction(self, matchedVars):
+        if matchedVars.get('simple'):
+            cmd = matchedVars.get('simple')
+            if cmd == 'status':
+                self.getStatus()
+            elif cmd == 'license':
+                self.printCmdHelper('license')
+            elif cmd in ['exit', 'quit']:
+                raise Exit
+            return True
+
+    def _helpAction(self, matchedVars):
+        if matchedVars.get('command') == 'help':
+            helpable = matchedVars.get('helpable')
+            node_or_cli = matchedVars.get('node_or_cli')
+            if helpable:
+                if node_or_cli:
+                    self.printCmdHelper(command="{}{}".
+                                        format(helpable, node_or_cli))
+                else:
+                    self.printCmdHelper(command=helpable)
+            else:
+                self.printHelp()
+            return True
+
+    def _listAction(self, matchedVars):
+        if matchedVars.get('command') == 'list':
+            for cmd in self.commands:
+                self.print(cmd)
+            return True
+
+    def _newNodeAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'new':
+            self.createEntities('node_name', 'more_nodes',
+                                matchedVars, self.newNode)
+            return True
+
+    def _newClientAction(self, matchedVars):
+        if matchedVars.get('client_command') == 'new':
+            self.createEntities('client_name', 'more_clients',
+                                matchedVars, self.newClient)
+            return True
+
+    def _statusNodeAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'status':
+            node = matchedVars.get('node_name')
+            self.statusNode(node)
+            return True
+
+    def _statusClientAction(self, matchedVars):
+        if matchedVars.get('client_command') == 'status':
+            client = matchedVars.get('client_name')
+            self.statusClient(client)
+            return True
+
+    def _keyShareAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'keyshare':
+            name = matchedVars.get('node_name')
+            self.keyshare(name)
+            return True
+
+    def _clientCommand(self, matchedVars):
+        if matchedVars.get('client') == 'client':
+            client_name = matchedVars.get('client_name')
+            client_action = matchedVars.get('cli_action')
+            if client_action == 'send':
+                msg = matchedVars.get('msg')
+                try:
+                    actualMsgRepr = ast.literal_eval(msg)
+                except Exception as ex:
+                    self.print("error evaluating msg expression: {}".
+                               format(ex), Token.BoldOrange)
+                    return True
+                self.sendMsg(client_name, actualMsgRepr)
+                return True
+            elif client_action == 'show':
+                req_id = matchedVars.get('req_id')
+                self.getReply(client_name, req_id)
+                return True
+            # else:
+            #     self.printCmdHelper("sendmsg")
+
+    def _loadPluginDirAction(self, matchedVars):
+        if matchedVars.get('load_plugins') == 'load plugins from':
+            pluginsPath = matchedVars.get('plugin_dir')
+            try:
+                self.plugins = PluginLoader(pluginsPath).plugins
+            except FileNotFoundError as ex:
+                _, err = ex.args
+                self.print(err, Token.BoldOrange)
+            return True
+
+    def _loadPluginAction(self, matchedVars):
+        if matchedVars.get('load') == 'load':
+            file = matchedVars.get("file_name")
+            if os.path.exists(file):
+                try:
+                    self.loadFromFile(file)
+                    self.print("Node registry loaded.")
+                    self.showNodeRegistry()
+                except configparser.ParsingError:
+                    self.logger.warn("Could not parse file. "
+                                     "Please ensure that the file "
+                                     "has sections node_reg "
+                                     "and client_node_reg.",
+                                     extra={'cli': 'WARNING'})
+            else:
+                self.logger.warn("File {} not found.".format(file),
+                                 extra={"cli": "WARNING"})
+            return True
+
+    def _addKeyAction(self, matchedVars):
+        if matchedVars.get('add_key') == 'add key':
+            verkey = matchedVars.get('verkey')
+            # TODO make verkey case insensitive
+            identifier = matchedVars.get('identifier')
+
+            if identifier in self.externalClientKeys:
+                self.print("identifier already added", Token.Error)
+                return
+            self.externalClientKeys[identifier] = verkey
+            for n in self.nodes.values():
+                n.clientAuthNr.addClient(identifier, verkey)
+            return True
+
+    def getActionList(self):
+        return [self._simpleAction, self._helpAction, self._listAction,
+                self._newNodeAction, self._newClientAction,
+                self._statusNodeAction, self._statusClientAction,
+                self._keyShareAction, self._loadPluginDirAction,
+                self._clientCommand, self._loadPluginAction, self._addKeyAction]
+
     def parse(self, cmdText):
         m = self.grammar.match(cmdText)
         if m:
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
                              extra={"cli": False})
-
-            # Check for helper commands
-            if matchedVars.get('simple'):
-                cmd = matchedVars.get('simple')
-                if cmd == 'status':
-                    self.getStatus()
-                elif cmd == 'license':
-                    self.printCmdHelper('license')
-                elif cmd in ['exit', 'quit']:
-                    raise Exit
-
-            elif matchedVars.get('command') == 'help':
-                helpable = matchedVars.get('helpable')
-                node_or_cli = matchedVars.get('node_or_cli')
-                if helpable:
-                    if node_or_cli:
-                        self.printCmdHelper(command="{}{}".
-                                            format(helpable, node_or_cli))
-                    else:
-                        self.printCmdHelper(command=helpable)
-                else:
-                    self.printHelp()
-
-            elif matchedVars.get('command') == 'list':
-                for cmd in self.commands:
-                    self.print(cmd)
-
-            # Check for new commands
-            elif matchedVars.get('node_command') == 'new':
-                self.createEntities('node_name', 'more_nodes',
-                                    matchedVars, self.newNode)
-
-            elif matchedVars.get('node_command') == 'status':
-                node = matchedVars.get('node_name')
-                self.statusNode(node)
-
-            elif matchedVars.get('node_command') == 'keyshare':
-                name = matchedVars.get('node_name')
-                self.keyshare(name)
-
-            elif matchedVars.get('client_command') == 'new':
-                self.createEntities('client_name', 'more_clients',
-                                    matchedVars, self.newClient)
-
-            elif matchedVars.get('client_command') == 'status':
-                client = matchedVars.get('client_name')
-                self.statusClient(client)
-
-            elif matchedVars.get('client') == 'client':
-                client_name = matchedVars.get('client_name')
-                client_action = matchedVars.get('cli_action')
-                if client_action == 'send':
-                    msg = matchedVars.get('msg')
-                    try:
-                        actualMsgRepr = ast.literal_eval(msg)
-                    except Exception as ex:
-                        self.print("error evaluating msg expression: {}".
-                                   format(ex), Token.BoldOrange)
-                        return
-                    self.sendMsg(client_name, actualMsgRepr)
-                elif client_action == 'show':
-                    req_id = matchedVars.get('req_id')
-                    self.getReply(client_name, req_id)
-                else:
-                    self.printCmdHelper("sendmsg")
-
-            elif matchedVars.get('load_plugins') == 'load plugins from':
-                pluginsPath = matchedVars.get('plugin_dir')
-                try:
-                    self.plugins = PluginLoader(pluginsPath).plugins
-                except FileNotFoundError as ex:
-                    _, err = ex.args
-                    self.print(err, Token.BoldOrange)
-
-            elif matchedVars.get('load') == 'load':
-                file = matchedVars.get("file_name")
-                if os.path.exists(file):
-                    try:
-                        self.loadFromFile(file)
-                        self.print("Node registry loaded.")
-                        self.showNodeRegistry()
-                    except configparser.ParsingError:
-                        self.logger.warn("Could not parse file. "
-                                         "Please ensure that the file "
-                                         "has sections node_reg "
-                                         "and client_node_reg.",
-                                         extra={'cli': 'WARNING'})
-                else:
-                    self.logger.warn("File {} not found.".format(file),
-                                     extra={"cli": "WARNING"})
-            elif matchedVars.get('add_key') == 'add key':
-                verkey = matchedVars.get('verkey')
-                # TODO make verkey case insensitive
-                identifier = matchedVars.get('identifier')
-
-                if identifier in self.externalClientKeys:
-                    self.print("identifier already added", Token.Error)
-                    return
-                self.externalClientKeys[identifier] = verkey
-                for n in self.nodes.values():
-                    n.clientAuthNr.addClient(identifier, verkey)
-
-            # Fall back to the help saying, invalid command.
+            for action in self.getActionList():
+                r = action(matchedVars)
+                if r:
+                    break
             else:
                 self.invalidCmd(cmdText)
+            # # Check for helper commands
+            # if matchedVars.get('simple'):
+            #     self._simpleAction(matchedVars)
+            #
+            # elif matchedVars.get('command') == 'help':
+            #     self._helpAction(matchedVars)
+            #
+            # elif matchedVars.get('command') == 'list':
+            #     for cmd in self.commands:
+            #         self.print(cmd)
+            #
+            # # Check for new commands
+            # elif matchedVars.get('node_command') == 'new':
+            #     self.createEntities('node_name', 'more_nodes',
+            #                         matchedVars, self.newNode)
+            #
+            # elif matchedVars.get('node_command') == 'status':
+            #     node = matchedVars.get('node_name')
+            #     self.statusNode(node)
+            #
+            # elif matchedVars.get('node_command') == 'keyshare':
+            #     name = matchedVars.get('node_name')
+            #     self.keyshare(name)
+            #
+            # elif matchedVars.get('client_command') == 'new':
+            #     self.createEntities('client_name', 'more_clients',
+            #                         matchedVars, self.newClient)
+            #
+            # elif matchedVars.get('client_command') == 'status':
+            #     client = matchedVars.get('client_name')
+            #     self.statusClient(client)
+            #
+            # elif matchedVars.get('client') == 'client':
+            #     client_name = matchedVars.get('client_name')
+            #     client_action = matchedVars.get('cli_action')
+            #     if client_action == 'send':
+            #         msg = matchedVars.get('msg')
+            #         try:
+            #             actualMsgRepr = ast.literal_eval(msg)
+            #         except Exception as ex:
+            #             self.print("error evaluating msg expression: {}".
+            #                        format(ex), Token.BoldOrange)
+            #             return
+            #         self.sendMsg(client_name, actualMsgRepr)
+            #     elif client_action == 'show':
+            #         req_id = matchedVars.get('req_id')
+            #         self.getReply(client_name, req_id)
+            #     else:
+            #         self.printCmdHelper("sendmsg")
+            #
+            # elif matchedVars.get('load_plugins') == 'load plugins from':
+            #     pluginsPath = matchedVars.get('plugin_dir')
+            #     try:
+            #         self.plugins = PluginLoader(pluginsPath).plugins
+            #     except FileNotFoundError as ex:
+            #         _, err = ex.args
+            #         self.print(err, Token.BoldOrange)
+            #
+            # elif matchedVars.get('load') == 'load':
+            #     file = matchedVars.get("file_name")
+            #     if os.path.exists(file):
+            #         try:
+            #             self.loadFromFile(file)
+            #             self.print("Node registry loaded.")
+            #             self.showNodeRegistry()
+            #         except configparser.ParsingError:
+            #             self.logger.warn("Could not parse file. "
+            #                              "Please ensure that the file "
+            #                              "has sections node_reg "
+            #                              "and client_node_reg.",
+            #                              extra={'cli': 'WARNING'})
+            #     else:
+            #         self.logger.warn("File {} not found.".format(file),
+            #                          extra={"cli": "WARNING"})
+            # elif matchedVars.get('add_key') == 'add key':
+            #     verkey = matchedVars.get('verkey')
+            #     # TODO make verkey case insensitive
+            #     identifier = matchedVars.get('identifier')
+            #
+            #     if identifier in self.externalClientKeys:
+            #         self.print("identifier already added", Token.Error)
+            #         return
+            #     self.externalClientKeys[identifier] = verkey
+            #     for n in self.nodes.values():
+            #         n.clientAuthNr.addClient(identifier, verkey)
+
+            # Fall back to the help saying, invalid command.
+            # else:
+            #     self.invalidCmd(cmdText)
         else:
             if cmdText != "":
                 self.invalidCmd(cmdText)
@@ -810,9 +934,9 @@ Commands:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
-        identifier = matchedVars.get("identifier")
-        if len(names) == 1 and seed:
-            initializer(name.strip(), seed=seed, identifier=identifier)
+        identifier = matchedVars.get("nym")
+        if len(names) == 1 and (seed or identifier):
+            initializer(names[0].strip(), seed=seed, identifier=identifier)
         else:
             for name in names:
                 initializer(name.strip())

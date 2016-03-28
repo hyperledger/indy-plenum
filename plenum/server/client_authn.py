@@ -63,7 +63,7 @@ class NaclAuthNr(ClientAuthNr):
                 try:
                     signature = msg[f.SIG.nm]
                     if not signature:
-                        raise EmptySignature(identifier, msg['reqId'])
+                        raise EmptySignature(identifier, f.REQ_ID.nm)
                 except KeyError:
                     raise MissingSignature
             if not identifier:
@@ -80,7 +80,7 @@ class NaclAuthNr(ClientAuthNr):
                 verkey = self.getVerkey(identifier)
             except KeyError:
                 # TODO: Should probably be called UnknownIdentifier
-                raise InvalidIdentifier(identifier, msg['reqId'])
+                raise InvalidIdentifier(identifier, f.REQ_ID.nm)
             vr = Verifier(verkey)
             isVerified = vr.verify(sig, ser)
             if not isVerified:
