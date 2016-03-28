@@ -686,7 +686,7 @@ Commands:
                 result = await self.cli.run_async()
                 self.parse(result.text)
             except (EOFError, KeyboardInterrupt, Exit):
-                return
+                break
 
         self.print('Goodbye.')
 
@@ -834,95 +834,6 @@ Commands:
                     break
             else:
                 self.invalidCmd(cmdText)
-            # # Check for helper commands
-            # if matchedVars.get('simple'):
-            #     self._simpleAction(matchedVars)
-            #
-            # elif matchedVars.get('command') == 'help':
-            #     self._helpAction(matchedVars)
-            #
-            # elif matchedVars.get('command') == 'list':
-            #     for cmd in self.commands:
-            #         self.print(cmd)
-            #
-            # # Check for new commands
-            # elif matchedVars.get('node_command') == 'new':
-            #     self.createEntities('node_name', 'more_nodes',
-            #                         matchedVars, self.newNode)
-            #
-            # elif matchedVars.get('node_command') == 'status':
-            #     node = matchedVars.get('node_name')
-            #     self.statusNode(node)
-            #
-            # elif matchedVars.get('node_command') == 'keyshare':
-            #     name = matchedVars.get('node_name')
-            #     self.keyshare(name)
-            #
-            # elif matchedVars.get('client_command') == 'new':
-            #     self.createEntities('client_name', 'more_clients',
-            #                         matchedVars, self.newClient)
-            #
-            # elif matchedVars.get('client_command') == 'status':
-            #     client = matchedVars.get('client_name')
-            #     self.statusClient(client)
-            #
-            # elif matchedVars.get('client') == 'client':
-            #     client_name = matchedVars.get('client_name')
-            #     client_action = matchedVars.get('cli_action')
-            #     if client_action == 'send':
-            #         msg = matchedVars.get('msg')
-            #         try:
-            #             actualMsgRepr = ast.literal_eval(msg)
-            #         except Exception as ex:
-            #             self.print("error evaluating msg expression: {}".
-            #                        format(ex), Token.BoldOrange)
-            #             return
-            #         self.sendMsg(client_name, actualMsgRepr)
-            #     elif client_action == 'show':
-            #         req_id = matchedVars.get('req_id')
-            #         self.getReply(client_name, req_id)
-            #     else:
-            #         self.printCmdHelper("sendmsg")
-            #
-            # elif matchedVars.get('load_plugins') == 'load plugins from':
-            #     pluginsPath = matchedVars.get('plugin_dir')
-            #     try:
-            #         self.plugins = PluginLoader(pluginsPath).plugins
-            #     except FileNotFoundError as ex:
-            #         _, err = ex.args
-            #         self.print(err, Token.BoldOrange)
-            #
-            # elif matchedVars.get('load') == 'load':
-            #     file = matchedVars.get("file_name")
-            #     if os.path.exists(file):
-            #         try:
-            #             self.loadFromFile(file)
-            #             self.print("Node registry loaded.")
-            #             self.showNodeRegistry()
-            #         except configparser.ParsingError:
-            #             self.logger.warn("Could not parse file. "
-            #                              "Please ensure that the file "
-            #                              "has sections node_reg "
-            #                              "and client_node_reg.",
-            #                              extra={'cli': 'WARNING'})
-            #     else:
-            #         self.logger.warn("File {} not found.".format(file),
-            #                          extra={"cli": "WARNING"})
-            # elif matchedVars.get('add_key') == 'add key':
-            #     verkey = matchedVars.get('verkey')
-            #     # TODO make verkey case insensitive
-            #     identifier = matchedVars.get('identifier')
-            #
-            #     if identifier in self.externalClientKeys:
-            #         self.print("identifier already added", Token.Error)
-            #         return
-            #     self.externalClientKeys[identifier] = verkey
-            #     for n in self.nodes.values():
-            #         n.clientAuthNr.addClient(identifier, verkey)
-
-            # Fall back to the help saying, invalid command.
-            # else:
-            #     self.invalidCmd(cmdText)
         else:
             if cmdText != "":
                 self.invalidCmd(cmdText)
