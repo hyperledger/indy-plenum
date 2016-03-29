@@ -80,7 +80,7 @@ class NaclAuthNr(ClientAuthNr):
                 verkey = self.getVerkey(identifier)
             except KeyError:
                 # TODO: Should probably be called UnknownIdentifier
-                raise InvalidIdentifier(identifier, f.REQ_ID.nm)
+                raise InvalidIdentifier(identifier, msg[f.REQ_ID.nm])
             vr = Verifier(verkey)
             isVerified = vr.verify(sig, ser)
             if not isVerified:

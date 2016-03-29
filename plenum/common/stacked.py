@@ -313,6 +313,9 @@ class NodeStacked(Batched):
 
         self._conns = set()  # type: Set[str]
 
+        self.reconnectToMissingIn = 6
+        self.reconnectToDisconnectedIn = 6
+
     def __repr__(self):
         return self.name
 
@@ -524,7 +527,7 @@ class NodeStacked(Batched):
             logger.debug("{} found the following missing connections: {}".
                          format(self, ", ".join(missing)))
             if self.connectNicelyUntil is None:
-                self.connectNicelyUntil = currentTime + 3
+                self.connectNicelyUntil = currentTime + self.reconnectToMissingIn
             if currentTime <= self.connectNicelyUntil:
                 names = list(self.nodeReg.keys())
                 names.append(self.name)
@@ -552,14 +555,14 @@ class NodeStacked(Batched):
             logger.trace("{} join already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = min(self.nextCheck, cur + 3)
+            self.nextCheck = min(self.nextCheck, cur + self.reconnectToDisconnectedIn)
             return
 
         if disconn.allowInProcess():
             logger.trace("{} allow already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = min(self.nextCheck, cur + 3)
+            self.nextCheck = min(self.nextCheck, cur + self.reconnectToDisconnectedIn)
             return
 
         if disconn.name not in self.nodeReg:
