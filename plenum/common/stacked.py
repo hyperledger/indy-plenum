@@ -471,6 +471,8 @@ class NodeStacked(Batched):
             tmsg = msg.__getstate__()
         elif hasattr(msg, "_asdict"):
             tmsg = dict(msg._asdict())
+        elif hasattr(msg, "__dict__"):
+            tmsg = dict(msg.__dict__)
         else:
             raise ValueError("Message cannot be converted to an appropriate "
                              "format for transmission")
@@ -501,7 +503,7 @@ class NodeStacked(Batched):
         cur = time.perf_counter()
         if cur > self.nextCheck or force:
 
-            self.nextCheck = cur + (3 if self.isKeySharing else 15)
+            self.nextCheck = cur + (6 if self.isKeySharing else 15)
             # check again in 15 seconds,
             # unless sooner because of retries below
 
