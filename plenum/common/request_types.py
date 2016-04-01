@@ -32,6 +32,7 @@ class f:  # provides a namespace for reusable field constants
     TXN_ID = Field('txnId', str)
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
+    PP_TIME = Field("ppTime", float)
 
 OP_FIELD_NAME = "op"
 
@@ -158,7 +159,8 @@ Ordered = NamedTuple(ORDERED, [
     f.VIEW_NO,
     f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
@@ -173,20 +175,23 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.PP_SEQ_NO,
     f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME
+    ])
 
 Prepare = TaggedTuple(PREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.DIGEST])
-
+    f.DIGEST,
+    f.PP_TIME])
 
 Commit = TaggedTuple(COMMIT, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME])
 
 Reply = TaggedTuple(REPLY, [
     f.VIEW_NO,

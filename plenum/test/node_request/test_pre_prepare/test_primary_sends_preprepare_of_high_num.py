@@ -1,4 +1,5 @@
 import pytest
+import time
 
 from plenum.common.request_types import ReqDigest, PrePrepare
 from plenum.server.replica import TPCStat
@@ -20,7 +21,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
             assert nodeSuspicions == 1
 
     def checkPreprepare(replica, viewNo, ppSeqNo, req, numOfPrePrepares):
-        assert (replica.prePrepares[viewNo, ppSeqNo]) == \
+        assert (replica.prePrepares[viewNo, ppSeqNo][0]) == \
                (req.identifier, req.reqId, req.digest)
 
     primary = getPrimaryReplica(nodeSet, instId)
@@ -37,6 +38,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     incorrectPrePrepareReq = PrePrepare(instId,
                                primary.viewNo,
                                primary.prePrepareSeqNo + 2,
-                               *newReqDigest)
+                               *newReqDigest,
+                               time.time())
     primary.send(incorrectPrePrepareReq,TPCStat.PrePrepareSent)
     looper.run(eventually(chk, retryWait=1, timeout=50))

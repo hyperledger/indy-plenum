@@ -684,7 +684,7 @@ Commands:
         while interactive:
             try:
                 result = await self.cli.run_async()
-                self.parse(result.text)
+                self.parse(result.text if result else "")
             except (EOFError, KeyboardInterrupt, Exit):
                 break
 

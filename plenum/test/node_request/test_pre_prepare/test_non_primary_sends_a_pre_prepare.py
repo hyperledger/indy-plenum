@@ -2,6 +2,8 @@ import types
 from functools import partial
 
 import pytest as pytest
+import time
+
 from plenum.common.request_types import PrePrepare, ReqDigest
 from plenum.test.eventually import eventually
 from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
@@ -47,7 +49,8 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
                 firstNpr.prePrepareSeqNo,
                 propagated1.identifier,
                 propagated1.reqId,
-                propagated1.digest)
+                propagated1.digest,
+                time.time())
 
     ppr = sendPrePrepareFromNonPrimary(firstNpr)
 
@@ -55,7 +58,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
         for r in (primaryReplica, *remainingNpr):
             recvdPps = recvdPrePrepare(r)
             assert len(recvdPps) == 1
-            assert recvdPps[0]['pp'] == ppr
+            assert recvdPps[0]['pp'][:-1] == ppr[:-1]
             nodeSuspicions = len(getNodeSuspicions(
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1

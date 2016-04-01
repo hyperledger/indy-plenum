@@ -125,18 +125,18 @@ class Replica(MessageProcessor):
         self.preparesWaitingForPrePrepare = {}
         # type: Dict[Tuple[int, int], deque]
 
-        # Requests that are stored by primary replica which it has broadcasted
-        # to all other non primary replicas
+        # Dictionary of sent PRE-PREPARE that are stored by primary replica
+        # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
         # pre-prepare seqNo and value is a Request Digest
         self.sentPrePrepares = {}
-        # type: Dict[Tuple[int, int], ReqDigest]
+        # type: Dict[Tuple[int, int], Tuple[ReqDigest, float]]
 
-        # Dictionary of received PrePrepare requests. Key of dictionary is a 2
+        # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value is
         # a Request Digest
         self.prePrepares = {}
-        # type: Dict[Tuple[int, int], ReqDigest]
+        # type: Dict[Tuple[int, int], Tuple[ReqDigest, float]]
 
         self.prePrepareSeqNo = 0  # type: int
 
@@ -504,11 +504,13 @@ class Replica(MessageProcessor):
         logger.debug("{} Sending PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
         self.prePrepareSeqNo += 1
+        tm = time.time()
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
                                    self.prePrepareSeqNo,
-                                   *reqDigest)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
+                                   *reqDigest,
+                                   tm)
+        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest, tm)
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
@@ -517,7 +519,8 @@ class Replica(MessageProcessor):
         prepare = Prepare(self.instId,
                           pp.viewNo,
                           pp.ppSeqNo,
-                          pp.digest)
+                          pp.digest,
+                          pp.ppTime)
         self.send(prepare, TPCStat.PrepareSent)
         self.addToPrepares(prepare, self.name)
 
@@ -525,7 +528,8 @@ class Replica(MessageProcessor):
         commit = Commit(self.instId,
                         p.viewNo,
                         p.ppSeqNo,
-                        p.digest)
+                        p.digest,
+                        p.ppTime)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 
@@ -575,10 +579,13 @@ class Replica(MessageProcessor):
         :param pp: the PRE-PREPARE to add to the list
         """
         self.prePrepares[(pp.viewNo, pp.ppSeqNo)] = \
-            (pp.identifier, pp.reqId, pp.digest)
+            ((pp.identifier, pp.reqId, pp.digest), pp.ppTime)
         self.dequeuePrepares(pp.viewNo, pp.ppSeqNo)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
+
+    def hasPrepared(self, request):
+        return self.prepares.hasPrepareFrom(request, self.name)
 
     def canSendPrepare(self, request) -> None:
         """
@@ -587,7 +594,8 @@ class Replica(MessageProcessor):
 
         :param request: any object with identifier and requestId attributes
         """
-        return self.node.requests.canPrepare(request, self.f + 1)
+        return self.node.requests.canPrepare(request, self.f + 1) and \
+               not self.hasPrepared(request)
 
     def isValidPrepare(self, prepare: Prepare, sender: str):
         """
@@ -616,8 +624,11 @@ class Replica(MessageProcessor):
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if key not in ppReqs:
                 self.enqueuePrepare(prepare, sender)
-            elif prepare.digest != ppReqs[key][2]:
+            elif prepare.digest != ppReqs[key][0][2]:
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
+            elif prepare.ppTime != ppReqs[key][1]:
+                raise SuspiciousNode(sender, Suspicions.PR_TIME_WRONG,
+                                     prepare)
             else:
                 return True
         # If primary replica
@@ -628,8 +639,11 @@ class Replica(MessageProcessor):
             # malicious behavior
             elif key not in ppReqs:
                 raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
-            elif prepare.digest != ppReqs[key][2]:
+            elif prepare.digest != ppReqs[key][0][2]:
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
+            elif prepare.ppTime != ppReqs[key][1]:
+                raise SuspiciousNode(sender, Suspicions.PR_TIME_WRONG,
+                                     prepare)
             else:
                 return True
 
@@ -637,7 +651,12 @@ class Replica(MessageProcessor):
         self.prepares.addVote(prepare, sender)
         self.tryCommit(prepare)
 
-    def canCommit(self, request: Prepare) -> bool:
+    def hasCommitted(self, request):
+        return self.commits.hasCommitFrom(ThreePhaseKey(
+            request.viewNo, request.ppSeqNo),
+            self.name)
+
+    def canCommit(self, prepare: Prepare) -> bool:
         """
         Return whether the specified PREPARE can proceed to the Commit
         step.
@@ -649,12 +668,10 @@ class Replica(MessageProcessor):
             the request; don't commit
         - If more than 2f then already sent COMMIT; don't commit
 
-        :param request: the PREPARE
+        :param prepare: the PREPARE
         """
-        return self.prepares.hasQuorum(request, self.f) and \
-               not self.commits.hasCommitFrom(ThreePhaseKey(
-                                                request.viewNo, request.ppSeqNo),
-                                              self.name)
+        return self.prepares.hasQuorum(prepare, self.f) and \
+               not self.hasCommitted(prepare)
 
     def isValidCommit(self, commit: Commit, sender: str):
         """
@@ -663,15 +680,21 @@ class Replica(MessageProcessor):
         :param commit: the COMMIT to validate
         :return: True if `request` is valid, False otherwise
         """
+        primaryStatus = self.isPrimaryForMsg(commit)
+        ppReqs = self.sentPrePrepares if primaryStatus else self.prePrepares
         key = (commit.viewNo, commit.ppSeqNo)
         if (key not in self.prepares and
                 key not in self.preparesWaitingForPrePrepare):
             raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
-        if self.commits.hasCommitFrom(commit, sender):
+        elif self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
-        if commit.digest != self.getDigestFromPrepare(*key):
+        elif commit.digest != self.getDigestFromPrepare(*key):
             raise SuspiciousNode(sender, Suspicions.CM_DIGEST_WRONG, commit)
-        return True
+        elif key in ppReqs and commit.ppTime != ppReqs[key][1]:
+            raise SuspiciousNode(sender, Suspicions.CM_TIME_WRONG,
+                                 commit)
+        else:
+            return True
 
     def addToCommits(self, commit: Commit, sender: str):
         """
@@ -683,6 +706,9 @@ class Replica(MessageProcessor):
         """
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
+
+    def hasOrdered(self, request):
+        return (request.viewNo, request.ppSeqNo) in self.ordered
 
     def canOrder(self, commit: Commit) -> bool:
         """
@@ -699,7 +725,7 @@ class Replica(MessageProcessor):
         :param commit: the COMMIT
         """
         return self.commits.hasQuorum(commit, self.f) and \
-               (commit.viewNo, commit.ppSeqNo) not in self.ordered
+               not self.hasOrdered(commit)
 
     def doOrder(self, commit: Commit) -> None:
         """
@@ -712,11 +738,11 @@ class Replica(MessageProcessor):
         primaryStatus = self.isPrimaryForMsg(commit)
 
         if primaryStatus is True:
-            identifier, reqId, digest = self.sentPrePrepares[key]
+            (identifier, reqId, digest), tm = self.sentPrePrepares[key]
         elif primaryStatus is False:
             # When the node received PREPARE requests and PRE-PREPARE request
             if key in self.prePrepares:
-                identifier, reqId, digest = self.prePrepares[key]
+                (identifier, reqId, digest), tm = self.prePrepares[key]
             else:
                 digest = self.getDigestFromPrepare(*key)
                 for (cid, rid), dgst \
@@ -735,7 +761,8 @@ class Replica(MessageProcessor):
                           commit.viewNo,
                           identifier,
                           reqId,
-                          digest)
+                          digest,
+                          commit.ppTime)
         self.send(ordered, TPCStat.OrderSent)
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):

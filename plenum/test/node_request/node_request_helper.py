@@ -1,6 +1,8 @@
 import logging
 from functools import partial
 
+import time
+
 from plenum.common.request_types import PrePrepare, OPERATION, f
 from plenum.server.node import Node
 from plenum.test.eventually import eventuallyAll
@@ -78,15 +80,16 @@ def checkPrePrepared(looper,
                     primary.prePrepareSeqNo,
                     propagated1.identifier,
                     propagated1.reqId,
-                    propagated1.digest)
+                    propagated1.digest,
+                    time.time())
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'],
+                                  if (param['pp'][:-1],
                                       param['sender']) == (
-                                      expectedPrePrepareRequest,
+                                      expectedPrePrepareRequest[:-1],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1

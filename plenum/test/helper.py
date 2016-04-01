@@ -1140,8 +1140,8 @@ def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
 def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                digest: str, instId: int):
     params = getAllArgs(node, node.processOrdered)
-    # Skipping the view no from each ordered request
-    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:] for p in params]
+    # Skipping the view no and time from each ordered request
+    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
     expected = (instId, identifier, reqId, digest)
     assert expected in recvdOrderedReqs
 
@@ -1156,7 +1156,7 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
         params = getAllArgs(replica, replica.canProcessPrePrepare)
-        assert expectedRequest in [p['pp'] for p in params]
+        assert expectedRequest[:-1] in [p['pp'][:-1] for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):

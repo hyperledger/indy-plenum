@@ -42,6 +42,10 @@ class Suspicions:
         Suspicion(16, "REELECTION request already received")
     WRONG_PPSEQ_NO = \
         Suspicion(17, "Wrong PRE-PREPARE seq number")
+    PR_TIME_WRONG = \
+        Suspicion(5, "PREPARE time does not match with PRE-PREPARE")
+    CM_TIME_WRONG = \
+        Suspicion(5, "COMMIT time does not match with PRE-PREPARE")
 
     @classmethod
     def getList(cls):

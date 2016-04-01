@@ -1,6 +1,8 @@
 import logging
 
 import pytest
+import time
+
 from plenum.common.request_types import PrePrepare
 from plenum.test.eventually import eventually
 
@@ -48,7 +50,9 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
             primaryRepl.prePrepareSeqNo,
             client1.defaultIdentifier,
             request2.reqId,
-            request2.digest)
+            request2.digest,
+            time.time()
+            )
 
     logging.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")

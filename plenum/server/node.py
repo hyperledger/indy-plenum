@@ -843,7 +843,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, identifier, reqId, digest = tuple(ordered)
+        instId, viewNo, identifier, reqId, digest, ppTime = tuple(ordered)
 
         self.monitor.requestOrdered(identifier,
                                     reqId,
@@ -856,7 +856,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             key = (identifier, reqId)
             if key in self.requests:
                 req = self.requests[key].request
-                self.executeRequest(viewNo, req)
+                self.executeRequest(viewNo, ppTime, req)
                 logger.debug("Node {} executing client request {} {}".
                              format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
@@ -945,14 +945,15 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              format(self))
         return True
 
-    def executeRequest(self, viewNo: int, req: Request) -> None:
+    def executeRequest(self, viewNo: int, ppTime: float, req: Request) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param viewNo: the view number (See glossary)
+        :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the client REQUEST
         """
-        reply = self.generateReply(viewNo, req)
+        reply = self.generateReply(viewNo, ppTime, req)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
         txnId = reply.result['txnId']
         asyncio.ensure_future(self.txnStore.append(
@@ -1024,12 +1025,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     def generateReply(self,
                       viewNo: int,
+                      ppTime: float,
                       req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
         computed txnId of the request
 
         :param viewNo: the view number (See glossary)
+        :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the REQUEST
         :return: a clientReply generated from the request
         """
@@ -1038,7 +1041,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                        encode('utf-8')).hexdigest()
         return Reply(viewNo,
                       req.reqId,
-                      {"txnId": txnId})
+                      {"txnId": txnId, "time": ppTime})
 
     def startKeySharing(self, timeout=60):
         """
