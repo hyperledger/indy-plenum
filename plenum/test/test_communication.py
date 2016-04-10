@@ -3,7 +3,7 @@ import time
 from binascii import hexlify
 
 import raet
-from raet.raeting import AutoMode
+from raet.raeting import AutoMode, Acceptance
 from raet.road.stacking import RoadStack
 import raet.road.estating
 from raet.nacling import Privateer
@@ -109,13 +109,13 @@ def testRaetPreSharedKeysNonPromiscous():
                      auto=AutoMode.never)
 
     alpha.keep.dumpRemoteRoleData({
-        "acceptance": 1,
+        "acceptance": Acceptance.accepted.value,
         "verhex": betaSigner.verkey,
         "pubhex": betaPrivateer.pubhex
     }, "beta")
 
     beta.keep.dumpRemoteRoleData({
-        "acceptance": 1,
+        "acceptance": Acceptance.accepted.value,
         "verhex": alphaSigner.verkey,
         "pubhex": alphaPrivateer.pubhex
     }, "alpha")
