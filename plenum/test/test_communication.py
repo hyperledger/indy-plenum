@@ -123,9 +123,9 @@ def testRaetPreSharedKeysNonPromiscous():
     try:
 
         betaRemote = raet.road.estating.RemoteEstate(stack=alpha,
-                                                     ha=beta.ha,
-                                                     verkey=betaSigner.verkey,
-                                                     pubkey=betaPrivateer.pubhex)
+                                                     ha=beta.ha)#,
+                                                     # verkey=betaSigner.verkey,
+                                                     # pubkey=betaPrivateer.pubhex)
         # alphaRemote = raet.road.estating.RemoteEstate(stack=beta,
         #                                               ha=alpha.ha,
         #                                               verkey=alphaSigner.verkey,
@@ -143,7 +143,6 @@ def testRaetPreSharedKeysNonPromiscous():
         sendMsgs(alpha, beta, betaRemote)
     finally:
         cleanup(alpha, beta)
-
 
 
 def handshake(*stacks):
