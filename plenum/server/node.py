@@ -6,6 +6,7 @@ from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, NamedTuple, Optional, \
     Sequence, Set
+from typing import Tuple
 
 from raet.raeting import AutoMode
 
@@ -26,6 +27,7 @@ from plenum.common.transaction_store import TransactionStore
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
 from plenum.server import primary_elector
 from plenum.server import replica
+from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
@@ -76,40 +78,47 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.opVerifiers = opVerifiers or []
 
         self.primaryDecider = primaryDecider
-        me = nodeRegistry[name]
 
-        self.allNodeNames = list(nodeRegistry.keys())
-        if isinstance(me, NodeDetail):
-            sha = me.ha
-            scliname = me.cliname
-            scliha = me.cliha
-            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
-        else:
-            sha = me if isinstance(me, HA) else HA(*me)
-            scliname = None
-            scliha = None
-            nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
-        if not ha:  # pull it from the registry
-            ha = sha
-        if not cliname:  # default to the name plus the suffix
-            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
-        if not cliha:  # default to same ip, port + 1
-            cliha = scliha if scliha else HA(ha[0], ha[1]+1)
+        # me = nodeRegistry[name]
+        #
+        # if isinstance(me, NodeDetail):
+        #     sha = me.ha
+        #     scliname = me.cliname
+        #     scliha = me.cliha
+        #     nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
+        # else:
+        #     sha = me if isinstance(me, HA) else HA(*me)
+        #     scliname = None
+        #     scliha = None
+        #     nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
+        # if not ha:  # pull it from the registry
+        #     ha = sha
+        # if not cliname:  # default to the name plus the suffix
+        #     cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
+        # if not cliha:  # default to same ip, port + 1
+        #     cliha = scliha if scliha else HA(ha[0], ha[1]+1)
+        #
+        # nstack = dict(name=name,
+        #               ha=ha,
+        #               main=True,
+        #               auto=AutoMode.never)
+        #
+        # cstack = dict(name=cliname,
+        #               ha=cliha,
+        #               main=True,
+        #               auto=AutoMode.always)
+        #
+        # if basedirpath:
+        #     nstack['basedirpath'] = basedirpath
+        #     cstack['basedirpath'] = basedirpath
 
-        nstack = dict(name=name,
-                      ha=ha,
-                      main=True,
-                      auto=AutoMode.never)
-
-        cstack = dict(name=cliname,
-                      ha=cliha,
-                      main=True,
-                      auto=AutoMode.always)
-
-        if basedirpath:
-            nstack['basedirpath'] = basedirpath
-            cstack['basedirpath'] = basedirpath
+        nstack, nodeReg = self.getNodeStackParams(name, nodeRegistry, ha,
+                                                  basedirpath=basedirpath)
+        cstack = self.getClientStackParams(name, nodeRegistry,
+                                           cliname=cliname, cliha=cliha,
+                                           basedirpath=basedirpath)
         self.basedirpath = basedirpath
+        self.allNodeNames = list(nodeReg.keys())
 
         self.txnStore = storage if storage is not None else TransactionStore()
 
@@ -195,6 +204,58 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # Map of request identifier to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.clientIdentifiers = {}     # Dict[str, str]
+
+    def getNodeStackParams(self, name, nodeRegistry: Dict[str, HA], ha: HA=None,
+                           basedirpath: str=None):
+        me = nodeRegistry[name]
+
+        self.allNodeNames = list(nodeRegistry.keys())
+        if isinstance(me, NodeDetail):
+            sha = me.ha
+            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
+        else:
+            sha = me if isinstance(me, HA) else HA(*me)
+            nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
+        if not ha:  # pull it from the registry
+            ha = sha
+
+        nstack = dict(name=name,
+                  ha=ha,
+                  main=True,
+                  auto=AutoMode.never)
+
+        if basedirpath:
+            nstack['basedirpath'] = basedirpath
+
+        return nstack, nodeReg
+
+    def getClientStackParams(self, name, nodeRegistry: Dict[str, HA], cliname,
+                             cliha, basedirpath):
+        me = nodeRegistry[name]
+
+        if isinstance(me, NodeDetail):
+            sha = me.ha
+            scliname = me.cliname
+            scliha = me.cliha
+        else:
+            sha = me if isinstance(me, HA) else HA(*me)
+            scliname = None
+            scliha = None
+
+        if not cliname:  # default to the name plus the suffix
+            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
+        if not cliha:  # default to same ip, port + 1
+            cliha = scliha if scliha else HA(sha[0], sha[1] + 1)
+
+        cstack = dict(name=cliname,
+                      ha=cliha,
+                      main=True,
+                      auto=AutoMode.always)
+
+        if basedirpath:
+            cstack['basedirpath'] = basedirpath
+
+        return cstack
 
     def start(self, loop):
         oldstatus = self.status
