@@ -30,9 +30,8 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-
 setup(
-    name='plenum',
+    name='plenum-dev',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -49,7 +48,7 @@ setup(
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
-                      'pygments', 'ledger'],
+                      'pygments', 'ledger-dev'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     extras_require={
