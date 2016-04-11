@@ -852,7 +852,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
-        reply = await self.txnStore.get(request.identifier, request.reqId)
+        reply = await self.getReplyFor(request.identifier, request.reqId)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -1015,10 +1015,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
         reply = self.generateReply(viewNo, ppTime, req)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
         txnId = reply.result['txnId']
         asyncio.ensure_future(self.txnStore.append(
             identifier=req.identifier, reply=reply, txnId=txnId))
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+
+    async def getReplyFor(self, identifier, reqId):
+        return await self.txnStore.get(identifier, reqId)
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -1095,14 +1098,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param viewNo: the view number (See glossary)
         :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the REQUEST
-        :return: a clientReply generated from the request
+        :return: a Reply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
         txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        return Reply(viewNo,
-                      req.reqId,
-                      {"txnId": txnId, "time": ppTime})
+        return Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime})
 
     def startKeySharing(self, timeout=60):
         """

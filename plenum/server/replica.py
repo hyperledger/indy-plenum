@@ -504,7 +504,7 @@ class Replica(MessageProcessor):
         logger.debug("{} Sending PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
         self.prePrepareSeqNo += 1
-        tm = time.time()
+        tm = time.time()*1000
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
                                    self.prePrepareSeqNo,

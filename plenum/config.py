@@ -1,0 +1,1 @@
+keepDir = "~/.plenum/nodes/raet/"

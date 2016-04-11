@@ -42,7 +42,7 @@ def testMsgSendingTime(pool, nodeReg):
 
 def testCorrectNumOfProtocolInstances(pool):
     fValue = getMaxFailures(len(pool.nodeSet))
-    for node in pool.nodeSet:
+    for node in pool.nodeset:
         # num of protocol instances running on a node must be f + 1
         assert len(getProtocolInstanceNums(node)) == fValue + 1
         # There should be one running and up master Instance
