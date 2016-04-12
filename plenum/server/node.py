@@ -12,7 +12,7 @@ from raet.raeting import AutoMode
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException
+    InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.motor import Motor
 from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
@@ -206,6 +206,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.txnStore.start(loop)
             self.startNodestack()
             self.startClientstack()
+            self.checkKeys()
 
             self.elector = self.newPrimaryDecider()
 
@@ -1193,6 +1194,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def defaultAuthNr(self):
         return SimpleAuthNr()
 
+    def checkKeys(self):
+        def check(keep):
+            localRoleData = keep.loadLocalRoleData()
+            if not keep.verifyLocalData(localRoleData,
+                                        ['role', 'sighex', 'prihex']):
+                raise REx(REx.reason)
+        check(self.nodestack.keep)
+        check(self.clientstack.keep)
 
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"

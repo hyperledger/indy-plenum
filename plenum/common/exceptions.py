@@ -74,6 +74,12 @@ class InvalidIdentifier(SigningException):
         self.reqId = reqId
 
 
+class RaetKeysNotFoundException(Exception):
+    code = 141
+    reason = 'Key pairs not found in raet keep. ' \
+             'Please run generate-keys to generate them'
+
+
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
         self.code = suspicion.code if suspicion else None
