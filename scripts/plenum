@@ -40,7 +40,7 @@ def run_cli():
             cliNodeReg = Cli.loadCliNodeReg(cfg)
 
             cli = Cli(looper=looper,
-                      tmpdir=tmpdir,
+                      basedirpath=tmpdir,
                       nodeReg=nodeReg,
                       cliNodeReg=cliNodeReg,
                       logFileName='log/cli.log')

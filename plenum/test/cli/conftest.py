@@ -35,13 +35,14 @@ def cli(nodeRegsForCLI, cliLooper, tdir):
     mockOutput = MockOutput()
 
     Cli = TestCli(looper=cliLooper,
-                  tmpdir=tdir,
+                  basedirpath=tdir,
                   nodeReg=nodeRegsForCLI.nodeReg,
                   cliNodeReg=nodeRegsForCLI.cliNodeReg,
                   output=mockOutput,
                   debug=True)
     Cli.NodeClass = TestNode
     Cli.ClientClass = TestClient
+    Cli.basedirpath = tdir
     return Cli
 
 

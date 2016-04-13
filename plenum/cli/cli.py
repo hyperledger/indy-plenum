@@ -75,13 +75,13 @@ class Cli:
     ClientClass = Client
 
     # noinspection PyPep8
-    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
+    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None, debug=False,
                  logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
         self.looper = looper
-        self.tmpdir = tmpdir
+        self.basedirpath = basedirpath
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
 
@@ -510,7 +510,7 @@ Commands:
         for name in names:
             node = self.NodeClass(name,
                                   self.nodeReg,
-                                  basedirpath=self.tmpdir,
+                                  basedirpath=self.basedirpath,
                                   opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
@@ -622,7 +622,7 @@ Commands:
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
                                       signer=signer,
-                                      basedirpath=self.tmpdir)
+                                      basedirpath=self.basedirpath)
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)

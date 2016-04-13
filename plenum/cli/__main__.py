@@ -25,23 +25,23 @@ def main(logfile: str=None, debug=None, cliClass=None):
     config = getConfig()
     nodeReg = config.nodeReg
     cliNodeReg = config.cliNodeReg
+    basedirpath = config.keepDir
 
     if not cliClass:
         cliClass = Cli
 
     with Looper(debug=False) as looper:
-        with TemporaryDirectory() as tmpdir:
-            cli = cliClass(looper=looper,
-                           tmpdir=tmpdir,
-                           nodeReg=nodeReg,
-                           cliNodeReg=cliNodeReg,
-                           logfile=logfile,
-                           debug=debug)
+        cli = cliClass(looper=looper,
+                       basedirpath=basedirpath,
+                       nodeReg=nodeReg,
+                       cliNodeReg=cliNodeReg,
+                       logfile=logfile,
+                       debug=debug)
 
-            if not debug:
-                looper.run(cli.shell(*sys.argv[1:]))
-                print('Goodbye.')
-            return cli
+        if not debug:
+            looper.run(cli.shell(*sys.argv[1:]))
+            print('Goodbye.')
+        return cli
 
 if __name__ == '__main__':
     main()
