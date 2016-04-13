@@ -6,7 +6,7 @@ import pytest
 import plenum.common.util
 from plenum.common.looper import Looper
 from plenum.test.cli.mock_output import MockOutput
-from plenum.test.helper import genHa
+from plenum.test.helper import genHa, TestNode, TestClient
 from plenum.common.util import adict
 
 plenum.common.util.loggingConfigured = False
@@ -40,6 +40,8 @@ def cli(nodeRegsForCLI, cliLooper, tdir):
                   cliNodeReg=nodeRegsForCLI.cliNodeReg,
                   output=mockOutput,
                   debug=True)
+    Cli.NodeClass = TestNode
+    Cli.ClientClass = TestClient
     return Cli
 
 
