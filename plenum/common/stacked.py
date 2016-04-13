@@ -9,7 +9,8 @@ from typing import Mapping
 from typing import Tuple
 
 from raet.raeting import AutoMode
-from raet.road.estating import RemoteEstate
+from raet.road.estating import RemoteEstate, LocalEstate
+from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower
 
@@ -36,6 +37,19 @@ Allower.RedoTimeoutMax = 2.0
 
 class Stack(RoadStack):
     def __init__(self, *args, **kwargs):
+        keep = RoadKeep(basedirpath=kwargs.get('basedirpath'),
+                 stackname=kwargs['name'],
+                 auto=kwargs.get('auto'),
+                 baseroledirpath=kwargs.get('basedirpath'))
+        kwargs['keep'] = keep
+        localRoleData = keep.loadLocalRoleData()
+        # local = LocalEstate(name=kwargs['name'],
+        #             ha=kwargs['ha'],
+        #             sigkey=localRoleData['sighex'],
+        #             prikey=localRoleData['prihex'])
+        # kwargs['local'] = local
+        kwargs['sigkey'] = localRoleData['sighex']
+        kwargs['prikey'] = localRoleData['prihex']
         super().__init__(*args, **kwargs)
         self.created = time.perf_counter()
         self.coro = self._raetcoro()
@@ -424,10 +438,10 @@ class NodeStacked(Batched):
         :return: the uid of the remote estate, or None if a connect is not
             attempted
         """
-        if not self.isKeySharing:
-            logging.debug("{} skipping join with {} because not key sharing".
-                          format(self, name))
-            return None
+        # if not self.isKeySharing:
+        #     logging.debug("{} skipping join with {} because not key sharing".
+        #                   format(self, name))
+        #     return None
         if rid:
             remote = self.nodestack.remotes[rid]
         else:

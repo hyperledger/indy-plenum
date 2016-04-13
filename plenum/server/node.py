@@ -79,39 +79,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.primaryDecider = primaryDecider
 
-        # me = nodeRegistry[name]
-        #
-        # if isinstance(me, NodeDetail):
-        #     sha = me.ha
-        #     scliname = me.cliname
-        #     scliha = me.cliha
-        #     nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
-        # else:
-        #     sha = me if isinstance(me, HA) else HA(*me)
-        #     scliname = None
-        #     scliha = None
-        #     nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
-        # if not ha:  # pull it from the registry
-        #     ha = sha
-        # if not cliname:  # default to the name plus the suffix
-        #     cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
-        # if not cliha:  # default to same ip, port + 1
-        #     cliha = scliha if scliha else HA(ha[0], ha[1]+1)
-        #
-        # nstack = dict(name=name,
-        #               ha=ha,
-        #               main=True,
-        #               auto=AutoMode.never)
-        #
-        # cstack = dict(name=cliname,
-        #               ha=cliha,
-        #               main=True,
-        #               auto=AutoMode.always)
-        #
-        # if basedirpath:
-        #     nstack['basedirpath'] = basedirpath
-        #     cstack['basedirpath'] = basedirpath
-
         nstack, nodeReg = self.getNodeStackParams(name, nodeRegistry, ha,
                                                   basedirpath=basedirpath)
         cstack = self.getClientStackParams(name, nodeRegistry,
@@ -214,8 +181,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             sha = me.ha
             nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
         else:
-            sha = me if isinstance(me, HA) else HA(*me)
-            nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
+            sha = me if isinstance(me, HA) else HA(*me[0])
+            nodeReg = {k:  v if isinstance(v, HA) else HA(*v[0])
+                       for k, v in nodeRegistry.items()}
         if not ha:  # pull it from the registry
             ha = sha
 
@@ -226,6 +194,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
+            # nstack['baseroledirpath'] = basedirpath
 
         return nstack, nodeReg
 
@@ -238,7 +207,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             scliname = me.cliname
             scliha = me.cliha
         else:
-            sha = me if isinstance(me, HA) else HA(*me)
+            sha = me if isinstance(me, HA) else HA(*me[0])
             scliname = None
             scliha = None
 
@@ -254,6 +223,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath
+            # cstack['baseroledirpath'] = basedirpath
 
         return cstack
 

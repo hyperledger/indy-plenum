@@ -19,7 +19,9 @@ import math
 import sys
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
+from raet.road.keeping import RoadKeep
 from six import iteritems, string_types
+
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -282,7 +284,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     console = getConsole()
     verbosity = raet_log_level \
         if raet_log_level is not None \
-        else Console.Wordage.terse
+        else Console.Wordage.concise
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True
