@@ -7,7 +7,7 @@ from plenum.common.looper import Looper
 from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.helper import checkNodesConnected, checkProtocolInstanceSetup, \
-    genHa
+    genHa, TestNode
 from plenum.test.testing_utils import PortDispenser
 
 logger = getlogger()
@@ -29,7 +29,7 @@ def testNodesConnectsWhenOneNodeIsLate():
             logger.debug("Node names: {}".format(names))
 
             def create(name):
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -53,7 +53,7 @@ def testNodesConnectWhenTheyAllStartAtOnce():
         with Looper() as looper:
             nodes = []
             for name in nodeReg:
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -76,7 +76,7 @@ def testNodesComingUpAtDifferentTimes():
             rwaits = [randint(1, 10) for _ in names]
 
             for i, name in enumerate(names):
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -109,7 +109,7 @@ def testNodeConnection():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [Node(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nrg, basedirpath=td)
                     for name in names]
             looper.add(A)
             A.startKeySharing()
@@ -136,7 +136,7 @@ def testNodeConnectionAfterKeysharingRestarted():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [Node(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nrg, basedirpath=td)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

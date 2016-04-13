@@ -15,6 +15,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.motor import Motor
+from plenum.common.raet import isLocalKeepSetup
 from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -75,6 +76,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = opVerifiers or []
 
         self.primaryDecider = primaryDecider
@@ -237,7 +239,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.txnStore.start(loop)
             self.startNodestack()
             self.startClientstack()
-            self.checkKeys()
 
             self.elector = self.newPrimaryDecider()
 
@@ -1226,14 +1227,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def defaultAuthNr(self):
         return SimpleAuthNr()
 
-    def checkKeys(self):
-        def check(keep):
-            localRoleData = keep.loadLocalRoleData()
-            if not keep.verifyLocalData(localRoleData,
-                                        ['role', 'sighex', 'prihex']):
-                raise REx(REx.reason)
-        check(self.nodestack.keep)
-        check(self.clientstack.keep)
+    @staticmethod
+    def ensureKeysAreSetup(name, baseDir):
+        # def check(keep):
+        #     localRoleData = keep.loadLocalRoleData()
+        #     if not keep.verifyLocalData(localRoleData,
+        #                                 ['role', 'sighex', 'prihex']):
+        #         raise REx(REx.reason)
+        # check(name.nodestack.keep)
+        # check(self.clientstack.keep)
+        if not isLocalKeepSetup(name, baseDir):
+            raise REx(REx.reason)
 
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"
