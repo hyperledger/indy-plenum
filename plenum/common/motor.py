@@ -30,7 +30,7 @@ class Motor(Prodable):
             self._status = value
             logging.debug("{} changing status from {} to {}".
                           format(self, old.name, value.name))
-            self._statusChanged(old.name, value.name)
+            self._statusChanged(old, value)
 
     status = property(fget=get_status, fset=set_status)
 

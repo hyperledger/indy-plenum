@@ -15,10 +15,10 @@ logger = getlogger()
 whitelist = ['discarding message', 'found legacy entry']
 
 nodeReg = {
-    'Alpha': genHa(2)[0],
-    'Beta': genHa(2)[0],
-    'Gamma': genHa(2)[0],
-    'Delta': genHa(2)[0]}
+    'Alpha': (genHa(2)[0],),
+    'Beta': (genHa(2)[0],),
+    'Gamma': (genHa(2)[0],),
+    'Delta': (genHa(2)[0],)}
 
 
 def testNodesConnectsWhenOneNodeIsLate():

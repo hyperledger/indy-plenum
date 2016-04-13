@@ -1,3 +1,5 @@
+import imaplib
+import importlib.util
 import inspect
 import itertools
 import logging
@@ -17,7 +19,9 @@ import math
 import sys
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
+from raet.road.keeping import RoadKeep
 from six import iteritems, string_types
+
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -280,7 +284,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     console = getConsole()
     verbosity = raet_log_level \
         if raet_log_level is not None \
-        else Console.Wordage.terse
+        else Console.Wordage.concise
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True
@@ -363,6 +367,7 @@ def checkPortAvailable(ha):
         sock.close()
     return available
 
+
 class MessageProcessor:
     """
     Helper functions for messages.
@@ -403,3 +408,27 @@ class adict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
+
+
+def getInstalledConfig(installDir, configFile):
+    configPath = os.path.join(installDir, configFile)
+    if os.path.exists(configPath):
+        spec = importlib.util.spec_from_file_location(configFile,
+                                                      configPath)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        return config
+    else:
+        raise FileNotFoundError("No file found at location {}".format(configPath))
+
+
+def getConfig():
+    refConfig = importlib.import_module("plenum.config")
+    try:
+        homeDir = os.path.expanduser("~")
+        configDir = os.path.join(homeDir, ".plenum")
+        config = getInstalledConfig(configDir, "plenum_config.py")
+        refConfig.__dict__.update(config.__dict__)
+    except FileNotFoundError:
+        pass
+    return refConfig

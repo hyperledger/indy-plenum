@@ -915,7 +915,7 @@ def genTestClient(nodes: TestNodeSet = None,
 
     for k, v in nReg.items():
         assert type(k) == str
-        assert type(v) == HA
+        assert (type(v) == HA or type(v[0]) == HA)
 
     ha = genHa()
     identifier = "testClient{}".format(ha.port)

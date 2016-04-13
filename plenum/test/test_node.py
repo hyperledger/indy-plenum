@@ -41,19 +41,19 @@ def testMsgSendingTime(pool, nodeReg):
 
 
 def testCorrectNumOfProtocolInstances(pool):
-    fValue = getMaxFailures(len(pool.nodeSet))
-    for node in pool.nodeSet:
+    fValue = getMaxFailures(len(pool.nodeset))
+    for node in pool.nodeset:
         # num of protocol instances running on a node must be f + 1
         assert len(getProtocolInstanceNums(node)) == fValue + 1
         # There should be one running and up master Instance
-        assert node.masterId is not None
+        assert node.instances.masterId is not None
         # There should be exactly f non master instances
-        assert len(node.backupIds) == fValue
+        assert len(node.instances.backupIds) == fValue
 
 
 def testCorrectNumOfReplicas(pool):
-    fValue = getMaxFailures(len(pool.nodeSet))
-    for node in pool.nodeSet:
+    fValue = getMaxFailures(len(pool.nodeset))
+    for node in pool.nodeset:
         # num of replicas running on a single node must be f + 1
         assert len(node.replicas) == fValue + 1
         # num of primary nodes is <= 1
@@ -64,6 +64,6 @@ def testCorrectNumOfReplicas(pool):
             assert len([node.replicas[instId]]) == 1 and \
                    node.replicas[instId].instId == instId
             # num of primary on every protocol instance is 1
-            numberOfPrimary = len([node for node in pool.nodeSet
+            numberOfPrimary = len([node for node in pool.nodeset
                                    if node.replicas[instId].isPrimary])
             assert numberOfPrimary == 1

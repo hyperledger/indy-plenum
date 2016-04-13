@@ -6,6 +6,7 @@ from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, NamedTuple, Optional, \
     Sequence, Set
+from typing import Tuple
 
 from raet.raeting import AutoMode
 
@@ -26,6 +27,7 @@ from plenum.common.transaction_store import TransactionStore
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
 from plenum.server import primary_elector
 from plenum.server import replica
+from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
@@ -76,40 +78,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.opVerifiers = opVerifiers or []
 
         self.primaryDecider = primaryDecider
-        me = nodeRegistry[name]
 
-        self.allNodeNames = list(nodeRegistry.keys())
-        if isinstance(me, NodeDetail):
-            sha = me.ha
-            scliname = me.cliname
-            scliha = me.cliha
-            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
-        else:
-            sha = me if isinstance(me, HA) else HA(*me)
-            scliname = None
-            scliha = None
-            nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
-        if not ha:  # pull it from the registry
-            ha = sha
-        if not cliname:  # default to the name plus the suffix
-            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
-        if not cliha:  # default to same ip, port + 1
-            cliha = scliha if scliha else HA(ha[0], ha[1]+1)
-
-        nstack = dict(name=name,
-                      ha=ha,
-                      main=True,
-                      auto=AutoMode.never)
-
-        cstack = dict(name=cliname,
-                      ha=cliha,
-                      main=True,
-                      auto=AutoMode.always)
-
-        if basedirpath:
-            nstack['basedirpath'] = basedirpath
-            cstack['basedirpath'] = basedirpath
+        nstack, nodeReg = self.getNodeStackParams(name, nodeRegistry, ha,
+                                                  basedirpath=basedirpath)
+        cstack = self.getClientStackParams(name, nodeRegistry,
+                                           cliname=cliname, cliha=cliha,
+                                           basedirpath=basedirpath)
         self.basedirpath = basedirpath
+        self.allNodeNames = list(nodeReg.keys())
 
         self.txnStore = storage if storage is not None else TransactionStore()
 
@@ -195,6 +171,61 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # Map of request identifier to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.clientIdentifiers = {}     # Dict[str, str]
+
+    def getNodeStackParams(self, name, nodeRegistry: Dict[str, HA], ha: HA=None,
+                           basedirpath: str=None):
+        me = nodeRegistry[name]
+
+        self.allNodeNames = list(nodeRegistry.keys())
+        if isinstance(me, NodeDetail):
+            sha = me.ha
+            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
+        else:
+            sha = me if isinstance(me, HA) else HA(*me[0])
+            nodeReg = {k:  v if isinstance(v, HA) else HA(*v[0])
+                       for k, v in nodeRegistry.items()}
+        if not ha:  # pull it from the registry
+            ha = sha
+
+        nstack = dict(name=name,
+                  ha=ha,
+                  main=True,
+                  auto=AutoMode.never)
+
+        if basedirpath:
+            nstack['basedirpath'] = basedirpath
+            # nstack['baseroledirpath'] = basedirpath
+
+        return nstack, nodeReg
+
+    def getClientStackParams(self, name, nodeRegistry: Dict[str, HA], cliname,
+                             cliha, basedirpath):
+        me = nodeRegistry[name]
+
+        if isinstance(me, NodeDetail):
+            sha = me.ha
+            scliname = me.cliname
+            scliha = me.cliha
+        else:
+            sha = me if isinstance(me, HA) else HA(*me[0])
+            scliname = None
+            scliha = None
+
+        if not cliname:  # default to the name plus the suffix
+            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
+        if not cliha:  # default to same ip, port + 1
+            cliha = scliha if scliha else HA(sha[0], sha[1] + 1)
+
+        cstack = dict(name=cliname,
+                      ha=cliha,
+                      main=True,
+                      auto=AutoMode.always)
+
+        if basedirpath:
+            cstack['basedirpath'] = basedirpath
+            # cstack['baseroledirpath'] = basedirpath
+
+        return cstack
 
     def start(self, loop):
         oldstatus = self.status
@@ -792,7 +823,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
-        reply = await self.txnStore.get(request.identifier, request.reqId)
+        reply = await self.getReplyFor(request.identifier, request.reqId)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -955,10 +986,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
         reply = self.generateReply(viewNo, ppTime, req)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
         txnId = reply.result['txnId']
         asyncio.ensure_future(self.txnStore.append(
             identifier=req.identifier, reply=reply, txnId=txnId))
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+
+    async def getReplyFor(self, identifier, reqId):
+        return await self.txnStore.get(identifier, reqId)
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -1035,14 +1069,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param viewNo: the view number (See glossary)
         :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the REQUEST
-        :return: a clientReply generated from the request
+        :return: a Reply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
         txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        return Reply(viewNo,
-                      req.reqId,
-                      {"txnId": txnId, "time": ppTime})
+        return Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime})
 
     def startKeySharing(self, timeout=60):
         """
