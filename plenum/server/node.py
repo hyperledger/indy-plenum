@@ -22,18 +22,14 @@ from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f
-from plenum.common.stacked import HA, ClientStacked
-from plenum.common.stacked import NodeStacked
 from plenum.common.startable import Status
 from plenum.common.transaction_store import TransactionStore
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
 from plenum.server import primary_elector
-from plenum.server import replica
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
-from plenum.server.plugin_loader import PluginLoader
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.primary_decider import PrimaryDecider
