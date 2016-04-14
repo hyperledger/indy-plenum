@@ -51,6 +51,8 @@ python -m plenum.test
 
 7. Run ```sudo apt-get install libsodium13```
 
+8. If you still get the error ```E: Unable to locate package libsodium13``` then add ```deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` and ```deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` to your ```/etc/apt/sources.list```. 
+Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``` 
 
 **CentOS/Redhat:**
 
