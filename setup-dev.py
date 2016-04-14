@@ -47,8 +47,8 @@ setup(
     package_data={
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
-    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
-                      'pygments', 'ledger-dev'],
+    install_requires=['raet', 'jsonpickle', 'pyorient', 'portalocker',
+                      'prompt_toolkit', 'pygments', 'ledger-dev'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     extras_require={

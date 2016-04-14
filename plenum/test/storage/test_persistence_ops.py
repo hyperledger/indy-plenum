@@ -3,8 +3,8 @@ import os
 
 from plenum.common.request_types import Reply
 from plenum.common.util import checkPortAvailable, getlogger
-from plenum.storage.mongodb_server import MongoDBServer
-from plenum.storage.rethinkdb_server import RethinkDB
+from plenum.persistence.mongodb_server import MongoDBServer
+from plenum.persistence.rethinkdb_server import RethinkDB
 from plenum.test.helper import genHa
 from plenum.test.storage.helper import getDBPathForMongo, TestRethinkDB
 

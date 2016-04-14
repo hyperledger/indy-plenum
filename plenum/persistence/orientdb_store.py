@@ -9,31 +9,28 @@ logger = getlogger()
 
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
+                 dbType=pyorient.DB_TYPE_DOCUMENT,
                  storageType=pyorient.STORAGE_TYPE_MEMORY):
         self.client = pyorient.OrientDB(host=host, port=port)
         self.session_id = self.client.connect(user, password)
         if not self.client.db_exists(dbName, storageType):
-            self.createDb(dbName, storageType)
+            self.createDb(dbName, dbType, storageType)
         self.client.db_open(dbName, user, password)
-        self.bootstrap()
+        self._classesNeeded = []
 
-    # @abstractmethod
-    # def classesNeeded(self):
-    #     """
-    #     """
-    #
-    # @abstractmethod
-    # def bootstrap(self):
-    #     """
-    #     """
-    #
-    # @abstractmethod
-    # def createDb(self, dbName, storageType):
-    #     """
-    #     """
+    def createDb(self, dbName, dbType, storageType):
+        self.client.db_create(dbName, dbType, storageType)
+
+    @property
+    def classesNeeded(self):
+        return self._classesNeeded
+
+    @classesNeeded.setter
+    def classesNeeded(self, value):
+        self._classesNeeded = value
 
     def createClasses(self):
-        for cls, clbk in self.classesNeeded():
+        for cls, clbk in self.classesNeeded:
             if not self.classExists(cls):
                 logger.debug("Creating class {}".format(cls))
                 clbk()

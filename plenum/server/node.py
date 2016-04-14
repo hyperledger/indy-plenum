@@ -39,7 +39,7 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.storage.storage import Storage
+from plenum.persistence.storage import Storage
 
 logger = getlogger()
 

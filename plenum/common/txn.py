@@ -23,3 +23,16 @@ REQDIGEST = "REQDIGEST"
 INSTANCE_CHANGE = "INSTANCE_CHANGE"
 
 BLACKLIST = "BLACKLIST"
+
+TXN_TYPE = 'type'
+ORIGIN = 'origin'
+ROLE = 'role'
+DATA = 'data'
+NONCE = 'nonce'
+ATTRIBUTES = 'attributes'
+TXN_ID = 'txnId'
+TXN_TIME = 'txnTime'
+TXN_DATA = "txnData"
+
+LAST_TXN = "lastTxn"
+TXNS = "Txns"
