@@ -11,7 +11,7 @@ def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
     rolePath = os.path.join(baseDir, name, "role", "local", "role.json")
     if os.path.isfile(rolePath):
         if not override:
-            raise Exception("Keys exists for local role {}".format(name))
+            raise FileExistsError("Keys exists for local role {}".format(name))
 
     if not isinstance(pkseed, bytes):
         pkseed = pkseed.encode()
@@ -38,7 +38,8 @@ def initRemoteKeep(name, remoteName, baseDir, pubkey, verkey, override=False):
                             format(remoteName))
     if os.path.isfile(rolePath):
         if not override:
-            raise Exception("Keys exists for remote role {}".format(remoteName))
+            raise FileExistsError("Keys exists for remote role {}".
+                                  format(remoteName))
 
     keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
     data = OrderedDict([

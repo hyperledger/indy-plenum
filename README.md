@@ -135,3 +135,27 @@ source <name of virtual environment>/bin/activate
 ```
 4. sudo apt-get install rethinkdb
 ```
+
+
+### Initializing Keep
+```
+init_raet_keep --name Alpha --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
+```
+
+```
+init_raet_keep --name Beta --seeds 0000000000000000000000000000Beta Beta0000000000000000000000000000 --force
+```
+
+```
+init_raet_keep --name Gamma --seeds 000000000000000000000000000Gamma Gamma000000000000000000000000000 --force
+```
+
+```
+init_raet_keep --name Delta --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
+```
+
+### Seeds used for generating clients
+1. Seed used for steward Bob's signing key pair ```11111111111111111111111111111111```
+2. Seed used for steward Bob's public private key pair ```33333333333333333333333333333333```
+3. Seed used for client Alice's signing key pair ```22222222222222222222222222222222```
+4. Seed used for client Alice's public private key pair ```44444444444444444444444444444444```

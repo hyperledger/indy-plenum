@@ -107,12 +107,16 @@ class SimpleAuthNr(NaclAuthNr):
     """
     def __init__(self):
         # key: some identifier, value: verification key
-        self.clients = {}  # type: Dict[str, str]
+        self.clients = {}  # type: Dict[str, Dict]
 
-    def addClient(self, identifier, verkey):
+    def addClient(self, identifier, verkey, pubkey=None, role=None):
         if identifier in self.clients:
             raise RuntimeError("client already added")
-        self.clients[identifier] = verkey
+        self.clients[identifier] = {
+            "verkey": verkey,
+            "pubkey": pubkey,
+            "role": role
+        }
 
     def getVerkey(self, identifier):
-        return self.clients[identifier]
+        return self.clients[identifier]["verkey"]

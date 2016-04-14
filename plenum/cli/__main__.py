@@ -25,7 +25,7 @@ def main(logfile: str=None, debug=None, cliClass=None):
     config = getConfig()
     nodeReg = config.nodeReg
     cliNodeReg = config.cliNodeReg
-    basedirpath = config.keepDir
+    basedirpath = config.baseDir
 
     if not cliClass:
         cliClass = Cli

@@ -7,12 +7,14 @@ terminals, and in a fifth one, run this script.
 TODO: create client
 TODO: demonstrate client verification key bootstrapping
 """
+import os
 from collections import OrderedDict
 from tempfile import TemporaryDirectory
 
 from plenum.client.client import Client
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
+from plenum.common.util import getConfig
 
 
 def run_node():

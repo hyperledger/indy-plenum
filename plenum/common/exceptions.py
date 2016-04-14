@@ -2,6 +2,12 @@ from plenum.server.suspicion_codes import Suspicion
 from re import compile, match
 
 
+class ReqInfo:
+    def __init__(self, identifier, reqId):
+        self.identifier = identifier
+        self.reqId = reqId
+
+
 class NodeError(Exception):
     pass
 
@@ -41,18 +47,20 @@ class MissingSignature(SigningException):
     reason = 'missing signature'
 
 
-class EmptySignature(SigningException):
+class EmptySignature(SigningException, ReqInfo):
     code = 121
     reason = 'empty signature'
 
-    def __init__(self, identifier, reqId):
-        self.identifier = identifier
-        self.reqId = reqId
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
-class InvalidSignature(SigningException):
+class InvalidSignature(SigningException, ReqInfo):
     code = 125
     reason = 'invalid signature'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class MissingIdentifier(SigningException):
@@ -65,13 +73,12 @@ class EmptyIdentifier(SigningException):
     reason = 'empty identifier'
 
 
-class InvalidIdentifier(SigningException):
+class InvalidIdentifier(SigningException, ReqInfo):
     code = 135
     reason = 'invalid identifier'
 
-    def __init__(self, identifier, reqId):
-        self.identifier = identifier
-        self.reqId = reqId
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class RaetKeysNotFoundException(Exception):
