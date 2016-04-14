@@ -20,10 +20,10 @@ from plenum.server.node import Node
 def run_node():
 
     nodeReg = OrderedDict([
-        ('Alpha', ('127.0.0.1', 8001)),
-        ('Beta', ('127.0.0.1', 8003)),
-        ('Gamma', ('127.0.0.1', 8005)),
-        ('Delta', ('127.0.0.1', 8007))])
+        ('Alpha', ('127.0.0.1', 9701)),
+        ('Beta', ('127.0.0.1', 9703)),
+        ('Gamma', ('127.0.0.1', 9705)),
+        ('Delta', ('127.0.0.1', 9707))])
 
     # the first argument should be the node name
     try:

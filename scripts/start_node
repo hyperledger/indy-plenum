@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import os
 import sys
 
@@ -7,7 +9,7 @@ from plenum.common.util import getConfig
 from plenum.server.node import Node
 
 config = getConfig()
-keepDir = os.path.expanduser(config.keepDir)
+keepDir = os.path.expanduser(config.baseDir)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -19,14 +21,14 @@ if __name__ == "__main__":
             print("Provide a name for the node that exists in the node regsitry")
             exit()
         else:
-            for remoteName, ((host, port), verkey, pubkey) in config.nodeReg.items():
-                if remoteName != selfName:
-                    try:
-                        initRemoteKeep(selfName, remoteName, keepDir, pubkey, verkey)
-                    except Exception as ex:
-                        print(ex)
+            # for remoteName, ((host, port), verkey, pubkey) in config.nodeReg.items():
+            #     if remoteName != selfName:
+            #         try:
+            #             initRemoteKeep(selfName, remoteName, keepDir, pubkey, verkey)
+            #         except Exception as ex:
+            #             print(ex)
             with Looper(debug=True) as looper:
-                node = Node(selfName, nodeRegistry=config.nodeReg, basedirpath=keepDir)
+                node = Node(selfName, nodeRegistry=None, basedirpath=keepDir)
                 looper.add(node)
                 looper.run()
 

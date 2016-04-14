@@ -338,6 +338,10 @@ class TestNodeCore(StackedTester):
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
 
+    @staticmethod
+    def ensureKeysAreSetup(name, baseDir):
+        pass
+
 
 # noinspection PyShadowingNames,PyShadowingNames
 @Spyable(methods=[Node.handleOneNodeMsg,

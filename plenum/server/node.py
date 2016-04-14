@@ -1,20 +1,26 @@
 import asyncio
+import os
 import random
 import time
-from collections import deque
+from binascii import hexlify
+from collections import deque, OrderedDict
 from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, NamedTuple, Optional, \
     Sequence, Set
 from typing import Tuple
 
+from libnacl.encode import base64_decode
 from raet.raeting import AutoMode
 
+from ledger.immutable_store.ledger import Ledger
+from ledger.immutable_store.merkle import CompactMerkleTree
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException
+    InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.motor import Motor
+from plenum.common.raet import isLocalKeepSetup, initRemoteKeep
 from plenum.common.request_types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -24,7 +30,11 @@ from plenum.common.stacked import HA, ClientStacked
 from plenum.common.stacked import NodeStacked
 from plenum.common.startable import Status
 from plenum.common.transaction_store import TransactionStore
-from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
+from plenum.common.txn import TXN_TYPE, NEW_NODE, DATA, ALIAS, NODE_IP, NODE_PORT, \
+    PUBKEY, TARGET_NYM, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, NEW_CLIENT, STEWARD, \
+    CLIENT, TXN_ID
+from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
+    getConfig
 from plenum.server import primary_elector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
@@ -41,7 +51,9 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.persistence.storage import Storage
 
+
 logger = getlogger()
+config = getConfig()
 
 
 class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
@@ -55,7 +67,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA],
+                 nodeRegistry: Dict[str, HA]=None,
                  clientAuthNr: ClientAuthNr=None,
                  ha: HA=None,
                  cliname: str=None,
@@ -75,21 +87,28 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = opVerifiers or []
+        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
+        self.poolTansactionsStore = Ledger(CompactMerkleTree(),
+                                            dataDir=basedirpath,
+                                            fileName=config.poolTransactionsFile)
 
-        self.primaryDecider = primaryDecider
-
-        nstack, nodeReg = self.getNodeStackParams(name, nodeRegistry, ha,
-                                                  basedirpath=basedirpath)
-        cstack = self.getClientStackParams(name, nodeRegistry,
-                                           cliname=cliname, cliha=cliha,
-                                           basedirpath=basedirpath)
+        if not nodeRegistry:
+            nstack, cstack, nodeReg = self.bootstrapFromPoolTxns(
+                name, basedirpath=basedirpath)
+        else:
+            nstack, nodeReg = self.getNodeStackParams(name, nodeRegistry, ha,
+                                                      basedirpath=basedirpath)
+            cstack = self.getClientStackParams(name, nodeRegistry,
+                                               cliname=cliname, cliha=cliha,
+                                               basedirpath=basedirpath)
         self.basedirpath = basedirpath
         self.allNodeNames = list(nodeReg.keys())
 
-        self.txnStore = storage if storage is not None else TransactionStore()
+        self.primaryDecider = primaryDecider
 
-        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
+        self.txnStore = storage if storage is not None else TransactionStore()
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -101,7 +120,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         Motor.__init__(self)
         Propagator.__init__(self)
 
-        self.totalNodes = len(nodeRegistry)
+        self.totalNodes = len(nodeReg)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
@@ -112,7 +131,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.viewNo = 0                             # type: int
 
-        self.rank = self.getRank(self.name, nodeRegistry)
+        self.rank = self.getRank(self.name, nodeReg)
 
         self.elector = None  # type: PrimaryDecider
 
@@ -172,6 +191,43 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # dispatching the processed requests to the correct client remote
         self.clientIdentifiers = {}     # Dict[str, str]
 
+    def bootstrapFromPoolTxns(self, selfName, basedirpath):
+        if not os.path.isfile(os.path.join(basedirpath, config.poolTransactionsFile)):
+            raise FileNotFoundError("Pool transactions file not found")
+        nstack = None
+        cstack = None
+        nodeReg = OrderedDict()
+        for _, txn in self.poolTansactionsStore.getAllTxn().items():
+            if txn[TXN_TYPE] == NEW_NODE:
+                verkey, pubkey = hexlify(base64_decode(txn[TARGET_NYM].encode())), \
+                                 txn[DATA][PUBKEY]
+                nodeName = txn[DATA][ALIAS]
+                nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
+                nodeReg[nodeName] = HA(*nodeHa)
+                if nodeName == selfName:
+                    nstack = dict(name=selfName,
+                                  ha=HA('0.0.0.0', txn[DATA][NODE_PORT]),
+                                  main=True,
+                                  auto=AutoMode.never)
+                    # clientHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+                    cstack = dict(name=nodeName + CLIENT_STACK_SUFFIX,
+                                  ha=HA('0.0.0.0', txn[DATA][CLIENT_PORT]),
+                                  main=True,
+                                  auto=AutoMode.always)
+
+                    if basedirpath:
+                        nstack['basedirpath'] = basedirpath
+                        cstack['basedirpath'] = basedirpath
+                else:
+                    try:
+                        initRemoteKeep(selfName, nodeName, basedirpath, pubkey, verkey)
+                    except Exception as ex:
+                        print(ex)
+            elif txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT):
+                self.addNewRole(txn)
+
+        return nstack, cstack, nodeReg
+
     def getNodeStackParams(self, name, nodeRegistry: Dict[str, HA], ha: HA=None,
                            basedirpath: str=None):
         me = nodeRegistry[name]
@@ -194,7 +250,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
-            # nstack['baseroledirpath'] = basedirpath
 
         return nstack, nodeReg
 
@@ -223,7 +278,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath
-            # cstack['baseroledirpath'] = basedirpath
 
         return cstack
 
@@ -985,10 +1039,19 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
         reply = self.generateReply(viewNo, ppTime, req)
-        txnId = reply.result['txnId']
-        asyncio.ensure_future(self.txnStore.append(
-            identifier=req.identifier, reply=reply, txnId=txnId))
+        op = req.operation
+        if op.get(TXN_TYPE) in (NEW_NODE, NEW_STEWARD, NEW_CLIENT):
+            self.addNewNodeAndConnect(op)
+            asyncio.ensure_future(self.poolTansactionsStore.append(
+                identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
+        else:
+            self.doCustomAction(req, reply)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+
+    # TODO: Find a better name for the function
+    def doCustomAction(self, req, reply):
+        asyncio.ensure_future(self.txnStore.append(
+            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
 
     async def getReplyFor(self, identifier, reqId):
         return await self.txnStore.get(identifier, reqId)
@@ -1075,6 +1138,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                        encode('utf-8')).hexdigest()
         return Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime})
 
+    # TODO: Remove this
     def startKeySharing(self, timeout=60):
         """
         Start key sharing till the timeout is reached.
@@ -1102,6 +1166,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             force = time.perf_counter() - self.created > 5
             self.maintainConnections(force=force)
 
+    # TODO: Remove this
     def stopKeySharing(self, timedOut=False):
         """
         Stop key sharing, i.e don't allow any more nodes to join this node.
@@ -1116,6 +1181,60 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 logger.info("{} completed key sharing".format(self),
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
+
+    def checkValidOperation(self, clientId, reqId, msg):
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(msg)
+            except Exception as ex:
+                raise InvalidClientRequest(clientId, reqId) from ex
+
+    async def checkRequestAuthorized(self, request):
+        """
+        Subclasses can implement this method to throw an
+        UnauthorizedClientRequest if the request is not authorized.
+
+        If a request makes it this far, the signature has been verified to match
+        the identifier.
+        """
+        pass
+
+    def defaultAuthNr(self):
+        return SimpleAuthNr()
+
+    @staticmethod
+    def ensureKeysAreSetup(name, baseDir):
+        # def check(keep):
+        #     localRoleData = keep.loadLocalRoleData()
+        #     if not keep.verifyLocalData(localRoleData,
+        #                                 ['role', 'sighex', 'prihex']):
+        #         raise REx(REx.reason)
+        # check(name.nodestack.keep)
+        # check(self.clientstack.keep)
+        if not isLocalKeepSetup(name, baseDir):
+            raise REx(REx.reason)
+
+    def addNewRole(self, txn):
+        role = STEWARD if txn[TXN_TYPE] == NEW_STEWARD else CLIENT
+        self.clientAuthNr.addClient(txn[DATA][ALIAS],
+                                    verkey=base64_decode(
+                                        txn[TARGET_NYM].encode()),
+                                    pubkey=txn[DATA][PUBKEY],
+                                    role=role)
+
+    def addNewNodeAndConnect(self, txn):
+        verkey, pubkey = hexlify(base64_decode(txn[TARGET_NYM].encode())), \
+                         txn[DATA][PUBKEY]
+        nodeName = txn[DATA][ALIAS]
+        nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
+        try:
+            initRemoteKeep(self.name, nodeName, self.basedirpath, pubkey,
+                           verkey)
+        except Exception as ex:
+            logger.debug("Exception whle initializing keep for remote {}".
+                         format(ex))
+        self.nodestack.nodeReg[nodeName] = HA(*nodeHa)
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         self.reportSuspiciousNode(ex.node, ex.reason, ex.code, ex.offendingMsg)
@@ -1204,31 +1323,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         logger.info("\n".join(lines), extra={"cli": False})
 
-    def checkValidOperation(self, clientId, reqId, msg):
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(msg)
-            except Exception as ex:
-                raise InvalidClientRequest(clientId, reqId) from ex
-
-    async def checkRequestAuthorized(self, request):
-        """
-        Subclasses can implement this method to throw an
-        UnauthorizedClientRequest if the request is not authorized.
-
-        If a request makes it this far, the signature has been verified to match
-        the identifier.
-        """
-        pass
-
-    def defaultAuthNr(self):
-        return SimpleAuthNr()
-
 
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"
 NODE_BLACKLISTER_SUFFIX = "BLN"
+
 NodeDetail = NamedTuple("NodeDetail", [
     ("ha", HA),
     ("cliname", str),

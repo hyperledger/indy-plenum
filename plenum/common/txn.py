@@ -24,13 +24,25 @@ INSTANCE_CHANGE = "INSTANCE_CHANGE"
 
 BLACKLIST = "BLACKLIST"
 
-TXN_TYPE = 'type'
-ORIGIN = 'origin'
+TXN_TYPE = "type"
+TXN_ID = "txnId"
+ORIGIN = "origin"
+TARGET_NYM = "dest"
+DATA = "data"
+ALIAS = "alias"
+PUBKEY = "pubkey"
+NODE_IP = "node_ip"
+NODE_PORT = "node_port"
+CLIENT_IP = "client_ip"
+CLIENT_PORT = "client_port"
+NEW_NODE = "NEW_NODE"
+NEW_STEWARD = "NEW_STEWARD"
+NEW_CLIENT = "NEW_CLIENT"
+STEWARD = "STEWARD"
+CLIENT = "CLIENT"
 ROLE = 'role'
-DATA = 'data'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
-TXN_ID = 'txnId'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
 

@@ -1,3 +1,4 @@
+import shutil
 import sys
 import os
 from setuptools import setup, find_packages, __version__
@@ -55,5 +56,22 @@ setup(
     extras_require={
         'persistence': ['rethinkdb', 'motor']
     },
-    scripts=['scripts/plenum']
+    scripts=['scripts/plenum', 'scripts/init_raet_keep', 'scripts/start_node']
 )
+
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "plenum_config.py")
+POOL_TXN_FILE = os.path.join(CONFIG_DIR, "pool_transactions")
+
+if not os.path.exists(CONFIG_DIR):
+    os.makedirs(CONFIG_DIR)
+
+if not os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'w') as f:
+        msg = "# Here you can create config entries according to your needs.\n " \
+              "# For help, refer config.py in the sovrin package.\n " \
+              "# Any entry you add here would override that from config example\n"
+        f.write(msg)
+
+if not os.path.exists(POOL_TXN_FILE):
+    shutil.copyfile("plenum/pool_transactions", POOL_TXN_FILE)
