@@ -58,13 +58,13 @@ sudo apt-get install libsodium13
 > For 64-bit:
 > ```
 > wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_amd64.deb
-> dpkg -i libsodium13_1.0.3-1_amd64.deb
+> sudo dpkg -i libsodium13_1.0.3-1_amd64.deb
 > ```
 > 
 > For 32-bit:
 > ```
 > wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_i386.deb
-> dpkg -i libsodium13_1.0.3-1_i386.deb
+> sudo dpkg -i libsodium13_1.0.3-1_i386.deb
 > ```
 
 
