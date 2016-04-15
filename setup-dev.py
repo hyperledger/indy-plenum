@@ -55,7 +55,7 @@ setup(
                                     'docs', 'docs*']),
     package_data={
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
-                   '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL']},
+                   '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     data_files=[(
         (BASE_DIR, ['plenum/pool_transactions', ])
     )],
@@ -66,7 +66,8 @@ setup(
     extras_require={
         'persistence': ['rethinkdb', 'motor']
     },
-    scripts=['scripts/plenum', 'scripts/init_raet_keep', 'scripts/start_node']
+    scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
+             'scripts/start_plenum_node']
 )
 
 if not os.path.exists(CONFIG_FILE):
