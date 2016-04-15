@@ -56,15 +56,15 @@ setup(
     extras_require={
         'persistence': ['rethinkdb', 'motor']
     },
-    scripts=['scripts/plenum', 'scripts/init_raet_keep', 'scripts/start_node']
+    scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep', 'scripts/start_plenum_node']
 )
 
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "plenum_config.py")
-POOL_TXN_FILE = os.path.join(CONFIG_DIR, "pool_transactions")
+BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
+CONFIG_FILE = os.path.join(BASE_DIR, "plenum_config.py")
+POOL_TXN_FILE = os.path.join(BASE_DIR, "pool_transactions")
 
-if not os.path.exists(CONFIG_DIR):
-    os.makedirs(CONFIG_DIR)
+if not os.path.exists(BASE_DIR):
+    os.makedirs(BASE_DIR)
 
 if not os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'w') as f:

@@ -1038,18 +1038,23 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the client REQUEST
         """
-        reply = self.generateReply(viewNo, ppTime, req)
         op = req.operation
         if op.get(TXN_TYPE) in (NEW_NODE, NEW_STEWARD, NEW_CLIENT):
-            self.addNewNodeAndConnect(op)
-            asyncio.ensure_future(self.poolTansactionsStore.append(
-                identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
+            self.executePoolTxnRequest(viewNo, ppTime, req)
         else:
-            self.doCustomAction(req, reply)
+            self.doCustomAction(viewNo, ppTime, req)
+
+    def executePoolTxnRequest(self, viewNo, ppTime, req):
+        reply = self.generateReply(viewNo, ppTime, req)
+        op = req.operation
+        self.addNewNodeAndConnect(op)
+        asyncio.ensure_future(self.poolTansactionsStore.append(
+            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     # TODO: Find a better name for the function
-    def doCustomAction(self, req, reply):
+    def doCustomAction(self, viewNo, ppTime, req):
+        reply = self.generateReply(viewNo, ppTime, req)
         asyncio.ensure_future(self.txnStore.append(
             identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
 
