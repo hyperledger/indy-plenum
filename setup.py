@@ -50,13 +50,14 @@ setup(
     author_email='dev@evernym.us',
     license=__license__,
     keywords='Byzantine plenum',
-    packages=find_packages(exclude=['test', 'test.*',
-                                    'docs', 'docs*']),
+    packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
+        'data', ],
     package_data={
         '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
                    '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
+    include_package_data=True,
     data_files=[(
-        (BASE_DIR, ['plenum/pool_transactions', ])
+        (BASE_DIR, ['data/pool_transactions', ])
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
                       'pygments', 'ledger'],

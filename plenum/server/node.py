@@ -32,7 +32,7 @@ from plenum.common.startable import Status
 from plenum.common.transaction_store import TransactionStore
 from plenum.common.txn import TXN_TYPE, NEW_NODE, DATA, ALIAS, NODE_IP, NODE_PORT, \
     PUBKEY, TARGET_NYM, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, NEW_CLIENT, STEWARD, \
-    CLIENT, TXN_ID
+    CLIENT, TXN_ID, ClientBootStrategy
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
 from plenum.server import primary_elector
@@ -53,7 +53,6 @@ from plenum.storage.storage import Storage
 
 
 logger = getlogger()
-config = getConfig()
 
 
 class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
@@ -75,7 +74,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                  basedirpath: str=None,
                  primaryDecider: PrimaryDecider = None,
                  opVerifiers: Iterable[Any]=None,
-                 storage: Storage=None):
+                 storage: Storage=None,
+                 config=None):
 
         """
         Create a new node.
@@ -87,13 +87,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.config = config or getConfig()
         self.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = opVerifiers or []
+        self.clientBootStrategy = self.config.clientBootStrategy
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
         self.poolTansactionsStore = Ledger(CompactMerkleTree(),
                                             dataDir=basedirpath,
-                                            fileName=config.poolTransactionsFile)
-
+                                            fileName=self.config.poolTransactionsFile)
         if not nodeRegistry:
             nstack, cstack, nodeReg = self.bootstrapFromPoolTxns(
                 name, basedirpath=basedirpath)
@@ -192,7 +193,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.clientIdentifiers = {}     # Dict[str, str]
 
     def bootstrapFromPoolTxns(self, selfName, basedirpath):
-        if not os.path.isfile(os.path.join(basedirpath, config.poolTransactionsFile)):
+        if not os.path.isfile(os.path.join(basedirpath,
+                                           self.config.poolTransactionsFile)):
             raise FileNotFoundError("Pool transactions file not found")
         nstack = None
         cstack = None
@@ -209,7 +211,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                   ha=HA('0.0.0.0', txn[DATA][NODE_PORT]),
                                   main=True,
                                   auto=AutoMode.never)
-                    # clientHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
                     cstack = dict(name=nodeName + CLIENT_STACK_SUFFIX,
                                   ha=HA('0.0.0.0', txn[DATA][CLIENT_PORT]),
                                   main=True,
@@ -223,7 +224,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                         initRemoteKeep(selfName, nodeName, basedirpath, pubkey, verkey)
                     except Exception as ex:
                         print(ex)
-            elif txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT):
+            elif txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) \
+                    and self.clientBootStrategy == ClientBootStrategy.PoolTxn:
                 self.addNewRole(txn)
 
         return nstack, cstack, nodeReg
@@ -1047,16 +1049,20 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def executePoolTxnRequest(self, viewNo, ppTime, req):
         reply = self.generateReply(viewNo, ppTime, req)
         op = req.operation
-        self.addNewNodeAndConnect(op)
+        if op[TXN_TYPE] == NEW_NODE:
+            self.addNewNodeAndConnect(op)
+        elif op[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) and \
+                        self.clientBootStrategy == ClientBootStrategy.PoolTxn:
+            self.addNewRole(op)
         asyncio.ensure_future(self.poolTansactionsStore.append(
             identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     # TODO: Find a better name for the function
     def doCustomAction(self, viewNo, ppTime, req):
         reply = self.generateReply(viewNo, ppTime, req)
         asyncio.ensure_future(self.txnStore.append(
             identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID]))
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, identifier, reqId):
         return await self.txnStore.get(identifier, reqId)
@@ -1210,22 +1216,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     @staticmethod
     def ensureKeysAreSetup(name, baseDir):
-        # def check(keep):
-        #     localRoleData = keep.loadLocalRoleData()
-        #     if not keep.verifyLocalData(localRoleData,
-        #                                 ['role', 'sighex', 'prihex']):
-        #         raise REx(REx.reason)
-        # check(name.nodestack.keep)
-        # check(self.clientstack.keep)
         if not isLocalKeepSetup(name, baseDir):
             raise REx(REx.reason)
 
     def addNewRole(self, txn):
         role = STEWARD if txn[TXN_TYPE] == NEW_STEWARD else CLIENT
-        self.clientAuthNr.addClient(txn[DATA][ALIAS],
-                                    verkey=base64_decode(
-                                        txn[TARGET_NYM].encode()),
-                                    pubkey=txn[DATA][PUBKEY],
+        roleName = txn[DATA][ALIAS]
+        verkey = base64_decode(txn[TARGET_NYM].encode())
+        pubkey = txn[DATA][PUBKEY]
+        self.clientAuthNr.addClient(roleName,
+                                    verkey=verkey,
+                                    pubkey=pubkey,
                                     role=role)
 
     def addNewNodeAndConnect(self, txn):

@@ -20,6 +20,6 @@ def nodeSetLedger(nodeSet, tdir):
     yield nodeSet
 
 
-@pytest.mark.skipif(True, "implementation of ledger changed")
+@pytest.mark.skipif(True, reason="implementation of ledger changed")
 def testReplyPersistedInLedger(nodeSetLedger, looper, replied1):
     checkReplyIsPersisted(nodeSetLedger, looper, replied1)

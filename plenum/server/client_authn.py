@@ -35,7 +35,7 @@ class ClientAuthNr:
         """
 
     @abstractmethod
-    def addClient(self, identifier, verkey):
+    def addClient(self, identifier, verkey, pubkey=None, role=None):
         """
         Adding a client should be an auditable and authenticated action.
         Robust implementations of ClientAuthNr would authenticate this
@@ -92,7 +92,7 @@ class NaclAuthNr(ClientAuthNr):
         return identifier
 
     @abstractmethod
-    def addClient(self, identifier, verkey):
+    def addClient(self, identifier, verkey, pubkey=None, role=None):
         pass
 
     @abstractmethod

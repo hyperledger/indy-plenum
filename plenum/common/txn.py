@@ -40,3 +40,9 @@ NEW_STEWARD = "NEW_STEWARD"
 NEW_CLIENT = "NEW_CLIENT"
 STEWARD = "STEWARD"
 CLIENT = "CLIENT"
+
+
+class ClientBootStrategy:
+    Simple = 1
+    PoolTxn = 2
+    Custom = 3
