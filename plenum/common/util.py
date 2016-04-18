@@ -13,10 +13,13 @@ from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, Tuple, \
     Union, List, NamedTuple
 
+import asyncio
 import libnacl.secret
 import math
 
 import sys
+
+import time
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
 from raet.road.keeping import RoadKeep
@@ -432,3 +435,15 @@ def getConfig():
     except FileNotFoundError:
         pass
     return refConfig
+
+async def untilTrue(condition, *args, timeout=5):
+    result = False
+    start = time.perf_counter()
+    elapsed = 0
+    while elapsed < timeout:
+        result = condition(*args)
+        if result:
+            break
+        await asyncio.sleep(.1)
+        elapsed = time.perf_counter() - start
+    return result

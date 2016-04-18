@@ -40,6 +40,14 @@ NEW_STEWARD = "NEW_STEWARD"
 NEW_CLIENT = "NEW_CLIENT"
 STEWARD = "STEWARD"
 CLIENT = "CLIENT"
+ROLE = 'role'
+NONCE = 'nonce'
+ATTRIBUTES = 'attributes'
+TXN_TIME = 'txnTime'
+TXN_DATA = "txnData"
+
+LAST_TXN = "lastTxn"
+TXNS = "Txns"
 VERIF_MERKLE_PROOF = "VERIF_MERKLE_PROOF"
 
 

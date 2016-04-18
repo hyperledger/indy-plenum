@@ -1,6 +1,6 @@
 import random
 
-from plenum.storage.rethinkdb_server import RethinkDB
+from plenum.persistence.rethinkdb_server import RethinkDB
 from plenum.test.eventually import eventually
 
 

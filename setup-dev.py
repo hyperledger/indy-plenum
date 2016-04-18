@@ -61,7 +61,7 @@ setup(
         (BASE_DIR, ['data/pool_transactions', ])
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
-                      'pygments', 'ledger-dev'],
+                      'pygments', 'ledger-dev', 'pyorient'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     extras_require={

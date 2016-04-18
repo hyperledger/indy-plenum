@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.storage.mongodb_server import MongoDBServer
+from plenum.persistence.mongodb_server import MongoDBServer
 from plenum.test.helper import genHa
 from plenum.test.storage.helper import checkReplyIsPersisted, getDBPathForMongo
 
