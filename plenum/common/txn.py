@@ -48,3 +48,9 @@ TXN_DATA = "txnData"
 
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
+
+
+class ClientBootStrategy:
+    Simple = 1
+    PoolTxn = 2
+    Custom = 3

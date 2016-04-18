@@ -1,0 +1,26 @@
+#! /usr/bin/env python3
+
+import os
+import sys
+
+from plenum.common.looper import Looper
+from plenum.common.raet import initRemoteKeep
+from plenum.common.util import getConfig
+from plenum.server.node import Node
+
+config = getConfig()
+keepDir = os.path.expanduser(config.baseDir)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Provide a name for the node")
+        exit()
+    else:
+        selfName = sys.argv[1]
+        with Looper(debug=True) as looper:
+            node = Node(selfName, nodeRegistry=None, basedirpath=keepDir)
+            looper.add(node)
+            looper.run()
+
+

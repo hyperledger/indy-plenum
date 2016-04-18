@@ -3,7 +3,7 @@ from re import compile, match
 
 
 class ReqInfo:
-    def __init__(self, identifier, reqId):
+    def __init__(self, identifier=None, reqId=None):
         self.identifier = identifier
         self.reqId = reqId
 
