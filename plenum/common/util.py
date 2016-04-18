@@ -436,7 +436,7 @@ def getConfig():
         pass
     return refConfig
 
-async def eventually(condition, *args, timeout=5):
+async def untilTrue(condition, *args, timeout=5):
     result = False
     start = time.perf_counter()
     elapsed = 0

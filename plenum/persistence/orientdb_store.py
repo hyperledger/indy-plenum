@@ -16,21 +16,12 @@ class OrientDbStore:
         if not self.client.db_exists(dbName, storageType):
             self.createDb(dbName, dbType, storageType)
         self.client.db_open(dbName, user, password)
-        self._classesNeeded = []
 
     def createDb(self, dbName, dbType, storageType):
         self.client.db_create(dbName, dbType, storageType)
 
-    @property
-    def classesNeeded(self):
-        return self._classesNeeded
-
-    @classesNeeded.setter
-    def classesNeeded(self, value):
-        self._classesNeeded = value
-
-    def createClasses(self):
-        for cls, clbk in self.classesNeeded:
+    def createClasses(self, classesNeeded):
+        for cls, clbk in classesNeeded:
             if not self.classExists(cls):
                 logger.debug("Creating class {}".format(cls))
                 clbk()

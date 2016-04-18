@@ -8,7 +8,6 @@ logger = getlogger()
 class GraphStore:
     def __init__(self, store):
         self.store = store
-        self.store.classesNeeded = self.classesNeeded()
         self.client = store.client
         self.bootstrap()
 
@@ -16,7 +15,7 @@ class GraphStore:
         raise NotImplementedError
 
     def bootstrap(self):
-        self.store.createClasses()
+        self.store.createClasses(self.classesNeeded())
 
     def createVertexClass(self, className: str, properties: Dict=None):
         self.client.command("create class {} extends V".format(className))
@@ -27,6 +26,14 @@ class GraphStore:
         self.client.command("create class {} extends E".format(className))
         if properties:
             self.store.createClassProperties(className, properties)
+
+    def addEdgeConstraint(self, edgeClass, iN=None, out=None):
+        if iN:
+            self.client.command("create property {}.in link {}".
+                                format(edgeClass, iN))
+        if out:
+            self.client.command("create property {}.out link {}".
+                                format(edgeClass, out))
 
     def createEntity(self, createCmd, **kwargs):
         attributes = []

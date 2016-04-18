@@ -9,7 +9,6 @@ logger = getlogger()
 class NodeDocumentStore:
     def __init__(self, store):
         self.store = store
-        self.store.classesNeeded = self.classesNeeded()
         self.client = store.client
         self.bootstrap()
 
@@ -19,7 +18,7 @@ class NodeDocumentStore:
         ]
 
     def bootstrap(self):
-        self.store.createClasses()
+        self.store.createClasses(self.classesNeeded())
 
     def createTxnDataClass(self):
         self.client.command("create class {}".format(TXN_DATA))

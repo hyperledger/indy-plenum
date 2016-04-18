@@ -15,7 +15,6 @@ LAST_TXN_DATA = "LastTxnData"
 class ClientDocumentStore:
     def __init__(self, store):
         self.store = store
-        self.store.classesNeeded = self.classesNeeded()
         self.client = store.client
         self.bootstrap()
 
@@ -23,7 +22,7 @@ class ClientDocumentStore:
         raise NotImplementedError
 
     def bootstrap(self):
-        self.store.createClasses()
+        self.store.createClasses(self.classesNeeded())
 
     def createAttributeClass(self):
         raise NotImplementedError
@@ -80,6 +79,13 @@ class ClientDocumentStore:
                                        f.REQ_ID.nm, reqId))
         return replies
 
+    def addAttribute(self, reqId, attrData):
+        data = json.dumps(attrData)
+        result = self.client.command("insert into {} content {}".
+                                     format(ATTR_DATA, data))
+        self.client.command("update {} set attribute = {} where {} = {}".
+                            format(REQ_DATA, result[0].oRecordData, f.REQ_ID.nm, reqId))
+
     def hasRequest(self, reqId: int):
         result = self.client.command("select from {} where {} = {}".
                                      format(REQ_DATA, f.REQ_ID.nm, reqId))
@@ -114,13 +120,6 @@ class ClientDocumentStore:
         replies = self.getReplies(reqId)
         errors = self.getNacks(reqId)
         return replies, errors
-
-    def addAttribute(self, reqId, attrData):
-        data = json.dumps(attrData)
-        result = self.client.command("insert into {} content {}".
-                                     format(ATTR_DATA, data))
-        self.client.command("update {} set attribute = {} where {} = {}".
-                            format(REQ_DATA, result[0].oRecordData, f.REQ_ID.nm, reqId))
 
     def requestConsensed(self, reqId):
         self.client.command("update {} set consensed = true where {} = {}".
