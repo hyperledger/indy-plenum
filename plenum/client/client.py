@@ -13,7 +13,7 @@ from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 from plenum.common.motor import Motor
 from plenum.common.request_types import Request, Reply, OP_FIELD_NAME, f
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY
+from plenum.common.txn import REPLY, VERIF_MERKLE_PROOF, TXN_TYPE, ORIGIN
 from plenum.common.util import getMaxFailures, getlogger
 from raet.raeting import AutoMode
 
@@ -147,6 +147,7 @@ class Client(NodeStacked, Motor):
         :param identifier: an optional identifier to use for signing
         :return: A list of client requests to be sent to the nodes in the system
         """
+        identifier = identifier if identifier else self.defaultIdentifier
         requests = []
         for op in operations:
             request = self.createRequest(op, identifier)
@@ -289,6 +290,11 @@ class Client(NodeStacked, Motor):
                 self.status = Status.started
             elif len(self.conns) >= self.minimumNodes:
                 self.status = Status.started_hungry
+
+    def doVerifMerkleProof(self, op, identifier=None):
+        op[ORIGIN] = identifier
+        op[TXN_TYPE] = VERIF_MERKLE_PROOF
+        self.submit(op, identifier=identifier)
 
 
 class ClientProvider:

@@ -14,6 +14,7 @@ from libnacl.encode import base64_decode
 from raet.raeting import AutoMode
 
 from ledger.immutable_store.ledger import Ledger
+from ledger.immutable_store.store import F
 from ledger.immutable_store.merkle import CompactMerkleTree
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
@@ -1292,6 +1293,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             msg += " for code {}".format(code)
         logger.debug(msg)
         self.nodeBlacklister.blacklist(nodeName)
+
+    def verifyMerkleProof(self, merkleData, identifier):
+        keys = [F.serialNo.name, F.STH.name, F.auditInfo.name]
+        assert all(x in list(merkleData.keys()) for x in keys), \
+            "Required data missing for operation VERIF_TXN"
+        # TODO Implement the Merkle Proof verification
+        self.transmitToClient(True, remoteName=self.clientIdentifiers[identifier])
 
     def __enter__(self):
         return self
