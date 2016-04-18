@@ -9,7 +9,7 @@ import motor.motor_asyncio
 
 from plenum.common.request_types import Reply, f
 from plenum.common.util import getlogger, checkPortAvailable
-from plenum.storage.storage import Storage
+from plenum.persistence.storage import Storage
 
 logger = getlogger()
 

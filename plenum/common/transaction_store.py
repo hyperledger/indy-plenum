@@ -5,7 +5,7 @@ from typing import Dict
 from typing import Optional
 
 from plenum.common.request_types import Reply
-from plenum.storage.storage import Storage
+from plenum.persistence.storage import Storage
 
 
 class StoreStopping(Exception):
