@@ -4,12 +4,11 @@ import time
 from collections import Callable
 from collections import deque
 from typing import Any, Set, Optional
-from typing import Dict, NamedTuple
-from typing import Mapping
+from typing import Dict
 from typing import Tuple
 
 from raet.raeting import AutoMode
-from raet.road.estating import RemoteEstate, LocalEstate
+from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower
@@ -17,15 +16,11 @@ from raet.road.transacting import Joiner, Allower
 from plenum.client.signer import Signer
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
-from plenum.common.request_types import Request, Batch, TaggedTupleBase
+from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
     MessageProcessor, getlogger, checkPortAvailable
 
 logger = getlogger()
-
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
 
 # this overrides the defaults
 Joiner.RedoTimeoutMin = 1.0
@@ -43,11 +38,6 @@ class Stack(RoadStack):
                  baseroledirpath=kwargs.get('basedirpath'))
         kwargs['keep'] = keep
         localRoleData = keep.loadLocalRoleData()
-        # local = LocalEstate(name=kwargs['name'],
-        #             ha=kwargs['ha'],
-        #             sigkey=localRoleData['sighex'],
-        #             prikey=localRoleData['prihex'])
-        # kwargs['local'] = local
         kwargs['sigkey'] = localRoleData['sighex']
         kwargs['prikey'] = localRoleData['prihex']
         super().__init__(*args, **kwargs)

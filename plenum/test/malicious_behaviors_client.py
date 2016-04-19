@@ -3,7 +3,7 @@ import types
 from typing import List, Any, Mapping
 
 from plenum.client.client import Client
-from plenum.common.request_types import Request
+from plenum.common.types import Request
 
 logger = logging.getLogger(__name__)
 

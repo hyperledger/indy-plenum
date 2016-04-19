@@ -1,7 +1,7 @@
 from functools import partial
 import pytest
 
-from plenum.common.request_types import PrePrepare, f
+from plenum.common.types import PrePrepare, f
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
     sendReqsToNodesAndVerifySuffReplies, getAllReturnVals

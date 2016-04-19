@@ -10,7 +10,7 @@ from typing import Tuple
 
 import plenum.server.node
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.request_types import ReqDigest, PrePrepare, \
+from plenum.common.types import ReqDigest, PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
 from plenum.common.util import MessageProcessor, getlogger
 from plenum.server.models import Commits, Prepares
@@ -214,9 +214,9 @@ class Replica(MessageProcessor):
         """
         self._unstashInBox()
         if self.isPrimary is not None:
-            # TODO handle suspicous exceptions here
+            # TODO handle suspicion exceptions here
             self.process3PhaseReqsQueue()
-            # TODO handle suspicous exceptions here
+            # TODO handle suspicion exceptions here
             try:
                 self.processPostElectionMsgs()
             except SuspiciousNode as ex:

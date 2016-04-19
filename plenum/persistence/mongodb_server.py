@@ -7,7 +7,7 @@ import time
 
 import motor.motor_asyncio
 
-from plenum.common.request_types import Reply, f
+from plenum.common.types import Reply, f
 from plenum.common.util import getlogger, checkPortAvailable
 from plenum.persistence.storage import Storage
 

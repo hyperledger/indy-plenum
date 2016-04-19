@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.request_types import Nomination
+from plenum.common.types import Nomination
 from plenum.test.eventually import eventually
 
 whitelist = ['already got nomination',

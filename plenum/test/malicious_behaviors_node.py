@@ -4,7 +4,7 @@ from functools import partial
 
 import time
 
-from plenum.common.request_types import Propagate, Request, \
+from plenum.common.types import Propagate, Request, \
     PrePrepare, Prepare, ReqDigest, ThreePhaseMsg, Commit, Reply
 
 from plenum.common import util

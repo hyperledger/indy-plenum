@@ -1,6 +1,6 @@
 from plenum.test.eventually import eventually
 
-from plenum.common.request_types import InstanceChange
+from plenum.common.types import InstanceChange
 from plenum.test.helper import checkDiscardMsg, checkViewNoForNodes
 
 

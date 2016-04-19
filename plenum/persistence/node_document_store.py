@@ -1,5 +1,6 @@
 import json
 
+from plenum.common.types import f
 from plenum.common.util import getlogger
 from plenum.common.txn import TXN_ID, TXN_DATA
 
@@ -40,17 +41,14 @@ class NodeDocumentStore:
         self.store.createUniqueIndexOnClass(TXN_DATA, TXN_ID)
         self.store.createUniqueIndexOnClass(TXN_DATA, "serialNo")
 
-    def addReplyForTxn(self, txnId, reply, clientId, reqId):
-        self.client.command("update {} set {} = '{}', reply = '{}', "
-                            "clientId = '{}', reqId = {} upsert where {} = '{}'".
-                            format(TXN_DATA, TXN_ID, txnId, json.dumps(reply),
-                                   clientId, reqId, TXN_ID, txnId))
-
-    def addMerkleDataForTxn(self, txnId, serialNo, STH, auditInfo):
+    def addReplyForTxn(self, txnId, reply, clientId, reqId, serialNo, STH,
+                       auditInfo):
         auditInfo = ", ".join(["'{}'".format(h) for h in auditInfo])
-        self.client.command("""update {} set {} = '{}', serialNo = {},
-        STH = '{}', auditInfo = [{}] upsert where {} = '{}'""".
-                            format(TXN_DATA, TXN_ID, txnId, serialNo,
+        self.client.command("update {} set {} = '{}', reply = '{}', "
+                            "clientId = '{}', {} = {}, serialNo = {}, STH = '{}'"
+                            ", auditInfo = [{}] upsert where {} = '{}'".
+                            format(TXN_DATA, TXN_ID, txnId, json.dumps(reply),
+                                   clientId, f.REQ_ID.nm, reqId, serialNo,
                                    json.dumps(STH), auditInfo, TXN_ID, txnId))
 
     def getReply(self, identifier, reqId):

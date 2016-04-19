@@ -1,4 +1,4 @@
-from plenum.common.request_types import Reply
+from plenum.common.types import Reply
 
 
 class Storage:

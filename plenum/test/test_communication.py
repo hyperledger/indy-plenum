@@ -9,19 +9,22 @@ import raet.road.estating
 from raet.nacling import Privateer
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.util import getlogger, setupLogging
+from plenum.test.helper import genHa
 
 logger = getlogger()
 
 
-def testPromiscuousConnection():
+def testPromiscuousConnection(tdir):
     alpha = RoadStack(name='alpha',
-                      ha=('0.0.0.0', 7531),
-                      auto=AutoMode.always)
+                      ha=genHa(),
+                      auto=AutoMode.always,
+                      basedirpath=tdir)
 
     beta = RoadStack(name='beta',
-                     ha=('0.0.0.0', 7532),
+                     ha=genHa(),
                      main=True,
-                     auto=AutoMode.always)
+                     auto=AutoMode.always,
+                      basedirpath=tdir)
 
     try:
         betaRemote = raet.road.estating.RemoteEstate(stack=alpha,
@@ -37,7 +40,7 @@ def testPromiscuousConnection():
         cleanup(alpha, beta)
 
 
-def testRaetPreSharedKeysPromiscous():
+def testRaetPreSharedKeysPromiscous(tdir):
 
     alphaSigner = SimpleSigner()
     betaSigner = SimpleSigner()
@@ -46,15 +49,17 @@ def testRaetPreSharedKeysPromiscous():
     logger.debug("Beta's verkey {}".format(betaSigner.verkey))
 
     alpha = RoadStack(name='alpha',
-                      ha=('0.0.0.0', 7531),
+                      ha=genHa(),
                       sigkey=alphaSigner.naclSigner.keyhex,
-                      auto=AutoMode.always)
+                      auto=AutoMode.always,
+                      basedirpath=tdir)
 
     beta = RoadStack(name='beta',
-                     ha=('0.0.0.0', 7532),
+                     ha=genHa(),
                      sigkey=betaSigner.naclSigner.keyhex,
                      main=True,
-                     auto=AutoMode.always)
+                     auto=AutoMode.always,
+                      basedirpath=tdir)
 
     try:
 
@@ -70,21 +75,11 @@ def testRaetPreSharedKeysPromiscous():
 
         sendMsgs(alpha, beta, betaRemote)
 
-        # alphaRemote = raet.road.estating.RemoteEstate(stack=beta,
-        #                                               ha=alpha.ha,
-        #                                               verkey=alphaSigner.verkey)
-        #
-        # beta.addRemote(alphaRemote)
-        # beta.allow(uid=alphaRemote.uid, cascade=True)
-        # handshake(alpha, beta)
-        #
-        # sendMsgs(beta, alpha, alphaRemote)
-
     finally:
         cleanup(alpha, beta)
 
 
-def testRaetPreSharedKeysNonPromiscous():
+def testRaetPreSharedKeysNonPromiscous(tdir):
 
     alphaSigner = SimpleSigner()
     betaSigner = SimpleSigner()
@@ -96,17 +91,19 @@ def testRaetPreSharedKeysNonPromiscous():
     logger.debug("Beta's verkey {}".format(betaSigner.verkey))
 
     alpha = RoadStack(name='alpha',
-                      ha=('0.0.0.0', 7531),
+                      ha=genHa(),
                       sigkey=alphaSigner.naclSigner.keyhex,
                       prikey=alphaPrivateer.keyhex,
-                      auto=AutoMode.never)
+                      auto=AutoMode.never,
+                      basedirpath=tdir)
 
     beta = RoadStack(name='beta',
-                     ha=('0.0.0.0', 7532),
+                     ha=genHa(),
                      sigkey=betaSigner.naclSigner.keyhex,
                      prikey=betaPrivateer.keyhex,
                      main=True,
-                     auto=AutoMode.never)
+                     auto=AutoMode.never,
+                      basedirpath=tdir)
 
     alpha.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,
@@ -123,20 +120,11 @@ def testRaetPreSharedKeysNonPromiscous():
     try:
 
         betaRemote = raet.road.estating.RemoteEstate(stack=alpha,
-                                                     ha=beta.ha)#,
-                                                     # verkey=betaSigner.verkey,
-                                                     # pubkey=betaPrivateer.pubhex)
-        # alphaRemote = raet.road.estating.RemoteEstate(stack=beta,
-        #                                               ha=alpha.ha,
-        #                                               verkey=alphaSigner.verkey,
-        #                                               pubkey=alphaPrivateer.pubhex)
+                                                     ha=beta.ha)
 
         alpha.addRemote(betaRemote)
 
         alpha.allow(uid=betaRemote.uid, cascade=True)
-
-        # beta.addRemote(alphaRemote)
-        # beta.allow(uid=alphaRemote.uid, cascade=True)
 
         handshake(alpha, beta)
 

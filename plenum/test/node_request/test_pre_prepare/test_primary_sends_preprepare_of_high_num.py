@@ -1,7 +1,7 @@
 import pytest
 import time
 
-from plenum.common.request_types import ReqDigest, PrePrepare
+from plenum.common.types import ReqDigest, PrePrepare
 from plenum.server.replica import TPCStat
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually

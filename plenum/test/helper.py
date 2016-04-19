@@ -19,8 +19,9 @@ from typing import Set
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, \
-    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples
+from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
+    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples, \
+    CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK
 from plenum.common.util import randomString, error, getMaxFailures, \
@@ -30,7 +31,7 @@ from raet.raeting import AutoMode, TrnsKind, PcktKind
 from plenum.server.client_authn import SimpleAuthNr
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
-from plenum.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
+from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
@@ -38,7 +39,7 @@ from plenum.test.greek import genNodeNames
 from plenum.test.testing_utils import PortDispenser
 
 from plenum.client.client import Client, ClientProvider
-from plenum.common.stacked import NodeStacked, HA, Stack
+from plenum.common.stacked import NodeStacked, Stack
 from plenum.server import replica
 from plenum.test.testable import Spyable, SpyableMethod
 

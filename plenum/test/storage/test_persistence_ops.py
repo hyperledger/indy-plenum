@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from plenum.common.request_types import Reply
+from plenum.common.types import Reply
 from plenum.common.util import checkPortAvailable, getlogger
 from plenum.persistence.mongodb_server import MongoDBServer
 from plenum.persistence.rethinkdb_server import RethinkDB

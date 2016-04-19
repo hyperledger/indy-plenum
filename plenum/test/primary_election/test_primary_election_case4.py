@@ -3,7 +3,7 @@ import pytest
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually
 
-from plenum.common.request_types import Primary
+from plenum.common.types import Primary
 from plenum.test.helper import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 

@@ -1,4 +1,4 @@
-from plenum.common.request_types import Propagate
+from plenum.common.types import Propagate
 from plenum.test.helper import TestNode, getAllArgs
 
 

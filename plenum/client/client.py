@@ -11,14 +11,14 @@ from collections import deque
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
 from plenum.common.motor import Motor
-from plenum.common.request_types import Request, Reply, OP_FIELD_NAME, f
+from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, VERIF_MERKLE_PROOF, TXN_TYPE, ORIGIN
 from plenum.common.util import getMaxFailures, getlogger
 from raet.raeting import AutoMode
 
 from plenum.client.signer import Signer, SimpleSigner
-from plenum.common.stacked import NodeStacked, HA
+from plenum.common.stacked import NodeStacked
 
 logger = getlogger()
 

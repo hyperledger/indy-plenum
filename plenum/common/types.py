@@ -225,3 +225,16 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
                         f.PP_SEQ_NO
                     ])
+
+CLIENT_STACK_SUFFIX = "C"
+CLIENT_BLACKLISTER_SUFFIX = "BLC"
+NODE_BLACKLISTER_SUFFIX = "BLN"
+
+HA = NamedTuple("HA", [
+    ("host", str),
+    ("port", int)])
+
+NodeDetail = NamedTuple("NodeDetail", [
+    ("ha", HA),
+    ("cliname", str),
+    ("cliha", HA)])

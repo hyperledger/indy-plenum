@@ -6,7 +6,7 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 from plenum.common.util import adict
 
-from plenum.common.request_types import Prepare
+from plenum.common.types import Prepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNonPrimaryReplicas, getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
