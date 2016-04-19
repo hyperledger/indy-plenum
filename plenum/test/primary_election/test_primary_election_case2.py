@@ -6,7 +6,7 @@ from plenum.test.helper import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone, \
     delayerMsgTuple
 
-from plenum.common.request_types import Nomination
+from plenum.common.types import Nomination
 from plenum.server.replica import Replica
 from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode

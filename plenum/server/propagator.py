@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Tuple, Union
 
-from plenum.common.request_types import Request, Propagate
+from plenum.common.types import Request, Propagate
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.request_types import Primary
+from plenum.common.types import Primary
 from plenum.test.eventually import eventually
 
 whitelist = ['got primary declaration',

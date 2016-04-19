@@ -3,7 +3,7 @@ import logging
 import pytest
 import time
 
-from plenum.common.request_types import PrePrepare
+from plenum.common.types import PrePrepare
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures

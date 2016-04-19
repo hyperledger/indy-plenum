@@ -3,7 +3,7 @@ import types
 
 import pytest
 
-from plenum.common.request_types import Propagate
+from plenum.common.types import Propagate
 
 nodeCount = 4
 faultyNodes = 1

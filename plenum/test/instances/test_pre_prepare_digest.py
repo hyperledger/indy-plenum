@@ -8,7 +8,7 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
 from plenum.common.util import adict
 
-from plenum.common.request_types import PrePrepare
+from plenum.common.types import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.instances.helper import sentPrepare
 

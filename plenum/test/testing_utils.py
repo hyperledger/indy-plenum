@@ -6,7 +6,7 @@ import tempfile
 import portalocker
 from ioflo.base.consoling import getConsole
 
-from plenum.common.stacked import HA
+from plenum.common.types import HA
 from plenum.common.util import error, addTraceToLogging, TRACE_LOG_LEVEL, \
     checkPortAvailable, getlogger
 
@@ -51,7 +51,7 @@ def setupTestLogging():
             format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
             style='{')
     console = getConsole()
-    console.reinit(verbosity=console.Wordage.terse)
+    console.reinit(verbosity=console.Wordage.concise)
 
 
 class PortDispenser:

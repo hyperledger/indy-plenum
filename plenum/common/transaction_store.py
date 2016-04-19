@@ -4,7 +4,7 @@ import time
 from typing import Dict
 from typing import Optional
 
-from plenum.common.request_types import Reply
+from plenum.common.types import Reply
 from plenum.persistence.storage import Storage
 
 

@@ -44,7 +44,8 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
-from plenum.server.node import Node, CLIENT_STACK_SUFFIX
+from plenum.server.node import Node
+from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict

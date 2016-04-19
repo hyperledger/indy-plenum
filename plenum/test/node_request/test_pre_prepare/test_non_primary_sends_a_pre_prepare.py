@@ -1,13 +1,12 @@
 import types
-from functools import partial
 
 import pytest as pytest
 import time
 
-from plenum.common.request_types import PrePrepare, ReqDigest
+from plenum.common.types import PrePrepare, ReqDigest
 from plenum.test.eventually import eventually
 from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
-    checkViewNoForNodes, getNodeSuspicions
+    getNodeSuspicions
 
 from plenum.common.util import getlogger
 from plenum.server.suspicion_codes import Suspicions

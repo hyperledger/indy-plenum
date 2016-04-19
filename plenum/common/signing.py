@@ -23,7 +23,7 @@ authenticator.
 from collections import Iterable
 from typing import Mapping
 
-from plenum.common.request_types import f
+from plenum.common.types import f
 from plenum.common.util import error, getlogger
 
 logger = getlogger()

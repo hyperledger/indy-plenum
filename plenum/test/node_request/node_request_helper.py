@@ -3,7 +3,7 @@ from functools import partial
 
 import time
 
-from plenum.common.request_types import PrePrepare, OPERATION, f
+from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.server.node import Node
 from plenum.test.eventually import eventuallyAll
 

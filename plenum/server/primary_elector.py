@@ -6,7 +6,7 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any
 
-from plenum.common.request_types import Nomination, Reelection, Primary, \
+from plenum.common.types import Nomination, Reelection, Primary, \
     f, BlacklistMsg
 from plenum.server import replica
 from plenum.server.router import Router

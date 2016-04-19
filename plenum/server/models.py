@@ -1,6 +1,6 @@
 from typing import NamedTuple, Set, Optional
 
-from plenum.common.request_types import Commit, Prepare
+from plenum.common.types import Commit, Prepare
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("digest", str),

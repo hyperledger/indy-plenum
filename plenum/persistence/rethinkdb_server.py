@@ -7,7 +7,7 @@ from subprocess import call
 import rethinkdb as r
 from rethinkdb.errors import ReqlRuntimeError, RqlError, ReqlError
 
-from plenum.common.request_types import Reply, f
+from plenum.common.types import Reply, f
 from plenum.common.util import checkPortAvailable, getlogger
 from plenum.persistence.storage import Storage
 

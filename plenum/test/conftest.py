@@ -1,4 +1,5 @@
 import itertools
+import json
 import logging
 import os
 from functools import partial
@@ -6,16 +7,21 @@ from typing import Dict, Any
 
 import pytest
 
+from ledger.immutable_store.ledger import Ledger
+from ledger.immutable_store.merkle import CompactMerkleTree
 from plenum.common.looper import Looper
-from plenum.common.util import getNoInstances, TestingHandler
-from plenum.common.stacked import HA
+from plenum.common.raet import initLocalKeep, initRemoteKeep
+from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP
+from plenum.common.util import getNoInstances, TestingHandler, getConfig
+from plenum.common.types import HA, CLIENT_STACK_SUFFIX
 
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 
@@ -264,10 +270,97 @@ def replied1(looper, nodeSet, client1, committed1):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSetWithOpValidationPlugin(request, tdir, nodeReg):
-    primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
-    with TestNodeSet(nodeReg=nodeReg,
-                     tmpdir=tdir,
-                     primaryDecider=primaryDecider,
-                     opVerificationPluginPath="/home/rohit/dev/evernym/plenum-priv/plenum/plugins/sample_plugins") as ns:
-        yield ns
+def looperWithoutNodeSet():
+    with Looper(debug=True) as looper:
+        yield looper
+
+
+@pytest.fixture(scope="module")
+def poolTxnNodeNames():
+    return "Alpha", "Beta", "Gamma", "Delta"
+
+
+@pytest.fixture(scope="module")
+def poolTxnClientNames():
+    return "Alice",
+
+
+@pytest.fixture(scope="module")
+def poolTxnStewardNames():
+    return "Bob",
+
+
+@pytest.fixture(scope="module")
+def conf():
+    return getConfig()
+
+
+@pytest.fixture(scope="module")
+def tconf(conf, tdir):
+    conf.baseDir = tdir
+    return conf
+
+
+@pytest.fixture(scope="module")
+def dirName():
+    return os.path.dirname
+
+
+@pytest.fixture(scope="module")
+def poolTxnData(dirName):
+    filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
+    return json.loads(open(filePath).read().strip())
+
+
+@pytest.fixture(scope="module")
+def tdirWithPoolTxns(poolTxnData, tdir, tconf):
+    ledger = Ledger(CompactMerkleTree(),
+           dataDir=tdir,
+           fileName=tconf.poolTransactionsFile)
+    for item in poolTxnData["txns"]:
+        ledger.add(item)
+    return tdir
+
+
+@pytest.fixture(scope="module")
+def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
+    seeds = poolTxnData["seeds"]
+    for nName in poolTxnNodeNames:
+        initLocalKeep(nName, tdir, *seeds[nName], override=True)
+
+
+@pytest.fixture(scope="module")
+def poolTxnClientData(poolTxnClientNames, poolTxnData):
+    name = poolTxnClientNames[0]
+    seeds = poolTxnData["seeds"][name]
+    return (name, ) + tuple(s.encode() for s in seeds)
+
+
+@pytest.fixture(scope="module")
+def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
+    name = poolTxnStewardNames[0]
+    seeds = poolTxnData["seeds"][name]
+    return (name, ) + tuple(s.encode() for s in seeds)
+
+
+@pytest.yield_fixture(scope="module")
+def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames, tdirWithNodeKeepInited):
+    with Looper(debug=True) as looper:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = TestNode(nm, basedirpath=tdirWithPoolTxns, config=tconf)
+            looper.add(node)
+            nodes.append(node)
+
+        looper.run(eventually(checkNodesConnected, nodes, retryWait=1, timeout=5))
+        yield nodes
+
+
+@pytest.fixture(scope="module")
+def txnPoolCliNodeReg(poolTxnData):
+    cliNodeReg = {}
+    for txn in poolTxnData["txns"]:
+        if txn[TXN_TYPE] == NEW_NODE:
+            data = txn[DATA]
+            cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP], data[CLIENT_PORT])
+    return cliNodeReg

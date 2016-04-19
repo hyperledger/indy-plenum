@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.request_types import InstanceChange
+from plenum.common.types import InstanceChange
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 
