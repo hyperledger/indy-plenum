@@ -21,8 +21,7 @@ def testClientNames(cli, validNodeNames):
 
         msg = cli.lastPrintArgs['msg']
         # Appropriate error msg should be printed
-        assert msg == "Client name cannot start with node names, which are {" \
-                      "}." \
+        assert msg == "Client name cannot start with node names, which are {}." \
                       "".format(', '.join(validNodeNames))
 
     # Add clients with name same as a node name or starting with a node name

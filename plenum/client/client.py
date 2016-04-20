@@ -7,7 +7,7 @@ and receives result of the request execution from nodes.
 import json
 import logging
 import time
-from collections import deque
+from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
 from plenum.common.motor import Motor
@@ -47,6 +47,17 @@ class Client(NodeStacked, Motor):
         self.lastReqId = lastReqId
         self._clientStack = None
         self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
+
+        cliNodeReg = OrderedDict()
+        for nm in nodeReg:
+            val = nodeReg[nm]
+            if len(val) == 3:
+                ((ip, port), verkey, pubkey) = val
+            else:
+                ip, port = val
+            cliNodeReg[nm] = HA(ip, port)
+
+        nodeReg = cliNodeReg
 
         cha = ha if isinstance(ha, HA) else HA(*ha)
         stackargs = dict(name=name,
