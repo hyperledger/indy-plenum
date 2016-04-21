@@ -3,22 +3,26 @@ A client in an RBFT system.
 Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
-
+import base64
 import json
 import logging
 import time
-from collections import deque, OrderedDict
+from binascii import unhexlify
+from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-from plenum.common.motor import Motor
-from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.startable import Status
-from plenum.common.txn import REPLY
-from plenum.common.util import getMaxFailures, getlogger
 from raet.raeting import AutoMode
 
+from ledger.immutable_store.merkle import MerkleVerifier
+from ledger.immutable_store.serializers import JsonSerializer
+from ledger.immutable_store.store import F
 from plenum.client.signer import Signer, SimpleSigner
+from plenum.common.motor import Motor
 from plenum.common.stacked import NodeStacked
+from plenum.common.startable import Status
+from plenum.common.txn import REPLY
+from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
+from plenum.common.util import getMaxFailures, getlogger
 
 logger = getlogger()
 
@@ -158,6 +162,7 @@ class Client(NodeStacked, Motor):
         :param identifier: an optional identifier to use for signing
         :return: A list of client requests to be sent to the nodes in the system
         """
+        identifier = identifier if identifier else self.defaultIdentifier
         requests = []
         for op in operations:
             request = self.createRequest(op, identifier)
@@ -300,6 +305,32 @@ class Client(NodeStacked, Motor):
                 self.status = Status.started
             elif len(self.conns) >= self.minimumNodes:
                 self.status = Status.started_hungry
+
+    @staticmethod
+    def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:
+        """
+        Verifies the correctness of the merkle proof provided in the reply from
+        the node. Returns True if verified to be correct, throws an exception
+        otherwise.
+        :param replies: One or more replies for which Merkle Proofs have to be
+        verified
+        :raises ProofError: The proof is invalid
+        :return: True
+        """
+        sth = namedtuple("sth", ["tree_size", "sha256_root_hash"])
+        verifier = MerkleVerifier()
+        serializer = JsonSerializer()
+        for r in replies:
+            serialNo = r[f.MERKLE_PROOF.nm][F.serialNo.name]
+            rootHash = unhexlify(r[f.MERKLE_PROOF.nm][F.rootHash.name])
+            auditPath = [base64.b64decode(
+                a.encode()) for a in r[f.MERKLE_PROOF.nm][F.auditPath.name]]
+            result = serializer.serialize(r[f.RESULT.nm])
+            verifier.verify_leaf_inclusion(result, serialNo-1,
+                                           auditPath,
+                                           sth(tree_size=serialNo,
+                                               sha256_root_hash=rootHash))
+        return True
 
 
 class ClientProvider:

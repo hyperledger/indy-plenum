@@ -10,6 +10,10 @@ from typing import Tuple
 
 from raet.raeting import AutoMode
 
+from ledger.immutable_store.error import ProofError
+from ledger.immutable_store.ledger import Ledger
+from ledger.immutable_store.store import F
+from ledger.immutable_store.merkle import CompactMerkleTree, MerkleVerifier
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -188,7 +192,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.txnStore = storage or self.getStorage()
 
     def getStorage(self):
-        return TransactionStore()
+        return Ledger(CompactMerkleTree(), dataDir=self.basedirpath)
 
     def start(self, loop):
         oldstatus = self.status
@@ -953,9 +957,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     # TODO: Find a better name for the function
     async def doCustomAction(self, viewNo, ppTime, req):
-        reply = self.generateReply(viewNo, ppTime, req)
-        await self.txnStore.append(
-            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
+        reply = await self.generateReply(viewNo, ppTime, req)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, identifier, reqId):
@@ -1025,7 +1027,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
-    def generateReply(self,
+    async def generateReply(self,
                       viewNo: int,
                       ppTime: float,
                       req: Request) -> Reply:
@@ -1041,7 +1043,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug("{} replying request {}".format(self, req))
         txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        return Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime})
+        txnRslt = Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime}, None)
+        merkleProof = await self.txnStore.append(
+            identifier=req.identifier, reply=txnRslt, txnId=txnId)
+        return Reply(*txnRslt[:-1], merkleProof)
 
     def startKeySharing(self, timeout=60):
         """
