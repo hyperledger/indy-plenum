@@ -48,7 +48,6 @@ TXN_DATA = "txnData"
 
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
-VERIF_MERKLE_PROOF = "VERIF_MERKLE_PROOF"
 
 
 class ClientBootStrategy:

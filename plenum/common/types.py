@@ -33,6 +33,7 @@ class f:  # provides a namespace for reusable field constants
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
+    MERKLE_PROOF = Field("merkleProof", Any)
 
 OP_FIELD_NAME = "op"
 
@@ -196,7 +197,8 @@ Commit = TaggedTuple(COMMIT, [
 Reply = TaggedTuple(REPLY, [
     f.VIEW_NO,
     f.REQ_ID,
-    f.RESULT])
+    f.RESULT,
+    f.MERKLE_PROOF])
 
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [

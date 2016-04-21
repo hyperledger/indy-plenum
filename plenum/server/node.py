@@ -10,9 +10,10 @@ from typing import Tuple
 
 from raet.raeting import AutoMode
 
+from ledger.immutable_store.error import ProofError
 from ledger.immutable_store.ledger import Ledger
 from ledger.immutable_store.store import F
-from ledger.immutable_store.merkle import CompactMerkleTree
+from ledger.immutable_store.merkle import CompactMerkleTree, MerkleVerifier
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -191,7 +192,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.txnStore = storage or self.getStorage()
 
     def getStorage(self):
-        return TransactionStore()
+        return Ledger(CompactMerkleTree(), dataDir=self.basedirpath)
 
     def start(self, loop):
         oldstatus = self.status
@@ -956,9 +957,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     # TODO: Find a better name for the function
     async def doCustomAction(self, viewNo, ppTime, req):
-        reply = self.generateReply(viewNo, ppTime, req)
-        await self.txnStore.append(
-            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
+        reply = await self.generateReply(viewNo, ppTime, req)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, identifier, reqId):
@@ -1028,7 +1027,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
-    def generateReply(self,
+    async def generateReply(self,
                       viewNo: int,
                       ppTime: float,
                       req: Request) -> Reply:
@@ -1044,7 +1043,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug("{} replying request {}".format(self, req))
         txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        return Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime})
+        txnRslt = Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime}, None)
+        merkleProof = await self.txnStore.append(
+            identifier=req.identifier, reply=txnRslt, txnId=txnId)
+        return Reply(*txnRslt[:-1], merkleProof)
 
     def startKeySharing(self, timeout=60):
         """
@@ -1165,12 +1167,24 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug(msg)
         self.nodeBlacklister.blacklist(nodeName)
 
-    def verifyMerkleProof(self, merkleData, identifier):
-        keys = [F.serialNo.name, F.STH.name, F.auditInfo.name]
-        assert all(x in list(merkleData.keys()) for x in keys), \
-            "Required data missing for operation VERIF_TXN"
-        # TODO Implement the Merkle Proof verification
-        self.transmitToClient(True, remoteName=self.clientIdentifiers[identifier])
+    # def verifyMerkleProof(self, request):
+    #     keys = [F.leafDataHash.name, F.serialNo.name, F.auditPath.name, F.STH.name]
+    #     op = request.operation
+    #     assert all(x in list(op.keys()) for x in keys), \
+    #         "Required data missing for operation VERIF_TXN"
+    #     verifier = MerkleVerifier(self.txnStore.hasher)
+    #     opData = [op[x] for x in keys]
+    #     try:
+    #         isVerified = verifier.verify_leaf_hash_inclusion(*op)
+    #         # op[F.leafDataHash.name], TODO remove if the above works
+    #         # op[F.serialNo.name],
+    #         # op[F.auditInfo.name],
+    #         # op[F.STH.name]
+    #     except ProofError:
+    #         isVerified = False
+    #         raise
+    #     self.transmitToClient(Reply(request.reqId, self.viewNo, isVerified),
+    #                           remoteName=self.clientIdentifiers[request.identifier])
 
     def __enter__(self):
         return self
