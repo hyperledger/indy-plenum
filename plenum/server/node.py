@@ -1167,25 +1167,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug(msg)
         self.nodeBlacklister.blacklist(nodeName)
 
-    # def verifyMerkleProof(self, request):
-    #     keys = [F.leafDataHash.name, F.serialNo.name, F.auditPath.name, F.STH.name]
-    #     op = request.operation
-    #     assert all(x in list(op.keys()) for x in keys), \
-    #         "Required data missing for operation VERIF_TXN"
-    #     verifier = MerkleVerifier(self.txnStore.hasher)
-    #     opData = [op[x] for x in keys]
-    #     try:
-    #         isVerified = verifier.verify_leaf_hash_inclusion(*op)
-    #         # op[F.leafDataHash.name], TODO remove if the above works
-    #         # op[F.serialNo.name],
-    #         # op[F.auditInfo.name],
-    #         # op[F.STH.name]
-    #     except ProofError:
-    #         isVerified = False
-    #         raise
-    #     self.transmitToClient(Reply(request.reqId, self.viewNo, isVerified),
-    #                           remoteName=self.clientIdentifiers[request.identifier])
-
     def __enter__(self):
         return self
 

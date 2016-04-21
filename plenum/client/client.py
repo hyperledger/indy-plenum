@@ -295,11 +295,6 @@ class Client(NodeStacked, Motor):
             elif len(self.conns) >= self.minimumNodes:
                 self.status = Status.started_hungry
 
-    # def doVerifMerkleProof(self, op, identifier=None):
-    #     op[ORIGIN] = identifier
-    #     op[TXN_TYPE] = VERIF_MERKLE_PROOF
-    #     self.submit(op, identifier=identifier)
-
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:
         """
