@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from binascii import unhexlify
-from collections import deque, namedtuple
+from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
 from raet.raeting import AutoMode
@@ -51,6 +51,17 @@ class Client(NodeStacked, Motor):
         self.lastReqId = lastReqId
         self._clientStack = None
         self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
+
+        cliNodeReg = OrderedDict()
+        for nm in nodeReg:
+            val = nodeReg[nm]
+            if len(val) == 3:
+                ((ip, port), verkey, pubkey) = val
+            else:
+                ip, port = val
+            cliNodeReg[nm] = HA(ip, port)
+
+        nodeReg = cliNodeReg
 
         cha = ha if isinstance(ha, HA) else HA(*ha)
         stackargs = dict(name=name,
