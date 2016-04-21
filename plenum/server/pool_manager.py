@@ -109,7 +109,7 @@ class TxnPoolManager(PoolManager):
         return nstack, cstack, nodeReg
 
     async def executePoolTxnRequest(self, viewNo, ppTime, req):
-        reply = self.node.generateReply(viewNo, ppTime, req)
+        reply = await self.node.generateReply(viewNo, ppTime, req)
         op = req.operation
         if op[TXN_TYPE] == NEW_NODE:
             self.addNewNodeAndConnect(op)
