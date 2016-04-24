@@ -1,8 +1,8 @@
 import pyorient
 
-from immutable_store.store import F
-from immutable_store.stores.hash_store import HashStore
-from persistence.orientdb_store import OrientDbStore
+from ledger.immutable_store.store import F
+from ledger.immutable_store.stores.hash_store import HashStore
+from plenum.persistence.orientdb_store import OrientDbStore
 
 
 class OrientDbHashStore(HashStore, OrientDbStore):

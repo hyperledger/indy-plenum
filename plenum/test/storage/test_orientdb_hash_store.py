@@ -1,7 +1,7 @@
 import pyorient
 import pytest
 
-from persistence.orientdb_hash_store import OrientDbHashStore
+from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from ledger.immutable_store.test.test_file_hash_store import nodesLeaves
 
 
