@@ -19,28 +19,17 @@ class OrientDbHashStore(HashStore):
 
     def writeLeaf(self, leafHash):
         """append the leaf to the leaf hash store"""
-        clusterId = self._getClusterId(self.leafHashClass)
-        rec = {
-            '@' + self.leafHashClass: {
-                F.serialNo.name: self.lastSerialNo + 1,
-                F.leafHash.name: self._tob64(leafHash)
-            }
-        }
-        self.store.client.record_create(clusterId, rec)
+        self.store.client.command(
+            "insert into {} (serialNo, leafHash) values ('{}', '{}')".format(
+                self.leafHashClass, self.lastSerialNo + 1, self._tob64(leafHash)))
         self.lastSerialNo += 1
 
     def writeNode(self, node):
         start, height, nodeHash = node
         serialNo = self.getNodePosition(start, height)
-        clusterId = self._getClusterId(self.nodeHashClass)
-        rec = {
-            '@' + self.nodeHashClass: {
-                F.serialNo.name: serialNo,
-                F.nodeHash.name: self._tob64(nodeHash)
-            }
-        }
-        rec_position = self.store.client.record_create(clusterId, rec)
-        return rec_position
+        self.store.client.command(
+            "insert into {} (serialNo, nodeHash) values ('{}', '{}')".format(
+                self.nodeHashClass, serialNo, self._tob64(nodeHash)))
 
     def _tob64(self, hash):
         return b64encode(hash).decode('utf_8')
@@ -70,6 +59,10 @@ class OrientDbHashStore(HashStore):
                                   F.nodeHash.name)
 
     def _readMultiple(self, start, end, hashClass, attrib):
+        """
+        Returns a list of hashes with serial numbers between start
+         and end, both inclusive.
+         """
         self._validatePos(start, end)
         resultSet = self.store.client.command(
             "select * from {} where serialNo between {} and {}".format(
@@ -89,13 +82,13 @@ class OrientDbHashStore(HashStore):
         self._createHashClass(self.leafHashClass, {
             F.serialNo.name: "integer",
             F.leafHash.name: "string"
-        }, F.serialNo.name)
+        }, F.leafHash.name)
 
     def createNodeHashClass(self):
         self._createHashClass(self.nodeHashClass, {
             F.serialNo.name: "integer",
             F.nodeHash.name: "string"
-        }, F.serialNo.name)
+        }, F.nodeHash.name)
 
     def _createHashClass(self, className, attributes, index):
         self.store.createClass(className)
@@ -105,8 +98,3 @@ class OrientDbHashStore(HashStore):
     def classesNeeded(self):
         return [(self.leafHashClass, self.createLeafHashClass),
                 (self.nodeHashClass, self.createNodeHashClass)]
-
-    # TODO Store clusterId in class state
-    def _getClusterId(self, clusterName: str):
-        return self.store.client.get_class_position(
-            bytes(clusterName, 'utf_8'))
