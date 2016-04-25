@@ -35,6 +35,8 @@ class f:  # provides a namespace for reusable field constants
     PP_TIME = Field("ppTime", float)
     MERKLE_PROOF = Field("merkleProof", Any)
 
+
+# TODO: Move this to `txn.py` which should be renamed to constants.py
 OP_FIELD_NAME = "op"
 
 
@@ -194,12 +196,8 @@ Commit = TaggedTuple(COMMIT, [
     f.DIGEST,
     f.PP_TIME])
 
-Reply = TaggedTuple(REPLY, [
-    f.VIEW_NO,
-    f.REQ_ID,
-    f.RESULT,
-    f.MERKLE_PROOF])
-
+# TODO Refactor this. Reply should simply a wrapper over a dict, or just a dict?
+Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO
@@ -231,6 +229,9 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"
 NODE_BLACKLISTER_SUFFIX = "BLN"
+
+NODE_PRIMARY_STORAGE_SUFFIX = "PS"
+NODE_SECONDARY_STORAGE_SUFFIX = "SS"
 
 HA = NamedTuple("HA", [
     ("host", str),

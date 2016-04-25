@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-from plenum.common.txn import ClientBootStrategy
+from plenum.common.txn import ClientBootStrategy, StorageType
 
 nodeReg = OrderedDict([
     ('Alpha', (('qcfbchain.cloudapp.net', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
@@ -22,3 +22,16 @@ baseDir = "~/.plenum/"
 poolTransactionsFile = "pool_transactions"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
+
+primaryStorage = None
+
+secondaryStorage = None
+
+OrientDB = {
+    "user": "root",
+    "password": "password",
+    "host": "127.0.0.1",
+    "port": 2424,
+    "startScript": "/opt/orientdb/bin/server.sh",
+    "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
+}

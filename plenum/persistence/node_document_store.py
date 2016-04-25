@@ -30,7 +30,7 @@ class NodeDocumentStore:
             "reply": "string",
             "serialNo": "long",
             "STH": "string",
-            "auditInfo": "embeddedlist string"
+            "auditPath": "embeddedlist string"
         })
 
         # Index in case we need to access all transactions of a client
@@ -46,7 +46,7 @@ class NodeDocumentStore:
         auditInfo = ", ".join(["'{}'".format(h) for h in auditInfo])
         self.client.command("update {} set {} = '{}', reply = '{}', "
                             "clientId = '{}', {} = {}, serialNo = {}, STH = '{}'"
-                            ", auditInfo = [{}] upsert where {} = '{}'".
+                            ", auditPath = [{}] upsert where {} = '{}'".
                             format(TXN_DATA, TXN_ID, txnId, json.dumps(reply),
                                    clientId, f.REQ_ID.nm, reqId, serialNo,
                                    json.dumps(STH), auditInfo, TXN_ID, txnId))
