@@ -29,7 +29,7 @@ class NodeDocumentStore:
             TXN_ID: "string",
             "reply": "string",
             "serialNo": "long",
-            "STH": "string",
+            "rootHash": "string",
             "auditPath": "embeddedlist string"
         })
 
@@ -41,15 +41,15 @@ class NodeDocumentStore:
         self.store.createUniqueIndexOnClass(TXN_DATA, TXN_ID)
         self.store.createUniqueIndexOnClass(TXN_DATA, "serialNo")
 
-    def addReplyForTxn(self, txnId, reply, clientId, reqId, serialNo, STH,
-                       auditInfo):
-        auditInfo = ", ".join(["'{}'".format(h) for h in auditInfo])
+    def addReplyForTxn(self, txnId, reply, clientId, reqId, serialNo, rootHash,
+                       auditPath):
+        auditPath = ", ".join(["'{}'".format(h) for h in auditPath])
         self.client.command("update {} set {} = '{}', reply = '{}', "
-                            "clientId = '{}', {} = {}, serialNo = {}, STH = '{}'"
+                            "clientId = '{}', {} = {}, serialNo = {}, rootHash = '{}'"
                             ", auditPath = [{}] upsert where {} = '{}'".
-                            format(TXN_DATA, TXN_ID, txnId, json.dumps(reply),
+                            format(TXN_DATA, TXN_ID, txnId, json.dumps(reply[0]),
                                    clientId, f.REQ_ID.nm, reqId, serialNo,
-                                   json.dumps(STH), auditInfo, TXN_ID, txnId))
+                                   rootHash, auditPath, TXN_ID, txnId))
 
     def getReply(self, identifier, reqId):
         result = self.client.command("select reply from {} where clientId = '{}'"
@@ -64,5 +64,5 @@ class NodeDocumentStore:
         if serialNo:
             cmd += " and serialNo > {}".format(serialNo)
         result = self.client.command(cmd)
-        return {r.oRecordData["serialNo"]: json.loads(r.oRecordData["reply"])[2]
+        return {r.oRecordData["serialNo"]: json.loads(r.oRecordData["reply"])
                 for r in result}
