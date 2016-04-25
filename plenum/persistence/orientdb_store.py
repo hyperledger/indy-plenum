@@ -9,7 +9,7 @@ logger = getlogger()
 
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
-                 dbType=pyorient.DB_TYPE_DOCUMENT,
+                 dbType=pyorient.DB_TYPE_GRAPH,
                  storageType=pyorient.STORAGE_TYPE_MEMORY):
         self.client = pyorient.OrientDB(host=host, port=port)
         self.session_id = self.client.connect(user, password)
