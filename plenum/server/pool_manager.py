@@ -23,11 +23,6 @@ from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 logger = getlogger()
 
 
-def blindcopy(objfrom, objto):
-    for n, v in inspect.getmembers(objfrom, predicate=inspect.ismethod):
-        setattr(objto, n, v)
-
-
 class PoolManager:
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
@@ -35,6 +30,7 @@ class PoolManager:
 
 
 class HasPoolManager:
+    # noinspection PyUnresolvedReferences
     def __init__(self, nodeRegistry=None, ha=None, cliname=None, cliha=None):
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self)
@@ -71,7 +67,8 @@ class TxnPoolManager(PoolManager):
                         fileName=self.poolTransactionsFile)
         return ledger
 
-    def getStackParamsAndNodeReg(self, name, basedirpath):
+    def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
+                                 ha=None, cliname=None, cliha=None):
         nstack = None
         cstack = None
         nodeReg = OrderedDict()
@@ -108,8 +105,8 @@ class TxnPoolManager(PoolManager):
 
         return nstack, cstack, nodeReg
 
-    async def executePoolTxnRequest(self, viewNo, ppTime, req):
-        reply = await self.node.generateReply(viewNo, ppTime, req)
+    async def executePoolTxnRequest(self, ppTime, req):
+        reply = await self.node.generateReply(ppTime, req)
         op = req.operation
         if op[TXN_TYPE] == NEW_NODE:
             self.addNewNodeAndConnect(op)

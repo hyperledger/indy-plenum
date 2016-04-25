@@ -149,3 +149,15 @@ class InvalidClientOp(InvalidClientRequest):
 
 class UnauthorizedClientRequest(InvalidClientMessageException):
     pass
+
+
+class StorageException(Exception):
+    pass
+
+
+class DataDirectoryNotFound(StorageException):
+    pass
+
+
+class DBConfigNotFound(StorageException):
+    pass

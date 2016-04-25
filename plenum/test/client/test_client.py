@@ -1,7 +1,9 @@
 import pytest
 from plenum.common.exceptions import EmptySignature
-from plenum.common.txn import REPLY
+from plenum.common.txn import REPLY, REQACK, TXN_ID
 from raet.raeting import AutoMode
+
+from plenum.common.types import f, OP_FIELD_NAME
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
@@ -170,13 +172,13 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper, client1):
                        retryWait=.25, timeout=15))
 
     replies = (msg for msg, frm in client1.inBox
-               if msg['op'] == REPLY and
-               msg['reqId'] == request.reqId)
+               if msg[OP_FIELD_NAME] == REPLY and
+               msg[f.RESULT.nm][f.REQ_ID.nm] == request.reqId)
 
     # change two responses to something different
     for i in range(2):
         msg = next(replies)
-        msg['result']['txnId'] = str(i) + "Some random id"
+        msg[f.RESULT.nm][TXN_ID] = str(i) + "Some random id"
 
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
@@ -197,13 +199,18 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                           timeout=5))
     orignalRquestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    #  send reply only not any ACK.
     client1._enqueueIntoAllRemotes(sent1, client1.getSigner())
-    # Since view no is always zero in the current setup
+
+    def chk():
+        assertLength([response for response in client1.inBox
+                      if (response[0].get(f.RESULT.nm) and
+                      response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
+                      (response[0].get(OP_FIELD_NAME) == REQACK and response[0].get(f.REQ_ID.nm)
+                       == sent1.reqId)],
+                     orignalRquestResponsesLen +
+                     duplicateRequestRepliesLen)
+
     looper.run(eventually(
-            lambda: assertLength([response for response in client1.inBox
-                                  if response[0]['reqId'] == sent1.reqId],
-                                 orignalRquestResponsesLen +
-                                 duplicateRequestRepliesLen),
+            chk,
             retryWait=.25,
             timeout=20))

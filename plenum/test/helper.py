@@ -10,25 +10,26 @@ from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from itertools import combinations, permutations
+from typing import Set
 from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
     Any, Sequence, Iterator
 from typing import Union, Callable
 
-from typing import Set
+from raet.raeting import TrnsKind, PcktKind
 
+from plenum.client.client import Client, ClientProvider
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
-    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA
+from plenum.common.stacked import NodeStacked, Stack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK
+from plenum.common.txn import REPLY, REQACK, TXN_ID
+from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
+    Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
+    CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict
-from raet.raeting import AutoMode, TrnsKind, PcktKind
-
-from plenum.server.client_authn import SimpleAuthNr
+from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
@@ -36,12 +37,8 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
-from plenum.test.testing_utils import PortDispenser
-
-from plenum.client.client import Client, ClientProvider
-from plenum.common.stacked import NodeStacked, Stack
-from plenum.server import replica
 from plenum.test.testable import Spyable, SpyableMethod
+from plenum.test.testing_utils import PortDispenser
 
 # checkDblImp()
 
@@ -509,6 +506,10 @@ class TestNodeSet(ExitStack):
     def nodeNames(self):
         return sorted(self.nodes.keys())
 
+    @property
+    def f(self):
+        return getMaxFailures(len(self.nodes))
+
     def getNode(self, node: NodeRef) -> TestNode:
         return node if isinstance(node, Node) \
             else self.nodes.get(node) if isinstance(node, str) \
@@ -548,12 +549,12 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     result = None
     for reply in receivedReplies:
         if result is None:
-            result = reply["result"]
+            result = reply[f.RESULT.nm]
         else:
             # all replies should have the same result
-            assert reply["result"] == result
+            assert reply[f.RESULT.nm] == result
 
-    assert all([r['reqId'] == reqId for r in receivedReplies])
+    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
     return result
     # TODO add test case for what happens when replies don't have the same data
 
@@ -579,7 +580,7 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     """
     the client must get at least :math:`2f+1` responses
     """
-    msgs = [(msg['reqId'], msg['result']['txnId']) for msg in
+    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
             getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
     # for (rid, tid, oprType, oprAmt) in msgs:
@@ -590,8 +591,8 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
 
 def getRepliesFromClientInbox(inbox, reqId) -> list:
     return list({_: msg for msg, _ in inbox if
-                 msg[OP_FIELD_NAME] == REPLY and msg[
-                     f.REQ_ID.nm] == reqId}.values())
+                 msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm]
+                 [f.REQ_ID.nm] == reqId}.values())
 
 
 def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):

@@ -2,8 +2,9 @@ import json
 from typing import Any
 
 from plenum.common.request_types import Request, f
-from plenum.common.util import getlogger
+
 from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE
+from plenum.common.util import getlogger
 
 logger = getlogger()
 
@@ -98,7 +99,7 @@ class ClientDocumentStore:
             return {}
         else:
             return {
-                k: self.serializer.deserialize(v, orderedFields=self.txnFields)
+                k: self.serializer.deserialize(v, fields=self.txnFields)
                 for k, v in result[0].oRecordData['replies'].items()
             }
 

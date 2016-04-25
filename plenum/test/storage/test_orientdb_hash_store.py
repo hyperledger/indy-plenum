@@ -9,7 +9,6 @@ from ledger.immutable_store.test.test_file_hash_store import nodesLeaves, \
 
 @pytest.fixture(scope="module")
 def odbhs():
-    # TODO Read setup info from a config file
     hs = OrientDbHashStore(
         OrientDbStore(user="root", password="password", dbName="test"))
     truncateClasses(hs)

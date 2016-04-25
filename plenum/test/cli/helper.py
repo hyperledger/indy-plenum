@@ -75,10 +75,12 @@ def checkRequest(cli, looper, operation):
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
-    timePattern = "\'time\': \d+\.*\d*"
+    txnTimePattern = "\'txnTime\': \d+\.*\d*"
     txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
-    txnPattern1 = "Reply for the request: \{" + timePattern + ", " + txnIdPattern + "\}"
-    txnPattern2 = "Reply for the request: \{" + txnIdPattern + ", " + timePattern + "\}"
-    assert re.match(txnPattern1, printedReply['msg']) or \
-           re.match(txnPattern2, printedReply['msg'])
+    # txnPattern1 = "Reply for the request: \{" + timePattern + ", " + txnIdPattern + "\}"
+    # txnPattern2 = "Reply for the request: \{" + txnIdPattern + ", " + timePattern + "\}"
+    # assert re.match(txnPattern1, printedReply['msg']) or \
+    #        re.match(txnPattern2, printedReply['msg'])
+    assert re.search(txnIdPattern, printedReply['msg'])
+    assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)

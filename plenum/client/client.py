@@ -7,7 +7,6 @@ import base64
 import json
 import logging
 import time
-from binascii import unhexlify
 from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
@@ -88,17 +87,6 @@ class Client(NodeStacked, Motor):
 
         self.inBox = deque()
 
-        # if signer and signers:
-        #     raise ValueError("only one of 'signer' or 'signers' can be used")
-        # if signer:
-        #     self.signers = {signer.identifier: signer}
-        #     self.defaultIdentifier = signer.identifier
-        # elif signers:
-        #     self.signers = signers
-        #     self.defaultIdentifier = None
-        # else:
-        #     self.signers = {self.name: SimpleSigner(self.name)}
-        #     self.defaultIdentifier = self.name
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
@@ -242,7 +230,7 @@ class Client(NodeStacked, Motor):
         """
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and
-                msg[f.REQ_ID.nm] == reqId}
+                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId}
 
     def hasConsensus(self, reqId: int) -> Optional[str]:
         """
@@ -321,11 +309,14 @@ class Client(NodeStacked, Motor):
         verifier = MerkleVerifier()
         serializer = JsonSerializer()
         for r in replies:
-            serialNo = r[f.MERKLE_PROOF.nm][F.serialNo.name]
-            rootHash = unhexlify(r[f.MERKLE_PROOF.nm][F.rootHash.name])
+            serialNo = r[f.RESULT.nm][F.serialNo.name]
+            rootHash = base64.b64decode(r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
-                a.encode()) for a in r[f.MERKLE_PROOF.nm][F.auditPath.name]]
-            result = serializer.serialize(r[f.RESULT.nm])
+                a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
+            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].iteritems()
+                        if k not in
+                        [F.auditPath.name, F.serialNo.name, F.rootHash.name])
+            result = serializer.serialize(dict(filtered))
             verifier.verify_leaf_inclusion(result, serialNo-1,
                                            auditPath,
                                            sth(tree_size=serialNo,
@@ -336,8 +327,8 @@ class Client(NodeStacked, Motor):
 class ClientProvider:
     """
     Lazy client provider that takes a callback that returns a Client.
-    It also shadows the client and when the client's any attribute is accessed the first time,
-    it creates the client object using the callback.
+    It also shadows the client and when the client's any attribute is accessed
+    the first time, it creates the client object using the callback.
     """
 
     def __init__(self, clientGenerator=None):

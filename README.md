@@ -86,6 +86,7 @@ Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``
 
 5. Download the latest build (pywin32-220.win-amd64-py3.5.exe is the latest build as of this writing) from  [here](https://sourceforge.net/projects/pywin32/files/pywin32/Build%20220/) and run the downloaded executable.
 
+
 ### Using a virtual environment (recommended)
 We recommend creating a new Python virtual environment for trying out Plenum.
 a virtual environment is a Python environment which is isolated from the
@@ -99,41 +100,6 @@ And activate it by:
 
 ```
 source <name of virtual environment>/bin/activate
-```
-
-### Installing MongoDB (recommended)
-
-```
-1. sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-```
-
-```
-2. echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.0.list
-```
-
-```
-3. sudo apt-get update
-```
-
-```
-4. sudo apt-get install -y mongodb-org
-```
-
-### Installing RethinkDB
-```
-1. source /etc/lsb-release && echo "deb http://download.rethinkdb.com/apt $DISTRIB_CODENAME main" | sudo tee /etc/apt/sources.list.d/rethinkdb.list
-```
-
-```
-2. wget -qO- https://download.rethinkdb.com/apt/pubkey.gpg | sudo apt-key add -
-```
-
-```
-3. sudo apt-get update
-```
-
-```
-4. sudo apt-get install rethinkdb
 ```
 
 
@@ -153,6 +119,7 @@ init_plenum_raet_keep --name Gamma --seeds 000000000000000000000000000Gamma Gamm
 ```
 init_plenum_raet_keep --name Delta --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
 ```
+
 
 ### Seeds used for generating clients
 1. Seed used for steward Bob's signing key pair ```11111111111111111111111111111111```

@@ -1,7 +1,7 @@
 import asyncio
 import random
 import time
-from collections import deque, defaultdict
+from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
@@ -10,10 +10,9 @@ from typing import Tuple
 
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.error import ProofError
+from ledger.immutable_store.serializers.compact_serializer import CompactSerializer
 from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.store import F
-from ledger.immutable_store.merkle import CompactMerkleTree, MerkleVerifier
+from ledger.immutable_store.merkle import CompactMerkleTree
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -21,19 +20,19 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.stacked import ClientStacked
+from plenum.common.stacked import NodeStacked
+from plenum.common.startable import Status
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA
-from plenum.common.stacked import ClientStacked
-from plenum.common.stacked import NodeStacked
-from plenum.common.startable import Status
-from plenum.common.transaction_store import TransactionStore
-from plenum.common.txn import TXN_TYPE, NEW_NODE, NEW_STEWARD, NEW_CLIENT, \
-    TXN_ID
+    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
+    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
+from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
@@ -43,13 +42,12 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
-from plenum.server.pool_manager import PoolManager, HasPoolManager
+from plenum.server.pool_manager import HasPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.persistence.storage import Storage
 
 logger = getlogger()
 
@@ -189,10 +187,35 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # dispatching the processed requests to the correct client remote
         self.clientIdentifiers = {}     # Dict[str, str]
 
-        self.txnStore = storage or self.getStorage()
+        # Change name to primaryStorage
+        self.primaryStorage = storage or self.getPrimaryStorage()
+        self.secondaryStorage = self.getSecondaryStorage()
 
-    def getStorage(self):
-        return Ledger(CompactMerkleTree(), dataDir=self.basedirpath)
+    def getPrimaryStorage(self):
+        if self.config.primaryStorage is None:
+            fields = OrderedDict([
+                (f.IDENTIFIER.nm, (str, str)),
+                (f.REQ_ID.nm, (str, int)),
+                (TXN_ID, (str, str)),
+                (TXN_TIME, (str, float)),
+                (TXN_TYPE, (str, str)),
+            ])
+            return Ledger(CompactMerkleTree(), dataDir=self.getDataLocation(),
+                          serializer=CompactSerializer(fields=fields))
+        else:
+            return initStorage(self.config.primaryStorage,
+                               name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
+                                dataDir=self.getDataLocation(),
+                                config=self.config)
+
+    def getSecondaryStorage(self):
+        if self.config.secondaryStorage:
+            return initStorage(self.config.secondaryStorage,
+                            name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
+                            dataDir=self.getDataLocation(),
+                            config=self.config)
+        else:
+            return None
 
     def start(self, loop):
         oldstatus = self.status
@@ -201,7 +224,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
-            self.txnStore.start(loop)
+            self.primaryStorage.start(loop)
             self.startNodestack()
             self.startClientstack()
 
@@ -249,7 +272,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.logstats()
         self.conns.clear()
         # Stop the txn store
-        self.txnStore.stop()
+        self.primaryStorage.stop()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -400,7 +423,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         This is a convenience method used to create replicas from a node
         instead of passing in replicas in the Node's constructor.
 
-        :param protNo: protocol instance number
+        :param instId: protocol instance number
         :param isMaster: does this replica belong to the master protocol
             instance?
         :return: a new instance of Replica
@@ -854,7 +877,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             key = (identifier, reqId)
             if key in self.requests:
                 req = self.requests[key].request
-                await self.executeRequest(viewNo, ppTime, req)
+                await self.executeRequest(ppTime, req)
                 logger.debug("Node {} executing client request {} {}".
                              format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
@@ -862,8 +885,6 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             # then retry 3 times
             elif retryNo < 3:
                 retryNo += 1
-                # p = partial(self.processOrdered, ordered, retryNo)
-                # self._schedule(p, random.randint(2, 4))
                 asyncio.sleep(random.randint(2, 4))
                 await self.processOrdered(ordered, retryNo)
                 logger.debug("Node {} retrying executing client request {} {}".
@@ -944,7 +965,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              format(self))
         return True
 
-    async def executeRequest(self, viewNo: int, ppTime: float, req: Request) -> None:
+    async def executeRequest(self, ppTime: float, req: Request) -> None:
         """
         Execute the REQUEST sent to this Node
 
@@ -953,15 +974,16 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param req: the client REQUEST
         """
 
-        await self.requestExecuter[req.operation.get(TXN_TYPE)](viewNo, ppTime, req)
+        await self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
 
     # TODO: Find a better name for the function
-    async def doCustomAction(self, viewNo, ppTime, req):
-        reply = await self.generateReply(viewNo, ppTime, req)
+    async def doCustomAction(self, ppTime, req):
+        reply = await self.generateReply(ppTime, req)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, identifier, reqId):
-        return await self.txnStore.get(identifier, reqId)
+        result = await self.primaryStorage.get(identifier, reqId)
+        return Reply(result) if result else None
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -1028,25 +1050,29 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                      extra={"cli": True})
 
     async def generateReply(self,
-                      viewNo: int,
                       ppTime: float,
                       req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
         computed txnId of the request
 
-        :param viewNo: the view number (See glossary)
         :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the REQUEST
         :return: a Reply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
-        txnId = sha256("{}{}{}".format(viewNo, req.identifier, req.reqId).
+        txnId = sha256("{}{}".format(req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        txnRslt = Reply(viewNo, req.reqId, {"txnId": txnId, "time": ppTime}, None)
-        merkleProof = await self.txnStore.append(
+        result = {f.IDENTIFIER.nm: req.identifier,
+                  f.REQ_ID.nm: req.reqId,
+                  TXN_ID: txnId,
+                  TXN_TIME: ppTime,
+                  TXN_TYPE: req.operation.get(TXN_TYPE)}
+        txnRslt = Reply(result)
+        merkleProof = await self.primaryStorage.append(
             identifier=req.identifier, reply=txnRslt, txnId=txnId)
-        return Reply(*txnRslt[:-1], merkleProof)
+        result.update(merkleProof)
+        return Reply(result)
 
     def startKeySharing(self, timeout=60):
         """
