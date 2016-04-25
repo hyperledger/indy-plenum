@@ -663,7 +663,9 @@ class NodeStacked(Batched):
                                   format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
-                    error("{} ha for {} doesn't match".format(self, r.name))
+                    error("{} ha for {} doesn't match. ha of remote is {} but "
+                          "should be {}".
+                          format(self, r.name, r.ha, self.nodeReg[r.name]))
             else:
                 regName = self.findInNodeRegByHA(r.ha)
 
