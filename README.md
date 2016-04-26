@@ -105,19 +105,19 @@ source <name of virtual environment>/bin/activate
 
 ### Initializing Keep
 ```
-init_plenum_raet_keep --name Alpha --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
+init_plenum_raet_keep --name EvernymV1 --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
 ```
 
 ```
-init_plenum_raet_keep --name Beta --seeds 0000000000000000000000000000Beta Beta0000000000000000000000000000 --force
+init_plenum_raet_keep --name EvernymV2 --seeds 0000000000000000000000000000Beta Beta0000000000000000000000000000 --force
 ```
 
 ```
-init_plenum_raet_keep --name Gamma --seeds 000000000000000000000000000Gamma Gamma000000000000000000000000000 --force
+init_plenum_raet_keep --name WSECU --seeds 000000000000000000000000000Gamma Gamma000000000000000000000000000 --force
 ```
 
 ```
-init_plenum_raet_keep --name Delta --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
+init_plenum_raet_keep --name BIG --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
 ```
 
 
