@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from typing import Dict
 
 import pyorient
@@ -33,6 +32,9 @@ class OrientDbStore:
                                 "metadata:schema ) where name = '{}'".
                                 format(name))
         return bool(r)
+
+    def createClass(self, className):
+        self.client.command("create class {}".format(className))
 
     def createClassProperties(self, className, properties: Dict):
         for prpName, typ in properties.items():
