@@ -60,7 +60,8 @@ class TaggedTupleBase:
 def TaggedTuple(typename, fields):
     cls = NamedTuple(typename, fields)
     if any(field == OP_FIELD_NAME for field in cls._fields):
-            raise RuntimeError("field name '{}' is reserved in TaggedTuple".format(OP_FIELD_NAME))
+            raise RuntimeError("field name '{}' is reserved in TaggedTuple"
+                               .format(OP_FIELD_NAME))
     cls.__bases__ += (TaggedTupleBase,)
     cls.typename = typename
     return cls
@@ -211,8 +212,8 @@ def loadRegistry():
     if not TaggedTuples:
         this = sys.modules[__name__]
         TaggedTuples = {getattr(this, x).__name__: getattr(this, x) for x in dir(this)
-                        if callable(getattr(getattr(this, x), "melted", None)) and
-                        getattr(getattr(this, x), "_fields", None)}
+                        if callable(getattr(getattr(this, x), "melted", None))
+                        and getattr(getattr(this, x), "_fields", None)}
 
 loadRegistry()
 

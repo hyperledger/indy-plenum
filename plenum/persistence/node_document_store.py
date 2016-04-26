@@ -45,15 +45,15 @@ class NodeDocumentStore:
                        auditPath):
         auditPath = ", ".join(["'{}'".format(h) for h in auditPath])
         self.client.command("update {} set {} = '{}', reply = '{}', "
-                            "clientId = '{}', {} = {}, serialNo = {}, rootHash = '{}'"
-                            ", auditPath = [{}] upsert where {} = '{}'".
+                            "clientId = '{}', {} = {}, serialNo = {}, rootHash "
+                            "= '{}', auditPath = [{}] upsert where {} = '{}'".
                             format(TXN_DATA, TXN_ID, txnId, json.dumps(reply[0]),
                                    clientId, f.REQ_ID.nm, reqId, serialNo,
                                    rootHash, auditPath, TXN_ID, txnId))
 
     def getReply(self, identifier, reqId):
-        result = self.client.command("select reply from {} where clientId = '{}'"
-                                     " and reqId = {}".
+        result = self.client.command("select reply from {} where clientId = "
+                                     "'{}' and reqId = {}".
                                      format(TXN_DATA, identifier, reqId))
         return None if not result else json.loads(result[0].oRecordData['reply'])
 

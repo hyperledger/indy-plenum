@@ -6,7 +6,6 @@ from plenum.persistence.orientdb_store import OrientDbStore
 
 
 class Storage:
-
     def start(self, loop):
         raise NotImplementedError()
 
@@ -33,7 +32,7 @@ def initStorage(storageType, name, dataDir=None, config=None):
             raise DBConfigNotFound
         orientConf = config.OrientDB
         return OrientDbStore(user=orientConf["user"],
-                                 password=orientConf["password"],
-                                 host=orientConf["host"],
-                                 port=orientConf["port"],
-                                 dbName=name)
+                             password=orientConf["password"],
+                             host=orientConf["host"],
+                             port=orientConf["port"],
+                             dbName=name)
