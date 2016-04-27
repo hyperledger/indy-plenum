@@ -37,9 +37,12 @@ class SigningException(BaseExc):
     pass
 
 
-class CouldNotAuthenticate(SigningException):
+class CouldNotAuthenticate(SigningException, ReqInfo):
     code = 110
     reason = 'could not authenticate'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class MissingSignature(SigningException):
