@@ -53,19 +53,42 @@ Install libsodium
 sudo apt-get install libsodium13
 ```
 
-> If libsodium13 is not found for your version of ubuntu, you can download and install the deb package directly.
-> 
-> For 64-bit:
-> ```
-> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_amd64.deb
-> sudo dpkg -i libsodium13_1.0.3-1_amd64.deb
-> ```
-> 
-> For 32-bit:
-> ```
-> wget http://archive.ubuntu.com/ubuntu/pool/universe/libs/libsodium/libsodium13_1.0.3-1_i386.deb
-> sudo dpkg -i libsodium13_1.0.3-1_i386.deb
-> ```
+If you get the error `E: Unable to locate package libsodium13` then add the following lines to your `/etc/apt/sources.list`
+
+```
+deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main
+deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main
+```
+
+Now run
+ 
+```
+sudo apt-get update
+sudo apt-get install libsodium13
+```
+
+While doing the above steps if you get the error
+
+```
+W: GPG error: http://ppa.launchpad.net trusty Release: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY B9316A7BC7917B12
+```
+
+Then you need to download the pubkey from the [OpenPGP Public Key Server](http://keyserver.ubuntu.com) and add it to your system. Steps to do that
+
+1. Go to the [OpenPGP Public Key Server](http://keyserver.ubuntu.com)
+2. Search for `0xB9316A7BC7917B12`
+3. Click on the link provided in the pub section. This should take you to page containing the key.
+4. Copy everything starting from `-----BEGIN PGP PUBLIC KEY` and save it in a file say `libsodium.key`:
+5. Now run `sudo apt-key add libsodium.key`
+
+[Courtesy: Askubuntu](http://askubuntu.com/a/358424)
+
+Now run
+
+```
+sudo apt-get update
+sudo apt-get install libsodium13
+```
 
 
 **CentOS/Redhat:**
