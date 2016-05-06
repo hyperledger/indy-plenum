@@ -6,6 +6,7 @@ from plenum.common.util import getlogger
 logger = getlogger()
 
 
+# TODO Move all OrientDb specific implementation details here.
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
                  dbType=pyorient.DB_TYPE_GRAPH,
