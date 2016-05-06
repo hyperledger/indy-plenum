@@ -6,10 +6,12 @@ from plenum.common.util import getlogger
 logger = getlogger()
 
 
+# TODO Move all OrientDb specific implementation details here.
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
                  dbType=pyorient.DB_TYPE_GRAPH,
                  storageType=pyorient.STORAGE_TYPE_MEMORY):
+        self.dbType = dbType
         self.client = pyorient.OrientDB(host=host, port=port)
         self.session_id = self.client.connect(user, password)
         if not self.client.db_exists(dbName, storageType):

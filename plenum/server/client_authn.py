@@ -4,11 +4,11 @@ Clients are authenticated with a digital signature.
 from abc import abstractmethod
 from base64 import b64decode
 from typing import Dict
-from typing import Mapping
 
 from raet.nacling import Verifier
 
-from plenum.common.exceptions import InvalidSignature, EmptySignature, MissingSignature, EmptyIdentifier, \
+from plenum.common.exceptions import InvalidSignature, EmptySignature, \
+    MissingSignature, EmptyIdentifier, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
 from plenum.common.types import f
 from plenum.common.signing import serializeForSig
@@ -18,11 +18,12 @@ class ClientAuthNr:
     """
     Interface for client authenticators.
     """
+
     @abstractmethod
     def authenticate(self,
                      msg: Dict,
-                     identifier: str=None,
-                     signature: str=None) -> str:
+                     identifier: str = None,
+                     signature: str = None) -> str:
         """
         Authenticate the client's message with the signature provided.
 
@@ -56,8 +57,8 @@ class ClientAuthNr:
 class NaclAuthNr(ClientAuthNr):
     def authenticate(self,
                      msg: Dict,
-                     identifier: str=None,
-                     signature: str=None) -> str:
+                     identifier: str = None,
+                     signature: str = None) -> str:
         try:
             if not signature:
                 try:
@@ -105,6 +106,7 @@ class SimpleAuthNr(NaclAuthNr):
     Simple client authenticator. Should be replaced with a more robust and
     secure system.
     """
+
     def __init__(self):
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]

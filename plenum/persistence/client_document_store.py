@@ -13,6 +13,7 @@ ATTR_DATA = "AttrData"
 LAST_TXN_DATA = "LastTxnData"
 
 
+# TODO Rename it to its proper domain name.
 class ClientDocumentStore:
     def __init__(self, store):
         self.store = store
@@ -127,8 +128,8 @@ class ClientDocumentStore:
         errors = self.getNacks(reqId)
         return replies, errors
 
-    def requestConsensed(self, reqId):
-        self.client.command("update {} set consensed = true where {} = {}".
+    def requestHasConsensus(self, reqId):
+        self.client.command("update {} set hasConsensus = true where {} = {}".
                             format(REQ_DATA, f.REQ_ID.nm, reqId))
 
     def getRepliesByTxnId(self, txnId):

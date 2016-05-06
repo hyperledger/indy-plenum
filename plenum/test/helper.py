@@ -15,6 +15,7 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
     Any, Sequence, Iterator
 from typing import Union, Callable
 
+import pyorient
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
@@ -29,6 +30,7 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict
+from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -340,8 +342,23 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(name, baseDir):
         pass
 
+    def _getOrientDbStore(self, name, dbType):
+        client = pyorient.OrientDB(host="localhost", port=2424)
+        client.connect(user=self.config.OrientDB['user'], password=self.config.OrientDB['password'])
+        try:
+            if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
+                client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        # This is to avoid a known bug in OrientDb.
+        except pyorient.exceptions.PyOrientDatabaseException:
+            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        return OrientDbStore(user=self.config.OrientDB["user"],
+              password=self.config.OrientDB["password"],
+              dbName=name,
+              dbType=dbType,
+              storageType=pyorient.STORAGE_TYPE_MEMORY)
 
-# noinspection PyShadowingNames,PyShadowingNames
+
+# noinspection PyShadowingNames
 @Spyable(methods=[Node.handleOneNodeMsg,
                   Node.processRequest,
                   Node.processOrdered,
@@ -645,7 +662,7 @@ async def checkNodesConnected(stacks: Iterable[NodeStacked],
                         acceptableExceptions=[AssertionError, RemoteNotFound])
 
 
-def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
+def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
                      state: RemoteState = None):
     assert states or state, "either state or states is required"
     assert not (
