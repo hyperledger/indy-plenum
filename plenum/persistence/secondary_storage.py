@@ -17,5 +17,5 @@ class SecondaryStorage:
     async def getReply(self, identifier, reqId, **kwargs):
         return await self._primaryStorage.get(identifier, reqId)
 
-    def getReplies(self, *txnIds, serialNo=None, **kwargs):
+    def getReplies(self, *txnIds, seqNo=None, **kwargs):
         raise NotImplementedError
