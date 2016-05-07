@@ -1,6 +1,5 @@
 import asyncio
 import random
-import time
 from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
@@ -8,11 +7,17 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set
 from typing import Tuple
 
+import pyorient
+import time
+from ledger.ledger import Ledger
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.stores.file_hash_store import FileHashStore
+from ledger.stores.hash_store import HashStore
+from ledger.util import F
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.serializers.compact_serializer import CompactSerializer
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
+from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -29,13 +34,16 @@ from plenum.common.types import Request, Propagate, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
     RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
-    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX
+    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
+    HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
+from plenum.persistence.orientdb_hash_store import OrientDbHashStore
+from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.persistence.secondary_storage import SecondaryStorage
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
-from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
@@ -55,8 +63,8 @@ logger = getlogger()
 class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
            Propagator, MessageProcessor, HasFileStorage, HasPoolManager):
     """
-    A node in a plenum system. Nodes communicate with each other via the RAET
-    protocol. https://github.com/saltstack/raet
+    A node in a plenum system. Nodes communicate with each other via the
+    RAET protocol. https://github.com/saltstack/raet
     """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
@@ -187,11 +195,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # dispatching the processed requests to the correct client remote
         self.clientIdentifiers = {}     # Dict[str, str]
 
-        # Change name to primaryStorage
+        self.hashStore = self.getHashStore(self.name)
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
 
     def getPrimaryStorage(self):
+        """
+        This is usually an implementation of Ledger
+        """
         if self.config.primaryStorage is None:
             fields = OrderedDict([
                 (f.IDENTIFIER.nm, (str, str)),
@@ -199,23 +210,48 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 (TXN_ID, (str, str)),
                 (TXN_TIME, (str, float)),
                 (TXN_TYPE, (str, str)),
+                (F.seqNo.name, (str, int))
             ])
-            return Ledger(CompactMerkleTree(), dataDir=self.getDataLocation(),
+            return Ledger(CompactMerkleTree(hashStore=self.hashStore),
+                          dataDir=self.getDataLocation(),
                           serializer=CompactSerializer(fields=fields))
         else:
             return initStorage(self.config.primaryStorage,
                                name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
-                                dataDir=self.getDataLocation(),
-                                config=self.config)
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
+
+    def getHashStore(self, name) -> HashStore:
+        """
+        Create and return a hashStore implementation based on configuration
+        """
+        hsConfig = self.config.hashStore.lower()
+        if hsConfig == HS_FILE:
+            return FileHashStore(dataDir=self.getDataLocation(),fileNamePrefix=NODE_HASH_STORE_SUFFIX)
+        elif hsConfig == HS_ORIENT_DB:
+            return OrientDbHashStore(
+                self._getOrientDbStore(name, pyorient.DB_TYPE_GRAPH))
+        elif hsConfig == HS_MEMORY:
+            return MemoryHashStore()
+        else:
+            return MemoryHashStore()
 
     def getSecondaryStorage(self):
         if self.config.secondaryStorage:
             return initStorage(self.config.secondaryStorage,
-                            name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
-                            dataDir=self.getDataLocation(),
-                            config=self.config)
+                               name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
         else:
-            return None
+            return SecondaryStorage(txnStore=None,
+                                    primaryStorage=self.primaryStorage)
+
+    def _getOrientDbStore(self, name, dbType):
+        return OrientDbStore(user=self.config.OrientDB["user"],
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_PLOCAL)
 
     def start(self, loop):
         oldstatus = self.status
@@ -812,7 +848,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
-        reply = await self.getReplyFor(request.identifier, request.reqId)
+        reply = await self.getReplyFor(request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -981,8 +1017,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reply = await self.generateReply(ppTime, req)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
-    async def getReplyFor(self, identifier, reqId):
-        result = await self.primaryStorage.get(identifier, reqId)
+    async def getReplyFor(self, request):
+        result = await self.secondaryStorage.getReply(request.identifier, request.reqId)
         return Reply(result) if result else None
 
     def sendInstanceChange(self, viewNo: int):

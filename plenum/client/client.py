@@ -6,15 +6,15 @@ and receives result of the request execution from nodes.
 import base64
 import json
 import logging
-import time
 from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
+import time
+from ledger.merkle_verifier import MerkleVerifier
+from ledger.serializers.json_serializer import JsonSerializer
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.merkle import MerkleVerifier
-from ledger.immutable_store.serializers import JsonSerializer
-from ledger.immutable_store.store import F
+from ledger.util import F
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.motor import Motor
 from plenum.common.stacked import NodeStacked
@@ -309,17 +309,17 @@ class Client(NodeStacked, Motor):
         verifier = MerkleVerifier()
         serializer = JsonSerializer()
         for r in replies:
-            serialNo = r[f.RESULT.nm][F.serialNo.name]
+            seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = base64.b64decode(r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
             filtered = ((k, v) for (k, v) in r[f.RESULT.nm].iteritems()
                         if k not in
-                        [F.auditPath.name, F.serialNo.name, F.rootHash.name])
+                        [F.auditPath.name, F.seqNo.name, F.rootHash.name])
             result = serializer.serialize(dict(filtered))
-            verifier.verify_leaf_inclusion(result, serialNo-1,
+            verifier.verify_leaf_inclusion(result, seqNo-1,
                                            auditPath,
-                                           sth(tree_size=serialNo,
+                                           sth(tree_size=seqNo,
                                                sha256_root_hash=rootHash))
         return True
 

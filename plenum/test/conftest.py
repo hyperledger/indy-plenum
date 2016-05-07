@@ -1,21 +1,21 @@
-import itertools
 import json
 import logging
 import os
 from functools import partial
 from typing import Dict, Any
+import itertools
+
 
 import pytest
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
 
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
 from plenum.common.looper import Looper
-from plenum.common.raet import initLocalKeep, initRemoteKeep
+from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP
-from plenum.common.util import getNoInstances, TestingHandler, getConfig
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
-
+from plenum.common.util import getNoInstances, TestingHandler, getConfig
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \

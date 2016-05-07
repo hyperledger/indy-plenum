@@ -1,24 +1,24 @@
 import pyorient
 import pytest
 
-from plenum.persistence.orientdb_store import OrientDbStore
+from ledger.test.test_file_hash_store import generateHashes, nodesLeaves
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
-from ledger.immutable_store.test.test_file_hash_store import nodesLeaves, \
-    generateHashes
+from plenum.persistence.orientdb_store import OrientDbStore
 
 
 @pytest.fixture(scope="module")
 def odbhs():
     hs = OrientDbHashStore(
         OrientDbStore(user="root", password="password", dbName="test"))
-    truncateClasses(hs)
+    cleanup(hs)
     return hs
 
 
-def truncateClasses(hs):
+def cleanup(hs):
     for cls in [hs.nodeHashClass, hs.leafHashClass]:
         if hs.store.classExists(cls):
             hs.store.client.command("Truncate class {}".format(cls))
+    hs.numLeaves = 0
 
 
 def testOrientDbSetup(odbhs):
@@ -35,10 +35,10 @@ def testIndexFrom1(odbhs: OrientDbHashStore):
 
 
 def testReadWrite(odbhs: OrientDbHashStore, nodesLeaves):
-    nodes, leafs = nodesLeaves
+    nodes, leaves = nodesLeaves
     for node in nodes:
         odbhs.writeNode(node)
-    for leaf in leafs:
+    for leaf in leaves:
         odbhs.writeLeaf(leaf)
     onebyone = [odbhs.readLeaf(i + 1) for i in range(10)]
     multiple = odbhs.readLeafs(1, 10)

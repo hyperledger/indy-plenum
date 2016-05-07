@@ -233,6 +233,8 @@ NODE_BLACKLISTER_SUFFIX = "BLN"
 
 NODE_PRIMARY_STORAGE_SUFFIX = "PS"
 NODE_SECONDARY_STORAGE_SUFFIX = "SS"
+NODE_TXN_STORE_SUFFIX = "TS"
+NODE_HASH_STORE_SUFFIX = "HS"
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -242,3 +244,7 @@ NodeDetail = NamedTuple("NodeDetail", [
     ("ha", HA),
     ("cliname", str),
     ("cliha", HA)])
+
+HS_FILE = "file"
+HS_ORIENT_DB = "orientdb"
+HS_MEMORY = "memory"

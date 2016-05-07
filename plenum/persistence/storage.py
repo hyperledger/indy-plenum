@@ -1,25 +1,28 @@
-from ledger.immutable_store.stores import TextFileStore
+from abc import abstractmethod, ABC
+
+from ledger.stores.text_file_store import TextFileStore
 from plenum.common.exceptions import DataDirectoryNotFound, DBConfigNotFound
 from plenum.common.txn import StorageType
 from plenum.common.types import Reply
 from plenum.persistence.orientdb_store import OrientDbStore
 
 
-class Storage:
+class Storage(ABC):
+    @abstractmethod
     def start(self, loop):
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     def stop(self):
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     async def append(self, identifier: str, reply: Reply, txnId: str):
-        raise NotImplementedError()
+        pass
 
-    async def get(self, identifier: str, reqId: int):
-        raise NotImplementedError()
-
-    def size(self) -> int:
-        raise NotImplementedError()
+    @abstractmethod
+    async def get(self, identifier: str, reqId: int, **kwargs):
+        pass
 
 
 def initStorage(storageType, name, dataDir=None, config=None):
