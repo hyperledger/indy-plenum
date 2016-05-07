@@ -1,24 +1,21 @@
-import asyncio
-import inspect
 import os
 import shutil
-from binascii import hexlify
 from collections import OrderedDict
 from typing import Dict
 
+from binascii import hexlify
+from ledger.ledger import Ledger
 from libnacl.encode import base64_decode
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
+from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.common.raet import initRemoteKeep
-from plenum.common.types import HA
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, PUBKEY, \
     NODE_IP, ALIAS, NODE_PORT, CLIENT_PORT, NEW_STEWARD, ClientBootStrategy, \
     NEW_CLIENT, TXN_ID, CLIENT, STEWARD
-from plenum.common.util import getlogger
+from plenum.common.types import HA
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
-
+from plenum.common.util import getlogger
 
 logger = getlogger()
 

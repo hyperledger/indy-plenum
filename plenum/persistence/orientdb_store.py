@@ -6,7 +6,6 @@ from plenum.common.util import getlogger
 logger = getlogger()
 
 
-# TODO Move all OrientDb specific implementation details here.
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
                  dbType=pyorient.DB_TYPE_GRAPH,
@@ -58,6 +57,5 @@ class OrientDbStore:
 
     def getByRecordIds(self, *rids):
         ridStr = ",".join(
-            # [rid if rid.startswith("#") else "#" + rid for rid in rids])
             rids)
         return self.client.command("select from [{}]".format(ridStr))

@@ -1,9 +1,9 @@
 import os
 
 import pytest
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
+from ledger.ledger import Ledger
 
+from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.test.storage.helper import checkReplyIsPersisted
 
 

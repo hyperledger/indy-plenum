@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 
-from ledger.immutable_store.stores import TextFileStore
+from ledger.stores.text_file_store import TextFileStore
 from plenum.common.exceptions import DataDirectoryNotFound, DBConfigNotFound
 from plenum.common.txn import StorageType
 from plenum.common.types import Reply

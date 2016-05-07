@@ -1,6 +1,5 @@
 import asyncio
 import random
-import time
 from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
@@ -9,15 +8,16 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 from typing import Tuple
 
 import pyorient
+import time
+from ledger.ledger import Ledger
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.stores.file_hash_store import FileHashStore
+from ledger.stores.hash_store import HashStore
+from ledger.util import F
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.serializers.compact_serializer import CompactSerializer
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
-from ledger.immutable_store.store import F
-from ledger.immutable_store.stores.file_hash_store import FileHashStore
-from ledger.immutable_store.stores.hash_store import HashStore
-from ledger.immutable_store.stores.memory_hash_store import MemoryHashStore
+from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -44,7 +44,6 @@ from plenum.persistence.secondary_storage import SecondaryStorage
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
-from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
@@ -211,7 +210,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 (TXN_ID, (str, str)),
                 (TXN_TIME, (str, float)),
                 (TXN_TYPE, (str, str)),
-                (F.serialNo.name, (str, int))
+                (F.seqNo.name, (str, int))
             ])
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.getDataLocation(),
@@ -219,8 +218,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         else:
             return initStorage(self.config.primaryStorage,
                                name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
-                                dataDir=self.getDataLocation(),
-                                config=self.config)
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
 
     def getHashStore(self, name) -> HashStore:
         """
@@ -240,19 +239,19 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def getSecondaryStorage(self):
         if self.config.secondaryStorage:
             return initStorage(self.config.secondaryStorage,
-                            name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
-                            dataDir=self.getDataLocation(),
-                            config=self.config)
+                               name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
         else:
             return SecondaryStorage(txnStore=None,
                                     primaryStorage=self.primaryStorage)
 
     def _getOrientDbStore(self, name, dbType):
         return OrientDbStore(user=self.config.OrientDB["user"],
-              password=self.config.OrientDB["password"],
-              dbName=name,
-              dbType=dbType,
-              storageType=pyorient.STORAGE_TYPE_PLOCAL)
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_PLOCAL)
 
     def start(self, loop):
         oldstatus = self.status

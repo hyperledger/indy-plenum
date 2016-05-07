@@ -344,7 +344,8 @@ class TestNodeCore(StackedTester):
 
     def _getOrientDbStore(self, name, dbType):
         client = pyorient.OrientDB(host="localhost", port=2424)
-        client.connect(user=self.config.OrientDB['user'], password=self.config.OrientDB['password'])
+        client.connect(user=self.config.OrientDB['user'],
+                       password=self.config.OrientDB['password'])
         try:
             if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
                 client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
@@ -352,10 +353,10 @@ class TestNodeCore(StackedTester):
         except pyorient.exceptions.PyOrientDatabaseException:
             client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
         return OrientDbStore(user=self.config.OrientDB["user"],
-              password=self.config.OrientDB["password"],
-              dbName=name,
-              dbType=dbType,
-              storageType=pyorient.STORAGE_TYPE_MEMORY)
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_MEMORY)
 
 
 # noinspection PyShadowingNames
@@ -488,13 +489,13 @@ class TestNodeSet(ExitStack):
         testNodeClass = self.testNodeClass
         node = self.enter_context(
                 testNodeClass(name=name,
-                         ha=ha,
-                         cliname=cliname,
-                         cliha=cliha,
-                         nodeRegistry=copy(self.nodeReg),
-                         basedirpath=self.tmpdir,
-                         primaryDecider=self.primaryDecider,
-                         opVerifiers=opVerifiers))
+                              ha=ha,
+                              cliname=cliname,
+                              cliha=cliha,
+                              nodeRegistry=copy(self.nodeReg),
+                              basedirpath=self.tmpdir,
+                              primaryDecider=self.primaryDecider,
+                              opVerifiers=opVerifiers))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
