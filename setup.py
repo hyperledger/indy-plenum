@@ -63,9 +63,6 @@ setup(
                       'pyorient', 'pygments', 'ledger'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
-    extras_require={
-        'persistence': ['rethinkdb', 'motor']
-    },
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
              'scripts/start_plenum_node']
 )
