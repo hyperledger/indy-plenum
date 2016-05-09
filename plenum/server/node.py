@@ -17,12 +17,6 @@ from ledger.stores.hash_store import HashStore
 from ledger.util import F
 from raet.raeting import AutoMode
 
-from ledger.immutable_store.serializers.compact_serializer import CompactSerializer
-from ledger.immutable_store.ledger import Ledger
-from ledger.immutable_store.merkle import CompactMerkleTree
-from ledger.immutable_store.store import F
-from ledger.stores.file_hash_store import FileHashStore
-from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
