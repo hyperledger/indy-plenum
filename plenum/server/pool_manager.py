@@ -66,7 +66,7 @@ class TxnPoolManager(PoolManager):
                 raise FileNotFoundError("Pool transactions file not found")
             else:
                 shutil.copy(defaultTxnFile, self.node.getDataLocation())
-        ledger = Ledger(CompactMerkleTree(), dataDir=basedirpath,
+        ledger = Ledger(CompactMerkleTree(), dataDir=self.node.getDataLocation(),
                         fileName=self.poolTransactionsFile)
         return ledger
 
