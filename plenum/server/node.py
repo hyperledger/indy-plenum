@@ -1,5 +1,6 @@
 import asyncio
 import random
+import time
 from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
@@ -8,16 +9,15 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 from typing import Tuple
 
 import pyorient
-import time
-from ledger.ledger import Ledger
+from raet.raeting import AutoMode
+
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
-from ledger.util import F
-from raet.raeting import AutoMode
-
 from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.util import F
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -225,9 +225,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         """
         Create and return a hashStore implementation based on configuration
         """
-        hsConfig = self.config.hashStore.lower()
+        hsConfig = self.config.hashStore['type'].lower()
         if hsConfig == HS_FILE:
-            return FileHashStore(dataDir=self.getDataLocation(),fileNamePrefix=NODE_HASH_STORE_SUFFIX)
+            return FileHashStore(dataDir=self.getDataLocation(),
+                                 fileNamePrefix=NODE_HASH_STORE_SUFFIX)
         elif hsConfig == HS_ORIENT_DB:
             return OrientDbHashStore(
                 self._getOrientDbStore(name, pyorient.DB_TYPE_GRAPH))
@@ -236,7 +237,11 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         else:
             return MemoryHashStore()
 
-    def getSecondaryStorage(self):
+    def getSecondaryStorage(self) -> SecondaryStorage:
+        """
+        Create and return an instance of secondaryStorage to be
+        used by this Node.
+        """
         if self.config.secondaryStorage:
             return initStorage(self.config.secondaryStorage,
                                name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
@@ -246,7 +251,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return SecondaryStorage(txnStore=None,
                                     primaryStorage=self.primaryStorage)
 
-    def _getOrientDbStore(self, name, dbType):
+    def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
+        """
+        Helper method that creates an instance of OrientdbStore.
+
+        :param name: name of the orientdb database
+        :param dbType: orientdb database type
+        :return: orientdb store
+        """
         return OrientDbStore(user=self.config.OrientDB["user"],
                              password=self.config.OrientDB["password"],
                              dbName=name,
@@ -1175,10 +1187,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     @staticmethod
     def ensureKeysAreSetup(name, baseDir):
+        """
+        Check whether the keys are setup in the local RAET keep.
+        Raises RaetKeysNotFoundException if not found.
+        """
         if not isLocalKeepSetup(name, baseDir):
             raise REx(REx.reason)
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
+        """
+        Report suspicion on a node on the basis of an exception
+        """
         self.reportSuspiciousNode(ex.node, ex.reason, ex.code, ex.offendingMsg)
 
     def reportSuspiciousNode(self,
@@ -1186,6 +1205,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              reason=None,
                              code: int=None,
                              offendingMsg=None):
+        """
+        Report suspicion on a node and add it to this node's blacklist.
+
+        :param nodeName: name of the node to report suspicion on
+        :param reason: the reason for suspicion
+        """
         logger.warning("{} suspicion raised on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
@@ -1202,25 +1227,49 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.discard(offendingMsg, reason, logger.warning)
 
     def reportSuspiciousClient(self, clientName: str, reason):
+        """
+        Report suspicion on a client and add it to this node's blacklist.
+
+        :param clientName: name of the client to report suspicion on
+        :param reason: the reason for suspicion
+        """
         logger.warning("{} suspicion raised on client {} for {}; "
                        "doing nothing for now".
                        format(self, clientName, reason))
         self.blacklistClient(clientName)
 
     def isClientBlacklisted(self, clientName: str):
+        """
+        Check whether the given client is in this node's blacklist.
+
+        :param clientName: the client to check for blacklisting
+        :return: whether the client was blacklisted
+        """
         return self.clientBlacklister.isBlacklisted(clientName)
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+        """
+        Add the client specified by `clientName` to this node's blacklist
+        """
         msg = "{} blacklisting client {}".format(self, clientName)
         if reason:
             msg += " for reason {}".format(reason)
         logger.debug(msg)
         self.clientBlacklister.blacklist(clientName)
 
-    def isNodeBlacklisted(self, nodeName: str):
+    def isNodeBlacklisted(self, nodeName: str) -> bool:
+        """
+        Check whether the given node is in this node's blacklist.
+
+        :param nodeName: the node to check for blacklisting
+        :return: whether the node was blacklisted
+        """
         return self.nodeBlacklister.isBlacklisted(nodeName)
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
+        """
+        Add the node specified by `nodeName` to this node's blacklist
+        """
         msg = "{} blacklisting node {}".format(self, nodeName)
         if reason:
             msg += " for reason {}".format(reason)
@@ -1237,6 +1286,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.stop()
 
     def logstats(self):
+        """
+        Print the node's current statistics to log.
+        """
         lines = []
         l = lines.append
         l("node {} current stats".format(self))

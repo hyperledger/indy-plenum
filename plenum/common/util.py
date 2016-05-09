@@ -1,30 +1,25 @@
-import imaplib
+import asyncio
 import importlib.util
 import inspect
 import itertools
 import logging
+import math
 import os
 import random
 import socket
 import string
+import sys
+import time
 from collections import Counter
 from collections import OrderedDict
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, Tuple, \
     Union, List, NamedTuple
 
-import asyncio
 import libnacl.secret
-import math
-
-import sys
-
-import time
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
-from raet.road.keeping import RoadKeep
 from six import iteritems, string_types
-
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -357,7 +352,8 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
     return connmap
 
 
-def checkPortAvailable(ha):
+def checkPortAvailable(ha) -> bool:
+    """Returns whether the given port is available"""
     available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -390,6 +386,7 @@ class MessageProcessor:
 
 
 class adict(dict):
+    """Dict with attr access to keys."""
     marker = object()
 
     def __init__(self, **kwargs):
@@ -414,6 +411,14 @@ class adict(dict):
 
 
 def getInstalledConfig(installDir, configFile):
+    """
+    Reads config from the installation directory of Plenum.
+
+    :param installDir: installation directory of Plenum
+    :param configFile: name of the confiuration file
+    :raises: FileNotFoundError
+    :return: the configuration as a python object
+    """
     configPath = os.path.join(installDir, configFile)
     if os.path.exists(configPath):
         spec = importlib.util.spec_from_file_location(configFile,
@@ -426,6 +431,12 @@ def getInstalledConfig(installDir, configFile):
 
 
 def getConfig():
+    """
+    Reads a file called config.py in the project directory
+
+    :raises: FileNotFoundError
+    :return: the configuration as a python object
+    """
     refConfig = importlib.import_module("plenum.config")
     try:
         homeDir = os.path.expanduser("~")
@@ -436,7 +447,14 @@ def getConfig():
         pass
     return refConfig
 
-async def untilTrue(condition, *args, timeout=5):
+async def untilTrue(condition, *args, timeout=5) -> bool:
+    """
+    Keep checking the condition till it is true or a timeout is reached
+
+    :param condition: the condition to check (a function that returns bool)
+    :param args: the arguments to the condition
+    :return: True if the condition is met in the given timeout, False otherwise
+    """
     result = False
     start = time.perf_counter()
     elapsed = 0

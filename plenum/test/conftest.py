@@ -103,14 +103,16 @@ def counter():
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath, str(next(counter)))
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
+                           str(next(counter)))
     logging.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 
 @pytest.fixture(scope='function')
 def tdir_for_func(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath, str(next(counter)))
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
+                           str(next(counter)))
     logging.debug("function-level temporary directory: {}".format(tempdir))
     return tempdir
 
@@ -344,7 +346,8 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames, tdirWithNodeKeepInited):
+def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
+                   tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
@@ -362,5 +365,6 @@ def txnPoolCliNodeReg(poolTxnData):
     for txn in poolTxnData["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
             data = txn[DATA]
-            cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP], data[CLIENT_PORT])
+            cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
+                                                             data[CLIENT_PORT])
     return cliNodeReg

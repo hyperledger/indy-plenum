@@ -39,7 +39,15 @@ class OrientDbGraphStore(GraphStore):
             self.client.command("create property {}.out link {}".
                                 format(edgeClass, out))
 
-    def createEntity(self, createCmd, **kwargs):
+    def createVertex(self, name, **kwargs):
+        cmd = "create vertex {}".format(name)
+        return self._createEntity(cmd, **kwargs)
+
+    def createEdge(self, name, frm, to, **kwargs):
+        cmd = "create edge {} from {} to {}".format(name, frm, to)
+        return self._createEntity(cmd, **kwargs)
+
+    def _createEntity(self, createCmd, **kwargs):
         attributes = []
         if len(kwargs) > 0:
             createCmd += " set "
@@ -47,11 +55,3 @@ class OrientDbGraphStore(GraphStore):
             attributes.append("{} = '{}'".format(key, val))
         createCmd += ", ".join(attributes)
         return self.client.command(createCmd)[0]
-
-    def createVertex(self, name, **kwargs):
-        cmd = "create vertex {}".format(name)
-        return self.createEntity(cmd, **kwargs)
-
-    def createEdge(self, name, frm, to, **kwargs):
-        cmd = "create edge {} from {} to {}".format(name, frm, to)
-        return self.createEntity(cmd, **kwargs)

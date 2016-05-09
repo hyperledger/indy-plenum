@@ -56,6 +56,9 @@ class Monitor:
         return self.name
 
     def metrics(self):
+        """
+        Calculate and return the metrics.
+        """
         masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
         r = self.masterThroughputRatio()
         m = [
@@ -79,11 +82,17 @@ class Monitor:
         return m
 
     @property
-    def prettymetrics(self):
+    def prettymetrics(self) -> str:
+        """
+        Pretty printing for metrics
+        """
         rendered = ["{}: {}".format(*m) for m in self.metrics()]
         return "\n            ".join(rendered)
 
     def reset(self):
+        """
+        Reset the monitor. Sets all monitored values to defaults.
+        """
         logging.debug("Monitor being reset")
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}

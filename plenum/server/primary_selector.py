@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 from plenum.common.util import getlogger
 from plenum.server import replica

@@ -4,14 +4,14 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Sequence, Any
+from typing import Sequence, Any, Union
 
 from plenum.common.types import Nomination, Reelection, Primary, \
     f, BlacklistMsg
-from plenum.server import replica
-from plenum.server.router import Router
 from plenum.common.util import mostCommonElement, getQuorum, getlogger
+from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
+from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
@@ -572,6 +572,13 @@ class PrimaryElector(PrimaryDecider):
             logger.debug("{} has not got nomination quorum yet".format(replica))
 
     def sendNomination(self, name: str, instId: int, viewNo: int):
+        """
+        Broadcast a nomination message with the given parameters.
+
+        :param name: node name
+        :param instId: instance id
+        :param viewNo: view number
+        """
         self.send(Nomination(name, instId, viewNo))
 
     def sendPrimary(self, instId: int, primaryName: str):
@@ -640,10 +647,14 @@ class PrimaryElector(PrimaryDecider):
                     .format(replica))
                 self._schedule(partial(self.decidePrimary, instId))
 
-    def hasPrimaryDecisionTimerExpired(self, instId: int):
-        return (time.perf_counter() - self.scheduledPrimaryDecisions[instId])\
-               > (1 *
-        self.nodeCount)
+    def hasPrimaryDecisionTimerExpired(self, instId: int) -> bool:
+        """
+        Check whether there has been a timeout while waiting for elections.
+
+        :param instId: id of the instance for which elections are happening.
+        """
+        return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
+               > (1 * self.nodeCount)
 
     def send(self, msg):
         """
@@ -698,12 +709,10 @@ class PrimaryElector(PrimaryDecider):
             logger.warning("Provided view no {} is not greater than the "
                            "current view no {}".format(viewNo, self.viewNo))
 
-    def getElectionMsgsForInstance(self, instId: int):
+    def getElectionMsgsForInstance(self, instId: int) -> \
+            Sequence[Union[Nomination, Primary]]:
         """
-        Get nomination and primary messages for instance with id `instId` that
-        need to be sent to a node which has lagged behind
-        :param instId:
-        :return:
+        Get nomination and primary messages for instance with id `instId`.
         """
         msgs = []
         replica = self.replicas[instId]
@@ -725,9 +734,14 @@ class PrimaryElector(PrimaryDecider):
                                     self.viewNo))
         return msgs
 
-    def getElectionMsgsForLaggedNodes(self):
+    def getElectionMsgsForLaggedNodes(self) -> \
+            Sequence[Union[Nomination, Primary]]:
+        """
+        Get nomination and primary messages for instance with id `instId` that
+        need to be sent to a node which has lagged behind (for example, a newly
+        started node, a node that has crashed and recovered etc.)
+        """
         msgs = []
         for instId in range(len(self.replicas)):
             msgs.extend(self.getElectionMsgsForInstance(instId))
-
         return msgs

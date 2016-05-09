@@ -1,8 +1,6 @@
 from collections import deque
-from typing import List
 
 from plenum.common.util import MessageProcessor
-from plenum.server import replica
 from plenum.server.has_action_queue import HasActionQueue
 
 

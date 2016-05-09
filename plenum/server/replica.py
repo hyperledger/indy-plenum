@@ -15,7 +15,7 @@ from plenum.common.types import ReqDigest, PrePrepare, \
 from plenum.common.util import MessageProcessor, getlogger
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicion, Suspicions
+from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
 
@@ -38,6 +38,9 @@ class Stats:
         self.stats = OrderedDict((s, 0) for s in sort)
 
     def inc(self, key):
+        """
+        Increment the stat specified by key.
+        """
         self.stats[key] += 1
 
     def __repr__(self):
@@ -164,6 +167,11 @@ class Replica(MessageProcessor):
 
     @staticmethod
     def generateName(nodeName: str, instId: int):
+        """
+        Create and return the name for a replica using its nodeName and
+        instanceId.
+         Ex: Alpha:1
+        """
         return "{}:{}".format(nodeName, instId)
 
     @staticmethod
@@ -444,6 +452,10 @@ class Replica(MessageProcessor):
             self.addToPrePrepares(pp)
 
     def tryPrepare(self, pp: PrePrepare):
+        """
+        Try to send the Prepare message if the PrePrepare message is ready to
+        be passed into the Prepare phase.
+        """
         if self.canSendPrepare(pp):
             self.doPrepare(pp)
         else:
@@ -483,12 +495,19 @@ class Replica(MessageProcessor):
             self.addToCommits(commit, sender)
 
     def tryCommit(self, prepare: Prepare):
+        """
+        Try to commit if the Prepare message is ready to be passed into the
+        commit phase.
+        """
         if self.canCommit(prepare):
             self.doCommit(prepare)
         else:
             logger.debug("{} not yet able to send COMMIT".format(self))
 
     def tryOrder(self, commit: Commit):
+        """
+        Try to order if the Commit message is ready to be ordered.
+        """
         if self.canOrder(commit):
             logging.debug("{} returning request to node".format(self))
             self.doOrder(commit)
@@ -525,6 +544,11 @@ class Replica(MessageProcessor):
         self.addToPrepares(prepare, self.name)
 
     def doCommit(self, p: Prepare):
+        """
+        Create a commit message from the given Prepare message and trigger the
+        commit phase
+        :param p: the prepare message
+        """
         commit = Commit(self.instId,
                         p.viewNo,
                         p.ppSeqNo,

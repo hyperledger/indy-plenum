@@ -6,14 +6,14 @@ and receives result of the request execution from nodes.
 import base64
 import json
 import logging
+import time
 from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-import time
-from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.json_serializer import JsonSerializer
 from raet.raeting import AutoMode
 
+from ledger.merkle_verifier import MerkleVerifier
+from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.motor import Motor
@@ -103,6 +103,10 @@ class Client(NodeStacked, Motor):
         self.connectNicelyUntil = 0  # don't need to connect nicely as a client
 
     def setupDefaultSigner(self):
+        """
+        Create one SimpleSigner and add it to signers
+        against the client's name.
+        """
         self.signers = {self.name: SimpleSigner(self.name)}
         self.defaultIdentifier = self.name
 
@@ -159,6 +163,10 @@ class Client(NodeStacked, Motor):
         return requests
 
     def getSigner(self, identifier: str=None):
+        """
+        Look up and return a signer corresponding to the identifier specified.
+        Return None if not found.
+        """
         try:
             return self.signers[identifier or self.defaultIdentifier]
         except KeyError:
@@ -210,7 +218,6 @@ class Client(NodeStacked, Motor):
         (None, NOT_FOUND)
         (None, UNCONFIRMED) f+1 not reached
         (reply, CONFIRMED) f+1 reached
-
         """
         try:
             cons = self.hasConsensus(reqId)
@@ -238,7 +245,6 @@ class Client(NodeStacked, Motor):
         for the request or else False
 
         :param reqId: Request ID
-        :return: bool
         """
         replies = self.getRepliesFromAllNodes(reqId)
         if not replies:
@@ -288,6 +294,10 @@ class Client(NodeStacked, Motor):
             print("No replies received from Nodes!")
 
     def onConnsChanged(self, newConns: Set[str], lostConns: Set[str]):
+        """
+        Modify the current status of the client based on the status of the
+        connections changed.
+        """
         if self.isGoing():
             if len(self.conns) == len(self.nodeReg):
                 self.status = Status.started
@@ -300,6 +310,7 @@ class Client(NodeStacked, Motor):
         Verifies the correctness of the merkle proof provided in the reply from
         the node. Returns True if verified to be correct, throws an exception
         otherwise.
+
         :param replies: One or more replies for which Merkle Proofs have to be
         verified
         :raises ProofError: The proof is invalid
@@ -339,7 +350,6 @@ class ClientProvider:
         self.client = None
 
     def __getattr__(self, attr):
-
         if attr not in ["clientGenerator", "client"]:
             if not self.client:
                 self.client = self.clientGenerator()

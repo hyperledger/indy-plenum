@@ -1,5 +1,5 @@
-from typing import Optional, Sequence
 import time
+from typing import Optional, Sequence
 
 
 class Instances:
@@ -11,11 +11,17 @@ class Instances:
         self.started = []
 
     def add(self):
+        """
+        Add one protocol instance.
+        """
         self.count += 1
         self.started.append(time.perf_counter())
 
     @property
-    def ids(self):
+    def ids(self) -> Sequence[int]:
+        """
+        Return the list of ids of all the protocol instances
+        """
         return range(self.count)
 
     @property
