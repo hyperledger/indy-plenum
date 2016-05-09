@@ -1,5 +1,6 @@
 import asyncio
 import random
+import time
 from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
@@ -8,16 +9,15 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 from typing import Tuple
 
 import pyorient
-import time
-from ledger.ledger import Ledger
+from raet.raeting import AutoMode
+
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
-from ledger.util import F
-from raet.raeting import AutoMode
-
 from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.util import F
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -225,7 +225,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         """
         Create and return a hashStore implementation based on configuration
         """
-        hsConfig = self.config.hashStore.lower()
+        hsConfig = self.config.hashStore['type'].lower()
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.getDataLocation(),fileNamePrefix=NODE_HASH_STORE_SUFFIX)
         elif hsConfig == HS_ORIENT_DB:

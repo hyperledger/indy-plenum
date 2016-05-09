@@ -6,14 +6,14 @@ and receives result of the request execution from nodes.
 import base64
 import json
 import logging
+import time
 from collections import deque, OrderedDict, namedtuple
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-import time
-from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.json_serializer import JsonSerializer
 from raet.raeting import AutoMode
 
+from ledger.merkle_verifier import MerkleVerifier
+from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.motor import Motor
@@ -210,7 +210,6 @@ class Client(NodeStacked, Motor):
         (None, NOT_FOUND)
         (None, UNCONFIRMED) f+1 not reached
         (reply, CONFIRMED) f+1 reached
-
         """
         try:
             cons = self.hasConsensus(reqId)
@@ -238,7 +237,6 @@ class Client(NodeStacked, Motor):
         for the request or else False
 
         :param reqId: Request ID
-        :return: bool
         """
         replies = self.getRepliesFromAllNodes(reqId)
         if not replies:
@@ -339,7 +337,6 @@ class ClientProvider:
         self.client = None
 
     def __getattr__(self, attr):
-
         if attr not in ["clientGenerator", "client"]:
             if not self.client:
                 self.client = self.clientGenerator()

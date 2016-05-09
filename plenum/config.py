@@ -1,10 +1,8 @@
 from collections import OrderedDict
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-import pyorient
 
-from plenum.common.txn import ClientBootStrategy, StorageType
-from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.common.txn import ClientBootStrategy
 
 nodeReg = OrderedDict([
     ('Alpha', (('qcfbchain.cloudapp.net', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
@@ -26,7 +24,9 @@ poolTransactionsFile = "pool_transactions"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
-hashStore = "file"
+hashStore = {
+    "type": "file"
+}
 
 primaryStorage = None
 
