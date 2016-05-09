@@ -1,8 +1,8 @@
 import asyncio
 import inspect
 import signal
-import time
 import sys
+import time
 from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
@@ -241,5 +241,8 @@ class Looper:
             n.start(self.loop)
 
     def stopall(self):
+        """
+        Stop all the Prodables in this Looper's `prodables`
+        """
         for n in self.prodables:
             n.stop()

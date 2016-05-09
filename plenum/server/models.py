@@ -1,4 +1,7 @@
-from typing import NamedTuple, Set, Optional
+"""
+Some model objects used in Plenum protocol.
+"""
+from typing import NamedTuple, Set
 
 from plenum.common.types import Commit, Prepare
 

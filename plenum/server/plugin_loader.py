@@ -1,9 +1,9 @@
 import inspect
+import re
+import sys
 from importlib import import_module
 from os import listdir
 from os.path import isfile, join
-import sys
-import re
 from typing import Any, Set, Dict
 
 from plenum.common.util import getlogger
@@ -49,6 +49,7 @@ class PluginLoader:
         self.plugins = self._load()
 
     def get(self, name):
+        """Retrieve a plugin by name."""
         try:
             return self.plugins[name]
         except KeyError:

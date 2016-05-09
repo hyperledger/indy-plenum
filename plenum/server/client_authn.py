@@ -10,8 +10,8 @@ from raet.nacling import Verifier
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
-from plenum.common.types import f
 from plenum.common.signing import serializeForSig
+from plenum.common.types import f
 
 
 class ClientAuthNr:
@@ -51,6 +51,12 @@ class ClientAuthNr:
 
     @abstractmethod
     def getVerkey(self, identifier):
+        """
+        Get the verification key for a client based on the client's identifier
+
+        :param identifier: client's identifier
+        :return: the verification key
+        """
         pass
 
 

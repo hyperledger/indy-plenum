@@ -6,9 +6,11 @@ class Blacklister:
     Interface to be subclassed by all Blacklister types
     """
     def blacklist(self, name):
+        """Add the given name to this blacklister's blacklist"""
         raise NotImplementedError
 
-    def isBlacklisted(self, name):
+    def isBlacklisted(self, name) -> bool:
+        """Check if the given name exists in this blacklister's blacklist"""
         raise NotImplementedError
 
 

@@ -528,12 +528,19 @@ class NodeStacked(Batched):
         return False
 
     def connectToMissing(self, currentTime):
+        """
+        Try to connect to the missing node within the time specified by
+        `reconnectToMissingIn`
+
+        :param currentTime: the current time
+        """
         missing = self.reconcileNodeReg()
         if missing:
             logger.debug("{} found the following missing connections: {}".
                          format(self, ", ".join(missing)))
             if self.connectNicelyUntil is None:
-                self.connectNicelyUntil = currentTime + self.reconnectToMissingIn
+                self.connectNicelyUntil = \
+                    currentTime + self.reconnectToMissingIn
             if currentTime <= self.connectNicelyUntil:
                 names = list(self.nodeReg.keys())
                 names.append(self.name)
@@ -613,6 +620,10 @@ class NodeStacked(Batched):
             self.connect(dname, disconn.uid)
 
     def findInNodeRegByHA(self, remoteHa):
+        """
+        Returns the name of the remote by HA if found in the node registry, else
+        returns None
+        """
         regName = [nm for nm, ha in self.nodeReg.items()
                    if self.sameAddr(ha, remoteHa)]
         if len(regName) > 1:
@@ -717,6 +728,11 @@ class NodeStacked(Batched):
         return Stack
 
     def remotesByConnected(self):
+        """
+        Partitions the remotes into connected and disconnected
+
+        :return: tuple(connected remotes, disconnected remotes)
+        """
         conns, disconns = [], []
         for r in self.nodestack.remotes.values():
             array = conns if Stack.isRemoteConnected(r) else disconns
@@ -724,6 +740,11 @@ class NodeStacked(Batched):
         return conns, disconns
 
     def getRemoteName(self, remote):
+        """
+        Returns the name of the remote object if found in node registry.
+
+        :param remote: the remote object
+        """
         if remote.name not in self.nodeReg:
             find = [name for name, ha in self.nodeReg.items()
                     if ha == remote.ha]
@@ -731,7 +752,10 @@ class NodeStacked(Batched):
             return find[0]
         return remote.name
 
-    def sameAddr(self, ha, ha2):
+    def sameAddr(self, ha, ha2) -> bool:
+        """
+        Check whether the two arguments correspond to the same address
+        """
         if ha == ha2:
             return True
         elif ha[1] != ha2[1]:

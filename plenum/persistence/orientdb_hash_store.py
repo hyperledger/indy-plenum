@@ -1,8 +1,7 @@
 from base64 import b64encode, b64decode
 
-from ledger.util import F
-
 from ledger.stores.hash_store import HashStore
+from ledger.util import F
 from plenum.persistence.orientdb_store import OrientDbStore
 
 
@@ -19,7 +18,6 @@ class OrientDbHashStore(HashStore):
         self.numLeaves = self.getNumLeaves()
 
     def writeLeaf(self, leafHash):
-        """append the leaf to the leaf hash store"""
         self.store.client.command(
             "insert into {} (seqNo, leafHash) values ({}, '{}')".format(
                 self.leafHashClass, self.numLeaves + 1, self._tob64(leafHash)))
