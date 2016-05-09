@@ -5,7 +5,7 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, checkPoolReady, checkProtocolInstanceSetup, \
     delayerMsgTuple
 
-from plenum.common.request_types import Nomination
+from plenum.common.types import Nomination
 from plenum.test.primary_election.helpers import checkNomination
 
 

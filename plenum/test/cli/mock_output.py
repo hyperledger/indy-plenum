@@ -5,6 +5,9 @@ class MockOutput(Output):
     def __init__(self):
         self.writes = []
 
+    def fileno(self):
+        raise NotImplementedError
+
     def cursor_up(self, amount):
         raise NotImplementedError
 

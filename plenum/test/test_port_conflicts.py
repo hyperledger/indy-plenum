@@ -1,7 +1,6 @@
 import pytest
 
-from plenum.common.stacked import HA
-from plenum.server.node import NodeDetail
+from plenum.common.types import NodeDetail, HA
 
 
 # noinspection PyIncorrectDocstring

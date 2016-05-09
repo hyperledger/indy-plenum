@@ -4,26 +4,23 @@ import time
 from collections import Callable
 from collections import deque
 from typing import Any, Set, Optional
-from typing import Dict, NamedTuple
-from typing import Mapping
+from typing import Dict
 from typing import Tuple
 
 from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
+from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower
 
+from plenum.client.signer import Signer
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
-from plenum.common.request_types import Request, Batch, TaggedTupleBase
+from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
     MessageProcessor, getlogger, checkPortAvailable
 
 logger = getlogger()
-
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
 
 # this overrides the defaults
 Joiner.RedoTimeoutMin = 1.0
@@ -35,6 +32,14 @@ Allower.RedoTimeoutMax = 2.0
 
 class Stack(RoadStack):
     def __init__(self, *args, **kwargs):
+        keep = RoadKeep(basedirpath=kwargs.get('basedirpath'),
+                 stackname=kwargs['name'],
+                 auto=kwargs.get('auto'),
+                 baseroledirpath=kwargs.get('basedirpath'))
+        kwargs['keep'] = keep
+        localRoleData = keep.loadLocalRoleData()
+        kwargs['sigkey'] = localRoleData['sighex']
+        kwargs['prikey'] = localRoleData['prihex']
         super().__init__(*args, **kwargs)
         self.created = time.perf_counter()
         self.coro = self._raetcoro()
@@ -159,7 +164,7 @@ class Stack(RoadStack):
         :param stack: a dictionary of Roadstack constructor arguments.
         :return: the new instance of stack created.
         """
-        checkPortAvailable(stack['ha'][1])
+        checkPortAvailable(stack['ha'])
         stk = cls(**stack)
         if stk.ha[1] != stack['ha'].port:
             error("the stack port number has changed, likely due to "
@@ -192,6 +197,8 @@ class ClientStacked:
         :param msg: a message
         :param remoteName: the name of the remote
         """
+        # At this time, nodes are not signing messages to clients, beyond what
+        # happens inherently with RAET
         payload = self.prepForSending(msg)
         try:
             self.clientstack.send(payload, remoteName)
@@ -211,28 +218,28 @@ class Batched(MessageProcessor):
         """
         self.outBoxes = {}  # type: Dict[int, deque]
 
-    def _enqueue(self, msg: Any, rid: int) -> None:
+    def _enqueue(self, msg: Any, rid: int, signer: Signer) -> None:
         """
         Enqueue the message into the remote's queue.
 
         :param msg: the message to enqueue
         :param rid: the id of the remote node
         """
-        payload = self.prepForSending(msg)
+        payload = self.prepForSending(msg, signer)
         if rid not in self.outBoxes:
             self.outBoxes[rid] = deque()
         self.outBoxes[rid].append(payload)
 
-    def _enqueueIntoAllRemotes(self, msg: Any) -> None:
+    def _enqueueIntoAllRemotes(self, msg: Any, signer: Signer) -> None:
         """
         Enqueue the specified message into all the remotes in the nodestack.
 
         :param msg: the message to enqueue
         """
         for rid in self.nodestack.remotes.keys():
-            self._enqueue(msg, rid)
+            self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: int) -> None:
+    def send(self, msg: Any, *rids: int, signer: Signer=None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
          or into the outBoxes of all the remotes if rids is None
@@ -243,9 +250,9 @@ class Batched(MessageProcessor):
         """
         if rids:
             for r in rids:
-                self._enqueue(msg, r)
+                self._enqueue(msg, r, signer)
         else:
-            self._enqueueIntoAllRemotes(msg)
+            self._enqueueIntoAllRemotes(msg, signer)
 
     def flushOutBoxes(self) -> None:
         """
@@ -270,6 +277,8 @@ class Batched(MessageProcessor):
                     batch = Batch([], None)
                     while msgs:
                         batch.messages.append(msgs.popleft())
+                    # don't need to sign the batch, when the composed msgs are
+                    # signed
                     payload = self.prepForSending(batch)
                     self.nodestack.transmit(payload, rid)
         for rid in removedRemotes:
@@ -307,6 +316,9 @@ class NodeStacked(Batched):
         self.connectNicelyUntil = None
 
         self._conns = set()  # type: Set[str]
+
+        self.reconnectToMissingIn = 6
+        self.reconnectToDisconnectedIn = 6
 
     def __repr__(self):
         return self.name
@@ -416,10 +428,10 @@ class NodeStacked(Batched):
         :return: the uid of the remote estate, or None if a connect is not
             attempted
         """
-        if not self.isKeySharing:
-            logging.debug("{} skipping join with {} because not key sharing".
-                          format(self, name))
-            return None
+        # if not self.isKeySharing:
+        #     logging.debug("{} skipping join with {} because not key sharing".
+        #                   format(self, name))
+        #     return None
         if rid:
             remote = self.nodestack.remotes[rid]
         else:
@@ -441,7 +453,7 @@ class NodeStacked(Batched):
                     extra={"cli": "PLAIN"})
         return remote.uid
 
-    def sign(self, msg: Mapping) -> Mapping:
+    def sign(self, msg: Dict, signer: Signer) -> Dict:
         """
         No signing is implemented in NodeStacked. Returns the msg as it is.
 
@@ -449,21 +461,28 @@ class NodeStacked(Batched):
         """
         return msg  # don't sign by default
 
-    def prepForSending(self, msg: Mapping) -> Mapping:
+    def prepForSending(self, msg: Dict, signer: Signer=None) -> Dict:
         """
         Return a dictionary form of the message
 
         :param msg: the message to be sent
-        :raises: ValueError if msg cannot be converted to an appropriate format for transmission
+        :raises: ValueError if msg cannot be converted to an appropriate format
+            for transmission
         """
         if isinstance(msg, TaggedTupleBase):
             tmsg = msg.melted()
         elif isinstance(msg, Request):
             tmsg = msg.__getstate__()
+        elif hasattr(msg, "_asdict"):
+            tmsg = dict(msg._asdict())
+        elif hasattr(msg, "__dict__"):
+            tmsg = dict(msg.__dict__)
         else:
-            raise ValueError("Message cannot be converted to an appropriate format for transmission")
-        smsg = self.sign(tmsg)
-        return smsg
+            raise ValueError("Message cannot be converted to an appropriate "
+                             "format for transmission")
+        if signer:
+            return self.sign(tmsg, signer)
+        return tmsg
 
     def handleOneNodeMsg(self, wrappedMsg):
         raise NotImplementedError("{} must implement this method".format(self))
@@ -488,7 +507,7 @@ class NodeStacked(Batched):
         cur = time.perf_counter()
         if cur > self.nextCheck or force:
 
-            self.nextCheck = cur + (3 if self.isKeySharing else 15)
+            self.nextCheck = cur + (6 if self.isKeySharing else 15)
             # check again in 15 seconds,
             # unless sooner because of retries below
 
@@ -509,12 +528,19 @@ class NodeStacked(Batched):
         return False
 
     def connectToMissing(self, currentTime):
+        """
+        Try to connect to the missing node within the time specified by
+        `reconnectToMissingIn`
+
+        :param currentTime: the current time
+        """
         missing = self.reconcileNodeReg()
         if missing:
             logger.debug("{} found the following missing connections: {}".
                          format(self, ", ".join(missing)))
             if self.connectNicelyUntil is None:
-                self.connectNicelyUntil = currentTime + 3
+                self.connectNicelyUntil = \
+                    currentTime + self.reconnectToMissingIn
             if currentTime <= self.connectNicelyUntil:
                 names = list(self.nodeReg.keys())
                 names.append(self.name)
@@ -542,14 +568,14 @@ class NodeStacked(Batched):
             logger.trace("{} join already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = min(self.nextCheck, cur + 3)
+            self.nextCheck = min(self.nextCheck, cur + self.reconnectToDisconnectedIn)
             return
 
         if disconn.allowInProcess():
             logger.trace("{} allow already in process, so "
                          "waiting to check for reconnects".
                          format(self))
-            self.nextCheck = min(self.nextCheck, cur + 3)
+            self.nextCheck = min(self.nextCheck, cur + self.reconnectToDisconnectedIn)
             return
 
         if disconn.name not in self.nodeReg:
@@ -594,6 +620,10 @@ class NodeStacked(Batched):
             self.connect(dname, disconn.uid)
 
     def findInNodeRegByHA(self, remoteHa):
+        """
+        Returns the name of the remote by HA if found in the node registry, else
+        returns None
+        """
         regName = [nm for nm, ha in self.nodeReg.items()
                    if self.sameAddr(ha, remoteHa)]
         if len(regName) > 1:
@@ -644,7 +674,9 @@ class NodeStacked(Batched):
                                   format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
-                    error("{} ha for {} doesn't match".format(self, r.name))
+                    error("{} ha for {} doesn't match. ha of remote is {} but "
+                          "should be {}".
+                          format(self, r.name, r.ha, self.nodeReg[r.name]))
             else:
                 regName = self.findInNodeRegByHA(r.ha)
 
@@ -696,6 +728,11 @@ class NodeStacked(Batched):
         return Stack
 
     def remotesByConnected(self):
+        """
+        Partitions the remotes into connected and disconnected
+
+        :return: tuple(connected remotes, disconnected remotes)
+        """
         conns, disconns = [], []
         for r in self.nodestack.remotes.values():
             array = conns if Stack.isRemoteConnected(r) else disconns
@@ -703,6 +740,11 @@ class NodeStacked(Batched):
         return conns, disconns
 
     def getRemoteName(self, remote):
+        """
+        Returns the name of the remote object if found in node registry.
+
+        :param remote: the remote object
+        """
         if remote.name not in self.nodeReg:
             find = [name for name, ha in self.nodeReg.items()
                     if ha == remote.ha]
@@ -710,7 +752,10 @@ class NodeStacked(Batched):
             return find[0]
         return remote.name
 
-    def sameAddr(self, ha, ha2):
+    def sameAddr(self, ha, ha2) -> bool:
+        """
+        Check whether the two arguments correspond to the same address
+        """
         if ha == ha2:
             return True
         elif ha[1] != ha2[1]:

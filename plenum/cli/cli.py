@@ -1,9 +1,9 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
-from typing import Dict
-
 import plenum.cli.ensure_logging_not_setup
+
+from typing import Dict
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
@@ -44,7 +44,8 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
-from plenum.server.node import Node, CLIENT_STACK_SUFFIX
+from plenum.server.node import Node
+from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict
@@ -67,20 +68,26 @@ class Cli:
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
+    name = 'plenum'
+    properName = 'Plenum'
+    fullName = 'Plenum protocol'
+
+    NodeClass = Node
+    ClientClass = Client
 
     # noinspection PyPep8
-    def __init__(self, looper, tmpdir, nodeReg, cliNodeReg, output=None, debug=False,
+    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None, debug=False,
                  logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
         self.looper = looper
-        self.tmpdir = tmpdir
+        self.basedirpath = basedirpath
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
 
         # Used to store created clients
-        self.clients = {}  # clientId -> Client
+        self.clients = {}  # clientName -> Client
         # To store the created requests
         self.requests = {}
         # To store the nodes created
@@ -98,7 +105,7 @@ class Cli:
         self.node_or_cli = ['node',  'client']
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
-        self.plugins = []
+        self.plugins = {}
         '''
         examples:
         status
@@ -110,27 +117,28 @@ class Cli:
         client Joe show 1
         '''
 
-        def relist(seq):
-            return '(' + '|'.join(seq) + ')'
-
         psep = re.escape(os.path.sep)
 
-        grams = [
-            "(\s* (?P<simple>{}) \s*) |".format(relist(self.simpleCmds)),
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(relist(self.cliCmds)),
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(relist(self.nodeCmds)),
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*\".*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)  |".format(psep),
-            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)  |",
+        self.utilGrams = [
+            "(\s* (?P<simple>{}) \s*) |".format(self.relist(self.simpleCmds)),
             "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(psep),
-            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(relist(self.node_or_cli)),
+            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(self.relist(self.node_or_cli)),
             "(\s* (?P<command>list) \s*)"
         ]
 
-        self.grammar = compile("".join(grams))
+        self.nodeGrams = [
+            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(self.relist(self.nodeCmds)),
+            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)".format(psep),
+        ]
 
-        lexer = GrammarLexer(self.grammar, lexers={
+        self.clientGrams = [
+            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(self.relist(self.cliCmds)),
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*.*\})  \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
+            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)",
+        ]
+
+        self.lexers = {
             'node_command': SimpleLexer(Token.Keyword),
             'command': SimpleLexer(Token.Keyword),
             'helpable': SimpleLexer(Token.Keyword),
@@ -146,11 +154,11 @@ class Cli:
             'verkey': SimpleLexer(Token.Literal),
             'for_client': SimpleLexer(Token.Keyword),
             'identifier': SimpleLexer(Token.Name),
-        })
+        }
 
         self.clientWC = WordCompleter([])
 
-        completer = GrammarCompleter(self.grammar, {
+        self.completers = {
             'node_command': WordCompleter(self.nodeCmds),
             'client_command': WordCompleter(self.cliCmds),
             'client': WordCompleter(['client']),
@@ -165,7 +173,13 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-        })
+        }
+
+        self.initializeGrammar()
+
+        self.initializeGrammarLexer()
+
+        self.initializeGrammarCompleter()
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
@@ -185,12 +199,12 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        pers_hist = FileHistory('.plenum-cli-history')
+        pers_hist = FileHistory('.{}-cli-history'.format(self.name))
 
         # Create interface.
-        app = create_prompt_application('plenum> ',
-                                        lexer=lexer,
-                                        completer=completer,
+        app = create_prompt_application('{}> '.format(self.name),
+                                        lexer=self.grammarLexer,
+                                        completer=self.grammarCompleter,
                                         style=self.style,
                                         history=pers_hist)
 
@@ -218,12 +232,28 @@ class Cli:
                      filename=logFileName)
 
         self.logger = getlogger("cli")
-        self.print("\nplenum-CLI (c) 2016 Evernym, Inc.")
+        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         self.print("Node registry loaded.")
         self.print("None of these are created or running yet.")
 
         self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+
+    @staticmethod
+    def relist(seq):
+        return '(' + '|'.join(seq) + ')'
+
+    def initializeGrammar(self):
+        self.utilGrams[-1] += " |"
+        self.nodeGrams[-1] += " |"
+        self.grams = self.utilGrams + self.nodeGrams + self.clientGrams
+        self.grammar = compile("".join(self.grams))
+
+    def initializeGrammarLexer(self):
+        self.grammarLexer = GrammarLexer(self.grammar, lexers=self.lexers)
+
+    def initializeGrammarCompleter(self):
+        self.grammarCompleter = GrammarCompleter(self.grammar, self.completers)
 
     def createFunctionMappings(self):
 
@@ -332,8 +362,8 @@ class Cli:
             self.print(record.msg, Token)
 
     def printHelp(self):
-        self.print("""Plenum-CLI, a simple command-line interface for a Plenum
-        protocol sandbox.
+        self.print("""{}-CLI, a simple command-line interface for a
+        {} sandbox.
 Commands:
     help - Shows this help message
     help <command> - Shows the help message of <command>
@@ -343,7 +373,8 @@ Commands:
     status <node_name>|<client_name> - Shows specific status
     list - Shows the list of commands you can run
     license - Show the license
-    exit - exit the command-line interface ('quit' also works)""")
+    exit - exit the command-line interface ('quit' also works)""".
+                   format(self.properName, self.fullName))
 
     def printCmdHelper(self, command=None):
         self.functionMappings[command]()
@@ -379,8 +410,13 @@ Commands:
 
     def showNodeRegistry(self):
         t = []
-        for n, (ip, port) in self.nodeReg.items():
-            t.append((Token.Name, "    " + n))
+        for name in self.nodeReg:
+            val = self.nodeReg[name]
+            if len(val) == 3:
+                ((ip, port), vk, pk) = val
+            else:
+                (ip, port) = val
+            t.append((Token.Name, "    " + name))
             t.append((Token, ": {}:{}\n".format(ip, port)))
         self.cli.print_tokens(t, style=self.style)
 
@@ -475,9 +511,13 @@ Commands:
             return
         else:
             names = [nodeName]
+
+        nodes = []
         for name in names:
-            node = Node(name, self.nodeReg, basedirpath=self.tmpdir,
-                        opVerifiers=opVerifiers)
+            node = self.NodeClass(name,
+                                  self.nodeReg,
+                                  basedirpath=self.basedirpath,
+                                  opVerifiers=opVerifiers)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
@@ -485,33 +525,35 @@ Commands:
                 self.bootstrapClientKey(client, node)
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
+            nodes.append(node)
+        return nodes
 
-    def ensureValidClientId(self, clientId):
+    def ensureValidClientId(self, clientName):
         """
         Ensures client id is not already used or is not starting with node
         names.
 
-        :param clientId:
+        :param clientName:
         :return:
         """
-        if clientId in self.clients:
-            raise ValueError("Client {} already exists.".format(clientId))
+        if clientName in self.clients:
+            raise ValueError("Client {} already exists.".format(clientName))
 
-        if any([clientId.startswith(nm) for nm in self.nodeNames]):
+        if any([clientName.startswith(nm) for nm in self.nodeNames]):
             raise ValueError("Client name cannot start with node names, "
                              "which are {}."
                              .format(', '.join(self.nodeReg.keys())))
 
-    def statusClient(self, clientId):
-        if clientId == "all":
+    def statusClient(self, clientName):
+        if clientName == "all":
             for nm in self.clients:
                 self.statusClient(nm)
             return
-        if clientId not in self.clients:
+        if clientName not in self.clients:
             self.print("client not found", Token.Error)
         else:
-            self.print("    Name: " + clientId)
-            client = self.clients[clientId]  # type: Client
+            self.print("    Name: " + clientName)
+            client = self.clients[clientName]  # type: Client
 
             self.printTokens([(Token.Heading, 'Status for client:'),
                               (Token.Name, client.name)],
@@ -524,8 +566,8 @@ Commands:
                 self.printNames(client._conns, newline=True)
             else:
                 self.printVoid()
-            self.print("    Identifier: {}".format(client.signer.identifier))
-            self.print("    Verification key: {}".format(client.signer.verkey))
+            self.print("    Identifier: {}".format(client.defaultIdentifier))
+            self.print("    Verification key: {}".format(client.getSigner().verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -538,10 +580,19 @@ Commands:
         else:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
-            nha = "{}:{}".format(*self.nodeReg.get(nodeName))
+            val = self.nodeReg.get(nodeName)
+            if len(val) == 3:
+                ((ip, port), vk, pk) = val
+            else:
+                ip, port = val
+            nha = "{}:{}".format(ip, port)
             self.print("    Node listener: " + nha)
-            cha = "{}:{}".format(
-                *self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX))
+            val = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
+            if len(val) == 3:
+                ((ip, port), vk, pk) = val
+            else:
+                ip, port = val
+            cha = "{}:{}".format(ip, port)
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
             self.print('    Connections: ', newline=False)
@@ -564,7 +615,7 @@ Commands:
                 else:
                     self.print("  (primary of Backup)")
             else:
-                print("   (no primary replicas)")
+                self.print("   (no primary replicas)")
             self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
@@ -574,28 +625,31 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientId, seed=None):
+    def newClient(self, clientName, seed=None, identifier=None, signer=None):
         try:
-            self.ensureValidClientId(clientId)
+            self.ensureValidClientId(clientName)
             client_addr = self.nextAvailableClientAddr()
-            signer = SimpleSigner(clientId, seed.encode("utf-8")) \
-                if seed else None
-            client = Client(clientId,
-                            ha=client_addr,
-                            nodeReg=self.cliNodeReg,
-                            signer=signer,
-                            basedirpath=self.tmpdir)
+            if not signer:
+                seed = seed.encode("utf-8") if seed else None
+                signer = SimpleSigner(identifier=identifier, seed=seed) \
+                    if (seed or identifier) else None
+            client = self.ClientClass(clientName,
+                                      ha=client_addr,
+                                      nodeReg=self.cliNodeReg,
+                                      signer=signer,
+                                      basedirpath=self.basedirpath)
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)
-            self.clients[clientId] = client
+            self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
+            return client
         except ValueError as ve:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
     def bootstrapClientKey(client, node):
-        idAndKey = client.signer.identifier, client.signer.verkey
+        idAndKey = client.getSigner().identifier, client.getSigner().verkey
         node.clientAuthNr.addClient(*idAndKey)
 
     def sendMsg(self, clientName, msg):
@@ -645,11 +699,143 @@ Commands:
         while interactive:
             try:
                 result = await self.cli.run_async()
-                self.parse(result.text)
+                self.parse(result.text if result else "")
             except (EOFError, KeyboardInterrupt, Exit):
-                return
+                break
 
         self.print('Goodbye.')
+
+    def _simpleAction(self, matchedVars):
+        if matchedVars.get('simple'):
+            cmd = matchedVars.get('simple')
+            if cmd == 'status':
+                self.getStatus()
+            elif cmd == 'license':
+                self.printCmdHelper('license')
+            elif cmd in ['exit', 'quit']:
+                raise Exit
+            return True
+
+    def _helpAction(self, matchedVars):
+        if matchedVars.get('command') == 'help':
+            helpable = matchedVars.get('helpable')
+            node_or_cli = matchedVars.get('node_or_cli')
+            if helpable:
+                if node_or_cli:
+                    self.printCmdHelper(command="{}{}".
+                                        format(helpable, node_or_cli))
+                else:
+                    self.printCmdHelper(command=helpable)
+            else:
+                self.printHelp()
+            return True
+
+    def _listAction(self, matchedVars):
+        if matchedVars.get('command') == 'list':
+            for cmd in self.commands:
+                self.print(cmd)
+            return True
+
+    def _newNodeAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'new':
+            self.createEntities('node_name', 'more_nodes',
+                                matchedVars, self.newNode)
+            return True
+
+    def _newClientAction(self, matchedVars):
+        if matchedVars.get('client_command') == 'new':
+            self.createEntities('client_name', 'more_clients',
+                                matchedVars, self.newClient)
+            return True
+
+    def _statusNodeAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'status':
+            node = matchedVars.get('node_name')
+            self.statusNode(node)
+            return True
+
+    def _statusClientAction(self, matchedVars):
+        if matchedVars.get('client_command') == 'status':
+            client = matchedVars.get('client_name')
+            self.statusClient(client)
+            return True
+
+    def _keyShareAction(self, matchedVars):
+        if matchedVars.get('node_command') == 'keyshare':
+            name = matchedVars.get('node_name')
+            self.keyshare(name)
+            return True
+
+    def _clientCommand(self, matchedVars):
+        if matchedVars.get('client') == 'client':
+            client_name = matchedVars.get('client_name')
+            client_action = matchedVars.get('cli_action')
+            if client_action == 'send':
+                msg = matchedVars.get('msg')
+                try:
+                    actualMsgRepr = ast.literal_eval(msg)
+                except Exception as ex:
+                    self.print("error evaluating msg expression: {}".
+                               format(ex), Token.BoldOrange)
+                    return True
+                self.sendMsg(client_name, actualMsgRepr)
+                return True
+            elif client_action == 'show':
+                req_id = matchedVars.get('req_id')
+                self.getReply(client_name, req_id)
+                return True
+            # else:
+            #     self.printCmdHelper("sendmsg")
+
+    def _loadPluginDirAction(self, matchedVars):
+        if matchedVars.get('load_plugins') == 'load plugins from':
+            pluginsPath = matchedVars.get('plugin_dir')
+            try:
+                self.plugins = PluginLoader(pluginsPath).plugins
+            except FileNotFoundError as ex:
+                _, err = ex.args
+                self.print(err, Token.BoldOrange)
+            return True
+
+    def _loadPluginAction(self, matchedVars):
+        if matchedVars.get('load') == 'load':
+            file = matchedVars.get("file_name")
+            if os.path.exists(file):
+                try:
+                    self.loadFromFile(file)
+                    self.print("Node registry loaded.")
+                    self.showNodeRegistry()
+                except configparser.ParsingError:
+                    self.logger.warn("Could not parse file. "
+                                     "Please ensure that the file "
+                                     "has sections node_reg "
+                                     "and client_node_reg.",
+                                     extra={'cli': 'WARNING'})
+            else:
+                self.logger.warn("File {} not found.".format(file),
+                                 extra={"cli": "WARNING"})
+            return True
+
+    def _addKeyAction(self, matchedVars):
+        if matchedVars.get('add_key') == 'add key':
+            verkey = matchedVars.get('verkey')
+            # TODO make verkey case insensitive
+            identifier = matchedVars.get('identifier')
+
+            if identifier in self.externalClientKeys:
+                self.print("identifier already added", Token.Error)
+                return
+            self.externalClientKeys[identifier] = verkey
+            for n in self.nodes.values():
+                n.clientAuthNr.addClient(identifier, verkey)
+            return True
+
+    def getActionList(self):
+        return [self._simpleAction, self._helpAction, self._listAction,
+                self._newNodeAction, self._newClientAction,
+                self._statusNodeAction, self._statusClientAction,
+                self._keyShareAction, self._loadPluginDirAction,
+                self._clientCommand, self._loadPluginAction, self._addKeyAction]
 
     def parse(self, cmdText):
         m = self.grammar.match(cmdText)
@@ -657,104 +843,10 @@ Commands:
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
                              extra={"cli": False})
-
-            # Check for helper commands
-            if matchedVars.get('simple'):
-                cmd = matchedVars.get('simple')
-                if cmd == 'status':
-                    self.getStatus()
-                elif cmd == 'license':
-                    self.printCmdHelper('license')
-                elif cmd in ['exit', 'quit']:
-                    raise Exit
-
-            elif matchedVars.get('command') == 'help':
-                helpable = matchedVars.get('helpable')
-                node_or_cli = matchedVars.get('node_or_cli')
-                if helpable:
-                    if node_or_cli:
-                        self.printCmdHelper(command="{}{}".
-                                            format(helpable, node_or_cli))
-                    else:
-                        self.printCmdHelper(command=helpable)
-                else:
-                    self.printHelp()
-
-            elif matchedVars.get('command') == 'list':
-                for cmd in self.commands:
-                    self.print(cmd)
-
-            # Check for new commands
-            elif matchedVars.get('node_command') == 'new':
-                self.createEntities('node_name', 'more_nodes',
-                                    matchedVars, self.newNode)
-
-            elif matchedVars.get('node_command') == 'status':
-                node = matchedVars.get('node_name')
-                self.statusNode(node)
-
-            elif matchedVars.get('node_command') == 'keyshare':
-                name = matchedVars.get('node_name')
-                self.keyshare(name)
-
-            elif matchedVars.get('client_command') == 'new':
-                self.createEntities('client_name', 'more_clients',
-                                    matchedVars, self.newClient)
-
-            elif matchedVars.get('client_command') == 'status':
-                client = matchedVars.get('client_name')
-                self.statusClient(client)
-
-            elif matchedVars.get('client') == 'client':
-                client_name = matchedVars.get('client_name')
-                client_action = matchedVars.get('cli_action')
-                if client_action == 'send':
-                    msg = matchedVars.get('msg')
-                    actualMsgRepr = ast.literal_eval(msg)
-                    self.sendMsg(client_name, actualMsgRepr)
-                elif client_action == 'show':
-                    req_id = matchedVars.get('req_id')
-                    self.getReply(client_name, req_id)
-                else:
-                    self.printCmdHelper("sendmsg")
-
-            elif matchedVars.get('load_plugins') == 'load plugins from':
-                pluginsPath = matchedVars.get('plugin_dir')
-                try:
-                    self.plugins = PluginLoader(pluginsPath).plugins
-                except FileNotFoundError as ex:
-                    _, err = ex.args
-                    self.print(err, Token.BoldOrange)
-
-            elif matchedVars.get('load') == 'load':
-                file = matchedVars.get("file_name")
-                if os.path.exists(file):
-                    try:
-                        self.loadFromFile(file)
-                        self.print("Node registry loaded.")
-                        self.showNodeRegistry()
-                    except configparser.ParsingError:
-                        self.logger.warn("Could not parse file. "
-                                         "Please ensure that the file "
-                                         "has sections node_reg "
-                                         "and client_node_reg.",
-                                         extra={'cli': 'WARNING'})
-                else:
-                    self.logger.warn("File {} not found.".format(file),
-                                     extra={"cli": "WARNING"})
-            elif matchedVars.get('add_key') == 'add key':
-                verkey = matchedVars.get('verkey')
-                # TODO make verkey case insensitive
-                identifier = matchedVars.get('identifier')
-
-                if identifier in self.externalClientKeys:
-                    self.print("identifier already added", Token.Error)
-                    return
-                self.externalClientKeys[identifier] = verkey
-                for n in self.nodes.values():
-                    n.clientAuthNr.addClient(identifier, verkey)
-
-            # Fall back to the help saying, invalid command.
+            for action in self.getActionList():
+                r = action(matchedVars)
+                if r:
+                    break
             else:
                 self.invalidCmd(cmdText)
         else:
@@ -768,8 +860,9 @@ Commands:
         more = more.split(',') if more is not None and len(more) > 0 else []
         names = [n for n in [entity] + more if len(n) != 0]
         seed = matchedVars.get("seed")
-        if len(names) == 1 and seed:
-            initializer(name.strip(), seed=seed)
+        identifier = matchedVars.get("nym")
+        if len(names) == 1 and (seed or identifier):
+            initializer(names[0].strip(), seed=seed, identifier=identifier)
         else:
             for name in names:
                 initializer(name.strip())
@@ -783,7 +876,7 @@ Commands:
         self.curClientPort += 1
         host = "127.0.0.1"
         try:
-            checkPortAvailable(self.curClientPort)
+            checkPortAvailable((host,self.curClientPort))
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "

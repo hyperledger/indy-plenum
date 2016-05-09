@@ -3,8 +3,6 @@ from inspect import isawaitable
 from typing import Callable, Any
 from typing import Tuple
 
-from plenum.common.util import error
-
 
 class Router:
     """

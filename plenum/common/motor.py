@@ -30,7 +30,7 @@ class Motor(Prodable):
             self._status = value
             logging.debug("{} changing status from {} to {}".
                           format(self, old.name, value.name))
-            self._statusChanged(old.name, value.name)
+            self._statusChanged(old, value)
 
     status = property(fget=get_status, fset=set_status)
 
@@ -46,7 +46,7 @@ class Motor(Prodable):
         """
         return self.status in Status.going()
 
-    def start(self):
+    def start(self, loop):
         """
         Set the status to Status.starting
         """
@@ -59,9 +59,10 @@ class Motor(Prodable):
         """
         if self.status in (Status.stopping, Status.stopped):
             logging.warning("{} is already {}".format(self, self.status.name))
-        self.status = Status.stopping
-        self.onStopping(*args, **kwargs)
-        self.status = Status.stopped
+        else:
+            self.status = Status.stopping
+            self.onStopping(*args, **kwargs)
+            self.status = Status.stopped
 
     def _statusChanged(self, old, new):
         """

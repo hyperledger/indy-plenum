@@ -5,7 +5,7 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST
+    BLACKLIST, REQNACK
 
 Field = namedtuple("Field", ["nm", "tp"])
 
@@ -17,7 +17,7 @@ class f:  # provides a namespace for reusable field constants
     NAME = Field("name", str)
     TIE_AMONG = Field("tieAmong", List[str])
     ROUND = Field("round", int)
-    CLIENT_ID = Field('clientId', str)
+    IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     RESULT = Field('result', Any)
@@ -29,7 +29,14 @@ class f:  # provides a namespace for reusable field constants
     SIG = Field('signature', Optional[str])
     SUSP_CODE = Field('suspicionCode', int)
     ELECTION_DATA = Field('electionData', Any)
+    TXN_ID = Field('txnId', str)
+    REASON = Field('reason', Any)
+    SENDER_CLIENT = Field('senderClient', str)
+    PP_TIME = Field("ppTime", float)
+    MERKLE_PROOF = Field("merkleProof", Any)
 
+
+# TODO: Move this to `txn.py` which should be renamed to constants.py
 OP_FIELD_NAME = "op"
 
 
@@ -53,7 +60,8 @@ class TaggedTupleBase:
 def TaggedTuple(typename, fields):
     cls = NamedTuple(typename, fields)
     if any(field == OP_FIELD_NAME for field in cls._fields):
-            raise RuntimeError("field name '{}' is reserved in TaggedTuple".format(OP_FIELD_NAME))
+            raise RuntimeError("field name '{}' is reserved in TaggedTuple"
+                               .format(OP_FIELD_NAME))
     cls.__bases__ += (TaggedTupleBase,)
     cls.typename = typename
     return cls
@@ -95,11 +103,11 @@ OPERATION = 'operation'
 
 class Request:
     def __init__(self,
-                 clientId: str=None,
+                 identifier: str=None,
                  reqId: int=None,
                  operation: Mapping=None,
                  signature: str=None):
-        self.clientId = clientId
+        self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
         self.signature = signature
@@ -112,7 +120,7 @@ class Request:
 
     @property
     def key(self):
-        return self.clientId, self.reqId
+        return self.identifier, self.reqId
 
     @property
     def digest(self):
@@ -120,7 +128,7 @@ class Request:
 
     @property
     def reqDigest(self):
-        return ReqDigest(self.clientId, self.reqId, self.digest)
+        return ReqDigest(self.identifier, self.reqId, self.digest)
 
     def __getstate__(self):
         return self.__dict__
@@ -136,55 +144,61 @@ class Request:
         return obj
 
 
-class ReqDigest(NamedTuple(REQDIGEST, [f.CLIENT_ID,
+class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
                                        f.REQ_ID,
                                        f.DIGEST])):
     def key(self):
-        return self.clientId, self.reqId
+        return self.identifier, self.reqId
 
 
 RequestAck = TaggedTuple(REQACK, [
     f.REQ_ID])
 
+RequestNack = TaggedTuple(REQNACK, [
+    f.REQ_ID,
+    f.REASON])
+
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
-    f.CLIENT_ID,
+    f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
 
 Propagate = TaggedTuple(PROPAGATE, [
-    f.REQUEST])
+    f.REQUEST,
+    f.SENDER_CLIENT])
 
 PrePrepare = TaggedTuple(PREPREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.CLIENT_ID,
+    f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME
+    ])
 
 Prepare = TaggedTuple(PREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.DIGEST])
-
+    f.DIGEST,
+    f.PP_TIME])
 
 Commit = TaggedTuple(COMMIT, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.DIGEST])
+    f.DIGEST,
+    f.PP_TIME])
 
-Reply = TaggedTuple(REPLY, [
-    f.VIEW_NO,
-    f.REQ_ID,
-    f.RESULT])
-
+# TODO Refactor this. Reply should simply a wrapper over a dict, or just a dict?
+Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO
@@ -198,8 +212,8 @@ def loadRegistry():
     if not TaggedTuples:
         this = sys.modules[__name__]
         TaggedTuples = {getattr(this, x).__name__: getattr(this, x) for x in dir(this)
-                        if callable(getattr(getattr(this, x), "melted", None)) and
-                        getattr(getattr(this, x), "_fields", None)}
+                        if callable(getattr(getattr(this, x), "melted", None))
+                        and getattr(getattr(this, x), "_fields", None)}
 
 loadRegistry()
 
@@ -212,3 +226,25 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
                         f.PP_SEQ_NO
                     ])
+
+CLIENT_STACK_SUFFIX = "C"
+CLIENT_BLACKLISTER_SUFFIX = "BLC"
+NODE_BLACKLISTER_SUFFIX = "BLN"
+
+NODE_PRIMARY_STORAGE_SUFFIX = "PS"
+NODE_SECONDARY_STORAGE_SUFFIX = "SS"
+NODE_TXN_STORE_SUFFIX = "TS"
+NODE_HASH_STORE_SUFFIX = "HS"
+
+HA = NamedTuple("HA", [
+    ("host", str),
+    ("port", int)])
+
+NodeDetail = NamedTuple("NodeDetail", [
+    ("ha", HA),
+    ("cliname", str),
+    ("cliha", HA)])
+
+HS_FILE = "file"
+HS_ORIENT_DB = "orientdb"
+HS_MEMORY = "memory"

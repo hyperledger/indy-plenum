@@ -4,9 +4,9 @@ import pytest
 from plenum.test.eventually import eventually
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.testing_utils import adict
+from plenum.common.util import adict
 
-from plenum.common.request_types import Commit
+from plenum.common.types import Commit
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
     getNodeSuspicions

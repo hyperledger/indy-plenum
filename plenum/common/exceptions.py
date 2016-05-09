@@ -2,6 +2,12 @@ from plenum.server.suspicion_codes import Suspicion
 from re import compile, match
 
 
+class ReqInfo:
+    def __init__(self, identifier=None, reqId=None):
+        self.identifier = identifier
+        self.reqId = reqId
+
+
 class NodeError(Exception):
     pass
 
@@ -31,9 +37,12 @@ class SigningException(BaseExc):
     pass
 
 
-class CouldNotAuthenticate(SigningException):
+class CouldNotAuthenticate(SigningException, ReqInfo):
     code = 110
     reason = 'could not authenticate'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class MissingSignature(SigningException):
@@ -41,14 +50,20 @@ class MissingSignature(SigningException):
     reason = 'missing signature'
 
 
-class EmptySignature(SigningException):
+class EmptySignature(SigningException, ReqInfo):
     code = 121
     reason = 'empty signature'
 
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
-class InvalidSignature(SigningException):
+
+class InvalidSignature(SigningException, ReqInfo):
     code = 125
     reason = 'invalid signature'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class MissingIdentifier(SigningException):
@@ -61,9 +76,18 @@ class EmptyIdentifier(SigningException):
     reason = 'empty identifier'
 
 
-class InvalidIdentifier(SigningException):
+class InvalidIdentifier(SigningException, ReqInfo):
     code = 135
     reason = 'invalid identifier'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
+class RaetKeysNotFoundException(Exception):
+    code = 141
+    reason = 'Key pairs not found in raet keep. ' \
+             'Please run script init_raet_keep.py to generate them'
 
 
 class SuspiciousNode(BaseExc):
@@ -92,7 +116,10 @@ class InvalidNodeMessageException(InvalidMessageException):
 
 
 class InvalidClientMessageException(InvalidMessageException):
-    pass
+    def __init__(self, identifier, reqId, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.identifier = identifier
+        self.reqId = reqId
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):
@@ -123,3 +150,17 @@ class InvalidClientOp(InvalidClientRequest):
     pass
 
 
+class UnauthorizedClientRequest(InvalidClientMessageException):
+    pass
+
+
+class StorageException(Exception):
+    pass
+
+
+class DataDirectoryNotFound(StorageException):
+    pass
+
+
+class DBConfigNotFound(StorageException):
+    pass

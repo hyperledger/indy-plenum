@@ -7,7 +7,7 @@ from plenum.common.looper import Looper
 from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.helper import checkNodesConnected, checkProtocolInstanceSetup, \
-    genHa
+    genHa, TestNode
 from plenum.test.testing_utils import PortDispenser
 
 logger = getlogger()
@@ -15,10 +15,10 @@ logger = getlogger()
 whitelist = ['discarding message', 'found legacy entry']
 
 nodeReg = {
-    'Alpha': genHa(2)[0],
-    'Beta': genHa(2)[0],
-    'Gamma': genHa(2)[0],
-    'Delta': genHa(2)[0]}
+    'Alpha': (genHa(2)[0],),
+    'Beta': (genHa(2)[0],),
+    'Gamma': (genHa(2)[0],),
+    'Delta': (genHa(2)[0],)}
 
 
 def testNodesConnectsWhenOneNodeIsLate():
@@ -29,7 +29,7 @@ def testNodesConnectsWhenOneNodeIsLate():
             logger.debug("Node names: {}".format(names))
 
             def create(name):
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -53,7 +53,7 @@ def testNodesConnectWhenTheyAllStartAtOnce():
         with Looper() as looper:
             nodes = []
             for name in nodeReg:
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -76,7 +76,7 @@ def testNodesComingUpAtDifferentTimes():
             rwaits = [randint(1, 10) for _ in names]
 
             for i, name in enumerate(names):
-                node = Node(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -90,7 +90,7 @@ def testNodesComingUpAtDifferentTimes():
             for n in nodes:
                 n.stop()
             for i, n in enumerate(nodes):
-                n.start()
+                n.start(looper.loop)
                 looper.runFor(rwaits[i])
             looper.runFor(3)
             looper.run(checkNodesConnected(nodes,
@@ -109,7 +109,7 @@ def testNodeConnection():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [Node(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nrg, basedirpath=td)
                     for name in names]
             looper.add(A)
             A.startKeySharing()
@@ -120,9 +120,9 @@ def testNodeConnection():
             looper.runFor(4)
             looper.run(checkNodesConnected([A, B]))
             looper.stopall()
-            A.start()
+            A.start(looper.loop)
             looper.runFor(4)
-            B.start()
+            B.start(looper.loop)
             looper.run(checkNodesConnected([A, B]))
 
 
@@ -136,7 +136,7 @@ def testNodeConnectionAfterKeysharingRestarted():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [Node(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nrg, basedirpath=td)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

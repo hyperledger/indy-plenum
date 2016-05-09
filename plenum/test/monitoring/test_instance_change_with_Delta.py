@@ -3,14 +3,12 @@ from functools import partial
 
 import pytest
 
-from plenum.common.request_types import PrePrepare
-from plenum.common.util import getMaxFailures, getNoInstances
+from plenum.common.types import PrePrepare
+from plenum.common.util import getMaxFailures, getNoInstances, adict
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
     getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies, getAllArgs
-from plenum.test.profiler import profile_this
-from plenum.test.testing_utils import adict
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -28,7 +26,8 @@ logging.root.setLevel(logging.INFO)
 
 
 @pytest.fixture(scope="module")
-def step1(looper, startedNodes, up, client1):
+def step1(looper, nodeSet, up, client1):
+    startedNodes = nodeSet
     """
     stand up a pool of nodes and send 5 requests to client
     """

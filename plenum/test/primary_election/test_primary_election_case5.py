@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from plenum.common.request_types import Primary, Nomination
+from plenum.common.types import Primary, Nomination
 
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions

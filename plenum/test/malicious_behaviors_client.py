@@ -3,7 +3,7 @@ import types
 from typing import List, Any, Mapping
 
 from plenum.client.client import Client
-from plenum.common.request_types import Request
+from plenum.common.types import Request
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,12 @@ def genDoesntSendRequestToSomeNodes(*nodeName: str,
         else:
             ovrdRids = client.nodestack.remotes.keys()[skipCount:]
 
-        def evilSend(self, msg: Any, *rids: int) -> None:
+        def evilSend(self, msg, *rids, signer=None) -> None:
             logger.debug("EVIL: sending to less nodes {}, ignoring passed "
                          "rids {} and sending to {} instead.".
                          format(msg, rids, ovrdRids))
             for r in ovrdRids:
-                self._enqueue(msg, r)
+                self._enqueue(msg, r, signer)
 
         client.send = types.MethodType(evilSend, client)
         return client
@@ -78,7 +78,7 @@ def sendsUnsignedRequest(client) -> Client:
     :param client: the client to make faulty
     :return: the faulty client
     """
-    def evilSign(self, msg: Mapping) -> Mapping:
+    def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg
     client.sign = types.MethodType(evilSign, client)

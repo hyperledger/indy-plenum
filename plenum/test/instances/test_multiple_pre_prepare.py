@@ -6,9 +6,9 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import getPrimaryReplica, getNodeSuspicions, \
     getNonPrimaryReplicas
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, sendDuplicate3PhaseMsg
-from plenum.test.testing_utils import adict
+from plenum.common.util import adict
 
-from plenum.common.request_types import PrePrepare
+from plenum.common.types import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.instances.helper import sentPrepare
 

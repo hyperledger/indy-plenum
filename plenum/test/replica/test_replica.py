@@ -1,7 +1,9 @@
 import logging
 
 import pytest
-from plenum.common.request_types import PrePrepare
+import time
+
+from plenum.common.types import PrePrepare
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
@@ -46,9 +48,11 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
             primaryRepl.instId,
             primaryRepl.viewNo,
             primaryRepl.prePrepareSeqNo,
-            client1.clientId,
+            client1.defaultIdentifier,
             request2.reqId,
-            request2.digest)
+            request2.digest,
+            time.time()
+            )
 
     logging.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
@@ -63,7 +67,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  client1.clientId,
+                                  client1.defaultIdentifier,
                                   request2.reqId,
                                   retryWait=1,
                                   timeout=10))

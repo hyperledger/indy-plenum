@@ -5,13 +5,12 @@ from plenum.test.eventually import eventually
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 
-from plenum.common.request_types import Commit
+from plenum.common.types import Commit
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNonPrimaryReplicas, getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
 
-from plenum.test.testing_utils import adict
-
+from plenum.common.util import adict
 
 whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
              'cannot process incoming COMMIT']

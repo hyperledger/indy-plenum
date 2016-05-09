@@ -2,7 +2,9 @@ import random
 import types
 from functools import partial
 
-from plenum.common.request_types import Propagate, Request, \
+import time
+
+from plenum.common.types import Propagate, Request, \
     PrePrepare, Prepare, ReqDigest, ThreePhaseMsg, Commit, Reply
 
 from plenum.common import util
@@ -21,11 +23,11 @@ def makeNodeFaulty(node, *behaviors):
 
 def changesRequest(node):
     def evilCreatePropagate(self,
-                            request: Request) -> Propagate:
+                            request: Request, clientName: str) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
-        return Propagate(request.__getstate__())
+        return Propagate(request.__getstate__(), clientName)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod
@@ -43,9 +45,10 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
     def evilSendPrePrepareRequest(self, reqDigest: ReqDigest):
         logger.debug("EVIL: Creating pre-prepare message for request {}".
                      format(reqDigest))
+        tm = time.time()
         prePrepare = PrePrepare(self.instId, self.viewNo,
-                                self.prePrepareSeqNo, *reqDigest)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
+                                self.prePrepareSeqNo, *reqDigest, tm)
+        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest, tm)
         sendDup(self, prePrepare, TPCStat.PrePrepareSent, count)
 
     def evilSendPrepare(self, request):
@@ -54,7 +57,8 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
         prepare = Prepare(self.instId,
                           request.viewNo,
                           request.ppSeqNo,
-                          request.digest)
+                          request.digest,
+                          request.ppTime)
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -64,7 +68,8 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
         commit = Commit(self.instId,
                         request.viewNo,
                         request.ppSeqNo,
-                        request.digest)
+                        request.digest,
+                        request.ppTime)
         self.addToCommits(commit, self.name)
         sendDup(self, commit, TPCStat.CommitSent, count)
 
@@ -114,10 +119,11 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
     def evilSendPrePrepareRequest(self, reqDigest: ReqDigest):
         logger.debug("EVIL: Creating pre-prepare message for request {}".
                      format(reqDigest))
-        reqDigest = ReqDigest(reqDigest.clientId, reqDigest.reqId, "random")
+        reqDigest = ReqDigest(reqDigest.identifier, reqDigest.reqId, "random")
+        tm = time.time()
         prePrepare = PrePrepare(self.instId, self.viewNo,
-                                self.prePrepareSeqNo, *reqDigest)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = reqDigest
+                                self.prePrepareSeqNo, *reqDigest, tm)
+        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest, tm)
         self.send(prePrepare, TPCStat.PrePrepareSent)
 
     def evilSendPrepare(self, request):
@@ -127,7 +133,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prepare = Prepare(self.instId,
                           request.viewNo,
                           request.ppSeqNo,
-                          digest)
+                          digest,
+                          request.ppTime)
         self.addToPrepares(prepare, self.name)
         self.send(prepare, TPCStat.PrepareSent)
 
@@ -138,7 +145,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         commit = Commit(self.instId,
                         request.viewNo,
                         request.ppSeqNo,
-                        digest)
+                        digest,
+                        request.ppTime)
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 

@@ -6,8 +6,8 @@ import pytest
 import plenum.common.util
 from plenum.common.looper import Looper
 from plenum.test.cli.mock_output import MockOutput
-from plenum.test.helper import genHa
-from plenum.test.testing_utils import adict
+from plenum.test.helper import genHa, TestNode, TestClient
+from plenum.common.util import adict
 
 plenum.common.util.loggingConfigured = False
 
@@ -35,11 +35,14 @@ def cli(nodeRegsForCLI, cliLooper, tdir):
     mockOutput = MockOutput()
 
     Cli = TestCli(looper=cliLooper,
-                  tmpdir=tdir,
+                  basedirpath=tdir,
                   nodeReg=nodeRegsForCLI.nodeReg,
                   cliNodeReg=nodeRegsForCLI.cliNodeReg,
                   output=mockOutput,
                   debug=True)
+    Cli.NodeClass = TestNode
+    Cli.ClientClass = TestClient
+    Cli.basedirpath = tdir
     return Cli
 
 

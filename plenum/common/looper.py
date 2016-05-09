@@ -1,8 +1,8 @@
 import asyncio
 import inspect
 import signal
-import time
 import sys
+import time
 from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
@@ -34,7 +34,7 @@ class Prodable:
         raise NotImplementedError("subclass {} should implement this method"
                                   .format(self))
 
-    def start(self):
+    def start(self, loop):
         """
         Actions to be performed when the Prodable is starting up.
         """
@@ -81,9 +81,9 @@ class Looper:
             self.loop = loop
         else:
             try:
-                if sys.platform == 'win32':
-                    loop = asyncio.ProactorEventLoop()
-                    asyncio.set_event_loop(loop)
+                #if sys.platform == 'win32':
+                #    loop = asyncio.ProactorEventLoop()
+                #    asyncio.set_event_loop(loop)
                 l = asyncio.get_event_loop()
                 if l.is_closed():
                     raise RuntimeError("event loop was closed")
@@ -128,7 +128,7 @@ class Looper:
                                format(prodable.name))
         self.prodables.append(prodable)
         if self.autoStart:
-            prodable.start()
+            prodable.start(self.loop)
 
     def removeProdable(self, prodable: Prodable) -> None:
         """
@@ -238,8 +238,11 @@ class Looper:
         Start all the Prodables in this Looper's `prodables`
         """
         for n in self.prodables:
-            n.start()
+            n.start(self.loop)
 
     def stopall(self):
+        """
+        Stop all the Prodables in this Looper's `prodables`
+        """
         for n in self.prodables:
             n.stop()

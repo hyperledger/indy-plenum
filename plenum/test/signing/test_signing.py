@@ -1,12 +1,11 @@
 import pytest
 
 from plenum.common.exceptions import InvalidSignature
-from plenum.common.util import getlogger
+from plenum.common.util import getlogger, adict
 
 from plenum.test.helper import TestNode
 from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
 from plenum.test.node_request.node_request_helper import checkPropagated
-from plenum.test.testing_utils import adict
 from plenum.test.eventually import eventually
 
 logger = getlogger()
@@ -52,7 +51,7 @@ def testOneNodeAltersAClientRequest(looper,
             assert reason == InvalidSignature.reason
 
             # ensure Alpha's propagates were ignored by the other nodes
-            key = sent1.clientId, sent1.reqId
+            key = sent1.identifier, sent1.reqId
             props = node.requests[key].propagates
             assert 'Alpha' not in props
             for good in goodNodes:

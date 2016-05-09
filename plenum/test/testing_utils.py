@@ -1,12 +1,12 @@
 import logging
 import os
 import sys
-import portalocker
 import tempfile
 
+import portalocker
 from ioflo.base.consoling import getConsole
 
-from plenum.common.stacked import HA
+from plenum.common.types import HA
 from plenum.common.util import error, addTraceToLogging, TRACE_LOG_LEVEL, \
     checkPortAvailable, getlogger
 
@@ -51,31 +51,7 @@ def setupTestLogging():
             format='{relativeCreated:,.0f} {levelname:7s} {message:s}',
             style='{')
     console = getConsole()
-    console.reinit(verbosity=console.Wordage.terse)
-
-
-class adict(dict):
-    marker = object()
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        for key in kwargs:
-            self.__setitem__(key, kwargs[key])
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict) and not isinstance(value, adict):
-            value = adict(**value)
-        super(adict, self).__setitem__(key, value)
-
-    def __getitem__(self, key):
-        found = self.get(key, adict.marker)
-        if found is adict.marker:
-            found = adict()
-            super(adict, self).__setitem__(key, found)
-        return found
-
-    __setattr__ = __setitem__
-    __getattr__ = __getitem__
+    console.reinit(verbosity=console.Wordage.concise)
 
 
 class PortDispenser:
@@ -91,12 +67,12 @@ class PortDispenser:
 
     maxportretries = 3
 
-    def __init__(self, ip: str, filename: str=None):
+    def __init__(self, ip: str, filename: str=None, minPort=6000, maxPort=9999):
         self.ip = ip
         self.FILE = filename or os.path.join(tempfile.gettempdir(),
                                              'plenum-portmutex.{}.txt'.format(ip))
-        self.minPort = 6000
-        self.maxPort = 9999
+        self.minPort = minPort
+        self.maxPort = maxPort
         self.initFile()
 
     def initFile(self):
@@ -119,7 +95,7 @@ class PortDispenser:
                 file.seek(0)
                 file.write(str(port))
                 try:
-                    checkPortAvailable(port)
+                    checkPortAvailable(("",port))
                     ports.append(port)
                     logger.debug("new port dispensed: {}".format(port))
                 except:

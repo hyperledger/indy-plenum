@@ -2,7 +2,7 @@ import pytest
 from plenum.test.eventually import eventually
 from plenum.test.helper import delay
 
-from plenum.common.request_types import Propagate
+from plenum.common.types import Propagate
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, sentPropagate
 
 nodeCount = 4
@@ -32,7 +32,7 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         assert len(recvdPropagate(A)) == 3
         # A should have total of 4 PROPAGATEs (3 from other nodes and 1 from
         # itself)
-        key = sent1.clientId, sent1.reqId
+        key = sent1.identifier, sent1.reqId
         assert len(A.requests[key].propagates) == 4
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1

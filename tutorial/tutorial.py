@@ -96,8 +96,8 @@ with TemporaryDirectory() as tmpdir:
         """
         Create a client.
         """
-        clientId = "my_client_id"
-        client = Client(clientId=clientId,
+        clientName = "my_client_id"
+        client = Client(name=clientName,
                         ha=client_addr,
                         nodeReg=cliNodeReg,
                         basedirpath=tmpdir)
@@ -107,7 +107,7 @@ with TemporaryDirectory() as tmpdir:
         A client signs its requests. By default, a simple yet secure signing
         mechanism is created for a client.
         """
-        idAndKey = client.signer.identifier, client.signer.verkey
+        idAndKey = client.getSigner().identifier, client.getSigner().verkey
 
         """
         A client's signature verification key must be bootstrapped out of band

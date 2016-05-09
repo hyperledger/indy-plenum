@@ -1,10 +1,15 @@
+import asyncio
+import importlib.util
 import inspect
 import itertools
 import logging
+import math
 import os
 import random
 import socket
 import string
+import sys
+import time
 from collections import Counter
 from collections import OrderedDict
 from math import floor
@@ -12,9 +17,6 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, Tuple, 
     Union, List, NamedTuple
 
 import libnacl.secret
-import math
-
-import sys
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
@@ -350,12 +352,19 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
     return connmap
 
 
-def checkPortAvailable(port):
+def checkPortAvailable(ha) -> bool:
+    """Returns whether the given port is available"""
+    available = True
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock.bind(('', port))
+        sock.bind(ha)
+    except:
+        logging.warning("Checked port availability for opening "
+                        "and address was already in use: {}".format(ha))
+        available = False
     finally:
         sock.close()
+    return available
 
 
 class MessageProcessor:
@@ -374,3 +383,85 @@ class MessageProcessor:
         reason = "" if not reason else " because {}".format(reason)
         logMethod("{} discarding message {}{}".format(self, msg, reason),
                   extra={"cli": cliOutput})
+
+
+class adict(dict):
+    """Dict with attr access to keys."""
+    marker = object()
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        for key in kwargs:
+            self.__setitem__(key, kwargs[key])
+
+    def __setitem__(self, key, value):
+        if isinstance(value, dict) and not isinstance(value, adict):
+            value = adict(**value)
+        super(adict, self).__setitem__(key, value)
+
+    def __getitem__(self, key):
+        found = self.get(key, adict.marker)
+        if found is adict.marker:
+            found = adict()
+            super(adict, self).__setitem__(key, found)
+        return found
+
+    __setattr__ = __setitem__
+    __getattr__ = __getitem__
+
+
+def getInstalledConfig(installDir, configFile):
+    """
+    Reads config from the installation directory of Plenum.
+
+    :param installDir: installation directory of Plenum
+    :param configFile: name of the confiuration file
+    :raises: FileNotFoundError
+    :return: the configuration as a python object
+    """
+    configPath = os.path.join(installDir, configFile)
+    if os.path.exists(configPath):
+        spec = importlib.util.spec_from_file_location(configFile,
+                                                      configPath)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        return config
+    else:
+        raise FileNotFoundError("No file found at location {}".format(configPath))
+
+
+def getConfig():
+    """
+    Reads a file called config.py in the project directory
+
+    :raises: FileNotFoundError
+    :return: the configuration as a python object
+    """
+    refConfig = importlib.import_module("plenum.config")
+    try:
+        homeDir = os.path.expanduser("~")
+        configDir = os.path.join(homeDir, ".plenum")
+        config = getInstalledConfig(configDir, "plenum_config.py")
+        refConfig.__dict__.update(config.__dict__)
+    except FileNotFoundError:
+        pass
+    return refConfig
+
+async def untilTrue(condition, *args, timeout=5) -> bool:
+    """
+    Keep checking the condition till it is true or a timeout is reached
+
+    :param condition: the condition to check (a function that returns bool)
+    :param args: the arguments to the condition
+    :return: True if the condition is met in the given timeout, False otherwise
+    """
+    result = False
+    start = time.perf_counter()
+    elapsed = 0
+    while elapsed < timeout:
+        result = condition(*args)
+        if result:
+            break
+        await asyncio.sleep(.1)
+        elapsed = time.perf_counter() - start
+    return result

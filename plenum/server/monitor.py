@@ -56,6 +56,9 @@ class Monitor:
         return self.name
 
     def metrics(self):
+        """
+        Calculate and return the metrics.
+        """
         masterThrp, backupThrp = self.getThroughputs(self.instances.masterId)
         r = self.masterThroughputRatio()
         m = [
@@ -79,11 +82,17 @@ class Monitor:
         return m
 
     @property
-    def prettymetrics(self):
+    def prettymetrics(self) -> str:
+        """
+        Pretty printing for metrics
+        """
         rendered = ["{}: {}".format(*m) for m in self.metrics()]
         return "\n            ".join(rendered)
 
     def reset(self):
+        """
+        Reset the monitor. Sets all monitored values to defaults.
+        """
         logging.debug("Monitor being reset")
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
@@ -98,46 +107,36 @@ class Monitor:
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
-    def requestOrdered(self, clientId: str, reqId: int, instId: int,
+    def requestOrdered(self, identifier: str, reqId: int, instId: int,
                        byMaster: bool = False):
         """
         Measure the time taken for ordering of a request
         """
-        if (clientId, reqId) not in self.requestOrderingStarted:
-            logging.debug("Got ordered request with clientId {} and reqId {} "
+        if (identifier, reqId) not in self.requestOrderingStarted:
+            logging.debug("Got ordered request with identifier {} and reqId {} "
                           "but it was from a previous view".
-                          format(clientId, reqId))
+                          format(identifier, reqId))
             return
         duration = time.perf_counter() - self.requestOrderingStarted[
-            (clientId, reqId)]
+            (identifier, reqId)]
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
-
-        # troubleshooting
-        # logger.info("{}    ----inst {} time {:.2f} reqOrdStarted {:.2f}".format(
-        #     self,
-        #     instId,
-        #     time.perf_counter(),
-        #     self.requestOrderingStarted[(clientId, reqId)]))
-        # logger.info("{}    ----inst {} adding {:.2f} to {:.2f} to get {:.2f}".
-        #             format(self, instId, duration, tm, duration + tm))
-
         if byMaster:
-            self.masterReqLatencies[(clientId, reqId)] = duration
-        if clientId not in self.clientAvgReqLatencies[instId]:
-            self.clientAvgReqLatencies[instId][clientId] = (0, 0.0)
-        totalReqs, avgTime = self.clientAvgReqLatencies[instId][clientId]
+            self.masterReqLatencies[(identifier, reqId)] = duration
+        if identifier not in self.clientAvgReqLatencies[instId]:
+            self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
+        totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
         # If avg of `n` items is `a`, thus sum of `n` items is `x` where
         # `x=n*a` then avg of `n+1` items where `y` is the new item is
         # `((n*a)+y)/n+1`
-        self.clientAvgReqLatencies[instId][clientId] = \
+        self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-    def requestUnOrdered(self, clientId: str, reqId: int):
+    def requestUnOrdered(self, identifier: str, reqId: int):
         """
         Record the time at which request ordering started.
         """
-        self.requestOrderingStarted[(clientId, reqId)] = time.perf_counter()
+        self.requestOrderingStarted[(identifier, reqId)] = time.perf_counter()
 
     def isMasterDegraded(self):
         """
@@ -269,15 +268,15 @@ class Monitor:
         else:
             return None, None
 
-    def getAvgLatencyForClient(self, clientId: str, *instId: int) -> float:
+    def getAvgLatencyForClient(self, identifier: str, *instId: int) -> float:
         """
         Calculate and return the average latency of the requests of the
-        client(specified by clientId) for the specified protocol instances.
+        client(specified by identifier) for the specified protocol instances.
         """
         if len(self.clientAvgReqLatencies) == 0:
             return 0
         return self.mean(
-            [self.clientAvgReqLatencies[i][clientId][1] for i in instId])
+            [self.clientAvgReqLatencies[i][identifier][1] for i in instId])
 
     def getAvgLatency(self, *instIds: int) -> Dict[str, float]:
         if len(self.clientAvgReqLatencies) == 0:

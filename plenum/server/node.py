@@ -1,69 +1,87 @@
-"""
-A node in an RBFT system.
-Nodes communicate with each other via the RAET protocol. https://github.com/saltstack/raet
-"""
-
 import asyncio
 import random
 import time
-from collections import deque
+from collections import deque, defaultdict, OrderedDict
 from functools import partial
 from hashlib import sha256
-from typing import Dict, Any, Mapping, Iterable, List, NamedTuple, Optional, \
+from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set
+from typing import Tuple
 
+import pyorient
 from raet.raeting import AutoMode
 
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
+from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.stores.file_hash_store import FileHashStore
+from ledger.stores.hash_store import HashStore
+from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.util import F
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc
+    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
+    InvalidClientMessageException, RaetKeysNotFoundException as REx
+from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
-from plenum.common.request_types import Request, Propagate, \
-    Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
-    Reelection, PrePrepare, Prepare, Commit, \
-    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f
-from plenum.common.stacked import HA, ClientStacked
+from plenum.common.raet import isLocalKeepSetup
+from plenum.common.stacked import ClientStacked
 from plenum.common.stacked import NodeStacked
 from plenum.common.startable import Status
-from plenum.common.transaction_store import TransactionStore
-from plenum.common.util import getMaxFailures, MessageProcessor, getlogger
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME
+from plenum.common.types import Request, Propagate, \
+    Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
+    Reelection, PrePrepare, Prepare, Commit, \
+    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
+    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
+    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
+    HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY
+from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
+    getConfig
+from plenum.persistence.orientdb_hash_store import OrientDbHashStore
+from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.persistence.secondary_storage import SecondaryStorage
+from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
-from plenum.server.plugin_loader import PluginLoader
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
+from plenum.server.pool_manager import HasPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
-
-from plenum.common.stacked import HA, ClientStacked
-from plenum.common.stacked import NodeStacked
-from plenum.server import replica
 from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
 
 
 class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
-           Propagator, MessageProcessor):
+           Propagator, MessageProcessor, HasFileStorage, HasPoolManager):
+    """
+    A node in a plenum system. Nodes communicate with each other via the
+    RAET protocol. https://github.com/saltstack/raet
+    """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
 
     def __init__(self,
                  name: str,
-                 nodeRegistry: Dict[str, HA],
+                 nodeRegistry: Dict[str, HA]=None,
                  clientAuthNr: ClientAuthNr=None,
                  ha: HA=None,
                  cliname: str=None,
                  cliha: HA=None,
                  basedirpath: str=None,
                  primaryDecider: PrimaryDecider = None,
-                 opVerifiers: Iterable[Any]=None):
+                 opVerifiers: Iterable[Any]=None,
+                 storage: Storage=None,
+                 config=None):
+
         """
         Create a new node.
 
@@ -74,61 +92,42 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
+        self.created = time.perf_counter()
+        self._name = name
+        self.config = config or getConfig()
+        self.basedirpath = basedirpath or config.baseDir
+        self.dataDir = "data/nodes"
+        HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
+                                dataDir=self.dataDir)
+        self.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = opVerifiers or []
 
-        self.primaryDecider = primaryDecider
-        me = nodeRegistry[name]
+        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
-        self.allNodeNames = list(nodeRegistry.keys())
-        if isinstance(me, NodeDetail):
-            sha = me.ha
-            scliname = me.cliname
-            scliha = me.cliha
-            nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
-        else:
-            sha = me if isinstance(me, HA) else HA(*me)
-            scliname = None
-            scliha = None
-            nodeReg = {k: HA(*v) for k, v in nodeRegistry.items()}
-        if not ha:  # pull it from the registry
-            ha = sha
-        if not cliname:  # default to the name plus the suffix
-            cliname = scliname if scliname else name + CLIENT_STACK_SUFFIX
-        if not cliha:  # default to same ip, port + 1
-            cliha = scliha if scliha else HA(ha[0], ha[1]+1)
+        self.requestExecuter = defaultdict(lambda: self.doCustomAction)
 
-        nstack = dict(name=name,
-                      ha=ha,
-                      main=True,
-                      auto=AutoMode.never)
+        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
 
-        cstack = dict(name=cliname,
-                      ha=cliha,
-                      main=True,
-                      auto=AutoMode.always)
-
-        if basedirpath:
-            nstack['basedirpath'] = basedirpath
-            cstack['basedirpath'] = basedirpath
-
-        self.clientAuthNr = clientAuthNr or SimpleAuthNr()
-
-        self.nodeInBox = deque()
-        self.clientInBox = deque()
-        self.created = time.perf_counter()
+        NodeStacked.__init__(self,
+                             self.poolManager.nstack,
+                             self.poolManager.nodeReg)
+        ClientStacked.__init__(self,
+                               self.poolManager.cstack)
 
         HasActionQueue.__init__(self)
-        NodeStacked.__init__(self, nstack, nodeReg)
-        ClientStacked.__init__(self, cstack)
         Motor.__init__(self)
         Propagator.__init__(self)
 
-        self.totalNodes = len(nodeRegistry)
+        self.primaryDecider = primaryDecider
+
+        self.nodeInBox = deque()
+        self.clientInBox = deque()
+
+        self.allNodeNames = list(self.nodeReg.keys())
+        self.totalNodes = len(self.nodeReg)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
-
-        self.txnStore = TransactionStore()
 
         self.replicas = []  # type: List[replica.Replica]
 
@@ -136,7 +135,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         self.viewNo = 0                             # type: int
 
-        self.rank = self.getRank(self.name, nodeRegistry)
+        self.rank = self.getRank(self.name, self.nodeReg)
 
         self.elector = None  # type: PrimaryDecider
 
@@ -192,13 +191,88 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                Commit, InstanceChange)
         self.addReplicas()
 
-    def start(self):
+        # Map of request identifier to client name. Used for
+        # dispatching the processed requests to the correct client remote
+        self.clientIdentifiers = {}     # Dict[str, str]
+
+        self.hashStore = self.getHashStore(self.name)
+        self.primaryStorage = storage or self.getPrimaryStorage()
+        self.secondaryStorage = self.getSecondaryStorage()
+
+    def getPrimaryStorage(self):
+        """
+        This is usually an implementation of Ledger
+        """
+        if self.config.primaryStorage is None:
+            fields = OrderedDict([
+                (f.IDENTIFIER.nm, (str, str)),
+                (f.REQ_ID.nm, (str, int)),
+                (TXN_ID, (str, str)),
+                (TXN_TIME, (str, float)),
+                (TXN_TYPE, (str, str)),
+                (F.seqNo.name, (str, int))
+            ])
+            return Ledger(CompactMerkleTree(hashStore=self.hashStore),
+                          dataDir=self.getDataLocation(),
+                          serializer=CompactSerializer(fields=fields))
+        else:
+            return initStorage(self.config.primaryStorage,
+                               name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
+
+    def getHashStore(self, name) -> HashStore:
+        """
+        Create and return a hashStore implementation based on configuration
+        """
+        hsConfig = self.config.hashStore['type'].lower()
+        if hsConfig == HS_FILE:
+            return FileHashStore(dataDir=self.getDataLocation(),
+                                 fileNamePrefix=NODE_HASH_STORE_SUFFIX)
+        elif hsConfig == HS_ORIENT_DB:
+            return OrientDbHashStore(
+                self._getOrientDbStore(name, pyorient.DB_TYPE_GRAPH))
+        elif hsConfig == HS_MEMORY:
+            return MemoryHashStore()
+        else:
+            return MemoryHashStore()
+
+    def getSecondaryStorage(self) -> SecondaryStorage:
+        """
+        Create and return an instance of secondaryStorage to be
+        used by this Node.
+        """
+        if self.config.secondaryStorage:
+            return initStorage(self.config.secondaryStorage,
+                               name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
+                               dataDir=self.getDataLocation(),
+                               config=self.config)
+        else:
+            return SecondaryStorage(txnStore=None,
+                                    primaryStorage=self.primaryStorage)
+
+    def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
+        """
+        Helper method that creates an instance of OrientdbStore.
+
+        :param name: name of the orientdb database
+        :param dbType: orientdb database type
+        :return: orientdb store
+        """
+        return OrientDbStore(user=self.config.OrientDB["user"],
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_PLOCAL)
+
+    def start(self, loop):
         oldstatus = self.status
-        super().start()
+        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            self.primaryStorage.start(loop)
             self.startNodestack()
             self.startClientstack()
 
@@ -245,6 +319,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.reset()
         self.logstats()
         self.conns.clear()
+        # Stop the txn store
+        self.primaryStorage.stop()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -265,14 +341,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
-            c += self.serviceReplicas(limit)
+            c += await self.serviceReplicas(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
             c += await self.serviceElector()
             self.flushOutBoxes()
         return c
 
-    def serviceReplicas(self, limit) -> int:
+    async def serviceReplicas(self, limit) -> int:
         """
         Execute `serviceReplicaMsgs`, `serviceReplicaOutBox` and
         `serviceReplicaInBox` with `limit` number of messages. See the
@@ -283,7 +359,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         serviceReplicaMsgs, serviceReplicaInBox and serviceReplicaOutBox
         """
         a = self.serviceReplicaMsgs(limit)
-        b = self.serviceReplicaOutBox(limit)
+        b = await self.serviceReplicaOutBox(limit)
         c = self.serviceReplicaInBox(limit)
         return a + b + c
 
@@ -353,8 +429,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     def sendElectionMsgsToLaggedNode(self, nodeName: str, msgs: List[Any]):
         rid = self.nodestack.getRemote(nodeName).uid
         for msg in msgs:
-            logger.debug("{} sending election message {} to lagged node {}"
-                                     .format(self, msg, nodeName))
+            logger.debug("{} sending election message {} to lagged node {}".
+                         format(self, msg, nodeName))
             self.send(msg, rid)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
@@ -395,7 +471,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         This is a convenience method used to create replicas from a node
         instead of passing in replicas in the Node's constructor.
 
-        :param protNo: protocol instance number
+        :param instId: protocol instance number
         :param isMaster: does this replica belong to the master protocol
             instance?
         :return: a new instance of Replica
@@ -440,7 +516,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 self.replicas[idx].inBox.append(msg)
         return msgCount
 
-    def serviceReplicaOutBox(self, limit: int=None) -> int:
+    async def serviceReplicaOutBox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages.
         Here processing means appending to replica inbox.
@@ -458,7 +534,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                                     Commit)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
-                    self.processOrdered(msg)
+                    await self.processOrdered(msg)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
@@ -672,12 +748,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             msg, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
             self.reportSuspiciousClient(frm, exc)
-            self.discard(wrappedMsg, exc)
-        except InvalidClientRequest as ex:
-            exc = ex.__cause__ if ex.__cause__ else ex
-            reason = "client request invalid: {} {}".\
-                format(exc.__class__.__name__, exc)
-            self.discard(wrappedMsg, reason, cliOutput=True)
+            self.handleInvalidClientMsg(exc, wrappedMsg)
+        except InvalidClientMessageException as ex:
+            self.handleInvalidClientMsg(ex, wrappedMsg)
+
+    def handleInvalidClientMsg(self, ex, wrappedMsg):
+        _, frm = wrappedMsg
+        exc = ex.__cause__ if ex.__cause__ else ex
+        reason = "client request invalid: {} {}". \
+            format(exc.__class__.__name__, exc)
+        self.transmitToClient(RequestNack(ex.reqId, reason), frm)
+        self.discard(wrappedMsg, ex, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -693,16 +774,18 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return None
 
         if all(attr in msg.keys()
-               for attr in [OPERATION, 'clientId', 'reqId']):
-            self.checkValidOperation(msg[OPERATION])
+               for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
+            self.checkValidOperation(msg[f.IDENTIFIER.nm],
+                                     msg[f.REQ_ID.nm],
+                                     msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
             cls = TaggedTuples.get(op, None)
             if not cls:
-                raise InvalidClientOp(op)
+                raise InvalidClientOp(op, msg.get(f.REQ_ID.nm))
             if cls is not Batch:
-                raise InvalidClientMsgType(cls)
+                raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
             raise InvalidClientRequest
         try:
@@ -723,7 +806,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         otherwise add the message to the node's clientInBox.
 
         :param msg: a client message
-        :param frm: the clientId of the client that sent this `msg`
+        :param frm: the name of the client that sent this `msg`
         """
         if isinstance(msg, Batch):
             for m in msg.messages:
@@ -752,7 +835,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             logger.debug("{} processing {} request {}".
                          format(self.clientstack.name, frm, req.reqId),
                          extra={"cli": True})
-            await self.clientMsgRouter.handle(m)
+            try:
+                await self.clientMsgRouter.handle(m)
+            except InvalidClientMessageException as ex:
+                self.handleInvalidClientMsg(ex, m)
 
     async def processRequest(self, request: Request, frm: str):
         """
@@ -763,7 +849,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         remaining nodes.
 
         :param request: the REQUEST from the client
-        :param frm: the clientId of the client that sent this REQUEST
+        :param frm: the name of the client that sent this REQUEST
         """
         logger.debug("Node {} received client request: {}".
                      format(self.name, request))
@@ -771,17 +857,20 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # If request is already processed(there is a reply for the request in
         # the node's transaction store then return the reply from the
         # transaction store)
-        txnId = self.txnStore.isRequestAlreadyProcessed(request)
-        if txnId:
+        if request.identifier not in self.clientIdentifiers:
+            self.clientIdentifiers[request.identifier] = frm
+
+        reply = await self.getReplyFor(request)
+        if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
-            reply = self.txnStore.transactions[txnId]
-            self.transmitToClient(reply, request.clientId)
+            self.transmitToClient(reply, frm)
         else:
+            await self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
-            self.recordAndPropagate(request)
+            self.recordAndPropagate(request, frm)
 
     # noinspection PyUnusedLocal
     async def processPropagate(self, msg: Propagate, frm):
@@ -800,12 +889,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         reqDict = msg.request
         request = Request(**reqDict)
 
+        clientName = msg.senderClient
+
+        if request.identifier not in self.clientIdentifiers:
+            self.clientIdentifiers[request.identifier] = clientName
+
         self.requests.addPropagate(request, frm)
 
-        self.propagate(request)
+        self.propagate(request, clientName)
         self.tryForwarding(request)
 
-    def processOrdered(self, ordered: Ordered, retryNo: int = 0):
+    async def processOrdered(self, ordered: Ordered, retryNo: int = 0):
         """
         Process and orderedRequest.
 
@@ -817,9 +911,10 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param retryNo: the retry number used in recursion
         :return: True if successful, None otherwise
         """
-        instId, viewNo, clientId, reqId, digest = tuple(ordered)
 
-        self.monitor.requestOrdered(clientId,
+        instId, viewNo, identifier, reqId, digest, ppTime = tuple(ordered)
+
+        self.monitor.requestOrdered(identifier,
                                     reqId,
                                     instId,
                                     byMaster=(instId == self.instances.masterId))
@@ -827,22 +922,21 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # Only the request ordered by master protocol instance are executed by
         # the client
         if instId == self.instances.masterId:
-            key = (clientId, reqId)
+            key = (identifier, reqId)
             if key in self.requests:
                 req = self.requests[key].request
-                self.executeRequest(viewNo, req)
+                await self.executeRequest(ppTime, req)
                 logger.debug("Node {} executing client request {} {}".
-                             format(self.name, clientId, reqId))
+                             format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
             # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
             # then retry 3 times
             elif retryNo < 3:
                 retryNo += 1
-                p = partial(self.processOrdered, ordered, retryNo)
-                self._schedule(p, random.randint(2, 4))
-
+                asyncio.sleep(random.randint(2, 4))
+                await self.processOrdered(ordered, retryNo)
                 logger.debug("Node {} retrying executing client request {} {}".
-                             format(self.name, clientId, reqId))
+                             format(self.name, identifier, reqId))
             return True
         else:
             logger.trace("{} got ordered request from backup replica".
@@ -919,20 +1013,25 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              format(self))
         return True
 
-    def executeRequest(self, viewNo: int, req: Request) -> None:
+    async def executeRequest(self, ppTime: float, req: Request) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param viewNo: the view number (See glossary)
+        :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the client REQUEST
         """
-        reply = self.generateReply(viewNo, req)
-        self.transmitToClient(reply, req.clientId)
-        txnId = reply.result['txnId']
-        self.txnStore.addToProcessedRequests(req.clientId, req.reqId,
-                                             txnId, reply)
-        asyncio.ensure_future(self.txnStore.addReply(
-            clientId=req.clientId, reply=reply, txnId=txnId))
+
+        await self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
+
+    # TODO: Find a better name for the function
+    async def doCustomAction(self, ppTime, req):
+        reply = await self.generateReply(ppTime, req)
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+
+    async def getReplyFor(self, request):
+        result = await self.secondaryStorage.getReply(request.identifier, request.reqId)
+        return Reply(result) if result else None
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -973,7 +1072,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
 
-    def verifySignature(self, msg) -> bool:
+    def verifySignature(self, msg):
         """
         Validate the signature of the request
         Note: Batch is whitelisted because the inner messages are checked
@@ -993,32 +1092,35 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
 
-        key = (req['clientId'], req['reqId'])
-        if key in self.requests and self.requests[key].forwarded:
-            return
-
         identifier = self.clientAuthNr.authenticate(req)
         logger.debug("{} authenticated {} signature on {}request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
-    def generateReply(self,
-                      viewNo: int,
+    async def generateReply(self,
+                      ppTime: float,
                       req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
         computed txnId of the request
 
-        :param viewNo: the view number (See glossary)
+        :param ppTime: the time at which PRE-PREPARE was sent
         :param req: the REQUEST
-        :return: a clientReply generated from the request
+        :return: a Reply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
-        txnId = sha256("{}{}{}".format(viewNo, req.clientId, req.reqId).
+        txnId = sha256("{}{}".format(req.identifier, req.reqId).
                        encode('utf-8')).hexdigest()
-        return Reply(viewNo,
-                     req.reqId,
-                     {"txnId": txnId})
+        result = {f.IDENTIFIER.nm: req.identifier,
+                  f.REQ_ID.nm: req.reqId,
+                  TXN_ID: txnId,
+                  TXN_TIME: ppTime,
+                  TXN_TYPE: req.operation.get(TXN_TYPE)}
+        txnRslt = Reply(result)
+        merkleProof = await self.primaryStorage.append(
+            identifier=req.identifier, reply=txnRslt, txnId=txnId)
+        result.update(merkleProof)
+        return Reply(result)
 
     def startKeySharing(self, timeout=60):
         """
@@ -1062,7 +1164,40 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
 
+    def checkValidOperation(self, clientId, reqId, msg):
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(msg)
+            except Exception as ex:
+                raise InvalidClientRequest(clientId, reqId) from ex
+
+    async def checkRequestAuthorized(self, request):
+        """
+        Subclasses can implement this method to throw an
+        UnauthorizedClientRequest if the request is not authorized.
+
+        If a request makes it this far, the signature has been verified to match
+        the identifier.
+        """
+        pass
+
+    def defaultAuthNr(self):
+        return SimpleAuthNr()
+
+    @staticmethod
+    def ensureKeysAreSetup(name, baseDir):
+        """
+        Check whether the keys are setup in the local RAET keep.
+        Raises RaetKeysNotFoundException if not found.
+        """
+        if not isLocalKeepSetup(name, baseDir):
+            raise REx(REx.reason)
+
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
+        """
+        Report suspicion on a node on the basis of an exception
+        """
         self.reportSuspiciousNode(ex.node, ex.reason, ex.code, ex.offendingMsg)
 
     def reportSuspiciousNode(self,
@@ -1070,6 +1205,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                              reason=None,
                              code: int=None,
                              offendingMsg=None):
+        """
+        Report suspicion on a node and add it to this node's blacklist.
+
+        :param nodeName: name of the node to report suspicion on
+        :param reason: the reason for suspicion
+        """
         logger.warning("{} suspicion raised on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
@@ -1086,25 +1227,49 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             self.discard(offendingMsg, reason, logger.warning)
 
     def reportSuspiciousClient(self, clientName: str, reason):
+        """
+        Report suspicion on a client and add it to this node's blacklist.
+
+        :param clientName: name of the client to report suspicion on
+        :param reason: the reason for suspicion
+        """
         logger.warning("{} suspicion raised on client {} for {}; "
                        "doing nothing for now".
                        format(self, clientName, reason))
         self.blacklistClient(clientName)
 
     def isClientBlacklisted(self, clientName: str):
+        """
+        Check whether the given client is in this node's blacklist.
+
+        :param clientName: the client to check for blacklisting
+        :return: whether the client was blacklisted
+        """
         return self.clientBlacklister.isBlacklisted(clientName)
 
-    def blacklistClient(self, clientName: str, reason: str=None):
+    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+        """
+        Add the client specified by `clientName` to this node's blacklist
+        """
         msg = "{} blacklisting client {}".format(self, clientName)
         if reason:
             msg += " for reason {}".format(reason)
         logger.debug(msg)
         self.clientBlacklister.blacklist(clientName)
 
-    def isNodeBlacklisted(self, nodeName: str):
+    def isNodeBlacklisted(self, nodeName: str) -> bool:
+        """
+        Check whether the given node is in this node's blacklist.
+
+        :param nodeName: the node to check for blacklisting
+        :return: whether the node was blacklisted
+        """
         return self.nodeBlacklister.isBlacklisted(nodeName)
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
+        """
+        Add the node specified by `nodeName` to this node's blacklist
+        """
         msg = "{} blacklisting node {}".format(self, nodeName)
         if reason:
             msg += " for reason {}".format(reason)
@@ -1121,6 +1286,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.stop()
 
     def logstats(self):
+        """
+        Print the node's current statistics to log.
+        """
         lines = []
         l = lines.append
         l("node {} current stats".format(self))
@@ -1148,20 +1316,3 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                     format(len(self.aqStash), id(self.aqStash)))
 
         logger.info("\n".join(lines), extra={"cli": False})
-
-    def checkValidOperation(self, msg):
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(msg)
-            except Exception as ex:
-                raise InvalidClientRequest from ex
-
-
-CLIENT_STACK_SUFFIX = "C"
-CLIENT_BLACKLISTER_SUFFIX = "BLC"
-NODE_BLACKLISTER_SUFFIX = "BLN"
-NodeDetail = NamedTuple("NodeDetail", [
-    ("ha", HA),
-    ("cliname", str),
-    ("cliha", HA)])

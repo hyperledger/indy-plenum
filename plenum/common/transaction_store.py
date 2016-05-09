@@ -4,7 +4,8 @@ import time
 from typing import Dict
 from typing import Optional
 
-from plenum.common.request_types import Reply, f, Request
+from plenum.common.types import Reply
+from plenum.persistence.storage import Storage
 
 
 class StoreStopping(Exception):
@@ -15,7 +16,7 @@ class StopTimeout(Exception):
     pass
 
 
-class TransactionStore:
+class TransactionStore(Storage):
     """
     The TransactionStore is used to keep a record of all the transactions(client
      requests processed) in the system.
@@ -37,10 +38,6 @@ class TransactionStore:
         # value
         self.processedRequests = {}  # type: Dict[str, Dict[int, str]]
 
-        # dictionary of received requests for each client. Value for each
-        # client is an asyncio Queue
-        self.requests = {}  # type: Dict[str, asyncio.Queue]
-
         # dictionary of responses to be sent for each client. Value for each
         # client is an asyncio Queue
         self.responses = {}  # type: Dict[str, asyncio.Queue]
@@ -49,7 +46,12 @@ class TransactionStore:
         # value
         self.transactions = {}  # type: Dict[str, Reply]
 
-    async def stop(self, timeout: int=5) -> None:
+    # Used in test only.
+    def start(self, loop):
+        pass
+
+    # Used in test only.
+    def stop(self, timeout: int = 5) -> None:
         """
         Try to stop the transaction store in the given timeout or raise an
         exception.
@@ -60,90 +62,57 @@ class TransactionStore:
             if self.getsCounter == 0:
                 return True
             elif time.perf_counter() <= start + timeout:
-                await asyncio.sleep(.1)
+                time.sleep(.1)
             else:
                 raise StopTimeout("Stop timed out waiting for {} gets to "
                                   "complete.".format(self.getsCounter))
 
-    async def add_txn(self, request: dict) -> None:
-        """
-        Add the given client request to the transaction store.
-        """
-        clientId = request[f.CLIENT_ID.nm]
-        if clientId not in self.requests:
-            self.requests[clientId] = asyncio.Queue()
-        if clientId not in self.responses:
-            self.responses[clientId] = asyncio.Queue()
-        if clientId not in self.processedRequests:
-            self.processedRequests[clientId] = {}
-
-        await self.requests[clientId].put(request)
-
-    # noinspection PyProtectedMember
-    async def get_all_txn(self, client_id):
-        """
-        Fetch all transactions for the given client_id.
-        """
-        self.getsCounter += 1
-        try:
-            while self.running:
-                if client_id in self.responses and \
-                        not self.responses[client_id].empty():
-                    reply = await self.responses[client_id].get()
-                    logging.debug("Reply being served {}".format(reply))
-                    return reply._asdict()
-                else:
-                    await asyncio.sleep(.1)
-            raise StoreStopping()
-        finally:
-            self.getsCounter -= 1
-
-    async def get_txn(self, txnId: str) -> Optional[Reply]:
-        """
-        Fetch one transaction by transaction id.
-        """
-        return self.transactions[txnId] if txnId in self.transactions else None
-
-    def addToProcessedRequests(self,
-                               clientId: str,
-                               reqId: int,
-                               txnId: str,
-                               reply: Reply) -> None:
+    def addToProcessedTxns(self,
+                           identifier: str,
+                           txnId: str,
+                           reply: Reply) -> None:
         """
         Add a client request to the transaction store's list of processed
         requests.
         """
         self.transactions[txnId] = reply
-        if clientId not in self.processedRequests:
-            self.processedRequests[clientId] = {}
-        self.processedRequests[clientId][reply.reqId] = txnId
+        if identifier not in self.processedRequests:
+            self.processedRequests[identifier] = {}
+        self.processedRequests[identifier][reply.reqId] = txnId
 
-    async def addReply(self, clientId: str, reply: Reply, txnId: str=None) -> None:
+    async def append(self, identifier: str, reply: Reply, txnId: str = None) \
+            -> None:
         """
         Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.
         """
         logging.debug("Reply being sent {}".format(reply))
-        if self.isNewReply(clientId, reply, txnId):
-            self.addToProcessedRequests(clientId, reply.reqId, txnId, reply)
-        if clientId not in self.responses:
-            self.responses[clientId] = asyncio.Queue()
-        await self.responses[clientId].put(reply)
+        if self._isNewTxn(identifier, reply, txnId):
+            self.addToProcessedTxns(identifier, txnId, reply)
+        if identifier not in self.responses:
+            self.responses[identifier] = asyncio.Queue()
+        self.responses[identifier].put(reply)
 
-    def isNewReply(self, clientId, reply, txnId) -> bool:
+    async def get(self, identifier, reqId) -> Optional[Reply]:
+        if identifier in self.processedRequests:
+            if reqId in self.processedRequests[identifier]:
+                txnId = self.processedRequests[identifier][reqId]
+                return self.transactions[txnId]
+        else:
+            return None
+
+    def _isNewTxn(self, identifier, reply, txnId) -> bool:
         """
         If client is not in `processedRequests` or requestId is not there in
         processed requests and txnId is present then its a new reply
         """
-        return (clientId not in self.processedRequests or
-                reply.reqId not in self.processedRequests[clientId]) and \
+        return (identifier not in self.processedRequests or
+                reply.reqId not in self.processedRequests[identifier]) and \
                txnId is not None
 
-    def isRequestAlreadyProcessed(self, req: Request) -> bool:
-        """
-        Is the request identified by the clientId and reqId already processed?
-        """
-        if req.clientId in self.processedRequests:
-            if req.reqId in self.processedRequests[req.clientId]:
-                return self.processedRequests[req.clientId][req.reqId]
-        return False
+    def size(self) -> int:
+        return len(self.transactions)
+
+    # TODO: Cleanup stores transactions? Why Result object, why viewNo
+    def getAllTxn(self):
+        return {k: v.result for k, v in self.transactions.items()}

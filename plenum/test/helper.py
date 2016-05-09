@@ -10,37 +10,37 @@ from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from itertools import combinations, permutations
+from typing import Set
 from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
     Any, Sequence, Iterator
 from typing import Union, Callable
 
-from typing import Set
+import pyorient
+from raet.raeting import TrnsKind, PcktKind
 
+from plenum.client.client import Client, ClientProvider
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.request_types import Request, TaggedTuple, OP_FIELD_NAME, \
-    Reply, f, Ordered, PrePrepare, InstanceChange, TaggedTuples
+from plenum.common.stacked import NodeStacked, Stack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK
+from plenum.common.txn import REPLY, REQACK, TXN_ID
+from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
+    Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
+    CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds
-from raet.raeting import AutoMode, TrnsKind, PcktKind
-
-from plenum.server.client_authn import SimpleAuthNr
+    Seconds, adict
+from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
-from plenum.server.node import Node, CLIENT_STACK_SUFFIX, NodeDetail
+from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
-from plenum.test.testing_utils import adict, PortDispenser
-
-from plenum.client.client import Client, ClientProvider
-from plenum.common.stacked import NodeStacked, HA, Stack
-from plenum.server import replica
 from plenum.test.testable import Spyable, SpyableMethod
+from plenum.test.testing_utils import PortDispenser
 
 # checkDblImp()
 
@@ -178,13 +178,6 @@ class TestClient(Client, StackedTester):
     def stackType():
         return TestStack
 
-    # TODO Might need in the actual Client object.
-    def getReqToTxnIdMap(self, reqIds):
-        txnIds = {}
-        for reqId in reqIds:
-            txnIds[reqId] = self.getReply(reqId)['result']['txnId']
-        return txnIds
-
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                     Monitor.isMasterReqLatencyTooHigh])
@@ -221,28 +214,9 @@ class TestReplica(replica.Replica):
             Stasher(self.outBox, "replicaOutBoxTestStasher~" + self.name)
 
 
-# noinspection PyShadowingNames,PyShadowingNames
-@Spyable(methods=[Node.handleOneNodeMsg,
-                  Node.processRequest,
-                  Node.processOrdered,
-                  Node.postToClientInBox,
-                  Node.postToNodeInBox,
-                  "eatTestMsg",
-                  Node.decidePrimaries,
-                  Node.startViewChange,
-                  Node.discard,
-                  Node.reportSuspiciousNode,
-                  Node.reportSuspiciousClient,
-                  Node.processRequest,
-                  Node.processPropagate,
-                  Node.propagate,
-                  Node.forward,
-                  Node.send,
-                  Node.processInstanceChange,
-                  Node.checkPerformance])
-class TestNode(Node, StackedTester):
+# noinspection PyUnresolvedReferences
+class TestNodeCore(StackedTester):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.nodeMsgRouter.routes[TestMsg] = self.eatTestMsg
         self.nodeIbStasher = Stasher(self.nodeInBox,
                                      "nodeInBoxStasher~" + self.name)
@@ -254,7 +228,17 @@ class TestNode(Node, StackedTester):
         # alter whitelist to allow TestMsg type through without sig
         self.authnWhitelist = self.authnWhitelist + (TestMsg,)
 
-        self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
+        # Nodes that wont be blacklisted by this node if the suspicion code
+        # is among the set of suspicion codes mapped to its name. If the set of
+        # suspicion codes is empty then the node would not be blacklisted for
+        #  any suspicion code
+        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
+
+        # Clients that wont be blacklisted by this node if the suspicion code
+        # is among the set of suspicion codes mapped to its name. If the set of
+        # suspicion codes is empty then the client would not be blacklisted for
+        #  suspicion code
+        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
 
         # Reinitialize the monitor
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
@@ -286,7 +270,6 @@ class TestNode(Node, StackedTester):
         pdCls = self.primaryDecider if self.primaryDecider else \
             TestPrimaryElector
         return pdCls(self)
-        # return TestPrimaryElector(name, replicas, viewNo)
 
     def delaySelfNomination(self, delay: Seconds):
         logging.debug("{} delaying start election".format(self))
@@ -307,21 +290,38 @@ class TestNode(Node, StackedTester):
             r.outBoxTestStasher.resetDelays()
 
     def whitelistNode(self, nodeName: str, *codes: int):
-        if nodeName not in self.whitelistedNodes:
-            self.whitelistedNodes[nodeName] = set()
-        self.whitelistedNodes[nodeName].update(codes)
+        if nodeName not in self.whitelistedClients:
+            self.whitelistedClients[nodeName] = set()
+        self.whitelistedClients[nodeName].update(codes)
         logging.debug("{} white listing {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
-        if nodeName in self.whitelistedNodes:
+        if nodeName in self.whitelistedClients:
             # If node whitelisted for all codes
-            if len(self.whitelistedNodes[nodeName]) == 0:
+            if len(self.whitelistedClients[nodeName]) == 0:
                 return
             # If no code is provided or node is whitelisted for that code
-            elif code is None or code in self.whitelistedNodes[nodeName]:
+            elif code is None or code in self.whitelistedClients[nodeName]:
                 return
         super().blacklistNode(nodeName, reason, code)
+
+    def whitelistClient(self, clientName: str, *codes: int):
+        if clientName not in self.whitelistedClients:
+            self.whitelistedClients[clientName] = set()
+        self.whitelistedClients[clientName].update(codes)
+        logging.debug("{} white listing {} for codes {}"
+                      .format(self, clientName, codes))
+
+    def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
+        if clientName in self.whitelistedClients:
+            # If node whitelisted for all codes
+            if len(self.whitelistedClients[clientName]) == 0:
+                return
+            # If no code is provided or node is whitelisted for that code
+            elif code is None or code in self.whitelistedClients[clientName]:
+                return
+        super().blacklistClient(clientName, reason, code)
 
     def validateNodeMsg(self, wrappedMsg):
         nm = TestMsg.__name__
@@ -337,6 +337,51 @@ class TestNode(Node, StackedTester):
         for r in self.replicas:  # type: TestReplica
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
+
+    @staticmethod
+    def ensureKeysAreSetup(name, baseDir):
+        pass
+
+    def _getOrientDbStore(self, name, dbType):
+        client = pyorient.OrientDB(host="localhost", port=2424)
+        client.connect(user=self.config.OrientDB['user'],
+                       password=self.config.OrientDB['password'])
+        try:
+            if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
+                client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        # This is to avoid a known bug in OrientDb.
+        except pyorient.exceptions.PyOrientDatabaseException:
+            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        return OrientDbStore(user=self.config.OrientDB["user"],
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_MEMORY)
+
+
+# noinspection PyShadowingNames
+@Spyable(methods=[Node.handleOneNodeMsg,
+                  Node.processRequest,
+                  Node.processOrdered,
+                  Node.postToClientInBox,
+                  Node.postToNodeInBox,
+                  "eatTestMsg",
+                  Node.decidePrimaries,
+                  Node.startViewChange,
+                  Node.discard,
+                  Node.reportSuspiciousNode,
+                  Node.reportSuspiciousClient,
+                  Node.processRequest,
+                  Node.processPropagate,
+                  Node.propagate,
+                  Node.forward,
+                  Node.send,
+                  Node.processInstanceChange,
+                  Node.checkPerformance])
+class TestNode(TestNodeCore, Node):
+    def __init__(self, *args, **kwargs):
+        Node.__init__(self, *args, **kwargs)
+        TestNodeCore.__init__(self)
 
 
 def randomMsg() -> TaggedTuple:
@@ -395,7 +440,8 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None):
+                 opVerificationPluginPath=None,
+                 testNodeClass=TestNode):
         super().__init__()
 
         self.tmpdir = tmpdir
@@ -403,6 +449,7 @@ class TestNodeSet(ExitStack):
         self.primaryDecider = primaryDecider
         self.opVerificationPluginPath = opVerificationPluginPath
 
+        self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
@@ -418,7 +465,8 @@ class TestNodeSet(ExitStack):
             self.nodeReg = genNodeReg(
                     names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
-            node = self.addNode(name)
+
+            self.addNode(name)
 
         # The following lets us access the nodes by name as attributes of the
         # NodeSet. It's not a problem unless a node name shadows a member.
@@ -438,16 +486,16 @@ class TestNodeSet(ExitStack):
         else:
             opVerifiers = None
 
+        testNodeClass = self.testNodeClass
         node = self.enter_context(
-                TestNode(name=name,
-                         ha=ha,
-                         clientAuthNr=SimpleAuthNr(),
-                         cliname=cliname,
-                         cliha=cliha,
-                         nodeRegistry=copy(self.nodeReg),
-                         basedirpath=self.tmpdir,
-                         primaryDecider=self.primaryDecider,
-                         opVerifiers=opVerifiers))
+                testNodeClass(name=name,
+                              ha=ha,
+                              cliname=cliname,
+                              cliha=cliha,
+                              nodeRegistry=copy(self.nodeReg),
+                              basedirpath=self.tmpdir,
+                              primaryDecider=self.primaryDecider,
+                              opVerifiers=opVerifiers))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
@@ -475,6 +523,10 @@ class TestNodeSet(ExitStack):
     @property
     def nodeNames(self):
         return sorted(self.nodes.keys())
+
+    @property
+    def f(self):
+        return getMaxFailures(len(self.nodes))
 
     def getNode(self, node: NodeRef) -> TestNode:
         return node if isinstance(node, Node) \
@@ -515,12 +567,12 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     result = None
     for reply in receivedReplies:
         if result is None:
-            result = reply["result"]
+            result = reply[f.RESULT.nm]
         else:
             # all replies should have the same result
-            assert reply["result"] == result
+            assert reply[f.RESULT.nm] == result
 
-    assert all([r['reqId'] == reqId for r in receivedReplies])
+    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
     return result
     # TODO add test case for what happens when replies don't have the same data
 
@@ -546,7 +598,7 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     """
     the client must get at least :math:`2f+1` responses
     """
-    msgs = [(msg['reqId'], msg['result']['txnId']) for msg in
+    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
             getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
     # for (rid, tid, oprType, oprAmt) in msgs:
@@ -557,8 +609,8 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
 
 def getRepliesFromClientInbox(inbox, reqId) -> list:
     return list({_: msg for msg, _ in inbox if
-                 msg[OP_FIELD_NAME] == REPLY and msg[
-                     f.REQ_ID.nm] == reqId}.values())
+                 msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm]
+                 [f.REQ_ID.nm] == reqId}.values())
 
 
 def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
@@ -611,7 +663,7 @@ async def checkNodesConnected(stacks: Iterable[NodeStacked],
                         acceptableExceptions=[AssertionError, RemoteNotFound])
 
 
-def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState] = None,
+def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
                      state: RemoteState = None):
     assert states or state, "either state or states is required"
     assert not (
@@ -874,7 +926,9 @@ genHa = PortDispenser("127.0.0.1").getNext
 def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
-                  signer=None) -> TestClient:
+                  signer=None,
+                  testClientClass=TestClient,
+                  bootstrapKeys=True) -> TestClient:
     nReg = nodeReg
     if nodeReg:
         assert isinstance(nodeReg, dict)
@@ -885,15 +939,19 @@ def genTestClient(nodes: TestNodeSet = None,
 
     for k, v in nReg.items():
         assert type(k) == str
-        assert type(v) == HA
+        assert (type(v) == HA or type(v[0]) == HA)
 
     ha = genHa()
-    clientId = "testClient{}".format(ha.port)
+    identifier = "testClient{}".format(ha.port)
 
-    signer = signer if signer else SimpleSigner(clientId)
+    signer = signer if signer else SimpleSigner(identifier)
 
-    tc = TestClient(clientId, nodeReg=nReg, ha=ha, basedirpath=tmpdir, signer=signer)
-    if nodes:
+    tc = testClientClass(identifier,
+                         nodeReg=nReg,
+                         ha=ha,
+                         basedirpath=tmpdir,
+                         signer=signer)
+    if bootstrapKeys and nodes:
         bootstrapClientKeys(tc, nodes)
     return tc
 
@@ -901,13 +959,16 @@ def genTestClient(nodes: TestNodeSet = None,
 def bootstrapClientKeys(client, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(client.clientId, client.signer.verkey)
+        sig = client.getSigner()
+        idAndKey = sig.identifier, sig.verkey
+        n.clientAuthNr.addClient(*idAndKey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
                           nodeReg=None,
-                          tmpdir=None):
-    clbk = partial(genTestClient, nodes, nodeReg, tmpdir)
+                          tmpdir=None,
+                          clientGnr=genTestClient):
+    clbk = partial(clientGnr, nodes, nodeReg, tmpdir)
     return ClientProvider(clbk)
 
 
@@ -1072,13 +1133,14 @@ def delayerMethod(method, delay):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter):
+    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
         self.counter = counter
+        self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
         tmpdir = self.fresh_tdir()
-        with TestNodeSet(count=nodecount, tmpdir=tmpdir) as nodeset:
+        with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
                 for n in nodeset:
                     n.startKeySharing()
@@ -1093,18 +1155,18 @@ class Pool:
                '/' + str(next(self.counter))
 
 
-def checkPropagateReqCountOfNode(node: TestNode, clientId: str, reqId: int):
-    key = clientId, reqId
+def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
+    key = identifier, reqId
     assert key in node.requests
     assert len(node.requests[key].propagates) >= node.f + 1
 
 
-def checkRequestReturnedToNode(node: TestNode, clientId: str, reqId: int,
+def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                digest: str, instId: int):
     params = getAllArgs(node, node.processOrdered)
-    # Skipping the view no from each ordered request
-    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:] for p in params]
-    expected = (instId, clientId, reqId, digest)
+    # Skipping the view no and time from each ordered request
+    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
+    expected = (instId, identifier, reqId, digest)
     assert expected in recvdOrderedReqs
 
 
@@ -1118,16 +1180,16 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
         params = getAllArgs(replica, replica.canProcessPrePrepare)
-        assert expectedRequest in [p['pp'] for p in params]
+        assert expectedRequest[:-1] in [p['pp'][:-1] for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, clientId: str, reqId: int):
+def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
     paramsList = getAllArgs(replica, replica.canSendPrepare)
     rv = getAllReturnVals(replica,
                           replica.canSendPrepare)
     for params in paramsList:
         req = params['request']
-        assert req.clientId == clientId
+        assert req.identifier == identifier
         assert req.reqId == reqId
     assert all(rv)
 
@@ -1149,10 +1211,11 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         assert received > minimum
 
 
-def checkReqAck(client, node, reqId):
-    expected = ({OP_FIELD_NAME: REQACK,
-                 'reqId': reqId},
-                node.clientstack.name)
+def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQACK, 'reqId': reqId}
+    if update:
+        rec.update(update)
+    expected = (rec, node.clientstack.name)
     # one and only one matching message should be in the client's inBox
     assert sum(1 for x in client.inBox if x == expected) == 1
 
@@ -1269,6 +1332,11 @@ def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):
 def whitelistNode(toWhitelist: str, frm: Sequence[TestNode], *codes):
     for node in frm:
         node.whitelistNode(toWhitelist, *codes)
+
+
+def whitelistClient(toWhitelist: str, frm: Sequence[TestNode], *codes):
+    for node in frm:
+        node.whitelistClient(toWhitelist, *codes)
 
 
 TESTMSG = "TESTMSG"
