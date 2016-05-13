@@ -342,21 +342,23 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(name, baseDir):
         pass
 
-    def _getOrientDbStore(self, name, dbType):
-        client = pyorient.OrientDB(host="localhost", port=2424)
-        client.connect(user=self.config.OrientDB['user'],
-                       password=self.config.OrientDB['password'])
-        try:
-            if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
-                client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
-        # This is to avoid a known bug in OrientDb.
-        except pyorient.exceptions.PyOrientDatabaseException:
-            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
-        return OrientDbStore(user=self.config.OrientDB["user"],
-                             password=self.config.OrientDB["password"],
-                             dbName=name,
-                             dbType=dbType,
-                             storageType=pyorient.STORAGE_TYPE_MEMORY)
+    # def _getOrientDbStore(self, name, dbType):
+    #     if hasattr(self, '_orientDbStore'):
+    #         return self._orientDbStore
+    #     client = pyorient.OrientDB(host="localhost", port=2424)
+    #     client.connect(user=self.config.OrientDB['user'],
+    #                    password=self.config.OrientDB['password'])
+    #     try:
+    #         if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
+    #             client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+    #     # This is to avoid a known bug in OrientDb.
+    #     except pyorient.exceptions.PyOrientDatabaseException:
+    #         client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+    #     return OrientDbStore(user=self.config.OrientDB["user"],
+    #                          password=self.config.OrientDB["password"],
+    #                          dbName=name,
+    #                          dbType=dbType,
+    #                          storageType=pyorient.STORAGE_TYPE_MEMORY)
 
 
 # noinspection PyShadowingNames
@@ -382,6 +384,22 @@ class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self)
+
+    def _getOrientDbStore(self, name, dbType):
+        client = pyorient.OrientDB(host="localhost", port=2424)
+        client.connect(user=self.config.OrientDB['user'],
+                       password=self.config.OrientDB['password'])
+        try:
+            if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
+                client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        # This is to avoid a known bug in OrientDb.
+        except pyorient.exceptions.PyOrientDatabaseException:
+            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+        return OrientDbStore(user=self.config.OrientDB["user"],
+                             password=self.config.OrientDB["password"],
+                             dbName=name,
+                             dbType=dbType,
+                             storageType=pyorient.STORAGE_TYPE_MEMORY)
 
 
 def randomMsg() -> TaggedTuple:
@@ -433,6 +451,7 @@ def getAllReturnVals(obj: Any, method: SpyableMethod) -> List[Any]:
 
 
 class TestNodeSet(ExitStack):
+
     def __init__(self,
                  names: Iterable[str] = None,
                  count: int = None,
@@ -443,19 +462,15 @@ class TestNodeSet(ExitStack):
                  opVerificationPluginPath=None,
                  testNodeClass=TestNode):
         super().__init__()
-
         self.tmpdir = tmpdir
-
         self.primaryDecider = primaryDecider
         self.opVerificationPluginPath = opVerificationPluginPath
-
         self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
         # it simple a the cost of extra memory and its test code so not a big
         # deal
-
         if nodeReg:
             self.nodeReg = nodeReg
         else:
@@ -465,27 +480,21 @@ class TestNodeSet(ExitStack):
             self.nodeReg = genNodeReg(
                     names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
-
             self.addNode(name)
-
         # The following lets us access the nodes by name as attributes of the
         # NodeSet. It's not a problem unless a node name shadows a member.
         self.__dict__.update(self.nodes)
 
     def addNode(self, name: str) -> TestNode:
-
         if name in self.nodes:
             error("{} already added".format(name))
-
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
-
         if self.opVerificationPluginPath:
             pl = PluginLoader(self.opVerificationPluginPath)
             opVerifiers = pl.plugins['VERIFICATION']
         else:
             opVerifiers = None
-
         testNodeClass = self.testNodeClass
         node = self.enter_context(
                 testNodeClass(name=name,

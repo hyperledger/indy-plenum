@@ -230,8 +230,12 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             return FileHashStore(dataDir=self.getDataLocation(),
                                  fileNamePrefix=NODE_HASH_STORE_SUFFIX)
         elif hsConfig == HS_ORIENT_DB:
-            return OrientDbHashStore(
-                self._getOrientDbStore(name, pyorient.DB_TYPE_GRAPH))
+            if hasattr(self, '_orientDbStore'):
+                store = self._orientDbStore
+            else:
+                store = self._getOrientDbStore(name,
+                                               pyorient.DB_TYPE_GRAPH)
+            return OrientDbHashStore(store)
         elif hsConfig == HS_MEMORY:
             return MemoryHashStore()
         else:
@@ -259,11 +263,13 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param dbType: orientdb database type
         :return: orientdb store
         """
-        return OrientDbStore(user=self.config.OrientDB["user"],
-                             password=self.config.OrientDB["password"],
-                             dbName=name,
-                             dbType=dbType,
-                             storageType=pyorient.STORAGE_TYPE_PLOCAL)
+        self._orientDbStore = OrientDbStore(
+            user=self.config.OrientDB["user"],
+            password=self.config.OrientDB["password"],
+            dbName=name,
+            dbType=dbType,
+            storageType=pyorient.STORAGE_TYPE_PLOCAL)
+        return self._orientDbStore
 
     def start(self, loop):
         oldstatus = self.status
