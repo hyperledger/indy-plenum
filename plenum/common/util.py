@@ -13,8 +13,8 @@ import time
 from collections import Counter
 from collections import OrderedDict
 from math import floor
-from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, Tuple, \
-    Union, List, NamedTuple
+from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
+    Tuple, Union, List, NamedTuple
 
 import libnacl.secret
 from ioflo.base.consoling import getConsole, Console
