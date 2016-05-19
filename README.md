@@ -27,6 +27,8 @@ plenum
 ...or run the tests.
 
 ```
+git clone https://github.com/evernym/plenum.git
+cd plenum
 python -m plenum.test
 ```
 
