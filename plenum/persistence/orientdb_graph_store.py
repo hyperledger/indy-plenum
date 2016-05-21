@@ -52,6 +52,7 @@ class OrientDbGraphStore(GraphStore):
         if len(kwargs) > 0:
             createCmd += " set "
         for key, val in kwargs.items():
-            attributes.append("{} = '{}'".format(key, val))
+            valPlaceHolder = "{}" if isinstance(val, int) else "'{}'"
+            attributes.append(("{} = "+valPlaceHolder).format(key, val))
         createCmd += ", ".join(attributes)
         return self.client.command(createCmd)[0]

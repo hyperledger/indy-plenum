@@ -59,3 +59,23 @@ class OrientDbStore:
         ridStr = ",".join(
             rids)
         return self.client.command("select from [{}]".format(ridStr))
+
+
+def createOrientDbInMemStore(config, name, dbType):
+    """
+    Create and return an OrientDb in-memory store used for test cases.
+    """
+    client = pyorient.OrientDB(host="localhost", port=2424)
+    client.connect(user=config.OrientDB['user'],
+                   password=config.OrientDB['password'])
+    try:
+        if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
+            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+    # This is to avoid a known bug in OrientDb.
+    except pyorient.exceptions.PyOrientDatabaseException:
+        client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
+    return OrientDbStore(user=config.OrientDB["user"],
+                         password=config.OrientDB["password"],
+                         dbName=name,
+                         dbType=dbType,
+                         storageType=pyorient.STORAGE_TYPE_MEMORY)
