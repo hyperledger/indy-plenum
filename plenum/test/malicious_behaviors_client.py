@@ -63,7 +63,7 @@ def repeatsRequest(client: Client, count: int) -> Client:
         for op in operations:
             for _ in range(count):
                 request = self.createRequest(op)
-                self.send(request)
+                self.nodestack.send(request)
                 requests.append(request)
         return requests
 
@@ -81,5 +81,5 @@ def sendsUnsignedRequest(client) -> Client:
     def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg
-    client.sign = types.MethodType(evilSign, client)
+    client.nodestack.sign = types.MethodType(evilSign, client)
     return client

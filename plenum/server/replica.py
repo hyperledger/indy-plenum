@@ -37,6 +37,7 @@ class Stats:
         sort = sorted([k.value for k in keys])
         self.stats = OrderedDict((s, 0) for s in sort)
 
+
     def inc(self, key):
         """
         Increment the stat specified by key.
@@ -97,9 +98,6 @@ class Replica(MessageProcessor):
         """
 
         self.isMaster = isMaster
-
-        # Do not know which node is primary or even if any node is primary yet
-        # self._isPrimary = None  # type: Optional[bool]
 
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the

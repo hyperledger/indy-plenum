@@ -199,7 +199,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                           timeout=5))
     orignalRquestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    client1._enqueueIntoAllRemotes(sent1, client1.getSigner())
+    client1.nodestack._enqueueIntoAllRemotes(sent1, client1.getSigner())
 
     def chk():
         assertLength([response for response in client1.inBox

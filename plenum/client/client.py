@@ -17,7 +17,7 @@ from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.motor import Motor
-from plenum.common.stacked import NodeStacked
+from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
@@ -26,7 +26,7 @@ from plenum.common.util import getMaxFailures, getlogger
 logger = getlogger()
 
 
-class Client(NodeStacked, Motor):
+class Client(Motor):
 
     def __init__(self,
                  name: str,
@@ -47,8 +47,8 @@ class Client(NodeStacked, Motor):
         :param signers: Dict of identifier -> Signer; useful for clients that
             need to support multiple signers
         """
+        self.name = name
         self.lastReqId = lastReqId
-        self._clientStack = None
         self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
 
         cliNodeReg = OrderedDict()
@@ -60,7 +60,7 @@ class Client(NodeStacked, Motor):
                 ip, port = val
             cliNodeReg[nm] = HA(ip, port)
 
-        nodeReg = cliNodeReg
+        self.nodeReg = cliNodeReg
 
         cha = ha if isinstance(ha, HA) else HA(*ha)
         stackargs = dict(name=name,
@@ -69,11 +69,15 @@ class Client(NodeStacked, Motor):
                          auto=AutoMode.always)
         if basedirpath:
             stackargs['basedirpath'] = basedirpath
-
         self.created = time.perf_counter()
-        NodeStacked.__init__(self,
-                             stackParams=stackargs,
-                             nodeReg=nodeReg)
+
+        # noinspection PyCallingNonCallable
+        self.nodestack = self.nodeStackClass(stackargs,
+                                   self.handleOneNodeMsg,
+                                   self.nodeReg)
+        self.nodestack.onConnsChanged = self.onConnsChanged
+        self.nodestack.sign = self.sign
+
         logger.info("Client initialized with the following node registry:")
         lengths = [max(x) for x in zip(*[
             (len(name), len(host), len(str(port)))
@@ -100,7 +104,11 @@ class Client(NodeStacked, Motor):
         else:
             self.setupDefaultSigner()
 
-        self.connectNicelyUntil = 0  # don't need to connect nicely as a client
+        self.nodestack.connectNicelyUntil = 0  # don't need to connect nicely as a client
+
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return NodeStack
 
     def setupDefaultSigner(self):
         """
@@ -117,8 +125,8 @@ class Client(NodeStacked, Motor):
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
-            self.startNodestack()
-            self.maintainConnections()
+            self.nodestack.start()
+            self.nodestack.maintainConnections()
 
     async def prod(self, limit) -> int:
         """
@@ -128,8 +136,9 @@ class Client(NodeStacked, Motor):
         :return: The number of events up to a prescribed `limit`
         """
         s = await self.nodestack.service(limit)
-        await self.serviceLifecycle()
-        self.flushOutBoxes()
+        if self.isGoing():
+            await self.nodestack.serviceLifecycle()
+        self.nodestack.flushOutBoxes()
         return s
 
     def createRequest(self, operation: Mapping, identifier: str=None) -> Request:
@@ -158,7 +167,7 @@ class Client(NodeStacked, Motor):
         requests = []
         for op in operations:
             request = self.createRequest(op, identifier)
-            self.send(request, signer=self.getSigner(identifier))
+            self.nodestack.send(request, signer=self.getSigner(identifier))
             requests.append(request)
         return requests
 
@@ -204,10 +213,9 @@ class Client(NodeStacked, Motor):
         pass
 
     def onStopping(self, *args, **kwargs):
+        self.nodestack.nextCheck = 0
         if self.nodestack:
             self.nodestack.close()
-            self.nodestack = None
-        self.nextCheck = 0
 
     def getReply(self, reqId: int) -> Optional[Reply]:
         """
@@ -299,9 +307,9 @@ class Client(NodeStacked, Motor):
         connections changed.
         """
         if self.isGoing():
-            if len(self.conns) == len(self.nodeReg):
+            if len(self.nodestack.conns) == len(self.nodeReg):
                 self.status = Status.started
-            elif len(self.conns) >= self.minimumNodes:
+            elif len(self.nodestack.conns) >= self.minimumNodes:
                 self.status = Status.started_hungry
 
     @staticmethod

@@ -73,7 +73,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     for i in range(5):
         nodeB.send(Nomination(nodeD.name, instId, nodeB.viewNo))
-    nodeB.flushOutBoxes()
+    nodeB.nodestack.flushOutBoxes()
 
     # No node from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have more than one nomination for node D since

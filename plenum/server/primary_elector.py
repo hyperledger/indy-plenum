@@ -4,7 +4,7 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Sequence, Any, Union
+from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, \
     f, BlacklistMsg
@@ -735,7 +735,7 @@ class PrimaryElector(PrimaryDecider):
         return msgs
 
     def getElectionMsgsForLaggedNodes(self) -> \
-            Sequence[Union[Nomination, Primary]]:
+            List[Union[Nomination, Primary]]:
         """
         Get nomination and primary messages for instance with id `instId` that
         need to be sent to a node which has lagged behind (for example, a newly

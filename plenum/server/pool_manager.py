@@ -126,7 +126,7 @@ class TxnPoolManager(PoolManager):
         reply.result.update(op)
         await self.poolTxnStore.append(
             identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
-        self.node.transmitToClient(reply,
+        self.node.clientstack.transmitToClient(reply,
                                    self.node.clientIdentifiers[req.identifier])
 
     def addNewRole(self, txn):

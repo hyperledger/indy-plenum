@@ -21,7 +21,7 @@ from plenum.client.client import Client, ClientProvider
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.stacked import NodeStacked, Stack
+from plenum.common.stacked import Stack, Batched, NodeStack, ClientStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK, TXN_ID
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
@@ -67,13 +67,6 @@ class TestStack(Stack):
 
     def resetDelays(self):
         self.stasher.resetDelays()
-
-    @staticmethod
-    def _soft(func, *args):
-        try:
-            return func(*args)
-        except ValueError:
-            return None
 
 
 class Stasher:
@@ -173,13 +166,13 @@ class StackedTester:
 
 @Spyable(methods=[Client.handleOneNodeMsg])
 class TestClient(Client, StackedTester):
-    @staticmethod
-    def stackType():
-        return TestStack
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return getTestableStack(NodeStack)
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
-                    Monitor.isMasterReqLatencyTooHigh])
+                  Monitor.isMasterReqLatencyTooHigh])
 class TestMonitor(Monitor):
     pass
 
@@ -188,7 +181,8 @@ class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.actionQueueStasher = Stasher(self.actionQueue,
-                                          "actionQueueStasher~elector~" + self.name)
+                                          "actionQueueStasher~elector~" +
+                                          self.name)
 
     def _serviceActions(self):
         self.actionQueueStasher.process()
@@ -231,7 +225,7 @@ class TestNodeCore(StackedTester):
         # is among the set of suspicion codes mapped to its name. If the set of
         # suspicion codes is empty then the node would not be blacklisted for
         #  any suspicion code
-        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
+        self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
 
         # Clients that wont be blacklisted by this node if the suspicion code
         # is among the set of suspicion codes mapped to its name. If the set of
@@ -245,10 +239,6 @@ class TestNodeCore(StackedTester):
         self.monitor = TestMonitor(self.name, d, l, o, self.instances)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
-
-    @staticmethod
-    def stackType():
-        return TestStack
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -341,6 +331,7 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(name, baseDir):
         pass
 
+
 # noinspection PyShadowingNames
 @Spyable(methods=[Node.handleOneNodeMsg,
                   Node.processRequest,
@@ -369,6 +360,30 @@ class TestNode(TestNodeCore, Node):
         return orientdb_store.createOrientDbInMemStore(
             self.config, name, dbType)
 
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return getTestableStack(NodeStack)
+
+    @property
+    def clientStackClass(self) -> ClientStack:
+        return getTestableStack(ClientStack)
+
+
+def getTestableStack(stack: Stack):
+    """
+    Dynamically modify a class that extends from `Stack` and introduce
+    `TestStack` in the class hierarchy
+    :param stack:
+    :return:
+    """
+    mro = stack.__mro__
+    newMro = []
+    for c in mro[1:]:
+        if c == Stack:
+            newMro.append(TestStack)
+        newMro.append(c)
+    return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
+
 
 def randomMsg() -> TaggedTuple:
     return TestMsg('subject ' + randomString(),
@@ -390,7 +405,7 @@ def ordinal(n):
 
 def getLastMsgReceivedForNode(node: TestNode, method: str = None) -> Tuple:
     return node.spylog.getLast(
-            method if method else NodeStacked.handleOneNodeMsg.__name__,
+            method if method else TestNode.handleOneNodeMsg.__name__,
             required=True).params[
         'wrappedMsg']  # params should return a one element tuple
 
@@ -623,7 +638,7 @@ def expectedWait(nodeCount):
     return w
 
 
-async def checkNodesConnected(stacks: Iterable[NodeStacked],
+async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               expectedRemoteState=None,
                               overrideTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
@@ -809,8 +824,9 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
 
 def assertLength(collection: Sequence[Any], expectedLength: int):
     assert len(
-            collection) == expectedLength, "Observed length was {} but expected length was {}".format(
-            len(collection), expectedLength)
+            collection) == expectedLength, "Observed length was {} but " \
+                                           "expected length was {}".\
+        format(len(collection), expectedLength)
 
 
 def assertNonEmpty(elem: Any):
@@ -1030,7 +1046,7 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
     msg = msg if msg else randomMsg()
     frmnode = nodes.getNode(frm)
     rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
-    frmnode.send(msg, rid)
+    frmnode.nodestack.send(msg, rid)
     await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
                      ratchetSteps=10)
 

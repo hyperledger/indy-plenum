@@ -18,6 +18,7 @@ from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
+from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -25,8 +26,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
-from plenum.common.stacked import ClientStacked
-from plenum.common.stacked import NodeStacked
+from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME
 from plenum.common.types import Request, Propagate, \
@@ -44,6 +44,7 @@ from plenum.persistence.secondary_storage import SecondaryStorage
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
+from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
@@ -60,7 +61,7 @@ from plenum.server.suspicion_codes import Suspicions
 logger = getlogger()
 
 
-class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
+class Node(HasActionQueue, Motor,
            Propagator, MessageProcessor, HasFileStorage, HasPoolManager):
     """
     A node in a plenum system. Nodes communicate with each other via the
@@ -93,7 +94,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         of a protocol instance
         """
         self.created = time.perf_counter()
-        self._name = name
+        self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = "data/nodes"
@@ -107,12 +108,17 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.requestExecuter = defaultdict(lambda: self.doCustomAction)
 
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        self.nodeReg = self.poolManager.nodeReg
 
-        NodeStacked.__init__(self,
-                             self.poolManager.nstack,
-                             self.poolManager.nodeReg)
-        ClientStacked.__init__(self,
-                               self.poolManager.cstack)
+        # noinspection PyCallingNonCallable
+        self.nodestack = self.nodeStackClass(self.poolManager.nstack,
+                                   self.handleOneNodeMsg,
+                                   self.nodeReg)
+        self.nodestack.onConnsChanged = self.onConnsChanged
+
+        # noinspection PyCallingNonCallable
+        self.clientstack = self.clientStackClass(self.poolManager.cstack,
+                                       self.handleOneClientMsg)
 
         HasActionQueue.__init__(self)
         Motor.__init__(self)
@@ -199,6 +205,14 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
 
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return NodeStack
+
+    @property
+    def clientStackClass(self) -> ClientStack:
+        return ClientStack
+
     def getPrimaryStorage(self):
         """
         This is usually an implementation of Ledger
@@ -279,8 +293,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                         format(self, self.status.name))
         else:
             self.primaryStorage.start(loop)
-            self.startNodestack()
-            self.startClientstack()
+            self.nodestack.start()
+            self.clientstack.start()
 
             self.elector = self.newPrimaryDecider()
 
@@ -289,7 +303,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                 logger.info("{} first time running; waiting for key sharing..."
                             "".format(self))
             else:
-                self.maintainConnections()
+                self.nodestack.maintainConnections()
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -308,7 +322,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         connections, then there would be four total nodes
         :return: number of connected nodes this one
         """
-        return len(self._conns) + 1
+        return len(self.nodestack.conns) + 1
 
     def onStopping(self):
         """
@@ -316,21 +330,20 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         - Close the UDP socket of the nodestack
         """
-        if self.nodestack:
-            self.nodestack.close()
-            self.nodestack = None
-        if self.clientstack:
-            self.clientstack.close()
-            self.clientstack = None
         self.reset()
         self.logstats()
-        self.conns.clear()
+        self.nodestack.conns.clear()
         # Stop the txn store
         self.primaryStorage.stop()
 
+        if self.nodestack:
+            self.nodestack.close()
+        if self.clientstack:
+            self.clientstack.close()
+
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
-        self.nextCheck = 0
+        self.nodestack.nextCheck = 0
         self.aqStash.clear()
         self.actionQueue.clear()
         self.elector = None
@@ -343,7 +356,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         :param limit: the number of items to be serviced in this attempt
         :return: total number of messages serviced by this node
         """
-        await self.serviceLifecycle()
+        if self.isGoing():
+            await self.nodestack.serviceLifecycle()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
@@ -351,7 +365,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
             c += await self.serviceElector()
-            self.flushOutBoxes()
+            self.nodestack.flushOutBoxes()
         return c
 
     async def serviceReplicas(self, limit) -> int:
@@ -428,7 +442,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
             if isinstance(self.elector, PrimaryElector):
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
                 logger.debug("{} has msgs {} for new nodes {}".format(self,
-                                                                      msgs, newConns))
+                                                                      msgs,
+                                                                      newConns))
                 for n in newConns:
                     self.sendElectionMsgsToLaggedNode(n, msgs)
 
@@ -457,7 +472,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         established.
         """
         logger.debug("{} choosing to start election on the basis of count {} "
-                     "and nodes {}".format(self, self.nodeCount, self.conns))
+                     "and nodes {}".format(self, self.nodeCount,
+                                           self.nodestack.conns))
         self._schedule(self.decidePrimaries)
 
     def addReplicas(self):
@@ -1033,7 +1049,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
     # TODO: Find a better name for the function
     async def doCustomAction(self, ppTime, req):
         reply = await self.generateReply(ppTime, req)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+        self.transmitToClient(reply,
+                                          self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, request):
         result = await self.secondaryStorage.getReply(request.identifier, request.reqId)
@@ -1103,9 +1120,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
-    async def generateReply(self,
-                      ppTime: float,
-                      req: Request) -> Reply:
+    async def generateReply(self, ppTime: float, req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
         computed txnId of the request
@@ -1135,7 +1150,7 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
         :param timeout: the time till which key sharing is active
         """
-        if self.isKeySharing:
+        if self.nodestack.isKeySharing:
             logger.info("{} already key sharing".format(self),
                         extra={"cli": "LOW_STATUS"})
         else:
@@ -1153,17 +1168,18 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
             # if just starting, then bootstrap
             force = time.perf_counter() - self.created > 5
-            self.maintainConnections(force=force)
+            self.nodestack.maintainConnections(force=force)
 
     def stopKeySharing(self, timedOut=False):
         """
         Stop key sharing, i.e don't allow any more nodes to join this node.
         """
-        if self.isKeySharing:
+        if self.nodestack.isKeySharing:
             if timedOut:
                 logger.info("{} key sharing timed out; was not able to "
                             "connect to {}".
-                            format(self, ", ".join(self.notConnectedNodes())),
+                            format(self,
+                                   ", ".join(self.nodestack.notConnectedNodes())),
                             extra={"cli": "WARNING"})
             else:
                 logger.info("{} completed key sharing".format(self),
@@ -1190,6 +1206,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
 
     def defaultAuthNr(self):
         return SimpleAuthNr()
+
+    def send(self, msg: Any, *rids: Iterable[int], signer: Signer=None):
+        self.nodestack.send(msg, *rids, signer=signer)
 
     @staticmethod
     def ensureKeysAreSetup(name, baseDir):
@@ -1284,6 +1303,9 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         logger.debug(msg)
         self.nodeBlacklister.blacklist(nodeName)
 
+    def transmitToClient(self, msg: Any, remoteName: str):
+        self.clientstack.transmitToClient(msg, remoteName)
+
     def __enter__(self):
         return self
 
@@ -1305,8 +1327,8 @@ class Node(HasActionQueue, NodeStacked, ClientStacked, Motor,
         l("age (seconds)           : {}".
                     format(time.perf_counter() - self.created))
         l("next check for reconnect: {}".
-                    format(time.perf_counter() - self.nextCheck))
-        l("node connections        : {}".format(self._conns))
+                    format(time.perf_counter() - self.nodestack.nextCheck))
+        l("node connections        : {}".format(self.nodestack.conns))
         l("f                       : {}".format(self.f))
         l("master instance         : {}".format(self.instances.masterId))
         l("replicas                : {}".format(len(self.replicas)))
