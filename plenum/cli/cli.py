@@ -562,8 +562,8 @@ Commands:
                 time.perf_counter() - client.created))
             self.print("    status: {}".format(client.status.name))
             self.print("    connected to: ", newline=False)
-            if client._conns:
-                self.printNames(client._conns, newline=True)
+            if client.nodestack.conns:
+                self.printNames(client.nodestack.conns, newline=True)
             else:
                 self.printVoid()
             self.print("    Identifier: {}".format(client.defaultIdentifier))
