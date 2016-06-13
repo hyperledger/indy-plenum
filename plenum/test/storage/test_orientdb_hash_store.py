@@ -1,6 +1,8 @@
 import pyorient
 import pytest
 
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
 from ledger.test.test_file_hash_store import generateHashes, nodesLeaves
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -50,3 +52,20 @@ def testUniqueConstraint(odbhs: OrientDbHashStore):
     odbhs.writeLeaf(leafHash)
     with pytest.raises(pyorient.PyOrientORecordDuplicatedException):
         odbhs.writeLeaf(leafHash)
+
+
+def testRecoverLedgerFromHashStore(odbhs, tdir):
+    cleanup(odbhs)
+    tree = CompactMerkleTree(hashStore=odbhs)
+    ledger = Ledger(tree=tree, dataDir=tdir)
+    for d in range(10):
+        ledger.add(str(d).encode())
+    updatedTree = ledger.tree
+    ledger.stop()
+
+    tree = CompactMerkleTree(hashStore=odbhs)
+    restartedLedger = Ledger(tree=tree, dataDir=tdir)
+    assert restartedLedger.size == ledger.size
+    assert restartedLedger.root_hash == ledger.root_hash
+    assert restartedLedger.tree.hashes == updatedTree.hashes
+    assert restartedLedger.tree.root_hash == updatedTree.root_hash

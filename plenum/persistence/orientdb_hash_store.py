@@ -15,13 +15,13 @@ class OrientDbHashStore(HashStore):
         self.leafHashClass = "LeafHashStore"
         self.nodeHashClass = "NodeHashStore"
         self.store.createClasses(self.classesNeeded())
-        self.numLeaves = self.getNumLeaves()
+        self._leafCount = self.leafCount
 
     def writeLeaf(self, leafHash):
         self.store.client.command(
             "insert into {} (seqNo, leafHash) values ({}, '{}')".format(
-                self.leafHashClass, self.numLeaves + 1, self._tob64(leafHash)))
-        self.numLeaves += 1
+                self.leafHashClass, self.leafCount + 1, self._tob64(leafHash)))
+        self.leafCount += 1
 
     def writeNode(self, node):
         start, height, nodeHash = node
@@ -70,10 +70,15 @@ class OrientDbHashStore(HashStore):
                 hashClass, start, end))
         return [self._fromb64(r.oRecordData[attrib]) for r in resultSet]
 
-    def getNumLeaves(self) -> int:
+    @property
+    def leafCount(self) -> int:
         result = self.store.client.command("select count(*) from {}".
                                            format(self.leafHashClass))
         return result[0].oRecordData['count']
+
+    @leafCount.setter
+    def leafCount(self, count: int) -> None:
+        self._leafCount = count
 
     @staticmethod
     def _validatePos(start, end=None):
