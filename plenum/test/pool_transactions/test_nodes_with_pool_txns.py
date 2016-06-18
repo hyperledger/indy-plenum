@@ -54,7 +54,7 @@ def testNodesConnect(txnPoolNodeSet):
     pass
 
 
-def testNodesReceiveClientMsgs(looper, client1):
+def testNodesReceiveClientMsgs(looper, client1, txnPoolNodeSet):
     looper.add(client1)
     looper.run(client1.ensureConnectedToNodes())
     sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)

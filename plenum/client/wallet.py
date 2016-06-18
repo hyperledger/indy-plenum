@@ -20,7 +20,12 @@ class EncryptedWallet:
 class Wallet:
     def __init__(self, storage: WalletStorage):
         self.signers = {}
+        self.aliases = {}
         self.storage = storage
+        for (signer, alias) in self.storage.signers:
+            if alias:
+                self.aliases[alias] = signer.identifier
+            self.signers[signer.identifier] = signer
 
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':
@@ -37,6 +42,11 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    def addSigner(self, signer: Signer):
+    def addSigner(self, signer: Signer, alias=None):
         self.signers[signer.identifier] = signer
-        self.storage.addSigner(signer=signer)
+        self.storage.addSigner(signer=signer, alias=alias)
+        if alias:
+            self.aliases[alias] = signer.identifier
+
+    def getSigner(self, identifier=None, alias=None):
+        return self.storage.getSigner(identifier=identifier, alias=alias)

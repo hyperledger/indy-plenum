@@ -82,7 +82,7 @@ class NaclAuthNr(ClientAuthNr):
                     raise MissingIdentifier
             b64sig = signature.encode('utf-8')
             sig = b64decode(b64sig)
-            ser = serializeForSig(msg)
+            ser = self.serializeForSig(msg)
             try:
                 verkey = self.getVerkey(identifier)
             except KeyError:
@@ -105,6 +105,9 @@ class NaclAuthNr(ClientAuthNr):
     @abstractmethod
     def getVerkey(self, identifier):
         pass
+
+    def serializeForSig(self, msg):
+        return serializeForSig(msg)
 
 
 class SimpleAuthNr(NaclAuthNr):

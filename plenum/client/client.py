@@ -100,19 +100,20 @@ class Client(Motor):
 
         clientDataDir = os.path.join(basedirpath, "data", "clients", self.name)
         self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
-        self.signers = None     # type: Dict[str, Signer]
+        signers = None     # type: Dict[str, Signer]
         self.defaultIdentifier = None
         if self.wallet.signers:
-            self.signers = self.wallet.signers
+            signers = self.wallet.signers
         else:
             if signer:
-                self.signers = {signer.identifier: signer}
+                signers = {signer.identifier: signer}
                 self.defaultIdentifier = signer.identifier
             elif signers:
-                self.signers = signers
+                signers = signers
             else:
-                self.setupDefaultSigner()
-            for s in self.signers.values():
+                signers = self.setupDefaultSigner()
+
+            for s in signers.values():
                 self.wallet.addSigner(signer=s)
 
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
@@ -129,13 +130,18 @@ class Client(Motor):
     def nodeStackClass(self) -> NodeStack:
         return NodeStack
 
+    @property
+    def signers(self):
+        return self.wallet.signers
+
     def setupDefaultSigner(self):
         """
         Create one SimpleSigner and add it to signers
         against the client's name.
         """
-        self.signers = {self.name: SimpleSigner(self.name)}
+        signers = {self.name: SimpleSigner(self.name)}
         self.defaultIdentifier = self.name
+        return signers
 
     def start(self, loop):
         oldstatus = self.status
