@@ -39,8 +39,8 @@ class OrientDbStore:
 
     def createClassProperties(self, className, properties: Dict):
         for prpName, typ in properties.items():
-            self.client.command("create property {}.{} {}".format(className,
-                                                                  prpName, typ))
+            self.client.command("create property {}.{} {}".
+                                format(className, prpName, typ))
 
     def createIndexOnClass(self, className: str, prop, indexType=None):
         cmd = "create index {}.{}".format(className, prop)
@@ -56,8 +56,7 @@ class OrientDbStore:
         self.createIndexOnClass(className, uniqueProperty, "unique")
 
     def getByRecordIds(self, *rids):
-        ridStr = ",".join(
-            rids)
+        ridStr = ",".join(rids)
         return self.client.command("select from [{}]".format(ridStr))
 
 

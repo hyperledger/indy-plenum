@@ -6,22 +6,25 @@ and receives result of the request execution from nodes.
 import base64
 import json
 import logging
+import os
 import time
-from collections import deque, OrderedDict, namedtuple
+from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
 from raet.raeting import AutoMode
-
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.json_serializer import JsonSerializer
-from ledger.util import F
+from ledger.util import F, STH
+
 from plenum.client.signer import Signer, SimpleSigner
+from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY
+from plenum.common.txn import REPLY, CLINODEREG
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
 from plenum.common.util import getMaxFailures, getlogger
+from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 logger = getlogger()
 
@@ -35,7 +38,8 @@ class Client(Motor):
                  lastReqId: int = 0,
                  signer: Signer=None,
                  signers: Dict[str, Signer]=None,
-                 basedirpath: str=None):
+                 basedirpath: str=None,
+                 wallet: Wallet=None):
         """
         Creates a new client.
 
@@ -94,17 +98,32 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        self.signers = None
+        clientDataDir = os.path.join(basedirpath, "data", "clients", self.name)
+        self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
+        self.signers = None     # type: Dict[str, Signer]
         self.defaultIdentifier = None
-        if signer:
-            self.signers = {signer.identifier: signer}
-            self.defaultIdentifier = signer.identifier
-        elif signers:
-            self.signers = signers
+        if self.wallet.signers:
+            self.signers = self.wallet.signers
         else:
-            self.setupDefaultSigner()
+            if signer:
+                self.signers = {signer.identifier: signer}
+                self.defaultIdentifier = signer.identifier
+            elif signers:
+                self.signers = signers
+            else:
+                self.setupDefaultSigner()
+            for s in self.signers.values():
+                self.wallet.addSigner(signer=s)
 
-        self.nodestack.connectNicelyUntil = 0  # don't need to connect nicely as a client
+        self.nodestack.connectNicelyUntil = 0  # don't need to connect
+        # nicely as a client
+
+        # Temporary node registry. Used to keep locations of unknown validators
+        # until location confirmed by consensus. Key is the name of client stack
+        # of unknown validator and value is a dictionary with location, i.e HA
+        # as key and value as set of names of known validators vetting that
+        # location
+        self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
 
     @property
     def nodeStackClass(self) -> NodeStack:
@@ -207,6 +226,39 @@ class Client(Motor):
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": True})
+        if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == CLINODEREG:
+            cliNodeReg = msg[f.NODES.nm]
+            for name, ha in cliNodeReg.items():
+                self.newValidatorDiscovered(name, tuple(ha), frm)
+
+    def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
+                               frm: str):
+        if stackName in self.nodeReg and \
+                        stackHA == tuple(self.nodeReg[stackName]):
+            # TODO: What if a malicious validator is trying to communicate an
+            # incorrect ha to a client? Probably blacklist it.
+            logger.debug("{} already present in nodeReg".format(stackName))
+            return
+        else:
+            if stackName not in self.tempNodeReg:
+                self.tempNodeReg[stackName] = {}
+            if stackHA not in self.tempNodeReg[stackName]:
+                self.tempNodeReg[stackName][stackHA] = set()
+            self.tempNodeReg[stackName][stackHA].add(frm)
+            f = getMaxFailures(len(self.nodeReg))
+
+            if len(self.tempNodeReg[stackName][stackHA]) > f:
+                if stackName not in self.nodeReg:
+                    self.newNodeFound(stackName, stackHA)
+                else:
+                    self.nodestack.keep.clearRemoteData(stackName)
+                    rid = self.nodestack.removeRemoteByName(stackName)
+                    self.nodestack.outBoxes.pop(rid, None)
+                    self.nodeReg[stackName] = HA(*stackHA)
+
+    def newNodeFound(self, name: str, ha: Tuple[str, int]):
+        self.nodeReg[name] = HA(*ha)
+        del self.tempNodeReg[name]
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -214,7 +266,7 @@ class Client(Motor):
 
     def onStopping(self, *args, **kwargs):
         self.nodestack.nextCheck = 0
-        if self.nodestack:
+        if self.nodestack.opened:
             self.nodestack.close()
 
     def getReply(self, reqId: int) -> Optional[Reply]:
@@ -324,7 +376,6 @@ class Client(Motor):
         :raises ProofError: The proof is invalid
         :return: True
         """
-        sth = namedtuple("sth", ["tree_size", "sha256_root_hash"])
         verifier = MerkleVerifier()
         serializer = JsonSerializer()
         for r in replies:
@@ -338,7 +389,7 @@ class Client(Motor):
             result = serializer.serialize(dict(filtered))
             verifier.verify_leaf_inclusion(result, seqNo-1,
                                            auditPath,
-                                           sth(tree_size=seqNo,
+                                           STH(tree_size=seqNo,
                                                sha256_root_hash=rootHash))
         return True
 

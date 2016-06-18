@@ -45,7 +45,7 @@ from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict
@@ -85,7 +85,11 @@ class Cli:
         self.basedirpath = basedirpath
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
-
+        self.nodeRegistry = {}
+        for nStkNm, nha in self.nodeReg.items():
+            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
+            self.nodeRegistry[nStkNm] = NodeDetail(nha, cStkNm,
+                                                   self.cliNodeReg[cStkNm])
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -515,7 +519,7 @@ Commands:
         nodes = []
         for name in names:
             node = self.NodeClass(name,
-                                  self.nodeReg,
+                                  self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   opVerifiers=opVerifiers)
             self.nodes[name] = node
@@ -596,7 +600,7 @@ Commands:
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
             self.print('    Connections: ', newline=False)
-            connecteds = node.nodestack.connecteds()
+            connecteds = node.nodestack.connecteds
             if connecteds:
                 self.printNames(connecteds, newline=True)
             else:
@@ -619,7 +623,7 @@ Commands:
             self.print("    Up time (seconds): {:.0f}".
                        format(time.perf_counter() - node.created))
             self.print("    Clients: ", newline=False)
-            clients = node.clientstack.connecteds()
+            clients = node.clientstack.connecteds
             if clients:
                 self.printNames(clients, newline=True)
             else:

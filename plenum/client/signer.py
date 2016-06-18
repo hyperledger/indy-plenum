@@ -1,4 +1,5 @@
 from abc import abstractproperty, abstractmethod
+from binascii import hexlify
 from typing import Mapping, Dict
 
 from libnacl import randombytes
@@ -59,6 +60,10 @@ class SimpleSigner(Signer):
     @property
     def identifier(self) -> str:
         return self._identifier
+
+    @property
+    def seedHex(self) -> bytes:
+        return hexlify(self.seed)
 
     def sign(self, msg: Dict) -> Dict:
         """

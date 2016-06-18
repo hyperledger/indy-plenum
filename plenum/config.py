@@ -20,6 +20,8 @@ cliNodeReg = OrderedDict([
 
 baseDir = "~/.plenum/"
 
+domainTransactionsFile = "transactions"
+
 poolTransactionsFile = "pool_transactions"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
@@ -40,3 +42,5 @@ OrientDB = {
     "startScript": "/opt/orientdb/bin/server.sh",
     "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
 }
+
+stewardThreshold = 20

@@ -102,7 +102,8 @@ class Stasher:
             for rx in list(self.queue):
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
-                    logging.debug("{} stashing message {} for {} seconds".
+                    logging.debug("{} stashingWhileCatchingUp message {} for "
+                                  "{} seconds".
                                   format(self.name, rx, secondsToDelay))
                     self.delayeds.append((age + secondsToDelay, rx))
                     self.queue.remove(rx)
@@ -547,9 +548,6 @@ class TestNodeSet(ExitStack):
     def getAllMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
-# TODO: This file is becoming too big. Move things out of here.
-# Start with TestNodeSet
-
 
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
@@ -730,6 +728,17 @@ def checkIfSameReplicaIPrimary(looper: Looper,
 def checkNodesAreReady(nodes: Sequence[TestNode]):
     for node in nodes:
         assert node.isReady()
+
+
+async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
+    if not timeout:
+        timeout = .75 * len(nodes)
+
+    def chk():
+        for node in nodes:
+            assert node.isParticipating
+
+    await eventually(chk, retryWait=1, timeout=timeout)
 
 
 def instances(nodes: Sequence[Node]) -> Dict[int, List[replica.Replica]]:
@@ -913,7 +922,6 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 
 
 genHa = PortDispenser("127.0.0.1").getNext
-# genHa = HaGen().getNext
 
 
 def genTestClient(nodes: TestNodeSet = None,

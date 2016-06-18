@@ -94,3 +94,21 @@ def isLocalKeepSetup(name, baseDir=None) -> bool:
     keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
     localRoleData = keep.loadLocalRoleData()
     return hasKeys(localRoleData, ['role', 'sighex', 'prihex'])
+
+
+# def clearLocalKeep(name, keepDir):
+#     if not os.path.exists(keepDir):
+#         raise FileExistsError("Keep directory does not exist at {}".
+#                               format(keepDir))
+#     keep = RoadKeep(stackname=name, basedirpath=keepDir, baseroledirpath=keepDir)
+#     keep.clearLocalData()
+#     keep.clearLocalRoleData()
+#
+#
+# def clearRemoteKeep(name, remoteName, keepDir):
+#     if not os.path.exists(keepDir):
+#         raise FileExistsError("Keep directory does not exist at {}".
+#                               format(keepDir))
+#     keep = RoadKeep(stackname=name, basedirpath=keepDir, baseroledirpath=keepDir)
+#     keep.clearRemoteData(remoteName)
+#     keep.clearRemoteRoleData(remoteName)

@@ -56,6 +56,7 @@ def createAllNodes(cli):
     cli.enterCmd("new node all")
     cli.looper.runFor(5)
 
+
 @pytest.fixture("module")
 def allNodesUp(cli, createAllNodes, up):
     # Let nodes complete election and the output be rendered on the screen

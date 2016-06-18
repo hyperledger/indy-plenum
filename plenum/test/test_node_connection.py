@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 from ioflo.aid import getConsole
 
 from plenum.common.looper import Looper
+from plenum.common.types import NodeDetail
 from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.helper import checkNodesConnected, checkProtocolInstanceSetup, \
@@ -15,10 +16,10 @@ logger = getlogger()
 whitelist = ['discarding message', 'found legacy entry']
 
 nodeReg = {
-    'Alpha': (genHa(2)[0],),
-    'Beta': (genHa(2)[0],),
-    'Gamma': (genHa(2)[0],),
-    'Delta': (genHa(2)[0],)}
+    'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
+    'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
+    'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
+    'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
 
 
 def testNodesConnectsWhenOneNodeIsLate():
@@ -136,7 +137,7 @@ def testNodeConnectionAfterKeysharingRestarted():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

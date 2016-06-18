@@ -3,7 +3,7 @@ import sys
 import time
 from collections import Callable
 from collections import deque
-from typing import Any, Set, Optional, Iterable
+from typing import Any, Set, Optional, List, Iterable
 from typing import Dict
 from typing import Tuple
 
@@ -119,12 +119,17 @@ class Stack(RoadStack):
         """
         self.store.changeStamp(age if age else self.age)
 
+    @property
+    def opened(self):
+        return self.server.opened
+
     def close(self):
         """
         Close the UDP socket of this stack's server.
         """
         self.server.close()  # close the UDP socket
 
+    @property
     def connecteds(self) -> Set[str]:
         """
         Return the names of the nodes this node is connected to.
@@ -153,6 +158,18 @@ class Stack(RoadStack):
                         if r.name == name)
         except StopIteration:
             raise RemoteNotFound(name)
+
+    def removeRemoteByName(self, name: str) -> int:
+        """
+        Remove the remote by name.
+
+        :param name: the name of the remote to remove
+        :raises: RemoteNotFound
+        """
+        remote = self.getRemote(name)
+        rid = remote.uid
+        self.removeRemote(remote)
+        return rid
 
     def send(self, msg: Any, remoteName: str):
         """
@@ -226,7 +243,7 @@ class SimpleStack(Stack):
         """
         Evaluate the connected nodes
         """
-        self.conns = self.connecteds()
+        self.conns = self.connecteds
 
     def _connsChanged(self, ins: Set[str], outs: Set[str]) -> None:
         """
@@ -486,12 +503,12 @@ class KITStack(SimpleStack):
                              format(self, disconn.name))
                 return
         count, last = self.lastcheck.get(disconn.uid, (0, 0))
+        dname = self.getRemoteName(disconn)
         # TODO come back to ratcheting retries
         # secsSinceLastCheck = cur - last
         # secsToWait = self.ratchet.get(count)
         # secsToWaitNext = self.ratchet.get(count + 1)
         # if secsSinceLastCheck > secsToWait:
-        dname = self.getRemoteName(disconn)
         # extra = "" if not last else "; needed to wait at least {} and " \
         #                             "waited {} (next try will be {} " \
         #                             "seconds)".format(round(secsToWait, 2),
@@ -726,6 +743,18 @@ class Batched(MessageProcessor):
 
 
 class ClientStack(SimpleStack):
+    def __init__(self, stackParams: dict, msgHandler: Callable):
+        SimpleStack.__init__(self, stackParams, msgHandler)
+        self.connectedClients = set()
+
+    def serviceClientStack(self):
+        newClients = self.connecteds - self.connectedClients
+        self.connectedClients = self.connecteds
+        return newClients
+
+    def newClientsConnected(self, newClients):
+        raise NotImplementedError("{} must implement this method".format(self))
+
     def transmitToClient(self, msg: Any, remoteName: str):
         """
         Transmit the specified message to the remote client specified by `remoteName`.
@@ -741,6 +770,10 @@ class ClientStack(SimpleStack):
         except Exception as ex:
             logger.error("Unable to send message to client {}; Exception: {}"
                          .format(remoteName, ex.__repr__()))
+
+    def transmitToClients(self, msg: Any, remoteNames: List[str]):
+        for nm in remoteNames:
+            self.transmitToClient(msg, nm)
 
 
 class NodeStack(Batched, KITStack):

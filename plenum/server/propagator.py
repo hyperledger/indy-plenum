@@ -160,6 +160,7 @@ class Propagator:
         self.monitor.requestUnOrdered(*request.key)
         self.requests.flagAsForwarded(request)
 
+    # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):
         """
         Record the request in the list of requests and propagate.
@@ -168,7 +169,10 @@ class Propagator:
         :param clientName:
         """
         self.requests.add(request)
-        self.propagate(request, clientName)
+        # Only propagate if the node is participating in the consensus process
+        # which happens when the node has completed the catchup process
+        if self.isParticipating:
+            self.propagate(request, clientName)
         self.tryForwarding(request)
 
     def tryForwarding(self, request: Request):

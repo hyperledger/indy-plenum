@@ -41,3 +41,13 @@ class Status(IntEnum):
         Return a tuple of started_hungry and started
         """
         return cls.started_hungry, cls.started
+
+
+@unique
+class Mode(IntEnum):
+    """
+    Mode a node can be in
+    """
+    starting = 1
+    catchingUp = 2
+    participating = 3

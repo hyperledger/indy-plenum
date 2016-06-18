@@ -6,6 +6,8 @@ from ledger.ledger import Ledger
 from ledger.test.test_file_hash_store import generateHashes, nodesLeaves
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
+from ledger.test.test_file_hash_store import nodesLeaves, \
+    generateHashes
 
 
 @pytest.fixture(scope="module")
@@ -20,7 +22,7 @@ def cleanup(hs):
     for cls in [hs.nodeHashClass, hs.leafHashClass]:
         if hs.store.classExists(cls):
             hs.store.client.command("Truncate class {}".format(cls))
-    hs.numLeaves = 0
+    hs.leafCount = 0
 
 
 def testOrientDbSetup(odbhs):

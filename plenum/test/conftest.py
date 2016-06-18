@@ -21,7 +21,8 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, \
+    checkNodesParticipating
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 
@@ -289,7 +290,7 @@ def poolTxnClientNames():
 
 @pytest.fixture(scope="module")
 def poolTxnStewardNames():
-    return "Bob",
+    return "Steward1", "Steward2", "Steward3", "Steward4"
 
 
 @pytest.fixture(scope="module")
@@ -317,8 +318,8 @@ def poolTxnData(dirName):
 @pytest.fixture(scope="module")
 def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     ledger = Ledger(CompactMerkleTree(),
-           dataDir=tdir,
-           fileName=tconf.poolTransactionsFile)
+                    dataDir=tdir,
+                    fileName=tconf.poolTransactionsFile)
     for item in poolTxnData["txns"]:
         ledger.add(item)
     return tdir
@@ -355,7 +356,8 @@ def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
             looper.add(node)
             nodes.append(node)
 
-        looper.run(eventually(checkNodesConnected, nodes, retryWait=1, timeout=5))
+        looper.run(eventually(checkNodesConnected, nodes, retryWait=1,
+                              timeout=5))
         yield nodes
 
 

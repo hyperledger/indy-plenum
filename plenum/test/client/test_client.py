@@ -26,6 +26,14 @@ whitelist = ['signer not configured so not signing',
              'found legacy entry']  # warnings
 
 
+def checkResponseRecvdFromNodes(client, expectedCount: int):
+    respCount = 0
+    for (resp, nodeNm) in client.inBox:
+        if resp.get(OP_FIELD_NAME) in (REQACK, REPLY):
+            respCount += 1
+    assert respCount == expectedCount
+
+
 # noinspection PyIncorrectDocstring
 def testGeneratedRequestSequencing(tdir_for_func):
     """
@@ -150,7 +158,7 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1):
     """
     request = sendRandomRequest(client1)
     looper.run(
-            eventually(assertLength, client1.inBox,
+            eventually(checkResponseRecvdFromNodes, client1,
                        2 * nodeCount * request.reqId,
                        retryWait=.25, timeout=15))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
@@ -167,7 +175,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper, client1):
     # modify some (numOfResponses of type REPLY - (f + 1)) => 4 responses to
     # have a different operations
     looper.run(
-            eventually(assertLength, client1.inBox,
+            eventually(checkResponseRecvdFromNodes, client1,
                        2 * nodeCount * request.reqId,
                        retryWait=.25, timeout=15))
 
@@ -204,9 +212,9 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     def chk():
         assertLength([response for response in client1.inBox
                       if (response[0].get(f.RESULT.nm) and
-                      response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
-                      (response[0].get(OP_FIELD_NAME) == REQACK and response[0].get(f.REQ_ID.nm)
-                       == sent1.reqId)],
+                       response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
+                      (response[0].get(OP_FIELD_NAME) == REQACK and
+                       response[0].get(f.REQ_ID.nm) == sent1.reqId)],
                      orignalRquestResponsesLen +
                      duplicateRequestRepliesLen)
 

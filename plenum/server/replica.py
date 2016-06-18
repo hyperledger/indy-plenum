@@ -163,6 +163,14 @@ class Replica(MessageProcessor):
         self.threePhaseMsgsForLaterView = deque()
         # type: deque[(ThreePhaseMsg, str)]
 
+        # Holds tuple of view no and prepare seq no of 3-phase messages it
+        # received while it was not participating
+        self.stashingWhileCatchingUp = set()       # type: Set[Tuple]
+
+    def shouldParticipate(self, viewNo: int, ppSeqNo: int):
+        return self.node.isParticipating and (viewNo, ppSeqNo) \
+                                             not in self.stashingWhileCatchingUp
+
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -370,7 +378,6 @@ class Replica(MessageProcessor):
                          .format(self, request))
             # If the request is for a later view dont try to process it but add
             # it back to the queue.
-            # Sacrificing brevity for efficiency.
             if self.isMsgForLaterView(request):
                 unprocessed.append((request, sender))
             else:
@@ -389,8 +396,8 @@ class Replica(MessageProcessor):
         """
         Create a three phase request to be handled by the threePhaseRouter.
 
-        :param request: the ThreePhaseRequest to dispatch
-        :param senderRep: the name of the node that sent this request
+        :param msg: the ThreePhaseMsg to dispatch
+        :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
         try:
@@ -447,6 +454,8 @@ class Replica(MessageProcessor):
         logger.debug("{} Receiving PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
         if self.canProcessPrePrepare(pp, sender):
+            if not self.node.isParticipating:
+                self.stashingWhileCatchingUp.add((pp.viewNo, pp.ppSeqNo))
             self.addToPrePrepares(pp)
 
     def tryPrepare(self, pp: PrePrepare):
@@ -475,7 +484,8 @@ class Replica(MessageProcessor):
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
-                logger.warning("{} cannot process incoming PREPARE".format(self))
+                logger.warning("{} cannot process incoming PREPARE".
+                               format(self))
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
 
@@ -487,7 +497,8 @@ class Replica(MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
-        logger.debug("{} received commit {} from {}".format(self, commit, sender))
+        logger.debug("{} received commit {} from {}".
+                     format(self, commit, sender))
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
@@ -518,6 +529,10 @@ class Replica(MessageProcessor):
 
         :param reqDigest: a tuple with elements identifier, reqId, and digest
         """
+        if not self.node.isParticipating:
+            logger.error("Non participating node is attempting PRE-PREPARE. "
+                        "This should not happen.")
+            return
         logger.debug("{} Sending PRE-PREPARE at {}".
                      format(self, time.perf_counter()))
         self.prePrepareSeqNo += 1
@@ -579,12 +594,6 @@ class Replica(MessageProcessor):
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
-        #TODO: Fix this, how to check last preprepare seq num
-        # if self.prePrepares:
-        #     lastProcessedPrePrepareSeqNo = max([key[1] for key in self.prePrepares.keys()])
-        #     if pp.ppSeqNo > lastProcessedPrePrepareSeqNo + 1:
-        #         raise SuspiciousNode(sender, Suspicions.WRONG_PPSEQ_NO, pp)
-
         key = (pp.identifier, pp.reqId)
 
         if (key in self.reqsPendingPrePrepare and
@@ -616,7 +625,8 @@ class Replica(MessageProcessor):
 
         :param request: any object with identifier and requestId attributes
         """
-        return self.node.requests.canPrepare(request, self.f + 1) and \
+        return self.shouldParticipate(request.viewNo, request.ppSeqNo) and \
+               self.node.requests.canPrepare(request, self.f + 1) and \
                not self.hasPrepared(request)
 
     def isValidPrepare(self, prepare: Prepare, sender: str):
@@ -692,7 +702,8 @@ class Replica(MessageProcessor):
 
         :param prepare: the PREPARE
         """
-        return self.prepares.hasQuorum(prepare, self.f) and \
+        return self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo) and \
+               self.prepares.hasQuorum(prepare, self.f) and \
                not self.hasCommitted(prepare)
 
     def isValidCommit(self, commit: Commit, sender: str):
@@ -786,6 +797,8 @@ class Replica(MessageProcessor):
                           digest,
                           commit.ppTime)
         self.send(ordered, TPCStat.OrderSent)
+        if key in self.stashingWhileCatchingUp:
+            self.stashingWhileCatchingUp.remove(key)
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))

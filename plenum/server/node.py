@@ -1,4 +1,5 @@
 import asyncio
+import operator
 import random
 import time
 from collections import deque, defaultdict, OrderedDict
@@ -7,8 +8,11 @@ from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set
 from typing import Tuple
-
+import heapq
+import math
+from base64 import b64encode
 import pyorient
+
 from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -27,15 +31,18 @@ from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
-from plenum.common.startable import Status
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME
+from plenum.common.startable import Status, Mode
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
     RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
-    HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY
+    HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY, LedgerStatus, \
+    LedgerStatuses, ConsistencyProofs, ConsistencyProof, CatchupReq, CatchupRep, \
+    NodeRegForClient, CLIENT_STACK_SUFFIX
+
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
@@ -51,7 +58,7 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
-from plenum.server.pool_manager import HasPoolManager
+from plenum.server.pool_manager import HasPoolManager, TxnPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
@@ -120,6 +127,8 @@ class Node(HasActionQueue, Motor,
         self.clientstack = self.clientStackClass(self.poolManager.cstack,
                                        self.handleOneClientMsg)
 
+        self.cliNodeReg = self.poolManager.cliNodeReg
+
         HasActionQueue.__init__(self)
         Motor.__init__(self)
         Propagator.__init__(self)
@@ -129,11 +138,12 @@ class Node(HasActionQueue, Motor,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        self.allNodeNames = list(self.nodeReg.keys())
-        self.totalNodes = len(self.nodeReg)
-        self.f = getMaxFailures(self.totalNodes)
-        self.requiredNumberOfInstances = self.f + 1  # per RBFT
-        self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        # self.allNodeNames = list(self.nodeReg.keys())
+        # self.totalNodes = len(self.nodeReg)
+        # self.f = getMaxFailures(self.totalNodes)
+        # self.requiredNumberOfInstances = self.f + 1  # per RBFT
+        # self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        self.setF()
 
         self.replicas = []  # type: List[replica.Replica]
 
@@ -170,6 +180,13 @@ class Node(HasActionQueue, Motor,
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
                           [PrePrepare, Prepare, Commit])
 
+        nodeRoutes.extend([
+            (LedgerStatuses, self.processLedgerStatuses),
+            (ConsistencyProofs, self.processConsistencyProofs),
+            (CatchupReq, self.processCatchupReq),
+            (CatchupRep, self.processCatchupRep)
+        ])
+
         self.nodeMsgRouter = Router(*nodeRoutes)
 
         self.clientMsgRouter = Router((Request,
@@ -194,8 +211,8 @@ class Node(HasActionQueue, Motor,
         self.authnWhitelist = (Nomination, Primary, Reelection,
                                Batch,
                                PrePrepare, Prepare,
-                               Commit, InstanceChange)
-        self.addReplicas()
+                               Commit, InstanceChange, LedgerStatuses,
+                               ConsistencyProofs, CatchupReq, CatchupRep)
 
         # Map of request identifier to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -204,6 +221,63 @@ class Node(HasActionQueue, Motor,
         self.hashStore = self.getHashStore(self.name)
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
+
+        self.mode = Mode.starting
+
+        # Consistency proofs received in process of catching up.
+        # Key is the node name and value is a tuple.
+        # The first element of the tuple is the consistency proof
+        # received for the pool transaction ledger and second element is the
+        # consistency proof received for the domain transaction ledger
+        self.receivedConsistencyProofs = {}  # type: Dict[str, ConsistencyProofs]
+
+        self.catchUpTill = [None, None]
+
+        # Catchup replies that need to be applied to the ledger. First element
+        # of the list is a list of transactions that need to be applied to the
+        # pool transaction ledger and the second element is the list of
+        # transactions that need to be applied to the domain transaction ledger
+        self.receivedCatchUpReplies = [[], []]
+
+        self.addReplicas()
+
+        self.msgsForFutureReplicas = {}
+
+    def __repr__(self):
+        return self.name
+
+    # noinspection PyAttributeOutsideInit
+    def setF(self):
+        self.allNodeNames = list(self.nodeReg.keys())
+        self.totalNodes = len(self.nodeReg)
+        self.f = getMaxFailures(self.totalNodes)
+        self.requiredNumberOfInstances = self.f + 1  # per RBFT
+        self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+
+    @property
+    def poolLedger(self):
+        return self.poolManager.poolTxnStore if isinstance(self.poolManager,
+                                                           TxnPoolManager) \
+            else None
+
+    @property
+    def domainLedger(self):
+        return self.primaryStorage
+
+    @property
+    def poolLedgerStatus(self):
+        return LedgerStatus(0, self.poolManager.txnSeqNo,
+                            self.poolManager.merkleRootHash) \
+            if self.poolLedger else None
+
+    @property
+    def domainLedgerStatus(self):
+        return LedgerStatus(1, self.primaryStorage.size,
+                            self.primaryStorage.root_hash)
+
+    @property
+    def isParticipating(self):
+        return self.mode == Mode.participating
 
     @property
     def nodeStackClass(self) -> NodeStack:
@@ -227,8 +301,9 @@ class Node(HasActionQueue, Motor,
                 (F.seqNo.name, (str, int))
             ])
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
-                          dataDir=self.getDataLocation(),
-                          serializer=CompactSerializer(fields=fields))
+                dataDir=self.getDataLocation(),
+                serializer=CompactSerializer(fields=fields),
+                fileName=self.config.domainTransactionsFile)
         else:
             return initStorage(self.config.primaryStorage,
                                name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
@@ -336,9 +411,9 @@ class Node(HasActionQueue, Motor,
         # Stop the txn store
         self.primaryStorage.stop()
 
-        if self.nodestack:
+        if self.nodestack.opened:
             self.nodestack.close()
-        if self.clientstack:
+        if self.clientstack.opened:
             self.clientstack.close()
 
     def reset(self):
@@ -349,7 +424,7 @@ class Node(HasActionQueue, Motor,
         self.elector = None
 
     async def prod(self, limit: int=None) -> int:
-        """
+        """.opened
         This function is executed by the node each time it gets its share of
         CPU time from the event loop.
 
@@ -358,6 +433,9 @@ class Node(HasActionQueue, Motor,
         """
         if self.isGoing():
             await self.nodestack.serviceLifecycle()
+            newClients = self.clientstack.serviceClientStack()
+            if newClients:
+                self.newClientsConnected(newClients)
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
@@ -418,18 +496,18 @@ class Node(HasActionQueue, Motor,
         a = self.elector._serviceActions()
         return o + i + a
 
-    def onConnsChanged(self, newConns: Set[str], staleConns: Set[str]):
+    def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
         A series of operations to perform once a connection count has changed.
 
         - Set f to max number of failures this system can handle.
         - Set status to one of started, started_hungry or starting depending on
             the number of protocol instances.
-        - Check protocol instances. See `checkProtocolInstaces()`
+        - Check protocol instances. See `checkInstances()`
 
         """
         if self.isGoing():
-            if self.nodeCount >= self.totalNodes:
+            if self.nodeCount == self.totalNodes:
                 self.status = Status.started
                 self.stopKeySharing()
             elif self.nodeCount >= self.minimumNodes:
@@ -441,18 +519,62 @@ class Node(HasActionQueue, Motor,
             self.checkInstances()
             if isinstance(self.elector, PrimaryElector):
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
-                logger.debug("{} has msgs {} for new nodes {}".format(self,
-                                                                      msgs,
-                                                                      newConns))
-                for n in newConns:
-                    self.sendElectionMsgsToLaggedNode(n, msgs)
+                logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
+                                                                     joined))
+                for n in joined:
+                    if n not in self.allNodeNames:
+                        self.newNodeJoined(n)
+                    self.sendElectionMsgsToLaggingNode(n, msgs)
+                    self.sendLedgerStatus(n)
 
-    def sendElectionMsgsToLaggedNode(self, nodeName: str, msgs: List[Any]):
+    def newNodeJoined(self, nodeName: str):
+        self.setF()
+        if self.addReplicas():
+            self.decidePrimaries()
+        # TODO: Should tell the client after the new node has synced up its
+            # ledgers
+        self.sendNodeHaToClients(nodeName)
+
+    def newClientsConnected(self, newClients: Set[str]):
+        for client in newClients:
+            # if client in self.clientAuthNr.clients:
+            msg = NodeRegForClient({self.getClientStackNameOfNode(nm):
+                                        self.getClientStackHaOfNode(nm)
+                                    for nm in self.nodestack.connecteds})
+            self.transmitToClient(msg, client)
+
+    def sendNodeHaToClients(self, nodeName):
+        msg = NodeRegForClient({self.getClientStackNameOfNode(nodeName):
+                                    self.getClientStackHaOfNode(nodeName)})
+        # All clients that are connected and authorized to connect
+        # clients = list(self.connectedClients.intersection(
+        #     set(self.clientAuthNr.clients.keys())))
+
+        self.clientstack.transmitToClients(msg,
+                                           list(self.clientstack.connectedClients))
+
+    @property
+    def clientStackName(self):
+        return self.getClientStackNameOfNode(self.name)
+
+    @staticmethod
+    def getClientStackNameOfNode(nodeName: str):
+        return nodeName + CLIENT_STACK_SUFFIX
+
+    def getClientStackHaOfNode(self, nodeName: str) -> HA:
+        return self.cliNodeReg[self.getClientStackNameOfNode(nodeName)]
+
+    def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
         rid = self.nodestack.getRemote(nodeName).uid
         for msg in msgs:
             logger.debug("{} sending election message {} to lagged node {}".
                          format(self, msg, nodeName))
             self.send(msg, rid)
+
+    def sendLedgerStatus(self, nodeName: str):
+        rid = self.nodestack.getRemote(nodeName).uid
+        self.send(LedgerStatuses(self.poolLedgerStatus,
+                                 self.domainLedgerStatus), rid)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -477,8 +599,11 @@ class Node(HasActionQueue, Motor,
         self._schedule(self.decidePrimaries)
 
     def addReplicas(self):
+        newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.addReplica()
+            newReplicas += 1
+        return newReplicas
 
     def decidePrimaries(self):
         """
@@ -634,18 +759,18 @@ class Node(HasActionQueue, Motor,
                 return idx
         return None
 
-    def isValidNodeMsg(self, msg) -> bool:
+    def isNodeMsgForReplica(self, msg) -> bool:
         """
         Return whether the node message is valid.
 
         :param msg: the node message to validate
         """
-        if msg.instId >= len(self.msgsToReplicas):
-            # TODO should we raise suspicion here?
+        if msg.instId < len(self.msgsToReplicas):
+            return True
+        else:
             self.discard(msg, "non-existent protocol instance {}"
                          .format(msg.instId))
             return False
-        return True
 
     def sendToReplica(self, msg, frm):
         """
@@ -654,7 +779,7 @@ class Node(HasActionQueue, Motor,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.isValidNodeMsg(msg):
+        if self.isNodeMsgForReplica(msg):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -664,7 +789,7 @@ class Node(HasActionQueue, Motor,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.isValidNodeMsg(msg):
+        if self.isNodeMsgForReplica(msg):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -712,10 +837,8 @@ class Node(HasActionQueue, Motor,
             raise InvalidNodeMsg from ex
         try:
             self.verifySignature(cMsg)
-        # TODO why must we catch and raise? Is there a way to know earlier that
-        # the signature exception is suspicious? If so, how suspicious?
         except BaseExc as ex:
-            raise SuspiciousNode(frm, ex, cMsg) from ex  # TODO are both needed?
+            raise SuspiciousNode(frm, ex, cMsg) from ex
         logger.debug("{} received node message from {}: {}".
                      format(self, frm, cMsg),
                      extra={"cli": False})
@@ -777,7 +900,7 @@ class Node(HasActionQueue, Motor,
     def handleInvalidClientMsg(self, ex, wrappedMsg):
         _, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
-        reason = "client request invalid: {} {}". \
+        reason = "client request invalid: {} {}".\
             format(exc.__class__.__name__, exc)
         self.transmitToClient(RequestNack(ex.reqId, reason), frm)
         self.discard(wrappedMsg, ex, logger.warning, cliOutput=True)
@@ -861,6 +984,198 @@ class Node(HasActionQueue, Motor,
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
+
+    def processLedgerStatuses(self, statuses: LedgerStatuses, frm: str):
+        logger.debug("{} received ledger statuses: {} from {}".
+                     format(self.name, statuses, frm))
+        consistencyProofs = []
+        poolLdgrSt, domainLdgrSt = LedgerStatus(*statuses[0]) if statuses[0] \
+                                       else None, LedgerStatus(*statuses[1])
+        for status in (poolLdgrSt, domainLdgrSt):
+            if status is not None and self.isLedgerOld(status):
+                consistencyProofs.append(self.getConsistencyProof(status))
+            else:
+                # Send None if ledger is at the same state as the other node.
+                # TODO: This can be avoided if the node after checking
+                # `LedgerStatus` can keep a track of nodes that it is expecting
+                # a consistency proof from
+                consistencyProofs.append(None)
+        rid = self.nodestack.getRemote(frm).uid
+        self.send(ConsistencyProofs(*consistencyProofs), rid)
+
+    def processConsistencyProofs(self, proofs: ConsistencyProofs, frm: str):
+        logger.debug("{} received consistency proofs: {} from {}".
+                     format(self.name, proofs, frm))
+        # Only accept consistency proofs until in starting mode
+        if self.mode == Mode.starting:
+            self.receivedConsistencyProofs[frm] = [ConsistencyProof(*proof) for
+                                                   proof in proofs if proof]
+            catchUpFrm = self.canStartCatchUpProcess()
+            if catchUpFrm:
+                self.startCatchUpProcess(catchUpFrm)
+
+    def processCatchupReq(self, req: CatchupReq, frm: str):
+        logger.debug("{} received catchup request: {} from {}".
+                     format(self.name, req, frm))
+        start, end = getattr(req, f.SEQ_NO_START.nm), \
+                     getattr(req, f.SEQ_NO_END.nm)
+        ledger = self.getLedgerForMsg(req)
+        txns = ledger.getAllTxn(start, end)
+        consProof = [b64encode(p).decode() for p in
+                     ledger.tree.consistency_proof(end, ledger.size)]
+        rid = self.nodestack.getRemote(frm).uid
+        self.send(CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns, consProof),
+                  rid)
+
+    def processCatchupRep(self, rep: CatchupRep, frm: str):
+        logger.debug("{} received catchup reply: {} from {}".
+                     format(self.name, rep, frm))
+        if self.mode == Mode.catchingUp:
+            # Not relying on a node sending txns in order of sequence no
+            txns = sorted([(int(s), t) for (s, t) in
+                           getattr(rep, f.TXNS.nm).items()],
+                          key=operator.itemgetter(0))
+            if txns:
+                ledger = self.getLedgerForMsg(rep)
+                ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
+                catchUpReplies = self.receivedCatchUpReplies[ledgerType]
+                if txns[0][0] - ledger.seqNo != 1:
+                    catchUpReplies = txns + catchUpReplies
+                else:
+                    catchUpReplies = list(heapq.merge(catchUpReplies, txns,
+                                                      key=operator.itemgetter(0)))
+                numProcessed = self.processCatchupReplies(ledgerType, ledger,
+                                                          catchUpReplies)
+                catchUpReplies = catchUpReplies[numProcessed:]
+                self.receivedCatchUpReplies[ledgerType] = catchUpReplies
+                if getattr(self.catchUpTill[ledgerType], f.SEQ_NO_END.nm) == \
+                        ledger.size:
+                    self.catchUpTill[ledgerType] = None
+                if [None, None] == self.catchUpTill:
+                    self.catchupCompleted()
+
+    def catchupCompleted(self):
+        logger.debug("{} completed catching up".format(self))
+        self.mode = Mode.participating
+        self.checkInstances()
+
+    def processCatchupReplies(self, ledgerType, ledger: Ledger,
+                              catchUpReplies: List):
+        i = 0
+        for seqNo, txn in catchUpReplies:
+            if seqNo - ledger.seqNo == 1:
+                ledger.add(txn)
+                if ledgerType == 0:
+                    self.poolManager.onPoolMembershipChange(txn)
+                i += 1
+            else:
+                break
+        return i
+
+    # Assuming that all nodes have the same state of the system and no node
+    # is lagging behind
+    def canStartCatchUpProcess(self):
+        if len(self.receivedConsistencyProofs) > self.f:
+            result = [None, None]
+            recvdPrfs = ({}, {})
+            for nodeName, proofs in self.receivedConsistencyProofs.items():
+                for proof in proofs:
+                    if proof:
+                        ledgerType = getattr(proof, f.LEDGER_TYPE.nm)
+                        recvdPrf = recvdPrfs[ledgerType]
+                        start, end = getattr(proof, f.SEQ_NO_START.nm), \
+                                     getattr(proof, f.SEQ_NO_END.nm)
+                        if (start, end) not in recvdPrf:
+                            recvdPrf[(start, end)] = {}
+                        key = (getattr(proof, f.OLD_MERKLE_ROOT.nm),
+                               getattr(proof, f.NEW_MERKLE_ROOT.nm),
+                               tuple(getattr(proof, f.HASHES.nm)))
+                        recvdPrf[(start, end)][key] = recvdPrf[(start, end)].get(key, 0) + 1
+                        if recvdPrf[(start, end)][key] > self.f:
+                            result[ledgerType] = proof
+            # TODO: Assuming enough similar consistency proofs would be
+            # received for both ledgers
+            return result
+        return None
+
+    def startCatchUpProcess(self, consProofs: ConsistencyProofs):
+        logger.debug("{} started catching up".format(self))
+        self.mode = Mode.catchingUp
+        for p in consProofs:
+            if p is not None:
+                p = ConsistencyProof(*p)
+                rids = [self.nodestack.getRemote(nm).uid for nm in
+                        self.nodestack.conns]
+                for req in zip(self.getCatchupReqs(p), rids):
+                    self.send(*req)
+                # self.catchUpTill[getattr(p, f.LEDGER_TYPE.nm)] = getattr(
+                #     p, f.SEQ_NO_END.nm)
+                self.catchUpTill[getattr(p, f.LEDGER_TYPE.nm)] = p
+        self.receivedConsistencyProofs = {}
+        if consProofs == [None, None]:
+            self.catchupCompleted()
+
+    def getCatchupReqs(self, consProof: ConsistencyProof):
+        nodeCount = len(self.nodestack.conns)
+        start = getattr(consProof, f.SEQ_NO_START.nm)
+        end = getattr(consProof, f.SEQ_NO_END.nm)
+        batchLength = math.ceil((end-start)/nodeCount)
+        reqs = []
+        s = start + 1
+        e = min(s + batchLength - 1, end)
+        for i in range(nodeCount):
+            reqs.append(CatchupReq(getattr(consProof, f.LEDGER_TYPE.nm),
+                                   s, e))
+            s = e + 1
+            e = min(s + batchLength - 1, end)
+            if s > end:
+                break
+        return reqs
+
+    def isLedgerOld(self, status: LedgerStatus):
+        seqNo = getattr(status, f.TXN_SEQ_NO.nm)
+        ledger = self.getLedgerForMsg(status)
+        return ledger.seqNo > seqNo
+
+    def getLedgerForMsg(self, msg: Any):
+        if self.isPoolLedgerMsg(msg):
+            return self.poolManager.poolTxnStore
+        elif self.isDomainLedgerMsg(msg):
+            return self.primaryStorage
+        else:
+            raise ValueError("Invalid ledger msg type")
+
+    @staticmethod
+    def isPoolLedgerMsg(msg: Any):
+        return getattr(msg, f.LEDGER_TYPE.nm) == 0
+
+    @staticmethod
+    def isDomainLedgerMsg(msg: Any):
+        return getattr(msg, f.LEDGER_TYPE.nm) == 1
+
+    def getConsistencyProof(self, status: LedgerStatus):
+        ledger = self.getLedgerForMsg(status)    # type: Ledger
+        seqNoStart = getattr(status, f.TXN_SEQ_NO.nm)
+        seqNoEnd = ledger.size
+        if seqNoStart == 0:
+            # Consistency proof for an empty tree cannot exist. Using the root
+            # hash now so that the node which is behind can verify that
+            # TODO: Make this an empty list
+            proof = [ledger.tree.root_hash, ]
+            oldRoot = ledger.tree.root_hash
+        else:
+            proof = ledger.tree.consistency_proof(seqNoStart, seqNoEnd)
+            oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
+        newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
+        return ConsistencyProof(
+            getattr(status, f.LEDGER_TYPE.nm),
+            seqNoStart,
+            seqNoEnd,
+            b64encode(oldRoot).decode(),
+            b64encode(newRoot).decode(),
+            [b64encode(p).decode() for p in
+             proof]
+        )
 
     async def processRequest(self, request: Request, frm: str):
         """
@@ -1053,7 +1368,8 @@ class Node(HasActionQueue, Motor,
                                           self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, request):
-        result = await self.secondaryStorage.getReply(request.identifier, request.reqId)
+        result = await self.secondaryStorage.getReply(request.identifier,
+                                                      request.reqId)
         return Reply(result) if result else None
 
     def sendInstanceChange(self, viewNo: int):
@@ -1199,10 +1515,11 @@ class Node(HasActionQueue, Motor,
         Subclasses can implement this method to throw an
         UnauthorizedClientRequest if the request is not authorized.
 
-        If a request makes it this far, the signature has been verified to match
-        the identifier.
+        If a request makes it this far, the signature has been verified
+        to match the identifier.
         """
-        pass
+        if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            self.poolManager.checkRequestAuthorized(request)
 
     def defaultAuthNr(self):
         return SimpleAuthNr()

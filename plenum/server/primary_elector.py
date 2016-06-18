@@ -26,6 +26,10 @@ class PrimaryElector(PrimaryDecider):
     def __init__(self, node):
         super().__init__(node)
 
+        # TODO: How does primary decider ensure that a node does not have a
+        # primary while its catching up
+        self.node = node
+
         self.replicaNominatedForItself = None
         """Flag variable which indicates which replica has nominated
         for itself"""
@@ -179,9 +183,9 @@ class PrimaryElector(PrimaryDecider):
         for r in self.replicas:
             self.prepareReplicaForElection(r)
 
-        self.selfNotNominated()
+        self.nominateItself()
 
-    def selfNotNominated(self):
+    def nominateItself(self):
         """
         Actions to perform if this node hasn't nominated any of its replicas.
         """
@@ -203,6 +207,10 @@ class PrimaryElector(PrimaryDecider):
         Randomly nominate one of the replicas on this node (for which elections
         aren't yet completed) as primary.
         """
+        if not self.node.isParticipating:
+            logger.debug("Cannot nominate a replica yet since catching up")
+            return
+
         undecideds = [i for i, r in enumerate(self.replicas)
                       if r.isPrimary is None]
         if undecideds:
