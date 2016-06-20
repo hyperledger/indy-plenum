@@ -657,7 +657,8 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
                      state: RemoteState = None):
     assert states or state, "either state or states is required"
     assert not (
-        states and state), "only one of state or states should be provided, but not both"
+        states and state), "only one of state or states should be provided, " \
+                           "but not both"
     for remote in node.nodestack.remotes.values():
         try:
             s = states[remote.name] if states else state

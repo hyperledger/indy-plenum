@@ -43,8 +43,8 @@ class OrientDbGraphStore(GraphStore):
         cmd = "create vertex {}".format(name)
         return self._createEntity(cmd, **kwargs)
 
-    def createEdge(self, name, frm, to, **kwargs):
-        cmd = "create edge {} from {} to {}".format(name, frm, to)
+    def createEdge(self, edgeName, edgeFrm, edgeTo, **kwargs):
+        cmd = "create edge {} from {} to {}".format(edgeName, edgeFrm, edgeTo)
         return self._createEntity(cmd, **kwargs)
 
     def _createEntity(self, createCmd, **kwargs):
