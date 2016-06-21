@@ -139,7 +139,11 @@ class Cli:
             "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(self.relist(self.cliCmds)),
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*.*\})  \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*)",
+            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) |",
+            "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
+            "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
+            "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*)"
         ]
 
         self.lexers = {
@@ -158,6 +162,10 @@ class Cli:
             'verkey': SimpleLexer(Token.Literal),
             'for_client': SimpleLexer(Token.Keyword),
             'identifier': SimpleLexer(Token.Name),
+            'new_keypair': SimpleLexer(Token.Keyword),
+            'list_ids': SimpleLexer(Token.Keyword),
+            'become': SimpleLexer(Token.Keyword),
+            'use_keypair': SimpleLexer(Token.Keyword)
         }
 
         self.clientWC = WordCompleter([])
@@ -177,6 +185,10 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
+            'new_keypair': WordCompleter(['new_keypair']),
+            'list_ids': WordCompleter(['list ids']),
+            'become': WordCompleter(['become']),
+            'use_keypair': WordCompleter(['use_keypair'])
         }
 
         self.initializeGrammar()
@@ -834,12 +846,45 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
+    def _newKeypairAction(self, matchedVars):
+        if matchedVars.get('new_keypair') == 'new_keypair':
+            alias = matchedVars.get('alias')
+            # TODO:LH Add code to generate public and private key
+            privateKeyPath = "<path>"
+            publicKey = "e98khkkhhj"
+            print("Private key is stored in path {}".format(privateKeyPath))
+            print("Public key is {}".format(publicKey))
+            return True
+
+    def _listIdsAction(self, matchedVars):
+        if matchedVars.get('list_ids') == 'list':
+            # TODO:LH Add code to get the list of ids
+            ids = ["phil", "edo98juyilute"]
+            print(ids, sep='\n')
+            return True
+
+    def _becomeAction(self, matchedVars):
+        if matchedVars.get('become') == 'become':
+            # TODO:LH Add code for become
+            id = matchedVars.get('id')
+            print("become {}".format(id))
+            return True
+
+    def _useKeypairAction(self, matchedVars):
+        if matchedVars.get('use_keypair') == 'use_keypair':
+            # TODO:LH Add code to use specified keypair
+            keypair = matchedVars.get('keypair')
+            print("keypair updated to {}".format(keypair))
+            return True
+
     def getActionList(self):
         return [self._simpleAction, self._helpAction, self._listAction,
                 self._newNodeAction, self._newClientAction,
                 self._statusNodeAction, self._statusClientAction,
                 self._keyShareAction, self._loadPluginDirAction,
-                self._clientCommand, self._loadPluginAction, self._addKeyAction]
+                self._clientCommand, self._loadPluginAction, self._addKeyAction,
+                self._newKeypairAction, self._listIdsAction,
+                self._becomeAction, self._useKeypairAction]
 
     def parse(self, cmdText):
         m = self.grammar.match(cmdText)
