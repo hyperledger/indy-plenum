@@ -195,11 +195,15 @@ def getNoInstances(nodeCount: int) -> int:
 
 
 TRACE_LOG_LEVEL = 5
+DISPLAY_LOG_LEVEL = 25
 
 
 class CustomAdapter(logging.LoggerAdapter):
     def trace(self, msg, *args, **kwargs):
         self.log(TRACE_LOG_LEVEL, msg, *args, **kwargs)
+
+    def display(self, msg, *args, **kwargs):
+        self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
 class CliHandler(logging.Handler):
@@ -261,6 +265,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
             os.makedirs(d)
 
     addTraceToLogging()
+    addDisplayToLogging()
 
     if filename:
         mode = 'w'
@@ -294,6 +299,16 @@ def addTraceToLogging():
             self._log(TRACE_LOG_LEVEL, message, args, **kwargs)
 
     logging.Logger.trace = trace
+
+
+def addDisplayToLogging():
+    logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
+
+    def display(self, message, *args, **kwargs):
+        if self.isEnabledFor(DISPLAY_LOG_LEVEL):
+            self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
+
+    logging.Logger.display = display
 
 
 def prime_gen() -> int:

@@ -58,7 +58,7 @@ class Motor(Prodable):
         with the provided args and kwargs.
         """
         if self.status in (Status.stopping, Status.stopped):
-            logging.warning("{} is already {}".format(self, self.status.name))
+            logging.info("{} is already {}".format(self, self.status.name))
         else:
             self.status = Status.stopping
             self.onStopping(*args, **kwargs)

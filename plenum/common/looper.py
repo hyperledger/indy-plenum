@@ -149,7 +149,7 @@ class Looper:
             await asyncio.sleep(0.01)  # if no let other stuff run
         dur = time.perf_counter() - start
         if dur >= 0.5:
-            logger.warning("it took {:.3f} seconds to run once nicely".
+            logger.info("it took {:.3f} seconds to run once nicely".
                            format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
