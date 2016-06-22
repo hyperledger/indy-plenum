@@ -258,10 +258,10 @@ class SimpleStack(Stack):
         :param outs: nodes no longer connected
         """
         for o in outs:
-            logger.info("{} disconnected from {}".format(self, o),
+            logger.display("{} disconnected from {}".format(self, o),
                         extra={"cli": "IMPORTANT"})
         for i in ins:
-            logger.info("{} now connected to {}".format(self, i),
+            logger.display("{} now connected to {}".format(self, i),
                         extra={"cli": "IMPORTANT"})
 
             # remove remotes for same ha when a connection is made

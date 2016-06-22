@@ -111,7 +111,7 @@ class Propagator:
         else:
             self.requests.addPropagate(request, self.name)
             propagate = self.createPropagate(request, clientName)
-            logger.debug("{} propagating {} request {} from client {}".
+            logger.display("{} propagating {} request {} from client {}".
                          format(self, request.identifier, request.reqId, clientName),
                          extra={"cli": True})
             self.send(propagate)

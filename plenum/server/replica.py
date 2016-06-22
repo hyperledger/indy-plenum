@@ -839,7 +839,7 @@ class Replica(MessageProcessor):
 
         :param msg: the message to send
         """
-        logger.debug("{} sending {}".format(self, msg.__class__.__name__),
+        logger.display("{} sending {}".format(self, msg.__class__.__name__),
                      extra={"cli": True})
         logger.trace("{} sending {}".format(self, msg))
         self.stats.inc(stat)

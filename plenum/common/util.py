@@ -225,12 +225,31 @@ class CliHandler(logging.Handler):
             self.callback(record)
 
 
+class DemoHandler(logging.Handler):
+    def __init__(self, callback):
+        """
+        Initialize the handler.
+        """
+        super().__init__()
+        self.callback = callback
+
+    def emit(self, record):
+        """
+        Passes the log record back to the CLI for rendering
+        """
+        if hasattr(record, "demo"):
+            if record.cli:
+                self.callback(record, record.cli)
+        elif record.levelno >= logging.INFO:
+            self.callback(record)
+
+
 loggingConfigured = False
 
 
 def getlogger(name=None):
     if not loggingConfigured:
-        setupLogging(TRACE_LOG_LEVEL)
+        setupLogging(DISPLAY_LOG_LEVEL)
     if not name:
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)

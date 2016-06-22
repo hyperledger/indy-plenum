@@ -339,7 +339,7 @@ class PrimaryElector(PrimaryDecider):
                 if replica.isPrimary is None:
                     primary = mostCommonElement(
                         self.primaryDeclarations[instId].values())
-                    logger.info("{} selected primary {} for instance {} "
+                    logger.display("{} selected primary {} for instance {} "
                                 "(view {})".
                                 format(replica, primary, instId, self.viewNo),
                                 extra={"cli": "ANNOUNCE"})

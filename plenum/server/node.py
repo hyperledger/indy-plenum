@@ -642,9 +642,9 @@ class Node(HasActionQueue, Motor,
         self.replicas.append(replica)
         self.msgsToReplicas.append(deque())
         self.monitor.addInstance()
-        logger.info("{} added replica {} to instance {} ({})".
+        logger.display("{} added replica {} to instance {} ({})".
                     format(self, replica, instId, instDesc),
-                    extra={"cli": True})
+                    extra={"cli": True, "demo": True})
         return replica
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
@@ -977,7 +977,7 @@ class Node(HasActionQueue, Motor,
         while self.clientInBox:
             m = self.clientInBox.popleft()
             req, frm = m
-            logger.debug("{} processing {} request {}".
+            logger.display("{} processing {} request {}".
                          format(self.clientstack.name, frm, req.reqId),
                          extra={"cli": True})
             try:
@@ -1432,7 +1432,7 @@ class Node(HasActionQueue, Motor,
             req = msg.__getstate__()
 
         identifier = self.clientAuthNr.authenticate(req)
-        logger.debug("{} authenticated {} signature on {}request {}".
+        logger.display("{} authenticated {} signature on {}request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
