@@ -249,7 +249,7 @@ loggingConfigured = False
 
 def getlogger(name=None):
     if not loggingConfigured:
-        setupLogging(DISPLAY_LOG_LEVEL)
+        setupLogging(TRACE_LOG_LEVEL)
     if not name:
         curframe = inspect.currentframe()
         calframe = inspect.getouterframes(curframe, 2)
