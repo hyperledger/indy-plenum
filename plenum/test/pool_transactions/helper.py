@@ -19,7 +19,6 @@ def addNewClient(typ, looper, client, name):
     priver = Privateer(pkseed)
     req, = client.submit({
         TXN_TYPE: typ,
-        ORIGIN: client.defaultIdentifier,
         TARGET_NYM: newSigner.verstr,
         DATA: {
             PUBKEY: priver.pubhex.decode(),
@@ -28,7 +27,7 @@ def addNewClient(typ, looper, client, name):
     })
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=7))
     return newSigner
 
 
@@ -40,7 +39,6 @@ def addNewNode(looper, client, newNodeName, tdir, tconf):
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     req, = client.submit({
         TXN_TYPE: NEW_NODE,
-        ORIGIN: client.defaultIdentifier,
         TARGET_NYM: newSigner.verstr,
         DATA: {
             NODE_IP: nodeIp,
@@ -72,6 +70,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
+    looper.runFor(.25)
     newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf)
     return newSteward, newNode
 
@@ -81,7 +80,6 @@ def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     req, = client.submit({
         TXN_TYPE: CHANGE_HA,
-        ORIGIN: client.defaultIdentifier,
         TARGET_NYM: nodeNym,
         DATA: {
             NODE_IP: nodeIp,
@@ -104,7 +102,6 @@ def changeNodeKeys(looper, client, node, verkey, pubkey, baseDir, conf):
     nodeNym = base64.b64encode(node.nodestack.local.signer.verraw).decode()
     req, = client.submit({
         TXN_TYPE: CHANGE_KEYS,
-        ORIGIN: client.defaultIdentifier,
         TARGET_NYM: nodeNym,
         DATA: {
             PUBKEY: pubkey,

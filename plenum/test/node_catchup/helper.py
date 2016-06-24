@@ -5,11 +5,13 @@ from plenum.test.helper import TestNode, \
     TestClient
 
 
-def checkNodeLedgersForEqualSize(node: TestNode, *otherNodes: Iterable[TestNode]):
+def checkNodeLedgersForEquality(node: TestNode, *otherNodes: Iterable[TestNode]):
     for n in otherNodes:
         assert node.primaryStorage.size == n.primaryStorage.size
         assert node.poolManager.poolTxnStore.size == \
                n.poolManager.poolTxnStore.size
+        assert node.primaryStorage.root_hash == n.primaryStorage.root_hash
+        assert node.poolManager.poolTxnStore.root_hash == n.poolManager.poolTxnStore.root_hash
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

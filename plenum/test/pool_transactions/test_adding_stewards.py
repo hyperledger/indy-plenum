@@ -47,7 +47,7 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
         priver = Privateer(pkseed)
         req, = client.submit({
             TXN_TYPE: NEW_STEWARD,
-            ORIGIN: client.defaultIdentifier,
+            # ORIGIN: client.defaultIdentifier,
             TARGET_NYM: newSigner.verstr,
             DATA: {
                 "pubkey": priver.pubhex.decode(),

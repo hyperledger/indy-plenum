@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import operator
 import random
 import time
@@ -32,7 +33,7 @@ from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, ORIGIN
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -248,8 +249,9 @@ class Node(HasActionQueue, Motor,
 
     # noinspection PyAttributeOutsideInit
     def setF(self):
-        self.allNodeNames = list(self.nodeReg.keys())
-        self.totalNodes = len(self.nodeReg)
+        nodeNames = set(self.nodeReg.keys())
+        self.allNodeNames = nodeNames.union({self.name, })
+        self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
@@ -522,8 +524,8 @@ class Node(HasActionQueue, Motor,
                 logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
                                                                      joined))
                 for n in joined:
-                    if n not in self.allNodeNames:
-                        self.newNodeJoined(n)
+                    # if n not in self.allNodeNames:
+                    #     self.newNodeJoined(n)
                     self.sendElectionMsgsToLaggingNode(n, msgs)
                     self.sendLedgerStatus(n)
 
@@ -768,8 +770,11 @@ class Node(HasActionQueue, Motor,
         if msg.instId < len(self.msgsToReplicas):
             return True
         else:
+            # TODO: Should probably queue messages for new instances
             self.discard(msg, "non-existent protocol instance {}"
-                         .format(msg.instId))
+                         .format(msg.instId), logMethod=logging.debug)
+            # logger.debug("{} discarding message {} with non-existent protocol "
+            #              "instance {}".format(self, msg, msg.instId))
             return False
 
     def sendToReplica(self, msg, frm):
@@ -1064,6 +1069,7 @@ class Node(HasActionQueue, Motor,
         i = 0
         for seqNo, txn in catchUpReplies:
             if seqNo - ledger.seqNo == 1:
+                txn.pop(F.seqNo.name, None)
                 ledger.add(txn)
                 if ledgerType == 0:
                     self.poolManager.onPoolMembershipChange(txn)
@@ -1364,8 +1370,10 @@ class Node(HasActionQueue, Motor,
     # TODO: Find a better name for the function
     async def doCustomAction(self, ppTime, req):
         reply = await self.generateReply(ppTime, req)
-        self.transmitToClient(reply,
-                                          self.clientIdentifiers[req.identifier])
+        merkleProof = await self.primaryStorage.append(
+            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
+        reply.result.update(merkleProof)
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
     async def getReplyFor(self, request):
         result = await self.secondaryStorage.getReply(request.identifier,
@@ -1453,11 +1461,11 @@ class Node(HasActionQueue, Motor,
                   TXN_ID: txnId,
                   TXN_TIME: ppTime,
                   TXN_TYPE: req.operation.get(TXN_TYPE)}
-        txnRslt = Reply(result)
-        merkleProof = await self.primaryStorage.append(
-            identifier=req.identifier, reply=txnRslt, txnId=txnId)
-        result.update(merkleProof)
         return Reply(result)
+        # merkleProof = await self.primaryStorage.append(
+        #     identifier=req.identifier, reply=txnRslt, txnId=txnId)
+        # result.update(merkleProof)
+        # return Reply(result)
 
     def startKeySharing(self, timeout=60):
         """

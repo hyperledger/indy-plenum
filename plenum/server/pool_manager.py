@@ -9,16 +9,18 @@ from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
+from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
+from ledger.util import F
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
 from plenum.common.raet import initRemoteKeep
-from plenum.common.types import HA
+from plenum.common.types import HA, f
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, PUBKEY, \
     NODE_IP, ALIAS, NODE_PORT, CLIENT_PORT, NEW_STEWARD, ClientBootStrategy, \
     NEW_CLIENT, TXN_ID, CLIENT, STEWARD, CLIENT_IP, CHANGE_HA, CHANGE_KEYS, \
-    ORIGIN, POOL_TXN_TYPES, VERKEY
+    ORIGIN, POOL_TXN_TYPES, VERKEY, TXN_TIME
 from plenum.common.util import getlogger
 from plenum.common.types import HA
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
@@ -213,6 +215,7 @@ class TxnPoolManager(PoolManager):
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
         self.node.nodeReg[nodeName] = HA(*nodeHa)
         self.node.cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
+        self.node.newNodeJoined(nodeName)
 
     def addNewRole(self, txn):
         """
@@ -310,7 +313,7 @@ class TxnPoolManager(PoolManager):
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
                 isSteward = True
             if txn[TXN_TYPE] == NEW_NODE:
-                if txn[ORIGIN] == origin:
+                if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
                         format(origin, txn[DATA][ALIAS])
                 if txn[DATA] == request.operation[DATA]:
@@ -327,7 +330,7 @@ class TxnPoolManager(PoolManager):
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
                 isSteward = True
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
-                    request.operation[TARGET_NYM] and txn[ORIGIN] == origin:
+                    request.operation[TARGET_NYM] and txn[f.IDENTIFIER.nm] == origin:
                 return
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)

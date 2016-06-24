@@ -102,9 +102,7 @@ class Client(Motor):
         self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
         signers = None     # type: Dict[str, Signer]
         self.defaultIdentifier = None
-        if self.wallet.signers:
-            signers = self.wallet.signers
-        else:
+        if not self.wallet.signers:
             if signer:
                 signers = {signer.identifier: signer}
                 self.defaultIdentifier = signer.identifier

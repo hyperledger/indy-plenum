@@ -1,7 +1,7 @@
 from typing import Dict
 
 import pyorient
-from plenum.common.util import getlogger
+from plenum.common.util import getlogger, error
 
 logger = getlogger()
 
@@ -11,7 +11,11 @@ class OrientDbStore:
                  dbType=pyorient.DB_TYPE_GRAPH,
                  storageType=pyorient.STORAGE_TYPE_MEMORY):
         self.dbType = dbType
-        self.client = pyorient.OrientDB(host=host, port=port)
+        try:
+            self.client = pyorient.OrientDB(host=host, port=port)
+        except pyorient.exceptions.PyOrientConnectionException:
+            error("OrientDB connection failed. Check if DB is running "
+                  "on port {}".format(port))
         self.session_id = self.client.connect(user, password)
         if not self.client.db_exists(dbName, storageType):
             self.createDb(dbName, dbType, storageType)
@@ -64,9 +68,15 @@ def createOrientDbInMemStore(config, name, dbType):
     """
     Create and return an OrientDb in-memory store used for test cases.
     """
-    client = pyorient.OrientDB(host="localhost", port=2424)
-    client.connect(user=config.OrientDB['user'],
+    host = "localhost"
+    port = 2424
+    try:
+        client = pyorient.OrientDB(host=host, port=port)
+        client.connect(user=config.OrientDB['user'],
                    password=config.OrientDB['password'])
+    except pyorient.exceptions.PyOrientConnectionException:
+        error("OrientDB connection failed. Check if DB is running "
+                     "on port {}".format(port))
     try:
         if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
             client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)

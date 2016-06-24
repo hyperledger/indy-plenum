@@ -15,7 +15,7 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, TestClient, genHa, \
     checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \
     checkProtocolInstanceSetup
-from plenum.test.node_catchup.helper import checkNodeLedgersForEqualSize
+from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeIp, addNewStewardAndNode, changeNodeKeys
 
@@ -48,6 +48,27 @@ def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
     client = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
                          signer=signer, basedirpath=tdirWithPoolTxns)
     return client
+
+
+@pytest.fixture("module")
+def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                        txnPoolCliNodeReg, tconf, steward1):
+    newStewardName = "testClientSteward" + randomString(3)
+    newNodeName = "Theta"
+    newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
+                                               newNodeName, txnPoolCliNodeReg,
+                                               tdirWithPoolTxns, tconf)
+    txnPoolNodeSet.append(newNode)
+    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
+                          timeout=5))
+    looper.run(steward1.ensureConnectedToNodes())
+    looper.run(newSteward.ensureConnectedToNodes())
+    return newSteward, newNode
+
+
+@pytest.fixture("module")
+def newHa():
+    return genHa(2)
 
 
 def testNodesConnect(txnPoolNodeSet):
@@ -102,8 +123,6 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(newSteward.ensureConnectedToNodes())
 
 
-@pytest.mark.skipif(True, reason="failing due to bug "
-                                 "https://www.pivotaltracker.com/story/show/121868221")
 def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                      txnPoolCliNodeReg, tconf, steward1):
     """
@@ -121,7 +140,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                               timeout=5))
         logger.debug("{} connected to the pool".format(newNode))
-        looper.run(eventually(checkNodeLedgersForEqualSize, newNode,
+        looper.run(eventually(checkNodeLedgersForEquality, newNode,
                               *txnPoolNodeSet[:4], retryWait=1, timeout=5))
 
     def checkFValue():
@@ -135,34 +154,18 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                timeout=5)
 
 
-@pytest.fixture("module")
-def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        txnPoolCliNodeReg, tconf, steward1):
-    newStewardName = "testClientSteward" + randomString(3)
-    newNodeName = "Theta"
-    newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
-                                               newNodeName, txnPoolCliNodeReg,
-                                               tdirWithPoolTxns, tconf)
-    txnPoolNodeSet.append(newNode)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=5))
-    looper.run(steward1.ensureConnectedToNodes())
-    looper.run(newSteward.ensureConnectedToNodes())
-    return newSteward, newNode
-
-
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, nodeThetaAdded):
+                        tconf, steward1, nodeThetaAdded, newHa):
     """
     An running node's port is changed
     """
     newSteward, newNode = nodeThetaAdded
     newNode.stop()
-    nodeNewHa, clientNewHa = genHa(2)
+    nodeNewHa, clientNewHa = newHa
     changeNodeIp(looper, newSteward,
                  newNode, nodeHa=nodeNewHa, clientHa=clientNewHa,
                  baseDir=tdirWithPoolTxns, conf=tconf)
-    looper.removeProdable(newNode)
+    looper.removeProdable(name=newNode.name)
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
@@ -173,10 +176,10 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, nodeThetaAdded):
+                        tconf, steward1, nodeThetaAdded, newHa):
     newSteward, newNode = nodeThetaAdded
     newNode.stop()
-    nodeHa, nodeCHa = newNode.nodestack.ha, newNode.clientstack.ha
+    nodeHa, nodeCHa = newHa
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
     pubkey = Privateer(pkseed).pubhex.decode()
@@ -186,7 +189,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     initLocalKeep(newNode.name, tdirWithPoolTxns, pkseed, sigseed)
     initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, pkseed,
                   sigseed)
-    looper.removeProdable(newNode)
+    looper.removeProdable(name=newNode.name)
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa)
     looper.add(node)

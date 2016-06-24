@@ -738,7 +738,8 @@ class Batched(MessageProcessor):
                            extra={"cli": False})
             msgs = self.outBoxes[rid]
             if msgs:
-                self.discard(msgs, "rid {} no longer available".format(rid))
+                self.discard(msgs, "rid {} no longer available".format(rid),
+                             logMethod=logging.debug)
             del self.outBoxes[rid]
 
 
@@ -768,8 +769,8 @@ class ClientStack(SimpleStack):
         try:
             self.send(payload, remoteName)
         except Exception as ex:
-            logger.error("Unable to send message to client {}; Exception: {}"
-                         .format(remoteName, ex.__repr__()))
+            logger.error("{} unable to send message {} to client {}; Exception: {}"
+                         .format(self.name, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         for nm in remoteNames:

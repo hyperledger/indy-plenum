@@ -130,13 +130,24 @@ class Looper:
         if self.autoStart:
             prodable.start(self.loop)
 
-    def removeProdable(self, prodable: Prodable) -> None:
+    def removeProdable(self, prodable: Prodable=None, name: str=None) -> None:
         """
         Remove the specified Prodable object from this Looper's list of Prodables
 
         :param prodable: the Prodable to remove
         """
-        self.prodables.remove(prodable)
+        if prodable:
+            self.prodables.remove(prodable)
+        elif name:
+            for p in self.prodables:
+                if hasattr(p, "name") and getattr(p, "name") == name:
+                    prodable = p
+                    break
+            if prodable:
+                self.prodables.remove(prodable)
+            else:
+                logger.warn("Trying to remove a prodable {} which is not present"
+                            .format(prodable))
 
     async def runOnceNicely(self):
         """
