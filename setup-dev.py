@@ -65,7 +65,7 @@ setup(
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
-             'scripts/start_plenum_node']
+             'scripts/start_plenum_node', 'scripts/generate_pool_transactions']
 )
 
 if not os.path.exists(CONFIG_FILE):

@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import argparse
 import os
 from _sha256 import sha256
