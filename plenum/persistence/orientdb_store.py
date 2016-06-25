@@ -13,10 +13,10 @@ class OrientDbStore:
         self.dbType = dbType
         try:
             self.client = pyorient.OrientDB(host=host, port=port)
+            self.session_id = self.client.connect(user, password)
         except pyorient.exceptions.PyOrientConnectionException:
             error("OrientDB connection failed. Check if DB is running "
                   "on port {}".format(port))
-        self.session_id = self.client.connect(user, password)
         if not self.client.db_exists(dbName, storageType):
             self.createDb(dbName, dbType, storageType)
         self.client.db_open(dbName, user, password)
