@@ -6,7 +6,7 @@ from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, sendRandomRequest
 
-nodeCount = 4
+nodeCount = 7
 
 
 @pytest.fixture(scope="module")
