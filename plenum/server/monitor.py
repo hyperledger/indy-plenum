@@ -1,14 +1,23 @@
 import logging
 import time
+import jsonpickle
+
+from datetime import datetime
+
 from statistics import mean
 from typing import Dict
 from typing import List
 from typing import Tuple
 
+from firebase import firebase
+
+from plenum.config import sendMonitorStats
 from plenum.common.util import getlogger
 from plenum.server.instances import Instances
 
 logger = getlogger()
+
+firebaseClient = firebase.FirebaseApplication("https://plenumstats.firebaseio.com/", None)
 
 
 class Monitor:
@@ -131,6 +140,10 @@ class Monitor:
         # `((n*a)+y)/n+1`
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+
+        numReqs = {r[0] for r in self.numOrderedRequests}
+        if len(numReqs) == 1:
+            self.postMonitorData()
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
@@ -291,6 +304,16 @@ class Monitor:
         avgLatencies = {cid: mean(lat) for cid, lat in avgLatencies.items()}
 
         return avgLatencies
+
+    def postMonitorData(self):
+        if sendMonitorStats:
+            metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
+            metrics["created_at"] = datetime.now().isoformat()
+            firebaseClient.post_async(url="/all_stats", data=metrics,
+                                      callback=lambda response: None,
+                                      params={'print': 'silent'},
+                                      headers={'Connection': 'keep-alive'},
+                                      )
 
     @staticmethod
     def mean(data):
