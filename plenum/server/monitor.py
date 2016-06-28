@@ -63,6 +63,8 @@ class Monitor:
 
         self.totalRequests = 0
 
+        self.started = datetime.now().isoformat()
+
     def __repr__(self):
         return self.name
 
@@ -147,6 +149,8 @@ class Monitor:
         if len(numReqs) == 1:
             self.totalRequests += 1
             self.postMonitorData()
+            if 1 in numReqs:
+                self.postStartData(self.started)
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
@@ -313,6 +317,20 @@ class Monitor:
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.now().isoformat()
             firebaseClient.post_async(url="/all_stats", data=metrics,
+                                      callback=lambda response: None,
+                                      params={'print': 'silent'},
+                                      headers={'Connection': 'keep-alive'},
+                                      )
+            # send total request to different metric
+            firebaseClient.put_async(url="/totalTransactions", name="totalTransactions", data=self.totalRequests,
+                                      callback=lambda response: None,
+                                      params={'print': 'silent'},
+                                      headers={'Connection': 'keep-alive'},
+                                      )
+
+    def postStartData(self, startedAt):
+        if sendMonitorStats:
+            firebaseClient.put_async(url="/startedAt", name="startedAt", data=startedAt,
                                       callback=lambda response: None,
                                       params={'print': 'silent'},
                                       headers={'Connection': 'keep-alive'},
