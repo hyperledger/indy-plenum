@@ -3,7 +3,7 @@ import pytest
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
 from plenum.common.txn import AMOUNT, TARGET_NYM, TXN_TYPE, CREDIT, DATA, \
-    GET_BAL, GET_ALL_TXNS, BALANCE
+    GET_BAL, GET_ALL_TXNS, BALANCE, ALL_TXNS
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, checkSufficientRepliesRecvd, \
@@ -100,3 +100,8 @@ def testSendMoney(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
     assert bal2John - bal1John == 100
     logger.display("Balance for Jason Law is {}".format(bal2Jason))
     logger.display("Balance for John Best is {}".format(bal2John))
+    txnReqJl = checkTxns(looper, clients[jason])
+    txnReqJb = checkTxns(looper, clients[john])
+    txnJason = clients[jason].hasConsensus(txnReqJl.reqId)[ALL_TXNS]
+    txnJohn = clients[john].hasConsensus(txnReqJb.reqId)[ALL_TXNS]
+    assert txnJason == txnJohn
