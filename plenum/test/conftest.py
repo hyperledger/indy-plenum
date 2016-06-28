@@ -306,7 +306,7 @@ def poolTxnNodeNames():
 
 @pytest.fixture(scope="module")
 def poolTxnClientNames():
-    return "Alice",
+    return "Alice", "Jason", "John", "Les"
 
 
 @pytest.fixture(scope="module")

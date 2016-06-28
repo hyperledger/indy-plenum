@@ -23,7 +23,7 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, Batched, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA
@@ -1215,6 +1215,15 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
 
 def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
     rec = {OP_FIELD_NAME: REQACK, 'reqId': reqId}
+    if update:
+        rec.update(update)
+    expected = (rec, node.clientstack.name)
+    # one and only one matching message should be in the client's inBox
+    assert sum(1 for x in client.inBox if x == expected) == 1
+
+
+def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQNACK, 'reqId': reqId}
     if update:
         rec.update(update)
     expected = (rec, node.clientstack.name)

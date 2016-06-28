@@ -16,6 +16,12 @@
   {"dest":"OvgaVBCX4+BCysvodhwPnlQyYEnhzto4AXyVxDIxL28=","type":"NEW_NODE","identifier":"LISK2GZO5lHkiWwTqEqJopZKyl63eouIHmDe1cgbTp0=","data":{"client_ip":"127.0.0.1","pubkey":"8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264","alias":"Delta","client_port":9708,"node_ip":"127.0.0.1","node_port":9707},"txnId":"ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"}
   ,
   {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"Lwp7KfU2UgBc1HIKP+es0IyFpOKc1vSNGQXidtrG/+8=","type":"NEW_CLIENT","data":{"alias":"Alice","pubkey":"e50c239bc204f1341664c9d9c50c6a0d0fff6fc79d9301f1e713aab2e0344b3f"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"}
+  ,
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"LfBBJfABWvtHzoU674dyCU/5SYwUyxueEpc8KSfaD6Y=","type":"NEW_CLIENT","data":{"alias":"Jason","pubkey":"4049502db92ca2342c3f92dac5d6de7c85db5df5407a5b4996ce39f2efb7e827"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919684"}
+  ,
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"K8KACzMW4Akgn/11fasZzPCuhLx66QZU4egXEtJw9lM=","type":"NEW_CLIENT","data":{"alias":"John","pubkey":"815fb6314405e007d04ed215c223d5cd4b799d07bb7189ad10dbf324ea534271"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919685"}
+  ,
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"NLTZBDFWy23PC+sKKUm3VZyUDSvLbb6MU6mzAnjjp0Y=","type":"NEW_CLIENT","data":{"alias":"Les","pubkey":"fb41b1fcf75c1227fa08876056a5ed07ac44fe0c116ec2de80b8e523959d7824"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919686"}
 ],
   "seeds": {
     "Alpha": ["000000000000000000000000000Alpha", "Alpha000000000000000000000000000"],
@@ -26,6 +32,9 @@
     "Steward2": ["44444444444444444444444444444444", "33333333333333333333333333333333"],
     "Steward3": ["66666666666666666666666666666666", "55555555555555555555555555555555"],
     "Steward4": ["88888888888888888888888888888888", "77777777777777777777777777777777"],
-    "Alice": ["00000000000000000000000000000000", "99999999999999999999999999999999"]
+    "Alice": ["00000000000000000000000000000000", "99999999999999999999999999999999"],
+    "Jason": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+    "John": ["cccccccccccccccccccccccccccccccc", "dddddddddddddddddddddddddddddddd"],
+    "Les": ["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "ffffffffffffffffffffffffffffffff"]
   }
 }

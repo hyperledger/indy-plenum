@@ -33,7 +33,9 @@ from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, ORIGIN
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, ORIGIN, \
+    CREDIT, AMOUNT, DATA, GET_ALL_TXNS, GET_BAL, TARGET_NYM, SUCCESS, BALANCE, \
+    ALL_TXNS
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -243,6 +245,12 @@ class Node(HasActionQueue, Motor,
         self.addReplicas()
 
         self.msgsForFutureReplicas = {}
+
+        # Balances of all client
+        self.balances = {}      # type: Dict[str, int]
+
+        # Txns of all clients, each txn is a tuple like (from, to, amount)
+        self.txns = []          # type: List[Tuple]
 
     def __repr__(self):
         return self.name
@@ -1461,6 +1469,30 @@ class Node(HasActionQueue, Motor,
                   TXN_ID: txnId,
                   TXN_TIME: ppTime,
                   TXN_TYPE: req.operation.get(TXN_TYPE)}
+
+        if req.operation.get(TXN_TYPE) in (CREDIT, GET_BAL, GET_ALL_TXNS):
+            frm = req.identifier
+            if frm not in self.balances:
+                self.balances[frm] = 100
+            if req.operation.get(TXN_TYPE) == CREDIT:
+                to = req.operation[TARGET_NYM]
+                if to not in self.balances:
+                    self.balances[to] = 100
+                amount = req.operation[DATA][AMOUNT]
+                if amount > self.balances[frm]:
+                    result[SUCCESS] = False
+                else:
+                    result[SUCCESS] = True
+                    self.balances[to] += amount
+                    self.balances[frm] -= amount
+                    self.txns.append((frm , to, amount))
+            elif req.operation.get(TXN_TYPE) == GET_BAL:
+                result[SUCCESS] = True
+                result[BALANCE] = self.balances.get(frm, 0)
+            elif req.operation.get(TXN_TYPE) == GET_ALL_TXNS:
+                result[SUCCESS] = True
+                result[ALL_TXNS] = [txn for txn in self.txns if frm in txn]
+
         return Reply(result)
         # merkleProof = await self.primaryStorage.append(
         #     identifier=req.identifier, reply=txnRslt, txnId=txnId)
