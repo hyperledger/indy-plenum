@@ -61,6 +61,8 @@ class Monitor:
         # `i`th protocol instance
         self.clientAvgReqLatencies = []  # type: List[Dict[str, Tuple[int, float]]]
 
+        self.totalRequests = 0
+
     def __repr__(self):
         return self.name
 
@@ -143,6 +145,7 @@ class Monitor:
 
         numReqs = {r[0] for r in self.numOrderedRequests}
         if len(numReqs) == 1:
+            self.totalRequests += 1
             self.postMonitorData()
 
     def requestUnOrdered(self, identifier: str, reqId: int):
