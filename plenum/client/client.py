@@ -11,6 +11,7 @@ import time
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
+from raet.nacling import Privateer
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.json_serializer import JsonSerializer
@@ -21,7 +22,9 @@ from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, CLINODEREG
+from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
+    DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
 from plenum.common.util import getMaxFailures, getlogger
 from plenum.persistence.wallet_storage_file import WalletStorageFile
@@ -367,6 +370,71 @@ class Client(Motor):
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minimumNodes:
                 self.status = Status.started_hungry
+
+    def submitNewClient(self, typ, name: str, pkseed: bytes, sigseed: bytes):
+        assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
+        newSigner = SimpleSigner(seed=sigseed)
+        priver = Privateer(pkseed)
+        req, = self.submit({
+            TXN_TYPE: typ,
+            TARGET_NYM: newSigner.verstr,
+            DATA: {
+                PUBKEY: priver.pubhex.decode(),
+                ALIAS: name
+            }
+        })
+        return req
+
+    def submitNewSteward(self, name: str, pkseed: bytes, sigseed: bytes):
+        return self.submitNewClient(NEW_STEWARD, name, pkseed, sigseed)
+
+    def submitNewNode(self, name: str, pkseed: bytes, sigseed: bytes,
+                      nodeStackHa: HA, clientStackHa: HA):
+        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
+        newSigner = SimpleSigner(seed=sigseed)
+        priver = Privateer(pkseed)
+        req, = self.submit({
+            TXN_TYPE: NEW_NODE,
+            TARGET_NYM: newSigner.verstr,
+            DATA: {
+                NODE_IP: nodeIp,
+                NODE_PORT: nodePort,
+                CLIENT_IP: clientIp,
+                CLIENT_PORT: clientPort,
+                PUBKEY: priver.pubhex.decode(),
+                ALIAS: name
+            }
+        })
+        return req
+
+    # TODO: Shouldn't the nym be fetched from the ledger
+    def submitNodeIpChange(self, name: str, nym: str, nodeStackHa: HA,
+                           clientStackHa: HA):
+        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
+        req, = self.submit({
+            TXN_TYPE: CHANGE_HA,
+            TARGET_NYM: nym,
+            DATA: {
+                NODE_IP: nodeIp,
+                NODE_PORT: nodePort,
+                CLIENT_IP: clientIp,
+                CLIENT_PORT: clientPort,
+                ALIAS: name
+            }
+        })
+        return req
+
+    def submitNodeKeysChange(self, name: str, nym: str, verkey: str, pubkey: str):
+        req, = self.submit({
+            TXN_TYPE: CHANGE_KEYS,
+            TARGET_NYM: nym,
+            DATA: {
+                PUBKEY: pubkey,
+                VERKEY: verkey,
+                ALIAS: name
+            }
+        })
+        return req
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:

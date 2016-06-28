@@ -7,6 +7,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, ORIGIN, TARGET_NYM, DATA, PUBKEY, ALIAS, \
     NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, CHANGE_HA, NEW_STEWARD, \
     CHANGE_KEYS, VERKEY
+from plenum.common.types import HA
 from plenum.common.util import randomString
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
@@ -14,17 +15,10 @@ from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
 
 
 def addNewClient(typ, looper, client, name):
-    newSigner = SimpleSigner()
+    sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
-    priver = Privateer(pkseed)
-    req, = client.submit({
-        TXN_TYPE: typ,
-        TARGET_NYM: newSigner.verstr,
-        DATA: {
-            PUBKEY: priver.pubhex.decode(),
-            ALIAS: name
-        }
-    })
+    newSigner = SimpleSigner(seed=sigseed)
+    req = client.submitNewClient(typ, name, pkseed, sigseed)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=7))
@@ -34,21 +28,9 @@ def addNewClient(typ, looper, client, name):
 def addNewNode(looper, client, newNodeName, tdir, tconf):
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
-    newSigner = SimpleSigner(seed=sigseed)
-    priver = Privateer(pkseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    req, = client.submit({
-        TXN_TYPE: NEW_NODE,
-        TARGET_NYM: newSigner.verstr,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: nodePort,
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: clientPort,
-            PUBKEY: priver.pubhex.decode(),
-            ALIAS: newNodeName
-        }
-    })
+    req = client.submitNewNode(newNodeName, pkseed, sigseed,
+                               HA(nodeIp, nodePort), HA(clientIp, clientPort))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
@@ -78,17 +60,8 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
 def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
     nodeNym = base64.b64encode(node.nodestack.local.signer.verraw).decode()
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
-    req, = client.submit({
-        TXN_TYPE: CHANGE_HA,
-        TARGET_NYM: nodeNym,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: nodePort,
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: clientPort,
-            ALIAS: node.name
-        }
-    })
+    req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
+                                    HA(clientIp, clientPort))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
@@ -100,15 +73,7 @@ def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
 
 def changeNodeKeys(looper, client, node, verkey, pubkey, baseDir, conf):
     nodeNym = base64.b64encode(node.nodestack.local.signer.verraw).decode()
-    req, = client.submit({
-        TXN_TYPE: CHANGE_KEYS,
-        TARGET_NYM: nodeNym,
-        DATA: {
-            PUBKEY: pubkey,
-            VERKEY: verkey,
-            ALIAS: node.name
-        }
-    })
+    req = client.submitNodeKeysChange(node.name, nodeNym, verkey, pubkey)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
