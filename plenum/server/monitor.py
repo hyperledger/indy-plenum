@@ -17,7 +17,8 @@ from plenum.server.instances import Instances
 
 logger = getlogger()
 
-firebaseClient = firebase.FirebaseApplication("https://plenumstats.firebaseio.com/", None)
+firebaseClient = firebase.FirebaseApplication(
+    "https://plenumstats.firebaseio.com/", None)
 
 
 class Monitor:
@@ -81,9 +82,9 @@ class Monitor:
             ("Omega", self.Omega),
             ("instances started", self.instances.started),
             ("ordered request counts",
-                {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
             ("ordered request durations",
-                {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("request ordering started", self.requestOrderingStarted),
             ("master request latencies", self.masterReqLatencies),
             ("client avg request latencies", self.clientAvgReqLatencies),
@@ -253,7 +254,7 @@ class Monitor:
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
-                avgReqsPerInst = totalReqs/self.instances.count
+                avgReqsPerInst = totalReqs / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None
@@ -322,19 +323,22 @@ class Monitor:
                                       headers={'Connection': 'keep-alive'},
                                       )
             # send total request to different metric
-            firebaseClient.put_async(url="/totalTransactions", name="totalTransactions", data=self.totalRequests,
-                                      callback=lambda response: None,
-                                      params={'print': 'silent'},
-                                      headers={'Connection': 'keep-alive'},
-                                      )
+            firebaseClient.put_async(url="/totalTransactions",
+                                     name="totalTransactions",
+                                     data=self.totalRequests,
+                                     callback=lambda response: None,
+                                     params={'print': 'silent'},
+                                     headers={'Connection': 'keep-alive'},
+                                     )
 
     def postStartData(self, startedAt):
         if sendMonitorStats:
-            firebaseClient.put_async(url="/startedAt", name="startedAt", data=startedAt,
-                                      callback=lambda response: None,
-                                      params={'print': 'silent'},
-                                      headers={'Connection': 'keep-alive'},
-                                      )
+            firebaseClient.put_async(url="/startedAt", name="startedAt",
+                                     data=startedAt,
+                                     callback=lambda response: None,
+                                     params={'print': 'silent'},
+                                     headers={'Connection': 'keep-alive'},
+                                     )
 
     @staticmethod
     def mean(data):

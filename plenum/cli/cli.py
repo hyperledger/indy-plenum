@@ -1005,7 +1005,10 @@ def cleanUp():
 
     dropdbs()
     path = os.path.expanduser("~/.plenum/data/")
-    shutil.rmtree(path)
+    try:
+        shutil.rmtree(path)
+    except FileNotFoundError:
+        pass
 
 class Exit(Exception):
     pass

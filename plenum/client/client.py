@@ -24,7 +24,8 @@ from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT, CREDIT, BALANCE, \
+    GET_BAL, GET_ALL_TXNS, SUCCESS, ALL_TXNS
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
 from plenum.common.util import getMaxFailures, getlogger
 from plenum.persistence.wallet_storage_file import WalletStorageFile
@@ -241,6 +242,39 @@ class Client(Motor):
             cliNodeReg = msg[f.NODES.nm]
             for name, ha in cliNodeReg.items():
                 self.newValidatorDiscovered(name, tuple(ha), frm)
+
+        if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
+            if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (CREDIT, GET_BAL, GET_ALL_TXNS):
+                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+                reply = self.hasConsensus(reqId)
+                if reply:
+                    n = len(self.getRepliesFromAllNodes(reqId))
+                    typ = msg[f.RESULT.nm][TXN_TYPE]
+                    if typ == CREDIT:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug("The CREDIT request with id {} was {} as per {} nodes"
+                                     .format(reqId, "successful" if msg[f.RESULT.nm][SUCCESS] else "unsuccessful", n), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_BAL:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The BALANCE request with id {} returned balance as {} as per {} nodes"
+                                .format(reqId, msg[f.RESULT.nm][BALANCE], n), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_ALL_TXNS:
+                        allTxns = reply[ALL_TXNS]
+                        txns = []
+                        for txn in allTxns:
+                            if txn[0] in self.signers:
+                                txns.append("Transferred {}".format(txn[2]))
+                            else:
+                                txns.append("Received {}".format(txn[2]))
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The TRANSACTIONS request with id {} returned transactions as {} as per {} nodes"
+                                .format(reqId, '\n'.join(txns), n), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    pass
 
     def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
                                frm: str):
