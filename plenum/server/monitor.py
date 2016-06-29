@@ -315,7 +315,7 @@ class Monitor:
     def postMonitorData(self):
         if sendMonitorStats:
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
-            metrics["created_at"] = datetime.now().isoformat()
+            metrics["created_at"] = datetime.utcnow().isoformat()
             firebaseClient.post_async(url="/all_stats", data=metrics,
                                       callback=lambda response: None,
                                       params={'print': 'silent'},
