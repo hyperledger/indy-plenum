@@ -271,10 +271,9 @@ class Client(Motor):
                                 txns.append("Received {}".format(txn[2]))
                         logger.debug("", extra={"cli": True})
                         logger.debug(
-                            "The TRANSACTIONS request with id {} returned transactions as {} as per {} nodes"
-                                .format(reqId, '\n'.join(txns), n), extra={"cli": "IMPORTANT"})
+                            "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
+                                .format(reqId, n, '\n'.join(txns)), extra={"cli": "IMPORTANT"})
                         logger.debug("", extra={"cli": True})
-                    pass
 
     def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
                                frm: str):
