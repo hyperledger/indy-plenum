@@ -83,9 +83,10 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
+        cleanUp()
         # time.sleep(5)
         self.looper = looper
-        self.basedirpath = basedirpath
+        self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -147,7 +148,7 @@ class Cli:
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
             "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*) |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
         ]
@@ -536,7 +537,7 @@ Commands:
             names = [nodeName]
 
         nodes = []
-        reg = OrderedDict()
+        # reg = OrderedDict()
         # for k, v in self.nodeRegistry.items():
         #     if len(v) == 3:
         #         reg[k] = v[0]
@@ -981,6 +982,30 @@ Commands:
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
+
+# TODO: Remove later
+def cleanUp():
+    import shutil
+    import pyorient
+    client = pyorient.OrientDB("localhost", 2424)
+    user = "root"
+    password = "password"
+    session_id = client.connect(user, password)
+
+    def dropdbs():
+        i = 0
+        names = [n for n in client.db_list().oRecordData['databases'].keys()]
+        for nm in names:
+            try:
+                client.db_drop(nm)
+                i += 1
+            except:
+                continue
+        return i
+
+    dropdbs()
+    path = os.path.expanduser("~/.plenum/data/")
+    shutil.rmtree(path)
 
 class Exit(Exception):
     pass
