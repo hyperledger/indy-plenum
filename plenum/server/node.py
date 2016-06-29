@@ -70,6 +70,8 @@ from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
 
+STARTING_BALANCE = 1000
+
 
 class Node(HasActionQueue, Motor,
            Propagator, MessageProcessor, HasFileStorage, HasPoolManager):
@@ -1473,11 +1475,11 @@ class Node(HasActionQueue, Motor,
         if req.operation.get(TXN_TYPE) in (CREDIT, GET_BAL, GET_ALL_TXNS):
             frm = req.identifier
             if frm not in self.balances:
-                self.balances[frm] = 100
+                self.balances[frm] = STARTING_BALANCE
             if req.operation.get(TXN_TYPE) == CREDIT:
                 to = req.operation[TARGET_NYM]
                 if to not in self.balances:
-                    self.balances[to] = 100
+                    self.balances[to] = STARTING_BALANCE
                 amount = req.operation[DATA][AMOUNT]
                 if amount > self.balances[frm]:
                     result[SUCCESS] = False

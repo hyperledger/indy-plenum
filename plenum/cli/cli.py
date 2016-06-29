@@ -76,8 +76,8 @@ class Cli:
     ClientClass = Client
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None, debug=False,
-                 logFileName=None):
+    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
+                 debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
