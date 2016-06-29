@@ -102,6 +102,7 @@ class Client(Motor):
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
         clientDataDir = os.path.join(basedirpath, "data", "clients", self.name)
+        clientDataDir = os.path.expanduser(clientDataDir)
         self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
         signers = None     # type: Dict[str, Signer]
         self.defaultIdentifier = None
@@ -116,6 +117,9 @@ class Client(Motor):
 
             for s in signers.values():
                 self.wallet.addSigner(signer=s)
+        else:
+            if len(self.wallet.signers) == 1:
+                self.defaultIdentifier = list(self.wallet.signers.values())[0].identifier
 
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
@@ -232,7 +236,7 @@ class Client(Motor):
         msg, frm = wrappedMsg
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
-                     extra={"cli": True})
+                     extra={"cli": msg.get(OP_FIELD_NAME) != CLINODEREG})
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == CLINODEREG:
             cliNodeReg = msg[f.NODES.nm]
             for name, ha in cliNodeReg.items():
