@@ -63,7 +63,7 @@ class Monitor:
 
         self.totalRequests = 0
 
-        self.started = datetime.now().isoformat()
+        self.started = datetime.utcnow().isoformat()
 
     def __repr__(self):
         return self.name
