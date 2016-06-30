@@ -23,7 +23,7 @@ else:
 import configparser
 import os
 from configparser import ConfigParser
-
+from collections import OrderedDict
 import time
 import ast
 
@@ -52,7 +52,7 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from collections import OrderedDict
+from plenum.common.util import getConfig
 
 
 class CustomOutput(Vt100_Output):
@@ -658,9 +658,6 @@ Commands:
                 seed = seed.encode("utf-8") if seed else None
                 signer = SimpleSigner(identifier=identifier, seed=seed) \
                     if (seed or identifier) else None
-            # reg = {}
-            # for k, v in self.cliNodeReg.items():
-            #     reg[k] = v if len(v) == 2 else v[0]
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
@@ -977,20 +974,20 @@ Commands:
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
-    # TODO: DO we keep this? What happens when we allow the CLI ot connect
+    # TODO: DO we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        # TODO: Use config data here
-        path = os.path.expanduser("~/.plenum")
-        dataPath = os.path.join(path, "data")
+        config = getConfig()
+        basePath = os.path.expanduser(config.baseDir)
+        dataPath = os.path.join(basePath, "data")
         try:
             shutil.rmtree(dataPath)
         except FileNotFoundError:
             pass
 
-        client = pyorient.OrientDB("localhost", 2424)
-        user = "root"
-        password = "password"
+        client = pyorient.OrientDB(config.OrientDB["host"], config.OrientDB["port"])
+        user = config.OrientDB["user"]
+        password = config.OrientDB["password"]
         client.connect(user, password)
 
         def dropdbs():
@@ -1006,6 +1003,7 @@ Commands:
             return i
 
         dropdbs()
+
 
 class Exit(Exception):
     pass

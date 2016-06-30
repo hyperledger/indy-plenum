@@ -147,7 +147,7 @@ class Node(HasActionQueue, Motor,
         # self.totalNodes = len(self.nodeReg)
         # self.f = getMaxFailures(self.totalNodes)
         # self.requiredNumberOfInstances = self.f + 1  # per RBFT
-        # self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        # self.minNodesToConnect = (2 * self.f) + 1  # minimum for a functional pool
         self.setF()
 
         self.replicas = []  # type: List[replica.Replica]

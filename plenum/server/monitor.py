@@ -17,9 +17,6 @@ from plenum.server.instances import Instances
 
 logger = getlogger()
 
-firebaseClient = firebase.FirebaseApplication(
-    "https://plenumstats.firebaseio.com/", None)
-
 
 class Monitor:
     """
@@ -65,6 +62,9 @@ class Monitor:
         self.totalRequests = 0
 
         self.started = datetime.utcnow().isoformat()
+
+        self.firebaseClient = firebase.FirebaseApplication(
+            "https://plenumstats.firebaseio.com/", None)
 
     def __repr__(self):
         return self.name
@@ -317,13 +317,13 @@ class Monitor:
         if sendMonitorStats:
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
-            firebaseClient.post_async(url="/all_stats", data=metrics,
+            self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                       callback=lambda response: None,
                                       params={'print': 'silent'},
                                       headers={'Connection': 'keep-alive'},
                                       )
             # send total request to different metric
-            firebaseClient.put_async(url="/totalTransactions",
+            self.firebaseClient.put_async(url="/totalTransactions",
                                      name="totalTransactions",
                                      data=self.totalRequests,
                                      callback=lambda response: None,
@@ -333,7 +333,7 @@ class Monitor:
 
     def postStartData(self, startedAt):
         if sendMonitorStats:
-            firebaseClient.put_async(url="/startedAt", name="startedAt",
+            self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                      data=startedAt,
                                      callback=lambda response: None,
                                      params={'print': 'silent'},

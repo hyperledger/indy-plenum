@@ -45,4 +45,4 @@ OrientDB = {
 
 stewardThreshold = 20
 
-sendMonitorStats = False
+sendMonitorStats = True
