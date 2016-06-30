@@ -50,3 +50,18 @@ class Wallet:
 
     def getSigner(self, identifier=None, alias=None):
         return self.storage.getSigner(identifier=identifier, alias=alias)
+
+    def listIds(self, exclude=list()):
+        """
+        For each signer in this wallet, return its alias if present else
+        return its identifier.
+
+        :return: List of identifiers/aliases.
+        """
+        lst = list(self.aliases.keys())
+        others = set(self.signers.keys()) - set(self.aliases.values())
+        lst.extend(list(others))
+        for x in exclude:
+            lst.remove(x)
+        return lst
+

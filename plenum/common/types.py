@@ -330,11 +330,6 @@ HA = NamedTuple("HA", [
     ("host", str),
     ("port", int)])
 
-NodeDetail = NamedTuple("NodeDetail", [
-    ("ha", HA),
-    ("cliname", str),
-    ("cliha", HA)])
-
 HS_FILE = "file"
 HS_ORIENT_DB = "orientdb"
 HS_MEMORY = "memory"

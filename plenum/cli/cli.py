@@ -12,6 +12,7 @@ from plenum.client.signer import SimpleSigner
 from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
     GET_ALL_TXNS
 from plenum.common.txn import TARGET_NYM
+from plenum.test import helper
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -92,8 +93,8 @@ class Cli:
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha[0]), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm][0]))
+            self.nodeRegistry[nStkNm] = NodeDetail(nha, cStkNm,
+                                                   self.cliNodeReg[cStkNm])
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -115,7 +116,7 @@ class Cli:
         self.debug = debug
         self.plugins = {}
         self.defaultClient = self.getDefaultClient()
-        self.activeKeyPair = None
+        self.activeSigner = None
         self.keyPairs = {}
         '''
         examples:
@@ -150,7 +151,7 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*) |",
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=]+) \s*) |",  # TODO Replace with an accurate regex for base64 encoded strings
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
@@ -901,38 +902,61 @@ Commands:
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
             if not self.defaultClient:
-                self.defaultClient = Client('default', self.nodeReg,
-                            signer=None, basedirpath=self.basedirpath)
+                self.createDefaultClient()
             self.defaultClient.wallet.addSigner(signer, alias)
             privateKeyPath = os.path.join(
                 self.basedirpath, "data", "clients", self.defaultClient.name)
             publicKey = signer.verstr
-            self.keyPairs[alias] = signer
-            print("Private key is stored in path {}".format(privateKeyPath))
-            print("Public key is {}".format(publicKey))
+            self.print("Private key is stored in path {}".format(privateKeyPath))
+            self.print("Public key is {}".format(publicKey))
             return True
+
+    def createDefaultClient(self):
+        name = 'default'
+        self.defaultClient = Client(name,
+                                    ha=helper.genHa(),
+                                    nodeReg=self.nodeReg,
+                                    signer=None,
+                                    basedirpath=self.basedirpath)
+        self.clients[name] = self.defaultClient
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list':
-            ids = [s for s in self.defaultClient.signers]
-            print(ids, sep='\n')
+            ids = [s for s in
+                   self.defaultClient.wallet.listIds(exclude=['default'])]
+            self.print('\n'.join(ids))
             return True
 
     def _becomeAction(self, matchedVars):
         if matchedVars.get('become') == 'become':
-            id = matchedVars.get('id')
-            self.activeKeyPair = self.keyPairs[id]
-            print("become {}".format(id))
+            keypair = matchedVars.get('id')
+            self._updateActiveSigner(keypair)
             return True
 
-    # use_keypair is an alias for become
     def _useKeypairAction(self, matchedVars):
         if matchedVars.get('use_keypair') == 'use_keypair':
-            # TODO:LH Add code to use specified keypair
             keypair = matchedVars.get('keypair')
-            self.activeKeyPair = self.keyPairs[keypair]
-            print("keypair updated to {}".format(keypair))
+            wallet = self.defaultClient.wallet
+            if wallet.signers.get(keypair):
+                self._updateActiveKeyPair(keypair, wallet)
+            else:
+                self.print("keypair {} doesn't exist on client".format(keypair))
             return True
+
+    def _updateActiveSigner(self, key):
+        wallet = self.defaultClient.wallet
+        if wallet.aliases.get(key):
+            self.activeSigner = wallet.signers[wallet.aliases[key]]
+            self.print("{} is now active".format(key))
+        elif wallet.signers.get(key):
+            self._updateActiveKeyPair(key, wallet)
+        else:
+            self.print("alias or keypair {} doesn't exist on this "
+                       "client".format(key))
+
+    def _updateActiveKeyPair(self, key, wallet):
+        self.activeSigner = wallet.signers[key]
+        self.print("active keypair updated to {}".format(key))
 
     def getActionList(self):
         return [self._simpleAction, self._helpAction, self._listAction,
@@ -1022,6 +1046,7 @@ def cleanUp():
         shutil.rmtree(path)
     except FileNotFoundError:
         pass
+
 
 class Exit(Exception):
     pass
