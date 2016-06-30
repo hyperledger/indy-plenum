@@ -7,7 +7,8 @@ from typing import Dict
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
-
+import shutil
+import pyorient
 from plenum.client.signer import SimpleSigner
 from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
     GET_ALL_TXNS
@@ -84,7 +85,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        cleanUp()
+        self.cleanUp()
         # time.sleep(5)
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
@@ -93,8 +94,8 @@ class Cli:
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(nha, cStkNm,
-                                                   self.cliNodeReg[cStkNm])
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm]))
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -1019,33 +1020,35 @@ Commands:
         # TODO Fetch default client info from data dir and create Client object
         return None
 
+    # TODO: DO we keep this? What happens when we allow the CLI ot connect
+    # to remote nodes?
+    def cleanUp(self):
+        # TODO: Use config data here
+        path = os.path.expanduser("~/.plenum")
+        dataPath = os.path.join(path, "data")
+        try:
+            shutil.rmtree(dataPath)
+        except FileNotFoundError:
+            pass
 
-# TODO: Remove later
-def cleanUp():
-    import shutil
-    import pyorient
-    client = pyorient.OrientDB("localhost", 2424)
-    user = "root"
-    password = "password"
-    session_id = client.connect(user, password)
+        client = pyorient.OrientDB("localhost", 2424)
+        user = "root"
+        password = "password"
+        client.connect(user, password)
 
-    def dropdbs():
-        i = 0
-        names = [n for n in client.db_list().oRecordData['databases'].keys()]
-        for nm in names:
-            try:
-                client.db_drop(nm)
-                i += 1
-            except:
-                continue
-        return i
+        def dropdbs():
+            i = 0
+            names = [n for n in
+                     client.db_list().oRecordData['databases'].keys()]
+            for nm in names:
+                try:
+                    client.db_drop(nm)
+                    i += 1
+                except:
+                    continue
+            return i
 
-    dropdbs()
-    path = os.path.expanduser("~/.plenum/data/")
-    try:
-        shutil.rmtree(path)
-    except FileNotFoundError:
-        pass
+        dropdbs()
 
 
 class Exit(Exception):
