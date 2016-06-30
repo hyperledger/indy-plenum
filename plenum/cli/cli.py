@@ -7,7 +7,8 @@ from typing import Dict
 
 import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
-
+import shutil
+import pyorient
 from plenum.client.signer import SimpleSigner
 from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
     GET_ALL_TXNS
@@ -92,8 +93,8 @@ class Cli:
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha[0]), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm][0]))
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm]))
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -537,12 +538,6 @@ Commands:
             names = [nodeName]
 
         nodes = []
-        # reg = OrderedDict()
-        # for k, v in self.nodeRegistry.items():
-        #     if len(v) == 3:
-        #         reg[k] = v[0]
-        #     else:
-        #         reg[k] = v
         for name in names:
             node = self.NodeClass(name,
                                   self.nodeRegistry,
@@ -663,12 +658,12 @@ Commands:
                 seed = seed.encode("utf-8") if seed else None
                 signer = SimpleSigner(identifier=identifier, seed=seed) \
                     if (seed or identifier) else None
-            reg = {}
-            for k, v in self.cliNodeReg.items():
-                reg[k] = v if len(v) == 2 else v[0]
+            # reg = {}
+            # for k, v in self.cliNodeReg.items():
+            #     reg[k] = v if len(v) == 2 else v[0]
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=reg,
+                                      nodeReg=self.cliNodeReg,
                                       signer=signer,
                                       basedirpath=self.basedirpath)
             self.looper.add(client)
@@ -982,33 +977,35 @@ Commands:
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
+    # TODO: DO we keep this? What happens when we allow the CLI ot connect
+    # to remote nodes?
+    def cleanUp(self):
+        # TODO: Use config data here
+        path = os.path.expanduser("~/.plenum")
+        dataPath = os.path.join(path, "data")
+        try:
+            shutil.rmtree(dataPath)
+        except FileNotFoundError:
+            pass
 
-# TODO: Remove later
-def cleanUp():
-    import shutil
-    import pyorient
-    client = pyorient.OrientDB("localhost", 2424)
-    user = "root"
-    password = "password"
-    session_id = client.connect(user, password)
+        client = pyorient.OrientDB("localhost", 2424)
+        user = "root"
+        password = "password"
+        client.connect(user, password)
 
-    def dropdbs():
-        i = 0
-        names = [n for n in client.db_list().oRecordData['databases'].keys()]
-        for nm in names:
-            try:
-                client.db_drop(nm)
-                i += 1
-            except:
-                continue
-        return i
+        def dropdbs():
+            i = 0
+            names = [n for n in
+                     client.db_list().oRecordData['databases'].keys()]
+            for nm in names:
+                try:
+                    client.db_drop(nm)
+                    i += 1
+                except:
+                    continue
+            return i
 
-    dropdbs()
-    path = os.path.expanduser("~/.plenum/data/")
-    try:
-        shutil.rmtree(path)
-    except FileNotFoundError:
-        pass
+        dropdbs()
 
 class Exit(Exception):
     pass
