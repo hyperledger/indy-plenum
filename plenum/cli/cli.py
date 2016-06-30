@@ -76,8 +76,8 @@ class Cli:
     ClientClass = Client
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None, debug=False,
-                 logFileName=None):
+    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
+                 debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
 
@@ -110,6 +110,9 @@ class Cli:
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
         self.plugins = {}
+        self.defaultClient = self.getDefaultClient()
+        self.activeKeyPair = None
+        self.keyPairs = {}
         '''
         examples:
         status
@@ -837,7 +840,6 @@ Commands:
             verkey = matchedVars.get('verkey')
             # TODO make verkey case insensitive
             identifier = matchedVars.get('identifier')
-
             if identifier in self.externalClientKeys:
                 self.print("identifier already added", Token.Error)
                 return
@@ -849,31 +851,38 @@ Commands:
     def _newKeypairAction(self, matchedVars):
         if matchedVars.get('new_keypair') == 'new_keypair':
             alias = matchedVars.get('alias')
-            # TODO:LH Add code to generate public and private key
-            privateKeyPath = "<path>"
-            publicKey = "e98khkkhhj"
+            signer = SimpleSigner()
+            if not self.defaultClient:
+                self.defaultClient = Client('default', self.nodeReg,
+                            signer=None, basedirpath=self.basedirpath)
+            self.defaultClient.wallet.addSigner(signer, alias)
+            privateKeyPath = os.path.join(
+                self.basedirpath, "data", "clients", self.defaultClient.name)
+            publicKey = signer.verstr
+            self.keyPairs[alias] = signer
             print("Private key is stored in path {}".format(privateKeyPath))
             print("Public key is {}".format(publicKey))
             return True
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list':
-            # TODO:LH Add code to get the list of ids
-            ids = ["phil", "edo98juyilute"]
+            ids = [s for s in self.defaultClient.signers]
             print(ids, sep='\n')
             return True
 
     def _becomeAction(self, matchedVars):
         if matchedVars.get('become') == 'become':
-            # TODO:LH Add code for become
             id = matchedVars.get('id')
+            self.activeKeyPair = self.keyPairs[id]
             print("become {}".format(id))
             return True
 
+    # use_keypair is an alias for become
     def _useKeypairAction(self, matchedVars):
         if matchedVars.get('use_keypair') == 'use_keypair':
             # TODO:LH Add code to use specified keypair
             keypair = matchedVars.get('keypair')
+            self.activeKeyPair = self.keyPairs[keypair]
             print("keypair updated to {}".format(keypair))
             return True
 
@@ -933,6 +942,10 @@ Commands:
                 self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
+
+    def getDefaultClient(self):
+        # TODO Fetch default client info from data dir and create Client object
+        return None
 
 
 class Exit(Exception):
