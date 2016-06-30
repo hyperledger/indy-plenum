@@ -84,7 +84,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        cleanUp()
+        self.cleanUp()
         # time.sleep(5)
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
