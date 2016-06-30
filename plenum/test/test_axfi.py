@@ -100,6 +100,7 @@ def testSendMoney(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
     assert bal2John - bal1John == 100
     logger.display("Balance for Jason Law is {}".format(bal2Jason))
     logger.display("Balance for John Best is {}".format(bal2John))
+    req = sendMoney(looper, clients[jason], clients[john], 100, txnPoolNodeSet)
     txnReqJl = checkTxns(looper, clients[jason])
     txnReqJb = checkTxns(looper, clients[john])
     txnJason = clients[jason].hasConsensus(txnReqJl.reqId)[ALL_TXNS]

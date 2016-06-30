@@ -9,6 +9,9 @@ import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 
 from plenum.client.signer import SimpleSigner
+from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
+    GET_ALL_TXNS
+from plenum.common.txn import TARGET_NYM
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -45,7 +48,7 @@ from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from collections import OrderedDict
@@ -80,16 +83,17 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-
+        cleanUp()
+        # time.sleep(5)
         self.looper = looper
-        self.basedirpath = basedirpath
+        self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
         for nStkNm, nha in self.nodeReg.items():
             cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(nha, cStkNm,
-                                                   self.cliNodeReg[cStkNm])
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha[0]), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm][0]))
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -103,7 +107,7 @@ class Cli:
         self.helpablesCommands = self.cliCmds | self.nodeCmds
         self.simpleCmds = {'status', 'exit', 'quit', 'license'}
         self.commands = {'list', 'help'} | self.simpleCmds
-        self.cliActions = {'send', 'show'}
+        self.cliActions = {'send', 'show', 'credit', 'balance', 'transactions'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
         self.node_or_cli = ['node',  'client']
@@ -146,7 +150,10 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*)"
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*) |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
         ]
 
         self.lexers = {
@@ -184,6 +191,7 @@ class Cli:
             'helpable': WordCompleter(self.helpablesCommands),
             'load_plugins': WordCompleter(['load plugins from']),
             'client_name': self.clientWC,
+            'second_client_name': self.clientWC,
             'cli_action': WordCompleter(self.cliActions),
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
@@ -532,6 +540,12 @@ Commands:
             names = [nodeName]
 
         nodes = []
+        # reg = OrderedDict()
+        # for k, v in self.nodeRegistry.items():
+        #     if len(v) == 3:
+        #         reg[k] = v[0]
+        #     else:
+        #         reg[k] = v
         for name in names:
             node = self.NodeClass(name,
                                   self.nodeRegistry,
@@ -652,9 +666,12 @@ Commands:
                 seed = seed.encode("utf-8") if seed else None
                 signer = SimpleSigner(identifier=identifier, seed=seed) \
                     if (seed or identifier) else None
+            reg = {}
+            for k, v in self.cliNodeReg.items():
+                reg[k] = v if len(v) == 2 else v[0]
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=self.cliNodeReg,
+                                      nodeReg=reg,
                                       signer=signer,
                                       basedirpath=self.basedirpath)
             self.looper.add(client)
@@ -803,6 +820,37 @@ Commands:
                 req_id = matchedVars.get('req_id')
                 self.getReply(client_name, req_id)
                 return True
+            elif client_action == "credit":
+                frm = matchedVars.get('client_name')
+                to = matchedVars.get('second_client_name')
+                toClient = self.clients.get(to, None)
+                amount = int(matchedVars.get('amount'))
+                txn = {
+                    TXN_TYPE: CREDIT,
+                    TARGET_NYM: toClient.defaultIdentifier,
+                    DATA: {
+                        AMOUNT: amount
+                    }}
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "balance":
+                frm = matchedVars.get('client_name')
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_BAL,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "transactions":
+                frm = matchedVars.get('client_name')
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_ALL_TXNS,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
+                return True
             # else:
             #     self.printCmdHelper("sendmsg")
 
@@ -947,6 +995,33 @@ Commands:
         # TODO Fetch default client info from data dir and create Client object
         return None
 
+
+# TODO: Remove later
+def cleanUp():
+    import shutil
+    import pyorient
+    client = pyorient.OrientDB("localhost", 2424)
+    user = "root"
+    password = "password"
+    session_id = client.connect(user, password)
+
+    def dropdbs():
+        i = 0
+        names = [n for n in client.db_list().oRecordData['databases'].keys()]
+        for nm in names:
+            try:
+                client.db_drop(nm)
+                i += 1
+            except:
+                continue
+        return i
+
+    dropdbs()
+    path = os.path.expanduser("~/.plenum/data/")
+    try:
+        shutil.rmtree(path)
+    except FileNotFoundError:
+        pass
 
 class Exit(Exception):
     pass

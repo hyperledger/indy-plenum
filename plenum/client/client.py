@@ -24,7 +24,8 @@ from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT, CREDIT, BALANCE, \
+    GET_BAL, GET_ALL_TXNS, SUCCESS, ALL_TXNS
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
 from plenum.common.util import getMaxFailures, getlogger
 from plenum.persistence.wallet_storage_file import WalletStorageFile
@@ -102,6 +103,7 @@ class Client(Motor):
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
         clientDataDir = os.path.join(basedirpath, "data", "clients", self.name)
+        clientDataDir = os.path.expanduser(clientDataDir)
         self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
         signers = None     # type: Dict[str, Signer]
         self.defaultIdentifier = None
@@ -116,6 +118,9 @@ class Client(Motor):
 
             for s in signers.values():
                 self.wallet.addSigner(signer=s)
+        else:
+            if len(self.wallet.signers) == 1:
+                self.defaultIdentifier = list(self.wallet.signers.values())[0].identifier
 
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
@@ -232,11 +237,43 @@ class Client(Motor):
         msg, frm = wrappedMsg
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
-                     extra={"cli": True})
+                     extra={"cli": msg.get(OP_FIELD_NAME) != CLINODEREG})
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == CLINODEREG:
             cliNodeReg = msg[f.NODES.nm]
             for name, ha in cliNodeReg.items():
                 self.newValidatorDiscovered(name, tuple(ha), frm)
+
+        if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
+            if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (CREDIT, GET_BAL, GET_ALL_TXNS):
+                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+                reply = self.hasConsensus(reqId)
+                if reply:
+                    n = len(self.getRepliesFromAllNodes(reqId))
+                    typ = msg[f.RESULT.nm][TXN_TYPE]
+                    if typ == CREDIT:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug("The CREDIT request with id {} was {} as per {} nodes"
+                                     .format(reqId, "successful" if msg[f.RESULT.nm][SUCCESS] else "unsuccessful", n), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_BAL:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The BALANCE request with id {} returned balance as {} as per {} nodes"
+                                .format(reqId, msg[f.RESULT.nm][BALANCE], n), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_ALL_TXNS:
+                        allTxns = reply[ALL_TXNS]
+                        txns = []
+                        for txn in allTxns:
+                            if txn[0] in self.signers:
+                                txns.append("Transferred {}".format(txn[2]))
+                            else:
+                                txns.append("Received {}".format(txn[2]))
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
+                                .format(reqId, n, '\n'.join(txns)), extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
 
     def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
                                frm: str):
