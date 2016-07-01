@@ -20,6 +20,7 @@ from ledger.util import F, STH
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
+from plenum.common.raet import getLocalEstateData
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
@@ -27,7 +28,7 @@ from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT, CREDIT, BALANCE, \
     GET_BAL, GET_ALL_TXNS, SUCCESS, ALL_TXNS
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures, getlogger, error
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -61,9 +62,14 @@ class Client(Motor):
         basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
                                          basedirpath)
 
-        if ha and self.exists(name, basedirpath):
+        # If client information already exists is RAET then use that
+        if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
-            cha = None
+            clientEstate = getLocalEstateData(name, basedirpath)
+            if not clientEstate:
+                error("{} does not have estate data".format(name))
+            else:
+                cha = HA(*clientEstate["ha"])
         else:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 

@@ -46,6 +46,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     checkNodesParticipating
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
+import plenum
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -67,6 +68,11 @@ def getValueFromModule(request, name: str, default: Any = None):
         logging.info("no {} found in the module, using the default: {}".
                      format(name, value))
     return value
+
+
+overriddenConfigValues = {
+    "sendMonitorStats": False
+}
 
 
 @pytest.fixture(scope="module")
@@ -107,6 +113,9 @@ def logcapture(request, whitelist):
     logging.getLogger().addHandler(ch)
 
     request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
+    config = getConfig()
+    for k, v in overriddenConfigValues.items():
+        setattr(config, k, v)
     return whiteListedExceptions
 
 

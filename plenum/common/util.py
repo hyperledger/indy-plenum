@@ -23,6 +23,7 @@ from six import iteritems, string_types
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
+CONFIG = None
 
 
 def randomString(size: int = 20, chars: str = string.ascii_letters + string.digits) -> str:
@@ -469,15 +470,19 @@ def getConfig():
     :raises: FileNotFoundError
     :return: the configuration as a python object
     """
-    refConfig = importlib.import_module("plenum.config")
-    try:
-        homeDir = os.path.expanduser("~")
-        configDir = os.path.join(homeDir, ".plenum")
-        config = getInstalledConfig(configDir, "plenum_config.py")
-        refConfig.__dict__.update(config.__dict__)
-    except FileNotFoundError:
-        pass
-    return refConfig
+    global CONFIG
+    if not CONFIG:
+        refConfig = importlib.import_module("plenum.config")
+        try:
+            homeDir = os.path.expanduser("~")
+            configDir = os.path.join(homeDir, ".plenum")
+            config = getInstalledConfig(configDir, "plenum_config.py")
+            refConfig.__dict__.update(config.__dict__)
+        except FileNotFoundError:
+            pass
+        CONFIG = refConfig
+    return CONFIG
+
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
     """
@@ -497,3 +502,16 @@ async def untilTrue(condition, *args, timeout=5) -> bool:
         await asyncio.sleep(.1)
         elapsed = time.perf_counter() - start
     return result
+
+
+def hasKeys(data, keynames):
+    """
+    Checks whether all keys are present in the given data, and are not None
+    """
+    # if all keys in `keynames` are not present in `data`
+    if len(set(keynames).difference(set(data.keys()))) != 0:
+        return False
+    for key in keynames:
+        if data[key] is None:
+            return False
+    return True

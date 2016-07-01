@@ -1,8 +1,11 @@
+import json
 import os
 from collections import OrderedDict
 
 from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
+
+from plenum.common.util import hasKeys
 
 
 def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
@@ -69,19 +72,6 @@ def initRemoteKeep(name, remoteName, baseDir, pubkey, verkey, override=False):
     keep.dumpRemoteRoleData(data, role=remoteName)
 
 
-def hasKeys(data, keynames):
-    """
-    Checks whether all keys are present in the given data, and are not None
-    """
-    # if all keys in `keynames` are not present in `data`
-    if len(set(keynames).difference(set(data.keys()))) != 0:
-        return False
-    for key in keynames:
-        if data[key] is None:
-            return False
-    return True
-
-
 def isLocalKeepSetup(name, baseDir=None) -> bool:
     """
     Check that the local RAET keep has the values of role, sighex and prihex
@@ -95,6 +85,11 @@ def isLocalKeepSetup(name, baseDir=None) -> bool:
     localRoleData = keep.loadLocalRoleData()
     return hasKeys(localRoleData, ['role', 'sighex', 'prihex'])
 
+
+def getLocalEstateData(name, baseDir):
+    estatePath = os.path.join(baseDir, name, "local", "estate.json")
+    if os.path.isfile(estatePath):
+        return json.loads(open(estatePath).read())
 
 # def clearLocalKeep(name, keepDir):
 #     if not os.path.exists(keepDir):

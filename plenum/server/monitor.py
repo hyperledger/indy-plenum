@@ -11,11 +11,12 @@ from typing import Tuple
 
 from firebase import firebase
 
-from plenum.config import sendMonitorStats
+from plenum.common.util import getConfig
 from plenum.common.util import getlogger
 from plenum.server.instances import Instances
 
 logger = getlogger()
+config = getConfig()
 
 
 class Monitor:
@@ -314,7 +315,7 @@ class Monitor:
         return avgLatencies
 
     def postMonitorData(self):
-        if sendMonitorStats:
+        if config.sendMonitorStats:
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
@@ -332,7 +333,7 @@ class Monitor:
                                      )
 
     def postStartData(self, startedAt):
-        if sendMonitorStats:
+        if config.sendMonitorStats:
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                      data=startedAt,
                                      callback=lambda response: None,
