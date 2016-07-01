@@ -175,11 +175,6 @@ class TestClient(Client, StackedTester):
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh])
 class TestMonitor(Monitor):
-    # def postMonitorData(self):
-    #     pass
-    #
-    # def postStartData(self, startedAt):
-    #     pass
     pass
 
 

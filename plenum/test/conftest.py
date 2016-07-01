@@ -46,7 +46,6 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     checkNodesParticipating
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
-import plenum
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -71,7 +70,7 @@ def getValueFromModule(request, name: str, default: Any = None):
 
 
 overriddenConfigValues = {
-    "sendMonitorStats": False
+    "SendMonitorStats": False
 }
 
 
@@ -400,3 +399,14 @@ def txnPoolCliNodeReg(poolTxnData):
             cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
                                                              data[CLIENT_PORT])
     return cliNodeReg
+
+
+@pytest.fixture(scope="module")
+def postingStatsEnabled(request):
+    config = getConfig()
+    config.SendMonitorStats = True
+
+    def reset():
+        config.SendMonitorStats = False
+
+    request.addfinalizer(reset)

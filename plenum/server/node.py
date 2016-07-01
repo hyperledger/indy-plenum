@@ -143,11 +143,6 @@ class Node(HasActionQueue, Motor,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        # self.allNodeNames = list(self.nodeReg.keys())
-        # self.totalNodes = len(self.nodeReg)
-        # self.f = getMaxFailures(self.totalNodes)
-        # self.requiredNumberOfInstances = self.f + 1  # per RBFT
-        # self.minNodesToConnect = (2 * self.f) + 1  # minimum for a functional pool
         self.setF()
 
         self.replicas = []  # type: List[replica.Replica]
@@ -165,7 +160,9 @@ class Node(HasActionQueue, Motor,
         self.instances = Instances()
 
         self.monitor = Monitor(self.name,
-                               Delta=.8, Lambda=60, Omega=5,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
                                instances=self.instances)
 
         # Requests that are to be given to the replicas by the node. Each
@@ -783,8 +780,6 @@ class Node(HasActionQueue, Motor,
             # TODO: Should probably queue messages for new instances
             self.discard(msg, "non-existent protocol instance {}"
                          .format(msg.instId), logMethod=logging.debug)
-            # logger.debug("{} discarding message {} with non-existent protocol "
-            #              "instance {}".format(self, msg, msg.instId))
             return False
 
     def sendToReplica(self, msg, frm):
