@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import time
+from binascii import unhexlify
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
@@ -433,37 +434,35 @@ class Client(Motor):
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
 
-    def submitNewClient(self, typ, name: str, pkseed: bytes, sigseed: bytes):
+    def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
-        newSigner = SimpleSigner(seed=sigseed)
-        priver = Privateer(pkseed)
+        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
         req, = self.submit({
             TXN_TYPE: typ,
-            TARGET_NYM: newSigner.verstr,
+            TARGET_NYM: verstr,
             DATA: {
-                PUBKEY: priver.pubhex.decode(),
+                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
         return req
 
-    def submitNewSteward(self, name: str, pkseed: bytes, sigseed: bytes):
-        return self.submitNewClient(NEW_STEWARD, name, pkseed, sigseed)
+    def submitNewSteward(self, name: str, pubkey: str, verkey: str):
+        return self.submitNewClient(NEW_STEWARD, name, pubkey, verkey)
 
-    def submitNewNode(self, name: str, pkseed: bytes, sigseed: bytes,
+    def submitNewNode(self, name: str, pubkey: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        newSigner = SimpleSigner(seed=sigseed)
-        priver = Privateer(pkseed)
+        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
         req, = self.submit({
             TXN_TYPE: NEW_NODE,
-            TARGET_NYM: newSigner.verstr,
+            TARGET_NYM: verstr,
             DATA: {
                 NODE_IP: nodeIp,
                 NODE_PORT: nodePort,
                 CLIENT_IP: clientIp,
                 CLIENT_PORT: clientPort,
-                PUBKEY: priver.pubhex.decode(),
+                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
