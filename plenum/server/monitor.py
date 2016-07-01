@@ -63,8 +63,9 @@ class Monitor:
 
         self.started = datetime.utcnow().isoformat()
 
-        self.firebaseClient = firebase.FirebaseApplication(
-            "https://plenumstats.firebaseio.com/", None)
+        if config.SendMonitorStats:
+            self.firebaseClient = firebase.FirebaseApplication(
+                "https://plenumstats.firebaseio.com/", None)
 
         # Times of requests ordered requests by master in last
         # `ThroughputInterval` seconds. `ThroughputInterval` is defined in config
