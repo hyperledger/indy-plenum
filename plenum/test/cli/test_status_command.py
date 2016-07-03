@@ -3,7 +3,9 @@ import logging
 import pytest
 
 from plenum.common.util import getMaxFailures
-from plenum.test.cli.helper import isNameToken
+from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
+    checkClientConnected
+from plenum.test.eventually import eventually
 
 
 def checkForNamedTokens(printedTokens, expectedNames):
@@ -42,7 +44,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     nodeName = validNodeNames[0]
     cli.enterCmd("new node {}".format(nodeName))
     # Let the node start up
-    cli.looper.runFor(3)
+    checkNodeStarted(cli, nodeName)
 
     cli.enterCmd("status")
     startedNodeToken = cli.printedTokens[1]
@@ -73,10 +75,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
 
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
-    # waiting here for 5 seconds, So that after creating a node the whole output is printed first.
-    cli.looper.runFor(5)
     cli.enterCmd("status")
-    cli.looper.runFor(1)
     printeds = cli.printeds
     clientStatus = printeds[4]
     fValue = printeds[3]['msg']
@@ -104,13 +103,10 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 
 
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
-    # waiting here for 5 seconds, So that after creating a node the whole
-    # output is printed first.
-    cli.looper.runFor(5)
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
-    # Let the client get connected to the nodes
-    cli.looper.runFor(5)
+    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
+                              clientName, retryWait=1, timeout=3))
 
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing

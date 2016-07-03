@@ -99,11 +99,40 @@ def isNameToken(token: Token):
     return token == Token.Name
 
 
+def checkNodeStarted(cli, nodeName):
+    # Node name should be in cli.nodes
+    assert nodeName in cli.nodes
+
+    def chk():
+        msgs = {stmt['msg'] for stmt in cli.printeds}
+        assert "{} added replica {}:0 to instance 0 (master)" \
+                   .format(nodeName, nodeName) in msgs
+        assert "{} added replica {}:1 to instance 1 (backup)" \
+                   .format(nodeName, nodeName) in msgs
+        assert "{} listening for other nodes at {}:{}" \
+                   .format(nodeName, *cli.nodes[nodeName].nodestack.ha) in msgs
+
+    cli.looper.run(eventually(chk, retryWait=1, timeout=2))
+
+
+def checkClientConnected(cli, nodeNames, clientName):
+    printedMsgs = set()
+    expectedMsgs = {'{} now connected to {}C'.format(clientName, nodeName)
+                    for nodeName in nodeNames}
+    for out in cli.printeds:
+        msg = out.get('msg')
+        if '{} now connected to'.format(clientName) in msg:
+            printedMsgs.add(msg)
+
+    assert printedMsgs == expectedMsgs
+
+
 def checkRequest(cli, looper, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
-    looper.runFor(3)
+    cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
+                              cName, retryWait=1, timeout=5))
     # Send request to all nodes
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]

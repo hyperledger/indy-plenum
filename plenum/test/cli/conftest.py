@@ -6,7 +6,8 @@ import pytest
 import plenum.common.util
 from plenum.common.looper import Looper
 from plenum.test.cli.mock_output import MockOutput
-from plenum.test.helper import genHa, TestNode, TestClient
+from plenum.test.eventually import eventually
+from plenum.test.helper import genHa, TestNode, TestClient, checkNodesConnected
 from plenum.common.util import adict
 
 plenum.common.util.loggingConfigured = False
@@ -54,13 +55,16 @@ def validNodeNames(cli):
 @pytest.fixture("module")
 def createAllNodes(cli):
     cli.enterCmd("new node all")
-    cli.looper.runFor(5)
 
+    def chk():
+        msgs = {stmt['msg'] for stmt in cli.printeds}
+        for nm in cli.nodes.keys():
+            assert "{}:0 selected primary {} for instance 0 (view 0)"\
+                .format(nm, cli.nodes[nm].replicas[0].primaryNames[0]) in msgs
+            assert "{}:1 selected primary {} for instance 1 (view 0)"\
+                .format(nm, cli.nodes[nm].replicas[1].primaryNames[0]) in msgs
 
-@pytest.fixture("module")
-def allNodesUp(cli, createAllNodes, up):
-    # Let nodes complete election and the output be rendered on the screen
-    cli.looper.runFor(5)
+    cli.looper.run(eventually(chk, retryWait=1, timeout=10))
 
 
 @pytest.fixture("module")

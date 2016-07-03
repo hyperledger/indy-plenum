@@ -1,5 +1,5 @@
 from plenum.common.util import randomString
-from plenum.test.cli.helper import isErrorToken
+from plenum.test.cli.helper import isErrorToken, checkNodeStarted
 from plenum.test.helper import checkPoolReady
 
 
@@ -13,8 +13,7 @@ def testNodeNames(cli, validNodeNames):
         cli.enterCmd("new node {}".format(nm))
         # Count of cli.nodes should increase by 1
         assert len(cli.nodes) == (i + 1)
-        # Node name should be in cli.nodes
-        assert nm in cli.nodes
+        checkNodeStarted(cli, nm)
 
     checkPoolReady(cli.looper, cli.nodes.values())
 
