@@ -23,7 +23,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, Batched, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, TXN_TYPE, CREDIT, \
+    GET_ALL_TXNS, GET_BAL, TARGET_NYM, DATA, AMOUNT, SUCCESS, BALANCE, ALL_TXNS
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA
@@ -369,6 +370,33 @@ class TestNode(TestNodeCore, Node):
     def clientStackClass(self) -> ClientStack:
         return getTestableStack(ClientStack)
 
+    async def generateReply(self, ppTime: float, req: Request) -> Reply:
+        reply = await super().generateReply(ppTime, req)
+        result = reply.result
+        STARTING_BALANCE = 1000
+        if req.operation.get(TXN_TYPE) in (CREDIT, GET_BAL, GET_ALL_TXNS):
+            frm = req.identifier
+            if frm not in self.balances:
+                self.balances[frm] = STARTING_BALANCE
+            if req.operation.get(TXN_TYPE) == CREDIT:
+                to = req.operation[TARGET_NYM]
+                if to not in self.balances:
+                    self.balances[to] = STARTING_BALANCE
+                amount = req.operation[DATA][AMOUNT]
+                if amount > self.balances[frm]:
+                    result[SUCCESS] = False
+                else:
+                    result[SUCCESS] = True
+                    self.balances[to] += amount
+                    self.balances[frm] -= amount
+                    self.txns.append((frm, to, amount))
+            elif req.operation.get(TXN_TYPE) == GET_BAL:
+                result[SUCCESS] = True
+                result[BALANCE] = self.balances.get(frm, 0)
+            elif req.operation.get(TXN_TYPE) == GET_ALL_TXNS:
+                result[SUCCESS] = True
+                result[ALL_TXNS] = [txn for txn in self.txns if frm in txn]
+        return Reply(result)
 
 def getTestableStack(stack: Stack):
     """

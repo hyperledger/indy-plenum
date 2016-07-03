@@ -10,9 +10,6 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 from plenum.client.signer import SimpleSigner
-from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
-    GET_ALL_TXNS
-from plenum.common.txn import TARGET_NYM
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -148,10 +145,7 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*) |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*)",
         ]
 
         self.lexers = {
@@ -269,6 +263,7 @@ class Cli:
         return '(' + '|'.join(seq) + ')'
 
     def initializeGrammar(self):
+        # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
         self.utilGrams[-1] += " |"
         self.nodeGrams[-1] += " |"
         self.grams = self.utilGrams + self.nodeGrams + self.clientGrams
@@ -809,39 +804,6 @@ Commands:
                 req_id = matchedVars.get('req_id')
                 self.getReply(client_name, req_id)
                 return True
-            elif client_action == "credit":
-                frm = matchedVars.get('client_name')
-                to = matchedVars.get('second_client_name')
-                toClient = self.clients.get(to, None)
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: CREDIT,
-                    TARGET_NYM: toClient.defaultIdentifier,
-                    DATA: {
-                        AMOUNT: amount
-                    }}
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "balance":
-                frm = matchedVars.get('client_name')
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "transactions":
-                frm = matchedVars.get('client_name')
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_ALL_TXNS,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            # else:
-            #     self.printCmdHelper("sendmsg")
 
     def _loadPluginDirAction(self, matchedVars):
         if matchedVars.get('load_plugins') == 'load plugins from':
