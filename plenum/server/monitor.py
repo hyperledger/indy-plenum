@@ -11,13 +11,14 @@ from firebase import firebase
 
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
+from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 
 logger = getlogger()
 config = getConfig()
 
 
-class Monitor:
+class Monitor(HasActionQueue):
     """
     Implementation of RBFT's monitoring mechanism.
 
@@ -69,10 +70,19 @@ class Monitor:
 
         # Times of requests ordered requests by master in last
         # `ThroughputInterval` seconds. `ThroughputInterval` is defined in config
-        self.orderedRequestsInLast = []
+        # self.orderedRequestsInLast = []
+        self.orderedRequestsInLast = 0
 
         self.totalViewChanges = 0
         self._lastPostedViewChange = 0
+        HasActionQueue.__init__(self)
+        if config.SendMonitorStats:
+            self._schedule(self.sendThroughput, config.ThroughputInterval)
+
+    def sendThroughput(self):
+        thrp = self.orderedRequestsInLast/config.ThroughputInterval
+        #TODO: send throughput `thrp`
+        self.orderedRequestsInLast = 0
 
     def __repr__(self):
         return self.name
@@ -147,7 +157,8 @@ class Monitor:
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
             self.masterReqLatencies[(identifier, reqId)] = duration
-            self.orderedRequestsInLast.append(now)
+            # self.orderedRequestsInLast.append(now)
+            self.orderedRequestsInLast += 1
         if identifier not in self.clientAvgReqLatencies[instId]:
             self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
         totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
@@ -157,9 +168,10 @@ class Monitor:
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-        while self.orderedRequestsInLast and \
-                        (now - self.orderedRequestsInLast[0]) > config.ThroughputInterval:
-            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
+        # while self.orderedRequestsInLast and \
+        #                 (now - self.orderedRequestsInLast[0]) > \
+        #                 config.ThroughputInterval:
+        #     self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
         numReqs = {r[0] for r in self.numOrderedRequests}
         if len(numReqs) == 1:

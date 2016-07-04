@@ -447,6 +447,7 @@ class Node(HasActionQueue, Motor,
             c += await self.serviceReplicas(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
+            c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
         return c
