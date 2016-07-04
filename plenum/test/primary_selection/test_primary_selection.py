@@ -67,7 +67,8 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
                                         viewChangeDone):
     """
-    Test that primary replica of a protocol instance shifts to a new node after a view change.
+    Test that primary replica of a protocol instance shifts to a new node after
+    a view change.
     """
 
     # Primary replicas before view change

@@ -49,3 +49,7 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     msg = cli.lastPrintArgs['msg']
     # Appropriate error msg should be printed
     assert msg == "Client {} already exists.".format(cName)
+
+
+def testX(cli, createAllNodes):
+    pass

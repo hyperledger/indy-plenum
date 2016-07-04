@@ -16,7 +16,7 @@ from plenum.test.cli.helper import TestCli
 
 
 @pytest.yield_fixture(scope="module")
-def cliLooper():
+def looper():
     with Looper(debug=False) as l:
         yield l
 
@@ -32,10 +32,10 @@ def nodeRegsForCLI():
 
 
 @pytest.fixture("module")
-def cli(nodeRegsForCLI, cliLooper, tdir):
+def cli(nodeRegsForCLI, looper, tdir):
     mockOutput = MockOutput()
 
-    Cli = TestCli(looper=cliLooper,
+    Cli = TestCli(looper=looper,
                   basedirpath=tdir,
                   nodeReg=nodeRegsForCLI.nodeReg,
                   cliNodeReg=nodeRegsForCLI.cliNodeReg,
