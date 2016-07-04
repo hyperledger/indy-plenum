@@ -60,7 +60,7 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit',
+    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pyorient', 'pygments', 'ledger', 'python-firebase'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],

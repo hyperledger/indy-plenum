@@ -3,12 +3,12 @@ import re
 from pygments.token import Token
 
 import plenum.cli.cli as cli
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, AMOUNT, CREDIT, \
-    GET_BAL, GET_ALL_TXNS
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd
+from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, CREDIT, \
+    AMOUNT, GET_BAL, GET_ALL_TXNS
 
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])

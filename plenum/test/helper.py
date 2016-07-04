@@ -21,15 +21,15 @@ from plenum.client.client import Client, ClientProvider
 from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
-from plenum.common.stacked import Stack, Batched, NodeStack, ClientStack
+from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, TXN_TYPE, CREDIT, \
-    GET_ALL_TXNS, GET_BAL, TARGET_NYM, DATA, AMOUNT, SUCCESS, BALANCE, ALL_TXNS
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, TXN_TYPE, \
+    TARGET_NYM, DATA
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict
+    Seconds, adict, getlogger
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -52,6 +52,9 @@ RaetDelay = NamedTuple("RaetDelay", [
     ("tk", Optional[TrnsKind]),
     ("pk", Optional[PcktKind]),
     ("fromPort", Optional[int])])
+
+
+logger = getlogger()
 
 
 class TestStack(Stack):
@@ -171,6 +174,47 @@ class TestClient(Client, StackedTester):
     @property
     def nodeStackClass(self) -> NodeStack:
         return getTestableStack(NodeStack)
+
+    def handleOneNodeMsg(self, wrappedMsg) -> None:
+        super().handleOneNodeMsg(wrappedMsg)
+        msg, frm = wrappedMsg
+        if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
+            if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (
+                    CREDIT, GET_BAL, GET_ALL_TXNS):
+                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+                reply = self.hasConsensus(reqId)
+                if reply:
+                    n = len(self.getRepliesFromAllNodes(reqId))
+                    typ = msg[f.RESULT.nm][TXN_TYPE]
+                    if typ == CREDIT:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The CREDIT request with id {} was {} as per {} nodes"
+                                .format(reqId, "successful" if msg[f.RESULT.nm][
+                                SUCCESS] else "unsuccessful", n),
+                            extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_BAL:
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The BALANCE request with id {} returned balance as {} as per {} nodes"
+                                .format(reqId, msg[f.RESULT.nm][BALANCE], n),
+                            extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
+                    if typ == GET_ALL_TXNS:
+                        allTxns = reply[ALL_TXNS]
+                        txns = []
+                        for txn in allTxns:
+                            if txn[0] in self.signers:
+                                txns.append("Transferred {}".format(txn[2]))
+                            else:
+                                txns.append("Received {}".format(txn[2]))
+                        logger.debug("", extra={"cli": True})
+                        logger.debug(
+                            "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
+                                .format(reqId, n, '\n'.join(txns)),
+                            extra={"cli": "IMPORTANT"})
+                        logger.debug("", extra={"cli": True})
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
@@ -397,6 +441,7 @@ class TestNode(TestNodeCore, Node):
                 result[SUCCESS] = True
                 result[ALL_TXNS] = [txn for txn in self.txns if frm in txn]
         return Reply(result)
+
 
 def getTestableStack(stack: Stack):
     """
@@ -1382,3 +1427,10 @@ TESTMSG = "TESTMSG"
 TestMsg = TaggedTuple(TESTMSG, [
     ("subject", str),
     ("content", str)])
+CREDIT = "CREDIT"
+AMOUNT = "AMOUNT"
+GET_BAL = "GET_BAL"
+GET_ALL_TXNS = "GET_ALL_TXNS"
+SUCCESS = "success"
+BALANCE = "balance"
+ALL_TXNS = "all_txns"

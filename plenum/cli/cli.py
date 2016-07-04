@@ -431,11 +431,12 @@ Commands:
     def showNodeRegistry(self):
         t = []
         for name in self.nodeReg:
-            val = self.nodeReg[name]
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                (ip, port) = val
+            # val = self.nodeReg[name]
+            # if len(val) == 3:
+            #     ((ip, port), vk, pk) = val
+            # else:
+            #     (ip, port) = val
+            ip, port = self.nodeReg[name]
             t.append((Token.Name, "    " + name))
             t.append((Token, ": {}:{}\n".format(ip, port)))
         self.cli.print_tokens(t, style=self.style)
@@ -600,18 +601,20 @@ Commands:
         else:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
-            val = self.nodeReg.get(nodeName)
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                ip, port = val
+            ip, port = self.nodeReg.get(nodeName)
+            # val = self.nodeReg.get(nodeName)
+            # if len(val) == 3:
+            #     ((ip, port), vk, pk) = val
+            # else:
+            #     ip, port = val
             nha = "{}:{}".format(ip, port)
             self.print("    Node listener: " + nha)
-            val = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                ip, port = val
+            ip, port = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
+            # val = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
+            # if len(val) == 3:
+            #     ((ip, port), vk, pk) = val
+            # else:
+            #     ip, port = val
             cha = "{}:{}".format(ip, port)
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
