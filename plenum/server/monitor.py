@@ -80,8 +80,16 @@ class Monitor(HasActionQueue):
             self._schedule(self.sendThroughput, config.ThroughputInterval)
 
     def sendThroughput(self):
-        thrp = self.orderedRequestsInLast/config.ThroughputInterval
-        #TODO: send throughput `thrp`
+        throughput = self.orderedRequestsInLast / config.ThroughputInterval
+        mtrStats = {
+            "throughput": throughput,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
+                                       callback=lambda response: None,
+                                       params={'print': 'silent'},
+                                       headers={'Connection': 'keep-alive'},
+                                       )
         self.orderedRequestsInLast = 0
 
     def __repr__(self):
@@ -349,27 +357,27 @@ class Monitor(HasActionQueue):
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
-                                      callback=lambda response: None,
-                                      params={'print': 'silent'},
-                                      headers={'Connection': 'keep-alive'},
-                                      )
+                                           callback=lambda response: None,
+                                           params={'print': 'silent'},
+                                           headers={'Connection': 'keep-alive'},
+                                           )
             # send total request to different metric
             self.firebaseClient.put_async(url="/totalTransactions",
-                                     name="totalTransactions",
-                                     data=self.totalRequests,
-                                     callback=lambda response: None,
-                                     params={'print': 'silent'},
-                                     headers={'Connection': 'keep-alive'},
-                                     )
+                                          name="totalTransactions",
+                                          data=self.totalRequests,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
-                                     data=startedAt,
-                                     callback=lambda response: None,
-                                     params={'print': 'silent'},
-                                     headers={'Connection': 'keep-alive'},
-                                     )
+                                          data=startedAt,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
 
     @staticmethod
     def mean(data):
