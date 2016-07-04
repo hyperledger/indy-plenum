@@ -6,27 +6,6 @@ from typing import Dict, Any
 import itertools
 
 
-# # from plenum.common.util import getlogger, setupLogging, DISPLAY_LOG_LEVEL, \
-# #     DemoHandler
-# # from ioflo.aid.consoling import Console
-# #
-# #
-# # def out(record, extra_cli_value=None):
-# #     """
-# #     Callback so that this cli can manage colors
-# #
-# #     :param record: a log record served up from a custom handler
-# #     :param extra_cli_value: the "cli" value in the extra dictionary
-# #     :return:
-# #     """
-# #     logger.display(record.msg)
-# #
-# # logging.root.addHandler(DemoHandler(out))
-# # logging.root.handlers = []
-# # setupLogging(DISPLAY_LOG_LEVEL,
-# #              Console.Wordage.mute)
-# logger = getlogger()
-
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -42,8 +21,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, \
-    checkNodesParticipating
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 

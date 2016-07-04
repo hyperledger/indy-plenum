@@ -51,4 +51,5 @@ LAMBDA = 60
 OMEGA = 5
 SendMonitorStats = True
 ThroughputInterval = 30
+DashboardPostInterval = 5
 
