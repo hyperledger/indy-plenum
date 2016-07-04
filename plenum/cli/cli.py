@@ -116,7 +116,7 @@ class Cli:
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
         self.plugins = {}
-        self.defaultClient = self.getDefaultClient()
+        self.defaultClient = None
         self.activeSigner = None
         self.keyPairs = {}
         '''
@@ -152,7 +152,8 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=]+) \s*) |",  # TODO Replace with an accurate regex for base64 encoded strings
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) |"
+            # "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>^(?:[A-Za-z0-9+{sep}]{four})*(?:[A-Za-z0-9+{sep}]{two}==|[A-Za-z0-9+{sep}]{three}=|[A-Za-z0-9+{sep}]{four})$) \s*) |".format(sep=psep, two=2, four=4, three=3),  # TODO Use an accurate regex for base64 encoded strings
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
@@ -941,7 +942,7 @@ Commands:
             if wallet.signers.get(keypair):
                 self._updateActiveKeyPair(keypair, wallet)
             else:
-                self.print("keypair {} doesn't exist on client".format(keypair))
+                self.print("keypair {} not found".format(keypair))
             return True
 
     def _updateActiveSigner(self, key):
@@ -952,8 +953,7 @@ Commands:
         elif wallet.signers.get(key):
             self._updateActiveKeyPair(key, wallet)
         else:
-            self.print("alias or keypair {} doesn't exist on this "
-                       "client".format(key))
+            self.print("alias or keypair {} not found".format(key))
 
     def _updateActiveKeyPair(self, key, wallet):
         self.activeSigner = wallet.signers[key]
@@ -1015,10 +1015,6 @@ Commands:
                 self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
-
-    def getDefaultClient(self):
-        # TODO Fetch default client info from data dir and create Client object
-        return None
 
     # TODO: DO we keep this? What happens when we allow the CLI ot connect
     # to remote nodes?
