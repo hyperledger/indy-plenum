@@ -62,8 +62,7 @@ setup(
         (BASE_DIR, ['data/pool_transactions', ])
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
-                      'pygments', 'ledger-dev', 'pyorient'],
-    extras_require={'firebase': 'python-firebase'},
+                      'pygments', 'ledger-dev', 'pyorient', 'python-firebase'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
