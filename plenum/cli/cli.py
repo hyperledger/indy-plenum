@@ -149,7 +149,6 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*)",
             "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) |"
             # "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>^(?:[A-Za-z0-9+{sep}]{four})*(?:[A-Za-z0-9+{sep}]{two}==|[A-Za-z0-9+{sep}]{three}=|[A-Za-z0-9+{sep}]{four})$) \s*) |".format(sep=psep, two=2, four=4, three=3),  # TODO Use an accurate regex for base64 encoded strings
         ]
