@@ -31,8 +31,7 @@ def nodeRegsForCLI():
     return adict(nodeReg=nodeReg, cliNodeReg=cliNodeReg)
 
 
-@pytest.fixture("module")
-def cli(nodeRegsForCLI, looper, tdir):
+def newCli(nodeRegsForCLI, looper, tdir):
     mockOutput = MockOutput()
 
     Cli = TestCli(looper=looper,
@@ -45,6 +44,11 @@ def cli(nodeRegsForCLI, looper, tdir):
     Cli.ClientClass = TestClient
     Cli.basedirpath = tdir
     return Cli
+
+
+@pytest.fixture("module")
+def cli(nodeRegsForCLI, looper, tdir):
+    return newCli(nodeRegsForCLI, looper, tdir)
 
 
 @pytest.fixture("module")

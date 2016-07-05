@@ -52,5 +52,5 @@ OMEGA = 5
 SendMonitorStats = True
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
-ThroughputGraphDuration = 600
+ThroughputGraphDuration = 240
 

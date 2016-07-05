@@ -161,11 +161,11 @@ class Monitor(HasActionQueue):
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-        numReqs = {r[0] for r in self.numOrderedRequests}
-        if len(numReqs) == 1:
+        # numReqs = {r[0] for r in self.numOrderedRequests}
+        if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
             self.totalRequests += 1
             self.postMonitorData()
-            if 1 in numReqs:
+            if 0 == reqs:
                 self.postStartData(self.started)
 
     def requestUnOrdered(self, identifier: str, reqId: int):
@@ -376,12 +376,19 @@ class Monitor(HasActionQueue):
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
-            #TODO: send these 3 metrics to dashboard
-            ThroughputWindowSize = config.ThroughputWindowSize
-            DashboardUpdateFreq = config.DashboardUpdateFreq
-            ThroughputGraphDuration = config.ThroughputGraphDuration
+            throughputConfig = {
+                "throughputWindowSize": config.ThroughputWindowSize,
+                "updateFrequency": config.DashboardUpdateFreq,
+                "graphDuration": config.ThroughputGraphDuration
+            }
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
+            self.firebaseClient.put_async(url="/config", name="throughput",
+                                          data=throughputConfig,
                                           callback=lambda response: None,
                                           params={'print': 'silent'},
                                           headers={'Connection': 'keep-alive'},

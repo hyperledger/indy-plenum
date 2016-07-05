@@ -20,16 +20,19 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
     Send `n` requests in less than `ThroughputWindowSize` seconds and the
     throughput till `ThroughputWindowSize` should consider those `n` requests.
     After `ThroughputWindowSize` seconds the throughput should be zero
+    Test `totalRequests` too.
     """
-    reqCount = 10
+    reqCount = 20
     for node in nodeSet:
         assert node.monitor.highResThroughput == 0
+        assert node.monitor.totalRequests == 0
 
     sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount, nodeSet.f,
                                         timeout=20)
     for node in nodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
+        assert node.monitor.totalRequests == reqCount
 
     looper.runFor(config.DashboardUpdateFreq)
 
@@ -42,5 +45,6 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
         for node in nodeSet:
             assert len(node.monitor.orderedRequestsInLast) == 0
             assert node.monitor.highResThroughput == 0
+            assert node.monitor.totalRequests == reqCount
 
     looper.run(eventually(chk, retryWait=1, timeout=10))
