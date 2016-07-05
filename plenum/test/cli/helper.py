@@ -11,8 +11,35 @@ from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, CREDIT, 
     AMOUNT, GET_BAL, GET_ALL_TXNS
 
 
+class TestCliCore:
+    @property
+    def lastPrintArgs(self):
+        args = self.printeds
+        if args:
+            return args[0]
+        return None
+
+    @property
+    def lastPrintTokenArgs(self):
+        args = self.printedTokens
+        if args:
+            return args[0]
+        return None
+
+    @property
+    def printeds(self):
+        return getAllArgs(self, TestCli.print)
+
+    @property
+    def printedTokens(self):
+        return getAllArgs(self, TestCli.printTokens)
+
+    def enterCmd(self, cmd: str):
+        self.parse(cmd)
+
+
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
-class TestCli(cli.Cli):
+class TestCli(cli.Cli, TestCliCore):
     def initializeGrammar(self):
         fcTxnsGrams = [
             "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
@@ -21,7 +48,7 @@ class TestCli(cli.Cli):
         ]
         self.clientGrams[-1] += " |"
         self.clientGrams += fcTxnsGrams
-        super().initializeGrammar()
+        cli.Cli.initializeGrammar(self)
 
     def _clientCommand(self, matchedVars):
         if matchedVars.get('client') == 'client':
@@ -59,32 +86,7 @@ class TestCli(cli.Cli):
                 self.sendMsg(frm, txn)
                 return True
             else:
-                return super()._clientCommand(matchedVars)
-
-    @property
-    def lastPrintArgs(self):
-        args = self.printeds
-        if args:
-            return args[0]
-        return None
-
-    @property
-    def lastPrintTokenArgs(self):
-        args = self.printedTokens
-        if args:
-            return args[0]
-        return None
-
-    @property
-    def printeds(self):
-        return getAllArgs(self, TestCli.print)
-
-    @property
-    def printedTokens(self):
-        return getAllArgs(self, TestCli.printTokens)
-
-    def enterCmd(self, cmd: str):
-        self.parse(cmd)
+                return cli.Cli._clientCommand(self, matchedVars)
 
 
 def isErrorToken(token: Token):
