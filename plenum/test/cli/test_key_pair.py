@@ -1,4 +1,4 @@
-def testKeyPair(cli, keySharedNodes):
+def testKeyPair(cli):
     cli.enterCmd("new_keypair test")
     assert len(cli.defaultClient.signers) == 2
     pubKeyMsg = cli.lastPrintArgs['msg']
