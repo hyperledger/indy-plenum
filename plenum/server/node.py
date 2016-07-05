@@ -241,12 +241,6 @@ class Node(HasActionQueue, Motor,
 
         self.msgsForFutureReplicas = {}
 
-        # Balances of all client
-        self.balances = {}      # type: Dict[str, int]
-
-        # Txns of all clients, each txn is a tuple like (from, to, amount)
-        self.txns = []          # type: List[Tuple]
-
     def __repr__(self):
         return self.name
 

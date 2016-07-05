@@ -69,28 +69,14 @@ class Monitor(HasActionQueue):
                 "https://plenumstats.firebaseio.com/", None)
 
         # Times of requests ordered requests by master in last
-        # `ThroughputInterval` seconds. `ThroughputInterval` is defined in config
-        # self.orderedRequestsInLast = []
-        self.orderedRequestsInLast = 0
+        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is defined in config
+        self.orderedRequestsInLast = []
 
         self.totalViewChanges = 0
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
         if config.SendMonitorStats:
-            self._schedule(self.sendThroughput, config.ThroughputInterval)
-
-    def sendThroughput(self):
-        throughput = self.orderedRequestsInLast / config.ThroughputInterval
-        mtrStats = {
-            "throughput": throughput,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
-                                       callback=lambda response: None,
-                                       params={'print': 'silent'},
-                                       headers={'Connection': 'keep-alive'},
-                                       )
-        self.orderedRequestsInLast = 0
+            self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
 
     def __repr__(self):
         return self.name
@@ -165,8 +151,7 @@ class Monitor(HasActionQueue):
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
             self.masterReqLatencies[(identifier, reqId)] = duration
-            # self.orderedRequestsInLast.append(now)
-            self.orderedRequestsInLast += 1
+            self.orderedRequestsInLast.append(now)
         if identifier not in self.clientAvgReqLatencies[instId]:
             self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
         totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
@@ -175,11 +160,6 @@ class Monitor(HasActionQueue):
         # `((n*a)+y)/n+1`
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
-
-        # while self.orderedRequestsInLast and \
-        #                 (now - self.orderedRequestsInLast[0]) > \
-        #                 config.ThroughputInterval:
-        #     self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
         numReqs = {r[0] for r in self.numOrderedRequests}
         if len(numReqs) == 1:
@@ -348,6 +328,30 @@ class Monitor(HasActionQueue):
 
         return avgLatencies
 
+    @property
+    def highResThroughput(self):
+        return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
+
+    def sendThroughput(self):
+        logger.debug("{} sending throughput".format(self))
+        now = time.perf_counter()
+        while self.orderedRequestsInLast and \
+                (now - self.orderedRequestsInLast[0]) > \
+                config.ThroughputWindowSize:
+            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
+
+        throughput = self.highResThroughput
+        mtrStats = {
+            "throughput": throughput,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
+                                       callback=lambda response: None,
+                                       params={'print': 'silent'},
+                                       headers={'Connection': 'keep-alive'},
+                                       )
+        self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
+
     def postMonitorData(self):
         if config.SendMonitorStats:
             if self.totalViewChanges != self._lastPostedViewChange:
@@ -372,6 +376,10 @@ class Monitor(HasActionQueue):
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
+            #TODO: send these 3 metrics to dashboard
+            ThroughputWindowSize = config.ThroughputWindowSize
+            DashboardUpdateFreq = config.DashboardUpdateFreq
+            ThroughputGraphDuration = config.ThroughputGraphDuration
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
                                           callback=lambda response: None,

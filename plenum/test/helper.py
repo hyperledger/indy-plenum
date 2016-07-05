@@ -218,7 +218,8 @@ class TestClient(Client, StackedTester):
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
-                  Monitor.isMasterReqLatencyTooHigh])
+                  Monitor.isMasterReqLatencyTooHigh,
+                  Monitor.sendThroughput])
 class TestMonitor(Monitor):
     pass
 
@@ -401,6 +402,11 @@ class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self)
+        # Balances of all client
+        self.balances = {}  # type: Dict[str, int]
+
+        # Txns of all clients, each txn is a tuple like (from, to, amount)
+        self.txns = []  # type: List[Tuple]
 
     def _getOrientDbStore(self, name, dbType):
         return orientdb_store.createOrientDbInMemStore(
