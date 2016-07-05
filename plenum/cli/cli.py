@@ -10,6 +10,7 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 from plenum.client.signer import SimpleSigner
+from plenum.test.helper import genHa
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -857,7 +858,7 @@ Commands:
     def createDefaultClient(self):
         name = 'default'
         self.defaultClient = Client(name,
-                                    ha=helper.genHa(),
+                                    ha=genHa(),
                                     nodeReg=self.nodeReg,
                                     signer=None,
                                     basedirpath=self.basedirpath)
