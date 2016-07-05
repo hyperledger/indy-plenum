@@ -1,4 +1,4 @@
-def testNewStewardKeysWithSeeds(cli, validNodeNames, cliLooper, createAllNodes):
+def testNewStewardKeysWithSeeds(cli, validNodeNames, looper, createAllNodes):
     """
     Create a CLI and issue the following command:
     new keypair with seeds A, B
@@ -6,7 +6,7 @@ def testNewStewardKeysWithSeeds(cli, validNodeNames, cliLooper, createAllNodes):
     cName = 'Joe'
     cli.enterCmd('new client {}'.format(cName))
     printeds = cli.printeds
-    cliLooper.runFor(8)
+    looper.runFor(8)
     assert False
 
 
