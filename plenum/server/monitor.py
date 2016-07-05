@@ -376,12 +376,19 @@ class Monitor(HasActionQueue):
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
-            #TODO: send these 3 metrics to dashboard
-            ThroughputWindowSize = config.ThroughputWindowSize
-            DashboardUpdateFreq = config.DashboardUpdateFreq
-            ThroughputGraphDuration = config.ThroughputGraphDuration
+            throughputConfig = {
+                "throughputWindowSize": config.ThroughputWindowSize,
+                "updateFrequency": config.DashboardUpdateFreq,
+                "graphDuration": config.ThroughputGraphDuration
+            }
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
+            self.firebaseClient.put_async(url="/config", name="throughput",
+                                          data=throughputConfig,
                                           callback=lambda response: None,
                                           params={'print': 'silent'},
                                           headers={'Connection': 'keep-alive'},
