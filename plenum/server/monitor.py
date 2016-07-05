@@ -161,11 +161,11 @@ class Monitor(HasActionQueue):
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-        numReqs = {r[0] for r in self.numOrderedRequests}
-        if len(numReqs) == 1:
+        # numReqs = {r[0] for r in self.numOrderedRequests}
+        if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
             self.totalRequests += 1
             self.postMonitorData()
-            if 1 in numReqs:
+            if 0 == reqs:
                 self.postStartData(self.started)
 
     def requestUnOrdered(self, identifier: str, reqId: int):
