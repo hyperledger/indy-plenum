@@ -18,7 +18,9 @@ def addNewClient(typ, looper, client, name):
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
-    req = client.submitNewClient(typ, name, pkseed, sigseed)
+    priver = Privateer(pkseed)
+    req = client.submitNewClient(typ, name, priver.pubhex.decode(),
+                                 newSigner.verkey.decode())
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=7))
@@ -28,8 +30,11 @@ def addNewClient(typ, looper, client, name):
 def addNewNode(looper, client, newNodeName, tdir, tconf):
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
+    newSigner = SimpleSigner(seed=sigseed)
+    priver = Privateer(pkseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    req = client.submitNewNode(newNodeName, pkseed, sigseed,
+    req = client.submitNewNode(newNodeName, priver.pubhex.decode(),
+                                 newSigner.verkey.decode(),
                                HA(nodeIp, nodePort), HA(clientIp, clientPort))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,

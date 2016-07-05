@@ -33,9 +33,7 @@ from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, ORIGIN, \
-    CREDIT, AMOUNT, DATA, GET_ALL_TXNS, GET_BAL, TARGET_NYM, SUCCESS, BALANCE, \
-    ALL_TXNS
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -69,8 +67,6 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
-
-STARTING_BALANCE = 1000
 
 
 class Node(HasActionQueue, Motor,
@@ -143,11 +139,6 @@ class Node(HasActionQueue, Motor,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        # self.allNodeNames = list(self.nodeReg.keys())
-        # self.totalNodes = len(self.nodeReg)
-        # self.f = getMaxFailures(self.totalNodes)
-        # self.requiredNumberOfInstances = self.f + 1  # per RBFT
-        # self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
         self.setF()
 
         self.replicas = []  # type: List[replica.Replica]
@@ -165,7 +156,9 @@ class Node(HasActionQueue, Motor,
         self.instances = Instances()
 
         self.monitor = Monitor(self.name,
-                               Delta=.8, Lambda=60, Omega=5,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
                                instances=self.instances)
 
         # Requests that are to be given to the replicas by the node. Each
@@ -247,12 +240,6 @@ class Node(HasActionQueue, Motor,
         self.addReplicas()
 
         self.msgsForFutureReplicas = {}
-
-        # Balances of all client
-        self.balances = {}      # type: Dict[str, int]
-
-        # Txns of all clients, each txn is a tuple like (from, to, amount)
-        self.txns = []          # type: List[Tuple]
 
     def __repr__(self):
         return self.name
@@ -454,6 +441,7 @@ class Node(HasActionQueue, Motor,
             c += await self.serviceReplicas(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
+            c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
         return c
@@ -783,8 +771,6 @@ class Node(HasActionQueue, Motor,
             # TODO: Should probably queue messages for new instances
             self.discard(msg, "non-existent protocol instance {}"
                          .format(msg.instId), logMethod=logging.debug)
-            # logger.debug("{} discarding message {} with non-existent protocol "
-            #              "instance {}".format(self, msg, msg.instId))
             return False
 
     def sendToReplica(self, msg, frm):
@@ -1472,34 +1458,7 @@ class Node(HasActionQueue, Motor,
                   TXN_TIME: ppTime,
                   TXN_TYPE: req.operation.get(TXN_TYPE)}
 
-        if req.operation.get(TXN_TYPE) in (CREDIT, GET_BAL, GET_ALL_TXNS):
-            frm = req.identifier
-            if frm not in self.balances:
-                self.balances[frm] = STARTING_BALANCE
-            if req.operation.get(TXN_TYPE) == CREDIT:
-                to = req.operation[TARGET_NYM]
-                if to not in self.balances:
-                    self.balances[to] = STARTING_BALANCE
-                amount = req.operation[DATA][AMOUNT]
-                if amount > self.balances[frm]:
-                    result[SUCCESS] = False
-                else:
-                    result[SUCCESS] = True
-                    self.balances[to] += amount
-                    self.balances[frm] -= amount
-                    self.txns.append((frm , to, amount))
-            elif req.operation.get(TXN_TYPE) == GET_BAL:
-                result[SUCCESS] = True
-                result[BALANCE] = self.balances.get(frm, 0)
-            elif req.operation.get(TXN_TYPE) == GET_ALL_TXNS:
-                result[SUCCESS] = True
-                result[ALL_TXNS] = [txn for txn in self.txns if frm in txn]
-
         return Reply(result)
-        # merkleProof = await self.primaryStorage.append(
-        #     identifier=req.identifier, reply=txnRslt, txnId=txnId)
-        # result.update(merkleProof)
-        # return Reply(result)
 
     def startKeySharing(self, timeout=60):
         """

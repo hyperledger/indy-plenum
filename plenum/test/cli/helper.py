@@ -3,15 +3,15 @@ import re
 from pygments.token import Token
 
 import plenum.cli.cli as cli
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd
+from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, CREDIT, \
+    AMOUNT, GET_BAL, GET_ALL_TXNS
 
 
-@Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
-class TestCli(cli.Cli):
-
+class TestCliCore:
     @property
     def lastPrintArgs(self):
         args = self.printeds
@@ -38,6 +38,57 @@ class TestCli(cli.Cli):
         self.parse(cmd)
 
 
+@Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
+class TestCli(cli.Cli, TestCliCore):
+    def initializeGrammar(self):
+        fcTxnsGrams = [
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
+            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
+        ]
+        self.clientGrams[-1] += " |"
+        self.clientGrams += fcTxnsGrams
+        cli.Cli.initializeGrammar(self)
+
+    def _clientCommand(self, matchedVars):
+        if matchedVars.get('client') == 'client':
+            client_name = matchedVars.get('client_name')
+            client_action = matchedVars.get('cli_action')
+            if client_action == "credit":
+                frm = client_name
+                to = matchedVars.get('second_client_name')
+                toClient = self.clients.get(to, None)
+                amount = int(matchedVars.get('amount'))
+                txn = {
+                    TXN_TYPE: CREDIT,
+                    TARGET_NYM: toClient.defaultIdentifier,
+                    DATA: {
+                        AMOUNT: amount
+                    }}
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "balance":
+                frm = client_name
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_BAL,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "transactions":
+                frm = client_name
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_ALL_TXNS,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
+                return True
+            else:
+                return cli.Cli._clientCommand(self, matchedVars)
+
+
 def isErrorToken(token: Token):
     return token == Token.Error
 
@@ -50,11 +101,40 @@ def isNameToken(token: Token):
     return token == Token.Name
 
 
+def checkNodeStarted(cli, nodeName):
+    # Node name should be in cli.nodes
+    assert nodeName in cli.nodes
+
+    def chk():
+        msgs = {stmt['msg'] for stmt in cli.printeds}
+        assert "{} added replica {}:0 to instance 0 (master)" \
+                   .format(nodeName, nodeName) in msgs
+        assert "{} added replica {}:1 to instance 1 (backup)" \
+                   .format(nodeName, nodeName) in msgs
+        assert "{} listening for other nodes at {}:{}" \
+                   .format(nodeName, *cli.nodes[nodeName].nodestack.ha) in msgs
+
+    cli.looper.run(eventually(chk, retryWait=1, timeout=2))
+
+
+def checkClientConnected(cli, nodeNames, clientName):
+    printedMsgs = set()
+    expectedMsgs = {'{} now connected to {}C'.format(clientName, nodeName)
+                    for nodeName in nodeNames}
+    for out in cli.printeds:
+        msg = out.get('msg')
+        if '{} now connected to'.format(clientName) in msg:
+            printedMsgs.add(msg)
+
+    assert printedMsgs == expectedMsgs
+
+
 def checkRequest(cli, looper, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
-    looper.runFor(3)
+    cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
+                              cName, retryWait=1, timeout=5))
     # Send request to all nodes
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
@@ -77,10 +157,6 @@ def checkRequest(cli, looper, operation):
     printedStatus = printeds[0]
     txnTimePattern = "\'txnTime\': \d+\.*\d*"
     txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
-    # txnPattern1 = "Reply for the request: \{" + timePattern + ", " + txnIdPattern + "\}"
-    # txnPattern2 = "Reply for the request: \{" + txnIdPattern + ", " + timePattern + "\}"
-    # assert re.match(txnPattern1, printedReply['msg']) or \
-    #        re.match(txnPattern2, printedReply['msg'])
     assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)

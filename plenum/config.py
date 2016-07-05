@@ -45,4 +45,12 @@ OrientDB = {
 
 stewardThreshold = 20
 
-sendMonitorStats = False
+# Monitoring configuration
+DELTA = 0.8
+LAMBDA = 60
+OMEGA = 5
+SendMonitorStats = True
+ThroughputWindowSize = 30
+DashboardUpdateFreq = 5
+ThroughputGraphDuration = 600
+

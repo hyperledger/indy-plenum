@@ -1,27 +1,24 @@
 import logging
 import time
-import jsonpickle
-
 from datetime import datetime
-
 from statistics import mean
 from typing import Dict
 from typing import List
 from typing import Tuple
 
+import jsonpickle
 from firebase import firebase
 
-from plenum.config import sendMonitorStats
+from plenum.common.util import getConfig
 from plenum.common.util import getlogger
+from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 
 logger = getlogger()
-
-firebaseClient = firebase.FirebaseApplication(
-    "https://plenumstats.firebaseio.com/", None)
+config = getConfig()
 
 
-class Monitor:
+class Monitor(HasActionQueue):
     """
     Implementation of RBFT's monitoring mechanism.
 
@@ -45,9 +42,9 @@ class Monitor:
         # protocol instance
         self.numOrderedRequests = []  # type: List[Tuple[int, int]]
 
-        # Requests that have been sent for ordering but have not been ordered
-        # yet. Key of the dictionary is a tuple of client id and request id and
-        # the value is the time at which the request was submitted for ordering
+        # Requests that have been sent for ordering. Key of the dictionary is a
+        # tuple of client id and request id and the value is the time at which
+        # the request was submitted for ordering
         self.requestOrderingStarted = {}  # type: Dict[Tuple[str, int], float]
 
         # Request latencies for the master protocol instances. Key of the
@@ -62,9 +59,24 @@ class Monitor:
         # `i`th protocol instance
         self.clientAvgReqLatencies = []  # type: List[Dict[str, Tuple[int, float]]]
 
+        # Total requests that have been ordered since the node started
         self.totalRequests = 0
 
         self.started = datetime.utcnow().isoformat()
+
+        if config.SendMonitorStats:
+            self.firebaseClient = firebase.FirebaseApplication(
+                "https://plenumstats.firebaseio.com/", None)
+
+        # Times of requests ordered requests by master in last
+        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is defined in config
+        self.orderedRequestsInLast = []
+
+        self.totalViewChanges = 0
+        self._lastPostedViewChange = 0
+        HasActionQueue.__init__(self)
+        if config.SendMonitorStats:
+            self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
 
     def __repr__(self):
         return self.name
@@ -112,6 +124,7 @@ class Monitor:
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
+        self.totalViewChanges += 1
 
     def addInstance(self):
         """
@@ -131,12 +144,14 @@ class Monitor:
                           "but it was from a previous view".
                           format(identifier, reqId))
             return
-        duration = time.perf_counter() - self.requestOrderingStarted[
+        now = time.perf_counter()
+        duration = now - self.requestOrderingStarted[
             (identifier, reqId)]
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
             self.masterReqLatencies[(identifier, reqId)] = duration
+            self.orderedRequestsInLast.append(now)
         if identifier not in self.clientAvgReqLatencies[instId]:
             self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
         totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
@@ -313,32 +328,64 @@ class Monitor:
 
         return avgLatencies
 
+    @property
+    def highResThroughput(self):
+        return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
+
+    def sendThroughput(self):
+        logger.debug("{} sending throughput".format(self))
+        now = time.perf_counter()
+        while self.orderedRequestsInLast and \
+                (now - self.orderedRequestsInLast[0]) > \
+                config.ThroughputWindowSize:
+            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
+
+        throughput = self.highResThroughput
+        mtrStats = {
+            "throughput": throughput,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
+                                       callback=lambda response: None,
+                                       params={'print': 'silent'},
+                                       headers={'Connection': 'keep-alive'},
+                                       )
+        self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
+
     def postMonitorData(self):
-        if sendMonitorStats:
+        if config.SendMonitorStats:
+            if self.totalViewChanges != self._lastPostedViewChange:
+                # TODO: Send the view change event
+                self._lastPostedViewChange = self.totalViewChanges
+
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
-            firebaseClient.post_async(url="/all_stats", data=metrics,
-                                      callback=lambda response: None,
-                                      params={'print': 'silent'},
-                                      headers={'Connection': 'keep-alive'},
-                                      )
+            self.firebaseClient.post_async(url="/all_stats", data=metrics,
+                                           callback=lambda response: None,
+                                           params={'print': 'silent'},
+                                           headers={'Connection': 'keep-alive'},
+                                           )
             # send total request to different metric
-            firebaseClient.put_async(url="/totalTransactions",
-                                     name="totalTransactions",
-                                     data=self.totalRequests,
-                                     callback=lambda response: None,
-                                     params={'print': 'silent'},
-                                     headers={'Connection': 'keep-alive'},
-                                     )
+            self.firebaseClient.put_async(url="/totalTransactions",
+                                          name="totalTransactions",
+                                          data=self.totalRequests,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
 
     def postStartData(self, startedAt):
-        if sendMonitorStats:
-            firebaseClient.put_async(url="/startedAt", name="startedAt",
-                                     data=startedAt,
-                                     callback=lambda response: None,
-                                     params={'print': 'silent'},
-                                     headers={'Connection': 'keep-alive'},
-                                     )
+        if config.SendMonitorStats:
+            #TODO: send these 3 metrics to dashboard
+            ThroughputWindowSize = config.ThroughputWindowSize
+            DashboardUpdateFreq = config.DashboardUpdateFreq
+            ThroughputGraphDuration = config.ThroughputGraphDuration
+            self.firebaseClient.put_async(url="/startedAt", name="startedAt",
+                                          data=startedAt,
+                                          callback=lambda response: None,
+                                          params={'print': 'silent'},
+                                          headers={'Connection': 'keep-alive'},
+                                          )
 
     @staticmethod
     def mean(data):

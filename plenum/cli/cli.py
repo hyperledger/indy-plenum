@@ -10,10 +10,6 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 from plenum.client.signer import SimpleSigner
-from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
-    GET_ALL_TXNS
-from plenum.common.txn import TARGET_NYM
-from plenum.test import helper
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -24,7 +20,7 @@ else:
 import configparser
 import os
 from configparser import ConfigParser
-
+from collections import OrderedDict
 import time
 import ast
 
@@ -53,7 +49,7 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from collections import OrderedDict
+from plenum.common.util import getConfig
 
 
 class CustomOutput(Vt100_Output):
@@ -152,11 +148,9 @@ class Cli:
             "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
             "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
             "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
+            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[a-fA-F0-9]+) \s*)",
             "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) |"
             # "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>^(?:[A-Za-z0-9+{sep}]{four})*(?:[A-Za-z0-9+{sep}]{two}==|[A-Za-z0-9+{sep}]{three}=|[A-Za-z0-9+{sep}]{four})$) \s*) |".format(sep=psep, two=2, four=4, three=3),  # TODO Use an accurate regex for base64 encoded strings
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
         ]
 
         self.lexers = {
@@ -274,6 +268,7 @@ class Cli:
         return '(' + '|'.join(seq) + ')'
 
     def initializeGrammar(self):
+        # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
         self.utilGrams[-1] += " |"
         self.nodeGrams[-1] += " |"
         self.grams = self.utilGrams + self.nodeGrams + self.clientGrams
@@ -441,11 +436,7 @@ Commands:
     def showNodeRegistry(self):
         t = []
         for name in self.nodeReg:
-            val = self.nodeReg[name]
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                (ip, port) = val
+            ip, port = self.nodeReg[name]
             t.append((Token.Name, "    " + name))
             t.append((Token, ": {}:{}\n".format(ip, port)))
         self.cli.print_tokens(t, style=self.style)
@@ -543,12 +534,6 @@ Commands:
             names = [nodeName]
 
         nodes = []
-        # reg = OrderedDict()
-        # for k, v in self.nodeRegistry.items():
-        #     if len(v) == 3:
-        #         reg[k] = v[0]
-        #     else:
-        #         reg[k] = v
         for name in names:
             node = self.NodeClass(name,
                                   self.nodeRegistry,
@@ -616,18 +601,10 @@ Commands:
         else:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
-            val = self.nodeReg.get(nodeName)
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                ip, port = val
+            ip, port = self.nodeReg.get(nodeName)
             nha = "{}:{}".format(ip, port)
             self.print("    Node listener: " + nha)
-            val = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
-            if len(val) == 3:
-                ((ip, port), vk, pk) = val
-            else:
-                ip, port = val
+            ip, port = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
             cha = "{}:{}".format(ip, port)
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
@@ -669,12 +646,9 @@ Commands:
                 seed = seed.encode("utf-8") if seed else None
                 signer = SimpleSigner(identifier=identifier, seed=seed) \
                     if (seed or identifier) else None
-            reg = {}
-            for k, v in self.cliNodeReg.items():
-                reg[k] = v if len(v) == 2 else v[0]
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=reg,
+                                      nodeReg=self.cliNodeReg,
                                       signer=signer,
                                       basedirpath=self.basedirpath)
             self.looper.add(client)
@@ -823,39 +797,6 @@ Commands:
                 req_id = matchedVars.get('req_id')
                 self.getReply(client_name, req_id)
                 return True
-            elif client_action == "credit":
-                frm = matchedVars.get('client_name')
-                to = matchedVars.get('second_client_name')
-                toClient = self.clients.get(to, None)
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: CREDIT,
-                    TARGET_NYM: toClient.defaultIdentifier,
-                    DATA: {
-                        AMOUNT: amount
-                    }}
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "balance":
-                frm = matchedVars.get('client_name')
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "transactions":
-                frm = matchedVars.get('client_name')
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_ALL_TXNS,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            # else:
-            #     self.printCmdHelper("sendmsg")
 
     def _loadPluginDirAction(self, matchedVars):
         if matchedVars.get('load_plugins') == 'load plugins from':
@@ -1016,20 +957,20 @@ Commands:
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
-    # TODO: DO we keep this? What happens when we allow the CLI ot connect
+    # TODO: DO we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        # TODO: Use config data here
-        path = os.path.expanduser("~/.plenum")
-        dataPath = os.path.join(path, "data")
+        config = getConfig()
+        basePath = os.path.expanduser(config.baseDir)
+        dataPath = os.path.join(basePath, "data")
         try:
             shutil.rmtree(dataPath)
         except FileNotFoundError:
             pass
 
-        client = pyorient.OrientDB("localhost", 2424)
-        user = "root"
-        password = "password"
+        client = pyorient.OrientDB(config.OrientDB["host"], config.OrientDB["port"])
+        user = config.OrientDB["user"]
+        password = config.OrientDB["password"]
         client.connect(user, password)
 
         def dropdbs():

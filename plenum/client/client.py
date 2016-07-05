@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import time
+from binascii import unhexlify
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
@@ -20,21 +21,22 @@ from ledger.util import F, STH
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
+from plenum.common.raet import getLocalEstateData
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT, CREDIT, BALANCE, \
-    GET_BAL, GET_ALL_TXNS, SUCCESS, ALL_TXNS
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures, getlogger, error
 from plenum.persistence.wallet_storage_file import WalletStorageFile
+from plenum.common.util import getConfig
 
 logger = getlogger()
+config = getConfig()
 
 
 class Client(Motor):
-
     def __init__(self,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
@@ -55,34 +57,44 @@ class Client(Motor):
         :param signers: Dict of identifier -> Signer; useful for clients that
             need to support multiple signers
         """
+        if not nodeReg:
+            nodeReg = config.cliNodeReg
+        basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
+                                         basedirpath)
+
+        # If client information already exists is RAET then use that
+        if self.exists(name, basedirpath):
+            logger.debug("Client {} ignoring given ha".format(ha))
+            clientEstate = getLocalEstateData(name, basedirpath)
+            if not clientEstate:
+                error("{} does not have estate data".format(name))
+            else:
+                cha = HA(*clientEstate["ha"])
+        else:
+            cha = ha if isinstance(ha, HA) else HA(*ha)
+
         self.name = name
         self.lastReqId = lastReqId
-        self.minimumNodes = getMaxFailures(len(nodeReg)) + 1
+
+        self.minNodesToConnect = getMaxFailures(len(nodeReg)) + 1
 
         cliNodeReg = OrderedDict()
-        for nm in nodeReg:
-            val = nodeReg[nm]
-            if len(val) == 3:
-                ((ip, port), verkey, pubkey) = val
-            else:
-                ip, port = val
+        for nm, (ip, port) in nodeReg.items():
             cliNodeReg[nm] = HA(ip, port)
 
         self.nodeReg = cliNodeReg
 
-        cha = ha if isinstance(ha, HA) else HA(*ha)
         stackargs = dict(name=name,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auto=AutoMode.always)
-        if basedirpath:
-            stackargs['basedirpath'] = basedirpath
+        stackargs['basedirpath'] = basedirpath
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
         self.nodestack = self.nodeStackClass(stackargs,
-                                   self.handleOneNodeMsg,
-                                   self.nodeReg)
+                                             self.handleOneNodeMsg,
+                                             self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
         self.nodestack.sign = self.sign
 
@@ -102,10 +114,9 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        clientDataDir = os.path.join(basedirpath, "data", "clients", self.name)
-        clientDataDir = os.path.expanduser(clientDataDir)
-        self.wallet = wallet or Wallet(WalletStorageFile(clientDataDir))
-        signers = None     # type: Dict[str, Signer]
+        dataDir = os.path.join(basedirpath, "data", "clients", self.name)
+        self.wallet = wallet or Wallet(WalletStorageFile(dataDir))
+        signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
         if not self.wallet.signers:
             if signer:
@@ -120,7 +131,8 @@ class Client(Motor):
                 self.wallet.addSigner(signer=s)
         else:
             if len(self.wallet.signers) == 1:
-                self.defaultIdentifier = list(self.wallet.signers.values())[0].identifier
+                self.defaultIdentifier = list(self.wallet.signers.values())[
+                    0].identifier
 
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
@@ -131,6 +143,11 @@ class Client(Motor):
         # as key and value as set of names of known validators vetting that
         # location
         self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
+
+    @staticmethod
+    def exists(name, basedirpath):
+        return os.path.exists(basedirpath) and \
+               os.path.exists(os.path.join(basedirpath, name))
 
     @property
     def nodeStackClass(self) -> NodeStack:
@@ -172,7 +189,8 @@ class Client(Motor):
         self.nodestack.flushOutBoxes()
         return s
 
-    def createRequest(self, operation: Mapping, identifier: str=None) -> Request:
+    def createRequest(self, operation: Mapping,
+                      identifier: str = None) -> Request:
         """
         Client creates request which include requested operation and request Id
 
@@ -186,7 +204,8 @@ class Client(Motor):
         self.lastReqId += 1
         return request
 
-    def submit(self, *operations: Mapping, identifier: str=None) -> List[Request]:
+    def submit(self, *operations: Mapping, identifier: str = None) -> List[
+        Request]:
         """
         Sends an operation to the consensus pool
 
@@ -202,7 +221,7 @@ class Client(Motor):
             requests.append(request)
         return requests
 
-    def getSigner(self, identifier: str=None):
+    def getSigner(self, identifier: str = None):
         """
         Look up and return a signer corresponding to the identifier specified.
         Return None if not found.
@@ -242,38 +261,6 @@ class Client(Motor):
             cliNodeReg = msg[f.NODES.nm]
             for name, ha in cliNodeReg.items():
                 self.newValidatorDiscovered(name, tuple(ha), frm)
-
-        if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
-            if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (CREDIT, GET_BAL, GET_ALL_TXNS):
-                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-                reply = self.hasConsensus(reqId)
-                if reply:
-                    n = len(self.getRepliesFromAllNodes(reqId))
-                    typ = msg[f.RESULT.nm][TXN_TYPE]
-                    if typ == CREDIT:
-                        logger.debug("", extra={"cli": True})
-                        logger.debug("The CREDIT request with id {} was {} as per {} nodes"
-                                     .format(reqId, "successful" if msg[f.RESULT.nm][SUCCESS] else "unsuccessful", n), extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
-                    if typ == GET_BAL:
-                        logger.debug("", extra={"cli": True})
-                        logger.debug(
-                            "The BALANCE request with id {} returned balance as {} as per {} nodes"
-                                .format(reqId, msg[f.RESULT.nm][BALANCE], n), extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
-                    if typ == GET_ALL_TXNS:
-                        allTxns = reply[ALL_TXNS]
-                        txns = []
-                        for txn in allTxns:
-                            if txn[0] in self.signers:
-                                txns.append("Transferred {}".format(txn[2]))
-                            else:
-                                txns.append("Received {}".format(txn[2]))
-                        logger.debug("", extra={"cli": True})
-                        logger.debug(
-                            "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
-                                .format(reqId, n, '\n'.join(txns)), extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
 
     def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
                                frm: str):
@@ -405,40 +392,38 @@ class Client(Motor):
         if self.isGoing():
             if len(self.nodestack.conns) == len(self.nodeReg):
                 self.status = Status.started
-            elif len(self.nodestack.conns) >= self.minimumNodes:
+            elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
 
-    def submitNewClient(self, typ, name: str, pkseed: bytes, sigseed: bytes):
+    def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
-        newSigner = SimpleSigner(seed=sigseed)
-        priver = Privateer(pkseed)
+        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
         req, = self.submit({
             TXN_TYPE: typ,
-            TARGET_NYM: newSigner.verstr,
+            TARGET_NYM: verstr,
             DATA: {
-                PUBKEY: priver.pubhex.decode(),
+                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
         return req
 
-    def submitNewSteward(self, name: str, pkseed: bytes, sigseed: bytes):
-        return self.submitNewClient(NEW_STEWARD, name, pkseed, sigseed)
+    def submitNewSteward(self, name: str, pubkey: str, verkey: str):
+        return self.submitNewClient(NEW_STEWARD, name, pubkey, verkey)
 
-    def submitNewNode(self, name: str, pkseed: bytes, sigseed: bytes,
+    def submitNewNode(self, name: str, pubkey: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        newSigner = SimpleSigner(seed=sigseed)
-        priver = Privateer(pkseed)
+        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
         req, = self.submit({
             TXN_TYPE: NEW_NODE,
-            TARGET_NYM: newSigner.verstr,
+            TARGET_NYM: verstr,
             DATA: {
                 NODE_IP: nodeIp,
                 NODE_PORT: nodePort,
                 CLIENT_IP: clientIp,
                 CLIENT_PORT: clientPort,
-                PUBKEY: priver.pubhex.decode(),
+                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
@@ -461,7 +446,8 @@ class Client(Motor):
         })
         return req
 
-    def submitNodeKeysChange(self, name: str, nym: str, verkey: str, pubkey: str):
+    def submitNodeKeysChange(self, name: str, nym: str, verkey: str,
+                             pubkey: str):
         req, = self.submit({
             TXN_TYPE: CHANGE_KEYS,
             TARGET_NYM: nym,
@@ -489,14 +475,15 @@ class Client(Motor):
         serializer = JsonSerializer()
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
-            rootHash = base64.b64decode(r[f.RESULT.nm][F.rootHash.name].encode())
+            rootHash = base64.b64decode(
+                r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
             filtered = ((k, v) for (k, v) in r[f.RESULT.nm].iteritems()
                         if k not in
                         [F.auditPath.name, F.seqNo.name, F.rootHash.name])
             result = serializer.serialize(dict(filtered))
-            verifier.verify_leaf_inclusion(result, seqNo-1,
+            verifier.verify_leaf_inclusion(result, seqNo - 1,
                                            auditPath,
                                            STH(tree_size=seqNo,
                                                sha256_root_hash=rootHash))

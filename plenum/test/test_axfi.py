@@ -2,13 +2,11 @@ import pytest
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import AMOUNT, TARGET_NYM, TXN_TYPE, CREDIT, DATA, \
-    GET_BAL, GET_ALL_TXNS, BALANCE, ALL_TXNS
+from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, checkSufficientRepliesRecvd, \
-    checkReqNack
-
+    checkReqNack, CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, BALANCE, ALL_TXNS
 
 logger = getlogger()
 
