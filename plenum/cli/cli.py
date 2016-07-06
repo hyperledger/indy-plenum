@@ -83,7 +83,6 @@ class Cli:
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.cleanUp()
-        # time.sleep(5)
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeReg = nodeReg

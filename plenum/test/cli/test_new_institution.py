@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.cli.conftest import newCli
+from plenum.test.cli.helper import newCli
 
 
 @pytest.fixture()

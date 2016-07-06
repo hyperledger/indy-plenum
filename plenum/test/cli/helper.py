@@ -5,10 +5,11 @@ from pygments.token import Token
 import plenum.cli.cli as cli
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.util import getMaxFailures
+from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
 from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, CREDIT, \
-    AMOUNT, GET_BAL, GET_ALL_TXNS
+    AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient
 
 
 class TestCliCore:
@@ -155,8 +156,24 @@ def checkRequest(cli, looper, operation):
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
-    txnTimePattern = "\'txnTime\', \d+\.*\d*"
-    txnIdPattern = "\'txnId\', '" + txn['txnId'] + "'"
+    txnTimePattern = "\'txnTime\': \d+\.*\d*"
+    txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
     assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)
+
+
+def newCli(nodeRegsForCLI, looper, tdir, cliClass=TestCli, nodeClass=TestNode,
+           clientClass=TestClient):
+    mockOutput = MockOutput()
+
+    Cli = cliClass(looper=looper,
+                  basedirpath=tdir,
+                  nodeReg=nodeRegsForCLI.nodeReg,
+                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                  output=mockOutput,
+                  debug=True)
+    Cli.NodeClass = nodeClass
+    Cli.ClientClass = clientClass
+    Cli.basedirpath = tdir
+    return Cli

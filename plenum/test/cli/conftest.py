@@ -5,14 +5,13 @@ import pytest
 
 import plenum.common.util
 from plenum.common.looper import Looper
-from plenum.test.cli.mock_output import MockOutput
-from plenum.test.eventually import eventually
-from plenum.test.helper import genHa, TestNode, TestClient, checkNodesConnected
 from plenum.common.util import adict
+from plenum.test.eventually import eventually
+from plenum.test.helper import genHa
 
 plenum.common.util.loggingConfigured = False
 
-from plenum.test.cli.helper import TestCli
+from plenum.test.cli.helper import newCli
 
 
 @pytest.yield_fixture(scope="module")
@@ -29,21 +28,6 @@ def nodeRegsForCLI():
     nodeReg = OrderedDict((n, has[i][0]) for i, n in enumerate(nodeNames))
     cliNodeReg = OrderedDict((n, has[i][1]) for i, n in enumerate(nodeNamesC))
     return adict(nodeReg=nodeReg, cliNodeReg=cliNodeReg)
-
-
-def newCli(nodeRegsForCLI, looper, tdir):
-    mockOutput = MockOutput()
-
-    Cli = TestCli(looper=looper,
-                  basedirpath=tdir,
-                  nodeReg=nodeRegsForCLI.nodeReg,
-                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
-                  output=mockOutput,
-                  debug=True)
-    Cli.NodeClass = TestNode
-    Cli.ClientClass = TestClient
-    Cli.basedirpath = tdir
-    return Cli
 
 
 @pytest.fixture("module")
