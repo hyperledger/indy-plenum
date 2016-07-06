@@ -1,49 +1,14 @@
 import pytest
 
-from plenum.test.cli.helper import newCli
 
-
-@pytest.fixture()
-def BYUCli(nodeRegsForCLI, looper, tdir):
-    return newCli(nodeRegsForCLI, looper, tdir)
-
-
-@pytest.fixture()
-def philCli(nodeRegsForCLI, looper, tdir):
-    return newCli(nodeRegsForCLI, looper, tdir)
-
-
-@pytest.fixture()
-def tylerCli(nodeRegsForCLI, looper, tdir):
-    return newCli(nodeRegsForCLI, looper, tdir)
-
-
-@pytest.fixture()
-def new_keypair(BYUCli):
-    # TODO create a fixture: Phil is already a sponsor
-    BYUCli.enterCmd("new_keypair")
-    assert len(BYUCli.defaultClient.signers) == 2
-    BYUPubKeyMsg = BYUCli.lastPrintArgs['msg']
-    assert BYUPubKeyMsg.startswith('Public key')
-    BYUPubKey = BYUPubKeyMsg.split(" ")[-1]
-    BYUCli.enterCmd("list ids")
-    # TODO check the results of list ids
-    return BYUPubKey
-
-
-def testNewKeypair(new_keypair):
-    pass
-
-
-@pytest.fixture()
-def newInstitution(new_keypair, philCli):
-    BYUPubKey = new_keypair
+def newInstitution(newKeyPair, sponsorCLI):
+    BYUPubKey = newKeyPair
     """
     Test to demonstrate anonymous credentials through Sovrin CLI.
     """
-    philCli.enterCmd("send NYM dest={}".format(BYUPubKey))  # TODO incomplete
-    philCli.enterCmd("send GET_NYM dest={}".format(BYUPubKey))  # TODO incomplete
-    philCli.enterCmd("send ATTRIB dest={key} "
+    sponsorCLI.enterCmd("send NYM dest={}".format(BYUPubKey))  # TODO incomplete
+    sponsorCLI.enterCmd("send GET_NYM dest={}".format(BYUPubKey))  # TODO incomplete
+    sponsorCLI.enterCmd("send ATTRIB dest={key} "
                      "raw={{email: mail@byu.edu}}".format(key=BYUPubKey))
     # TODO verify valid responses for above commands
 
@@ -52,7 +17,7 @@ def testNewInstitution(newInstitution):
     pass
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def createCredDef(BYUCli, newInstitution):
     BYUCli.enterCmd(
         'send CRED_DEF name="Qualifications" version="1.0" type=JC1 '
@@ -62,16 +27,6 @@ def createCredDef(BYUCli, newInstitution):
         '"first_name":R1, "last_name":R2, "birth_date":R3, "expire_date":R4, '
         '"undergrad":R5, "postgrad":R6}}')
     # TODO check we get a valid response
-
-
-@pytest.fixture()
-def tylerKeypairForBYU(tylerCli):
-    tylerCli.enterCmd('new keypair BYU')
-    TylerPubKeyMsg = tylerCli.lastPrintArgs['msg']
-    assert TylerPubKeyMsg.startswith('Public key')
-    TylerPubKey = TylerPubKeyMsg.split(" ")[-1]
-    # TODO more check that it's a valid key
-    return TylerPubKey
 
 
 def testAnonCredsCLI(createAllNodes, cli, new_keypair, new_steward,

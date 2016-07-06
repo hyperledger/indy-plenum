@@ -246,6 +246,7 @@ class Cli:
             application=app,
             eventloop=eventloop,
             output=out)
+        self.createDefaultClient()
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
@@ -843,8 +844,6 @@ Commands:
         if matchedVars.get('new_keypair') == 'new_keypair':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
-            if not self.defaultClient:
-                self.createDefaultClient()
             self.defaultClient.wallet.addSigner(signer, alias)
             privateKeyPath = os.path.join(
                 self.basedirpath, "data", "clients", self.defaultClient.name)

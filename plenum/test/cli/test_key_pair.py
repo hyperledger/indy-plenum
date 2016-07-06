@@ -1,12 +1,22 @@
-def testKeyPair(cli):
-    cli.enterCmd("new_keypair test")
-    assert len(cli.defaultClient.signers) == 2
-    pubKeyMsg = cli.lastPrintArgs['msg']
-    assert pubKeyMsg.startswith('Public key is')
-    pubKey = pubKeyMsg.split(" ")[-1]
-    cli.enterCmd("list ids")
-    assert cli.lastPrintArgs['msg'] == "test"
+import pytest
+
+from plenum.test.cli.helper import newKeyPair
+
+
+@pytest.fixture(scope="module")
+def pubKey(cli):
+    return newKeyPair(cli, "test")
+
+
+def testKeyPair(cli, pubKey):
+    pass
+
+
+def testUseKeyPair(cli, pubKey):
     cli.enterCmd('use_keypair {}'.format(pubKey))
     assert cli.activeSigner.verstr == pubKey
+
+
+def testBecome(cli, pubKey):
     cli.enterCmd("become test")
     assert cli.activeSigner.verstr == pubKey
