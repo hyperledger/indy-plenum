@@ -21,7 +21,7 @@ def tylerCli(nodeRegsForCLI, looper, tdir):
 @pytest.fixture()
 def new_keypair(BYUCli):
     # TODO create a fixture: Phil is already a sponsor
-    BYUCli.enterCmd("new keypair")
+    BYUCli.enterCmd("new_keypair")
     assert len(BYUCli.defaultClient.signers) == 2
     BYUPubKeyMsg = BYUCli.lastPrintArgs['msg']
     assert BYUPubKeyMsg.startswith('Public key')
