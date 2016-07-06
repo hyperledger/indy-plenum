@@ -48,13 +48,16 @@ class Stack(RoadStack):
             error("the stack port number has changed, likely due to "
                   "information in the keep")
         self.created = time.perf_counter()
-        self.coro = None
-
-    def start(self):
         self.coro = self._raetcoro()
         logger.info("stack {} starting at {} in {} mode"
-                    .format(self.name, self.ha, self.keep.auto.name),
-                    extra={"cli": False})
+                        .format(self.name, self.ha, self.keep.auto.name),
+                        extra={"cli": False})
+
+    # def start(self):
+    #     self.coro = self._raetcoro()
+    #     logger.info("stack {} starting at {} in {} mode"
+    #                 .format(self.name, self.ha, self.keep.auto.name),
+    #                 extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """
@@ -208,8 +211,9 @@ class SimpleStack(Stack):
     localips = ['127.0.0.1', '0.0.0.0']
 
     def __init__(self, stackParams: Dict, msgHandler: Callable):
+        self.stackParams = stackParams
         self.msgHandler = msgHandler
-        super().__init__(**stackParams, msgHandler=self.msgHandler)
+        # super().__init__(**stackParams, msgHandler=self.msgHandler)
 
     def __repr__(self):
         return self.name
@@ -284,7 +288,8 @@ class SimpleStack(Stack):
         pass
 
     def start(self):
-        super().start()
+        # super().start()
+        super().__init__(**self.stackParams, msgHandler=self.msgHandler)
 
     def sign(self, msg: Dict, signer: Signer) -> Dict:
         """
