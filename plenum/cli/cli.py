@@ -53,7 +53,7 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable
+    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -860,18 +860,14 @@ Commands:
             return True
 
     def createDefaultClient(self):
-        name = 'default'
-        self.defaultClient = Client(name,
-                                    ha=genHa(),
-                                    nodeReg=self.nodeReg,
-                                    signer=None,
-                                    basedirpath=self.basedirpath)
-        self.clients[name] = self.defaultClient
+        name = 'default'+randomString(size=4)
+        self.defaultClient = self.newClient(name)
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list':
+            default = self.defaultClient.name
             ids = [s for s in
-                   self.defaultClient.wallet.listIds(exclude=['default'])]
+                   self.defaultClient.wallet.listIds(exclude=[default])]
             self.print('\n'.join(ids))
             return True
 
