@@ -10,6 +10,12 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 
+from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX, NODE_OR_CLI, \
+    UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_LIST_REG_EX, NODE_CMDS, \
+    NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX, NODE_GRAMS_LOAD_PLUGINS_REG_EX, CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX, \
+    CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX, CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX, CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX, \
+    CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX, CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX, CLIENT_GRAMS_BECOME_FORMATTED_REG_EX, \
+    CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX, NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX
 from plenum.cli.p2p_communicator import P2PCommunicator
 from plenum.client.signer import SimpleSigner
 from plenum.test.helper import genHa
@@ -68,7 +74,7 @@ class CustomOutput(Vt100_Output):
         self.flush()
 
 
-class Cli(P2PCommunicator):
+class Cli:
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
@@ -82,7 +88,6 @@ class Cli(P2PCommunicator):
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
-        super().__init__()
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.cleanUp()
@@ -103,15 +108,15 @@ class Cli(P2PCommunicator):
         self.nodes = {}
         self.externalClientKeys = {}  # type: Dict[str,str]
 
-        self.cliCmds = {'status', 'new'}
-        self.nodeCmds = self.cliCmds | {'keyshare'}
+        self.cliCmds = CLI_CMDS
+        self.nodeCmds = NODE_CMDS
         self.helpablesCommands = self.cliCmds | self.nodeCmds
-        self.simpleCmds = {'status', 'exit', 'quit', 'license'}
+        self.simpleCmds = SIMPLE_CMDS
         self.commands = {'list', 'help'} | self.simpleCmds
         self.cliActions = {'send', 'show', 'credit', 'balance', 'transactions'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
-        self.node_or_cli = ['node',  'client']
+        self.node_or_cli = NODE_OR_CLI
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
         self.plugins = {}
@@ -132,27 +137,26 @@ class Cli(P2PCommunicator):
         psep = re.escape(os.path.sep)
 
         self.utilGrams = [
-            "(\s* (?P<simple>{}) \s*) |".format(self.relist(self.simpleCmds)),
-            "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) |".format(psep),
-            "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) |".format(self.relist(self.node_or_cli)),
-            "(\s* (?P<command>list) \s*)"
+            UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX,
+            UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX,
+            UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX,
+            UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX
         ]
 
         self.nodeGrams = [
-            "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?)   \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) |".format(self.relist(self.nodeCmds)),
-            "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)".format(psep),
+            NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX,
+            NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX,
         ]
 
         self.clientGrams = [
-            "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?)   \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) |".format(self.relist(self.cliCmds)),
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>send) \s+ (?P<msg>\{\s*.*\})  \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+)  \s*)  |",
-            "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) |"
-            "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) |",
-            "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) |",
-            "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) |"
-            # "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>^(?:[A-Za-z0-9+{sep}]{four})*(?:[A-Za-z0-9+{sep}]{two}==|[A-Za-z0-9+{sep}]{three}=|[A-Za-z0-9+{sep}]{four})$) \s*) |".format(sep=psep, two=2, four=4, three=3),  # TODO Use an accurate regex for base64 encoded strings
+            CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX,
+            CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX,
+            CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX,
+            CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX,
+            CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX,
+            CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX,
+            CLIENT_GRAMS_BECOME_FORMATTED_REG_EX,
+            CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
         ]
 
         self.lexers = {
