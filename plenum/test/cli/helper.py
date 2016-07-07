@@ -8,8 +8,8 @@ from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, CREDIT, \
-    AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient
+from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd,\
+    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient
 
 
 class TestCliCore:
@@ -37,6 +37,9 @@ class TestCliCore:
 
     def enterCmd(self, cmd: str):
         self.parse(cmd)
+
+    def lastMsg(self):
+        return self.lastPrintArgs['msg']
 
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
@@ -163,10 +166,10 @@ def checkRequest(cli, looper, operation):
     assert printedStatus['msg'] == "Status: {}".format(status)
 
 
-def newCli(nodeRegsForCLI, looper, tdir, cliClass=TestCli, nodeClass=TestNode,
+def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
+           nodeClass=TestNode,
            clientClass=TestClient):
     mockOutput = MockOutput()
-
     Cli = cliClass(looper=looper,
                   basedirpath=tdir,
                   nodeReg=nodeRegsForCLI.nodeReg,
@@ -177,3 +180,29 @@ def newCli(nodeRegsForCLI, looper, tdir, cliClass=TestCli, nodeClass=TestNode,
     Cli.ClientClass = clientClass
     Cli.basedirpath = tdir
     return Cli
+
+
+def newKeyPair(cli: TestCli, alias: str=None):
+    cmd = "new_keypair {}".format(alias) if alias else "new_keypair"
+    assertIncremented(lambda: cli.enterCmd(cmd),
+                      cli.defaultClient.signers)
+    pubKeyMsg = cli.lastMsg()
+    # public key is printed
+    assert pubKeyMsg.startswith('Public key')
+    pubKey = lastWord(pubKeyMsg)
+    # the public key and alias are listed
+    cli.enterCmd("list ids")
+    assert cli.lastMsg() == alias if alias else pubKey
+    return pubKey
+
+
+def assertIncremented(f, var):
+    before = len(var)
+    f()
+    after = len(var)
+    assert after - before == 1
+
+
+def lastWord(sentence):
+    return sentence.split(" ")[-1]
+

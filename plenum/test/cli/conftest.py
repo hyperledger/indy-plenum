@@ -11,7 +11,7 @@ from plenum.test.helper import genHa
 
 plenum.common.util.loggingConfigured = False
 
-from plenum.test.cli.helper import newCli
+from plenum.test.cli.helper import newCLI
 
 
 @pytest.yield_fixture(scope="module")
@@ -32,7 +32,7 @@ def nodeRegsForCLI():
 
 @pytest.fixture("module")
 def cli(nodeRegsForCLI, looper, tdir):
-    return newCli(nodeRegsForCLI, looper, tdir)
+    return newCLI(nodeRegsForCLI, looper, tdir)
 
 
 @pytest.fixture("module")
