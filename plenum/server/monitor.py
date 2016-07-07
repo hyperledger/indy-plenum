@@ -343,7 +343,8 @@ class Monitor(HasActionQueue):
         throughput = self.highResThroughput
         mtrStats = {
             "throughput": throughput,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "nodeName": self.name
         }
         self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
                                        callback=lambda response: None,
@@ -358,9 +359,9 @@ class Monitor(HasActionQueue):
                 # TODO: Send the view change event
                 self._lastPostedViewChange = self.totalViewChanges
 
-            # TODO: Send the name in stats, name is available as self.name
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
+            metrics["nodeName"] = self.name
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                            callback=lambda response: None,
                                            params={'print': 'silent'},
@@ -382,7 +383,6 @@ class Monitor(HasActionQueue):
                 "updateFrequency": config.DashboardUpdateFreq,
                 "graphDuration": config.ThroughputGraphDuration
             }
-            # TODO: Send the name in stats, name is available as self.name
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
                                           callback=lambda response: None,
