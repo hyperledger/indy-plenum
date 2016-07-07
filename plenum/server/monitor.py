@@ -358,6 +358,7 @@ class Monitor(HasActionQueue):
                 # TODO: Send the view change event
                 self._lastPostedViewChange = self.totalViewChanges
 
+            # TODO: Send the name in stats, name is available as self.name
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
@@ -381,6 +382,7 @@ class Monitor(HasActionQueue):
                 "updateFrequency": config.DashboardUpdateFreq,
                 "graphDuration": config.ThroughputGraphDuration
             }
+            # TODO: Send the name in stats, name is available as self.name
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
                                           callback=lambda response: None,
