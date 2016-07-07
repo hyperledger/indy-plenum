@@ -11,14 +11,12 @@ import shutil
 import pyorient
 
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX, NODE_OR_CLI, \
-    UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_LIST_REG_EX, NODE_CMDS, \
-    NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX, NODE_GRAMS_LOAD_PLUGINS_REG_EX, CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX, \
+    UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX, NODE_CMDS, \
+    NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX, CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX, \
     CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX, CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX, CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX, \
     CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX, CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX, CLIENT_GRAMS_BECOME_FORMATTED_REG_EX, \
     CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX, NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX
-from plenum.cli.p2p_communicator import P2PCommunicator
 from plenum.client.signer import SimpleSigner
-from plenum.test.helper import genHa
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -253,6 +251,7 @@ class Cli:
             application=app,
             eventloop=eventloop,
             output=out)
+
         self.createDefaultClient()
 
         # Patch stdout in something that will always print *above* the prompt
