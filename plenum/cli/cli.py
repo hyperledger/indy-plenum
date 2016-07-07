@@ -9,6 +9,8 @@ import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
+
+from plenum.cli.p2p_communicator import P2PCommunicator
 from plenum.client.signer import SimpleSigner
 from plenum.test.helper import genHa
 
@@ -66,7 +68,7 @@ class CustomOutput(Vt100_Output):
         self.flush()
 
 
-class Cli:
+class Cli(P2PCommunicator):
     isElectionStarted = False
     primariesSelected = 0
     electedPrimaries = set()
@@ -80,6 +82,7 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
+        super().__init__()
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.cleanUp()
