@@ -231,8 +231,6 @@ class Cli:
             eventloop=eventloop,
             output=out)
 
-        self.createDefaultClient()
-
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
@@ -826,7 +824,13 @@ Commands:
         if matchedVars.get('new_keypair') == 'new keypair':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
-            self.defaultClient.wallet.addSigner(signer, alias)
+            # TODO remove the comments.
+            # This will not work. Maybe no defaultClient is required to add
+            # a new keypair.
+            # The other option is to add the default client using a steward.
+            # Another option is to add a newClient in sovrin/TestCli
+            if not self.defaultClient:
+                self.createDefaultClient(signer=signer)
             privateKeyPath = os.path.join(
                 self.basedirpath, "data", "clients", self.defaultClient.name)
             publicKey = signer.verstr
@@ -834,15 +838,14 @@ Commands:
             self.print("Public key is {}".format(publicKey))
             return True
 
-    def createDefaultClient(self):
+    def createDefaultClient(self, signer):
         name = 'default'+randomString(size=4)
-        self.defaultClient = self.newClient(name)
+        self.defaultClient = self.newClient(name, signer=signer)
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list':
-            default = self.defaultClient.name
             ids = [s for s in
-                   self.defaultClient.wallet.listIds(exclude=[default])]
+                   self.defaultClient.wallet.listIds()]
             self.print('\n'.join(ids))
             return True
 
