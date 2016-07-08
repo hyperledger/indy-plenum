@@ -1,8 +1,8 @@
 import pytest
 
 
-def newInstitution(newKeyPair, sponsorCLI):
-    BYUPubKey = newKeyPair
+def newInstitution(newKeyPairCreated, sponsorCLI):
+    BYUPubKey = newKeyPairCreated
     """
     Test to demonstrate anonymous credentials through Sovrin CLI.
     """
@@ -29,10 +29,10 @@ def createCredDef(BYUCli, newInstitution):
     # TODO check we get a valid response
 
 
-def testAnonCredsCLI(createAllNodes, cli, new_keypair, new_steward,
+def testAnonCredsCLI(createAllNodes, cli, newKeyPairCreated, new_steward,
                      createCredDef,
                      tylerKeypairForBYU):
-    BYUPubKey = new_keypair
+    BYUPubKey = newKeyPairCreated
     TylerPubKey = tylerKeypairForBYU
     cli.enterCmd('use keypair {}'.format(BYUPubKey))
     assert cli.activeSigner.verstr == BYUPubKey

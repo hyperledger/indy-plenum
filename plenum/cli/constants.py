@@ -12,7 +12,6 @@ def getPipedRegEx (cmd):
 psep = re.escape(os.path.sep)
 
 # general reusable reg ex
-
 NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
 UTIL_GRAMS_LOAD_CMD_REG_EX = "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) "
@@ -33,10 +32,10 @@ CLIENT_GRAMS_CLIENT_SHOW_REG_EX = \
     "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+) \s*) "
 CLIENT_GRAMS_ADD_KEY_REG_EX = \
     "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) "
-CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = "(\s* (?P<new_keypair>new_keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) "
+CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = "(\s* (?P<new_keypair>new keypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) "
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list) \s+ (?P<ids>ids) \s*) "
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) "
-CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_keypair>use_keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) "
+CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_keypair>use keypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) "
 
 # commands
 SIMPLE_CMDS = {'status', 'exit', 'quit', 'license'}
@@ -44,7 +43,7 @@ CLI_CMDS = {'status', 'new'}
 NODE_CMDS = CLI_CMDS | {'keyshare'}
 
 
-# command reg exs
+# command formatted reg exs
 UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_SIMPLE_CMD_REG_EX).format(relist(SIMPLE_CMDS))
 UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_LOAD_CMD_REG_EX).format(psep)
 UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_COMMAND_HELP_REG_EX).format(relist(NODE_OR_CLI))

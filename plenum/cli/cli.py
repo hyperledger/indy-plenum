@@ -197,10 +197,10 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_keypair': WordCompleter(['new_keypair']),
+            'new_keypair': WordCompleter(['new keypair']),
             'list_ids': WordCompleter(['list ids']),
             'become': WordCompleter(['become']),
-            'use_keypair': WordCompleter(['use_keypair'])
+            'use_keypair': WordCompleter(['use keypair'])
         }
 
         self.initializeGrammar()
@@ -847,7 +847,7 @@ Commands:
             return True
 
     def _newKeypairAction(self, matchedVars):
-        if matchedVars.get('new_keypair') == 'new_keypair':
+        if matchedVars.get('new_keypair') == 'new keypair':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
             self.defaultClient.wallet.addSigner(signer, alias)
@@ -877,7 +877,7 @@ Commands:
             return True
 
     def _useKeypairAction(self, matchedVars):
-        if matchedVars.get('use_keypair') == 'use_keypair':
+        if matchedVars.get('use_keypair') == 'use keypair':
             keypair = matchedVars.get('keypair')
             wallet = self.defaultClient.wallet
             if wallet.signers.get(keypair):

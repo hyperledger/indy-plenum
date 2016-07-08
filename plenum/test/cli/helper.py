@@ -183,7 +183,7 @@ def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
 
 
 def newKeyPair(cli: TestCli, alias: str=None):
-    cmd = "new_keypair {}".format(alias) if alias else "new_keypair"
+    cmd = "new keypair {}".format(alias) if alias else "new keypair"
     assertIncremented(lambda: cli.enterCmd(cmd),
                       cli.defaultClient.signers)
     pubKeyMsg = cli.lastMsg()
