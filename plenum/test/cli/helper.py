@@ -184,12 +184,12 @@ def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
 
 def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new keypair {}".format(alias) if alias else "new keypair"
-    # TODO Handle signer and signers transparently
-    # assertIncremented(lambda: cli.enterCmd(cmd),
-    #                   cli.defaultClient.signers)
-    cli.enterCmd(cmd)
-    assertIncremented(lambda: cli.enterCmd(cmd),
-                      cli.defaultClient.signers)
+    if cli.defaultClient:
+        assertIncremented(lambda: cli.enterCmd(cmd),
+                          cli.defaultClient.signers)
+    else:  # In case "new keypair" is called the first time
+        cli.enterCmd(cmd)
+        assert len(cli.defaultClient.signers) == 1
     pubKeyMsg = cli.lastMsg()
     # public key is printed
     assert pubKeyMsg.startswith('Public key')
@@ -201,7 +201,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
 
 def assertIncremented(f, var):
-    before = len(var)
+    before = len(var) if var else 0
     f()
     after = len(var)
     assert after - before == 1

@@ -824,13 +824,14 @@ Commands:
         if matchedVars.get('new_keypair') == 'new keypair':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
-            # TODO remove the comments.
-            # This will not work. Maybe no defaultClient is required to add
-            # a new keypair.
-            # The other option is to add the default client using a steward.
-            # Another option is to add a newClient in sovrin/TestCli
+            # TODO This is a hack to avoid adding the defaultClient's default
+            # signer to sovrin. Reconsider this decision.
             if not self.defaultClient:
                 self.createDefaultClient(signer=signer)
+                if alias:
+                    self.defaultClient.wallet.aliases[alias] = signer.identifier
+            else:
+                self.defaultClient.wallet.addSigner(signer, alias)
             privateKeyPath = os.path.join(
                 self.basedirpath, "data", "clients", self.defaultClient.name)
             publicKey = signer.verstr
