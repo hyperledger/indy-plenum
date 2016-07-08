@@ -176,10 +176,10 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_keypair': WordCompleter(['new keypair']),
-            'list_ids': WordCompleter(['list ids']),
+            'new_keypair': WordCompleter(['keypair']),
+            'list_ids': WordCompleter(['ids']),
             'become': WordCompleter(['become']),
-            'use_keypair': WordCompleter(['use keypair'])
+            'use_keypair': WordCompleter(['keypair'])
         }
 
         self.initializeGrammar()
@@ -844,7 +844,7 @@ Commands:
         self.defaultClient = self.newClient(name, signer=signer)
 
     def _listIdsAction(self, matchedVars):
-        if matchedVars.get('list_ids') == 'list':
+        if matchedVars.get('list_ids') == 'list ids':
             ids = [s for s in
                    self.defaultClient.wallet.listIds()]
             self.print('\n'.join(ids))
