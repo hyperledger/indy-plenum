@@ -1,17 +1,21 @@
+import pytest
 from prompt_toolkit.contrib.regular_languages.compiler import compile
-
 from plenum.cli.cli_helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 
 
-def test_command_reg_ex(cmd):
+@pytest.fixture("module")
+def grammar():
     utilGrams = getUtilGrams()
     nodeGrams = getNodeGrams()
     clientGrams = getClientGrams()
     grams = getAllGrams(utilGrams, nodeGrams, clientGrams)
-    grammar = compile("".join(grams))
-    res = grammar.match(cmd)
-    assert res
+    return compile("".join(grams))
 
 
-def test_new_keypair_command_reg_ex():
-    test_command_reg_ex("new keypair")
+@pytest.fixture("module")
+def checkIfMatched(grammar, cmd):
+    assert grammar.match(cmd)
+
+
+def test_new_keypair_command_reg_ex(grammar):
+    checkIfMatched(grammar, "new keypair")
