@@ -219,7 +219,8 @@ class TestClient(Client, StackedTester):
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput])
+                  Monitor.sendThroughput,
+                  Monitor.sendTotalRequestCount])
 class TestMonitor(Monitor):
     pass
 

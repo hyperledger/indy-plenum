@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime
+from functools import partial
 from statistics import mean
 from typing import Dict
 from typing import List
@@ -8,6 +9,8 @@ from typing import Tuple
 
 import jsonpickle
 from firebase import firebase
+from firebase.async import get_process_pool
+from firebase.lazy import LazyLoadProxy
 
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
@@ -16,6 +19,13 @@ from plenum.server.instances import Instances
 
 logger = getlogger()
 config = getConfig()
+
+# Temporary fix for letting firebase create only 1 extra process
+# TODO: This needs to be some kind of configuration option
+firebase.process_pool.terminate()
+from firebase import async
+async._process_pool = None
+firebase.process_pool = LazyLoadProxy(partial(get_process_pool, 1))
 
 
 class Monitor(HasActionQueue):
@@ -429,21 +439,14 @@ class Monitor(HasActionQueue):
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
             metrics["nodeName"] = self.name
-            # Question? Cant these 2 requests be combined into one?
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                            callback=lambda response: None,
                                            params={'print': 'silent'},
                                            headers={'Connection': 'keep-alive'},
                                            )
-
-            # send total request to different metric
-            self.firebaseClient.put_async(url="/totalTransactions",
-                                          name="totalTransactions",
-                                          data=self.totalRequests,
-                                          callback=lambda response: None,
-                                          params={'print': 'silent'},
-                                          headers={'Connection': 'keep-alive'},
-                                          )
+            if self.hasMasterPrimary:
+                # send total request to different metric
+                self.sendTotalRequestCount()
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
@@ -472,6 +475,16 @@ class Monitor(HasActionQueue):
                                           params={'print': 'silent'},
                                           headers={'Connection': 'keep-alive'},
                                           )
+
+    def sendTotalRequestCount(self):
+        self.firebaseClient.put_async(url="/totalTransactions",
+                                      name="totalTransactions",
+                                      data=self.totalRequests,
+                                      callback=lambda response: None,
+                                      params={'print': 'silent'},
+                                      headers={
+                                          'Connection': 'keep-alive'},
+                                      )
 
     @staticmethod
     def mean(data):

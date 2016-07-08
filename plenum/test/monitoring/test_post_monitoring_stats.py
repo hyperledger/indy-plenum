@@ -29,10 +29,14 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
 
     sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount, nodeSet.f,
                                         timeout=20)
+
     for node in nodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
         assert node.monitor.totalRequests == reqCount
+        count = node.monitor.spylog.count(Monitor.sendThroughput.__name__)
+        if count > 0:
+            assert node.monitor.hasMasterPrimary
 
     looper.runFor(config.DashboardUpdateFreq)
 

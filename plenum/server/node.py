@@ -1394,6 +1394,10 @@ class Node(HasActionQueue, Motor,
         """
         return (2 * self.f) + 1
 
+    def primaryFound(self):
+        # If the node has primary replica of master instance
+        self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+
     def canViewChange(self, proposedViewNo: int) -> bool:
         """
         Return whether there's quorum for view change for the proposed view
