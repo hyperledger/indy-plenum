@@ -10,12 +10,8 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 
-from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX, NODE_OR_CLI, \
-    UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX, NODE_CMDS, \
-    NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX, CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX, \
-    CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX, CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX, CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX, \
-    CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX, CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX, CLIENT_GRAMS_BECOME_FORMATTED_REG_EX, \
-    CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX, UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX, NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX
+from plenum.cli.cli_helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
+from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 
 if is_windows():
@@ -132,30 +128,13 @@ class Cli:
         client Joe show 1
         '''
 
+        self.utilGrams = getUtilGrams()
+
+        self.nodeGrams = getNodeGrams()
+
+        self.clientGrams = getClientGrams()
+
         psep = re.escape(os.path.sep)
-
-        self.utilGrams = [
-            UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX,
-            UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX,
-            UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX,
-            UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX
-        ]
-
-        self.nodeGrams = [
-            NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX,
-            NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX,
-        ]
-
-        self.clientGrams = [
-            CLIENT_GRAMS_CLIENT_COMMAND_FORMATTED_REG_EX,
-            CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX,
-            CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX,
-            CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX,
-            CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX,
-            CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX,
-            CLIENT_GRAMS_BECOME_FORMATTED_REG_EX,
-            CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
-        ]
 
         self.lexers = {
             'node_command': SimpleLexer(Token.Keyword),
@@ -274,10 +253,7 @@ class Cli:
         return '(' + '|'.join(seq) + ')'
 
     def initializeGrammar(self):
-        # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
-        self.utilGrams[-1] += " |"
-        self.nodeGrams[-1] += " |"
-        self.grams = self.utilGrams + self.nodeGrams + self.clientGrams
+        self.grams = getAllGrams(self.utilGrams, self.nodeGrams, self.clientGrams)
         self.grammar = compile("".join(self.grams))
 
     def initializeGrammarLexer(self):
