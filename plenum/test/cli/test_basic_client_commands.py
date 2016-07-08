@@ -10,9 +10,9 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     """
     cName = "Joe"
 
-    def checkClientNotAddedWithNodeName(curClientCount, name):
+    def checkClientNotAddedWithNodeName(name):
         # Count of cli.clients should still be 1
-        assert len(cli.clients) == curClientCount
+        assert len(cli.clients) == 1
         # nm should not be in cli.client
         assert name not in cli.clients
 
@@ -21,11 +21,10 @@ def testClientNames(cli, validNodeNames, createAllNodes):
         assert msg == "Client name cannot start with node names, which are {}." \
                       "".format(', '.join(validNodeNames))
 
-    cliCountBefore = len(cli.clients)
+
     cli.enterCmd("new client {}".format(cName))
     # Count of cli.clients should be 1
-    curClientCount = len(cli.clients)
-    assert curClientCount == cliCountBefore + 1
+    assert len(cli.clients) ==1
     # Client name should be in cli.client
     assert cName in cli.clients
 
@@ -36,15 +35,15 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     for i, nm in enumerate(validNodeNames):
         # Adding client with name same as that of a node
         cli.enterCmd("new client {}".format(nm))
-        checkClientNotAddedWithNodeName(curClientCount, nm)
+        checkClientNotAddedWithNodeName(nm)
 
         # Adding client with name prefixed with that of a node
         cli.enterCmd("new client {}{}".format(nm, randomString(3)))
-        checkClientNotAddedWithNodeName(curClientCount, nm)
+        checkClientNotAddedWithNodeName(nm)
 
     cli.enterCmd("new client {}".format(cName))
     # Count of cli.clients should be 1
-    assert len(cli.clients) == curClientCount
+    assert len(cli.clients) == 1
     # Client name should be in cli.client
     assert cName in cli.clients
 
