@@ -1022,6 +1022,8 @@ class Node(HasActionQueue, Motor,
                      getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         txns = ledger.getAllTxn(start, end)
+        logger.debug("{} generating consistency proof: {} from {}".
+                     format(self.name, end, ledger.size))
         consProof = [b64encode(p).decode() for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
         rid = self.nodestack.getRemote(frm).uid
@@ -1391,6 +1393,10 @@ class Node(HasActionQueue, Motor,
         Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
         """
         return (2 * self.f) + 1
+
+    def primaryFound(self):
+        # If the node has primary replica of master instance
+        self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
 
     def canViewChange(self, proposedViewNo: int) -> bool:
         """

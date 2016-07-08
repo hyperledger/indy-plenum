@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime
+from functools import partial
 from statistics import mean
 from typing import Dict
 from typing import List
@@ -8,6 +9,8 @@ from typing import Tuple
 
 import jsonpickle
 from firebase import firebase
+from firebase.async import get_process_pool
+from firebase.lazy import LazyLoadProxy
 
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
@@ -16,6 +19,13 @@ from plenum.server.instances import Instances
 
 logger = getlogger()
 config = getConfig()
+
+# Temporary fix for letting firebase create only 1 extra process
+# TODO: This needs to be some kind of configuration option
+firebase.process_pool.terminate()
+from firebase import async
+async._process_pool = None
+firebase.process_pool = LazyLoadProxy(partial(get_process_pool, 1))
 
 
 class Monitor(HasActionQueue):
@@ -59,24 +69,38 @@ class Monitor(HasActionQueue):
         # `i`th protocol instance
         self.clientAvgReqLatencies = []  # type: List[Dict[str, Tuple[int, float]]]
 
+        # TODO: Set this if this monitor belongs to a node which has primary
+        # of master. Will be used to set `totalRequests`
+        self.hasMasterPrimary = None
+
         # Total requests that have been ordered since the node started
         self.totalRequests = 0
 
         self.started = datetime.utcnow().isoformat()
 
-        if config.SendMonitorStats:
-            self.firebaseClient = firebase.FirebaseApplication(
-                "https://plenumstats.firebaseio.com/", None)
-
-        # Times of requests ordered requests by master in last
-        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is defined in config
+        # Times of requests ordered by master in last
+        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is
+        # defined in config
         self.orderedRequestsInLast = []
+
+        # Times and latencies (as a tuple) of requests ordered by master in last
+        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
+        # defined in config
+        self.latenciesByMasterInLast = []
+
+        # Times and latencies (as a tuple) of requests ordered by backups in last
+        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
+        # defined in config. Dictionary where key corresponds to instance id and
+        #  value is a tuple of ordering time and latency of a request
+        self.latenciesByBackupsInLast = {}
 
         self.totalViewChanges = 0
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
+
+        self._firebaseClient = None
         if config.SendMonitorStats:
-            self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
+            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     def __repr__(self):
         return self.name
@@ -152,6 +176,12 @@ class Monitor(HasActionQueue):
         if byMaster:
             self.masterReqLatencies[(identifier, reqId)] = duration
             self.orderedRequestsInLast.append(now)
+            self.latenciesByMasterInLast.append((now, duration))
+        else:
+            if instId not in self.latenciesByBackupsInLast:
+                self.latenciesByBackupsInLast[instId] = []
+            self.latenciesByBackupsInLast[instId].append((now, duration))
+
         if identifier not in self.clientAvgReqLatencies[instId]:
             self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
         totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
@@ -161,7 +191,8 @@ class Monitor(HasActionQueue):
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
 
-        # numReqs = {r[0] for r in self.numOrderedRequests}
+        # TODO: Inefficient, as on every request a minimum of a large list is
+        # calculated
         if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
             self.totalRequests += 1
             self.postMonitorData()
@@ -329,28 +360,75 @@ class Monitor(HasActionQueue):
         return avgLatencies
 
     @property
+    def firebaseClient(self):
+        if self._firebaseClient:
+            return self._firebaseClient
+        else:
+            self._firebaseClient = firebase.FirebaseApplication(
+                "https://plenumstats.firebaseio.com/", None)
+            return self._firebaseClient
+
+    def sendPeriodicStats(self):
+        # TODO: Can the http calls to these 2 methods be combined into one?
+        self.sendThroughput()
+        self.sendLatencies()
+        self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    @property
     def highResThroughput(self):
+        now = time.perf_counter()
+        while self.orderedRequestsInLast and \
+                        (now - self.orderedRequestsInLast[0]) > \
+                        config.ThroughputWindowSize:
+            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
+
         return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
 
     def sendThroughput(self):
         logger.debug("{} sending throughput".format(self))
-        now = time.perf_counter()
-        while self.orderedRequestsInLast and \
-                (now - self.orderedRequestsInLast[0]) > \
-                config.ThroughputWindowSize:
-            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
         throughput = self.highResThroughput
         mtrStats = {
             "throughput": throughput,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "nodeName": self.name
         }
         self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
                                        callback=lambda response: None,
                                        params={'print': 'silent'},
                                        headers={'Connection': 'keep-alive'},
                                        )
-        self._schedule(self.sendThroughput, config.DashboardUpdateFreq)
+
+    @property
+    def masterLatency(self):
+        now = time.perf_counter()
+        while self.latenciesByMasterInLast and \
+                        (now - self.latenciesByMasterInLast[0][0]) > \
+                        config.LatencyWindowSize:
+            self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
+        return (sum(l[1] for l in self.latenciesByMasterInLast) /
+            len(self.latenciesByMasterInLast)) if \
+            len(self.latenciesByMasterInLast) > 0 else 0
+
+    @property
+    def avgBackupLatency(self):
+        now = time.perf_counter()
+        backupLatencies = []
+        for instId, latencies in self.latenciesByBackupsInLast.items():
+            while latencies and \
+                            (now - latencies[0][0]) > \
+                            config.LatencyWindowSize:
+                latencies = latencies[1:]
+            backupLatencies.append(
+                (sum(l[1] for l in latencies) / len(latencies)) if
+                len(latencies) > 0 else 0)
+            self.latenciesByBackupsInLast[instId] = latencies
+
+        return self.mean(backupLatencies)
+
+    def sendLatencies(self):
+        logger.debug("{} sending latencies".format(self))
+        # TODO: Send the latencies, self.masterLatency and self.avgBackupLatency
 
     def postMonitorData(self):
         if config.SendMonitorStats:
@@ -360,27 +438,31 @@ class Monitor(HasActionQueue):
 
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
             metrics["created_at"] = datetime.utcnow().isoformat()
+            metrics["nodeName"] = self.name
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                            callback=lambda response: None,
                                            params={'print': 'silent'},
                                            headers={'Connection': 'keep-alive'},
                                            )
-            # send total request to different metric
-            self.firebaseClient.put_async(url="/totalTransactions",
-                                          name="totalTransactions",
-                                          data=self.totalRequests,
-                                          callback=lambda response: None,
-                                          params={'print': 'silent'},
-                                          headers={'Connection': 'keep-alive'},
-                                          )
+            if self.hasMasterPrimary:
+                # send total request to different metric
+                self.sendTotalRequestCount()
 
     def postStartData(self, startedAt):
         if config.SendMonitorStats:
+            # TODO: Use this time to determine how the node's relative time to
+            # the presentation medium, eg a web browser
+            currentUtcTime = datetime.utcnow().isoformat()
+
+            #TODO: Also send LatencyWindowSize and LatencyGraphDuration
+            # defined in config
             throughputConfig = {
                 "throughputWindowSize": config.ThroughputWindowSize,
                 "updateFrequency": config.DashboardUpdateFreq,
                 "graphDuration": config.ThroughputGraphDuration
             }
+
+            # Question? Cant these 2 requests be combined into one?
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
                                           data=startedAt,
                                           callback=lambda response: None,
@@ -393,6 +475,16 @@ class Monitor(HasActionQueue):
                                           params={'print': 'silent'},
                                           headers={'Connection': 'keep-alive'},
                                           )
+
+    def sendTotalRequestCount(self):
+        self.firebaseClient.put_async(url="/totalTransactions",
+                                      name="totalTransactions",
+                                      data=self.totalRequests,
+                                      callback=lambda response: None,
+                                      params={'print': 'silent'},
+                                      headers={
+                                          'Connection': 'keep-alive'},
+                                      )
 
     @staticmethod
     def mean(data):
