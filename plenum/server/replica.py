@@ -451,12 +451,15 @@ class Replica(MessageProcessor):
         :param pp: a prePrepareRequest
         :param sender: name of the node that sent this message
         """
-        logger.debug("{} Receiving PRE-PREPARE {} at {}".
-                     format(self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
+        key = (pp.viewNo, pp.ppSeqNo)
+        logger.debug("{} Receiving PRE-PREPARE {} at {} from {}".
+                     format(self, key, time.perf_counter(), sender))
         if self.canProcessPrePrepare(pp, sender):
             if not self.node.isParticipating:
-                self.stashingWhileCatchingUp.add((pp.viewNo, pp.ppSeqNo))
+                self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
+            logger.warning("{} processed incoming PRE-PREPARE {}".
+                           format(self, key))
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -477,10 +480,14 @@ class Replica(MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
+        logger.debug("{} received PREPARE {} from {}".
+                     format(self, prepare, sender))
         try:
             if self.isValidPrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
+                logger.warning("{} processed incoming PREPARE {}".
+                               format(self, (prepare.viewNo, prepare.ppSeqNo)))
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
@@ -497,11 +504,13 @@ class Replica(MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
-        logger.debug("{} received commit {} from {}".
+        logger.debug("{} received COMMIT {} from {}".
                      format(self, commit, sender))
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
+            logger.warning("{} processed incoming COMMIT {}".
+                           format(self, (commit.viewNo, commit.ppSeqNo)))
 
     def tryCommit(self, prepare: Prepare):
         """
@@ -838,6 +847,8 @@ class Replica(MessageProcessor):
             prepare, _ = self.preparesWaitingForPrePrepare[key][0]
             return prepare.digest
         else:
+            logger.debug("{} could not find digest for PRE-PREPARE {}"
+                         .format(self, key))
             return None
 
     def send(self, msg, stat) -> None:

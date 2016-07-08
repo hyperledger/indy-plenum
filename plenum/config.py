@@ -53,4 +53,5 @@ SendMonitorStats = True
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
-
+LatencyWindowSize = 30
+LatencyGraphDuration = 240

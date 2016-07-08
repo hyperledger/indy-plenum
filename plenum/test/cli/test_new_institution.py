@@ -31,6 +31,7 @@ def new_keypair(BYUCli):
     return BYUPubKey
 
 
+@pytest.mark.skipif(True, reason="Not implemented")
 def testNewKeypair(new_keypair):
     pass
 
@@ -48,6 +49,7 @@ def newInstitution(new_keypair, philCli):
     # TODO verify valid responses for above commands
 
 
+@pytest.mark.skipif(True, reason="Not implemented")
 def testNewInstitution(newInstitution):
     pass
 
@@ -74,6 +76,7 @@ def tylerKeypairForBYU(tylerCli):
     return TylerPubKey
 
 
+@pytest.mark.skipif(True, reason="Not implemented")
 def testAnonCredsCLI(createAllNodes, cli, new_keypair, new_steward,
                      createCredDef,
                      tylerKeypairForBYU):

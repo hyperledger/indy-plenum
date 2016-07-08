@@ -1022,6 +1022,8 @@ class Node(HasActionQueue, Motor,
                      getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         txns = ledger.getAllTxn(start, end)
+        logger.debug("{} generating consistency proof: {} from {}".
+                     format(self.name, end, ledger.size))
         consProof = [b64encode(p).decode() for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
         rid = self.nodestack.getRemote(frm).uid
