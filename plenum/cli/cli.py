@@ -84,7 +84,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        self.cleanUp()
+        # self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeReg = nodeReg
@@ -890,8 +890,9 @@ Commands:
                 self._becomeAction, self._useKeypairAction]
 
     def parse(self, cmdText):
+        cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
-        if m:
+        if m and len(m.variables()._tuples):
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
                              extra={"cli": False})

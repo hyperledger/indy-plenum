@@ -29,7 +29,7 @@ class TrackedMsgs(dict):
             self[key] = self.newVoteMsg(msg)
         self[key].voters.add(voter)
 
-    def hasMsg(self, msg):
+    def hasMsg(self, msg) -> bool:
         key = self.getKey(msg)
         return key in self
 
@@ -37,7 +37,7 @@ class TrackedMsgs(dict):
         key = self.getKey(msg)
         return key in self and voter in self[key].voters
 
-    def hasEnoughVotes(self, msg, count):
+    def hasEnoughVotes(self, msg, count) -> bool:
         key = self.getKey(msg)
         return self.hasMsg(msg) and len(self[key].voters) >= count
 

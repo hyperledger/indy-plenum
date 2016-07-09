@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.skipif(True, reason="Not implemented")
 def testNewStewardKeysWithSeeds(cli, validNodeNames, looper, createAllNodes):
     """
     Create a CLI and issue the following command:
@@ -10,6 +14,7 @@ def testNewStewardKeysWithSeeds(cli, validNodeNames, looper, createAllNodes):
     assert False
 
 
+@pytest.mark.skipif(True, reason="Not implemented")
 def testNewStewardKeysWithoutSeeds():
     """
     Create a CLI and issue the following command:
@@ -18,6 +23,7 @@ def testNewStewardKeysWithoutSeeds():
     raise NotImplementedError
 
 
+@pytest.mark.skipif(True, reason="Not implemented")
 def testGeneratedKeypairIsStoredInWallet():
     """
     """

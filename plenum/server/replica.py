@@ -451,12 +451,15 @@ class Replica(MessageProcessor):
         :param pp: a prePrepareRequest
         :param sender: name of the node that sent this message
         """
-        logger.debug("{} Receiving PRE-PREPARE at {}".
-                     format(self, time.perf_counter()))
+        key = (pp.viewNo, pp.ppSeqNo)
+        logger.debug("{} Receiving PRE-PREPARE {} at {} from {}".
+                     format(self, key, time.perf_counter(), sender))
         if self.canProcessPrePrepare(pp, sender):
             if not self.node.isParticipating:
-                self.stashingWhileCatchingUp.add((pp.viewNo, pp.ppSeqNo))
+                self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
+            logger.warning("{} processed incoming PRE-PREPARE {}".
+                           format(self, key))
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -477,10 +480,14 @@ class Replica(MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
+        logger.debug("{} received PREPARE {} from {}".
+                     format(self, prepare, sender))
         try:
             if self.isValidPrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
+                logger.warning("{} processed incoming PREPARE {}".
+                               format(self, (prepare.viewNo, prepare.ppSeqNo)))
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
@@ -497,11 +504,13 @@ class Replica(MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
-        logger.debug("{} received commit {} from {}".
+        logger.debug("{} received COMMIT {} from {}".
                      format(self, commit, sender))
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
+            logger.warning("{} processed incoming COMMIT {}".
+                           format(self, (commit.viewNo, commit.ppSeqNo)))
 
     def tryCommit(self, prepare: Prepare):
         """
@@ -546,8 +555,8 @@ class Replica(MessageProcessor):
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
-        logger.debug("{} Sending PREPARE at {}".
-                     format(self, time.perf_counter()))
+        logger.debug("{} Sending PREPARE {} at {}".
+                     format(self, (pp.viewNo, pp.ppSeqNo), time.perf_counter()))
         prepare = Prepare(self.instId,
                           pp.viewNo,
                           pp.ppSeqNo,
@@ -562,6 +571,8 @@ class Replica(MessageProcessor):
         commit phase
         :param p: the prepare message
         """
+        logger.debug("{} Sending COMMIT {} at {}".
+                     format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
         commit = Commit(self.instId,
                         p.viewNo,
                         p.ppSeqNo,
@@ -570,7 +581,7 @@ class Replica(MessageProcessor):
         self.send(commit, TPCStat.CommitSent)
         self.addToCommits(commit, self.name)
 
-    def canProcessPrePrepare(self, pp: PrePrepare, sender: str):
+    def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:
         """
         Decide whether this replica is eligible to process a PRE-PREPARE,
         based on the following criteria:
@@ -615,10 +626,10 @@ class Replica(MessageProcessor):
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
-    def hasPrepared(self, request):
+    def hasPrepared(self, request) -> bool:
         return self.prepares.hasPrepareFrom(request, self.name)
 
-    def canSendPrepare(self, request) -> None:
+    def canSendPrepare(self, request) -> bool:
         """
         Return whether the request identified by (identifier, requestId) can
         proceed to the Prepare step.
@@ -629,7 +640,7 @@ class Replica(MessageProcessor):
                self.node.requests.canPrepare(request, self.f + 1) and \
                not self.hasPrepared(request)
 
-    def isValidPrepare(self, prepare: Prepare, sender: str):
+    def isValidPrepare(self, prepare: Prepare, sender: str) -> bool:
         """
         Return whether the PREPARE specified is valid.
 
@@ -656,6 +667,7 @@ class Replica(MessageProcessor):
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if key not in ppReqs:
                 self.enqueuePrepare(prepare, sender)
+                return False
             elif prepare.digest != ppReqs[key][0][2]:
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
             elif prepare.ppTime != ppReqs[key][1]:
@@ -683,7 +695,7 @@ class Replica(MessageProcessor):
         self.prepares.addVote(prepare, sender)
         self.tryCommit(prepare)
 
-    def hasCommitted(self, request):
+    def hasCommitted(self, request) -> bool:
         return self.commits.hasCommitFrom(ThreePhaseKey(
             request.viewNo, request.ppSeqNo),
             self.name)
@@ -706,7 +718,7 @@ class Replica(MessageProcessor):
                self.prepares.hasQuorum(prepare, self.f) and \
                not self.hasCommitted(prepare)
 
-    def isValidCommit(self, commit: Commit, sender: str):
+    def isValidCommit(self, commit: Commit, sender: str) -> bool:
         """
         Return whether the COMMIT specified is valid.
 
@@ -740,7 +752,7 @@ class Replica(MessageProcessor):
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
 
-    def hasOrdered(self, request):
+    def hasOrdered(self, request) -> bool:
         return (request.viewNo, request.ppSeqNo) in self.ordered
 
     def canOrder(self, commit: Commit) -> bool:
@@ -768,6 +780,7 @@ class Replica(MessageProcessor):
         :param commit: the COMMIT message
         """
         key = (commit.viewNo, commit.ppSeqNo)
+        logger.debug("{} ordering commit {}".format(self, key))
         primaryStatus = self.isPrimaryForMsg(commit)
 
         if primaryStatus is True:
@@ -778,11 +791,14 @@ class Replica(MessageProcessor):
                 (identifier, reqId, digest), tm = self.prePrepares[key]
             else:
                 digest = self.getDigestFromPrepare(*key)
-                for (cid, rid), dgst \
-                        in self.reqsPendingPrePrepare.items():
+                for (cid, rid), dgst in self.reqsPendingPrePrepare.items():
                     if digest == dgst:
                         identifier, reqId = cid, rid
                         break
+                else:
+                    logger.info("{} cannot find digest {} in "
+                                "reqsPendingPrePrepare for viewNo {} and "
+                                "ppSeqNo {}".format(self, digest, *key))
         else:
             self.discard(commit,
                          "{}'s primary status found None while returning "
@@ -831,6 +847,8 @@ class Replica(MessageProcessor):
             prepare, _ = self.preparesWaitingForPrePrepare[key][0]
             return prepare.digest
         else:
+            logger.debug("{} could not find digest for PRE-PREPARE {}"
+                         .format(self, key))
             return None
 
     def send(self, msg, stat) -> None:

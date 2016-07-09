@@ -2,7 +2,11 @@ from base64 import b64encode, b64decode
 
 from ledger.stores.hash_store import HashStore
 from ledger.util import F
+from plenum.common.util import getlogger
 from plenum.persistence.orientdb_store import OrientDbStore
+
+
+logger = getlogger()
 
 
 class OrientDbHashStore(HashStore):
@@ -49,7 +53,10 @@ class OrientDbHashStore(HashStore):
         resultSet = self.store.client.command(
             "select from {} where seqNo={} limit 1".format(
                 hashClass, pos))
-        return self._fromb64(resultSet[0].oRecordData[attrib])
+        if resultSet:
+            return self._fromb64(resultSet[0].oRecordData[attrib])
+        else:
+            logger.error("{} does not have position {}".format(hashClass, pos))
 
     def readLeafs(self, start, end):
         return self._readMultiple(start, end, self.leafHashClass,
