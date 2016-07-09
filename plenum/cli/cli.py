@@ -653,7 +653,7 @@ Commands:
         else:
             self.print("No such client. See: 'help new' for more details")
 
-    def getReply(self, clientName, reqId):
+    def getReply(self, reply, err, clientName, reqId):
         client = self.clients.get(clientName, None)
         requestID = self.requests.get(reqId, None)
         if client and requestID:
