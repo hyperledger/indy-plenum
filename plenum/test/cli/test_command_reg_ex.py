@@ -1,6 +1,6 @@
 import pytest
 from prompt_toolkit.contrib.regular_languages.compiler import compile
-from plenum.cli.cli_helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 
 
 @pytest.fixture("module")

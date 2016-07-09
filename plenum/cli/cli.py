@@ -10,7 +10,7 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 
-from plenum.cli.cli_helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 
@@ -653,7 +653,7 @@ Commands:
         else:
             self.print("No such client. See: 'help new' for more details")
 
-    def getReply(self, reply, err, clientName, reqId):
+    def getReply(self, clientName, reqId):
         client = self.clients.get(clientName, None)
         requestID = self.requests.get(reqId, None)
         if client and requestID:
