@@ -458,7 +458,7 @@ class Replica(MessageProcessor):
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
-            logger.warning("{} processed incoming PRE-PREPARE {}".
+            logger.info("{} processed incoming PRE-PREPARE {}".
                            format(self, key))
 
     def tryPrepare(self, pp: PrePrepare):
