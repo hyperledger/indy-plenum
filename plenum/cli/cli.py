@@ -246,6 +246,10 @@ class Cli:
 
         self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+        self.print("Current wallet set to {}".format(self.defaultClient.name))
+        alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
+        self.print("Current identifier set to {alias} ({cryptonym})".format(
+            alias=alias, cryptonym=signer.verstr))
 
     @staticmethod
     def relist(seq):
@@ -834,7 +838,7 @@ Commands:
             return True
 
     def createDefaultClient(self):
-        name = 'default'
+        name = 'Default'
         self.defaultClient = self.newClient(name)
 
     def _listIdsAction(self, matchedVars):
@@ -887,6 +891,7 @@ Commands:
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
+        # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
