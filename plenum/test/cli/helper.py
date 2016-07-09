@@ -4,7 +4,7 @@ from pygments.token import Token
 
 import plenum.cli.cli as cli
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, firstValue
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
@@ -197,10 +197,18 @@ def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
     assertIncremented(lambda: checkCmdValid(cli, cmd),
                       cli.defaultClient.signers)
-    pubKeyMsg = cli.lastMsg()
-    # public key is printed
-    assert pubKeyMsg.startswith('Public key')
+    output = set(cli.lastCmdOutput.split("\n"))
+    pubKeyMsg = next(iter(filter(lambda s: "Identifier for key" in s, output)))
     pubKey = lastWord(pubKeyMsg)
+    expected = set("""Current wallet set to Default
+Key created in wallet Default
+Identifier for key is {cryptonym}
+Current identifier set to {cryptonym}
+Note: To rename this wallet, use following command:
+    rename wallet Default to NewName""".\
+                   format(cryptonym=pubKey).split("\n"))
+    assert expected.issubset(output)
+
     # the public key and alias are listed
     cli.enterCmd("list ids")
     assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey

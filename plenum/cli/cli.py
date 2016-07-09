@@ -117,6 +117,8 @@ class Cli:
         self.plugins = {}
         self.defaultClient = None
         self.activeSigner = None
+        # Wallet and Client are the same from user perspective for now
+        self.activeClient = None
         self.keyPairs = {}
         '''
         examples:
@@ -831,17 +833,21 @@ Commands:
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
             self.defaultClient.wallet.addSigner(signer, alias)
-            privateKeyPath = os.path.join(
-                self.basedirpath, "data", "clients", self.defaultClient.name)
-            publicKey = signer.verstr
-            self.print("Private key is stored in path {}".format(privateKeyPath))
-            self.print("Public key is {}".format(publicKey))
+            wallet = self.activeClient.name
+            cryptonym = signer.verstr
+            self.print("Current wallet set to " + wallet)
+            self.print("Key created in wallet " + wallet)
+            self.print("Identifier for key is " + cryptonym)
+            self.print("Current identifier set to " + cryptonym)
+            self.print("Note: To rename this wallet, use following command:")
+            self.print("    rename wallet {} to NewName".format(wallet))
             return True
 
     def createDefaultClient(self):
         isFirstRun = not os.path.exists(self.basedirpath)
         name = 'Default'
         self.defaultClient = self.newClient(name)
+        self.activeClient = self.defaultClient
         if isFirstRun:
             cryptonym = firstValue(self.defaultClient.signers).verstr
             self.print("New wallet {} created".format(name))
@@ -850,7 +856,7 @@ Commands:
             self.print("Identifier for key is " + cryptonym)
             self.print("Current identifier set to " + cryptonym)
             self.print("Note: To rename this wallet, use following command:")
-            self.print("    rename wallet Default to NewName")
+            self.print("    rename wallet {} to NewName".format(name))
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':

@@ -5,7 +5,7 @@ from plenum.common.util import firstValue
 from plenum.test.cli.helper import newCLI
 
 
-def printDefaultClientAndIdentifier(cli):
+def assertPrintsDefaultClientAndIdentifier(cli):
     dc = cli.defaultClient
     verstr = firstValue(dc.signers).verstr
     assert cli.printeds[1]['msg'] == "Current wallet set to {walletName}". \
@@ -31,7 +31,7 @@ def initStatements(cli):
 def testFirstStartup(cli, initStatements):
     messages = printedMessages(cli)
     assert set(initStatements).issubset(messages)
-    printDefaultClientAndIdentifier(cli)
+    assertPrintsDefaultClientAndIdentifier(cli)
 
 
 @pytest.yield_fixture(scope="module")
@@ -51,7 +51,7 @@ def reincarnatedCLI(nodeRegsForCLI, newLooper, tdir, cli):
 def testSubsequentStartup(reincarnatedCLI, initStatements):
     messages = printedMessages(reincarnatedCLI)
     assert not set(initStatements).issubset(messages)
-    printDefaultClientAndIdentifier(reincarnatedCLI)
+    assertPrintsDefaultClientAndIdentifier(reincarnatedCLI)
 
 
 def printedMessages(cli):

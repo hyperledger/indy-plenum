@@ -11,7 +11,7 @@ from plenum.test.helper import genHa
 
 plenum.common.util.loggingConfigured = False
 
-from plenum.test.cli.helper import newCLI, newKeyPair
+from plenum.test.cli.helper import newCLI
 
 
 @pytest.yield_fixture(scope="module")
@@ -61,7 +61,3 @@ def loadOpVerificationPlugin(cli):
     fullPath = os.path.join(curPath, 'plugin', 'plugin1')
     cli.enterCmd("load plugins from {}".format(fullPath))
     cli.looper.runFor(2)
-
-@pytest.fixture(scope="module")
-def newKeyPairCreated(cli):
-    return newKeyPair(cli)

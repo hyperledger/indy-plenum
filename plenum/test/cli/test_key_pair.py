@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.util import firstValue
 from plenum.test.cli.helper import newKeyPair
 
 
@@ -9,13 +10,6 @@ def pubKey(cli):
 
 
 def testKeyPair(cli, pubKey):
-    # output = cli.lastCmdOutput
-    # TODO check the output
-    """
-    Key created in wallet Joseph
-    Identifier for key is <cryptonym>
-    Current identifier set to <cryptonym>
-    """
     pass
 
 
