@@ -152,7 +152,7 @@ class Cli:
             'verkey': SimpleLexer(Token.Literal),
             'for_client': SimpleLexer(Token.Keyword),
             'identifier': SimpleLexer(Token.Name),
-            'new_keypair': SimpleLexer(Token.Keyword),
+            'new_key': SimpleLexer(Token.Keyword),
             'list_ids': SimpleLexer(Token.Keyword),
             'become': SimpleLexer(Token.Keyword),
             'use_keypair': SimpleLexer(Token.Keyword)
@@ -176,7 +176,7 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_keypair': WordCompleter(['keypair']),
+            'new_key': WordCompleter(['key']),
             'list_ids': WordCompleter(['ids']),
             'become': WordCompleter(['become']),
             'use_keypair': WordCompleter(['keypair'])
@@ -230,6 +230,7 @@ class Cli:
             application=app,
             eventloop=eventloop,
             output=out)
+        self.createDefaultClient()
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
@@ -820,18 +821,11 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _newKeypairAction(self, matchedVars):
-        if matchedVars.get('new_keypair') == 'new keypair':
+    def _newKeyAction(self, matchedVars):
+        if matchedVars.get('new_key') == 'new key':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
-            # TODO This is a hack to avoid adding the defaultClient's default
-            # signer to sovrin. Reconsider this decision.
-            if not self.defaultClient:
-                self.createDefaultClient(signer=signer)
-                if alias:
-                    self.defaultClient.wallet.aliases[alias] = signer.identifier
-            else:
-                self.defaultClient.wallet.addSigner(signer, alias)
+            self.defaultClient.wallet.addSigner(signer, alias)
             privateKeyPath = os.path.join(
                 self.basedirpath, "data", "clients", self.defaultClient.name)
             publicKey = signer.verstr
@@ -839,14 +833,15 @@ Commands:
             self.print("Public key is {}".format(publicKey))
             return True
 
-    def createDefaultClient(self, signer):
-        name = 'default'+randomString(size=4)
-        self.defaultClient = self.newClient(name, signer=signer)
+    def createDefaultClient(self):
+        name = 'default'
+        self.defaultClient = self.newClient(name)
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
+            default = self.defaultClient.name
             ids = [s for s in
-                   self.defaultClient.wallet.listIds()]
+                   self.defaultClient.wallet.listIds(exclude=[default])]
             self.print('\n'.join(ids))
             return True
 
@@ -886,7 +881,7 @@ Commands:
                 self._statusNodeAction, self._statusClientAction,
                 self._keyShareAction, self._loadPluginDirAction,
                 self._clientCommand, self._loadPluginAction, self._addKeyAction,
-                self._newKeypairAction, self._listIdsAction,
+                self._newKeyAction, self._listIdsAction,
                 self._becomeAction, self._useKeypairAction]
 
     def parse(self, cmdText):

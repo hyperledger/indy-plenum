@@ -35,7 +35,13 @@ class TestCliCore:
     def printedTokens(self):
         return getAllArgs(self, TestCli.printTokens)
 
+    @property
+    def lastCmdOutput(self):
+        return '\n'.join([x['msg'] for x in
+                          list(reversed(self.printeds))[self.lastPrintIndex::]])
+
     def enterCmd(self, cmd: str):
+        self.lastPrintIndex = len(self.printeds)
         self.parse(cmd)
 
     def lastMsg(self):
@@ -170,26 +176,27 @@ def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient):
     mockOutput = MockOutput()
-    Cli = cliClass(looper=looper,
-                  basedirpath=tdir,
-                  nodeReg=nodeRegsForCLI.nodeReg,
-                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
-                  output=mockOutput,
-                  debug=True)
-    Cli.NodeClass = nodeClass
-    Cli.ClientClass = clientClass
-    Cli.basedirpath = tdir
-    return Cli
+    newcli = cliClass(looper=looper,
+                      basedirpath=tdir,
+                      nodeReg=nodeRegsForCLI.nodeReg,
+                      cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                      output=mockOutput,
+                      debug=True)
+    newcli.NodeClass = nodeClass
+    newcli.ClientClass = clientClass
+    newcli.basedirpath = tdir
+    return newcli
+
+
+def checkCmdValid(cli, cmd):
+    cli.enterCmd(cmd)
+    assert 'Invalid command' not in cli.lastCmdOutput
 
 
 def newKeyPair(cli: TestCli, alias: str=None):
-    cmd = "new keypair {}".format(alias) if alias else "new keypair"
-    if cli.defaultClient:
-        assertIncremented(lambda: cli.enterCmd(cmd),
-                          cli.defaultClient.signers)
-    else:  # In case "new keypair" is called the first time
-        cli.enterCmd(cmd)
-        assert len(cli.defaultClient.signers) == 1
+    cmd = "new key {}".format(alias) if alias else "new key"
+    assertIncremented(lambda: checkCmdValid(cli, cmd),
+                      cli.defaultClient.signers)
     pubKeyMsg = cli.lastMsg()
     # public key is printed
     assert pubKeyMsg.startswith('Public key')
@@ -201,7 +208,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
 
 def assertIncremented(f, var):
-    before = len(var) if var else 0
+    before = len(var)
     f()
     after = len(var)
     assert after - before == 1

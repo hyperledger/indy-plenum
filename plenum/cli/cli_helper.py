@@ -14,11 +14,13 @@ def getUtilGrams():
         UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX
     ]
 
+
 def getNodeGrams():
     return [
         NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX,
         NODE_GRAMS_LOAD_PLUGINS_FORMATTED_REG_EX,
     ]
+
 
 def getClientGrams():
     return [
@@ -31,6 +33,7 @@ def getClientGrams():
         CLIENT_GRAMS_BECOME_FORMATTED_REG_EX,
         CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
     ]
+
 
 def getAllGrams(utilGrams, nodeGrams, clientGrams):
     # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined

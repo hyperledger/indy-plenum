@@ -18,7 +18,8 @@ def checkIfMatched(grammar, cmd):
 
 
 def test_new_keypair_command_reg_ex(grammar):
-    checkIfMatched(grammar, "new keypair")
+    checkIfMatched(grammar, "new key test")
+
 
 def test_new_list_ids_reg_ex(grammar):
     checkIfMatched(grammar, "list ids")
