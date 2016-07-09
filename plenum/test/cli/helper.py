@@ -127,6 +127,11 @@ def checkNodeStarted(cli, nodeName):
     cli.looper.run(eventually(chk, retryWait=1, timeout=2))
 
 
+def checkAllNodesStarted(cli, *nodeNames):
+    for name in nodeNames:
+        checkNodeStarted(cli, name)
+
+
 def checkClientConnected(cli, nodeNames, clientName):
     printedMsgs = set()
     expectedMsgs = {'{} now connected to {}C'.format(clientName, nodeName)

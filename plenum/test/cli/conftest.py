@@ -21,7 +21,12 @@ def looper():
 
 
 @pytest.fixture("module")
-def nodeRegsForCLI():
+def nodeNames():
+    return ['Alpha', 'Beta', 'Gamma', 'Delta']
+
+
+@pytest.fixture("module")
+def nodeRegsForCLI(nodeNames):
     nodeNames = ['Alpha', 'Beta', 'Gamma', 'Delta']
     has = [genHa(2) for _ in nodeNames]
     nodeNamesC = [n + 'C' for n in nodeNames]
