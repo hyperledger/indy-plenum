@@ -162,8 +162,10 @@ class Client(Motor):
         Create one SimpleSigner and add it to signers
         against the client's name.
         """
-        signers = {self.name: SimpleSigner(self.name)}
+        signer = SimpleSigner(self.name)
+        signers = {self.name: signer}
         self.defaultIdentifier = self.name
+        self.wallet.aliases[self.defaultIdentifier] = signer
         return signers
 
     def start(self, loop):

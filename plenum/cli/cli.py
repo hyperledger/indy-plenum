@@ -47,7 +47,8 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString
+    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString, \
+    firstValue
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -116,6 +117,8 @@ class Cli:
         self.plugins = {}
         self.defaultClient = None
         self.activeSigner = None
+        # Wallet and Client are the same from user perspective for now
+        self.activeClient = None
         self.keyPairs = {}
         '''
         examples:
@@ -152,7 +155,7 @@ class Cli:
             'verkey': SimpleLexer(Token.Literal),
             'for_client': SimpleLexer(Token.Keyword),
             'identifier': SimpleLexer(Token.Name),
-            'new_keypair': SimpleLexer(Token.Keyword),
+            'new_key': SimpleLexer(Token.Keyword),
             'list_ids': SimpleLexer(Token.Keyword),
             'become': SimpleLexer(Token.Keyword),
             'use_keypair': SimpleLexer(Token.Keyword)
@@ -176,7 +179,7 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_keypair': WordCompleter(['keypair']),
+            'new_key': WordCompleter(['key']),
             'list_ids': WordCompleter(['ids']),
             'become': WordCompleter(['become']),
             'use_keypair': WordCompleter(['keypair'])
@@ -230,6 +233,7 @@ class Cli:
             application=app,
             eventloop=eventloop,
             output=out)
+        self.createDefaultClient()
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
@@ -245,6 +249,10 @@ class Cli:
 
         self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+        self.print("Current wallet set to {}".format(self.defaultClient.name))
+        alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
+        self.print("Current identifier set to {alias} ({cryptonym})".format(
+            alias=alias, cryptonym=signer.verstr))
 
     @staticmethod
     def relist(seq):
@@ -820,33 +828,41 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _newKeypairAction(self, matchedVars):
-        if matchedVars.get('new_keypair') == 'new keypair':
+    def _newKeyAction(self, matchedVars):
+        if matchedVars.get('new_key') == 'new key':
             alias = matchedVars.get('alias')
             signer = SimpleSigner()
-            # TODO This is a hack to avoid adding the defaultClient's default
-            # signer to sovrin. Reconsider this decision.
-            if not self.defaultClient:
-                self.createDefaultClient(signer=signer)
-                if alias:
-                    self.defaultClient.wallet.aliases[alias] = signer.identifier
-            else:
-                self.defaultClient.wallet.addSigner(signer, alias)
-            privateKeyPath = os.path.join(
-                self.basedirpath, "data", "clients", self.defaultClient.name)
-            publicKey = signer.verstr
-            self.print("Private key is stored in path {}".format(privateKeyPath))
-            self.print("Public key is {}".format(publicKey))
+            self.defaultClient.wallet.addSigner(signer, alias)
+            wallet = self.activeClient.name
+            cryptonym = signer.verstr
+            self.print("Current wallet set to " + wallet)
+            self.print("Key created in wallet " + wallet)
+            self.print("Identifier for key is " + cryptonym)
+            self.print("Current identifier set to " + cryptonym)
+            self.print("Note: To rename this wallet, use following command:")
+            self.print("    rename wallet {} to NewName".format(wallet))
             return True
 
-    def createDefaultClient(self, signer):
-        name = 'default'+randomString(size=4)
-        self.defaultClient = self.newClient(name, signer=signer)
+    def createDefaultClient(self):
+        isFirstRun = not os.path.exists(self.basedirpath)
+        name = 'Default'
+        self.defaultClient = self.newClient(name)
+        self.activeClient = self.defaultClient
+        if isFirstRun:
+            cryptonym = firstValue(self.defaultClient.signers).verstr
+            self.print("New wallet {} created".format(name))
+            self.print("Current wallet set to " + name)
+            self.print("Key created in wallet " + name)
+            self.print("Identifier for key is " + cryptonym)
+            self.print("Current identifier set to " + cryptonym)
+            self.print("Note: To rename this wallet, use following command:")
+            self.print("    rename wallet {} to NewName".format(name))
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
+            default = self.defaultClient.name
             ids = [s for s in
-                   self.defaultClient.wallet.listIds()]
+                   self.defaultClient.wallet.listIds(exclude=[default])]
             self.print('\n'.join(ids))
             return True
 
@@ -886,12 +902,13 @@ Commands:
                 self._statusNodeAction, self._statusClientAction,
                 self._keyShareAction, self._loadPluginDirAction,
                 self._clientCommand, self._loadPluginAction, self._addKeyAction,
-                self._newKeypairAction, self._listIdsAction,
+                self._newKeyAction, self._listIdsAction,
                 self._becomeAction, self._useKeypairAction]
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
+        # noinspection PyProtectedMember
         if m and len(m.variables()._tuples):
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),

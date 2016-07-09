@@ -6,7 +6,7 @@ def relist(seq):
     return '(' + '|'.join(seq) + ')'
 
 
-def getPipedRegEx (cmd):
+def getPipedRegEx(cmd):
     return cmd + "|"
 
 psep = re.escape(os.path.sep)
@@ -32,7 +32,8 @@ CLIENT_GRAMS_CLIENT_SHOW_REG_EX = \
     "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+) \s*) "
 CLIENT_GRAMS_ADD_KEY_REG_EX = \
     "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) "
-CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = "(\s* (?P<new_keypair>new\skeypair) \s* (?P<alias>[a-zA-Z0-9]+)? \s*) "
+CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = \
+    "(\s* (?P<new_key>new\skey) \s* (?P<alias>[a-zA-Z0-9]+)?\s*) "
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) "
 CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_keypair>use\skeypair) \s+ (?P<keypair>[A-Za-z0-9+=/]*) \s*) "

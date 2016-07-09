@@ -4,7 +4,7 @@ from pygments.token import Token
 
 import plenum.cli.cli as cli
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, firstValue
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
@@ -35,7 +35,13 @@ class TestCliCore:
     def printedTokens(self):
         return getAllArgs(self, TestCli.printTokens)
 
+    @property
+    def lastCmdOutput(self):
+        return '\n'.join([x['msg'] for x in
+                          list(reversed(self.printeds))[self.lastPrintIndex::]])
+
     def enterCmd(self, cmd: str):
+        self.lastPrintIndex = len(self.printeds)
         self.parse(cmd)
 
     def lastMsg(self):
@@ -170,38 +176,47 @@ def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient):
     mockOutput = MockOutput()
-    Cli = cliClass(looper=looper,
-                  basedirpath=tdir,
-                  nodeReg=nodeRegsForCLI.nodeReg,
-                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
-                  output=mockOutput,
-                  debug=True)
-    Cli.NodeClass = nodeClass
-    Cli.ClientClass = clientClass
-    Cli.basedirpath = tdir
-    return Cli
+    newcli = cliClass(looper=looper,
+                      basedirpath=tdir,
+                      nodeReg=nodeRegsForCLI.nodeReg,
+                      cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                      output=mockOutput,
+                      debug=True)
+    newcli.NodeClass = nodeClass
+    newcli.ClientClass = clientClass
+    newcli.basedirpath = tdir
+    return newcli
+
+
+def checkCmdValid(cli, cmd):
+    cli.enterCmd(cmd)
+    assert 'Invalid command' not in cli.lastCmdOutput
 
 
 def newKeyPair(cli: TestCli, alias: str=None):
-    cmd = "new keypair {}".format(alias) if alias else "new keypair"
-    if cli.defaultClient:
-        assertIncremented(lambda: cli.enterCmd(cmd),
-                          cli.defaultClient.signers)
-    else:  # In case "new keypair" is called the first time
-        cli.enterCmd(cmd)
-        assert len(cli.defaultClient.signers) == 1
-    pubKeyMsg = cli.lastMsg()
-    # public key is printed
-    assert pubKeyMsg.startswith('Public key')
+    cmd = "new key {}".format(alias) if alias else "new key"
+    assertIncremented(lambda: checkCmdValid(cli, cmd),
+                      cli.defaultClient.signers)
+    output = set(cli.lastCmdOutput.split("\n"))
+    pubKeyMsg = next(iter(filter(lambda s: "Identifier for key" in s, output)))
     pubKey = lastWord(pubKeyMsg)
+    expected = set("""Current wallet set to Default
+Key created in wallet Default
+Identifier for key is {cryptonym}
+Current identifier set to {cryptonym}
+Note: To rename this wallet, use following command:
+    rename wallet Default to NewName""".\
+                   format(cryptonym=pubKey).split("\n"))
+    assert expected.issubset(output)
+
     # the public key and alias are listed
     cli.enterCmd("list ids")
-    assert cli.lastMsg() == alias if alias else pubKey
+    assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     return pubKey
 
 
 def assertIncremented(f, var):
-    before = len(var) if var else 0
+    before = len(var)
     f()
     after = len(var)
     assert after - before == 1

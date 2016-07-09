@@ -515,3 +515,11 @@ def hasKeys(data, keynames):
         if data[key] is None:
             return False
     return True
+
+
+def firstKey(d: Dict):
+    return next(iter(d.keys()))
+
+
+def firstValue(d: Dict):
+    return next(iter(d.values()))

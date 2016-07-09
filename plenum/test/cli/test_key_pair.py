@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.common.util import firstValue
 from plenum.test.cli.helper import newKeyPair
 
 
