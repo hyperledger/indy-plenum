@@ -9,6 +9,13 @@ def pubKey(cli):
 
 
 def testKeyPair(cli, pubKey):
+    # output = cli.lastCmdOutput
+    # TODO check the output
+    """
+    Key created in wallet Joseph
+    Identifier for key is <cryptonym>
+    Current identifier set to <cryptonym>
+    """
     pass
 
 

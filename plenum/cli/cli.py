@@ -47,7 +47,8 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString
+    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString, \
+    firstValue
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -838,8 +839,18 @@ Commands:
             return True
 
     def createDefaultClient(self):
+        isFirstRun = not os.path.exists(self.basedirpath)
         name = 'Default'
         self.defaultClient = self.newClient(name)
+        if isFirstRun:
+            cryptonym = firstValue(self.defaultClient.signers).verstr
+            self.print("New wallet {} created".format(name))
+            self.print("Current wallet set to " + name)
+            self.print("Key created in wallet " + name)
+            self.print("Identifier for key is " + cryptonym)
+            self.print("Current identifier set to " + cryptonym)
+            self.print("Note: To rename this wallet, use following command:")
+            self.print("    rename wallet Default to NewName")
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':

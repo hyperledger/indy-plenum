@@ -203,7 +203,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     pubKey = lastWord(pubKeyMsg)
     # the public key and alias are listed
     cli.enterCmd("list ids")
-    assert cli.lastMsg() == alias if alias else pubKey
+    assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     return pubKey
 
 
