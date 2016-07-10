@@ -200,19 +200,20 @@ def checkCmdValid(cli, cmd):
 
 def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
-    assertIncremented(lambda: checkCmdValid(cli, cmd),
-                      cli.defaultClient.signers)
-    output = set(cli.lastCmdOutput.split("\n"))
-    pubKeyMsg = next(iter(filter(lambda s: "Identifier for key" in s, output)))
+    keys = 0
+    if cli.activeWallet:
+        keys = len(cli.activeWallet.signers)
+    checkCmdValid(cli, cmd)
+    assert len(cli.activeWallet.signers) == keys + 1
+    pubKeyMsg = next(s for s in cli.lastCmdOutput.split("\n")
+                     if "Identifier for key" in s)
     pubKey = lastWord(pubKeyMsg)
-    expected = set("""Current wallet set to Default
-Key created in wallet Default
-Identifier for key is {cryptonym}
-Current identifier set to {cryptonym}
-Note: To rename this wallet, use following command:
-    rename wallet Default to NewName""".\
-                   format(cryptonym=pubKey).split("\n"))
-    assert expected.issubset(output)
+    expected = ['New wallet Default created',
+                'Active wallet set to "Default"',
+                'Key created in wallet Default',
+                'Identifier for key is {}'.format(pubKey),
+                'Current identifier set to {}'.format(pubKey)]
+    assert cli.lastCmdOutput == "\n".join(expected)
 
     # the public key and alias are listed
     cli.enterCmd("list ids")

@@ -10,6 +10,7 @@ import socket
 import string
 import sys
 import time
+from binascii import unhexlify
 from collections import Counter
 from collections import OrderedDict
 from math import floor
@@ -523,3 +524,23 @@ def firstKey(d: Dict):
 
 def firstValue(d: Dict):
     return next(iter(d.values()))
+
+
+def seedFromHex(seed):
+    if len(seed) == 64:
+        try:
+            return unhexlify(seed)
+        except:
+            pass
+
+
+def cleanSeed(seed):
+    if seed:
+        bts = seedFromHex(seed)
+        if not bts:
+            if isinstance(seed, str):
+                seed = seed.encode('utf-8')
+            bts = bytes(seed)
+            if len(seed) != 32:
+                error('seed length must be 32 bytes')
+        return bts

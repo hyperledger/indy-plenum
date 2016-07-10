@@ -114,8 +114,12 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        dataDir = os.path.join(basedirpath, "data", "clients", self.name)
-        self.wallet = wallet or Wallet(WalletStorageFile(dataDir))
+        if wallet:
+            self.wallet = wallet
+        else:
+            storage = WalletStorageFile.fromName(name)
+            self.wallet = Wallet(self.name, storage)
+
         signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
         if not self.wallet.signers:

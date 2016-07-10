@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+from binascii import unhexlify
+
 import plenum.cli.ensure_logging_not_setup
 
 from typing import Dict
@@ -13,6 +15,8 @@ import pyorient
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
+from plenum.client.wallet import Wallet
+from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -47,8 +51,8 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString, \
-    firstValue
+    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
+    randomString, error, cleanSeed
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -79,6 +83,7 @@ class Cli:
 
     NodeClass = Node
     ClientClass = Client
+    defaultWalletName = 'Default'
 
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
@@ -88,6 +93,7 @@ class Cli:
         # self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
+        WalletStorageFile.basepath = self.basedirpath
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -118,7 +124,9 @@ class Cli:
         self.defaultClient = None
         self.activeSigner = None
         # Wallet and Client are the same from user perspective for now
-        self.activeClient = None
+        self._activeClient = None
+        self._wallets = None
+        self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
         '''
         examples:
@@ -158,7 +166,7 @@ class Cli:
             'new_key': SimpleLexer(Token.Keyword),
             'list_ids': SimpleLexer(Token.Keyword),
             'become': SimpleLexer(Token.Keyword),
-            'use_keypair': SimpleLexer(Token.Keyword)
+            'use_id': SimpleLexer(Token.Keyword)
         }
 
         self.clientWC = WordCompleter([])
@@ -182,7 +190,7 @@ class Cli:
             'new_key': WordCompleter(['key']),
             'list_ids': WordCompleter(['ids']),
             'become': WordCompleter(['become']),
-            'use_keypair': WordCompleter(['keypair'])
+            'use_id': WordCompleter(['use identifier'])
         }
 
         self.initializeGrammar()
@@ -233,7 +241,6 @@ class Cli:
             application=app,
             eventloop=eventloop,
             output=out)
-        self.createDefaultClient()
 
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
@@ -249,10 +256,39 @@ class Cli:
 
         self.showNodeRegistry()
         self.print("Type 'help' for more information.")
-        self.print("Current wallet set to {}".format(self.defaultClient.name))
-        alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
-        self.print("Current identifier set to {alias} ({cryptonym})".format(
-            alias=alias, cryptonym=signer.verstr))
+
+        # TODO commented out by JAL, DON'T COMMIT
+        # self.ensureDefaultClientCreated()
+        # self.print("Current wallet set to {}".format(self.defaultClient.name))
+        # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
+        # self.print("Current identifier set to {alias} ({cryptonym})".format(
+        #     alias=alias, cryptonym=signer.verstr))
+
+    @property
+    def wallets(self):
+        if self._wallets is None:
+            self._wallets = {name: Wallet(name,
+                                          WalletStorageFile.fromName(name))
+                             for name in WalletStorageFile.listWallets()}
+        return self._wallets
+
+    @property
+    def activeWallet(self) -> Wallet:
+        return self._activeWallet
+
+    @activeWallet.setter
+    def activeWallet(self, wallet):
+        self._activeWallet = wallet
+        self.print('Active wallet set to "{}"'.format(wallet.name))
+
+    @property
+    def activeClient(self):
+        return self._activeClient
+
+    @activeClient.setter
+    def activeClient(self, client):
+        self._activeClient = client
+        self.print("Active client set to " + client.name)
 
     @staticmethod
     def relist(seq):
@@ -626,19 +662,29 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientName, seed=None, identifier=None, signer=None):
+    def newClient(self, clientName, seed=None, identifier=None, signer=None,
+                  wallet=None):
         try:
+            # TODO create wallet outside of client
+            # TODO signer should not be compulsory in creating client
+
             self.ensureValidClientId(clientName)
             client_addr = self.nextAvailableClientAddr()
-            if not signer:
-                seed = seed.encode("utf-8") if seed else None
-                signer = SimpleSigner(identifier=identifier, seed=seed) \
-                    if (seed or identifier) else None
+            assert not (signer and wallet)
+            if not wallet:
+                wallet = self._newWallet(clientName)
+                if not signer:
+                    signer = self._newSigner(wallet,
+                                             identifier=identifier,
+                                             seed=seed)
+                self._addSignerToWallet(signer, wallet)
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
-                                      signer=signer,
-                                      basedirpath=self.basedirpath)
+                                      # signer=signer,
+                                      basedirpath=self.basedirpath,
+                                      wallet=wallet)
+            self.activeClient = client
             self.looper.add(client)
             for node in self.nodes.values():
                 self.bootstrapClientKey(client, node)
@@ -828,73 +874,98 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
+    def _addSignerToWallet(self, signer, wallet=None):
+        if not wallet:
+            wallet = self._newWallet()
+        wallet.addSigner(signer)
+        self.print("Key created in wallet " + wallet.name)
+
+    def _newSigner(self,
+                   wallet=None,
+                   identifier=None,
+                   seed=None,
+                   alias=None):
+
+        cseed = cleanSeed(seed)
+
+        signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
+        self._addSignerToWallet(signer, wallet)
+        self.print("Identifier for key is " + signer.identifier)
+        self._setActiveIdentifier(signer.identifier)
+        return signer
+
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
             alias = matchedVars.get('alias')
-            signer = SimpleSigner()
-            self.defaultClient.wallet.addSigner(signer, alias)
-            wallet = self.activeClient.name
-            cryptonym = signer.verstr
-            self.print("Current wallet set to " + wallet)
-            self.print("Key created in wallet " + wallet)
-            self.print("Identifier for key is " + cryptonym)
-            self.print("Current identifier set to " + cryptonym)
-            self.print("Note: To rename this wallet, use following command:")
-            self.print("    rename wallet {} to NewName".format(wallet))
+            signer = self._newSigner(alias=alias,
+                                     wallet=self.activeWallet)
             return True
 
-    def createDefaultClient(self):
-        isFirstRun = not os.path.exists(self.basedirpath)
-        name = 'Default'
-        self.defaultClient = self.newClient(name)
-        self.activeClient = self.defaultClient
-        if isFirstRun:
-            cryptonym = firstValue(self.defaultClient.signers).verstr
-            self.print("New wallet {} created".format(name))
-            self.print("Current wallet set to " + name)
-            self.print("Key created in wallet " + name)
-            self.print("Identifier for key is " + cryptonym)
-            self.print("Current identifier set to " + cryptonym)
-            self.print("Note: To rename this wallet, use following command:")
-            self.print("    rename wallet {} to NewName".format(name))
+    def _newWallet(self, walletName=None):
+        nm = walletName or self.defaultWalletName
+        if nm in self.wallets:
+            self.print("Wallet {} already exists".format(nm))
+            return
+        storage = WalletStorageFile.fromName(nm)
+        wallet = Wallet(nm, storage)
+        self._wallets[nm] = wallet
+        self.print("New wallet {} created".format(nm))
+        self.activeWallet = wallet
+        # TODO when the command is implemented
+        # if nm == self.defaultWalletName:
+        #     self.print("Note, you can rename this wallet by:")
+        #     self.print("    rename wallet {} to NewName".format(nm))
+        return wallet
+
+    def ensureDefaultClientCreated(self):
+        walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName)
+        self.defaultClient = self.newClient(self.defaultWalletName)
+        cryptonym = firstValue(self.defaultClient.signers).verstr
+        self._setActiveIdentifier(cryptonym)
+        if not walletAlreadyExists:
+            self.print("Note, you can rename this wallet with:")
+            self.print("    rename wallet {} to NewName".
+                       format(self.defaultWalletName))
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
-            default = self.defaultClient.name
-            ids = [s for s in
-                   self.defaultClient.wallet.listIds(exclude=[default])]
-            self.print('\n'.join(ids))
+            self.print("Active wallet: {}".format(self.activeWallet.name))
+            self.print('\n'.join(self.activeWallet.listIds()))
             return True
 
-    def _becomeAction(self, matchedVars):
-        if matchedVars.get('become') == 'become':
-            keypair = matchedVars.get('id')
-            self._updateActiveSigner(keypair)
+    # def _becomeAction(self, matchedVars):
+    #     if matchedVars.get('become') == 'become':
+    #         keypair = matchedVars.get('id')
+    #         self._setActiveIdentifier(keypair)
+    #         return True
+
+    def _useIdentifierAction(self, matchedVars):
+        if matchedVars.get('use_id') == 'use identifier':
+            nymOrAlias = matchedVars.get('identifier')
+            self._setActiveIdentifier(nymOrAlias)
             return True
 
-    def _useKeypairAction(self, matchedVars):
-        if matchedVars.get('use_keypair') == 'use keypair':
-            keypair = matchedVars.get('keypair')
-            wallet = self.defaultClient.wallet
-            if wallet.signers.get(keypair):
-                self._updateActiveKeyPair(keypair, wallet)
-            else:
-                self.print("keypair {} not found".format(keypair))
-            return True
+    def _setActiveIdentifier(self, nymOrAlias):
+        if not self.activeWallet:
+            self.print("No active wallet")
+            return
+            # wallets = WalletStorageFile.listWallets()
+            # if len(wallets) == 0:
+            #     self.ensureDefaultClientCreated()
+            # elif len(wallets) == 1:
+            #     self.activeWallet = self._newWallet(wallets[0])
+            # else:
+            #     self.print("Please select a wallet with the command: use wallet <wallet name>")
+            #     self.print("Available wallets: {}".format(wallets))
 
-    def _updateActiveSigner(self, key):
-        wallet = self.defaultClient.wallet
-        if wallet.aliases.get(key):
-            self.activeSigner = wallet.signers[wallet.aliases[key]]
-            self.print("{} is now active".format(key))
-        elif wallet.signers.get(key):
-            self._updateActiveKeyPair(key, wallet)
+        wallet = self.activeWallet
+        nym = wallet.aliases.get(nymOrAlias) or nymOrAlias
+        signer = wallet.signers.get(nym)
+        if signer:
+            self.activeSigner = signer
+            self.print("Current identifier set to {}".format(nymOrAlias))
         else:
-            self.print("alias or keypair {} not found".format(key))
-
-    def _updateActiveKeyPair(self, key, wallet):
-        self.activeSigner = wallet.signers[key]
-        self.print("active keypair updated to {}".format(key))
+            self.print("alias or identifier {} not found".format(nymOrAlias))
 
     def getActionList(self):
         return [self._simpleAction, self._helpAction, self._listAction,
@@ -903,7 +974,7 @@ Commands:
                 self._keyShareAction, self._loadPluginDirAction,
                 self._clientCommand, self._loadPluginAction, self._addKeyAction,
                 self._newKeyAction, self._listIdsAction,
-                self._becomeAction, self._useKeypairAction]
+                self._useIdentifierAction]
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
