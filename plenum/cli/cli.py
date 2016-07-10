@@ -264,6 +264,15 @@ class Cli:
         # self.print("Current identifier set to {alias} ({cryptonym})".format(
         #     alias=alias, cryptonym=signer.verstr))
 
+
+
+    def _buildClientIfNotExists(self):
+        if not self._activeClient:
+            if not self.activeWallet:
+                print("Wallet is not initialized")
+                return
+            self.newClient(clientName=self.name, wallet=self.activeWallet)
+
     @property
     def wallets(self):
         if self._wallets is None:
@@ -284,6 +293,7 @@ class Cli:
 
     @property
     def activeClient(self):
+        self._buildClientIfNotExists()
         return self._activeClient
 
     @activeClient.setter
