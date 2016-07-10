@@ -267,9 +267,10 @@ class Cli:
     @property
     def wallets(self):
         if self._wallets is None:
+            wts = WalletStorageFile.listWallets(self.basedirpath)
             self._wallets = {name: Wallet(name,
                                           WalletStorageFile.fromName(name))
-                             for name in WalletStorageFile.listWallets()}
+                             for name in wts}
         return self._wallets
 
     @property
@@ -906,7 +907,7 @@ Commands:
         if nm in self.wallets:
             self.print("Wallet {} already exists".format(nm))
             return
-        storage = WalletStorageFile.fromName(nm)
+        storage = WalletStorageFile.fromName(nm, self.basedirpath)
         wallet = Wallet(nm, storage)
         self._wallets[nm] = wallet
         self.print("New wallet {} created".format(nm))

@@ -11,8 +11,6 @@ from plenum.persistence.wallet_storage import WalletStorage
 
 class WalletStorageFile(WalletStorage, HasFileStorage):
 
-    basepath = ''
-
     def __init__(self, walletDir: str):
         HasFileStorage.__init__(self, name="wallet", baseDir=walletDir)
         keysFileName = "keys"
@@ -24,29 +22,27 @@ class WalletStorageFile(WalletStorage, HasFileStorage):
                                           storeContentHash=False)
 
     @classmethod
-    def fromName(cls, name, basepath=None):
+    def fromName(cls, name, basepath):
         path = cls.path(name, basepath)
         return cls(path)
 
     @classmethod
-    def path(cls, name, basepath=None):
-        basepath = basepath or cls.basepath
+    def path(cls, name, basepath):
         return os.path.join(basepath, "data", "clients", name)
 
     @classmethod
-    def path(cls, name, basepath=None):
-        basepath = basepath or cls.basepath
+    def path(cls, name, basepath):
         pathparts = [basepath, "data", "clients"]
         if name:
             pathparts.append(name)
         return os.path.join(*pathparts)
 
     @classmethod
-    def exists(cls, name, basepath=None):
+    def exists(cls, name, basepath):
         return os.path.exists(cls.path(name, basepath))
 
     @classmethod
-    def listWallets(cls, basepath=None):
+    def listWallets(cls, basepath):
         p = cls.path(None, basepath)
         ls = os.listdir(p) if os.path.isdir(p) else []
         return [name for name in ls
