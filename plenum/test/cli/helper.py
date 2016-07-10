@@ -132,6 +132,17 @@ def checkAllNodesStarted(cli, *nodeNames):
         checkNodeStarted(cli, name)
 
 
+def checkAllNodesUp(cli):
+    msgs = {stmt['msg'] for stmt in cli.printeds}
+    for nm in cli.nodes.keys():
+        assert "{}:0 selected primary {} for instance 0 (view 0)" \
+                   .format(nm, cli.nodes[nm].replicas[0].primaryNames[
+            0]) in msgs
+        assert "{}:1 selected primary {} for instance 1 (view 0)" \
+                   .format(nm, cli.nodes[nm].replicas[1].primaryNames[
+            0]) in msgs
+
+
 def checkClientConnected(cli, nodeNames, clientName):
     printedMsgs = set()
     expectedMsgs = {'{} now connected to {}C'.format(clientName, nodeName)
@@ -211,7 +222,12 @@ def newKeyPair(cli: TestCli, alias: str=None):
     expected = ['Key created in wallet Default',
                 'Identifier for key is {}'.format(pubKey),
                 'Current identifier set to {}'.format(pubKey)]
-    assert cli.lastCmdOutput == "\n".join(expected)
+    # TODO: Reconsider this
+    # Using `in` rather than `=` so as to take care of the fact that this might
+    # be the first time wallet is accessed so wallet would be created and some
+    # output corresponding to that would be printed.
+    assert "\n".join(expected) in cli.lastCmdOutput
+    # assert cli.lastCmdOutput == "\n".join(expected)
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
