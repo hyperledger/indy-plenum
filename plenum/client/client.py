@@ -117,7 +117,7 @@ class Client(Motor):
         if wallet:
             self.wallet = wallet
         else:
-            storage = WalletStorageFile.fromName(name)
+            storage = WalletStorageFile.fromName(name, basedirpath)
             self.wallet = Wallet(self.name, storage)
 
         signers = None  # type: Dict[str, Signer]
