@@ -259,11 +259,11 @@ class Cli:
 
         # TODO commented out by JAL, DON'T COMMIT
         # uncommented by JN.
-        self.ensureDefaultClientCreated()
-        self.print("Current wallet set to {}".format(self.defaultClient.name))
-        alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
-        self.print("Current identifier set to {alias} ({cryptonym})".format(
-            alias=alias, cryptonym=signer.verstr))
+        # self.ensureDefaultClientCreated()
+        # self.print("Current wallet set to {}".format(self.defaultClient.name))
+        # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
+        # self.print("Current identifier set to {alias} ({cryptonym})".format(
+        #     alias=alias, cryptonym=signer.verstr))
 
     def _buildClientIfNotExists(self):
         if not self._activeClient:
