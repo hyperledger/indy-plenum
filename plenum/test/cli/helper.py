@@ -9,7 +9,7 @@ from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
 from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd,\
-    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient
+    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient, checkPoolReady
 
 
 class TestCliCore:
@@ -231,3 +231,11 @@ def assertIncremented(f, var):
 def lastWord(sentence):
     return sentence.split(" ")[-1]
 
+
+def assertAllNodesCreated(cli, validNodeNames):
+    # Check if all nodes are connected
+    checkPoolReady(cli.looper, cli.nodes.values())
+
+    # Check if all nodes are added
+    assert len(cli.nodes) == len(validNodeNames)
+    assert set(cli.nodes.keys()) == set(cli.nodeReg.keys())
