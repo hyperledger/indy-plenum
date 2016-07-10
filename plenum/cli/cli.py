@@ -265,8 +265,6 @@ class Cli:
         self.print("Current identifier set to {alias} ({cryptonym})".format(
             alias=alias, cryptonym=signer.verstr))
 
-
-
     def _buildClientIfNotExists(self):
         if not self._activeClient:
             if not self.activeWallet:
