@@ -258,11 +258,12 @@ class Cli:
         self.print("Type 'help' for more information.")
 
         # TODO commented out by JAL, DON'T COMMIT
-        # self.ensureDefaultClientCreated()
-        # self.print("Current wallet set to {}".format(self.defaultClient.name))
-        # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
-        # self.print("Current identifier set to {alias} ({cryptonym})".format(
-        #     alias=alias, cryptonym=signer.verstr))
+        # uncommented by JN.
+        self.ensureDefaultClientCreated()
+        self.print("Current wallet set to {}".format(self.defaultClient.name))
+        alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
+        self.print("Current identifier set to {alias} ({cryptonym})".format(
+            alias=alias, cryptonym=signer.verstr))
 
 
 
@@ -888,7 +889,8 @@ Commands:
     def _addSignerToWallet(self, signer, wallet=None):
         if not wallet:
             wallet = self._newWallet()
-        wallet.addSigner(signer)
+        if not wallet.signers.get(signer.verstr):
+            wallet.addSigner(signer)
         self.print("Key created in wallet " + wallet.name)
 
     def _newSigner(self,
@@ -908,8 +910,7 @@ Commands:
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
             alias = matchedVars.get('alias')
-            signer = self._newSigner(alias=alias,
-                                     wallet=self.activeWallet)
+            self._newSigner(alias=alias, wallet=self.activeWallet)
             return True
 
     def _newWallet(self, walletName=None):
@@ -929,7 +930,8 @@ Commands:
         return wallet
 
     def ensureDefaultClientCreated(self):
-        walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName)
+        walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName,
+                                                       self.basedirpath)
         self.defaultClient = self.newClient(self.defaultWalletName)
         cryptonym = firstValue(self.defaultClient.signers).verstr
         self._setActiveIdentifier(cryptonym)

@@ -208,9 +208,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     pubKeyMsg = next(s for s in cli.lastCmdOutput.split("\n")
                      if "Identifier for key" in s)
     pubKey = lastWord(pubKeyMsg)
-    expected = ['New wallet Default created',
-                'Active wallet set to "Default"',
-                'Key created in wallet Default',
+    expected = ['Key created in wallet Default',
                 'Identifier for key is {}'.format(pubKey),
                 'Current identifier set to {}'.format(pubKey)]
     assert cli.lastCmdOutput == "\n".join(expected)
