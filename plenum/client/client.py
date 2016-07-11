@@ -61,6 +61,7 @@ class Client(Motor):
             nodeReg = config.cliNodeReg
         basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
                                          basedirpath)
+        self.basedirpath = basedirpath
 
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
@@ -114,12 +115,12 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        if wallet:
-            self.wallet = wallet
-        else:
-            storage = WalletStorageFile.fromName(self.name, basedirpath)
-            self.wallet = Wallet(self.name, storage)
-
+        # if wallet:
+        #     self.wallet = wallet
+        # else:
+        #     storage = WalletStorageFile.fromName(self.name, basedirpath)
+        #     self.wallet = Wallet(self.name, storage)
+        self.setupWallet(wallet)
         signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
         if not self.wallet.signers:
@@ -147,6 +148,13 @@ class Client(Motor):
         # as key and value as set of names of known validators vetting that
         # location
         self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
+
+    def setupWallet(self, wallet=None):
+        if wallet:
+            self.wallet = wallet
+        else:
+            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
+            self.wallet = Wallet(self.name, storage)
 
     @staticmethod
     def exists(name, basedirpath):
