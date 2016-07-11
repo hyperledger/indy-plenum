@@ -22,12 +22,20 @@ class OrientDbGraphStore(GraphStore):
         self.store.createClasses(self.classesNeeded())
 
     def createVertexClass(self, className: str, properties: Dict=None):
-        self.client.command("create class {} extends V".format(className))
-        if properties:
-            self.store.createClassProperties(className, properties)
+        self.createClass(className, "V", properties)
 
     def createEdgeClass(self, className: str, properties: Dict=None):
-        self.client.command("create class {} extends E".format(className))
+        self.createClass(className, "E", properties)
+
+    def createClass(self, className: str, superclass: str, properties: Dict=None):
+        self.client.command("create class {} extends {}".
+                            format(className, superclass))
+        # TODO tried the following to see if it increases performance, but
+        # it didn't seem to.
+        # See https://www.mail-archive.com/orient-database@googlegroups.com/msg12419.html
+        # self.client.command("create class {}".format(className))
+        # self.client.command("alter class {} superclass {}".
+        #                     format(className, superclass))
         if properties:
             self.store.createClassProperties(className, properties)
 

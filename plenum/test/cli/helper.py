@@ -134,11 +134,15 @@ def checkAllNodesStarted(cli, *nodeNames):
 
 def checkAllNodesUp(cli):
     msgs = {stmt['msg'] for stmt in cli.printeds}
-    for nm in cli.nodes.keys():
-        assert "{}:0 selected primary {} for instance 0 (view 0)" \
-                   .format(nm, cli.nodes[nm].replicas[0].primaryNames[0]) in msgs
-        assert "{}:1 selected primary {} for instance 1 (view 0)" \
-                   .format(nm, cli.nodes[nm].replicas[1].primaryNames[0]) in msgs
+    expected = "{nm}:{inst} selected primary {pri} " \
+               "for instance {inst} (view 0)"
+    for nm, node in cli.nodes.items():
+        assert node
+        for inst in [0, 1]:
+            rep = node.replicas[inst]
+            assert rep
+            pri = rep.primaryNames[0]
+            assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
 
 
 def checkClientConnected(cli, nodeNames, clientName):
