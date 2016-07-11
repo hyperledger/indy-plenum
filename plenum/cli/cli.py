@@ -913,13 +913,16 @@ Commands:
             self._newSigner(alias=alias, wallet=self.activeWallet)
             return True
 
+    def _buildWalletClass(self, nm):
+        storage = WalletStorageFile.fromName(nm, self.basedirpath)
+        return Wallet(nm, storage)
+
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
         if nm in self.wallets:
             self.print("Wallet {} already exists".format(nm))
             return
-        storage = WalletStorageFile.fromName(nm, self.basedirpath)
-        wallet = Wallet(nm, storage)
+        wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New wallet {} created".format(nm))
         self.activeWallet = wallet
