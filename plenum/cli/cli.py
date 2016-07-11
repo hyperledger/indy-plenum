@@ -187,8 +187,8 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_key': WordCompleter(['key']),
-            'list_ids': WordCompleter(['ids']),
+            'new_key': WordCompleter(['new key']),
+            'list_ids': WordCompleter(['list ids']),
             'become': WordCompleter(['become']),
             'use_id': WordCompleter(['use identifier'])
         }
@@ -279,7 +279,7 @@ class Cli:
         if self._wallets is None:
             wts = WalletStorageFile.listWallets(self.basedirpath)
             self._wallets = {name: Wallet(name,
-                                          WalletStorageFile.fromName(name))
+                                          WalletStorageFile.fromName(name, self.basedirpath))
                              for name in wts}
         return self._wallets
 
