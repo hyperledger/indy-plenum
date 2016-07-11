@@ -921,7 +921,9 @@ Commands:
         nm = walletName or self.defaultWalletName
         if nm in self.wallets:
             self.print("Wallet {} already exists".format(nm))
-            return
+            wallet = self._wallets[nm]
+            self.activeWallet = wallet
+            return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New wallet {} created".format(nm))
