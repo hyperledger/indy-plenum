@@ -136,11 +136,9 @@ def checkAllNodesUp(cli):
     msgs = {stmt['msg'] for stmt in cli.printeds}
     for nm in cli.nodes.keys():
         assert "{}:0 selected primary {} for instance 0 (view 0)" \
-                   .format(nm, cli.nodes[nm].replicas[0].primaryNames[
-            0]) in msgs
+                   .format(nm, cli.nodes[nm].replicas[0].primaryNames[0]) in msgs
         assert "{}:1 selected primary {} for instance 1 (view 0)" \
-                   .format(nm, cli.nodes[nm].replicas[1].primaryNames[
-            0]) in msgs
+                   .format(nm, cli.nodes[nm].replicas[1].primaryNames[0]) in msgs
 
 
 def checkClientConnected(cli, nodeNames, clientName):

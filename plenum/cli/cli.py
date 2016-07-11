@@ -270,7 +270,9 @@ class Cli:
             if not self.activeWallet:
                 print("Wallet is not initialized")
                 return
-            self.newClient(clientName=self.name, wallet=self.activeWallet)
+            # Need a unique name so nodes can differentiate
+            name = self.name+randomString(6)
+            self.newClient(clientName=name, wallet=self.activeWallet)
 
     @property
     def wallets(self):
