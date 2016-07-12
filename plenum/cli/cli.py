@@ -278,8 +278,7 @@ class Cli:
     def wallets(self):
         if self._wallets is None:
             wts = WalletStorageFile.listWallets(self.basedirpath)
-            self._wallets = {name: Wallet(name,
-                                          WalletStorageFile.fromName(name, self.basedirpath))
+            self._wallets = {name: self._buildWalletClass(name)
                              for name in wts}
         return self._wallets
 
