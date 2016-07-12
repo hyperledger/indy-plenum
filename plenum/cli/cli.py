@@ -187,10 +187,10 @@ class Cli:
             'simple': WordCompleter(self.simpleCmds),
             'add_key': WordCompleter(['add key']),
             'for_client': WordCompleter(['for client']),
-            'new_key': WordCompleter(['new key']),
-            'list_ids': WordCompleter(['list ids']),
+            'new_key': WordCompleter(['new', 'key']),
+            'list_ids': WordCompleter(['list', 'ids']),
             'become': WordCompleter(['become']),
-            'use_id': WordCompleter(['use identifier'])
+            'use_id': WordCompleter(['use', 'identifier'])
         }
 
         self.initializeGrammar()
@@ -285,6 +285,8 @@ class Cli:
 
     @property
     def activeWallet(self) -> Wallet:
+        if not self._activeWallet:
+            return firstValue(self.wallets)
         return self._activeWallet
 
     @activeWallet.setter
