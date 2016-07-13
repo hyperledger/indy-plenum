@@ -20,7 +20,7 @@ from plenum.common.types import HA, f
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, PUBKEY, \
     NODE_IP, ALIAS, NODE_PORT, CLIENT_PORT, NEW_STEWARD, ClientBootStrategy, \
     NEW_CLIENT, TXN_ID, CLIENT, STEWARD, CLIENT_IP, CHANGE_HA, CHANGE_KEYS, \
-    ORIGIN, POOL_TXN_TYPES, VERKEY, TXN_TIME
+    POOL_TXN_TYPES, VERKEY
 from plenum.common.util import getlogger
 from plenum.common.types import HA
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX

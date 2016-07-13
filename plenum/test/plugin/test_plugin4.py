@@ -1,20 +1,51 @@
+import os
+
 import pytest
 
-from plenum.client.signer import SimpleSigner
-from plenum.common.looper import Looper
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, checkSufficientRepliesRecvd, \
-    checkReqNack, CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, BALANCE, ALL_TXNS
+    checkReqNack, TestNodeSet, setupClient
+from plenum.test.plugin.plugin3.plugin_bank_req_validation import CREDIT, AMOUNT, \
+    GET_BAL, GET_ALL_TXNS
+from plenum.test.plugin.plugin4.plugin_bank_req_processor import BALANCE, \
+    ALL_TXNS
 
 logger = getlogger()
 
 
+def pluginPath(name):
+    curPath = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(curPath, name)
+
+
+@pytest.fixture(scope="module")
+def pluginVerPath():
+    return pluginPath("plugin3")
+
+
+@pytest.fixture(scope="module")
+def pluginPrcPath():
+    return pluginPath("plugin4")
+
+
 @pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
+def nodeSet(tdir, nodeReg, pluginVerPath, pluginPrcPath):
+    """
+    Overrides the fixture from conftest.py
+    """
+    with TestNodeSet(nodeReg=nodeReg,
+                     tmpdir=tdir,
+                     opVerificationPluginPath=pluginVerPath,
+                     reqProcessorPluginPath=pluginPrcPath) as ns:
+
+        for n in ns:  # type: Node
+            assert n.reqProcessors is not None
+            assert len(n.reqProcessors) == 1
+            reqProcessor, = n.reqProcessors
+            assert reqProcessor.count == 0
+        yield ns
 
 
 def sendMoney(looper, frm: TestClient, to: TestClient, amount: int, nodes,
@@ -44,7 +75,7 @@ def checkBalance(looper, client: TestClient):
     })
 
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=5))
+                          1, retryWait=1, timeout=10))
 
     return req
 
@@ -62,25 +93,17 @@ def checkTxns(looper, client: TestClient):
 
 
 @pytest.fixture(scope="module")
-def connectedClients(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
-                  poolTxnClientNames, poolTxnData):
+def clients(looper, nodeSet, tdir):
     clients = {}
-    for name in poolTxnClientNames:
-        seeds = poolTxnData["seeds"][name]
-        pkseed, sigseed = tuple(s.encode() for s in seeds)
-        signer = SimpleSigner(seed=sigseed)
-        clients[name] = TestClient(name=name, nodeReg=txnPoolCliNodeReg,
-                                   ha=genHa(),
-                                   signer=signer, basedirpath=tdirWithPoolTxns)
-        looper.add(clients[name])
-        looper.run(clients[name].ensureConnectedToNodes())
+    for i in range(3):
+        client = setupClient(looper, nodeSet, tmpdir=tdir)
+        clients[client.name] = client
     return clients
 
 
-def testSendMoney(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
-                  poolTxnClientNames, poolTxnData, connectedClients):
-    clients = connectedClients
-    jason, john, les = poolTxnClientNames[1:]
+def testBankTransactions(nodeSet, up, looper, clients):
+    clients = clients
+    jason, john, les = tuple(clients.keys())
     balReqJl = checkBalance(looper, clients[jason])
     balReqJb = checkBalance(looper, clients[john])
     bal1Jason = clients[jason].hasConsensus(balReqJl.reqId)[BALANCE]
@@ -88,7 +111,7 @@ def testSendMoney(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
     logger.display("Balance for Jason Law is {}".format(bal1Jason))
     logger.display("Balance for John Best is {}".format(bal1John))
     logger.display("Jason Law transfers 100USD to John Best")
-    req = sendMoney(looper, clients[jason], clients[john], 100, txnPoolNodeSet)
+    req = sendMoney(looper, clients[jason], clients[john], 100, nodeSet)
     assert clients[jason].hasConsensus(req.reqId)
     balReqJl = checkBalance(looper, clients[jason])
     balReqJb = checkBalance(looper, clients[john])
@@ -98,7 +121,7 @@ def testSendMoney(txnPoolNodeSet, looper, txnPoolCliNodeReg, tdirWithPoolTxns,
     assert bal2John - bal1John == 100
     logger.display("Balance for Jason Law is {}".format(bal2Jason))
     logger.display("Balance for John Best is {}".format(bal2John))
-    req = sendMoney(looper, clients[jason], clients[john], 100, txnPoolNodeSet)
+    req = sendMoney(looper, clients[jason], clients[john], 100, nodeSet)
     txnReqJl = checkTxns(looper, clients[jason])
     txnReqJb = checkTxns(looper, clients[john])
     txnJason = clients[jason].hasConsensus(txnReqJl.reqId)[ALL_TXNS]

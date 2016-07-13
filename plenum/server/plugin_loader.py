@@ -44,7 +44,7 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = ['VERIFICATION']
+        self._validTypes = ['VERIFICATION', "PROCESSING"]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 
