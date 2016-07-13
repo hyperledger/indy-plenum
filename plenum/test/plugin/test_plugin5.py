@@ -42,7 +42,6 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
     plugin = PluginLoader(pluginPath)
     plugin = next(iter(plugin.plugins['VERIFICATION']))
     commonError = "client request invalid: AssertionError "
-    client2 = setupClient(looper, nodeSet, tmpdir=tdir)
     req, = client1.submit({
         TXN_TYPE: "dummy",
         DATA: {
