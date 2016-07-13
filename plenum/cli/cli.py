@@ -1,7 +1,16 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import base64
+
+from _sha256 import sha256
+
 from binascii import unhexlify
+from jsonpickle import json
+
+from ledger.compact_merkle_tree import CompactMerkleTree
+
+from plenum import config
 
 import plenum.cli.ensure_logging_not_setup
 
@@ -12,10 +21,12 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 
+from ledger.ledger import Ledger
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -85,6 +96,8 @@ class Cli:
     ClientClass = Client
     defaultWalletName = 'Default'
 
+    _genesisTransactions = []
+
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
@@ -147,27 +160,32 @@ class Cli:
 
         psep = re.escape(os.path.sep)
 
-        self.lexers = {
-            'node_command': SimpleLexer(Token.Keyword),
-            'command': SimpleLexer(Token.Keyword),
-            'helpable': SimpleLexer(Token.Keyword),
-            'load_plugins': SimpleLexer(Token.Keyword),
-            'load': SimpleLexer(Token.Keyword),
-            'node_or_cli': SimpleLexer(Token.Keyword),
-            'arg1': SimpleLexer(Token.Name),
-            'node_name': SimpleLexer(Token.Name),
-            'more_nodes': SimpleLexer(Token.Name),
-            'simple': SimpleLexer(Token.Keyword),
-            'client_command': SimpleLexer(Token.Keyword),
-            'add_key': SimpleLexer(Token.Keyword),
-            'verkey': SimpleLexer(Token.Literal),
-            'for_client': SimpleLexer(Token.Keyword),
-            'identifier': SimpleLexer(Token.Name),
-            'new_key': SimpleLexer(Token.Keyword),
-            'list_ids': SimpleLexer(Token.Keyword),
-            'become': SimpleLexer(Token.Keyword),
-            'use_id': SimpleLexer(Token.Keyword)
+        lexerNames = {
+            'node_command',
+            'command',
+            'helpable',
+            'load_plugins',
+            'load',
+            'node_or_cli',
+            'arg1',
+            'node_name',
+            'more_nodes',
+            'simple',
+            'client_command',
+            'add_key',
+            'verkey',
+            'for_client',
+            'identifier',
+            'new_key',
+            'list_ids',
+            'become',
+            'use_id',
+            'add_genesis',
+            'create_gen_txn_file'
         }
+        lexers = {n: SimpleLexer(Token.Keyword) for n in lexerNames}
+
+        self.lexers = {**lexers}
 
         self.clientWC = WordCompleter([])
 
@@ -190,7 +208,9 @@ class Cli:
             'new_key': WordCompleter(['new', 'key']),
             'list_ids': WordCompleter(['list', 'ids']),
             'become': WordCompleter(['become']),
-            'use_id': WordCompleter(['use', 'identifier'])
+            'use_id': WordCompleter(['use', 'identifier']),
+            'add_genesis': WordCompleter(['add', 'genesis', 'transaction']),
+            'create_gen_txn_file': WordCompleter(['create', 'genesis', 'transaction', 'file'])
         }
 
         self.initializeGrammar()
@@ -264,6 +284,55 @@ class Cli:
         # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
         # self.print("Current identifier set to {alias} ({cryptonym})".format(
         #     alias=alias, cryptonym=signer.verstr))
+
+    @property
+    def genesisTransactions(self):
+        return self._genesisTransactions
+
+    def reset(self):
+        self._genesisTransactions = []
+
+    def getActionList(self):
+        return [self._simpleAction, self._helpAction, self._listAction,
+                self._newNodeAction, self._newClientAction,
+                self._statusNodeAction, self._statusClientAction,
+                self._keyShareAction, self._loadPluginDirAction,
+                self._clientCommand, self._loadPluginAction, self._addKeyAction,
+                self._newKeyAction, self._listIdsAction,
+                self._useIdentifierAction, self._addGenesisAction,
+                self._createGenTxnFileAction]
+
+    def _createGenTxnFileAction(self, matchedVars):
+        if matchedVars.get('create_gen_txn_file'):
+            ledger = Ledger(CompactMerkleTree(),
+                            dataDir=config.baseDir,
+                            fileName=config.poolTransactionsFile)
+            ledger.reset()
+            for item in self.genesisTransactions:
+                ledger.add(item)
+
+            self.print('Genesis transaction file created at {} '.format(ledger.dataDir + ledger._transactionLogName))
+            return True
+
+
+    def _addGenesisAction(self, matchedVars):
+        if matchedVars.get('add_gen_txn'):
+            destId = base64.b64encode(unhexlify(matchedVars.get('dest').encode())).decode()
+            typ = matchedVars.get('txn_type')
+            txn = {
+                TXN_TYPE: typ,
+                TARGET_NYM: destId,
+                TXN_ID: sha256(randomString(6).encode()).hexdigest(),
+            }
+            if matchedVars.get('identifier'):
+                txn[IDENTIFIER] = base64.b64encode(unhexlify(matchedVars.get('identifier').encode())).decode()
+
+            if matchedVars.get('data'):
+                txn[DATA] = json.loads(matchedVars.get('data'))
+
+            self.genesisTransactions.append(txn)
+            self.print('Genesis transaction added')
+            return True
 
     def _buildClientIfNotExists(self):
         if not self._activeClient:
@@ -985,15 +1054,6 @@ Commands:
             self.print("Current identifier set to {}".format(nymOrAlias))
         else:
             self.print("alias or identifier {} not found".format(nymOrAlias))
-
-    def getActionList(self):
-        return [self._simpleAction, self._helpAction, self._listAction,
-                self._newNodeAction, self._newClientAction,
-                self._statusNodeAction, self._statusClientAction,
-                self._keyShareAction, self._loadPluginDirAction,
-                self._clientCommand, self._loadPluginAction, self._addKeyAction,
-                self._newKeyAction, self._listIdsAction,
-                self._useIdentifierAction]
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
