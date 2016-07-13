@@ -9,6 +9,7 @@ from binascii import unhexlify
 from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.stores.file_hash_store import FileHashStore
 
 from plenum import config
 
@@ -26,7 +27,8 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAll
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -107,6 +109,27 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
+        if not (nodeReg and len(nodeReg) > 0):
+            nodeReg = {}
+            cliNodeReg = {}
+            dataDir = os.path.expanduser(config.baseDir)
+            ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
+                dataDir=dataDir)),
+                dataDir=dataDir,
+                fileName=config.poolTransactionsFile)
+            for _, txn in ledger.getAllTxn().items():
+                if txn[TXN_TYPE] == NEW_NODE:
+                    nodeName = txn[DATA][ALIAS]
+                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
+                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
+                        else None
+                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
+                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
+                        else None
+                    if nHa:
+                        nodeReg[nodeName] = HA(*nHa)
+                    if cHa:
+                        cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
