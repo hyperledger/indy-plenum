@@ -209,7 +209,7 @@ class Cli:
             'list_ids': WordCompleter(['list', 'ids']),
             'become': WordCompleter(['become']),
             'use_id': WordCompleter(['use', 'identifier']),
-            'add_genesis': WordCompleter(['add', 'genesis', 'transaction']),
+            'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
             'create_gen_txn_file': WordCompleter(['create', 'genesis', 'transaction', 'file'])
         }
 
