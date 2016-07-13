@@ -16,6 +16,18 @@ def initKeep(name, baseDir, pkseed, sigseed, override=False):
     pubkey, verkey = initLocalKeep(name, baseDir, pkseed, sigseed, override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
+    return (pubkey, verkey)
+
+
+def printGenesisTrans(type, name, verkey, pubkey, stewardverkey, nodeip, nodeport):
+    vnodeip = nodeip if nodeip else "127.0.0.1"
+
+    if type == 'steward':
+        print('\nadd genesis transaction NEW_STEWARD for '+ verkey + ' with data {"alias": "' + name + '", "pubkey": "' + pubkey + '"}')
+    elif type == 'node':
+        print('\nadd genesis transaction NEW_NODE for ' + verkey + ' by ' + stewardverkey +
+              'with data {"node_ip": "' + vnodeip + '", "node_port": ' + nodeport + ', '
+              '"client_ip": "'+ vnodeip + '", "client_port": ' + str(int(nodeport)+1) + ', "pubkey": "' + pubkey + '", "alias": "' + name+'"}')
 
 if __name__ == "__main__":
     if not os.path.exists(keepDir):
@@ -26,23 +38,47 @@ if __name__ == "__main__":
                     "by taking the node's name and 2 "
                     "seed values")
 
+    parser.add_argument('--type', required=True, help='steward or node')
+    parser.add_argument('--stewardverkey', required=False, help="in case of node, requires steward's ver key")
+    parser.add_argument('--nodeip', required=False, help="node ip address")
+    parser.add_argument('--nodeport', required=False, help="node port")
     parser.add_argument('--name', required=True, help='node name')
-    parser.add_argument('--seeds', required=True, type=str, nargs=2,
-                        help='seeds for keypairs')
+    parser.add_argument('--seeds', required=True, type=str, nargs=2, help='seeds for keypairs')
     parser.add_argument('--force', help='overrides keys', action='store_true')
+
     args = parser.parse_args()
+
+    # Validation
+    if args.type == 'node':
+        if not args.stewardverkey:
+            print("in case of node, requires --stewardverkey argument and it's value")
+            exit()
+        if not args.nodeport:
+            print("in case of node, requires --nodeport argument and it's value")
+            exit()
+
     # Initialize node stack
     print("For node stack, stack name is", args.name)
+    pubkey, verkey = None, None
+
     try:
-        initKeep(args.name, keepDir, args.seeds[0], args.seeds[1], args.force)
+        pubkey, verkey = initKeep(args.name, keepDir, args.seeds[0], args.seeds[1], args.force)
     except Exception as ex:
         print(ex)
         exit()
+
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
         initKeep(args.name + CLIENT_STACK_SUFFIX, keepDir, args.seeds[0],
              args.seeds[1], args.force)
+    except Exception as ex:
+        print(ex)
+        exit()
+
+    # Print genesis transaction commands
+    try:
+        printGenesisTrans(args.type, args.name, verkey, pubkey, args.stewardverkey, args.nodeip, args.nodeport)
     except Exception as ex:
         print(ex)
         exit()
