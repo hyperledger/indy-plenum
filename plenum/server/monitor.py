@@ -388,10 +388,13 @@ class Monitor(HasActionQueue):
         logger.debug("{} sending throughput".format(self))
 
         throughput = self.highResThroughput
+        utcTime = datetime.utcnow()
         mtrStats = {
             "throughput": throughput,
-            "timestamp": datetime.utcnow().isoformat(),
-            "nodeName": self.name
+            "timestamp": utcTime.isoformat(),
+            "nodeName": self.name,
+            # Multiply by 1000 for JavaScript date conversion
+            "time": time.mktime(utcTime.timetuple()) * 1000
         }
         self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
                                        callback=lambda response: None,
@@ -437,8 +440,10 @@ class Monitor(HasActionQueue):
                 self._lastPostedViewChange = self.totalViewChanges
 
             metrics = jsonpickle.loads(jsonpickle.dumps(dict(self.metrics())))
-            metrics["created_at"] = datetime.utcnow().isoformat()
+            utcTime = datetime.utcnow()
+            metrics["created_at"] = utcTime.isoformat()
             metrics["nodeName"] = self.name
+            metrics["time"] = time.mktime(utcTime.timetuple()) * 1000
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                            callback=lambda response: None,
                                            params={'print': 'silent'},

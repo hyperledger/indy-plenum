@@ -154,6 +154,11 @@ class Replica(MessageProcessor):
         # Set of tuples to keep track of ordered requests
         self.ordered = set()        # type: Set[Tuple[int, int]]
 
+        # Requests with sufficient commits so they can be ordered but have not
+        # received request digest from node and neither PRE-PREPARE or PREPARE.
+        # Key can be a digest to a tuple of viewNo and ppSeqNo
+        self.commitsPendedForOrdering = {}
+
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
         # replica during that view
@@ -342,6 +347,9 @@ class Replica(MessageProcessor):
         if self.isPrimary is not None:
             self.processReqDigest(rd)
         else:
+            logger.debug("{} stashing request digest {} since it does not know "
+                         "its primary status".
+                         format(self, (rd.identifier, rd.reqId)))
             self._stashInBox(rd)
 
     def serviceQueues(self, limit=None):
@@ -419,7 +427,13 @@ class Replica(MessageProcessor):
             self.reqsPendingPrePrepare[(rd.identifier, rd.reqId)] = rd.digest
         else:
             self.doPrePrepare(rd)
-
+        if rd.digest in self.commitsPendedForOrdering:
+            viewNo, ppSeqNo, ppTime = self.commitsPendedForOrdering[rd.digest]
+            self.doOrder(viewNo, ppSeqNo, rd.identifier, rd.reqId, rd.digest,
+                         ppTime)
+            self.commitsPendedForOrdering.pop((viewNo, ppSeqNo), None)
+            self.commitsPendedForOrdering.pop(rd.digest, None)
+        
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
@@ -458,7 +472,17 @@ class Replica(MessageProcessor):
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
-            logger.warning("{} processed incoming PRE-PREPARE {}".
+            if key in self.commitsPendedForOrdering or pp.digest in \
+                    self.commitsPendedForOrdering:
+                self.doOrder(*key, pp.identifier, pp.reqId, pp.digest, pp.ppTime)
+                self.commitsPendedForOrdering.pop(key, None)
+                self.commitsPendedForOrdering.pop(pp.digest, None)
+            # elif pp.digest in self.commitsPendedForOrdering:
+            #     self.doOrder(*key, pp.identifier, pp.reqId, pp.digest)
+            #     self.commitsPendedForOrdering.pop(pp.digest)
+            #     self.commitsPendedForOrdering.pop(key, None)
+
+            logger.info("{} processed incoming PRE-PREPARE {}".
                            format(self, key))
 
     def tryPrepare(self, pp: PrePrepare):
@@ -528,7 +552,7 @@ class Replica(MessageProcessor):
         """
         if self.canOrder(commit):
             logging.debug("{} returning request to node".format(self))
-            self.doOrder(commit)
+            self.tryOrdering(commit)
         else:
             logger.trace("{} cannot return request to node".format(self))
 
@@ -772,7 +796,7 @@ class Replica(MessageProcessor):
         return self.commits.hasQuorum(commit, self.f) and \
                not self.hasOrdered(commit)
 
-    def doOrder(self, commit: Commit) -> None:
+    def tryOrdering(self, commit: Commit) -> None:
         """
         Attempt to send an ORDERED request for the specified COMMIT to the
         node.
@@ -791,27 +815,43 @@ class Replica(MessageProcessor):
                 (identifier, reqId, digest), tm = self.prePrepares[key]
             else:
                 digest = self.getDigestFromPrepare(*key)
-                for (cid, rid), dgst in self.reqsPendingPrePrepare.items():
-                    if digest == dgst:
-                        identifier, reqId = cid, rid
-                        break
+                if digest:
+                    for (cid, rid), dgst in self.reqsPendingPrePrepare.items():
+                        if digest == dgst:
+                            identifier, reqId = cid, rid
+                            break
+                    else:
+                        logger.info("{} cannot find digest {} in "
+                                    "reqsPendingPrePrepare for viewNo {} and "
+                                    "ppSeqNo {}".format(self, digest, *key))
+                        self.commitsPendedForOrdering[digest] = (*key,
+                                                                 commit.ppTime)
+                        self.commitsPendedForOrdering[key] = commit.ppTime
+                        return
                 else:
                     logger.info("{} cannot find digest {} in "
-                                "reqsPendingPrePrepare for viewNo {} and "
+                                "received PREPAREs for viewNo {} and "
                                 "ppSeqNo {}".format(self, digest, *key))
+                    self.commitsPendedForOrdering[key] = commit.ppTime
+                    return
         else:
             self.discard(commit,
                          "{}'s primary status found None while returning "
                          "request {} to node".format(self, commit),
                          logger.warning)
+            return
 
-        self.addToOrdered(commit.viewNo, commit.ppSeqNo)
+        self.doOrder(*key, identifier, reqId, digest, commit.ppTime)
+
+    def doOrder(self, viewNo, ppSeqNo, identifier, reqId, digest, ppTime):
+        key = (viewNo, ppSeqNo)
+        self.addToOrdered(*key)
         ordered = Ordered(self.instId,
-                          commit.viewNo,
+                          viewNo,
                           identifier,
                           reqId,
                           digest,
-                          commit.ppTime)
+                          ppTime)
         self.send(ordered, TPCStat.OrderSent)
         if key in self.stashingWhileCatchingUp:
             self.stashingWhileCatchingUp.remove(key)

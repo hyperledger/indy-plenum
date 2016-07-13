@@ -46,6 +46,7 @@ def testReadWrite(odbhs: OrientDbHashStore, nodesLeaves):
         odbhs.writeLeaf(leaf)
     onebyone = [odbhs.readLeaf(i + 1) for i in range(10)]
     multiple = odbhs.readLeafs(1, 10)
+    assert onebyone == leaves
     assert onebyone == multiple
 
 

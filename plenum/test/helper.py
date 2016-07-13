@@ -245,7 +245,8 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
-                  replica.Replica.doPrepare])
+                  replica.Replica.doPrepare,
+                  replica.Replica.doOrder])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

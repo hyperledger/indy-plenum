@@ -693,9 +693,13 @@ class PrimaryElector(PrimaryDecider):
                 replica.primaryName = None
 
             # Remove all pending messages which came for earlier views
+            oldViews = []
             for v in self.pendingMsgsForViews:
                 if v < viewNo:
-                    self.pendingMsgsForViews.pop(v)
+                    oldViews.append(v)
+
+            for v in oldViews:
+                self.pendingMsgsForViews.pop(v)
 
             # Reset to defaults values for different data structures as new
             # elections would begin
