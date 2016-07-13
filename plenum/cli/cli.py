@@ -294,10 +294,11 @@ class Cli:
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
-        self.print("Node registry loaded.")
-        self.print("None of these are created or running yet.")
+        if nodeReg:
+            self.print("Node registry loaded.")
+            self.print("None of these are created or running yet.")
 
-        self.showNodeRegistry()
+            self.showNodeRegistry()
         self.print("Type 'help' for more information.")
 
         # TODO commented out by JAL, DON'T COMMIT
