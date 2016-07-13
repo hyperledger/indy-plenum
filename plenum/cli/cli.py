@@ -285,7 +285,10 @@ class Cli:
     @property
     def activeWallet(self) -> Wallet:
         if not self._activeWallet:
-            return firstValue(self.wallets)
+            if self.wallets:
+                return firstValue(self.wallets)
+            else:
+                return self._newWallet()
         return self._activeWallet
 
     @activeWallet.setter
