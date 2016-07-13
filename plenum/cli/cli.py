@@ -311,7 +311,7 @@ class Cli:
             for item in self.genesisTransactions:
                 ledger.add(item)
 
-            self.print('Genesis transaction file created at {} '.format(ledger.dataDir + ledger._transactionLogName))
+            self.print('Genesis transaction file created at {} '.format(ledger._transactionLog.dbPath))
             return True
 
 
