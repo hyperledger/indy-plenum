@@ -11,7 +11,7 @@ from plenum.test.eventually import eventuallyAll, eventually
 from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
 from plenum.test.plugin.plugin5.plugin_auction_req_validation import AMOUNT, \
-    PLACE_BID, AUCTION_START, ID
+    PLACE_BID, AUCTION_START, ID, AUCTION_END
 
 
 @pytest.fixture(scope="module")
@@ -39,9 +39,11 @@ def nodeSet(tdir, nodeReg, pluginPath):
 
 
 def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
+    # TODO: Test more cases
     plugin = PluginLoader(pluginPath)
     plugin = next(iter(plugin.plugins['VERIFICATION']))
     commonError = "client request invalid: AssertionError "
+    allCoros = []
     req, = client1.submit({
         TXN_TYPE: "dummy",
         DATA: {
@@ -51,10 +53,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
     update = {'reason': '{}dummy is not a valid transaction type, must be one of {}'.
         format(commonError, ', '.join(plugin.validTxnTypes))}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: AUCTION_START,
@@ -64,10 +64,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} attribute is missing or not in proper format" \
             .format(commonError, DATA)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: PLACE_BID,
@@ -77,10 +75,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} attribute is missing or not in proper format" \
             .format(commonError, DATA)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: PLACE_BID,
@@ -91,10 +87,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} attribute is missing or not in proper format" \
             .format(commonError, DATA)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: PLACE_BID,
@@ -105,10 +99,30 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
     update = {
         'reason': "{}No id provided for auction".format(commonError)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
+    req, = client1.submit({
+        TXN_TYPE: AUCTION_START,
+        DATA: {
+        }})
+
+    update = {
+        'reason': "{}No id provided for auction".format(commonError)}
+
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
+             for node in nodeSet]
+
+    req, = client1.submit({
+        TXN_TYPE: AUCTION_END,
+        DATA: {
+        }})
+
+    update = {
+        'reason': "{}No id provided for auction".format(commonError)}
+
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
+             for node in nodeSet]
 
     auctionId = str(uuid4())
     req, = client1.submit({
@@ -122,20 +136,11 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} must be present and should be a number greater than 0"\
                     .format(commonError, AMOUNT)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
 
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
+    looper.run(eventuallyAll(*allCoros, totalTimeout=5))
 
-    req, = client1.submit({
-        TXN_TYPE: PLACE_BID,
-        DATA: {
-            ID: auctionId,
-            AMOUNT: 30
-        }})
-    looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=5))
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers
-        assert opVerifier.count == 1
+        assert opVerifier.count == 0

@@ -3,6 +3,7 @@ from plenum.common.txn import TXN_TYPE, DATA
 AUCTION_START = "AUCTION_START"
 AUCTION_END = "AUCTION_END"
 PLACE_BID = "PLACE_BID"
+GET_BAL = "GET_BAL"
 AMOUNT = "amount"
 ID = "id"
 
@@ -10,7 +11,7 @@ ID = "id"
 class AuctionReqValidationPlugin:
     pluginType = "VERIFICATION"
 
-    validTxnTypes = [AUCTION_START, AUCTION_END, PLACE_BID]
+    validTxnTypes = [AUCTION_START, AUCTION_END, PLACE_BID, GET_BAL]
 
     def __init__(self):
         self.count = 0
@@ -24,7 +25,7 @@ class AuctionReqValidationPlugin:
         data = operation.get(DATA)
         assert isinstance(data, dict), \
             "{} attribute is missing or not in proper format".format(DATA)
-        assert ID in DATA and DATA[ID], "No id provided for auction"
+        assert ID in data and data[ID], "No id provided for auction"
 
         if typ == PLACE_BID:
             amount = data.get(AMOUNT)

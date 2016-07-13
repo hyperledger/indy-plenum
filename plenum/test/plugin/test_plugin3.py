@@ -51,10 +51,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
     update = {'reason': '{}dummy is not a valid transaction type, must be one of {}'.
         format(commonError, ', '.join(plugin.validTxnTypes))}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    coros1 = [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: CREDIT,
@@ -65,10 +63,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} attribute is missing or not in proper format" \
             .format(commonError, DATA)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    coros2 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: CREDIT,
@@ -79,10 +75,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} attribute is missing or not in proper format" \
             .format(commonError, DATA)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    coros3 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
-
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: CREDIT,
@@ -95,10 +89,10 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
         'reason': "{}{} must be present and should be a number greater than 0"\
                     .format(commonError, AMOUNT)}
 
-    coros = [partial(checkReqNack, client1, node, req.reqId, update)
+    coros4 = [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
 
-    looper.run(eventuallyAll(*coros, totalTimeout=5))
+    looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=5))
 
     req, = client1.submit({
         TXN_TYPE: CREDIT,

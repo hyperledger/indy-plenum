@@ -934,6 +934,18 @@ def setupClient(looper: Looper,
     return client1
 
 
+def setupClients(count: int,
+                looper: Looper,
+                nodes: Sequence[TestNode] = None,
+                nodeReg=None,
+                tmpdir=None):
+    clients = {}
+    for i in range(3):
+        client = setupClient(looper, nodes, nodeReg, tmpdir)
+        clients[client.name] = client
+    return clients
+
+
 # noinspection PyIncorrectDocstring
 async def aSetupClient(looper: Looper,
                        nodes: Sequence[TestNode] = None,

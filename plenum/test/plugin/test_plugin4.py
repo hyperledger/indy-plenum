@@ -1,23 +1,17 @@
-import os
-
 import pytest
 
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, genHa, checkSufficientRepliesRecvd, \
-    checkReqNack, TestNodeSet, setupClient
+from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
+    checkReqNack, TestNodeSet, setupClients
+from plenum.test.plugin.helper import pluginPath
 from plenum.test.plugin.plugin3.plugin_bank_req_validation import CREDIT, AMOUNT, \
     GET_BAL, GET_ALL_TXNS
 from plenum.test.plugin.plugin4.plugin_bank_req_processor import BALANCE, \
     ALL_TXNS
 
 logger = getlogger()
-
-
-def pluginPath(name):
-    curPath = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(curPath, name)
 
 
 @pytest.fixture(scope="module")
@@ -94,15 +88,10 @@ def checkTxns(looper, client: TestClient):
 
 @pytest.fixture(scope="module")
 def clients(looper, nodeSet, tdir):
-    clients = {}
-    for i in range(3):
-        client = setupClient(looper, nodeSet, tmpdir=tdir)
-        clients[client.name] = client
-    return clients
+    return setupClients(3, looper, nodeSet, tmpdir=tdir)
 
 
 def testBankTransactions(nodeSet, up, looper, clients):
-    clients = clients
     jason, john, les = tuple(clients.keys())
     balReqJl = checkBalance(looper, clients[jason])
     balReqJb = checkBalance(looper, clients[john])
