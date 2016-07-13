@@ -21,13 +21,15 @@ def initKeep(name, baseDir, pkseed, sigseed, override=False):
 
 def printGenesisTrans(type, name, verkey, pubkey, stewardverkey, nodeip, nodeport):
     vnodeip = nodeip if nodeip else "127.0.0.1"
+    vnodeport = nodeport if nodeport else "9701"
+    vstewardverkey = stewardverkey if stewardverkey else "<steward ver key>"
 
     if type == 'steward':
         print('\nadd genesis transaction NEW_STEWARD for '+ verkey + ' with data {"alias": "' + name + '", "pubkey": "' + pubkey + '"}')
     elif type == 'node':
-        print('\nadd genesis transaction NEW_NODE for ' + verkey + ' by ' + stewardverkey +
-              'with data {"node_ip": "' + vnodeip + '", "node_port": ' + nodeport + ', '
-              '"client_ip": "'+ vnodeip + '", "client_port": ' + str(int(nodeport)+1) + ', "pubkey": "' + pubkey + '", "alias": "' + name+'"}')
+        print('\nadd genesis transaction NEW_NODE for ' + verkey + ' by ' + vstewardverkey +
+              ' with data {"node_ip": "' + vnodeip + '", "node_port": ' + vnodeport + ', '
+              '"client_ip": "'+ vnodeip + '", "client_port": ' + str(int(vnodeport) + 1) + ', "pubkey": "' + pubkey + '", "alias": "' + name+'"}')
 
 if __name__ == "__main__":
     if not os.path.exists(keepDir):
@@ -47,15 +49,6 @@ if __name__ == "__main__":
     parser.add_argument('--force', help='overrides keys', action='store_true')
 
     args = parser.parse_args()
-
-    # Validation
-    if args.type == 'node':
-        if not args.stewardverkey:
-            print("in case of node, requires --stewardverkey argument and it's value")
-            exit()
-        if not args.nodeport:
-            print("in case of node, requires --nodeport argument and it's value")
-            exit()
 
     # Initialize node stack
     print("For node stack, stack name is", args.name)
