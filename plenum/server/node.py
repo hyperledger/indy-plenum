@@ -88,6 +88,7 @@ class Node(HasActionQueue, Motor,
                  basedirpath: str=None,
                  primaryDecider: PrimaryDecider = None,
                  opVerifiers: Iterable[Any]=None,
+                 reqProcessors: Iterable[Any]=None,
                  storage: Storage=None,
                  config=None):
 
@@ -110,6 +111,7 @@ class Node(HasActionQueue, Motor,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = opVerifiers or []
+        self.reqProcessors = reqProcessors or []
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -1354,30 +1356,6 @@ class Node(HasActionQueue, Motor,
                              format(self))
         return True
 
-    async def executeRequest(self, ppTime: float, req: Request) -> None:
-        """
-        Execute the REQUEST sent to this Node
-
-        :param viewNo: the view number (See glossary)
-        :param ppTime: the time at which PRE-PREPARE was sent
-        :param req: the client REQUEST
-        """
-
-        await self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
-
-    # TODO: Find a better name for the function
-    async def doCustomAction(self, ppTime, req):
-        reply = await self.generateReply(ppTime, req)
-        merkleProof = await self.primaryStorage.append(
-            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
-        reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
-
-    async def getReplyFor(self, request):
-        result = await self.secondaryStorage.getReply(request.identifier,
-                                                      request.reqId)
-        return Reply(result) if result else None
-
     def sendInstanceChange(self, viewNo: int):
         """
         Broadcast an instance change request to all the remaining nodes
@@ -1446,6 +1424,44 @@ class Node(HasActionQueue, Motor,
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
+    def checkValidOperation(self, clientId, reqId, msg):
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(msg)
+            except Exception as ex:
+                raise InvalidClientRequest(clientId, reqId) from ex
+
+    async def checkRequestAuthorized(self, request):
+        """
+        Subclasses can implement this method to throw an
+        UnauthorizedClientRequest if the request is not authorized.
+
+        If a request makes it this far, the signature has been verified
+        to match the identifier.
+        """
+        if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            self.poolManager.checkRequestAuthorized(request)
+
+    async def executeRequest(self, ppTime: float, req: Request) -> None:
+        """
+        Execute the REQUEST sent to this Node
+
+        :param viewNo: the view number (See glossary)
+        :param ppTime: the time at which PRE-PREPARE was sent
+        :param req: the client REQUEST
+        """
+
+        await self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
+
+    # TODO: Find a better name for the function
+    async def doCustomAction(self, ppTime, req):
+        reply = await self.generateReply(ppTime, req)
+        merkleProof = await self.primaryStorage.append(
+            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
+        reply.result.update(merkleProof)
+        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+
     async def generateReply(self, ppTime: float, req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
@@ -1464,7 +1480,18 @@ class Node(HasActionQueue, Motor,
                   TXN_TIME: ppTime,
                   TXN_TYPE: req.operation.get(TXN_TYPE)}
 
+        for processor in self.reqProcessors:
+            result.update(processor.process(req))
+
         return Reply(result)
+
+    def defaultAuthNr(self):
+        return SimpleAuthNr()
+
+    async def getReplyFor(self, request):
+        result = await self.secondaryStorage.getReply(request.identifier,
+                                                      request.reqId)
+        return Reply(result) if result else None
 
     def startKeySharing(self, timeout=60):
         """
@@ -1502,37 +1529,13 @@ class Node(HasActionQueue, Motor,
                 logger.info("{} key sharing timed out; was not able to "
                             "connect to {}".
                             format(self,
-                                   ", ".join(self.nodestack.notConnectedNodes())),
+                                   ", ".join(
+                                       self.nodestack.notConnectedNodes())),
                             extra={"cli": "WARNING"})
             else:
                 logger.info("{} completed key sharing".format(self),
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
-
-    def checkValidOperation(self, clientId, reqId, msg):
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(msg)
-            except Exception as ex:
-                raise InvalidClientRequest(clientId, reqId) from ex
-
-    async def checkRequestAuthorized(self, request):
-        """
-        Subclasses can implement this method to throw an
-        UnauthorizedClientRequest if the request is not authorized.
-
-        If a request makes it this far, the signature has been verified
-        to match the identifier.
-        """
-        if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            self.poolManager.checkRequestAuthorized(request)
-
-    def defaultAuthNr(self):
-        return SimpleAuthNr()
-
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer=None):
-        self.nodestack.send(msg, *rids, signer=signer)
 
     @staticmethod
     def ensureKeysAreSetup(name, baseDir):
@@ -1629,6 +1632,9 @@ class Node(HasActionQueue, Motor,
 
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)
+
+    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
+        self.nodestack.send(msg, *rids, signer=signer)
 
     def __enter__(self):
         return self
