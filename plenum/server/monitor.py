@@ -396,6 +396,7 @@ class Monitor(HasActionQueue):
             # Multiply by 1000 for JavaScript date conversion
             "time": time.mktime(utcTime.timetuple()) * 1000
         }
+        mtrStats["ctx"] = "DEMO"
         self.firebaseClient.post_async(url="/mtr_stats", data=mtrStats,
                                        callback=lambda response: None,
                                        params={'print': 'silent'},
@@ -444,6 +445,7 @@ class Monitor(HasActionQueue):
             metrics["created_at"] = utcTime.isoformat()
             metrics["nodeName"] = self.name
             metrics["time"] = time.mktime(utcTime.timetuple()) * 1000
+            metrics["ctx"] = "DEMO"
             self.firebaseClient.post_async(url="/all_stats", data=metrics,
                                            callback=lambda response: None,
                                            params={'print': 'silent'},
@@ -468,8 +470,9 @@ class Monitor(HasActionQueue):
             }
 
             # Question? Cant these 2 requests be combined into one?
+            data = {"startedAt": startedAt, "ctx": "DEMO"}
             self.firebaseClient.put_async(url="/startedAt", name="startedAt",
-                                          data=startedAt,
+                                          data=data,
                                           callback=lambda response: None,
                                           params={'print': 'silent'},
                                           headers={'Connection': 'keep-alive'},
@@ -482,9 +485,11 @@ class Monitor(HasActionQueue):
                                           )
 
     def sendTotalRequestCount(self):
+        #TODO: HARCODDING CONTEXT AS DEMO JUST FOR THE DEMO, MOVE IT TO CONFIG
+        data = {"totalTransactions": self.totalRequests, "ctx": "DEMO"}
         self.firebaseClient.put_async(url="/totalTransactions",
                                       name="totalTransactions",
-                                      data=self.totalRequests,
+                                      data=data,
                                       callback=lambda response: None,
                                       params={'print': 'silent'},
                                       headers={

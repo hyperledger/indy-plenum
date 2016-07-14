@@ -109,7 +109,7 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
-        if not (nodeReg and len(nodeReg) > 0):
+        if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1 and sys.argv[1] == "--noreg"):
             nodeReg = {}
             cliNodeReg = {}
             dataDir = os.path.expanduser(config.baseDir)
@@ -294,10 +294,11 @@ class Cli:
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
-        self.print("Node registry loaded.")
-        self.print("None of these are created or running yet.")
+        if nodeReg:
+            self.print("Node registry loaded.")
+            self.print("None of these are created or running yet.")
 
-        self.showNodeRegistry()
+            self.showNodeRegistry()
         self.print("Type 'help' for more information.")
 
         # TODO commented out by JAL, DON'T COMMIT
@@ -847,14 +848,18 @@ Commands:
         """
         # First handle any commands passed in
         for command in commands:
-            self.print("\nRunning command: '{}'...\n".format(command))
-            self.parse(command)
+            if not command.startswith("--"):
+                self.print("\nRunning command: '{}'...\n".format(command))
+                self.parse(command)
 
         # then handle commands from the prompt
         while interactive:
             try:
                 result = await self.cli.run_async()
-                self.parse(result.text if result else "")
+                cmd = result.text if result else ""
+                cmds = cmd.strip().splitlines()
+                for c in cmds:
+                    self.parse(c)
             except (EOFError, KeyboardInterrupt, Exit):
                 break
 

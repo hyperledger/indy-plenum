@@ -8,8 +8,8 @@ from plenum.common.util import getMaxFailures, firstValue
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd,\
-    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient, checkPoolReady
+from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
+    TestNode, checkPoolReady TestClient#, CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS
 
 
 class TestCliCore:
@@ -64,39 +64,39 @@ class TestCli(cli.Cli, TestCliCore):
         if matchedVars.get('client') == 'client':
             client_name = matchedVars.get('client_name')
             client_action = matchedVars.get('cli_action')
-            if client_action == "credit":
-                frm = client_name
-                to = matchedVars.get('second_client_name')
-                toClient = self.clients.get(to, None)
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: CREDIT,
-                    TARGET_NYM: toClient.defaultIdentifier,
-                    DATA: {
-                        AMOUNT: amount
-                    }}
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "balance":
-                frm = client_name
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "transactions":
-                frm = client_name
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_ALL_TXNS,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            else:
-                return cli.Cli._clientCommand(self, matchedVars)
+            # if client_action == "credit":
+            #     frm = client_name
+            #     to = matchedVars.get('second_client_name')
+            #     toClient = self.clients.get(to, None)
+            #     amount = int(matchedVars.get('amount'))
+            #     txn = {
+            #         TXN_TYPE: CREDIT,
+            #         TARGET_NYM: toClient.defaultIdentifier,
+            #         DATA: {
+            #             AMOUNT: amount
+            #         }}
+            #     self.sendMsg(frm, txn)
+            #     return True
+            # elif client_action == "balance":
+            #     frm = client_name
+            #     frmClient = self.clients.get(frm, None)
+            #     txn = {
+            #         TXN_TYPE: GET_BAL,
+            #         TARGET_NYM: frmClient.defaultIdentifier
+            #     }
+            #     self.sendMsg(frm, txn)
+            #     return True
+            # elif client_action == "transactions":
+            #     frm = client_name
+            #     frmClient = self.clients.get(frm, None)
+            #     txn = {
+            #         TXN_TYPE: GET_ALL_TXNS,
+            #         TARGET_NYM: frmClient.defaultIdentifier
+            #     }
+            #     self.sendMsg(frm, txn)
+            #     return True
+            # else:
+            return cli.Cli._clientCommand(self, matchedVars)
 
 
 def isErrorToken(token: Token):
