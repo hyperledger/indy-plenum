@@ -1,0 +1,73 @@
+#! /usr/bin/env python3
+
+import argparse
+from sys import argv
+
+import os.path
+
+from ledger.stores.text_file_store import TextFileStore
+from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalEstateData
+from plenum.common.util import getConfig
+from plenum.common.types import CLIENT_STACK_SUFFIX
+
+config = getConfig()
+keepDir = os.path.expanduser(config.baseDir)
+
+def getStewardName(nodeName):
+    ledger = TextFileStore(
+        dbDir=config.baseDir,
+        dbName="node-steward-mapping",
+        storeContentHash = False)
+    v = ledger.get(nodeName)
+    return v
+
+
+def isNodeType(name):
+    filepath =  os.path.join(os.path.expanduser(config.baseDir), name + CLIENT_STACK_SUFFIX)
+    if os.path.exists(filepath):
+        return True
+    else:
+        return False
+
+def getVerKeyFromName(name):
+    return getLocalVerKey(name, config.baseDir)
+
+def getPubKeyFromName(name):
+    return getLocalVerKey(name, config.baseDir)
+
+def printNodeGenesisTxn(name):
+    steward = getStewardName(name)
+    stewardKey = getVerKeyFromName(steward)
+    nodeKey = getVerKeyFromName(name)
+    nodeEstateData = getLocalEstateData(name, config.baseDir)
+    clientEstateData = getLocalEstateData(name + CLIENT_STACK_SUFFIX, config.baseDir)
+
+    print('\nadd genesis transaction NEW_NODE for ' + nodeKey + ' by ' + stewardKey +
+           ' with data {"node_ip": "' + nodeEstateData.get('ha')[0] + '", "node_port": ' + nodeEstateData.get('ha')[1] + ', '
+            '"client_ip": "' + clientEstateData.get('ha')[0] + '", "client_port": ' + clientEstateData.get('ha')[1] + ', "pubkey": "' + pubkey + '", "alias": "' + name + '"}')
+
+    pass
+
+
+def printStewardGenesisTxn(name):
+    pass
+
+
+if __name__ == "__main__":
+    if not os.path.exists(keepDir):
+        os.makedirs(keepDir, exist_ok=True)
+
+    parser = argparse.ArgumentParser(
+        description="Generate steward key")
+
+    parser.add_argument('name', action="store")
+
+    args = parser.parse_args()
+    name = argv[1]
+
+    isNode = isNodeType(name)
+    if isNode:
+        printNodeGenesisTxn(name)
+    else:
+        printStewardGenesisTxn(name)
+

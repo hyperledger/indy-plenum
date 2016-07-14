@@ -1,8 +1,11 @@
+from binascii import unhexlify
+
+import base64
 import json
 import os
 from collections import OrderedDict
 
-from raet.nacling import Signer, Privateer
+from raet.nacling import Signer, Privateer, Verifier
 from raet.road.keeping import RoadKeep
 
 from plenum.common.util import hasKeys
@@ -24,9 +27,9 @@ def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
         if not override:
             raise FileExistsError("Keys exists for local role {}".format(name))
 
-    if not isinstance(pkseed, bytes):
+    if pkseed and not isinstance(pkseed, bytes):
         pkseed = pkseed.encode()
-    if not isinstance(sigseed, bytes):
+    if sigseed and not isinstance(sigseed, bytes):
         sigseed = sigseed.encode()
 
     priver = Privateer(pkseed)
@@ -81,13 +84,33 @@ def isLocalKeepSetup(name, baseDir=None) -> bool:
     :param baseDir: base directory of Plenum
     :return: whether the keys are setup
     """
-    keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
-    localRoleData = keep.loadLocalRoleData()
+    localRoleData = getLocalKeep(name=name, baseDir=baseDir)
     return hasKeys(localRoleData, ['role', 'sighex', 'prihex'])
 
 
+def getLocalKeep(name, baseDir=None):
+    keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
+    localRoleData = keep.loadLocalRoleData()
+    return localRoleData
+
+def getLocalVerKey(name, baseDir=None):
+    localRoleData = getLocalKeep(name, baseDir)
+    sighex = str(localRoleData.get('sighex'))
+    signer = Signer(sighex)
+    return signer.verhex
+
+def getLocalVerKey(name, baseDir=None):
+    localRoleData = getLocalKeep(name, baseDir)
+    sighex = str(localRoleData.get('sighex'))
+    signer = Signer(sighex)
+    return signer.verhex
+
+def getEncodedLocalVerKey(name, baseDir=None):
+    verKey = getLocalVerKey(name, baseDir)
+    return base64.b64encode(unhexlify(verKey)).decode("utf-8")
+
 def getLocalEstateData(name, baseDir):
-    estatePath = os.path.join(baseDir, name, "local", "estate.json")
+    estatePath = os.path.expanduser(os.path.join(baseDir, name, "local", "estate.json"))
     if os.path.isfile(estatePath):
         return json.loads(open(estatePath).read())
 

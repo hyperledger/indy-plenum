@@ -47,7 +47,8 @@ CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "\s*) "
 
 
-CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX = "(\s*(?P<create_gen_txn_file>create \s+ genesis \s+ transaction \s+ file)\s*)"
+CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX = \
+    "(\s*(?P<create_gen_txn_file>create \s+ genesis \s+ transaction \s+ file)\s*)"
 
 # commands
 SIMPLE_CMDS = {'status', 'exit', 'quit', 'license'}
