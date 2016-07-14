@@ -855,7 +855,10 @@ Commands:
         while interactive:
             try:
                 result = await self.cli.run_async()
-                self.parse(result.text if result else "")
+                cmd = result.text if result else ""
+                cmds = cmd.strip().splitlines()
+                for c in cmds:
+                    self.parse(c)
             except (EOFError, KeyboardInterrupt, Exit):
                 break
 
