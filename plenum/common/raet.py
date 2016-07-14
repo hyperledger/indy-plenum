@@ -97,13 +97,7 @@ def getLocalVerKey(name, baseDir=None):
     localRoleData = getLocalKeep(name, baseDir)
     sighex = str(localRoleData.get('sighex'))
     signer = Signer(sighex)
-    return signer.verhex
-
-def getLocalVerKey(name, baseDir=None):
-    localRoleData = getLocalKeep(name, baseDir)
-    sighex = str(localRoleData.get('sighex'))
-    signer = Signer(sighex)
-    return signer.verhex
+    return signer.verhex.decode()
 
 def getEncodedLocalVerKey(name, baseDir=None):
     verKey = getLocalVerKey(name, baseDir)

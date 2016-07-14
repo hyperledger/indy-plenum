@@ -1,5 +1,5 @@
 from ledger.stores.text_file_store import TextFileStore
-from plenum.common.raet import initLocalKeep, getEncodedLocalVerKey
+from plenum.common.raet import initLocalKeep, getEncodedLocalVerKey, getLocalVerKey
 
 NodeStewardMappingFile = "node-steward-mapping"
 GenTxnFile = "genesis_txn"
@@ -29,7 +29,7 @@ def initKeep(name, baseDir, pkseed, sigseed, override=False):
     return (pubkey, verkey)
 
 def getStewardKeyFromName(baseDir, name):
-    return getEncodedLocalVerKey(name, baseDir)
+    return getLocalVerKey(name, baseDir)
 
 
 def printNodeGenesisTrans(baseDir, name, verkey, pubkey, vstewardverkey, nodeip, nodeport, clientip, clientport):
