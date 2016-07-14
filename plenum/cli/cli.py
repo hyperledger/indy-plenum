@@ -29,6 +29,8 @@ from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP
+from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
+    GET_ALL_TXNS
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -337,7 +339,6 @@ class Cli:
 
             self.print('Genesis transaction file created at {} '.format(ledger._transactionLog.dbPath))
             return True
-
 
     def _addGenesisAction(self, matchedVars):
         if matchedVars.get('add_gen_txn'):
@@ -943,6 +944,37 @@ Commands:
             elif client_action == 'show':
                 req_id = matchedVars.get('req_id')
                 self.getReply(client_name, req_id)
+                return True
+            elif client_action == "credit":
+                frm = matchedVars.get('client_name')
+                to = matchedVars.get('second_client_name')
+                toClient = self.clients.get(to, None)
+                amount = int(matchedVars.get('amount'))
+                txn = {
+                    TXN_TYPE: CREDIT,
+                    TARGET_NYM: toClient.defaultIdentifier,
+                    DATA: {
+                        AMOUNT: amount
+                    }}
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "balance":
+                frm = matchedVars.get('client_name')
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_BAL,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
+                return True
+            elif client_action == "transactions":
+                frm = matchedVars.get('client_name')
+                frmClient = self.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_ALL_TXNS,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.sendMsg(frm, txn)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):

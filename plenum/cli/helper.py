@@ -34,7 +34,10 @@ def getClientGrams():
         CLIENT_GRAMS_BECOME_FORMATTED_REG_EX,
         CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX,
         CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_FORMATTED_REG_EX,
-        CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
+        CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX,
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
     ]
 
 
