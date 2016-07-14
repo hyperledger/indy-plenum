@@ -38,9 +38,7 @@ def printNodeGenesisTrans(baseDir, name, verkey, pubkey, vstewardverkey, nodeip,
     vclientip = clientip if clientip else vnodeip
     vclientport = clientport if clientport else str(int(vnodeport)+1)
 
-    txn = """add genesis transaction NEW_NODE for {} by {} with data {"node_ip": "{}", "node_port": {}, "client_ip": "{}", ' \
-          '"client_port": {}, "pubkey": "{}", "alias": "{}"}""".\
-        format(verkey, vstewardverkey, vnodeip, vnodeport, vclientip, vclientport, pubkey, name)
+    txn = 'add genesis transaction NEW_NODE for ' + verkey + ' by ' + vstewardverkey + ' with data {"node_ip": "' + vnodeip + '", "node_port": ' + vnodeport + ', "client_ip": "{}", "client_port": ' + vclientport + ', "pubkey": "' + pubkey + '", "alias": "' + name + '"}'
 
     storeGenTxns(baseDir, txn)
     print(txn)
