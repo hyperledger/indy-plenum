@@ -30,7 +30,6 @@ class BankReqProcessorPlugin:
         self.count = 0
 
         # TODO: NEED SOME WAY TO INTEGRATE PERSISTENCE IN PLUGIN
-
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
 
