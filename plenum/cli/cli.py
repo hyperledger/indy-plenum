@@ -109,7 +109,7 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
-        if not (nodeReg and len(nodeReg) > 0):
+        if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1 and sys.argv[1] == "--noreg"):
             nodeReg = {}
             cliNodeReg = {}
             dataDir = os.path.expanduser(config.baseDir)
@@ -848,8 +848,9 @@ Commands:
         """
         # First handle any commands passed in
         for command in commands:
-            self.print("\nRunning command: '{}'...\n".format(command))
-            self.parse(command)
+            if not command.startswith("--"):
+                self.print("\nRunning command: '{}'...\n".format(command))
+                self.parse(command)
 
         # then handle commands from the prompt
         while interactive:
