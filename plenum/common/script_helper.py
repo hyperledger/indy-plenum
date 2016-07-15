@@ -31,8 +31,9 @@ def getNodeInfo(baseDir, nodeName):
 
 def storeNodeInfo(baseDir, nodeName, steward, nodeip, nodeport, clientip, clientport):
     data = {}
-    nodeAddr = nodeip + ":" + nodeport
-    clientAddr = clientip + ":" + clientport
+    vnodeip, vnodeport, vclientip, vclientport = getAddGenesisHAs(nodeip, nodeport, clientip, clientport)
+    nodeAddr = vnodeip + ":" + str(vnodeport)
+    clientAddr = vclientip + ":" + str(vclientport)
     data['steward'] = steward
     data['nodeAddr'] = nodeAddr
     data['clientAddr'] = clientAddr
