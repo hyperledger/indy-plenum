@@ -5,8 +5,8 @@ from sys import argv
 
 import os.path
 
-from plenum.common.script_helper import storeNodeStewardMapping, getStewardKeyFromName, initKeep, \
-    printNodeGenesisTrans
+from plenum.common.script_helper import storeNodeInfo, getStewardKeyFromName, initKeep, \
+    storeAndPrintNodeGenesisTrans
 from plenum.common.util import getConfig
 from plenum.common.types import CLIENT_STACK_SUFFIX
 
@@ -35,8 +35,6 @@ if __name__ == "__main__":
 
     # Initialize node stack
 
-    # storeNodeStewardMapping(config.baseDir, name, args.steward)
-
     pubkey, verkey = None, None
     privSeed = None
     signSeed = None
@@ -48,7 +46,7 @@ if __name__ == "__main__":
         if int(args.steward) == 64:
             stewardverkey = args.steward
         else:
-            stewardverkey =  getStewardKeyFromName(config.baseDir, args.steward)
+            stewardverkey = getStewardKeyFromName(config.baseDir, args.steward)
     except ValueError as ex:
         stewardverkey = getStewardKeyFromName(config.baseDir, args.steward)
     except Exception as ex:
@@ -60,7 +58,7 @@ if __name__ == "__main__":
     # Initialize node stack
     print("For node stack, stack name is", args.name)
     try:
-        pubkey, verkey = initKeep(args.name, keepDir, privSeed, signSeed, args.force)
+        pubkey, verkey = initKeep(keepDir, args.name, privSeed, signSeed, args.force)
     except Exception as ex:
         print(ex)
         exit()
@@ -68,14 +66,14 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeep(args.name + CLIENT_STACK_SUFFIX, keepDir, privSeed, signSeed, args.force)
+        initKeep(keepDir, args.name + CLIENT_STACK_SUFFIX, privSeed, signSeed, args.force)
     except Exception as ex:
         print(ex)
         exit()
 
     # Print genesis transaction commands
     try:
-        printNodeGenesisTrans(config.baseDir, args.name, verkey, pubkey, stewardverkey, args.ip, args.port, args.clientip, args.clientport)
+        storeAndPrintNodeGenesisTrans(config.baseDir, args.name, verkey, pubkey, stewardverkey, args.ip, args.port, args.clientip, args.clientport)
     except Exception as ex:
         print(ex)
         exit()

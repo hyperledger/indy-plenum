@@ -5,7 +5,7 @@ import json
 import os
 from collections import OrderedDict
 
-from raet.nacling import Signer, Privateer, Verifier
+from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
 from plenum.common.util import hasKeys
@@ -93,15 +93,32 @@ def getLocalKeep(name, baseDir=None):
     localRoleData = keep.loadLocalRoleData()
     return localRoleData
 
-def getLocalVerKey(name, baseDir=None):
-    localRoleData = getLocalKeep(name, baseDir)
-    sighex = str(localRoleData.get('sighex'))
+
+def getLocalRoleKeyByName(roleName, baseDir, keyName):
+    localRoleData = getLocalKeep(roleName, baseDir)
+    keyhex = localRoleData.get(keyName)
+    keyhex = str(keyhex) if keyhex is not None else None
+    if keyhex is None:
+        raise BaseException("Seems {} keypair is not created yet".format(roleName))
+    return keyhex
+
+
+def getLocalVerKey(roleName, baseDir=None):
+    sighex = getLocalRoleKeyByName(roleName, baseDir, 'sighex')
     signer = Signer(sighex)
     return signer.verhex.decode()
+
+
+def getLocalPubKey(roleName, baseDir=None):
+    prihex = getLocalRoleKeyByName(roleName, baseDir, 'prihex')
+    privateer = Privateer(prihex)
+    return privateer.pubhex.decode()
+
 
 def getEncodedLocalVerKey(name, baseDir=None):
     verKey = getLocalVerKey(name, baseDir)
     return base64.b64encode(unhexlify(verKey)).decode("utf-8")
+
 
 def getLocalEstateData(name, baseDir):
     estatePath = os.path.expanduser(os.path.join(baseDir, name, "local", "estate.json"))

@@ -1,10 +1,9 @@
 #! /usr/bin/env python3
 
 import argparse
-import os
 import os.path
 
-from plenum.common.raet import initLocalKeep
+from plenum.common.script_helper import initKeep, getAddGenesisNewStewardCommand, getAddGenesisNewNodeCommand
 from plenum.common.util import getConfig
 from plenum.common.types import CLIENT_STACK_SUFFIX
 
@@ -12,24 +11,12 @@ config = getConfig()
 keepDir = os.path.expanduser(config.baseDir)
 
 
-def initKeep(name, baseDir, pkseed, sigseed, override=False):
-    pubkey, verkey = initLocalKeep(name, baseDir, pkseed, sigseed, override)
-    print("Public key is", pubkey)
-    print("Verification key is", verkey)
-    return (pubkey, verkey)
-
-
 def printGenesisTrans(type, name, verkey, pubkey, stewardverkey, nodeip, nodeport):
-    vnodeip = nodeip if nodeip else "127.0.0.1"
-    vnodeport = nodeport if nodeport else "9701"
-    vstewardverkey = stewardverkey if stewardverkey else "<steward ver key>"
-
     if type == 'steward':
-        print('\nadd genesis transaction NEW_STEWARD for '+ verkey + ' with data {"alias": "' + name + '", "pubkey": "' + pubkey + '"}')
+        print(getAddGenesisNewStewardCommand(name, verkey, pubkey))
     elif type == 'node':
-        print('\nadd genesis transaction NEW_NODE for ' + verkey + ' by ' + vstewardverkey +
-              ' with data {"node_ip": "' + vnodeip + '", "node_port": ' + vnodeport + ', '
-              '"client_ip": "'+ vnodeip + '", "client_port": ' + str(int(vnodeport) + 1) + ', "pubkey": "' + pubkey + '", "alias": "' + name+'"}')
+        print(getAddGenesisNewNodeCommand(name, verkey, pubkey, stewardverkey, nodeip, nodeport, None, None))
+
 
 if __name__ == "__main__":
     if not os.path.exists(keepDir):
@@ -55,7 +42,7 @@ if __name__ == "__main__":
     pubkey, verkey = None, None
 
     try:
-        pubkey, verkey = initKeep(args.name, keepDir, args.seeds[0], args.seeds[1], args.force)
+        pubkey, verkey = initKeep(keepDir, args.name, args.seeds[0], args.seeds[1], args.force)
     except Exception as ex:
         print(ex)
         exit()
@@ -63,7 +50,7 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeep(args.name + CLIENT_STACK_SUFFIX, keepDir, args.seeds[0],
+        initKeep(keepDir, args.name + CLIENT_STACK_SUFFIX, args.seeds[0],
              args.seeds[1], args.force)
     except Exception as ex:
         print(ex)

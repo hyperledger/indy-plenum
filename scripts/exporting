@@ -6,20 +6,13 @@ from sys import argv
 import os.path
 
 from ledger.stores.text_file_store import TextFileStore
-from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalEstateData
+from plenum.common.raet import getLocalVerKey, getLocalEstateData, getLocalPubKey
+from plenum.common.script_helper import getNodeInfo
 from plenum.common.util import getConfig
 from plenum.common.types import CLIENT_STACK_SUFFIX
 
 config = getConfig()
 keepDir = os.path.expanduser(config.baseDir)
-
-def getStewardName(nodeName):
-    ledger = TextFileStore(
-        dbDir=config.baseDir,
-        dbName="node-steward-mapping",
-        storeContentHash = False)
-    v = ledger.get(nodeName)
-    return v
 
 
 def isNodeType(name):
@@ -29,29 +22,29 @@ def isNodeType(name):
     else:
         return False
 
-def getVerKeyFromName(name):
-    return getLocalVerKey(name, config.baseDir)
+def getVerKeyFromName(roleName):
+    return getLocalVerKey(roleName, config.baseDir)
 
-def getPubKeyFromName(name):
-    return getLocalVerKey(name, config.baseDir)
+def getPubKeyFromName(roleName):
+    return getLocalPubKey(roleName, config.baseDir)
 
 def printNodeGenesisTxn(name):
-    steward = getStewardName(name)
-    stewardKey = getVerKeyFromName(steward)
-    nodeKey = getVerKeyFromName(name)
-    nodeEstateData = getLocalEstateData(name, config.baseDir)
-    clientEstateData = getLocalEstateData(name + CLIENT_STACK_SUFFIX, config.baseDir)
+    nodeInfo = getNodeInfo(config.baseDir, name)
+    nodeVerKey = getVerKeyFromName(name)
+    nodePubKey = getPubKeyFromName(name)
+    stewardKey = nodeInfo.get('steward')
+    nodeAddr = nodeInfo.get('nodeAddr')
+    clientAddr = nodeInfo.get('clientAddr')
 
-    print('\nadd genesis transaction NEW_NODE for ' + nodeKey + ' by ' + stewardKey +
-           ' with data {"node_ip": "' + nodeEstateData.get('ha')[0] + '", "node_port": ' + nodeEstateData.get('ha')[1] + ', '
-            '"client_ip": "' + clientEstateData.get('ha')[0] + '", "client_port": ' + clientEstateData.get('ha')[1] + ', "pubkey": "' + pubkey + '", "alias": "' + name + '"}')
+    txnData = '{"' + name + '": {"verkey": "' + nodeVerKey + '", "pubkey": "' + nodePubKey + \
+              '", "node_address": "' + nodeAddr + \
+              '", "client_address": "' + clientAddr + '"}, "by":' + stewardKey + '}'
+    print(txnData)
 
-    pass
 
-
-def printStewardGenesisTxn(name):
-    pass
-
+def printStewardGenesisTxn(name, key):
+    txndata = '{"' +name + '": {"key": ' + key + '"}}'
+    print(txndata)
 
 if __name__ == "__main__":
     if not os.path.exists(keepDir):
@@ -69,5 +62,6 @@ if __name__ == "__main__":
     if isNode:
         printNodeGenesisTxn(name)
     else:
-        printStewardGenesisTxn(name)
+        stewardKey = getLocalVerKey(name, config.baseDir)
+        printStewardGenesisTxn(name, stewardKey)
 

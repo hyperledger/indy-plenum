@@ -34,7 +34,7 @@ if __name__ == "__main__":
         privSeed, signSeed = args.seeds[0], args.seeds[1]
 
     try:
-        pubkey, verkey = initKeep(name, keepDir, privSeed, signSeed, args.force)
+        pubkey, verkey = initKeep(keepDir, name, privSeed, signSeed, args.force)
     except Exception as ex:
         print(ex)
         exit()
