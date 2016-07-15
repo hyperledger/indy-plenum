@@ -940,7 +940,7 @@ def setupClients(count: int,
                 nodeReg=None,
                 tmpdir=None):
     clients = {}
-    for i in range(3):
+    for i in range(count):
         client = setupClient(looper, nodes, nodeReg, tmpdir)
         clients[client.name] = client
     return clients

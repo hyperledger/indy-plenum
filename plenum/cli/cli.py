@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import base64
+import weakref
 
 from _sha256 import sha256
 
@@ -9,6 +10,8 @@ from binascii import unhexlify
 from typing import Set
 
 from jsonpickle import json
+from prompt_toolkit.key_binding.input_processor import InputProcessor
+from prompt_toolkit.renderer import Renderer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
@@ -240,14 +243,14 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        pers_hist = FileHistory('.{}-cli-history'.format(self.name))
+        self.pers_hist = FileHistory('.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
                                         lexer=self.grammarLexer,
                                         completer=self.grammarCompleter,
                                         style=self.style,
-                                        history=pers_hist)
+                                        history=self.pers_hist)
         if output:
             out = output
         else:
@@ -302,7 +305,7 @@ class Cli:
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
                              self._keyShareAction, self._loadPluginDirAction,
-                             self._clientCommand, self._loadPluginAction, self._addKeyAction,
+                             self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
                              self._createGenTxnFileAction]
@@ -1041,6 +1044,8 @@ Commands:
                                 parserReInitNeeded = True
                             if parserReInitNeeded:
                                 self.initializeInputParser()
+                                # self.cli.application.buffer.grammar = \
+                                #     self.grammarCompleter
                             if hasattr(plugin, "actions") and \
                                     isinstance(plugin.actions, list):
                                 self._actions.extend(plugin.actions)
@@ -1049,27 +1054,6 @@ Commands:
             except FileNotFoundError as ex:
                 _, err = ex.args
                 self.print(err, Token.BoldOrange)
-            return True
-
-    #TODO: Why is this method called loadPluginAction, it doesnt look like its
-    # loading a plugin, moreover is this command even needed now?
-    def _loadPluginAction(self, matchedVars):
-        if matchedVars.get('load') == 'load':
-            file = matchedVars.get("file_name")
-            if os.path.exists(file):
-                try:
-                    self.loadFromFile(file)
-                    self.print("Node registry loaded.")
-                    self.showNodeRegistry()
-                except configparser.ParsingError:
-                    self.logger.warn("Could not parse file. "
-                                     "Please ensure that the file "
-                                     "has sections node_reg "
-                                     "and client_node_reg.",
-                                     extra={'cli': 'WARNING'})
-            else:
-                self.logger.warn("File {} not found.".format(file),
-                                 extra={"cli": "WARNING"})
             return True
 
     def _addKeyAction(self, matchedVars):
