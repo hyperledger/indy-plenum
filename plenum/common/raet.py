@@ -109,6 +109,7 @@ def getLocalVerKey(roleName, baseDir=None):
     return signer.verhex.decode()
 
 
+
 def getLocalPubKey(roleName, baseDir=None):
     prihex = getLocalRoleKeyByName(roleName, baseDir, 'prihex')
     privateer = Privateer(prihex)

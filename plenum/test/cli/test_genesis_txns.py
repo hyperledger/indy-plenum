@@ -14,6 +14,7 @@ def newStewardsAdded(cli):
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
 
+
 @pytest.fixture("module")
 def newNodesAdded(cli):
     assert len(cli.genesisTransactions) == 2
@@ -30,6 +31,7 @@ def newNodesAdded(cli):
     assert len(cli.genesisTransactions) == 4
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
+
 
 def test_new_steward_gen_txn(newStewardsAdded):
     pass

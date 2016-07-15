@@ -37,9 +37,17 @@ def getClientGrams():
         CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
     ]
 
+# def getAllGrams(utilGrams, nodeGrams, clientGrams):
+#     # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
+#     utilGrams[-1] += " |"
+#     nodeGrams[-1] += " |"
+#     return utilGrams + nodeGrams + clientGrams
 
-def getAllGrams(utilGrams, nodeGrams, clientGrams):
+
+def getAllGrams(*grams):
     # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
-    utilGrams[-1] += " |"
-    nodeGrams[-1] += " |"
-    return utilGrams + nodeGrams + clientGrams
+    allGrams = []
+    for gram in grams[:-1]:
+        allGrams += gram
+        allGrams[-1] += " |"
+    return allGrams + grams[-1]

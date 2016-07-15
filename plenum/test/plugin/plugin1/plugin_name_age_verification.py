@@ -1,5 +1,6 @@
 class NameAndAgeVerifier:
     pluginType = 'VERIFICATION'
+    supportsCli = True
 
     @staticmethod
     def verify(operation):

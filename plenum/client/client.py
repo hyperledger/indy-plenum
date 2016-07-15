@@ -12,7 +12,6 @@ from binascii import unhexlify
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-from raet.nacling import Privateer
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.json_serializer import JsonSerializer
@@ -115,11 +114,6 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        # if wallet:
-        #     self.wallet = wallet
-        # else:
-        #     storage = WalletStorageFile.fromName(self.name, basedirpath)
-        #     self.wallet = Wallet(self.name, storage)
         self.setupWallet(wallet)
         signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
