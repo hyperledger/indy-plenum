@@ -34,15 +34,20 @@ def getClientGrams():
         CLIENT_GRAMS_BECOME_FORMATTED_REG_EX,
         CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX,
         CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_FORMATTED_REG_EX,
-        CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX,
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
-        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
+        CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX
     ]
 
+# def getAllGrams(utilGrams, nodeGrams, clientGrams):
+#     # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
+#     utilGrams[-1] += " |"
+#     nodeGrams[-1] += " |"
+#     return utilGrams + nodeGrams + clientGrams
 
-def getAllGrams(utilGrams, nodeGrams, clientGrams):
+
+def getAllGrams(*grams):
     # Adding "|" to `utilGrams` and `nodeGrams` so they can be combined
-    utilGrams[-1] += " |"
-    nodeGrams[-1] += " |"
-    return utilGrams + nodeGrams + clientGrams
+    allGrams = []
+    for gram in grams[:-1]:
+        allGrams += gram
+        allGrams[-1] += " |"
+    return allGrams + grams[-1]

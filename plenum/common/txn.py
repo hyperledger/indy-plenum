@@ -76,13 +76,6 @@ TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 
-CREDIT = "CREDIT"
-AMOUNT = "AMOUNT"
-GET_BAL = "GET_BAL"
-GET_ALL_TXNS = "GET_ALL_TXNS"
-SUCCESS = "success"
-BALANCE = "balance"
-ALL_TXNS = "all_txns"
 
 BY = "by"
 

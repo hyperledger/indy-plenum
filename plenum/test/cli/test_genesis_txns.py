@@ -15,6 +15,7 @@ def newStewardsAdded(cli):
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
 
+
 @pytest.fixture("module")
 def newNodesAdded(cli):
     oldGenTxns = len(cli.genesisTransactions)

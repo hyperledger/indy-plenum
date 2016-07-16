@@ -21,16 +21,16 @@ class AuctionReqValidationPlugin:
         assert typ in self.validTxnTypes, \
             "{} is not a valid transaction type, must be one of {}".\
                 format(typ, ', '.join(self.validTxnTypes))
+        if typ in [AUCTION_START, AUCTION_END, PLACE_BID]:
+            data = operation.get(DATA)
+            assert isinstance(data, dict), \
+                "{} attribute is missing or not in proper format".format(DATA)
+            assert ID in data and data[ID], "No id provided for auction"
 
-        data = operation.get(DATA)
-        assert isinstance(data, dict), \
-            "{} attribute is missing or not in proper format".format(DATA)
-        assert ID in data and data[ID], "No id provided for auction"
-
-        if typ == PLACE_BID:
-            amount = data.get(AMOUNT)
-            assert isinstance(amount, (int, float)) and amount > 0, \
-                "{} must be present and should be a number greater than 0"\
-                    .format(AMOUNT)
+            if typ == PLACE_BID:
+                amount = data.get(AMOUNT)
+                assert isinstance(amount, (int, float)) and amount > 0, \
+                    "{} must be present and should be a number greater than 0"\
+                        .format(AMOUNT)
 
         self.count += 1

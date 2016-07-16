@@ -22,13 +22,6 @@ STATUS = "status"
 SUCCESS = "success"
 BALANCE = "balance"
 
-# Auction = NamedTuple(AUCTION, [
-#     (ID, str),
-#     (CREATOR, str),
-#     (HIGHEST_BID, float),
-#     (HIGHEST_BIDDER, str),
-#     (STATUS, int)])
-
 
 # TODO: Create a combined plugin for Validation or processing or create a plugin
 #  package that is always distributed together
@@ -45,7 +38,7 @@ class AuctionReqProcessorPlugin:
         # TODO: NEED SOME WAY TO INTEGRATE PERSISTENCE IN PLUGIN
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
-        self.auctions = {} # type: Dict[str, Auction]
+        self.auctions = {} # type: Dict[str, SimpleNamespace]
 
     def auctionExists(self, id):
         return id in self.auctions
