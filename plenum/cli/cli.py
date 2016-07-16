@@ -28,7 +28,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, VERKEY, PUBKEY, BY
 from plenum.common.txn import CREDIT, TXN_TYPE, DATA, AMOUNT, GET_BAL, \
     GET_ALL_TXNS
 from plenum.persistence.wallet_storage_file import WalletStorageFile
@@ -331,7 +331,7 @@ class Cli:
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
             ledger = Ledger(CompactMerkleTree(),
-                            dataDir=config.baseDir,
+                            dataDir=self.basedirpath,
                             fileName=config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
@@ -342,22 +342,53 @@ class Cli:
 
     def _addGenesisAction(self, matchedVars):
         if matchedVars.get('add_gen_txn'):
-            destId = base64.b64encode(unhexlify(matchedVars.get('dest').encode())).decode()
-            typ = matchedVars.get('txn_type')
-            txn = {
-                TXN_TYPE: typ,
-                TARGET_NYM: destId,
-                TXN_ID: sha256(randomString(6).encode()).hexdigest(),
-            }
-            if matchedVars.get('identifier'):
-                txn[IDENTIFIER] = base64.b64encode(unhexlify(matchedVars.get('identifier').encode())).decode()
+            if matchedVars.get(TARGET_NYM):
+                return self._addOldGenesisCommand(matchedVars)
+            else:
+                return self._addNewGenesisCommand(matchedVars)
 
-            if matchedVars.get('data'):
-                txn[DATA] = json.loads(matchedVars.get('data'))
+    def _addNewGenesisCommand(self, matchedVars):
+        typ = matchedVars.get(TXN_TYPE)
 
-            self.genesisTransactions.append(txn)
-            self.print('Genesis transaction added')
-            return True
+        nodeName, nodeData, identifier = None, None, None
+        jsonNodeData = json.loads(matchedVars.get(DATA))
+        for key, value in jsonNodeData.items():
+            if key == BY:
+                identifier = value
+            else:
+                nodeName, nodeData = key, value
+
+        withData = {ALIAS: nodeName, PUBKEY: ""}
+
+        if typ == NEW_NODE:
+            nodeIp, nodePort = nodeData.get('node_address').split(':')
+            clientIp, clientPort = nodeData.get('client_address').split(':')
+            withData[NODE_IP] = nodeIp
+            withData[NODE_PORT] = int(nodePort)
+            withData[CLIENT_IP] = clientIp
+            withData[CLIENT_PORT] = int(clientPort)
+            withData[PUBKEY] = nodeData.get(PUBKEY)
+
+        newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData), TARGET_NYM: nodeData.get(VERKEY), IDENTIFIER: identifier}
+        return self._addOldGenesisCommand(newMatchedVars)
+
+    def _addOldGenesisCommand(self, matchedVars):
+        destId = base64.b64encode(unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
+        typ = matchedVars.get(TXN_TYPE)
+        txn = {
+            TXN_TYPE: typ,
+            TARGET_NYM: destId,
+            TXN_ID: sha256(randomString(6).encode()).hexdigest(),
+        }
+        if matchedVars.get(IDENTIFIER):
+            txn[IDENTIFIER] = base64.b64encode(unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
+
+        if matchedVars.get(DATA):
+            txn[DATA] = json.loads(matchedVars.get(DATA))
+
+        self.genesisTransactions.append(txn)
+        self.print('Genesis transaction added')
+        return True
 
     def _buildClientIfNotExists(self):
         if not self._activeClient:

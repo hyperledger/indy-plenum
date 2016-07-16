@@ -1,67 +1,29 @@
 #! /usr/bin/env python3
 
 import argparse
+
 from sys import argv
 
-import os.path
-
-from ledger.stores.text_file_store import TextFileStore
-from plenum.common.raet import getLocalVerKey, getLocalEstateData, getLocalPubKey
-from plenum.common.script_helper import getNodeInfo
+from plenum.common.script_helper import isNodeType, exportNodeGenTxn, exportStewardGenTxn, buildKeepDirIfNotExists
 from plenum.common.util import getConfig
-from plenum.common.types import CLIENT_STACK_SUFFIX
 
 config = getConfig()
-keepDir = os.path.expanduser(config.baseDir)
-
-
-def isNodeType(name):
-    filepath =  os.path.join(os.path.expanduser(config.baseDir), name + CLIENT_STACK_SUFFIX)
-    if os.path.exists(filepath):
-        return True
-    else:
-        return False
-
-def getVerKeyFromName(roleName):
-    return getLocalVerKey(roleName, config.baseDir)
-
-def getPubKeyFromName(roleName):
-    return getLocalPubKey(roleName, config.baseDir)
-
-def printNodeGenesisTxn(name):
-    nodeInfo = getNodeInfo(config.baseDir, name)
-    nodeVerKey = getVerKeyFromName(name)
-    nodePubKey = getPubKeyFromName(name)
-    stewardKey = nodeInfo.get('steward')
-    nodeAddr = nodeInfo.get('nodeAddr')
-    clientAddr = nodeInfo.get('clientAddr')
-
-    txnData = '{"' + name + '": {"verkey": "' + nodeVerKey + '", "pubkey": "' + nodePubKey + \
-              '", "node_address": "' + nodeAddr + \
-              '", "client_address": "' + clientAddr + '"}, "by":' + stewardKey + '}'
-    print(txnData)
-
-
-def printStewardGenesisTxn(name, key):
-    txndata = '{"' +name + '": {"key": ' + key + '"}}'
-    print(txndata)
 
 if __name__ == "__main__":
-    if not os.path.exists(keepDir):
-        os.makedirs(keepDir, exist_ok=True)
+    buildKeepDirIfNotExists(config.baseDir)
 
     parser = argparse.ArgumentParser(
-        description="Generate steward key")
+        description="Export keys")
 
     parser.add_argument('name', action="store")
+    parser.add_argument('--print_gen_txn', help='overrides keys', action='store_true')
 
     args = parser.parse_args()
     name = argv[1]
 
-    isNode = isNodeType(name)
+    isNode = isNodeType(config.baseDir, name)
     if isNode:
-        printNodeGenesisTxn(name)
+        exportNodeGenTxn(config.baseDir, args.print_gen_txn, name)
     else:
-        stewardKey = getLocalVerKey(name, config.baseDir)
-        printStewardGenesisTxn(name, stewardKey)
+        exportStewardGenTxn(config.baseDir, args.print_gen_txn, name)
 

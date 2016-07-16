@@ -73,7 +73,6 @@ NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
-
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 
@@ -84,6 +83,8 @@ GET_ALL_TXNS = "GET_ALL_TXNS"
 SUCCESS = "success"
 BALANCE = "balance"
 ALL_TXNS = "all_txns"
+
+BY = "by"
 
 POOL_TXN_TYPES = {NEW_NODE, NEW_STEWARD, NEW_CLIENT, CHANGE_HA, CHANGE_KEYS}
 
