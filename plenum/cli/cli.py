@@ -90,7 +90,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        self.cleanUp()
+        # self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
