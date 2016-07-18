@@ -22,7 +22,7 @@ nodeReg = {
     'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
 
 
-def testNodesConnectsWhenOneNodeIsLate():
+def testNodesConnectsWhenOneNodeIsLate(statsConsumersPluginPath):
     with TemporaryDirectory() as td:
         with Looper() as looper:
             nodes = []
@@ -30,7 +30,7 @@ def testNodesConnectsWhenOneNodeIsLate():
             logger.debug("Node names: {}".format(names))
 
             def create(name):
-                node = TestNode(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -49,12 +49,12 @@ def testNodesConnectsWhenOneNodeIsLate():
             checkProtocolInstanceSetup(looper, nodes, timeout=10)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce():
+def testNodesConnectWhenTheyAllStartAtOnce(statsConsumersPluginPath):
     with TemporaryDirectory() as td:
         with Looper() as looper:
             nodes = []
             for name in nodeReg:
-                node = TestNode(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -63,7 +63,7 @@ def testNodesConnectWhenTheyAllStartAtOnce():
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes():
+def testNodesComingUpAtDifferentTimes(statsConsumersPluginPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -77,7 +77,7 @@ def testNodesComingUpAtDifferentTimes():
             rwaits = [randint(1, 10) for _ in names]
 
             for i, name in enumerate(names):
-                node = TestNode(name, nodeReg, basedirpath=td)
+                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -101,7 +101,7 @@ def testNodesComingUpAtDifferentTimes():
             print("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection():
+def testNodeConnection(statsConsumersPluginPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -110,7 +110,7 @@ def testNodeConnection():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nrg, basedirpath=td)
+            A, B = [TestNode(name, nrg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing()
@@ -127,7 +127,7 @@ def testNodeConnection():
             looper.run(checkNodesConnected([A, B]))
 
 
-def testNodeConnectionAfterKeysharingRestarted():
+def testNodeConnectionAfterKeysharingRestarted(statsConsumersPluginPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -137,7 +137,7 @@ def testNodeConnectionAfterKeysharingRestarted():
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td)
+            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td,statsConsumersPluginPath=statsConsumersPluginPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

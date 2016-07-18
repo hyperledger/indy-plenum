@@ -50,7 +50,8 @@ from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, randomString, \
     firstValue
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_VERIFICATION, \
+    PLUGIN_TYPE_STATS_CONSUMER
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig
@@ -505,7 +506,8 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
-        opVerifiers = self.plugins['VERIFICATION'] if self.plugins else []
+        opVerifiersPluginPath = self.plugins[PLUGIN_TYPE_VERIFICATION][0].path if self.plugins else None
+        statsConsumersPluginPath = self.plugins[PLUGIN_TYPE_STATS_CONSUMER][0].path if self.plugins else None
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -526,7 +528,8 @@ Commands:
             node = self.NodeClass(name,
                                   self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  opVerifiers=opVerifiers)
+                                  opVerifiersPluginPath=opVerifiersPluginPath,
+                                  statsConsumersPluginPath=statsConsumersPluginPath)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()

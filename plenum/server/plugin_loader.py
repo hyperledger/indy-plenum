@@ -6,6 +6,7 @@ from os import listdir
 from os.path import isfile, join
 from typing import Any, Set, Dict
 
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getlogger
 
 logger = getlogger()
@@ -20,7 +21,7 @@ class PluginLoader:
     will look for any classes declared in these modules that have a class
     attribute named 'pluginType', and then it checks to see that the
     'pluginType' attribute is equal to any of the valid types. Right now there
-    is only one valid type, 'VERIFICATION'. Then, it instantiates an object of
+    are only two valid types, 'VERIFICATION' and 'STATS_CONSUMER'. Then, it instantiates an object of
     that class type, without any constructor arguments. This is the plugin
     instance.
 
@@ -44,7 +45,7 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = ['VERIFICATION']
+        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 

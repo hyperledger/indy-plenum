@@ -48,7 +48,7 @@ def getValueFromModule(request, name: str, default: Any = None):
 
 
 overriddenConfigValues = {
-    "SendMonitorStats": False
+    #"SendMonitorStats": False
 }
 
 
@@ -96,11 +96,19 @@ def logcapture(request, whitelist):
     return whiteListedExceptions
 
 
+@pytest.fixture(scope='module')
+def statsConsumersPluginPath():
+    curPath = os.path.dirname(os.path.abspath(__file__))
+    pluginPath = os.path.join(curPath, 'plugin/stats_consumer')
+    return pluginPath
+
+
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg):
+def nodeSet(request, tdir, nodeReg, statsConsumersPluginPath):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
-                     primaryDecider=primaryDecider) as ns:
+                     primaryDecider=primaryDecider,
+                     statsConsumerPluginPath=statsConsumersPluginPath) as ns:
         yield ns
 
 
@@ -355,11 +363,13 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
+                    statsConsumersPluginPath,
                    tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
-            node = TestNode(nm, basedirpath=tdirWithPoolTxns, config=tconf)
+            node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+                            config=tconf, statsConsumersPluginPath=statsConsumersPluginPath)
             looper.add(node)
             nodes.append(node)
 

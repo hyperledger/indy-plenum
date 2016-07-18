@@ -9,7 +9,7 @@ curPath = os.path.dirname(os.path.abspath(__file__))
 
 @pytest.fixture
 def plugin():
-    pl = PluginLoader(os.path.join(curPath, 'plugin1'))
+    pl = PluginLoader(os.path.join(curPath, 'name_age_verification'))
     verPlugins = pl.plugins['VERIFICATION']
     assert len(verPlugins) == 1
     p, = verPlugins

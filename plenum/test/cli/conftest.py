@@ -63,6 +63,6 @@ def createAllNodes(cli):
 @pytest.fixture("module")
 def loadOpVerificationPlugin(cli):
     curPath = os.path.dirname(os.path.dirname(__file__))
-    fullPath = os.path.join(curPath, 'plugin', 'plugin1')
+    fullPath = os.path.join(curPath, 'plugin', 'name_age_verification')
     cli.enterCmd("load plugins from {}".format(fullPath))
     cli.looper.runFor(2)

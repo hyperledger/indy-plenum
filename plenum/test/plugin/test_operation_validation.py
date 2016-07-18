@@ -12,10 +12,10 @@ def nodeSet(tdir, nodeReg):
     Overrides the fixture from conftest.py
     """
     curPath = os.path.dirname(os.path.abspath(__file__))
-    pluginPath = os.path.join(curPath, 'plugin2')
+    pluginPath = os.path.join(curPath, 'operation_verification')
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerificationPluginPath=pluginPath) as ns:
+                     opVerifiersPluginPath=pluginPath) as ns:
 
         for n in ns:  # type: Node
             assert n.opVerifiers is not None

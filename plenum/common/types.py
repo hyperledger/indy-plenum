@@ -333,3 +333,11 @@ HA = NamedTuple("HA", [
 HS_FILE = "file"
 HS_ORIENT_DB = "orientdb"
 HS_MEMORY = "memory"
+
+
+PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
+PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
+
+EVENT_REQ_ORDERED = "req_ordered"
+EVENT_NODE_STARTED = "node_started"
+EVENT_PERIODIC_STATS_THROUGHPUT = "periodic_stats_throughput"

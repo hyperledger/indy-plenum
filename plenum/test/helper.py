@@ -2,6 +2,7 @@ import inspect
 import logging
 import math
 import operator
+import os
 import random
 import time
 import types
@@ -219,10 +220,10 @@ class TestClient(Client, StackedTester):
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput,
-                  Monitor.sendTotalRequestCount])
+                  Monitor.sendThroughput])
 class TestMonitor(Monitor):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class TestPrimaryElector(PrimaryElector):
@@ -285,7 +286,9 @@ class TestNodeCore(StackedTester):
         # Reinitialize the monitor
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances)
+
+        statsConsumersPluginPath = kwargs['statsConsumersPluginPath']
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances, statsConsumersPluginPath)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
 
@@ -403,7 +406,7 @@ class TestNodeCore(StackedTester):
 class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
-        TestNodeCore.__init__(self)
+        TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
 
@@ -524,12 +527,15 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None,
+                 opVerifiersPluginPath=None,
+                 statsConsumerPluginPath = None,
                  testNodeClass=TestNode):
         super().__init__()
         self.tmpdir = tmpdir
         self.primaryDecider = primaryDecider
-        self.opVerificationPluginPath = opVerificationPluginPath
+        self.opVerifiersPluginPath = opVerifiersPluginPath
+        self.statsConsumerPluginPath = statsConsumerPluginPath
+
         self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
@@ -555,11 +561,7 @@ class TestNodeSet(ExitStack):
             error("{} already added".format(name))
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
-        if self.opVerificationPluginPath:
-            pl = PluginLoader(self.opVerificationPluginPath)
-            opVerifiers = pl.plugins['VERIFICATION']
-        else:
-            opVerifiers = None
+
         testNodeClass = self.testNodeClass
         node = self.enter_context(
                 testNodeClass(name=name,
@@ -569,7 +571,8 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              opVerifiers=opVerifiers))
+                              opVerifiersPluginPath=self.opVerifiersPluginPath,
+                              statsConsumersPluginPath = self.statsConsumerPluginPath))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
