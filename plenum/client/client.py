@@ -62,15 +62,14 @@ class Client(Motor):
                                          basedirpath)
         self.basedirpath = basedirpath
 
+        cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
             clientEstate = getLocalEstateData(name, basedirpath)
-            if not clientEstate:
-                error("{} does not have estate data".format(name))
-            else:
+            if clientEstate:
                 cha = HA(*clientEstate["ha"])
-        else:
+        if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 
         self.name = name
