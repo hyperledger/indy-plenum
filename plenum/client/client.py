@@ -143,6 +143,8 @@ class Client(Motor):
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
+        self.messagesPendingConnection = deque()
+
         # Temporary node registry. Used to keep locations of unknown validators
         # until location confirmed by consensus. Key is the name of client stack
         # of unknown validator and value is a dictionary with location, i.e HA
@@ -232,7 +234,13 @@ class Client(Motor):
         requests = []
         for op in operations:
             request = self.createRequest(op, identifier)
-            self.nodestack.send(request, signer=self.getSigner(identifier))
+            signer = self.getSigner(identifier)
+            if self.hasSufficientConnections:
+                self.nodestack.send(request, signer=signer)
+            else:
+                self.messagesPendingConnection.append((request, signer))
+                logger.debug("Enqueuing request since not enough connections "
+                             "with nodes: {}".format(request))
             requests.append(request)
         return requests
 
@@ -409,6 +417,21 @@ class Client(Motor):
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
+            if self.hasSufficientConnections:
+                self.flushMsgsPendingConnection()
+
+    @property
+    def hasSufficientConnections(self):
+        return len(self.nodestack.conns) >= self.minNodesToConnect
+
+    def flushMsgsPendingConnection(self):
+        queueSize = len(self.messagesPendingConnection)
+        if queueSize > 0:
+            logger.debug("Flushing pending message queue of size {}"
+                         .format(queueSize))
+        while self.messagesPendingConnection:
+            req, signer = self.messagesPendingConnection.popleft()
+            self.nodestack.send(req, signer=signer)
 
     def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
