@@ -100,7 +100,8 @@ def testAuctionTransactions(nodeSet, up, looper, clients):
     # Les bidding 40
     biReqLe = bid(looper, clients[les], auctionId, 40)
 
-    # Tyler should get back his money and his balance should be same as starting balance
+    # Tyler should get back his money and his balance should be same as starting
+    #  balance
     bal3Ty = getBalance(looper, clients[tyler])
     assert bal3Ty == bal1Ty
 
@@ -113,7 +114,7 @@ def testAuctionTransactions(nodeSet, up, looper, clients):
     bal2Jn = getBalance(looper, clients[john])
     assert bal2Jn == bal1Jn
 
-    # Timothy bids 200 and the highest bidder, i.e Les' money should be retruned
+    # Timothy bids 200 and the highest bidder, i.e Les' money should be returned
     #  and Timothy's balance shoulbe 200 less than the starting balance
     biReqTi = bid(looper, clients[timothy], auctionId, 200)
     bal2Ti = getBalance(looper, clients[timothy])
@@ -124,12 +125,14 @@ def testAuctionTransactions(nodeSet, up, looper, clients):
     # Jason ending auction
     enReqJl = auction(looper, clients[jason], auctionId, start=False)
 
-    # John bids 300 which is higher than the highest bid but the auction has ended so his money is not deducted
+    # John bids 300 which is higher than the highest bid but the auction has
+    # ended so his money is not deducted
     biReqJn = bid(looper, clients[john], auctionId, 300)
     bal3Jn = getBalance(looper, clients[john])
     assert bal3Jn == bal1Jn
 
-    # Every one's balance should be same as their initial balance except Timothy's balance
+    # Every one's balance should be same as their initial balance except
+    # Timothy's balance
     bal4Ty = getBalance(looper, clients[tyler])
     bal4Le = getBalance(looper, clients[les])
     bal4Jn = getBalance(looper, clients[john])

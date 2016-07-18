@@ -14,6 +14,7 @@ from plenum.common.txn import TARGET_NYM, TXN_TYPE, NEW_STEWARD, DATA, ALIAS, \
     PUBKEY, TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, \
     NEW_CLIENT
 from plenum.common.types import f
+from plenum.common.util import hexToCryptonym
 
 
 class TestNetworkSetup:
@@ -38,7 +39,7 @@ class TestNetworkSetup:
 
     @staticmethod
     def getNymFromVerkey(verkey: bytes):
-        return b64encode(unhexlify(verkey)).decode()
+        return hexToCryptonym(verkey)
 
     @staticmethod
     def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile):
@@ -107,8 +108,8 @@ class TestNetworkSetup:
             ledger.add(txn)
 
             nodeName = "Node" + str(num)
-            nodePort, clientPort = startingPort + (num * 2 - 1), startingPort + (
-            num * 2)
+            nodePort, clientPort = startingPort + (num * 2 - 1), startingPort \
+                                   + (num * 2)
             ip = ips[num - 1]
             pkseed, sigseed = TestNetworkSetup.getPKSeed(nodeName), \
                               TestNetworkSetup.getSigningSeed(nodeName)
@@ -116,6 +117,9 @@ class TestNetworkSetup:
                 pubkey, verkey = initLocalKeep(nodeName, baseDir, pkseed, sigseed,
                                                True)
                 pubkey, verkey = pubkey.encode(), verkey.encode()
+                print("This node with name {} will use ports {} and {} for "
+                      "nodestack and clientstack respectively"
+                      .format(nodeName, nodePort, clientPort))
             else:
                 pubkey, verkey = Privateer(pkseed).pubhex, Signer(sigseed).verhex
             txn = {

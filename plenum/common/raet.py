@@ -109,7 +109,6 @@ def getLocalVerKey(roleName, baseDir=None):
     return signer.verhex.decode()
 
 
-
 def getLocalPubKey(roleName, baseDir=None):
     prihex = getLocalRoleKeyByName(roleName, baseDir, 'prihex')
     privateer = Privateer(prihex)
@@ -122,7 +121,8 @@ def getEncodedLocalVerKey(name, baseDir=None):
 
 
 def getLocalEstateData(name, baseDir):
-    estatePath = os.path.expanduser(os.path.join(baseDir, name, "local", "estate.json"))
+    estatePath = os.path.expanduser(os.path.join(baseDir, name, "local",
+                                                 "estate.json"))
     if os.path.isfile(estatePath):
         return json.loads(open(estatePath).read())
 

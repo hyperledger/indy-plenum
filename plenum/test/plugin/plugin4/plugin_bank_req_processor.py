@@ -6,6 +6,7 @@ from plenum.cli.constants import getPipedRegEx
 
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.util import getlogger
+from plenum.test.plugin.has_cli_commands import HasCliCommands
 
 logger = getlogger()
 
@@ -21,7 +22,7 @@ AMOUNT = "amount"
 
 # TODO: Create a combined plugin for Validation or processing or create a plugin
 #  package that is always distributed together
-class BankReqProcessorPlugin:
+class BankReqProcessorPlugin(HasCliCommands):
     pluginType = "PROCESSING"
     supportsCli = True
 
@@ -81,14 +82,6 @@ class BankReqProcessorPlugin:
     @property
     def actions(self):
         return [self._clientAction, ]
-
-    @property
-    def cli(self):
-        return self._cli
-
-    @cli.setter
-    def cli(self, cli):
-        self._cli = cli
 
     def _clientAction(self, matchedVars):
         if matchedVars.get('client') == 'client':

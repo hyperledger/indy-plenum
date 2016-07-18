@@ -1073,8 +1073,8 @@ Commands:
                                 parserReInitNeeded = True
                             if parserReInitNeeded:
                                 self.initializeInputParser()
-                                # self.cli.application.buffer.grammar = \
-                                #     self.grammarCompleter
+                                self.cli.application.buffer.completer = \
+                                    self.grammarCompleter
                             if hasattr(plugin, "actions") and \
                                     isinstance(plugin.actions, list):
                                 self._actions.extend(plugin.actions)

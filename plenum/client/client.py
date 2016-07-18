@@ -27,7 +27,7 @@ from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger, error
+from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -405,7 +405,7 @@ class Client(Motor):
 
     def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: typ,
             TARGET_NYM: verstr,
@@ -422,7 +422,7 @@ class Client(Motor):
     def submitNewNode(self, name: str, pubkey: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: NEW_NODE,
             TARGET_NYM: verstr,
