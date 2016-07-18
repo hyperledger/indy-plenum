@@ -3,8 +3,10 @@ from typing import Dict, NamedTuple
 from typing import List
 from typing import Tuple
 
+from plenum.cli.constants import getPipedRegEx
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.util import getlogger
+from plenum.test.plugin.has_cli_commands import HasCliCommands
 
 logger = getlogger()
 
@@ -25,20 +27,31 @@ BALANCE = "balance"
 
 # TODO: Create a combined plugin for Validation or processing or create a plugin
 #  package that is always distributed together
-class AuctionReqProcessorPlugin:
+class AuctionReqProcessorPlugin(HasCliCommands):
     pluginType = "PROCESSING"
+    supportsCli = True
 
     validTxnTypes = [AUCTION_START, AUCTION_END, PLACE_BID, GET_BAL]
 
     STARTING_BALANCE = 1000
 
+    grams = [getPipedRegEx(pat) for pat in [
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>start\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>end\s+auction) \s+ (?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>place\s+bid) \s+ (?P<amount>[0-9]+) \s+ on \s+(?P<auction_id>[a-zA-Z0-9\-]+) \s*) ",
+        "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*) "
+    ]]
+
+    cliActionNames = {'balance', 'start auction', 'end auction', 'place bid'}
+
     def __init__(self):
         self.count = 0
+        self._cli = None
 
         # TODO: NEED SOME WAY TO INTEGRATE PERSISTENCE IN PLUGIN
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
-        self.auctions = {} # type: Dict[str, SimpleNamespace]
+        self.auctions = {}  # type: Dict[str, SimpleNamespace]
 
     def auctionExists(self, id):
         return id in self.auctions
@@ -84,7 +97,7 @@ class AuctionReqProcessorPlugin:
                           and self.auctions[id].highestBid < amount
                 result = {SUCCESS: success}
                 if success:
-                    self._settleAuction(id, frm, amount)
+                    self._bid(id, frm, amount)
                     result.update(self.auctions[id].__dict__)
             if typ == GET_BAL:
                 result[SUCCESS] = True
@@ -93,10 +106,52 @@ class AuctionReqProcessorPlugin:
             print("Unknown transaction type")
         return result
 
-    def _settleAuction(self, auctionId, frm, bid):
+    def _bid(self, auctionId, frm, bid):
         lastBidder = self.auctions[auctionId].highestBidder
         if lastBidder:
             self.balances[lastBidder] += self.auctions[auctionId].highestBid
         self.balances[frm] -= bid
         self.auctions[auctionId].highestBid = bid
         self.auctions[auctionId].highestBidder = frm
+
+    @property
+    def actions(self):
+        return [self._clientAction, ]
+
+    def _clientAction(self, matchedVars):
+        if matchedVars.get('client') == 'client':
+            client_name = matchedVars.get('client_name')
+            client_action = matchedVars.get('cli_action')
+            auctionId = matchedVars.get('auction_id')
+            if client_action in ("start auction", "end auction"):
+                frm = client_name
+                txn = {
+                    TXN_TYPE: AUCTION_START if client_action == "start auction"
+                    else AUCTION_END,
+                    DATA: {
+                        ID: auctionId
+                    }
+                }
+                self.cli.sendMsg(frm, txn)
+                return True
+            elif client_action == "place bid":
+                frm = client_name
+                amount = int(matchedVars.get('amount'))
+                txn = {
+                    TXN_TYPE: PLACE_BID,
+                    DATA: {
+                        ID: auctionId,
+                        AMOUNT: amount
+                    }
+                }
+                self.cli.sendMsg(frm, txn)
+                return True
+            elif client_action == "balance":
+                frm = client_name
+                frmClient = self.cli.clients.get(frm, None)
+                txn = {
+                    TXN_TYPE: GET_BAL,
+                    TARGET_NYM: frmClient.defaultIdentifier
+                }
+                self.cli.sendMsg(frm, txn)
+                return True

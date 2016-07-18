@@ -99,7 +99,8 @@ def getLocalRoleKeyByName(roleName, baseDir, keyName):
     keyhex = localRoleData.get(keyName)
     keyhex = str(keyhex) if keyhex is not None else None
     if keyhex is None:
-        raise BaseException("Seems {} keypair is not created yet".format(roleName))
+        raise BaseException("Seems {} keypair is not created yet"
+                            .format(roleName))
     return keyhex
 
 

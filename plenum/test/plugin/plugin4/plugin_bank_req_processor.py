@@ -39,6 +39,7 @@ class BankReqProcessorPlugin(HasCliCommands):
 
     def __init__(self):
         self.count = 0
+        self._cli = None
 
         # TODO: NEED SOME WAY TO INTEGRATE PERSISTENCE IN PLUGIN
         # Balances of all client
@@ -46,8 +47,6 @@ class BankReqProcessorPlugin(HasCliCommands):
 
         # Txns of all clients, each txn is a tuple like (from, to, amount)
         self.txns = []  # type: List[Tuple]
-
-        self._cli = None
 
     def process(self, request):
         result = {}

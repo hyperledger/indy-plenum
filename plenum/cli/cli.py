@@ -28,14 +28,16 @@ import shutil
 import pyorient
 
 from ledger.ledger import Ledger
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, VERKEY, PUBKEY, BY
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, \
+    VERKEY, PUBKEY, BY
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -112,7 +114,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        # self.cleanUp()
+        self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
@@ -301,7 +303,8 @@ class Cli:
     @property
     def actions(self):
         if not self._actions:
-            self._actions = [self._simpleAction, self._helpAction, self._listAction,
+            self._actions = [self._simpleAction, self._helpAction,
+                             self._listAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
                              self._keyShareAction, self._loadPluginDirAction,
@@ -321,28 +324,29 @@ class Cli:
     def completers(self):
         if not self._completers:
             self._completers = {
-            'node_command': WordCompleter(self.nodeCmds),
-            'client_command': WordCompleter(self.cliCmds),
-            'client': WordCompleter(['client']),
-            'command': WordCompleter(self.commands),
-            'node_or_cli': WordCompleter(self.node_or_cli),
-            'node_name': WordCompleter(self.nodeNames),
-            'more_nodes': WordCompleter(self.nodeNames),
-            'helpable': WordCompleter(self.helpablesCommands),
-            'load_plugins': WordCompleter(['load plugins from']),
-            'client_name': self.clientWC,
-            'second_client_name': self.clientWC,
-            'cli_action': WordCompleter(self.cliActions),
-            'simple': WordCompleter(self.simpleCmds),
-            'add_key': WordCompleter(['add key']),
-            'for_client': WordCompleter(['for client']),
-            'new_key': WordCompleter(['new', 'key']),
-            'list_ids': WordCompleter(['list', 'ids']),
-            'become': WordCompleter(['become']),
-            'use_id': WordCompleter(['use', 'identifier']),
-            'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
-            'create_gen_txn_file': WordCompleter(['create', 'genesis', 'transaction', 'file'])
-        }
+                'node_command': WordCompleter(self.nodeCmds),
+                'client_command': WordCompleter(self.cliCmds),
+                'client': WordCompleter(['client']),
+                'command': WordCompleter(self.commands),
+                'node_or_cli': WordCompleter(self.node_or_cli),
+                'node_name': WordCompleter(self.nodeNames),
+                'more_nodes': WordCompleter(self.nodeNames),
+                'helpable': WordCompleter(self.helpablesCommands),
+                'load_plugins': WordCompleter(['load plugins from']),
+                'client_name': self.clientWC,
+                'second_client_name': self.clientWC,
+                'cli_action': WordCompleter(self.cliActions),
+                'simple': WordCompleter(self.simpleCmds),
+                'add_key': WordCompleter(['add key']),
+                'for_client': WordCompleter(['for client']),
+                'new_key': WordCompleter(['new', 'key']),
+                'list_ids': WordCompleter(['list', 'ids']),
+                'become': WordCompleter(['become']),
+                'use_id': WordCompleter(['use', 'identifier']),
+                'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'create_gen_txn_file': WordCompleter(
+                    ['create', 'genesis', 'transaction', 'file'])
+            }
         return self._completers
 
     @property
@@ -417,11 +421,14 @@ class Cli:
             withData[CLIENT_PORT] = int(clientPort)
             withData[PUBKEY] = nodeData.get(PUBKEY)
 
-        newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData), TARGET_NYM: nodeData.get(VERKEY), IDENTIFIER: identifier}
+        newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
+                          TARGET_NYM: nodeData.get(VERKEY),
+                          IDENTIFIER: identifier}
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
-        destId = base64.b64encode(unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
+        destId = base64.b64encode(
+            unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
         typ = matchedVars.get(TXN_TYPE)
         txn = {
             TXN_TYPE: typ,
@@ -429,7 +436,8 @@ class Cli:
             TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = base64.b64encode(unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
+            txn[IDENTIFIER] = base64.b64encode(
+                unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
@@ -444,7 +452,7 @@ class Cli:
                 print("Wallet is not initialized")
                 return
             # Need a unique name so nodes can differentiate
-            name = self.name+randomString(6)
+            name = self.name + randomString(6)
             self.newClient(clientName=name, wallet=self.activeWallet)
 
     @property
@@ -736,8 +744,10 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
-        opVerifiers = self.plugins['VERIFICATION'] if self.plugins and 'VERIFICATION' in self.plugins else []
-        reqProcessors = self.plugins['PROCESSING'] if self.plugins and 'PROCESSING' in self.plugins else []
+        opVerifiers = self.plugins[
+            'VERIFICATION'] if self.plugins and 'VERIFICATION' in self.plugins else []
+        reqProcessors = self.plugins[
+            'PROCESSING'] if self.plugins and 'PROCESSING' in self.plugins else []
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -811,7 +821,8 @@ Commands:
             else:
                 self.printVoid()
             self.print("    Identifier: {}".format(client.defaultIdentifier))
-            self.print("    Verification key: {}".format(client.getSigner().verkey))
+            self.print(
+                "    Verification key: {}".format(client.getSigner().verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -1051,17 +1062,20 @@ Commands:
         if matchedVars.get('load_plugins') == 'load plugins from':
             pluginsPath = matchedVars.get('plugin_dir')
             try:
-                plugins = PluginLoader(pluginsPath).plugins  #type: Dict[str, Set]
+                plugins = PluginLoader(
+                    pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
+                        if hasattr(plugin,
+                                   "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
-                                    isinstance(plugin.grams, list) and plugin.grams:
+                                    isinstance(plugin.grams,
+                                               list) and plugin.grams:
                                 self._allGrams.append(plugin.grams)
                                 parserReInitNeeded = True
-                            #TODO Need to check if `plugin.cliActionNames` conflicts
+                            # TODO Need to check if `plugin.cliActionNames` conflicts
                             #  with any of `self.cliActions`
                             if hasattr(plugin, "cliActionNames") and \
                                     isinstance(plugin.cliActionNames, set) and \
@@ -1075,6 +1089,9 @@ Commands:
                                 self.initializeInputParser()
                                 self.cli.application.buffer.completer = \
                                     self.grammarCompleter
+                                self.cli.application.layout.children[
+                                    1].children[
+                                    1].content.content.lexer = self.grammarLexer
                             if hasattr(plugin, "actions") and \
                                     isinstance(plugin.actions, list):
                                 self._actions.extend(plugin.actions)
@@ -1238,7 +1255,7 @@ Commands:
         self.curClientPort += 1
         host = "127.0.0.1"
         try:
-            checkPortAvailable((host,self.curClientPort))
+            checkPortAvailable((host, self.curClientPort))
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
@@ -1258,7 +1275,8 @@ Commands:
         except FileNotFoundError:
             pass
 
-        client = pyorient.OrientDB(config.OrientDB["host"], config.OrientDB["port"])
+        client = pyorient.OrientDB(config.OrientDB["host"],
+                                   config.OrientDB["port"])
         user = config.OrientDB["user"]
         password = config.OrientDB["password"]
         client.connect(user, password)
