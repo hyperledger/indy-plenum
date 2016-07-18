@@ -67,7 +67,7 @@ setup(
     tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
              'scripts/start_plenum_node', 'scripts/generate_plenum_pool_transactions',
-             'scripts/gen_steward_key', 'scripts/gen_node', 'scripts/exporting']
+             'scripts/gen_steward_key', 'scripts/gen_node', 'scripts/export-gen-txns']
 )
 
 if not os.path.exists(CONFIG_FILE):
