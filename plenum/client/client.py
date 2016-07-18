@@ -99,7 +99,8 @@ class Client(Motor):
         self.nodestack.onConnsChanged = self.onConnsChanged
         self.nodestack.sign = self.sign
 
-        logger.info("Client initialized with the following node registry:")
+        logger.info("Client {} initialized with the following node registry:"
+                    .format(name))
         lengths = [max(x) for x in zip(*[
             (len(name), len(host), len(str(port)))
             for name, (host, port) in nodeReg.items()])]

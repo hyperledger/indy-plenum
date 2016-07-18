@@ -90,7 +90,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        # self.cleanUp()
+        self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
@@ -1048,7 +1048,7 @@ Commands:
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
-    # TODO: DO we keep this? What happens when we allow the CLI to connect
+    # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
         config = getConfig()
