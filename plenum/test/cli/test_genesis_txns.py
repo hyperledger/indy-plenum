@@ -33,6 +33,7 @@ def newNodesAdded(cli):
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
 
+
 def testNewStewardGenTxn(newStewardsAdded):
     pass
 

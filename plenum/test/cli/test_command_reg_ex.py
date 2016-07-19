@@ -46,6 +46,7 @@ def testAddGenTxnRegEx(grammar):
     assert matchedVars.get(IDENTIFIER) == "Phil"
     assert matchedVars.get(DATA) == '{"key1": "value1", "key2": "value2"}'
 
+
 def testNewAddGenTxnRegEx(grammar):
     exportedData = """{"BCU-steward": {"verkey": "b0739fe3113adbdce9dd994057bed5339e9bf2f99a6b7d4754b8b9d094e7c1e0"}}"""
     matchedVars = getMatchedVariables(grammar,
