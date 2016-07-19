@@ -102,6 +102,12 @@ def statsConsumersPluginPath():
     pluginPath = os.path.join(curPath, 'plugin/stats_consumer')
     return pluginPath
 
+@pytest.fixture(scope='module')
+def opVerifiersPluginPath():
+    curPath = os.path.dirname(os.path.abspath(__file__))
+    pluginPath = os.path.join(curPath, 'plugin/name_age_verification')
+    return pluginPath
+
 
 @pytest.yield_fixture(scope="module")
 def nodeSet(request, tdir, nodeReg, statsConsumersPluginPath):

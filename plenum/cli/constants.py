@@ -22,7 +22,7 @@ UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list) \s*)"
 NODE_GRAMS_NODE_COMMAND_REG_EX = \
     "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?) \s+ (?P<node_name>[a-zA-Z0-9]+)\s*) "
 NODE_GRAMS_LOAD_PLUGINS_REG_EX = \
-    "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-:{}]+) \s*)"
+    "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-_:{}]+) \s*)"
 
 CLIENT_GRAMS_CLIENT_COMMAND_REG_EX = \
     "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?) \s+ (?P<client_name>[a-zA-Z0-9]+) \s*) "

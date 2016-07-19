@@ -13,6 +13,7 @@ import pyorient
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
+from plenum.test import conftest
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -506,8 +507,8 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
-        opVerifiersPluginPath = self.plugins[PLUGIN_TYPE_VERIFICATION][0].path if self.plugins else None
-        statsConsumersPluginPath = self.plugins[PLUGIN_TYPE_STATS_CONSUMER][0].path if self.plugins else None
+        opVerifiersPluginPath = conftest.opVerifiersPluginPath()
+        statsConsumersPluginPath = conftest.statsConsumersPluginPath()
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -793,7 +794,7 @@ Commands:
         if matchedVars.get('load_plugins') == 'load plugins from':
             pluginsPath = matchedVars.get('plugin_dir')
             try:
-                self.plugins = PluginLoader(pluginsPath).plugins
+                self.plugins[pluginsPath] = PluginLoader(pluginsPath).plugins
             except FileNotFoundError as ex:
                 _, err = ex.args
                 self.print(err, Token.BoldOrange)
