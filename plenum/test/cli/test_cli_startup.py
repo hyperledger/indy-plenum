@@ -6,7 +6,7 @@ from plenum.test.cli.helper import newCLI
 
 
 def assertPrintsDefaultClientAndIdentifier(cli):
-    dc = cli.defaultClient
+    dc = cli.activeClient
     verstr = firstValue(dc.signers).verstr
     assert cli.printeds[1]['msg'] == "Current wallet set to {walletName}". \
         format(walletName=dc.name)
@@ -17,8 +17,8 @@ def assertPrintsDefaultClientAndIdentifier(cli):
 
 @pytest.fixture(scope="module")
 def initStatements(cli):
-    name = cli.defaultClient.name
-    cryptonym = firstValue(cli.defaultClient.signers).verstr
+    name = cli.activeClient.name
+    cryptonym = firstValue(cli.activeClient.signers).verstr
     return ["New wallet {} created".format(name),
             "Current wallet set to " + name,
             "Key created in wallet " + name,

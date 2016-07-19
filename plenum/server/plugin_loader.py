@@ -44,7 +44,7 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = ['VERIFICATION']
+        self._validTypes = ['VERIFICATION', "PROCESSING"]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 
@@ -78,13 +78,13 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.warning("skipping plugin {} because it does not "
+                        logger.debug("skipping plugin {} because it does not "
                                        "have a '{}' attribute".
                                        format(mod, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
-                            logger.warning("skipping plugin '{0}' because it "
+                            logger.debug("skipping plugin '{0}' because it "
                                            "does not have a valid '{1}' "
                                            "attribute; valid {1} are: {2}".
                                            format(mod,

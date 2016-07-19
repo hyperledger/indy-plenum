@@ -31,12 +31,25 @@ CLIENT_GRAMS_CLIENT_SEND_REG_EX = \
 CLIENT_GRAMS_CLIENT_SHOW_REG_EX = \
     "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>show) \s+ (?P<req_id>[0-9]+) \s*) "
 CLIENT_GRAMS_ADD_KEY_REG_EX = \
-    "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) \s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) "
+    "(\s* (?P<add_key>add\s+key) \s+ (?P<verkey>[a-fA-F0-9]+) " \
+    "\s+ (?P<for_client>for\s+client) \s+ (?P<identifier>[a-zA-Z0-9]+) \s*) "
 CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = \
     "(\s* (?P<new_key>new\skey) \s* (?P<alias>[a-zA-Z0-9-]+)?\s*) "
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) \s+ (?P<id>[a-zA-Z0-9]+) \s*) "
 CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) \s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
+
+CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
+    "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
+    "\s+ (?P<type>[a-zA-Z0-9_]+)" \
+    "\s+ (for \s+ (?P<dest>[A-Za-z0-9+=/]+))?" \
+    "\s? (by\s+(?P<identifier>[A-Za-z0-9+=/]*))?" \
+    "\s? (with\s+data\s+(?P<data>\{\s*.*\}))?" \
+    "\s*) "
+
+
+CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX = \
+    "(\s*(?P<create_gen_txn_file>create \s+ genesis \s+ transaction \s+ file)\s*)"
 
 # commands
 SIMPLE_CMDS = {'status', 'exit', 'quit', 'license'}
@@ -60,5 +73,7 @@ CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_ADD_KEY_REG_E
 CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_NEW_KEYPAIR_REG_EX)
 CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_LIST_IDS_REG_EX)
 CLIENT_GRAMS_BECOME_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_BECOME_REG_EX)
+CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX)
+CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX)
 CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_USE_KEYPAIR_REG_EX)
 

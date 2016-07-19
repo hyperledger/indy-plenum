@@ -1,7 +1,22 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import base64
+import weakref
+
+from _sha256 import sha256
+
 from binascii import unhexlify
+from typing import Set
+
+from jsonpickle import json
+from prompt_toolkit.key_binding.input_processor import InputProcessor
+from prompt_toolkit.renderer import Renderer
+
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.stores.file_hash_store import FileHashStore
+
+from plenum import config
 
 import plenum.cli.ensure_logging_not_setup
 
@@ -12,10 +27,17 @@ from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import shutil
 import pyorient
 
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
+from ledger.ledger import Ledger
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
+from plenum.common.raet import getLocalEstateData
+from plenum.common.raet import isLocalKeepSetup
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, \
+    VERKEY, PUBKEY, BY
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -85,15 +107,39 @@ class Cli:
     ClientClass = Client
     defaultWalletName = 'Default'
 
+    _genesisTransactions = []
+
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        # self.cleanUp()
+        self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
+        if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
+                                                  and sys.argv[1] == "--noreg"):
+            nodeReg = {}
+            cliNodeReg = {}
+            dataDir = os.path.expanduser(config.baseDir)
+            ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
+                dataDir=dataDir)),
+                dataDir=dataDir,
+                fileName=config.poolTransactionsFile)
+            for _, txn in ledger.getAllTxn().items():
+                if txn[TXN_TYPE] == NEW_NODE:
+                    nodeName = txn[DATA][ALIAS]
+                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
+                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
+                        else None
+                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
+                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
+                        else None
+                    if nHa:
+                        nodeReg[nodeName] = HA(*nHa)
+                    if cHa:
+                        cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -114,7 +160,7 @@ class Cli:
         self.helpablesCommands = self.cliCmds | self.nodeCmds
         self.simpleCmds = SIMPLE_CMDS
         self.commands = {'list', 'help'} | self.simpleCmds
-        self.cliActions = {'send', 'show', 'credit', 'balance', 'transactions'}
+        self.cliActions = {'send', 'show'}
         self.commands.update(self.cliCmds)
         self.commands.update(self.nodeCmds)
         self.node_or_cli = NODE_OR_CLI
@@ -145,59 +191,41 @@ class Cli:
 
         self.clientGrams = getClientGrams()
 
+        self._allGrams = []
+
         psep = re.escape(os.path.sep)
 
-        self.lexers = {
-            'node_command': SimpleLexer(Token.Keyword),
-            'command': SimpleLexer(Token.Keyword),
-            'helpable': SimpleLexer(Token.Keyword),
-            'load_plugins': SimpleLexer(Token.Keyword),
-            'load': SimpleLexer(Token.Keyword),
-            'node_or_cli': SimpleLexer(Token.Keyword),
-            'arg1': SimpleLexer(Token.Name),
-            'node_name': SimpleLexer(Token.Name),
-            'more_nodes': SimpleLexer(Token.Name),
-            'simple': SimpleLexer(Token.Keyword),
-            'client_command': SimpleLexer(Token.Keyword),
-            'add_key': SimpleLexer(Token.Keyword),
-            'verkey': SimpleLexer(Token.Literal),
-            'for_client': SimpleLexer(Token.Keyword),
-            'identifier': SimpleLexer(Token.Name),
-            'new_key': SimpleLexer(Token.Keyword),
-            'list_ids': SimpleLexer(Token.Keyword),
-            'become': SimpleLexer(Token.Keyword),
-            'use_id': SimpleLexer(Token.Keyword)
+        lexerNames = {
+            'node_command',
+            'command',
+            'helpable',
+            'load_plugins',
+            'load',
+            'node_or_cli',
+            'arg1',
+            'node_name',
+            'more_nodes',
+            'simple',
+            'client_command',
+            'add_key',
+            'verkey',
+            'for_client',
+            'identifier',
+            'new_key',
+            'list_ids',
+            'become',
+            'use_id',
+            'add_genesis',
+            'create_gen_txn_file'
         }
+
+        self._lexers = {}
 
         self.clientWC = WordCompleter([])
 
-        self.completers = {
-            'node_command': WordCompleter(self.nodeCmds),
-            'client_command': WordCompleter(self.cliCmds),
-            'client': WordCompleter(['client']),
-            'command': WordCompleter(self.commands),
-            'node_or_cli': WordCompleter(self.node_or_cli),
-            'node_name': WordCompleter(self.nodeNames),
-            'more_nodes': WordCompleter(self.nodeNames),
-            'helpable': WordCompleter(self.helpablesCommands),
-            'load_plugins': WordCompleter(['load plugins from']),
-            'client_name': self.clientWC,
-            'second_client_name': self.clientWC,
-            'cli_action': WordCompleter(self.cliActions),
-            'simple': WordCompleter(self.simpleCmds),
-            'add_key': WordCompleter(['add key']),
-            'for_client': WordCompleter(['for client']),
-            'new_key': WordCompleter(['new', 'key']),
-            'list_ids': WordCompleter(['list', 'ids']),
-            'become': WordCompleter(['become']),
-            'use_id': WordCompleter(['use', 'identifier'])
-        }
+        self._completers = {}
 
-        self.initializeGrammar()
-
-        self.initializeGrammarLexer()
-
-        self.initializeGrammarCompleter()
+        self.initializeInputParser()
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
@@ -217,15 +245,14 @@ class Cli:
         # asyncio loop that can be passed into prompt_toolkit.
         eventloop = create_asyncio_eventloop(looper.loop)
 
-        pers_hist = FileHistory('.{}-cli-history'.format(self.name))
+        self.pers_hist = FileHistory('.{}-cli-history'.format(self.name))
 
         # Create interface.
         app = create_prompt_application('{}> '.format(self.name),
                                         lexer=self.grammarLexer,
                                         completer=self.grammarCompleter,
                                         style=self.style,
-                                        history=pers_hist)
-
+                                        history=self.pers_hist)
         if output:
             out = output
         else:
@@ -251,12 +278,13 @@ class Cli:
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
-        self.print("Node registry loaded.")
-        self.print("None of these are created or running yet.")
+        if nodeReg:
+            self.print("Node registry loaded.")
+            self.print("None of these are created or running yet.")
 
-        self.showNodeRegistry()
+            self.showNodeRegistry()
         self.print("Type 'help' for more information.")
-
+        self._actions = []
         # TODO commented out by JAL, DON'T COMMIT
         # uncommented by JN.
         # self.ensureDefaultClientCreated()
@@ -265,13 +293,166 @@ class Cli:
         # self.print("Current identifier set to {alias} ({cryptonym})".format(
         #     alias=alias, cryptonym=signer.verstr))
 
+    @property
+    def genesisTransactions(self):
+        return self._genesisTransactions
+
+    def reset(self):
+        self._genesisTransactions = []
+
+    @property
+    def actions(self):
+        if not self._actions:
+            self._actions = [self._simpleAction, self._helpAction,
+                             self._listAction,
+                             self._newNodeAction, self._newClientAction,
+                             self._statusNodeAction, self._statusClientAction,
+                             self._keyShareAction, self._loadPluginDirAction,
+                             self._clientCommand, self._addKeyAction,
+                             self._newKeyAction, self._listIdsAction,
+                             self._useIdentifierAction, self._addGenesisAction,
+                             self._createGenTxnFileAction]
+        return self._actions
+
+    @property
+    def allGrams(self):
+        if not self._allGrams:
+            self._allGrams = [self.utilGrams, self.nodeGrams, self.clientGrams]
+        return self._allGrams
+
+    @property
+    def completers(self):
+        if not self._completers:
+            self._completers = {
+                'node_command': WordCompleter(self.nodeCmds),
+                'client_command': WordCompleter(self.cliCmds),
+                'client': WordCompleter(['client']),
+                'command': WordCompleter(self.commands),
+                'node_or_cli': WordCompleter(self.node_or_cli),
+                'node_name': WordCompleter(self.nodeNames),
+                'more_nodes': WordCompleter(self.nodeNames),
+                'helpable': WordCompleter(self.helpablesCommands),
+                'load_plugins': WordCompleter(['load plugins from']),
+                'client_name': self.clientWC,
+                'second_client_name': self.clientWC,
+                'cli_action': WordCompleter(self.cliActions),
+                'simple': WordCompleter(self.simpleCmds),
+                'add_key': WordCompleter(['add key']),
+                'for_client': WordCompleter(['for client']),
+                'new_key': WordCompleter(['new', 'key']),
+                'list_ids': WordCompleter(['list', 'ids']),
+                'become': WordCompleter(['become']),
+                'use_id': WordCompleter(['use', 'identifier']),
+                'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'create_gen_txn_file': WordCompleter(
+                    ['create', 'genesis', 'transaction', 'file'])
+            }
+        return self._completers
+
+    @property
+    def lexers(self):
+        if not self._lexers:
+            lexerNames = {
+                'node_command',
+                'command',
+                'helpable',
+                'load_plugins',
+                'load',
+                'node_or_cli',
+                'arg1',
+                'node_name',
+                'more_nodes',
+                'simple',
+                'client_command',
+                'add_key',
+                'verkey',
+                'for_client',
+                'identifier',
+                'new_key',
+                'list_ids',
+                'become',
+                'use_id',
+                'add_genesis',
+                'create_gen_txn_file'
+            }
+            lexers = {n: SimpleLexer(Token.Keyword) for n in lexerNames}
+            self._lexers = {**lexers}
+        return self._lexers
+
+    def _createGenTxnFileAction(self, matchedVars):
+        if matchedVars.get('create_gen_txn_file'):
+            ledger = Ledger(CompactMerkleTree(),
+                            dataDir=self.basedirpath,
+                            fileName=config.poolTransactionsFile)
+            ledger.reset()
+            for item in self.genesisTransactions:
+                ledger.add(item)
+
+            self.print('Genesis transaction file created at {} '
+                       .format(ledger._transactionLog.dbPath))
+            return True
+
+    def _addGenesisAction(self, matchedVars):
+        if matchedVars.get('add_gen_txn'):
+            if matchedVars.get(TARGET_NYM):
+                return self._addOldGenesisCommand(matchedVars)
+            else:
+                return self._addNewGenesisCommand(matchedVars)
+
+    def _addNewGenesisCommand(self, matchedVars):
+        typ = matchedVars.get(TXN_TYPE)
+
+        nodeName, nodeData, identifier = None, None, None
+        jsonNodeData = json.loads(matchedVars.get(DATA))
+        for key, value in jsonNodeData.items():
+            if key == BY:
+                identifier = value
+            else:
+                nodeName, nodeData = key, value
+
+        withData = {ALIAS: nodeName, PUBKEY: ""}
+
+        if typ == NEW_NODE:
+            nodeIp, nodePort = nodeData.get('node_address').split(':')
+            clientIp, clientPort = nodeData.get('client_address').split(':')
+            withData[NODE_IP] = nodeIp
+            withData[NODE_PORT] = int(nodePort)
+            withData[CLIENT_IP] = clientIp
+            withData[CLIENT_PORT] = int(clientPort)
+            withData[PUBKEY] = nodeData.get(PUBKEY)
+
+        newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
+                          TARGET_NYM: nodeData.get(VERKEY),
+                          IDENTIFIER: identifier}
+        return self._addOldGenesisCommand(newMatchedVars)
+
+    def _addOldGenesisCommand(self, matchedVars):
+        destId = base64.b64encode(
+            unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
+        typ = matchedVars.get(TXN_TYPE)
+        txn = {
+            TXN_TYPE: typ,
+            TARGET_NYM: destId,
+            TXN_ID: sha256(randomString(6).encode()).hexdigest(),
+        }
+        if matchedVars.get(IDENTIFIER):
+            txn[IDENTIFIER] = base64.b64encode(
+                unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
+
+        if matchedVars.get(DATA):
+            txn[DATA] = json.loads(matchedVars.get(DATA))
+
+        self.genesisTransactions.append(txn)
+        self.print('Genesis transaction added')
+        return True
+
     def _buildClientIfNotExists(self):
         if not self._activeClient:
             if not self.activeWallet:
                 print("Wallet is not initialized")
                 return
             # Need a unique name so nodes can differentiate
-            name = self.name+randomString(6)
+            name = self.name + randomString(6)
             self.newClient(clientName=name, wallet=self.activeWallet)
 
     @property
@@ -310,8 +491,14 @@ class Cli:
     def relist(seq):
         return '(' + '|'.join(seq) + ')'
 
+    def initializeInputParser(self):
+        self.initializeGrammar()
+        self.initializeGrammarLexer()
+        self.initializeGrammarCompleter()
+
     def initializeGrammar(self):
-        self.grams = getAllGrams(self.utilGrams, self.nodeGrams, self.clientGrams)
+        # TODO Do we really need both self.allGrams and self.grams
+        self.grams = getAllGrams(*self.allGrams)
         self.grammar = compile("".join(self.grams))
 
     def initializeGrammarLexer(self):
@@ -557,7 +744,10 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
-        opVerifiers = self.plugins['VERIFICATION'] if self.plugins else []
+        opVerifiers = self.plugins[
+            'VERIFICATION'] if self.plugins and 'VERIFICATION' in self.plugins else []
+        reqProcessors = self.plugins[
+            'PROCESSING'] if self.plugins and 'PROCESSING' in self.plugins else []
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -578,11 +768,14 @@ Commands:
             node = self.NodeClass(name,
                                   self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  opVerifiers=opVerifiers)
+                                  opVerifiers=opVerifiers,
+                                  reqProcessors=reqProcessors)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
             for client in self.clients.values():
+                # TODO: need a way to specify an identifier for a client with
+                # multiple signers
                 self.bootstrapClientKey(client, node)
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
@@ -628,7 +821,8 @@ Commands:
             else:
                 self.printVoid()
             self.print("    Identifier: {}".format(client.defaultIdentifier))
-            self.print("    Verification key: {}".format(client.getSigner().verkey))
+            self.print(
+                "    Verification key: {}".format(client.getSigner().verkey))
             self.print("    Submissions: {}".format(client.lastReqId))
 
     def statusNode(self, nodeName):
@@ -685,25 +879,34 @@ Commands:
             # TODO signer should not be compulsory in creating client
 
             self.ensureValidClientId(clientName)
-            client_addr = self.nextAvailableClientAddr()
+            # TODO: What if the client was already created, need to load its ha
+            # from RAET, this is not relevant in case where we use random client names
+            if not isLocalKeepSetup(clientName, self.basedirpath):
+                client_addr = self.nextAvailableClientAddr()
+            else:
+                client_addr = tuple(getLocalEstateData(clientName,
+                                                       self.basedirpath)['ha'])
             assert not (signer and wallet)
             if not wallet:
                 wallet = self._newWallet(clientName)
-                if not signer:
+                if not (wallet.signers or signer):
                     signer = self._newSigner(wallet,
                                              identifier=identifier,
                                              seed=seed)
-                self._addSignerToWallet(signer, wallet)
+                if signer:
+                    self._addSignerToWallet(signer, wallet)
+            self._setActiveIdentifier(signer.identifier if signer
+                                      else next(iter(wallet.signers.keys())))
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
-                                      # signer=signer,
                                       basedirpath=self.basedirpath,
                                       wallet=wallet)
             self.activeClient = client
             self.looper.add(client)
             for node in self.nodes.values():
-                self.bootstrapClientKey(client, node)
+                self.bootstrapClientKey(client, node,
+                                        identifier=self.activeSigner.identifier)
             self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
             return client
@@ -711,8 +914,11 @@ Commands:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
-    def bootstrapClientKey(client, node):
-        idAndKey = client.getSigner().identifier, client.getSigner().verkey
+    def bootstrapClientKey(client, node, identifier=None):
+        identifier = identifier or client.defaultIdentifier
+        # TODO: Should not raise an error but should be able to choose a signer
+        assert identifier, "Client has multiple signers, cannot choose one"
+        idAndKey = identifier, client.getSigner(identifier=identifier).verkey
         node.clientAuthNr.addClient(*idAndKey)
 
     def sendMsg(self, clientName, msg):
@@ -755,14 +961,18 @@ Commands:
         """
         # First handle any commands passed in
         for command in commands:
-            self.print("\nRunning command: '{}'...\n".format(command))
-            self.parse(command)
+            if not command.startswith("--"):
+                self.print("\nRunning command: '{}'...\n".format(command))
+                self.parse(command)
 
         # then handle commands from the prompt
         while interactive:
             try:
                 result = await self.cli.run_async()
-                self.parse(result.text if result else "")
+                cmd = result.text if result else ""
+                cmds = cmd.strip().splitlines()
+                for c in cmds:
+                    self.parse(c)
             except (EOFError, KeyboardInterrupt, Exit):
                 break
 
@@ -852,29 +1062,44 @@ Commands:
         if matchedVars.get('load_plugins') == 'load plugins from':
             pluginsPath = matchedVars.get('plugin_dir')
             try:
-                self.plugins = PluginLoader(pluginsPath).plugins
+                plugins = PluginLoader(
+                    pluginsPath).plugins  # type: Dict[str, Set]
+                for pluginSet in plugins.values():
+                    for plugin in pluginSet:
+                        if hasattr(plugin,
+                                   "supportsCli") and plugin.supportsCli:
+                            plugin.cli = self
+                            parserReInitNeeded = False
+                            if hasattr(plugin, "grams") and \
+                                    isinstance(plugin.grams,
+                                               list) and plugin.grams:
+                                self._allGrams.append(plugin.grams)
+                                parserReInitNeeded = True
+                            # TODO Need to check if `plugin.cliActionNames` conflicts
+                            #  with any of `self.cliActions`
+                            if hasattr(plugin, "cliActionNames") and \
+                                    isinstance(plugin.cliActionNames, set) and \
+                                    plugin.cliActionNames:
+                                self.cliActions.update(plugin.cliActionNames)
+                                # TODO: Find better way to reinitialize completers
+                                # , also might need to reinitialize lexers
+                                self._completers = {}
+                                parserReInitNeeded = True
+                            if parserReInitNeeded:
+                                self.initializeInputParser()
+                                self.cli.application.buffer.completer = \
+                                    self.grammarCompleter
+                                self.cli.application.layout.children[
+                                    1].children[
+                                    1].content.content.lexer = self.grammarLexer
+                            if hasattr(plugin, "actions") and \
+                                    isinstance(plugin.actions, list):
+                                self._actions.extend(plugin.actions)
+
+                self.plugins.update(plugins)
             except FileNotFoundError as ex:
                 _, err = ex.args
                 self.print(err, Token.BoldOrange)
-            return True
-
-    def _loadPluginAction(self, matchedVars):
-        if matchedVars.get('load') == 'load':
-            file = matchedVars.get("file_name")
-            if os.path.exists(file):
-                try:
-                    self.loadFromFile(file)
-                    self.print("Node registry loaded.")
-                    self.showNodeRegistry()
-                except configparser.ParsingError:
-                    self.logger.warn("Could not parse file. "
-                                     "Please ensure that the file "
-                                     "has sections node_reg "
-                                     "and client_node_reg.",
-                                     extra={'cli': 'WARNING'})
-            else:
-                self.logger.warn("File {} not found.".format(file),
-                                 extra={"cli": "WARNING"})
             return True
 
     def _addKeyAction(self, matchedVars):
@@ -907,8 +1132,8 @@ Commands:
 
         signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToWallet(signer, wallet)
-        self.print("Identifier for key is " + signer.identifier)
         self._setActiveIdentifier(signer.identifier)
+        self.print("Identifier for key is " + signer.identifier)
         return signer
 
     def _newKeyAction(self, matchedVars):
@@ -989,15 +1214,6 @@ Commands:
         else:
             self.print("alias or identifier {} not found".format(nymOrAlias))
 
-    def getActionList(self):
-        return [self._simpleAction, self._helpAction, self._listAction,
-                self._newNodeAction, self._newClientAction,
-                self._statusNodeAction, self._statusClientAction,
-                self._keyShareAction, self._loadPluginDirAction,
-                self._clientCommand, self._loadPluginAction, self._addKeyAction,
-                self._newKeyAction, self._listIdsAction,
-                self._useIdentifierAction]
-
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
@@ -1006,7 +1222,7 @@ Commands:
             matchedVars = m.variables()
             self.logger.info("CLI command entered: {}".format(cmdText),
                              extra={"cli": False})
-            for action in self.getActionList():
+            for action in self.actions:
                 r = action(matchedVars)
                 if r:
                     break
@@ -1039,7 +1255,7 @@ Commands:
         self.curClientPort += 1
         host = "127.0.0.1"
         try:
-            checkPortAvailable((host,self.curClientPort))
+            checkPortAvailable((host, self.curClientPort))
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
@@ -1059,7 +1275,8 @@ Commands:
         except FileNotFoundError:
             pass
 
-        client = pyorient.OrientDB(config.OrientDB["host"], config.OrientDB["port"])
+        client = pyorient.OrientDB(config.OrientDB["host"],
+                                   config.OrientDB["port"])
         user = config.OrientDB["user"]
         password = config.OrientDB["password"]
         client.connect(user, password)

@@ -8,8 +8,8 @@ from plenum.common.util import getMaxFailures, firstValue
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd,\
-    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS, TestNode, TestClient, checkPoolReady
+from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
+    TestNode, checkPoolReady, TestClient
 
 
 class TestCliCore:
@@ -38,8 +38,21 @@ class TestCliCore:
     @property
     def lastCmdOutput(self):
         return '\n'.join([x['msg'] for x in
-                          list(reversed(self.printeds))[self.lastPrintIndex::]])
+                          list(reversed(self.printeds))[self.lastPrintIndex:]])
 
+    # noinspection PyAttributeOutsideInit
+    @property
+    def lastPrintIndex(self):
+        if not hasattr(self, "_lastPrintIndex"):
+            self._lastPrintIndex = 0
+        return self._lastPrintIndex
+
+    # noinspection PyAttributeOutsideInit
+    @lastPrintIndex.setter
+    def lastPrintIndex(self, index: int) -> None:
+        self._lastPrintIndex = index
+
+    # noinspection PyUnresolvedReferences
     def enterCmd(self, cmd: str):
         self.lastPrintIndex = len(self.printeds)
         self.parse(cmd)
@@ -50,53 +63,54 @@ class TestCliCore:
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
-    def initializeGrammar(self):
-        fcTxnsGrams = [
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
-            "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
-        ]
-        self.clientGrams[-1] += " |"
-        self.clientGrams += fcTxnsGrams
-        cli.Cli.initializeGrammar(self)
+    pass
+    # def initializeGrammar(self):
+    #     fcTxnsGrams = [
+    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
+    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
+    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
+    #     ]
+    #     self.clientGrams[-1] += " |"
+    #     self.clientGrams += fcTxnsGrams
+    #     cli.Cli.initializeGrammar(self)
 
-    def _clientCommand(self, matchedVars):
-        if matchedVars.get('client') == 'client':
-            client_name = matchedVars.get('client_name')
-            client_action = matchedVars.get('cli_action')
-            if client_action == "credit":
-                frm = client_name
-                to = matchedVars.get('second_client_name')
-                toClient = self.clients.get(to, None)
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: CREDIT,
-                    TARGET_NYM: toClient.defaultIdentifier,
-                    DATA: {
-                        AMOUNT: amount
-                    }}
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "balance":
-                frm = client_name
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            elif client_action == "transactions":
-                frm = client_name
-                frmClient = self.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_ALL_TXNS,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.sendMsg(frm, txn)
-                return True
-            else:
-                return cli.Cli._clientCommand(self, matchedVars)
+    # def _clientCommand(self, matchedVars):
+    #     if matchedVars.get('client') == 'client':
+    #         client_name = matchedVars.get('client_name')
+    #         client_action = matchedVars.get('cli_action')
+    #         if client_action == "credit":
+    #             frm = client_name
+    #             to = matchedVars.get('second_client_name')
+    #             toClient = self.clients.get(to, None)
+    #             amount = int(matchedVars.get('amount'))
+    #             txn = {
+    #                 TXN_TYPE: CREDIT,
+    #                 TARGET_NYM: toClient.defaultIdentifier,
+    #                 DATA: {
+    #                     AMOUNT: amount
+    #                 }}
+    #             self.sendMsg(frm, txn)
+    #             return True
+    #         elif client_action == "balance":
+    #             frm = client_name
+    #             frmClient = self.clients.get(frm, None)
+    #             txn = {
+    #                 TXN_TYPE: GET_BAL,
+    #                 TARGET_NYM: frmClient.defaultIdentifier
+    #             }
+    #             self.sendMsg(frm, txn)
+    #             return True
+    #         elif client_action == "transactions":
+    #             frm = client_name
+    #             frmClient = self.clients.get(frm, None)
+    #             txn = {
+    #                 TXN_TYPE: GET_ALL_TXNS,
+    #                 TARGET_NYM: frmClient.defaultIdentifier
+    #             }
+    #             self.sendMsg(frm, txn)
+    #             return True
+    #         else:
+    #         return cli.Cli._clientCommand(self, matchedVars)
 
 
 def isErrorToken(token: Token):

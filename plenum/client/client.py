@@ -12,7 +12,6 @@ from binascii import unhexlify
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-from raet.nacling import Privateer
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.json_serializer import JsonSerializer
@@ -28,7 +27,7 @@ from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger, error
+from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -63,15 +62,14 @@ class Client(Motor):
                                          basedirpath)
         self.basedirpath = basedirpath
 
+        cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
             clientEstate = getLocalEstateData(name, basedirpath)
-            if not clientEstate:
-                error("{} does not have estate data".format(name))
-            else:
+            if clientEstate:
                 cha = HA(*clientEstate["ha"])
-        else:
+        if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 
         self.name = name
@@ -116,11 +114,6 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        # if wallet:
-        #     self.wallet = wallet
-        # else:
-        #     storage = WalletStorageFile.fromName(self.name, basedirpath)
-        #     self.wallet = Wallet(self.name, storage)
         self.setupWallet(wallet)
         signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
@@ -435,7 +428,7 @@ class Client(Motor):
 
     def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: typ,
             TARGET_NYM: verstr,
@@ -452,7 +445,7 @@ class Client(Motor):
     def submitNewNode(self, name: str, pubkey: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: NEW_NODE,
             TARGET_NYM: verstr,

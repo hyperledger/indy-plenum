@@ -73,8 +73,8 @@ class OrientDbHashStore(HashStore):
          """
         self._validatePos(start, end)
         resultSet = self.store.client.command(
-            "select from {} where seqNo between {} and {}".format(
-                hashClass, start, end))
+            "select from {} where seqNo between {} and {} order by seqNo asc"
+                .format(hashClass, start, end))
         return [self._fromb64(r.oRecordData[attrib]) for r in resultSet]
 
     @property

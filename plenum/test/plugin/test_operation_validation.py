@@ -27,9 +27,6 @@ def nodeSet(tdir, nodeReg):
 
 
 def testWithOpValidationPlugin(nodeSet, replied1):
-
-    # sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)
-
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers
         assert opVerifier.count == 1

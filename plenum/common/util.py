@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import importlib.util
 import inspect
 import itertools
@@ -544,3 +545,9 @@ def cleanSeed(seed):
             if len(seed) != 32:
                 error('seed length must be 32 bytes')
         return bts
+
+
+def hexToCryptonym(hex):
+    if isinstance(hex, str):
+        hex = hex.encode()
+    return base64.b64encode(unhexlify(hex)).decode()
