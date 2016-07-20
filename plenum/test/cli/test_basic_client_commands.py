@@ -13,7 +13,7 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     def checkClientNotAddedWithNodeName(name):
         # We create default client as part of cli initialization, so,
         # the count of cli.clients should be 2
-        assert len(cli.clients) == 2
+        assert len(cli.clients) == 1
         # nm should not be in cli.client
         assert name not in cli.clients
 
@@ -25,7 +25,7 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     cli.enterCmd("new client {}".format(cName))
     # We create default client as part of cli initialization, so,
     # the count of cli.clients should be 2
-    assert len(cli.clients) == 2
+    assert len(cli.clients) == 1
     # Client name should be in cli.client
     assert cName in cli.clients
 
@@ -45,7 +45,7 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     cli.enterCmd("new client {}".format(cName))
     # We create default client as part of cli initialization, so,
     # the count of cli.clients should be 2
-    assert len(cli.clients) == 2
+    assert len(cli.clients) == 1
     # Client name should be in cli.client
     assert cName in cli.clients
 

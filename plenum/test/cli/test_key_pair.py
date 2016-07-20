@@ -14,7 +14,7 @@ def testKeyPair(cli, pubKey):
 
 
 def testUseKeyPair(cli, pubKey):
-    cli.enterCmd('use keypair {}'.format(pubKey))
+    cli.enterCmd('use identifier {}'.format(pubKey))
     assert cli.activeSigner.verstr == pubKey
 
 

@@ -1132,8 +1132,8 @@ Commands:
 
         signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToWallet(signer, wallet)
-        self._setActiveIdentifier(signer.identifier)
         self.print("Identifier for key is " + signer.identifier)
+        self._setActiveIdentifier(signer.identifier)
         return signer
 
     def _newKeyAction(self, matchedVars):

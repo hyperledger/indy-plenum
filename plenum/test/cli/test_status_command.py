@@ -32,10 +32,10 @@ def testStatusAtCliStart(cli):
     clientStatus = printeds[2]
     assert nodeStatus['msg'] == "No nodes are running. Try typing " \
                                 "'new node <name>'."
-    # assert clientStatus['msg'] == "Clients: No clients are running. Try " \
-    #                                 "typing 'new client <name>'."
+    assert clientStatus['msg'] == "Clients: No clients are running. Try " \
+                                    "typing 'new client <name>'."
     # As we are creating default client during cli initialization, there will be one default client
-    assert clientStatus['msg'] == "Clients: Default"
+    # assert clientStatus['msg'] == "Clients: Default"
 
 
 def testStatusAfterOneNodeCreated(cli, validNodeNames):
@@ -53,11 +53,11 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     printeds = cli.printeds
     clientStatus = printeds[2]
     checkForNamedTokens(startedNodeToken, (nodeName,))
-    # assert clientStatus['msg'] == "Clients: No clients are running. Try " \
-    #                               "typing " \
-    #                               "'new client <name>'."
+    assert clientStatus['msg'] == "Clients: No clients are running. Try " \
+                                  "typing " \
+                                  "'new client <name>'."
     # As we are creating default client during cli initialization, there will be one default client
-    assert clientStatus['msg'] == "Clients: Default"
+    # assert clientStatus['msg'] == "Clients: Default"
     cli.enterCmd("status node {}".format(nodeName))
     msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
@@ -82,11 +82,11 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     printeds = cli.printeds
     clientStatus = printeds[4]
     fValue = printeds[3]['msg']
-    # assert clientStatus['msg'] == "Clients: No clients are running. Try " \
-    #                               "typing " \
-    #                               "'new client <name>'."
+    assert clientStatus['msg'] == "Clients: No clients are running. Try " \
+                                  "typing " \
+                                  "'new client <name>'."
     # As we are creating default client during cli initialization, there will be one default client
-    assert clientStatus['msg'] == "Clients: Default"
+    # assert clientStatus['msg'] == "Clients: Default"
     assert fValue == "f-value (number of possible faulty nodes): {}".format(
             getMaxFailures(len(validNodeNames)))
 
