@@ -2,16 +2,12 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import base64
-import weakref
-
-from _sha256 import sha256
-
+import copy
+from hashlib import sha256
 from binascii import unhexlify
 from typing import Set
 
 from jsonpickle import json
-from prompt_toolkit.key_binding.input_processor import InputProcessor
-from prompt_toolkit.renderer import Renderer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
@@ -114,7 +110,7 @@ class Cli:
                  debug=False, logFileName=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
-        self.cleanUp()
+        # self.cleanUp()
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
@@ -167,6 +163,7 @@ class Cli:
         self.nodeNames = list(self.nodeReg.keys()) + ["all"]
         self.debug = debug
         self.plugins = {}
+        self.pluginPaths = []
         self.defaultClient = None
         self.activeSigner = None
         # Wallet and Client are the same from user perspective for now
@@ -744,10 +741,6 @@ Commands:
             self.print("None", newline=True)
 
     def newNode(self, nodeName: str):
-        opVerifiers = self.plugins[
-            'VERIFICATION'] if self.plugins and 'VERIFICATION' in self.plugins else []
-        reqProcessors = self.plugins[
-            'PROCESSING'] if self.plugins and 'PROCESSING' in self.plugins else []
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -765,6 +758,12 @@ Commands:
 
         nodes = []
         for name in names:
+            opVerifiers = set()
+            reqProcessors = set()
+            for path in self.pluginPaths:
+                plugins = PluginLoader(path).plugins
+                opVerifiers = plugins.get('VERIFICATION', set())
+                reqProcessors = plugins.get('PROCESSING', set())
             node = self.NodeClass(name,
                                   self.nodeRegistry,
                                   basedirpath=self.basedirpath,
@@ -921,13 +920,16 @@ Commands:
         idAndKey = identifier, client.getSigner(identifier=identifier).verkey
         node.clientAuthNr.addClient(*idAndKey)
 
+    def printMsgForUnknownClient(self):
+        self.print("No such client. See: 'help new' for more details")
+
     def sendMsg(self, clientName, msg):
         client = self.clients.get(clientName, None)
         if client:
             request, = client.submit(msg)
             self.requests[str(request.reqId)] = request.reqId
         else:
-            self.print("No such client. See: 'help new' for more details")
+            self.printMsgForUnknownClient()
 
     def getReply(self, clientName, reqId):
         client = self.clients.get(clientName, None)
@@ -937,7 +939,7 @@ Commands:
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
-            self.print("No such client. See: 'help new' for more details")
+            self.printMsgForUnknownClient()
         else:
             self.print("No such request. See: 'help new' for more details")
 
@@ -947,7 +949,7 @@ Commands:
         if client and requestID:
             client.showReplyDetails(requestID)
         else:
-            self.print("No such client. See: 'help new' for more details")
+            self.printMsgForUnknownClient()
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1097,6 +1099,7 @@ Commands:
                                 self._actions.extend(plugin.actions)
 
                 self.plugins.update(plugins)
+                self.pluginPaths.append(pluginsPath)
             except FileNotFoundError as ex:
                 _, err = ex.args
                 self.print(err, Token.BoldOrange)

@@ -42,6 +42,11 @@ def nodeSet(tdir, nodeReg, pluginVerPath, pluginPrcPath):
         yield ns
 
 
+@pytest.fixture(scope="module")
+def clients(looper, nodeSet, tdir):
+    return setupClients(3, looper, nodeSet, tmpdir=tdir)
+
+
 def sendMoney(looper, frm: TestClient, to: TestClient, amount: int, nodes,
               expected: bool=True):
     req, = frm.submit({
@@ -84,11 +89,6 @@ def checkTxns(looper, client: TestClient):
                           1, retryWait=1, timeout=5))
 
     return req
-
-
-@pytest.fixture(scope="module")
-def clients(looper, nodeSet, tdir):
-    return setupClients(3, looper, nodeSet, tmpdir=tdir)
 
 
 def testBankTransactions(nodeSet, up, looper, clients):

@@ -90,30 +90,39 @@ class BankReqProcessorPlugin(HasCliCommands):
                 frm = client_name
                 to = matchedVars.get('second_client_name')
                 toClient = self.cli.clients.get(to, None)
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: CREDIT,
-                    TARGET_NYM: toClient.defaultIdentifier,
-                    DATA: {
-                        AMOUNT: amount
-                    }}
-                self.cli.sendMsg(frm, txn)
+                if frm not in self.cli.clients or to not in self.cli.clients:
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    amount = int(matchedVars.get('amount'))
+                    txn = {
+                        TXN_TYPE: CREDIT,
+                        TARGET_NYM: toClient.defaultIdentifier,
+                        DATA: {
+                            AMOUNT: amount
+                        }}
+                    self.cli.sendMsg(frm, txn)
                 return True
             elif client_action == "balance":
                 frm = client_name
-                frmClient = self.cli.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.cli.sendMsg(frm, txn)
+                if frm not in self.cli.clients:
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    frmClient = self.cli.clients.get(frm, None)
+                    txn = {
+                        TXN_TYPE: GET_BAL,
+                        TARGET_NYM: frmClient.defaultIdentifier
+                    }
+                    self.cli.sendMsg(frm, txn)
                 return True
             elif client_action == "transactions":
                 frm = client_name
-                frmClient = self.cli.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_ALL_TXNS,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.cli.sendMsg(frm, txn)
+                if frm not in self.cli.clients:
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    frmClient = self.cli.clients.get(frm, None)
+                    txn = {
+                        TXN_TYPE: GET_ALL_TXNS,
+                        TARGET_NYM: frmClient.defaultIdentifier
+                    }
+                    self.cli.sendMsg(frm, txn)
                 return True
