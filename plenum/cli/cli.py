@@ -190,32 +190,6 @@ class Cli:
 
         self._allGrams = []
 
-        psep = re.escape(os.path.sep)
-
-        lexerNames = {
-            'node_command',
-            'command',
-            'helpable',
-            'load_plugins',
-            'load',
-            'node_or_cli',
-            'arg1',
-            'node_name',
-            'more_nodes',
-            'simple',
-            'client_command',
-            'add_key',
-            'verkey',
-            'for_client',
-            'identifier',
-            'new_key',
-            'list_ids',
-            'become',
-            'use_id',
-            'add_genesis',
-            'create_gen_txn_file'
-        }
-
         self._lexers = {}
 
         self.clientWC = WordCompleter([])
