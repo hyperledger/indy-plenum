@@ -9,9 +9,15 @@ from plenum.test.helper import TestClient, genHa
 
 
 @pytest.fixture(scope="module")
-def tconf(conf, tdir):
+def tconf(conf, tdir, request):
+    oldThreshold = conf.stewardThreshold
     conf.baseDir = tdir
     conf.stewardThreshold = 1
+
+    def reset():
+        conf.stewardThreshold = oldThreshold
+
+    request.addfinalizer(reset)
     return conf
 
 
