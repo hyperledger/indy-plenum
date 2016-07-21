@@ -1,14 +1,10 @@
-import base64
-
 from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TXN_TYPE, ORIGIN, TARGET_NYM, DATA, PUBKEY, ALIAS, \
-    NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, CHANGE_HA, NEW_STEWARD, \
-    CHANGE_KEYS, VERKEY
+from plenum.common.txn import NEW_STEWARD
 from plenum.common.types import HA
-from plenum.common.util import randomString
+from plenum.common.util import randomString, hexToCryptonym
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient
@@ -64,7 +60,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
 
 
 def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
-    nodeNym = base64.b64encode(node.nodestack.local.signer.verraw).decode()
+    nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
                                     HA(clientIp, clientPort))
@@ -78,7 +74,7 @@ def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
 
 
 def changeNodeKeys(looper, client, node, verkey, pubkey, baseDir, conf):
-    nodeNym = base64.b64encode(node.nodestack.local.signer.verraw).decode()
+    nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     req = client.submitNodeKeysChange(node.name, nodeNym, verkey, pubkey)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,

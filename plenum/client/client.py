@@ -12,7 +12,6 @@ from binascii import unhexlify
 from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
 
-from raet.nacling import Privateer
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.json_serializer import JsonSerializer
@@ -28,7 +27,7 @@ from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
     DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger, error
+from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -61,16 +60,16 @@ class Client(Motor):
             nodeReg = config.cliNodeReg
         basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
                                          basedirpath)
+        self.basedirpath = basedirpath
 
+        cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
             clientEstate = getLocalEstateData(name, basedirpath)
-            if not clientEstate:
-                error("{} does not have estate data".format(name))
-            else:
+            if clientEstate:
                 cha = HA(*clientEstate["ha"])
-        else:
+        if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 
         self.name = name
@@ -98,7 +97,8 @@ class Client(Motor):
         self.nodestack.onConnsChanged = self.onConnsChanged
         self.nodestack.sign = self.sign
 
-        logger.info("Client initialized with the following node registry:")
+        logger.info("Client {} initialized with the following node registry:"
+                    .format(name))
         lengths = [max(x) for x in zip(*[
             (len(name), len(host), len(str(port)))
             for name, (host, port) in nodeReg.items()])]
@@ -114,8 +114,7 @@ class Client(Motor):
         if signer and signers:
             raise ValueError("only one of 'signer' or 'signers' can be used")
 
-        dataDir = os.path.join(basedirpath, "data", "clients", self.name)
-        self.wallet = wallet or Wallet(WalletStorageFile(dataDir))
+        self.setupWallet(wallet)
         signers = None  # type: Dict[str, Signer]
         self.defaultIdentifier = None
         if not self.wallet.signers:
@@ -137,12 +136,21 @@ class Client(Motor):
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
+        self.messagesPendingConnection = deque()
+
         # Temporary node registry. Used to keep locations of unknown validators
         # until location confirmed by consensus. Key is the name of client stack
         # of unknown validator and value is a dictionary with location, i.e HA
         # as key and value as set of names of known validators vetting that
         # location
         self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
+
+    def setupWallet(self, wallet=None):
+        if wallet:
+            self.wallet = wallet
+        else:
+            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
+            self.wallet = Wallet(self.name, storage)
 
     @staticmethod
     def exists(name, basedirpath):
@@ -219,7 +227,13 @@ class Client(Motor):
         requests = []
         for op in operations:
             request = self.createRequest(op, identifier)
-            self.nodestack.send(request, signer=self.getSigner(identifier))
+            signer = self.getSigner(identifier)
+            if self.hasSufficientConnections:
+                self.nodestack.send(request, signer=signer)
+            else:
+                self.messagesPendingConnection.append((request, signer))
+                logger.debug("Enqueuing request since not enough connections "
+                             "with nodes: {}".format(request))
             requests.append(request)
         return requests
 
@@ -396,10 +410,25 @@ class Client(Motor):
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
+            if self.hasSufficientConnections:
+                self.flushMsgsPendingConnection()
+
+    @property
+    def hasSufficientConnections(self):
+        return len(self.nodestack.conns) >= self.minNodesToConnect
+
+    def flushMsgsPendingConnection(self):
+        queueSize = len(self.messagesPendingConnection)
+        if queueSize > 0:
+            logger.debug("Flushing pending message queue of size {}"
+                         .format(queueSize))
+        while self.messagesPendingConnection:
+            req, signer = self.messagesPendingConnection.popleft()
+            self.nodestack.send(req, signer=signer)
 
     def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: typ,
             TARGET_NYM: verstr,
@@ -416,7 +445,7 @@ class Client(Motor):
     def submitNewNode(self, name: str, pubkey: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        verstr = base64.b64encode(unhexlify(verkey.encode())).decode()
+        verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: NEW_NODE,
             TARGET_NYM: verstr,

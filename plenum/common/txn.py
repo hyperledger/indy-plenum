@@ -48,6 +48,7 @@ TYPE = "type"
 TXN_TYPE = "type"
 TXN_ID = "txnId"
 ORIGIN = "origin"
+IDENTIFIER = "identifier"
 TARGET_NYM = "dest"
 DATA = "data"
 RAW = "raw"
@@ -72,10 +73,11 @@ NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
-
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 
+
+BY = "by"
 
 POOL_TXN_TYPES = {NEW_NODE, NEW_STEWARD, NEW_CLIENT, CHANGE_HA, CHANGE_KEYS}
 

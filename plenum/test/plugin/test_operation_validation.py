@@ -15,7 +15,7 @@ def nodeSet(tdir, nodeReg):
     pluginPath = os.path.join(curPath, 'operation_verification')
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerifiersPluginPath=pluginPath) as ns:
+                     opVerificationPluginPath=pluginPath) as ns:
 
         for n in ns:  # type: Node
             assert n.opVerifiers is not None
@@ -27,9 +27,6 @@ def nodeSet(tdir, nodeReg):
 
 
 def testWithOpValidationPlugin(nodeSet, replied1):
-
-    # sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)
-
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers
         assert opVerifier.count == 1

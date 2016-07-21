@@ -2,13 +2,11 @@ import logging
 import time
 from datetime import datetime
 from statistics import mean
-from typing import Dict
+from typing import Dict, Iterable, Any
 from typing import List
 from typing import Tuple
 
-
-from plenum.common.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
+from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
@@ -18,7 +16,7 @@ from plenum.server.instances import Instances
 logger = getlogger()
 config = getConfig()
 
-class Monitor(HasActionQueue, PluginLoaderHelper):
+class Monitor(HasActionQueue):
     """
     Implementation of RBFT's monitoring mechanism.
 
@@ -28,14 +26,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, statsConsumersPluginPath: str=None):
+                 instances: Instances, statsConsumers: Iterable[Any] = None):
         self.name = name
         self.instances = instances
 
         self.Delta = Delta
         self.Lambda = Lambda
         self.Omega = Omega
-        self.statsConsumers = self._getPlugins(statsConsumersPluginPath, PLUGIN_TYPE_STATS_CONSUMER)
+        self.statsConsumers = statsConsumers or []
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and

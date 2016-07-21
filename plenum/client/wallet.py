@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import jsonpickle
@@ -18,9 +19,10 @@ class EncryptedWallet:
 
 
 class Wallet:
-    def __init__(self, storage: WalletStorage):
-        self.signers = {}
-        self.aliases = {}
+    def __init__(self, name: str, storage: WalletStorage):
+        self.name = name
+        self.signers = {}  # dict cryptonym -> signer object
+        self.aliases = {}  # dict alias -> cryptonym
         self.storage = storage
         for (signer, alias) in self.storage.signers:
             if alias:
@@ -42,11 +44,11 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    def addSigner(self, signer: Signer, alias=None):
+    def addSigner(self, signer: Signer):
         self.signers[signer.identifier] = signer
-        self.storage.addSigner(signer=signer, alias=alias)
-        if alias:
-            self.aliases[alias] = signer.identifier
+        self.storage.addSigner(signer=signer)
+        if signer.alias:
+            self.aliases[signer.alias] = signer.identifier
 
     def getSigner(self, identifier=None, alias=None):
         return self.storage.getSigner(identifier=identifier, alias=alias)

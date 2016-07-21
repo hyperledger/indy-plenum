@@ -11,7 +11,7 @@ from plenum.test.helper import genHa
 
 plenum.common.util.loggingConfigured = False
 
-from plenum.test.cli.helper import newCLI
+from plenum.test.cli.helper import newCLI, checkAllNodesUp
 
 
 @pytest.yield_fixture(scope="module")
@@ -48,16 +48,7 @@ def validNodeNames(cli):
 @pytest.fixture("module")
 def createAllNodes(cli):
     cli.enterCmd("new node all")
-
-    def chk():
-        msgs = {stmt['msg'] for stmt in cli.printeds}
-        for nm in cli.nodes.keys():
-            assert "{}:0 selected primary {} for instance 0 (view 0)"\
-                .format(nm, cli.nodes[nm].replicas[0].primaryNames[0]) in msgs
-            assert "{}:1 selected primary {} for instance 1 (view 0)"\
-                .format(nm, cli.nodes[nm].replicas[1].primaryNames[0]) in msgs
-
-    cli.looper.run(eventually(chk, retryWait=1, timeout=10))
+    cli.looper.run(eventually(checkAllNodesUp, cli, retryWait=1, timeout=20))
 
 
 @pytest.fixture("module")

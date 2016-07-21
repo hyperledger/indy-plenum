@@ -16,11 +16,15 @@ class Signer:
     """
     @abstractproperty
     def identifier(self) -> str:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def sign(self, msg: Dict) -> Dict:
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    @abstractproperty
+    def alias(self) -> str:
+        raise NotImplementedError
 
 
 class SimpleSigner(Signer):
@@ -31,7 +35,7 @@ class SimpleSigner(Signer):
     It internally uses the NaclSigner to generate the signature and keys.
     """
 
-    def __init__(self, identifier=None, seed=None):
+    def __init__(self, identifier=None, seed=None, alias=None):
 
         """
         Initialize the signer with an identifier and a seed.
@@ -56,6 +60,12 @@ class SimpleSigner(Signer):
         self.verstr = base64_encode(self.naclSigner.verraw).decode('utf-8')
 
         self._identifier = identifier or self.verstr
+
+        self._alias = alias
+
+    @property
+    def alias(self) -> str:
+        return self._alias
 
     @property
     def identifier(self) -> str:

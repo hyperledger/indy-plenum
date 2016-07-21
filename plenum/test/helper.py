@@ -28,7 +28,7 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, TXN_TYPE, \
     TARGET_NYM, DATA
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger
 from plenum.persistence import orientdb_store
@@ -178,44 +178,44 @@ class TestClient(Client, StackedTester):
 
     def handleOneNodeMsg(self, wrappedMsg) -> None:
         super().handleOneNodeMsg(wrappedMsg)
-        msg, frm = wrappedMsg
-        if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
-            if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (
-                    CREDIT, GET_BAL, GET_ALL_TXNS):
-                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-                reply = self.hasConsensus(reqId)
-                if reply:
-                    n = len(self.getRepliesFromAllNodes(reqId))
-                    typ = msg[f.RESULT.nm][TXN_TYPE]
-                    if typ == CREDIT:
-                        logger.debug("", extra={"cli": True})
-                        logger.debug(
-                            "The CREDIT request with id {} was {} as per {} nodes"
-                                .format(reqId, "successful" if msg[f.RESULT.nm][
-                                SUCCESS] else "unsuccessful", n),
-                            extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
-                    if typ == GET_BAL:
-                        logger.debug("", extra={"cli": True})
-                        logger.debug(
-                            "The BALANCE request with id {} returned balance as {} as per {} nodes"
-                                .format(reqId, msg[f.RESULT.nm][BALANCE], n),
-                            extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
-                    if typ == GET_ALL_TXNS:
-                        allTxns = reply[ALL_TXNS]
-                        txns = []
-                        for txn in allTxns:
-                            if txn[0] in self.signers:
-                                txns.append("Transferred {}".format(txn[2]))
-                            else:
-                                txns.append("Received {}".format(txn[2]))
-                        logger.debug("", extra={"cli": True})
-                        logger.debug(
-                            "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
-                                .format(reqId, n, '\n'.join(txns)),
-                            extra={"cli": "IMPORTANT"})
-                        logger.debug("", extra={"cli": True})
+        # msg, frm = wrappedMsg
+        # if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
+        #     if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (
+        #             CREDIT, GET_BAL, GET_ALL_TXNS):
+        #         reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+        #         reply = self.hasConsensus(reqId)
+        #         if reply:
+        #             n = len(self.getRepliesFromAllNodes(reqId))
+        #             typ = msg[f.RESULT.nm][TXN_TYPE]
+        #             if typ == CREDIT:
+        #                 logger.debug("", extra={"cli": True})
+        #                 logger.debug(
+        #                     "The CREDIT request with id {} was {} as per {} nodes"
+        #                         .format(reqId, "successful" if msg[f.RESULT.nm][
+        #                         SUCCESS] else "unsuccessful", n),
+        #                     extra={"cli": "IMPORTANT"})
+        #                 logger.debug("", extra={"cli": True})
+        #             if typ == GET_BAL:
+        #                 logger.debug("", extra={"cli": True})
+        #                 logger.debug(
+        #                     "The BALANCE request with id {} returned balance as {} as per {} nodes"
+        #                         .format(reqId, msg[f.RESULT.nm][BALANCE], n),
+        #                     extra={"cli": "IMPORTANT"})
+        #                 logger.debug("", extra={"cli": True})
+        #             if typ == GET_ALL_TXNS:
+        #                 allTxns = reply[ALL_TXNS]
+        #                 txns = []
+        #                 for txn in allTxns:
+        #                     if txn[0] in self.signers:
+        #                         txns.append("Transferred {}".format(txn[2]))
+        #                     else:
+        #                         txns.append("Received {}".format(txn[2]))
+        #                 logger.debug("", extra={"cli": True})
+        #                 logger.debug(
+        #                     "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
+        #                         .format(reqId, n, '\n'.join(txns)),
+        #                     extra={"cli": "IMPORTANT"})
+        #                 logger.debug("", extra={"cli": True})
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
@@ -287,8 +287,8 @@ class TestNodeCore(StackedTester):
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
 
-        statsConsumersPluginPath = kwargs['statsConsumersPluginPath']
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances, statsConsumersPluginPath)
+        statsConsumers = kwargs['statsConsumers']
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances, statsConsumers)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
 
@@ -425,34 +425,6 @@ class TestNode(TestNodeCore, Node):
     def clientStackClass(self) -> ClientStack:
         return getTestableStack(ClientStack)
 
-    async def generateReply(self, ppTime: float, req: Request) -> Reply:
-        reply = await super().generateReply(ppTime, req)
-        result = reply.result
-        STARTING_BALANCE = 1000
-        if req.operation.get(TXN_TYPE) in (CREDIT, GET_BAL, GET_ALL_TXNS):
-            frm = req.identifier
-            if frm not in self.balances:
-                self.balances[frm] = STARTING_BALANCE
-            if req.operation.get(TXN_TYPE) == CREDIT:
-                to = req.operation[TARGET_NYM]
-                if to not in self.balances:
-                    self.balances[to] = STARTING_BALANCE
-                amount = req.operation[DATA][AMOUNT]
-                if amount > self.balances[frm]:
-                    result[SUCCESS] = False
-                else:
-                    result[SUCCESS] = True
-                    self.balances[to] += amount
-                    self.balances[frm] -= amount
-                    self.txns.append((frm, to, amount))
-            elif req.operation.get(TXN_TYPE) == GET_BAL:
-                result[SUCCESS] = True
-                result[BALANCE] = self.balances.get(frm, 0)
-            elif req.operation.get(TXN_TYPE) == GET_ALL_TXNS:
-                result[SUCCESS] = True
-                result[ALL_TXNS] = [txn for txn in self.txns if frm in txn]
-        return Reply(result)
-
 
 def getTestableStack(stack: Stack):
     """
@@ -527,15 +499,16 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerifiersPluginPath=None,
-                 statsConsumerPluginPath = None,
+                 opVerificationPluginPath=None,
+                 reqProcessorPluginPath=None,
+                 statsConsumerPluginPath=None,
                  testNodeClass=TestNode):
         super().__init__()
         self.tmpdir = tmpdir
         self.primaryDecider = primaryDecider
-        self.opVerifiersPluginPath = opVerifiersPluginPath
+        self.opVerificationPluginPath = opVerificationPluginPath
+        self.reqProcessorPluginPath = reqProcessorPluginPath
         self.statsConsumerPluginPath = statsConsumerPluginPath
-
         self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
@@ -556,6 +529,29 @@ class TestNodeSet(ExitStack):
         # NodeSet. It's not a problem unless a node name shadows a member.
         self.__dict__.update(self.nodes)
 
+    @property
+    def pluginsToLoad(self):
+        if self.opVerificationPluginPath:
+            pl = PluginLoader(self.opVerificationPluginPath)
+            opVerifiers = pl.plugins[PLUGIN_TYPE_VERIFICATION]
+        else:
+            opVerifiers = None
+        if self.reqProcessorPluginPath:
+            pl = PluginLoader(self.reqProcessorPluginPath)
+            reqProcessors = pl.plugins[PLUGIN_TYPE_PROCESSING]
+        else:
+            reqProcessors = None
+        if self.statsConsumerPluginPath:
+            pl = PluginLoader(self.statsConsumerPluginPath)
+            statsConsumers = pl.plugins[PLUGIN_TYPE_STATS_CONSUMER]
+        else:
+            statsConsumers = None
+        return {
+            "opVerifiers": opVerifiers,
+            "reqProcessors": reqProcessors,
+            "statsConsumers": statsConsumers
+        }
+
     def addNode(self, name: str) -> TestNode:
         if name in self.nodes:
             error("{} already added".format(name))
@@ -571,8 +567,7 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              opVerifiersPluginPath=self.opVerifiersPluginPath,
-                              statsConsumersPluginPath = self.statsConsumerPluginPath))
+                              **self.pluginsToLoad))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
@@ -952,6 +947,18 @@ def setupClient(looper: Looper,
     looper.add(client1)
     looper.run(client1.ensureConnectedToNodes())
     return client1
+
+
+def setupClients(count: int,
+                looper: Looper,
+                nodes: Sequence[TestNode] = None,
+                nodeReg=None,
+                tmpdir=None):
+    clients = {}
+    for i in range(count):
+        client = setupClient(looper, nodes, nodeReg, tmpdir)
+        clients[client.name] = client
+    return clients
 
 
 # noinspection PyIncorrectDocstring
@@ -1438,10 +1445,3 @@ TESTMSG = "TESTMSG"
 TestMsg = TaggedTuple(TESTMSG, [
     ("subject", str),
     ("content", str)])
-CREDIT = "CREDIT"
-AMOUNT = "AMOUNT"
-GET_BAL = "GET_BAL"
-GET_ALL_TXNS = "GET_ALL_TXNS"
-SUCCESS = "success"
-BALANCE = "balance"
-ALL_TXNS = "all_txns"

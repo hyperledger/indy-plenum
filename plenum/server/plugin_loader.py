@@ -21,7 +21,7 @@ class PluginLoader:
     will look for any classes declared in these modules that have a class
     attribute named 'pluginType', and then it checks to see that the
     'pluginType' attribute is equal to any of the valid types. Right now there
-    are only two valid types, 'VERIFICATION' and 'STATS_CONSUMER'. Then, it instantiates an object of
+    three types of plugins: 'VERIFICATION', 'PROCESSING' and 'STATS_CONSUMER'. Then, it instantiates an object of
     that class type, without any constructor arguments. This is the plugin
     instance.
 
@@ -45,7 +45,7 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER]
+        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER, "PROCESSING"]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 
@@ -79,13 +79,13 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.warning("skipping plugin {} because it does not "
+                        logger.debug("skipping plugin {} because it does not "
                                        "have a '{}' attribute".
                                        format(mod, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
-                            logger.warning("skipping plugin '{0}' because it "
+                            logger.debug("skipping plugin '{0}' because it "
                                            "does not have a valid '{1}' "
                                            "attribute; valid {1} are: {2}".
                                            format(mod,

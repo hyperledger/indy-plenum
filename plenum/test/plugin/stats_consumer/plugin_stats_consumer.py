@@ -16,7 +16,7 @@ class TestStatsConsumer(StatsConsumer):
         }
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
-        print("Test Firebase, event {}, stats: {}".format(event, stats))
+        print("Test Firebase Plugin: event {}, stats: {}".format(event, stats))
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT}
         self._eventToFunc[event](stats)
 
@@ -28,7 +28,6 @@ class TestStatsConsumer(StatsConsumer):
         # send total request to different metric
         if stats.get("hasMasterPrimary") == "Y":
             assert stats.get("total requests")
-
 
     def _sendStatsOnNodeStart(self, stats: Dict[str, object]):
         assert stats.get("startedAtData")
