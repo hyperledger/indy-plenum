@@ -9,9 +9,7 @@ from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
-from ledger.util import F
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
@@ -22,7 +20,6 @@ from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, PUBKEY, \
     NEW_CLIENT, TXN_ID, CLIENT, STEWARD, CLIENT_IP, CHANGE_HA, CHANGE_KEYS, \
     POOL_TXN_TYPES, VERKEY
 from plenum.common.util import getlogger
-from plenum.common.types import HA
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 
 
