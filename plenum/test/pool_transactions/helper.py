@@ -45,7 +45,7 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath):
 
 
 def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
-                         tdir, tconf):
+                         tdir, tconf, allPluginsPath):
     newStewardSigner = addNewClient(NEW_STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=nodeReg, ha=genHa(),
@@ -55,7 +55,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
     looper.runFor(.25)
-    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf)
+    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf, allPluginsPath)
     return newSteward, newNode
 
 

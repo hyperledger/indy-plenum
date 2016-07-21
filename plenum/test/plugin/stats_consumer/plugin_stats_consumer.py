@@ -17,7 +17,7 @@ class TestStatsConsumer(StatsConsumer):
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
         print(" -------------------- ")
-        print("|Test Firebase Plugin|: event {}, stats: {}".format(event, stats))
+        print("|Test Firebase Plugin|: event: {} => stats: {}".format(event, stats))
         print(" -------------------- ")
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT}
         self._eventToFunc[event](stats)
