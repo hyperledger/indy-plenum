@@ -289,17 +289,16 @@ class TxnPoolManager(PoolManager):
         if typ in (CHANGE_HA, CHANGE_KEYS):
             error = self.authErrorWhileUpdatingNode(request)
         if error:
-            raise UnauthorizedClientRequest(request.identifier, error)
+            raise UnauthorizedClientRequest(request.identifier, request.reqId,
+                                            error)
 
     def authErrorWhileAddingSteward(self, request):
         origin = request.identifier
-        isSteward = False
         for txn in self.poolTxnStore.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                isSteward = True
                 break
-        if not isSteward:
-            return "{} is not a steward so cannot add a new steward".\
+        else:
+            return "{} is not a steward so cannot add a new steward". \
                 format(origin)
         if self.stewardThresholdExceeded():
             return "New stewards cannot be added by other stewards as "\
@@ -381,7 +380,7 @@ class RegistryPoolManager(PoolManager):
     @staticmethod
     def getNodeStackParams(name, nodeRegistry: Dict[str, HA],
                            ha: HA = None,
-                           basedirpath: str = None) -> Tuple[dict, dict]:
+                           basedirpath: str = None) -> Tuple[dict, dict, dict]:
         """
         Return tuple(nodeStack params, nodeReg)
         """

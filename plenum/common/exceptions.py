@@ -120,6 +120,7 @@ class InvalidClientMessageException(InvalidMessageException):
         super().__init__(*args, **kwargs)
         self.identifier = identifier
         self.reqId = reqId
+        self.args = args
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):
