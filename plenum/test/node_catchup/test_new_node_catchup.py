@@ -14,7 +14,7 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 @pytest.yield_fixture("module")
 def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                                        poolTxnStewardData, txnPoolCliNodeReg,
-                                       tconf, statsConsumersPluginPath):
+                                       tconf, allPluginsPath):
     with Looper(debug=True) as looper:
         name, pkseed, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
@@ -35,7 +35,7 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
         looper.run(newStewardClient.ensureConnectedToNodes())
         newNodeName = "Epsilon"
         newNode = addNewNode(looper, newStewardClient, newNodeName,
-                             tdirWithPoolTxns, tconf, statsConsumersPluginPath)
+                             tdirWithPoolTxns, tconf, allPluginsPath)
         txnPoolNodeSet.append(newNode)
         looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                               timeout=5))

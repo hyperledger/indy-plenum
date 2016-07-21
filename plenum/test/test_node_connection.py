@@ -22,7 +22,7 @@ nodeReg = {
     'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
 
 
-def testNodesConnectsWhenOneNodeIsLate(statsConsumersPluginPath):
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath):
     with TemporaryDirectory() as td:
         with Looper() as looper:
             nodes = []
@@ -30,7 +30,7 @@ def testNodesConnectsWhenOneNodeIsLate(statsConsumersPluginPath):
             logger.debug("Node names: {}".format(names))
 
             def create(name):
-                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
+                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -49,12 +49,12 @@ def testNodesConnectsWhenOneNodeIsLate(statsConsumersPluginPath):
             checkProtocolInstanceSetup(looper, nodes, timeout=10)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(statsConsumersPluginPath):
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath):
     with TemporaryDirectory() as td:
         with Looper() as looper:
             nodes = []
             for name in nodeReg:
-                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
+                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -63,7 +63,7 @@ def testNodesConnectWhenTheyAllStartAtOnce(statsConsumersPluginPath):
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(statsConsumersPluginPath):
+def testNodesComingUpAtDifferentTimes(allPluginsPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -77,7 +77,7 @@ def testNodesComingUpAtDifferentTimes(statsConsumersPluginPath):
             rwaits = [randint(1, 10) for _ in names]
 
             for i, name in enumerate(names):
-                node = TestNode(name, nodeReg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
+                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -101,7 +101,7 @@ def testNodesComingUpAtDifferentTimes(statsConsumersPluginPath):
             print("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(statsConsumersPluginPath):
+def testNodeConnection(allPluginsPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -110,7 +110,7 @@ def testNodeConnection(statsConsumersPluginPath):
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nrg, basedirpath=td, statsConsumersPluginPath=statsConsumersPluginPath)
+            A, B = [TestNode(name, nrg, basedirpath=td, pluginPaths=allPluginsPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing()
@@ -127,7 +127,7 @@ def testNodeConnection(statsConsumersPluginPath):
             looper.run(checkNodesConnected([A, B]))
 
 
-def testNodeConnectionAfterKeysharingRestarted(statsConsumersPluginPath):
+def testNodeConnectionAfterKeysharingRestarted(allPluginsPath):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     with TemporaryDirectory() as td:
@@ -137,7 +137,7 @@ def testNodeConnectionAfterKeysharingRestarted(statsConsumersPluginPath):
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td,statsConsumersPluginPath=statsConsumersPluginPath)
+            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td,pluginPaths=allPluginsPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

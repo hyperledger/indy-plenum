@@ -24,11 +24,10 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, TXN_TYPE, \
-    TARGET_NYM, DATA
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_STATS_CONSUMER
+    CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger
 from plenum.persistence import orientdb_store
@@ -36,7 +35,6 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
@@ -287,8 +285,8 @@ class TestNodeCore(StackedTester):
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
 
-        statsConsumers = kwargs['statsConsumers']
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances, statsConsumers)
+        pluginPaths = kwargs['pluginPaths']
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances, pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
 
@@ -499,16 +497,13 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None,
-                 reqProcessorPluginPath=None,
-                 statsConsumerPluginPath=None,
+                 pluginPaths:Iterable[str]=None,
                  testNodeClass=TestNode):
         super().__init__()
         self.tmpdir = tmpdir
         self.primaryDecider = primaryDecider
-        self.opVerificationPluginPath = opVerificationPluginPath
-        self.reqProcessorPluginPath = reqProcessorPluginPath
-        self.statsConsumerPluginPath = statsConsumerPluginPath
+        self.pluginPaths = pluginPaths
+
         self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
@@ -529,29 +524,6 @@ class TestNodeSet(ExitStack):
         # NodeSet. It's not a problem unless a node name shadows a member.
         self.__dict__.update(self.nodes)
 
-    @property
-    def pluginsToLoad(self):
-        if self.opVerificationPluginPath:
-            pl = PluginLoader(self.opVerificationPluginPath)
-            opVerifiers = pl.plugins[PLUGIN_TYPE_VERIFICATION]
-        else:
-            opVerifiers = None
-        if self.reqProcessorPluginPath:
-            pl = PluginLoader(self.reqProcessorPluginPath)
-            reqProcessors = pl.plugins[PLUGIN_TYPE_PROCESSING]
-        else:
-            reqProcessors = None
-        if self.statsConsumerPluginPath:
-            pl = PluginLoader(self.statsConsumerPluginPath)
-            statsConsumers = pl.plugins[PLUGIN_TYPE_STATS_CONSUMER]
-        else:
-            statsConsumers = None
-        return {
-            "opVerifiers": opVerifiers,
-            "reqProcessors": reqProcessors,
-            "statsConsumers": statsConsumers
-        }
-
     def addNode(self, name: str) -> TestNode:
         if name in self.nodes:
             error("{} already added".format(name))
@@ -567,7 +539,7 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              **self.pluginsToLoad))
+                              pluginPaths=self.pluginPaths))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node

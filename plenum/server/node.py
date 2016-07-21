@@ -29,6 +29,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
@@ -42,7 +43,7 @@ from plenum.common.types import Request, Propagate, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY, LedgerStatus, \
     LedgerStatuses, ConsistencyProofs, ConsistencyProof, CatchupReq, CatchupRep, \
-    NodeRegForClient, CLIENT_STACK_SUFFIX
+    NodeRegForClient, CLIENT_STACK_SUFFIX, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
 
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
@@ -71,7 +72,7 @@ logger = getlogger()
 
 class Node(HasActionQueue, Motor,
            Propagator, MessageProcessor, HasFileStorage,
-           HasPoolManager):
+           HasPoolManager, PluginLoaderHelper):
     """
     A node in a plenum system. Nodes communicate with each other via the
     RAET protocol. https://github.com/saltstack/raet
@@ -88,9 +89,7 @@ class Node(HasActionQueue, Motor,
                  cliha: HA=None,
                  basedirpath: str=None,
                  primaryDecider: PrimaryDecider = None,
-                 opVerifiers: Iterable[Any]=None,
-                 reqProcessors: Iterable[Any]=None,
-                 statsConsumers: Iterable[Any] = None,
+                 pluginPaths: Iterable[str]=None,
                  storage: Storage=None,
                  config=None):
 
@@ -112,9 +111,8 @@ class Node(HasActionQueue, Motor,
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup(name, basedirpath)
-        self.opVerifiers = opVerifiers or []
-        self.reqProcessors = reqProcessors or []
-        self.statsConsumers = statsConsumers or []
+        self.opVerifiers = self.getPluginsByType(PLUGIN_TYPE_VERIFICATION, pluginPaths)
+        self.reqProcessors = self.getPluginsByType(PLUGIN_TYPE_PROCESSING, pluginPaths)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -165,7 +163,7 @@ class Node(HasActionQueue, Motor,
                                Lambda=self.config.LAMBDA,
                                Omega=self.config.OMEGA,
                                instances=self.instances,
-                               statsConsumers = self.statsConsumers)
+                               pluginPaths = pluginPaths)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to

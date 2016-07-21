@@ -73,8 +73,7 @@ from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
     randomString, error, cleanSeed
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_TYPE_PROCESSING
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig
@@ -734,20 +733,10 @@ Commands:
 
         nodes = []
         for name in names:
-            opVerifiers = set()
-            reqProcessors = set()
-            statsConsumers = set()
-            for path in self.pluginPaths:
-                plugins = PluginLoader(path).plugins
-                opVerifiers = plugins.get(PLUGIN_TYPE_VERIFICATION, set())
-                reqProcessors = plugins.get(PLUGIN_TYPE_PROCESSING, set())
-                statsConsumers = plugins.get(PLUGIN_TYPE_STATS_CONSUMER, set())
             node = self.NodeClass(name,
                                   self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  opVerifiers=opVerifiers,
-                                  reqProcessors=reqProcessors,
-                                  statsConsumers=statsConsumers)
+                                  pluginPaths=self.pluginPaths)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()

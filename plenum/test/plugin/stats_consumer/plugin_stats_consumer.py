@@ -1,5 +1,5 @@
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT, \
-    PLUGIN_TYPE_STATS_CONSUMER
+    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
 from typing import Dict, Any
 
 from plenum.server.stats_consumer import StatsConsumer
@@ -16,7 +16,9 @@ class TestStatsConsumer(StatsConsumer):
         }
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
-        print("Test Firebase Plugin: event {}, stats: {}".format(event, stats))
+        print(" -------------------- ")
+        print("|Test Firebase Plugin|: event {}, stats: {}".format(event, stats))
+        print(" -------------------- ")
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT}
         self._eventToFunc[event](stats)
 

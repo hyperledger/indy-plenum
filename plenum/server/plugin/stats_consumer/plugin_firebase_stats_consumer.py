@@ -7,7 +7,8 @@ from firebase import firebase
 from firebase.async import get_process_pool
 from firebase.lazy import LazyLoadProxy
 
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_NODE_STARTED, EVENT_REQ_ORDERED
+from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_NODE_STARTED, EVENT_REQ_ORDERED, \
+    PLUGIN_TYPE_STATS_CONSUMER
 from plenum.server.stats_consumer import StatsConsumer
 
 # Temporary fix for letting firebase create only 1 extra process

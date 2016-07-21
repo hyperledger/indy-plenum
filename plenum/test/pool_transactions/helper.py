@@ -23,7 +23,7 @@ def addNewClient(typ, looper, client, name):
     return newSigner
 
 
-def addNewNode(looper, client, newNodeName, tdir, tconf, statsConsumersPluginPath):
+def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath):
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
@@ -39,7 +39,7 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, statsConsumersPluginPat
                   override=True)
     node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
-                    statsConsumersPluginPath=statsConsumersPluginPath)
+                    pluginPaths=allPluginsPath)
     looper.add(node)
     return node
 

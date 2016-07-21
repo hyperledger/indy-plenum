@@ -24,6 +24,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
+from plenum.test.plugin.helper import pluginPath
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -96,25 +97,12 @@ def logcapture(request, whitelist):
     return whiteListedExceptions
 
 
-@pytest.fixture(scope='module')
-def statsConsumersPluginPath():
-    curPath = os.path.dirname(os.path.abspath(__file__))
-    pluginPath = os.path.join(curPath, 'plugin/stats_consumer')
-    return pluginPath
-
-@pytest.fixture(scope='module')
-def opVerifiersPluginPath():
-    curPath = os.path.dirname(os.path.abspath(__file__))
-    pluginPath = os.path.join(curPath, 'plugin/name_age_verification')
-    return pluginPath
-
-
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg, statsConsumersPluginPath):
+def nodeSet(request, tdir, nodeReg, allPluginsPath):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
-                     statsConsumerPluginPath=statsConsumersPluginPath) as ns:
+                     pluginPaths=allPluginsPath) as ns:
         yield ns
 
 
@@ -367,15 +355,20 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     return (name, ) + tuple(s.encode() for s in seeds)
 
 
+@pytest.fixture(scope="module")
+def allPluginsPath():
+    return [pluginPath('stats_consumer')]
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
-                    statsConsumersPluginPath,
+                   allPluginsPath,
                    tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
             node = TestNode(nm, basedirpath=tdirWithPoolTxns,
-                            config=tconf, statsConsumersPluginPath=statsConsumersPluginPath)
+                            config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)
 

@@ -92,10 +92,10 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1):
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
-                                   txnPoolCliNodeReg, tconf, statsConsumersPluginPath):
+                                   txnPoolCliNodeReg, tconf, allPluginsPath):
     newNodeName = "Epsilon"
     with pytest.raises(AssertionError):
-        addNewNode(looper, steward1, newNodeName, txnPoolCliNodeReg, tconf, statsConsumersPluginPath)
+        addNewNode(looper, steward1, newNodeName, txnPoolCliNodeReg, tconf, allPluginsPath)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
