@@ -1,5 +1,5 @@
-from plenum.common.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
+from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import pluginPath

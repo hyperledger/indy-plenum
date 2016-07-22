@@ -359,7 +359,6 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 def allPluginsPath():
     return [pluginPath('stats_consumer')]
 
-
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
                    allPluginsPath,

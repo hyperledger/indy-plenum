@@ -2,17 +2,17 @@ import logging
 import time
 from datetime import datetime
 from statistics import mean
-from typing import Dict, Iterable, Any
+from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
 
-from plenum.common.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
+from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 logger = getlogger()
 config = getConfig()
