@@ -110,8 +110,8 @@ class Node(HasActionQueue, Motor,
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup(name, basedirpath)
-        self.opVerifiers = self.getPluginsByType(PLUGIN_TYPE_VERIFICATION, pluginPaths)
-        self.reqProcessors = self.getPluginsByType(PLUGIN_TYPE_PROCESSING, pluginPaths)
+        self.opVerifiers = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_VERIFICATION)
+        self.reqProcessors = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_PROCESSING)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 

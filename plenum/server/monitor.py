@@ -34,7 +34,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.Delta = Delta
         self.Lambda = Lambda
         self.Omega = Omega
-        self.statsConsumers = self.getPluginsByType(PLUGIN_TYPE_STATS_CONSUMER, pluginPaths)
+        self.statsConsumers = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_STATS_CONSUMER)
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and

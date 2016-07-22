@@ -14,7 +14,7 @@ from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX
+from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, TestingHandler, getConfig
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -48,8 +48,14 @@ def getValueFromModule(request, name: str, default: Any = None):
     return value
 
 
+basePath = os.path.dirname(os.path.abspath(__file__))
+testPluginBaseDirPath = os.path.join(basePath, "plugin")
+
 overriddenConfigValues = {
-    #"SendMonitorStats": False
+    # "DefaultPluginPath": {
+    #     PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
+    #     PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
+    # }
 }
 
 
@@ -358,6 +364,7 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 @pytest.fixture(scope="module")
 def allPluginsPath():
     return [pluginPath('stats_consumer')]
+
 
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,

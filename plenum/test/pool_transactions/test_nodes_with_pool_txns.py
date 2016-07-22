@@ -176,7 +176,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, nodeThetaAdded, newHa, allPluginsPath):
+                        tconf, steward1, nodeThetaAdded, newHa, allPluginsPath=None):
     newSteward, newNode = nodeThetaAdded
     newNode.stop()
     nodeHa, nodeCHa = newHa

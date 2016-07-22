@@ -64,7 +64,7 @@ setup(
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pygments', 'ledger-dev', 'pyorient', 'ioflo==1.5.4'],
     extras_require= {
-        'stats': ['firebase']
+        'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],

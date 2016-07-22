@@ -3,6 +3,7 @@ from collections import OrderedDict
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
 
 from plenum.common.txn import ClientBootStrategy
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
 
 nodeReg = OrderedDict([
     ('Alpha', ('127.0.0.1', 9701)),
@@ -41,6 +42,12 @@ OrientDB = {
     "port": 2424,
     "startScript": "/opt/orientdb/bin/server.sh",
     "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
+}
+
+
+DefaultPluginPath = {
+    # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here, if not given, by defaut it will pickup plenum/server/plugin path>",
+    PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
 }
 
 stewardThreshold = 20

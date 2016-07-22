@@ -285,7 +285,7 @@ class TestNodeCore(StackedTester):
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
 
-        pluginPaths = kwargs['pluginPaths']
+        pluginPaths = kwargs.get('pluginPaths', [])
         self.monitor = TestMonitor(self.name, d, l, o, self.instances, pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()

@@ -23,7 +23,7 @@ def addNewClient(typ, looper, client, name):
     return newSigner
 
 
-def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath):
+def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None):
     sigseed = randomString(32).encode()
     pkseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
@@ -45,7 +45,7 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath):
 
 
 def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
-                         tdir, tconf, allPluginsPath):
+                         tdir, tconf, allPluginsPath=None):
     newStewardSigner = addNewClient(NEW_STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=nodeReg, ha=genHa(),
