@@ -63,6 +63,9 @@ setup(
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pygments', 'ledger-dev', 'pyorient', 'ioflo==1.5.4'],
+    extras_require= {
+        'stats': ['firebase']
+    },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
