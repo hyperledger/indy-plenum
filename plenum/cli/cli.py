@@ -894,6 +894,9 @@ Commands:
         idAndKey = identifier, client.getSigner(identifier=identifier).verkey
         node.clientAuthNr.addClient(*idAndKey)
 
+    def clientExists(self, clientName):
+        return clientName in self.clients
+
     def printMsgForUnknownClient(self):
         self.print("No such client. See: 'help new' for more details")
 

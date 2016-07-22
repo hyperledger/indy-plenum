@@ -90,7 +90,7 @@ class BankReqProcessorPlugin(HasCliCommands):
                 frm = client_name
                 to = matchedVars.get('second_client_name')
                 toClient = self.cli.clients.get(to, None)
-                if frm not in self.cli.clients or to not in self.cli.clients:
+                if not self.cli.clientExists(frm) or not self.cli.clientExists(to):
                     self.cli.printMsgForUnknownClient()
                 else:
                     amount = int(matchedVars.get('amount'))
@@ -104,7 +104,7 @@ class BankReqProcessorPlugin(HasCliCommands):
                 return True
             elif client_action == "balance":
                 frm = client_name
-                if frm not in self.cli.clients:
+                if not self.cli.clientExists(frm):
                     self.cli.printMsgForUnknownClient()
                 else:
                     frmClient = self.cli.clients.get(frm, None)
@@ -116,7 +116,7 @@ class BankReqProcessorPlugin(HasCliCommands):
                 return True
             elif client_action == "transactions":
                 frm = client_name
-                if frm not in self.cli.clients:
+                if not self.cli.clientExists(frm):
                     self.cli.printMsgForUnknownClient()
                 else:
                     frmClient = self.cli.clients.get(frm, None)

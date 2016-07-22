@@ -1,10 +1,12 @@
+import ast
+import json
+import os
 import re
 
 from pygments.token import Token
 
 import plenum.cli.cli as cli
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
-from plenum.common.util import getMaxFailures, firstValue
+from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
@@ -64,53 +66,6 @@ class TestCliCore:
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
     pass
-    # def initializeGrammar(self):
-    #     fcTxnsGrams = [
-    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>credit) \s+ (?P<amount>[0-9]+) \s+ to \s+(?P<second_client_name>[a-zA-Z0-9]+) \s*)  |",
-    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>balance) \s*)  |",
-    #         "(\s* (?P<client>client) \s+ (?P<client_name>[a-zA-Z0-9]+) \s+ (?P<cli_action>transactions) \s*)"
-    #     ]
-    #     self.clientGrams[-1] += " |"
-    #     self.clientGrams += fcTxnsGrams
-    #     cli.Cli.initializeGrammar(self)
-
-    # def _clientCommand(self, matchedVars):
-    #     if matchedVars.get('client') == 'client':
-    #         client_name = matchedVars.get('client_name')
-    #         client_action = matchedVars.get('cli_action')
-    #         if client_action == "credit":
-    #             frm = client_name
-    #             to = matchedVars.get('second_client_name')
-    #             toClient = self.clients.get(to, None)
-    #             amount = int(matchedVars.get('amount'))
-    #             txn = {
-    #                 TXN_TYPE: CREDIT,
-    #                 TARGET_NYM: toClient.defaultIdentifier,
-    #                 DATA: {
-    #                     AMOUNT: amount
-    #                 }}
-    #             self.sendMsg(frm, txn)
-    #             return True
-    #         elif client_action == "balance":
-    #             frm = client_name
-    #             frmClient = self.clients.get(frm, None)
-    #             txn = {
-    #                 TXN_TYPE: GET_BAL,
-    #                 TARGET_NYM: frmClient.defaultIdentifier
-    #             }
-    #             self.sendMsg(frm, txn)
-    #             return True
-    #         elif client_action == "transactions":
-    #             frm = client_name
-    #             frmClient = self.clients.get(frm, None)
-    #             txn = {
-    #                 TXN_TYPE: GET_ALL_TXNS,
-    #                 TARGET_NYM: frmClient.defaultIdentifier
-    #             }
-    #             self.sendMsg(frm, txn)
-    #             return True
-    #         else:
-    #         return cli.Cli._clientCommand(self, matchedVars)
 
 
 def isErrorToken(token: Token):
@@ -169,6 +124,12 @@ def checkClientConnected(cli, nodeNames, clientName):
             printedMsgs.add(msg)
 
     assert printedMsgs == expectedMsgs
+
+
+def createClientAndConnect(cli, nodeNames, clientName):
+    cli.enterCmd("new client {}".format(clientName))
+    cli.looper.run(eventually(checkClientConnected, cli, nodeNames,
+                              clientName, retryWait=1, timeout=3))
 
 
 def checkRequest(cli, looper, operation):
@@ -243,12 +204,15 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # be the first time wallet is accessed so wallet would be created and some
     # output corresponding to that would be printed.
     assert "\n".join(expected) in cli.lastCmdOutput
-    # assert cli.lastCmdOutput == "\n".join(expected)
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
     assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     return pubKey
+
+
+replyPat = re.compile("C: ({.+$)")
+pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ loaded from module")
 
 
 def assertIncremented(f, var):
@@ -269,3 +233,39 @@ def assertAllNodesCreated(cli, validNodeNames):
     # Check if all nodes are added
     assert len(cli.nodes) == len(validNodeNames)
     assert set(cli.nodes.keys()) == set(cli.nodeReg.keys())
+
+
+def assertNoClient(cli):
+    assert cli.lastCmdOutput == "No such client. See: 'help new' for " \
+                                "more details"
+
+
+def checkReply(cli, count, clbk):
+    done = 0
+    for out in cli.printeds:
+        msg = out['msg']
+        m = replyPat.search(msg)
+        if m:
+            result = ast.literal_eval(m.groups(0)[0].strip())
+            if clbk(result):
+                done += 1
+    assert done == count
+
+
+def checkSuccess(data):
+    result = data.get('result')
+    return result and result.get('success') == True
+
+
+def checkBalance(balance, data):
+    if checkSuccess(data):
+        result = data.get('result')
+        return result.get('balance') == balance
+
+
+def loadPlugin(cli, pluginPkgName):
+    curPath = os.path.dirname(os.path.dirname(__file__))
+    fullPath = os.path.join(curPath, 'plugin', pluginPkgName)
+    cli.enterCmd("load plugins from {}".format(fullPath))
+    m = pluginLoadedPat.search(cli.printeds[0]['msg'])
+    assert m

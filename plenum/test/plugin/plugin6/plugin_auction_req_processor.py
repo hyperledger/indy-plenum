@@ -125,33 +125,42 @@ class AuctionReqProcessorPlugin(HasCliCommands):
             auctionId = matchedVars.get('auction_id')
             if client_action in ("start auction", "end auction"):
                 frm = client_name
-                txn = {
-                    TXN_TYPE: AUCTION_START if client_action == "start auction"
-                    else AUCTION_END,
-                    DATA: {
-                        ID: auctionId
+                if not self.cli.clientExists(frm):
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    txn = {
+                        TXN_TYPE: AUCTION_START if client_action == "start auction"
+                        else AUCTION_END,
+                        DATA: {
+                            ID: auctionId
+                        }
                     }
-                }
-                self.cli.sendMsg(frm, txn)
+                    self.cli.sendMsg(frm, txn)
                 return True
             elif client_action == "place bid":
                 frm = client_name
-                amount = int(matchedVars.get('amount'))
-                txn = {
-                    TXN_TYPE: PLACE_BID,
-                    DATA: {
-                        ID: auctionId,
-                        AMOUNT: amount
+                if not self.cli.clientExists(frm):
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    amount = int(matchedVars.get('amount'))
+                    txn = {
+                        TXN_TYPE: PLACE_BID,
+                        DATA: {
+                            ID: auctionId,
+                            AMOUNT: amount
+                        }
                     }
-                }
-                self.cli.sendMsg(frm, txn)
+                    self.cli.sendMsg(frm, txn)
                 return True
             elif client_action == "balance":
                 frm = client_name
-                frmClient = self.cli.clients.get(frm, None)
-                txn = {
-                    TXN_TYPE: GET_BAL,
-                    TARGET_NYM: frmClient.defaultIdentifier
-                }
-                self.cli.sendMsg(frm, txn)
+                if not self.cli.clientExists(frm):
+                    self.cli.printMsgForUnknownClient()
+                else:
+                    frmClient = self.cli.clients.get(frm, None)
+                    txn = {
+                        TXN_TYPE: GET_BAL,
+                        TARGET_NYM: frmClient.defaultIdentifier
+                    }
+                    self.cli.sendMsg(frm, txn)
                 return True
