@@ -114,8 +114,10 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
+        self.nodeRegLoadedFromFile = False
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
+            self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
             dataDir = os.path.expanduser(config.baseDir)
@@ -739,13 +741,16 @@ Commands:
                 opVerifiers = plugins.get('VERIFICATION', set())
                 reqProcessors = plugins.get('PROCESSING', set())
             node = self.NodeClass(name,
-                                  self.nodeRegistry,
+                                  nodeRegistry=None if self.nodeRegLoadedFromFile else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   opVerifiers=opVerifiers,
                                   reqProcessors=reqProcessors)
+            from time import sleep
+            # sleep(60)
             self.nodes[name] = node
             self.looper.add(node)
-            node.startKeySharing()
+            if not self.nodeRegLoadedFromFile:
+                node.startKeySharing()
             for client in self.clients.values():
                 # TODO: need a way to specify an identifier for a client with
                 # multiple signers
