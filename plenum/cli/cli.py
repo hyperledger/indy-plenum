@@ -874,8 +874,18 @@ Commands:
                                              seed=seed)
                 if signer:
                     self._addSignerToWallet(signer, wallet)
-            self._setActiveIdentifier(signer.identifier if signer
-                                      else next(iter(wallet.signers.keys())))
+
+            # If signer provided then set activeSigner to the one provided else
+            # if activeSigner's identifier is present in wallet then use
+            # activeSigner else use one of the identifier from wallet.
+            if signer:
+                identifier = signer.identifier
+            elif self.activeSigner.identifier in list(wallet.signers.keys()):
+                identifier = self.activeSigner.identifier
+            else:
+                identifier = next(iter(wallet.signers.keys()))
+            self._setActiveIdentifier(identifier)
+
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
@@ -1149,6 +1159,7 @@ Commands:
         #     self.print("    rename wallet {} to NewName".format(nm))
         return wallet
 
+    # TODO: Remove this method since it is not called anymore
     def ensureDefaultClientCreated(self):
         walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName,
                                                        self.basedirpath)
