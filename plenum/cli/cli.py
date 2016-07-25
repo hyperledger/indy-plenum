@@ -1159,18 +1159,6 @@ Commands:
         #     self.print("    rename wallet {} to NewName".format(nm))
         return wallet
 
-    # TODO: Remove this method since it is not called anymore
-    def ensureDefaultClientCreated(self):
-        walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName,
-                                                       self.basedirpath)
-        self.defaultClient = self.newClient(self.defaultWalletName)
-        cryptonym = firstValue(self.defaultClient.signers).verstr
-        self._setActiveIdentifier(cryptonym)
-        if not walletAlreadyExists:
-            self.print("Note, you can rename this wallet with:")
-            self.print("    rename wallet {} to NewName".
-                       format(self.defaultWalletName))
-
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
             self.print("Active wallet: {}".format(self.activeWallet.name))
