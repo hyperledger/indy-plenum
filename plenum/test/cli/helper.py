@@ -207,7 +207,9 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
-    assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
+    needle = alias if alias else pubKey
+    # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
+    assert needle in cli.lastCmdOutput
     return pubKey
 
 

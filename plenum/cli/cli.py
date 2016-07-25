@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 # noinspection PyUnresolvedReferences
 import base64
 import copy
+import random
 from hashlib import sha256
 from binascii import unhexlify
 from typing import Set
@@ -1237,7 +1238,8 @@ Commands:
 
     def nextAvailableClientAddr(self, curClientPort=8100):
         self.curClientPort = self.curClientPort or curClientPort
-        self.curClientPort += 1
+        # TODO: Find a better way to do this
+        self.curClientPort += random.randint(1, 200)
         host = "127.0.0.1"
         try:
             checkPortAvailable((host, self.curClientPort))
