@@ -39,7 +39,7 @@ class TestCliCore:
 
     @property
     def lastCmdOutput(self):
-        return '\n'.join([x['msg'] for x in
+        return ''.join([x['msg'] for x in
                           list(reversed(self.printeds))[self.lastPrintIndex:]])
 
     # noinspection PyAttributeOutsideInit
@@ -203,7 +203,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # Using `in` rather than `=` so as to take care of the fact that this might
     # be the first time wallet is accessed so wallet would be created and some
     # output corresponding to that would be printed.
-    assert "\n".join(expected) in cli.lastCmdOutput
+    assert "".join(expected) in cli.lastCmdOutput
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
