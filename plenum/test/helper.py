@@ -176,8 +176,8 @@ class TestClient(Client, StackedTester):
     def nodeStackClass(self) -> NodeStack:
         return getTestableStack(NodeStack)
 
-    def handleOneNodeMsg(self, wrappedMsg) -> None:
-        super().handleOneNodeMsg(wrappedMsg)
+    def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
+        super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
         # msg, frm = wrappedMsg
         # if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
         #     if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (

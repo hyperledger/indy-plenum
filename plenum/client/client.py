@@ -265,7 +265,6 @@ class Client(Motor):
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
         Handles single message from a node, and appends it to a queue
-
         :param wrappedMsg: Reply received by the client from the node
         """
         self.inBox.append(wrappedMsg)

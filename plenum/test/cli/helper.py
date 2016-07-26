@@ -149,7 +149,7 @@ def checkRequest(cli, looper, operation):
             client.lastReqId,
             f,
             retryWait=2,
-            timeout=30))
+            timeout=10))
 
     txn, status = client.getReply(client.lastReqId)
 
