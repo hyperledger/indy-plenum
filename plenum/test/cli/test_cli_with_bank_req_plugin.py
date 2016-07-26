@@ -36,6 +36,9 @@ def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
     cli.looper.run(eventually(checkReply, cli, len(validNodeNames),
                               partial(checkBalance, 500), retryWait=1,
                               timeout=5))
+    cli.enterCmd("client Bob balance")
+    cli.looper.run(eventually(checkReply, cli, nodeCount * 3,
+                              checkSuccess, retryWait=1, timeout=5))
     cli.looper.run(eventually(checkReply, cli, nodeCount,
                               partial(checkBalance, 1500), retryWait=1,
                               timeout=5))
