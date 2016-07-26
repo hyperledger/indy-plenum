@@ -20,9 +20,11 @@ message coming from node j, node i first verifies the MAC
 authenticator.
 
 """
+import ctypes
 from collections import Iterable
 from typing import Mapping
 
+from libnacl import crypto_box_SECRETKEYBYTES, nacl, crypto_box_PUBLICKEYBYTES
 from plenum.common.types import f
 from plenum.common.util import error, getlogger
 
@@ -84,3 +86,22 @@ def serializeForSig(msg: Mapping):
     ser = serlize(msg)
     logger.trace("serialized for signing {} into {}".format(msg, ser))
     return ser.encode('utf-8')
+
+
+# TODO: Should probably have a module called crypto since the functions below
+# are not related to signing nor are they general utilities so cant be put into
+# util.py
+def ed25519SkToCurve25519(sk):
+    secretKey = ctypes.create_string_buffer(crypto_box_SECRETKEYBYTES)
+    ret = nacl.crypto_sign_ed25519_sk_to_curve25519(secretKey, sk)
+    if ret:
+        raise Exception("error in converting ed22519 key to curve25519")
+    return secretKey.raw
+
+
+def ed25519PkToCurve25519(pk):
+    publicKey = ctypes.create_string_buffer(crypto_box_PUBLICKEYBYTES)
+    ret = nacl.crypto_sign_ed25519_pk_to_curve25519(publicKey, pk)
+    if ret:
+        raise Exception("error in converting ed22519 key to curve25519")
+    return publicKey.raw

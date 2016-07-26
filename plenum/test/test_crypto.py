@@ -1,6 +1,7 @@
 import pytest
 from libnacl import randombytes, crypto_sign, crypto_sign_open
 from libnacl.public import SecretKey, Box
+from plenum.common.signing import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer, SigningKey, Verifier, PrivateKey
 
 pytestmark = pytest.mark.smoke
@@ -126,3 +127,12 @@ def testSimpleSigningWithSimpleKeys():
     assert len(pubkey) == 32
     msg = b'1234'
     cmsg = crypto_sign(msg, prikey)
+
+
+def testKeyConversionFromEd25519ToCurve25519():
+    signer = Signer()
+    sk = signer.keyraw
+    vk = signer.verraw
+    secretKey = ed25519SkToCurve25519(sk)
+    publicKey = ed25519PkToCurve25519(vk)
+    PrivateKey(secretKey).public_key.__bytes__() == publicKey
