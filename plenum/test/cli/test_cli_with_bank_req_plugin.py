@@ -10,16 +10,8 @@ from plenum.test.eventually import eventually
 
 @pytest.fixture("module")
 def loadBankReqPlugin(cli):
-    # loadPlugin(cli, 'plugin3')
-    # loadPlugin(cli, 'plugin4')
-    # TODO: Remove this boilerplate
-    curPath = os.path.dirname(os.path.dirname(__file__))
-    fullPath = os.path.join(curPath, 'plugin', 'bank_req_validation')
-    cli.enterCmd("load plugins from {}".format(fullPath))
-    fullPath = os.path.join(curPath, 'plugin', 'bank_req_processor')
-    cli.enterCmd("load plugins from {}".format(fullPath))
-    # TODO: Remove this hardcoded sleep
-    cli.looper.runFor(2)
+    loadPlugin(cli, 'bank_req_validation')
+    loadPlugin(cli, 'bank_req_processor')
 
 
 def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
