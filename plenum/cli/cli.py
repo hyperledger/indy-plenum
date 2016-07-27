@@ -1134,8 +1134,9 @@ Commands:
 
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
+            seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            self._newSigner(alias=alias, wallet=self.activeWallet)
+            self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
     def _buildWalletClass(self, nm):
