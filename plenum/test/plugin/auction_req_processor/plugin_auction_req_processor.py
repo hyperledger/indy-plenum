@@ -1,7 +1,5 @@
 from types import SimpleNamespace
-from typing import Dict, NamedTuple
-from typing import List
-from typing import Tuple
+from typing import Dict
 
 from plenum.cli.constants import getPipedRegEx
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA

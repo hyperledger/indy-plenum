@@ -79,9 +79,9 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.debug("skipping plugin {} because it does not "
+                        logger.debug("skipping plugin {}[class: {}] because it does not "
                                        "have a '{}' attribute".
-                                       format(mod, self._pluginTypeAttrName))
+                                       format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:

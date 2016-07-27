@@ -1,5 +1,5 @@
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT, \
-    PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
+    PLUGIN_TYPE_STATS_CONSUMER
 from typing import Dict, Any
 
 from plenum.server.stats_consumer import StatsConsumer
@@ -16,7 +16,7 @@ class TestStatsConsumer(StatsConsumer):
         }
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
-        print("Test Firebase Plugin: event: {} => stats: {}".format(event, stats))
+        print("Test Stats Consumer Plugin: event: {} => stats: {}".format(event, stats))
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT}
         self._eventToFunc[event](stats)
 
@@ -25,7 +25,6 @@ class TestStatsConsumer(StatsConsumer):
 
     def _sendStatsOnReqOrdered(self, stats: Dict[str, object]):
         assert stats.get("created_at")
-        # send total request to different metric
         if stats.get("hasMasterPrimary") == "Y":
             assert stats.get("total requests")
 
