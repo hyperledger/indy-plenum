@@ -10,8 +10,8 @@ from plenum.test.eventually import eventually
 
 @pytest.fixture("module")
 def loadAuctionReqPlugin(cli):
-    loadPlugin(cli, 'plugin5')
-    loadPlugin(cli, 'plugin6')
+    loadPlugin(cli, 'auction_req_validation')
+    loadPlugin(cli, 'auction_req_processor')
 
 
 def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):

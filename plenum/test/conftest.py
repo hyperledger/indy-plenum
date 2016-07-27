@@ -52,10 +52,10 @@ basePath = os.path.dirname(os.path.abspath(__file__))
 testPluginBaseDirPath = os.path.join(basePath, "plugin")
 
 overriddenConfigValues = {
-    # "DefaultPluginPath": {
-    #     PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
-    #     PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
-    # }
+    "DefaultPluginPath": {
+        PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
+        PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
+    }
 }
 
 

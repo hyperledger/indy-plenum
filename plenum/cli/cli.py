@@ -115,8 +115,10 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
+        self.nodeRegLoadedFromFile = False
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
+            self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
             dataDir = os.path.expanduser(config.baseDir)
@@ -733,20 +735,16 @@ Commands:
 
         nodes = []
         for name in names:
-            opVerifiers = set()
-            reqProcessors = set()
-            for path in self.pluginPaths:
-                plugins = PluginLoader(path).plugins
-                opVerifiers = plugins.get('VERIFICATION', set())
-                reqProcessors = plugins.get('PROCESSING', set())
             node = self.NodeClass(name,
-                                  self.nodeRegistry,
+                                  nodeRegistry=None if self.nodeRegLoadedFromFile else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  opVerifiers=opVerifiers,
-                                  reqProcessors=reqProcessors)
+                                  pluginPaths=self.pluginPaths)
+            from time import sleep
+            # sleep(60)
             self.nodes[name] = node
             self.looper.add(node)
-            node.startKeySharing()
+            if not self.nodeRegLoadedFromFile:
+                node.startKeySharing()
             for client in self.clients.values():
                 # TODO: need a way to specify an identifier for a client with
                 # multiple signers
@@ -869,8 +867,18 @@ Commands:
                                              seed=seed)
                 if signer:
                     self._addSignerToWallet(signer, wallet)
-            self._setActiveIdentifier(signer.identifier if signer
-                                      else next(iter(wallet.signers.keys())))
+
+            # If signer provided then set activeSigner to the one provided else
+            # if activeSigner's identifier is present in wallet then use
+            # activeSigner else use one of the identifier from wallet.
+            if signer:
+                identifier = signer.identifier
+            elif self.activeSigner.identifier in list(wallet.signers.keys()):
+                identifier = self.activeSigner.identifier
+            else:
+                identifier = next(iter(wallet.signers.keys()))
+            self._setActiveIdentifier(identifier)
+
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       nodeReg=self.cliNodeReg,
@@ -894,6 +902,9 @@ Commands:
         assert identifier, "Client has multiple signers, cannot choose one"
         idAndKey = identifier, client.getSigner(identifier=identifier).verkey
         node.clientAuthNr.addClient(*idAndKey)
+
+    def clientExists(self, clientName):
+        return clientName in self.clients
 
     def printMsgForUnknownClient(self):
         self.print("No such client. See: 'help new' for more details")
@@ -1116,8 +1127,9 @@ Commands:
 
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
+            seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            self._newSigner(alias=alias, wallet=self.activeWallet)
+            self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
     def _buildWalletClass(self, nm):
@@ -1140,17 +1152,6 @@ Commands:
         #     self.print("Note, you can rename this wallet by:")
         #     self.print("    rename wallet {} to NewName".format(nm))
         return wallet
-
-    def ensureDefaultClientCreated(self):
-        walletAlreadyExists = WalletStorageFile.exists(self.defaultWalletName,
-                                                       self.basedirpath)
-        self.defaultClient = self.newClient(self.defaultWalletName)
-        cryptonym = firstValue(self.defaultClient.signers).verstr
-        self._setActiveIdentifier(cryptonym)
-        if not walletAlreadyExists:
-            self.print("Note, you can rename this wallet with:")
-            self.print("    rename wallet {} to NewName".
-                       format(self.defaultWalletName))
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
@@ -1230,7 +1231,8 @@ Commands:
 
     def nextAvailableClientAddr(self, curClientPort=8100):
         self.curClientPort = self.curClientPort or curClientPort
-        self.curClientPort += 1
+        # TODO: Find a better way to do this
+        self.curClientPort += random.randint(1, 200)
         host = "127.0.0.1"
         try:
             checkPortAvailable((host, self.curClientPort))
