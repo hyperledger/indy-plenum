@@ -1,6 +1,3 @@
-from time import sleep, time
-from typing import Iterable
-
 from plenum.common.looper import Looper
 from plenum.server.monitor import Monitor
 from plenum.test.eventually import eventually

@@ -102,8 +102,8 @@ class Stack(RoadStack):
                                  "and trying to route to an external one.".
                                  format(ex), extra={'cli': 'WARNING'})
                 else:
-                    logger.error("Error servicing stack: {} {}".
-                                 format(ex, ex.args),
+                    logger.error("Error servicing stack {}: {} {}".
+                                 format(self.name, ex, ex.args),
                                  extra={'cli': 'WARNING'})
                 l = 0
             yield l

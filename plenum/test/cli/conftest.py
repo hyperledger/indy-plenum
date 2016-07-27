@@ -11,7 +11,7 @@ from plenum.test.helper import genHa
 
 plenum.common.util.loggingConfigured = False
 
-from plenum.test.cli.helper import newCLI, checkAllNodesUp
+from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin
 
 
 @pytest.yield_fixture(scope="module")
@@ -46,13 +46,20 @@ def validNodeNames(cli):
 
 
 @pytest.fixture("module")
-def createAllNodes(cli):
+def createAllNodes(request, cli):
     cli.enterCmd("new node all")
     cli.looper.run(eventually(checkAllNodesUp, cli, retryWait=1, timeout=20))
+
+    def stopNodes():
+        for node in cli.nodes.values():
+            node.stop()
+
+    request.addfinalizer(stopNodes)
 
 
 @pytest.fixture("module")
 def loadOpVerificationPlugin(cli):
+    # loadPlugin(cli, 'plugin1')
     curPath = os.path.dirname(os.path.dirname(__file__))
     fullPath = os.path.join(curPath, 'plugin', 'name_age_verification')
     cli.enterCmd("load plugins from {}".format(fullPath))

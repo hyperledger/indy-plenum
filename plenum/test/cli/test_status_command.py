@@ -34,8 +34,6 @@ def testStatusAtCliStart(cli):
                                 "'new node <name>'."
     assert clientStatus['msg'] == "Clients: No clients are running. Try " \
                                     "typing 'new client <name>'."
-    # As we are creating default client during cli initialization, there will be one default client
-    # assert clientStatus['msg'] == "Clients: Default"
 
 
 def testStatusAfterOneNodeCreated(cli, validNodeNames):
@@ -56,8 +54,6 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert clientStatus['msg'] == "Clients: No clients are running. Try " \
                                   "typing " \
                                   "'new client <name>'."
-    # As we are creating default client during cli initialization, there will be one default client
-    # assert clientStatus['msg'] == "Clients: Default"
     cli.enterCmd("status node {}".format(nodeName))
     msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
@@ -76,6 +72,9 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert not msgs[9]['newline']
 
 
+# This test fails when the whole test package is run, fails because the
+# fixture `createAllNodes` fails, the relevant bug is
+# https://www.pivotaltracker.com/story/show/126771175
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
     cli.enterCmd("status")
@@ -85,8 +84,6 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     assert clientStatus['msg'] == "Clients: No clients are running. Try " \
                                   "typing " \
                                   "'new client <name>'."
-    # As we are creating default client during cli initialization, there will be one default client
-    # assert clientStatus['msg'] == "Clients: Default"
     assert fValue == "f-value (number of possible faulty nodes): {}".format(
             getMaxFailures(len(validNodeNames)))
 
@@ -107,6 +104,8 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
             checkForNamedTokens(cli.printedTokens[1], cli.voidMsg)
 
 
+# This test fails when the whole test package is run, fails because the
+# fixture `createAllNodes` fails
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))

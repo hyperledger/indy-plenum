@@ -262,17 +262,18 @@ class Client(Motor):
                                format(self, msg))
         return msg
 
-    def handleOneNodeMsg(self, wrappedMsg) -> None:
+    def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
         Handles single message from a node, and appends it to a queue
-
         :param wrappedMsg: Reply received by the client from the node
         """
         self.inBox.append(wrappedMsg)
         msg, frm = wrappedMsg
+        # Do not print result of transaction type `CLINODEREG` on the CLI
+        printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) != CLINODEREG
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
-                     extra={"cli": msg.get(OP_FIELD_NAME) != CLINODEREG})
+                     extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == CLINODEREG:
             cliNodeReg = msg[f.NODES.nm]
             for name, ha in cliNodeReg.items():

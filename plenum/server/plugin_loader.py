@@ -63,7 +63,7 @@ class PluginLoader:
         mods = [m.groups()[0] for m in matches if m]
         for m in mods:
             if m in sys.modules:
-                logger.warning("skipping plugin {} because it is already "
+                logger.debug("skipping plugin {} because it is already "
                                "loaded".format(m))
         return mods
 

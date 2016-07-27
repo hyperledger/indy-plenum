@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 # noinspection PyUnresolvedReferences
 import base64
 import copy
+import random
 from hashlib import sha256
 from binascii import unhexlify
 from typing import Set
@@ -32,10 +33,9 @@ from plenum.client.wallet import Wallet
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, \
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, \
     VERKEY, PUBKEY, BY
 from plenum.persistence.wallet_storage_file import WalletStorageFile
-from plenum.test import conftest
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -73,7 +73,7 @@ from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
     randomString, error, cleanSeed
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig
@@ -733,10 +733,17 @@ Commands:
 
         nodes = []
         for name in names:
+            opVerifiers = set()
+            reqProcessors = set()
+            for path in self.pluginPaths:
+                plugins = PluginLoader(path).plugins
+                opVerifiers = plugins.get('VERIFICATION', set())
+                reqProcessors = plugins.get('PROCESSING', set())
             node = self.NodeClass(name,
                                   self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths)
+                                  opVerifiers=opVerifiers,
+                                  reqProcessors=reqProcessors)
             self.nodes[name] = node
             self.looper.add(node)
             node.startKeySharing()
