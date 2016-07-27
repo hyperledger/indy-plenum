@@ -37,7 +37,6 @@ class Stats:
         sort = sorted([k.value for k in keys])
         self.stats = OrderedDict((s, 0) for s in sort)
 
-
     def inc(self, key):
         """
         Increment the stat specified by key.

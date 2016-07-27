@@ -9,11 +9,14 @@ from plenum.common.util import getConfig
 
 config = getConfig()
 
+
 def printGenesisTrans(type, name, verkey, pubkey, stewardverkey, nodeip, nodeport):
     if type == 'steward':
         print('\n' + getOldAddNewGenStewardCommand(name, verkey, pubkey))
     elif type == 'node':
-        print('\n' + getOldAddNewGenNodeCommand(name, verkey, pubkey, stewardverkey, nodeip, nodeport, None, None))
+        print('\n' + getOldAddNewGenNodeCommand(name, verkey, pubkey,
+                                                stewardverkey, nodeip, nodeport,
+                                                None, None))
 
 
 if __name__ == "__main__":
@@ -57,7 +60,8 @@ if __name__ == "__main__":
     # Print genesis transaction commands
     try:
         if args.print_gen_txn:
-            printGenesisTrans(args.type, args.name, verkey, pubkey, args.stewardverkey, args.nodeip, args.nodeport)
+            printGenesisTrans(args.type, args.name, verkey, pubkey,
+                              args.stewardverkey, args.nodeip, args.nodeport)
     except Exception as ex:
         print(ex)
         exit()

@@ -1,7 +1,7 @@
 import pytest
 from libnacl import randombytes, crypto_sign, crypto_sign_open
 from libnacl.public import SecretKey, Box
-from plenum.common.signing import ed25519SkToCurve25519, ed25519PkToCurve25519
+from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer, SigningKey, Verifier, PrivateKey
 
 pytestmark = pytest.mark.smoke
