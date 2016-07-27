@@ -336,21 +336,21 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
 def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
-        initLocalKeep(nName, tdir, *seeds[nName], override=True)
+        initLocalKeep(nName, tdir, seeds[nName], override=True)
 
 
 @pytest.fixture(scope="module")
 def poolTxnClientData(poolTxnClientNames, poolTxnData):
     name = poolTxnClientNames[0]
-    seeds = poolTxnData["seeds"][name]
-    return (name, ) + tuple(s.encode() for s in seeds)
+    seed = poolTxnData["seeds"][name]
+    return name, seed.encode()
 
 
 @pytest.fixture(scope="module")
 def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     name = poolTxnStewardNames[0]
-    seeds = poolTxnData["seeds"][name]
-    return (name, ) + tuple(s.encode() for s in seeds)
+    seed = poolTxnData["seeds"][name]
+    return name, seed.encode()
 
 
 @pytest.yield_fixture(scope="module")

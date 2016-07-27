@@ -125,10 +125,8 @@ class TxnPoolManager(PoolManager):
                                       auto=AutoMode.always)
                 else:
                     if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS):
-                        verkey, pubkey = hexlify(
-                            base64_decode(txn[TARGET_NYM].encode())), \
-                                         txn[DATA][PUBKEY]
-                        nodeKeys[nodeName] = (pubkey, verkey)
+                        verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
+                        nodeKeys[nodeName] = verkey
             elif txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) \
                     and self.config.clientBootStrategy == \
                             ClientBootStrategy.PoolTxn:
@@ -136,7 +134,7 @@ class TxnPoolManager(PoolManager):
 
         for nm, keys in nodeKeys.items():
             try:
-                initRemoteKeep(name, nm, basedirpath, *nodeKeys[nm])
+                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm])
             except Exception as ex:
                 print(ex)
 
@@ -199,11 +197,9 @@ class TxnPoolManager(PoolManager):
             logger.debug("{} not adding itself to node registry".
                          format(self.name))
             return
-        verkey, pubkey = hexlify(base64_decode(txn[TARGET_NYM].encode())), \
-                         txn[DATA][PUBKEY]
+        verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
         try:
-            initRemoteKeep(self.name, nodeName, self.basedirpath, pubkey,
-                           verkey)
+            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
         except Exception as ex:
             logger.debug("Exception while initializing keep for remote {}".
                          format(ex))
@@ -222,10 +218,8 @@ class TxnPoolManager(PoolManager):
         if identifier not in self.node.clientAuthNr.clients:
             role = STEWARD if txn[TXN_TYPE] == NEW_STEWARD else CLIENT
             verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
-            pubkey = txn[DATA][PUBKEY]
             self.node.clientAuthNr.addClient(identifier,
                                              verkey=verkey,
-                                             pubkey=pubkey,
                                              role=role)
 
     def nodeHaChanged(self, txn):
@@ -259,10 +253,9 @@ class TxnPoolManager(PoolManager):
             logger.debug("{} clearing remote role data in keep of {}".
                          format(self.node.nodestack.name, nodeName))
             self.node.nodestack.keep.clearRemoteRoleData(nodeName)
-            verkey, pubkey = txn[DATA][VERKEY], txn[DATA][PUBKEY]
+            verkey = txn[DATA][VERKEY]
             try:
-                initRemoteKeep(self.name, nodeName, self.basedirpath, pubkey,
-                               verkey)
+                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
             except Exception as ex:
                 logger.debug("Exception while initializing keep for remote {}".
                              format(ex))

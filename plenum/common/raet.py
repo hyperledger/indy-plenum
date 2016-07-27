@@ -5,13 +5,14 @@ import json
 import os
 from collections import OrderedDict
 
+from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
 from plenum.common.util import hasKeys
 
 
-def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
+def initLocalKeep(name, baseDir, sigseed, override=False):
     """
     Initialize RAET local keep. Write local role data to file.
 
@@ -27,16 +28,13 @@ def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
         if not override:
             raise FileExistsError("Keys exists for local role {}".format(name))
 
-    if pkseed and not isinstance(pkseed, bytes):
-        pkseed = pkseed.encode()
     if sigseed and not isinstance(sigseed, bytes):
         sigseed = sigseed.encode()
 
-    priver = Privateer(pkseed)
     signer = Signer(sigseed)
     keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
-    prikey, pubkey = priver.keyhex, priver.pubhex
     sigkey, verkey = signer.keyhex, signer.verhex
+    prikey, pubkey = ed25519SkToCurve25519(sigkey, toHex=True), ed25519PkToCurve25519(verkey, toHex=True)
     data = OrderedDict([
         ("role", name),
         ("prihex", prikey),
@@ -46,7 +44,7 @@ def initLocalKeep(name, baseDir, pkseed, sigseed, override=False):
     return pubkey.decode(), verkey.decode()
 
 
-def initRemoteKeep(name, remoteName, baseDir, pubkey, verkey, override=False):
+def initRemoteKeep(name, remoteName, baseDir, verkey, override=False):
     """
     Initialize RAET remote keep
 
@@ -69,7 +67,7 @@ def initRemoteKeep(name, remoteName, baseDir, pubkey, verkey, override=False):
     data = OrderedDict([
         ('role', remoteName),
         ('acceptance', 1),
-        ('pubhex', pubkey),
+        ('pubhex', ed25519PkToCurve25519(verkey, toHex=True)),
         ('verhex', verkey)
     ])
     keep.dumpRemoteRoleData(data, role=remoteName)

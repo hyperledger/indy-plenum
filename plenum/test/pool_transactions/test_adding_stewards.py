@@ -1,9 +1,8 @@
 import pytest
-from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import TXN_TYPE, NEW_STEWARD, TARGET_NYM, ORIGIN, DATA
+from plenum.common.txn import TXN_TYPE, NEW_STEWARD, TARGET_NYM, DATA
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa
 
@@ -38,7 +37,7 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
 def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
                       txnPoolCliNodeReg):
     with Looper(debug=True) as looper:
-        name, pkseed, sigseed = poolTxnStewardData
+        name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
         client = TestClient(name=name,
                             nodeReg=txnPoolCliNodeReg,
@@ -48,14 +47,11 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         sigseed = b'55555555555555555555555555555555'
-        pkseed = b'66666666666666666666666666666666'
         newSigner = SimpleSigner(sigseed)
-        priver = Privateer(pkseed)
         client.submit({
             TXN_TYPE: NEW_STEWARD,
             TARGET_NYM: newSigner.verstr,
             DATA: {
-                "pubkey": priver.pubhex.decode(),
                 "alias": "Robert"
             }
         })

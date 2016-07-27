@@ -12,11 +12,8 @@ from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
 
 def addNewClient(typ, looper, client, name):
     sigseed = randomString(32).encode()
-    pkseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
-    priver = Privateer(pkseed)
-    req = client.submitNewClient(typ, name, priver.pubhex.decode(),
-                                 newSigner.verkey.decode())
+    req = client.submitNewClient(typ, name, newSigner.verkey.decode())
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=7))
@@ -25,18 +22,14 @@ def addNewClient(typ, looper, client, name):
 
 def addNewNode(looper, client, newNodeName, tdir, tconf):
     sigseed = randomString(32).encode()
-    pkseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
-    priver = Privateer(pkseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    req = client.submitNewNode(newNodeName, priver.pubhex.decode(),
-                                 newSigner.verkey.decode(),
+    req = client.submitNewNode(newNodeName, newSigner.verkey.decode(),
                                HA(nodeIp, nodePort), HA(clientIp, clientPort))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
-    initLocalKeep(newNodeName, tdir, pkseed, sigseed,
-                  override=True)
+    initLocalKeep(newNodeName, tdir, sigseed, override=True)
     node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort))
     looper.add(node)
@@ -72,9 +65,9 @@ def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
     node.clientstack.clearRemoteKeeps()
 
 
-def changeNodeKeys(looper, client, node, verkey, pubkey, baseDir, conf):
+def changeNodeKeys(looper, client, node, verkey, baseDir, conf):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
-    req = client.submitNodeKeysChange(node.name, nodeNym, verkey, pubkey)
+    req = client.submitNodeKeysChange(node.name, nodeNym, verkey)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))

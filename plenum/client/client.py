@@ -427,23 +427,22 @@ class Client(Motor):
             req, signer = self.messagesPendingConnection.popleft()
             self.nodestack.send(req, signer=signer)
 
-    def submitNewClient(self, typ, name: str, pubkey: str, verkey: str):
+    def submitNewClient(self, typ, name: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
         verstr = hexToCryptonym(verkey)
         req, = self.submit({
             TXN_TYPE: typ,
             TARGET_NYM: verstr,
             DATA: {
-                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
         return req
 
-    def submitNewSteward(self, name: str, pubkey: str, verkey: str):
-        return self.submitNewClient(NEW_STEWARD, name, pubkey, verkey)
+    def submitNewSteward(self, name: str, verkey: str):
+        return self.submitNewClient(NEW_STEWARD, name, verkey)
 
-    def submitNewNode(self, name: str, pubkey: str, verkey: str,
+    def submitNewNode(self, name: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
         verstr = hexToCryptonym(verkey)
@@ -455,7 +454,6 @@ class Client(Motor):
                 NODE_PORT: nodePort,
                 CLIENT_IP: clientIp,
                 CLIENT_PORT: clientPort,
-                PUBKEY: pubkey,
                 ALIAS: name
             }
         })
@@ -478,13 +476,11 @@ class Client(Motor):
         })
         return req
 
-    def submitNodeKeysChange(self, name: str, nym: str, verkey: str,
-                             pubkey: str):
+    def submitNodeKeysChange(self, name: str, nym: str, verkey: str):
         req, = self.submit({
             TXN_TYPE: CHANGE_KEYS,
             TARGET_NYM: nym,
             DATA: {
-                PUBKEY: pubkey,
                 VERKEY: verkey,
                 ALIAS: name
             }

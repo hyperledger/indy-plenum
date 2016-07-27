@@ -1,3 +1,5 @@
+from binascii import hexlify
+
 import pytest
 from libnacl import randombytes, crypto_sign, crypto_sign_open
 from libnacl.public import SecretKey, Box
@@ -133,6 +135,14 @@ def testKeyConversionFromEd25519ToCurve25519():
     signer = Signer()
     sk = signer.keyraw
     vk = signer.verraw
+    # Check when keys are passed as raw bytes
     secretKey = ed25519SkToCurve25519(sk)
     publicKey = ed25519PkToCurve25519(vk)
-    PrivateKey(secretKey).public_key.__bytes__() == publicKey
+    assert PrivateKey(secretKey).public_key.__bytes__() == publicKey
+    assert ed25519PkToCurve25519(vk, toHex=True) == \
+           hexlify(PrivateKey(secretKey).public_key.__bytes__())
+
+    # Check when keys are passed as hex
+    secretKey = ed25519SkToCurve25519(hexlify(sk))
+    publicKey = ed25519PkToCurve25519(hexlify(vk))
+    assert PrivateKey(secretKey).public_key.__bytes__() == publicKey

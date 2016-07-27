@@ -1,40 +1,40 @@
 {"txns": [
-  {"dest":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","type":"NEW_STEWARD","data":{"alias":"Steward1","pubkey":"59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"}
+  {"dest":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","type":"NEW_STEWARD","data":{"alias":"Steward1"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"}
   ,
-  {"dest":"BJCiRpQPpjYjXGZLjnZ/KnnkiJkyTGB9cyQeEeVYu9c=","type":"NEW_NODE","identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","data":{"client_ip":"127.0.0.1","pubkey":"ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655","alias":"Alpha","client_port":9702,"node_ip":"127.0.0.1","node_port":9701},"txnId":"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"}
+  {"dest":"BJCiRpQPpjYjXGZLjnZ/KnnkiJkyTGB9cyQeEeVYu9c=","type":"NEW_NODE","identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","data":{"client_ip":"127.0.0.1","alias":"Alpha","client_port":9702,"node_ip":"127.0.0.1","node_port":9701},"txnId":"d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"}
   ,
-  {"dest":"F8t5+ytBIPKx7GXkGY1uCLKOgT/rAeSkAIObheGAgM4=","type":"NEW_STEWARD","data":{"alias":"Steward2","pubkey":"ffc951aa6f2fa03096d1d1b579735b2f6f84019fe2f617aa65ff3d68705f2527"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4c"}
+  {"dest":"F8t5+ytBIPKx7GXkGY1uCLKOgT/rAeSkAIObheGAgM4=","type":"NEW_STEWARD","data":{"alias":"Steward2"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4c"}
   ,
-  {"dest":"tijeisEZgDG9Hbo6s4B3aQypplqhiuxhWGVXivMJs/s=","type":"NEW_NODE","identifier":"F8t5+ytBIPKx7GXkGY1uCLKOgT/rAeSkAIObheGAgM4=","data":{"client_ip":"127.0.0.1","pubkey":"18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c","alias":"Beta","client_port":9704,"node_ip":"127.0.0.1","node_port":9703},"txnId":"4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"}
+  {"dest":"tijeisEZgDG9Hbo6s4B3aQypplqhiuxhWGVXivMJs/s=","type":"NEW_NODE","identifier":"F8t5+ytBIPKx7GXkGY1uCLKOgT/rAeSkAIObheGAgM4=","data":{"client_ip":"127.0.0.1","alias":"Beta","client_port":9704,"node_ip":"127.0.0.1","node_port":9703},"txnId":"4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"}
   ,
-  {"dest":"ptJFXqOldxq6n8sDeSQRTJL58yUEn2tCaec52QSLuGk=","type":"NEW_STEWARD","data":{"alias":"Steward3","pubkey":"e5cde2019dc0b3e464d3d8e12952426e0acca21beabd1e499fb0265bd1e9614d"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4d"}
+  {"dest":"ptJFXqOldxq6n8sDeSQRTJL58yUEn2tCaec52QSLuGk=","type":"NEW_STEWARD","data":{"alias":"Steward3"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4d"}
   ,
-  {"dest":"ktgg9es5TPqo1uRi8UcI3ey9Tb4KOI+8e12h2Fzhwlo=","type":"NEW_NODE","identifier":"ptJFXqOldxq6n8sDeSQRTJL58yUEn2tCaec52QSLuGk=","data":{"client_ip":"127.0.0.1","pubkey":"b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c","alias":"Gamma","client_port":9706,"node_ip":"127.0.0.1","node_port":9705},"txnId":"4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"}
+  {"dest":"ktgg9es5TPqo1uRi8UcI3ey9Tb4KOI+8e12h2Fzhwlo=","type":"NEW_NODE","identifier":"ptJFXqOldxq6n8sDeSQRTJL58yUEn2tCaec52QSLuGk=","data":{"client_ip":"127.0.0.1","alias":"Gamma","client_port":9706,"node_ip":"127.0.0.1","node_port":9705},"txnId":"4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"}
   ,
-  {"dest":"LISK2GZO5lHkiWwTqEqJopZKyl63eouIHmDe1cgbTp0=","type":"NEW_STEWARD","data":{"alias":"Steward4","pubkey":"95f3c97784c7a161c9e9b1c334384f625f0b9f872424ecf49d20ca8fc674fe42"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4e"}
+  {"dest":"LISK2GZO5lHkiWwTqEqJopZKyl63eouIHmDe1cgbTp0=","type":"NEW_STEWARD","data":{"alias":"Steward4"},"txnId":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4e"}
   ,
-  {"dest":"OvgaVBCX4+BCysvodhwPnlQyYEnhzto4AXyVxDIxL28=","type":"NEW_NODE","identifier":"LISK2GZO5lHkiWwTqEqJopZKyl63eouIHmDe1cgbTp0=","data":{"client_ip":"127.0.0.1","pubkey":"8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264","alias":"Delta","client_port":9708,"node_ip":"127.0.0.1","node_port":9707},"txnId":"ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"}
+  {"dest":"OvgaVBCX4+BCysvodhwPnlQyYEnhzto4AXyVxDIxL28=","type":"NEW_NODE","identifier":"LISK2GZO5lHkiWwTqEqJopZKyl63eouIHmDe1cgbTp0=","data":{"client_ip":"127.0.0.1","alias":"Delta","client_port":9708,"node_ip":"127.0.0.1","node_port":9707},"txnId":"ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"}
   ,
-  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"Lwp7KfU2UgBc1HIKP+es0IyFpOKc1vSNGQXidtrG/+8=","type":"NEW_CLIENT","data":{"alias":"Alice","pubkey":"e50c239bc204f1341664c9d9c50c6a0d0fff6fc79d9301f1e713aab2e0344b3f"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"}
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"Lwp7KfU2UgBc1HIKP+es0IyFpOKc1vSNGQXidtrG/+8=","type":"NEW_CLIENT","data":{"alias":"Alice"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"}
   ,
-  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"LfBBJfABWvtHzoU674dyCU/5SYwUyxueEpc8KSfaD6Y=","type":"NEW_CLIENT","data":{"alias":"Jason","pubkey":"4049502db92ca2342c3f92dac5d6de7c85db5df5407a5b4996ce39f2efb7e827"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919684"}
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"LfBBJfABWvtHzoU674dyCU/5SYwUyxueEpc8KSfaD6Y=","type":"NEW_CLIENT","data":{"alias":"Jason"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919684"}
   ,
-  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"K8KACzMW4Akgn/11fasZzPCuhLx66QZU4egXEtJw9lM=","type":"NEW_CLIENT","data":{"alias":"John","pubkey":"815fb6314405e007d04ed215c223d5cd4b799d07bb7189ad10dbf324ea534271"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919685"}
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"K8KACzMW4Akgn/11fasZzPCuhLx66QZU4egXEtJw9lM=","type":"NEW_CLIENT","data":{"alias":"John"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919685"}
   ,
-  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"NLTZBDFWy23PC+sKKUm3VZyUDSvLbb6MU6mzAnjjp0Y=","type":"NEW_CLIENT","data":{"alias":"Les","pubkey":"fb41b1fcf75c1227fa08876056a5ed07ac44fe0c116ec2de80b8e523959d7824"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919686"}
+  {"identifier":"SAdaWX5yGhVuLgeZ3lzAxTJNxufq8c3UYlCGjsUyFd0=","dest":"NLTZBDFWy23PC+sKKUm3VZyUDSvLbb6MU6mzAnjjp0Y=","type":"NEW_CLIENT","data":{"alias":"Les"},"txnId":"e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919686"}
 ],
   "seeds": {
-    "Alpha": ["000000000000000000000000000Alpha", "Alpha000000000000000000000000000"],
-    "Beta": ["0000000000000000000000000000Beta", "Beta0000000000000000000000000000"],
-    "Gamma": ["000000000000000000000000000Gamma", "Gamma000000000000000000000000000"],
-    "Delta": ["000000000000000000000000000Delta", "Delta000000000000000000000000000"],
-    "Steward1": ["22222222222222222222222222222222", "11111111111111111111111111111111"],
-    "Steward2": ["44444444444444444444444444444444", "33333333333333333333333333333333"],
-    "Steward3": ["66666666666666666666666666666666", "55555555555555555555555555555555"],
-    "Steward4": ["88888888888888888888888888888888", "77777777777777777777777777777777"],
-    "Alice": ["00000000000000000000000000000000", "99999999999999999999999999999999"],
-    "Jason": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
-    "John": ["cccccccccccccccccccccccccccccccc", "dddddddddddddddddddddddddddddddd"],
-    "Les": ["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "ffffffffffffffffffffffffffffffff"]
+    "Alpha": "Alpha000000000000000000000000000",
+    "Beta": "Beta0000000000000000000000000000",
+    "Gamma": "Gamma000000000000000000000000000",
+    "Delta": "Delta000000000000000000000000000",
+    "Steward1": "11111111111111111111111111111111",
+    "Steward2": "33333333333333333333333333333333",
+    "Steward3": "55555555555555555555555555555555",
+    "Steward4": "77777777777777777777777777777777",
+    "Alice": "99999999999999999999999999999999",
+    "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "John": "dddddddddddddddddddddddddddddddd",
+    "Les": "ffffffffffffffffffffffffffffffff"
   }
 }

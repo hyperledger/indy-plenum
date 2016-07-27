@@ -16,7 +16,7 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                                        poolTxnStewardData, txnPoolCliNodeReg,
                                        tconf):
     with Looper(debug=True) as looper:
-        name, pkseed, sigseed = poolTxnStewardData
+        name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
         client = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
                             signer=stewardSigner, basedirpath=tdirWithPoolTxns)

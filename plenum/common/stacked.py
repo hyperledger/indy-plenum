@@ -7,6 +7,8 @@ from typing import Any, Set, Optional, List, Iterable
 from typing import Dict
 from typing import Tuple
 
+from plenum.common.crypto import getEd25519AndCurve25519Keys, \
+    ed25519SkToCurve25519
 from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
@@ -40,8 +42,15 @@ class Stack(RoadStack):
                         baseroledirpath=basedirpath)  # type: RoadKeep
         kwargs['keep'] = keep
         localRoleData = keep.loadLocalRoleData()
-        kwargs['sigkey'] = localRoleData['sighex']
-        kwargs['prikey'] = localRoleData['prihex']
+
+        sighex = localRoleData['sighex']
+        prihex = localRoleData['prihex']
+        if not sighex:
+            (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
+        else:
+            prihex = ed25519SkToCurve25519(sighex)
+        kwargs['sigkey'] = sighex
+        kwargs['prikey'] = prihex
         self.msgHandler = kwargs.pop('msgHandler', None)  # type: Callable
         super().__init__(*args, **kwargs)
         if self.ha[1] != kwargs['ha'].port:

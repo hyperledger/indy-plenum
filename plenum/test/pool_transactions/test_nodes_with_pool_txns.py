@@ -1,4 +1,3 @@
-import base64
 from copy import copy
 
 import pytest
@@ -31,7 +30,7 @@ def looper():
 @pytest.fixture(scope="module")
 def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
              tdirWithPoolTxns):
-    name, pkseed, sigseed = poolTxnStewardData
+    name, sigseed = poolTxnStewardData
     signer = SimpleSigner(seed=sigseed)
     steward = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
                          signer=signer, basedirpath=tdirWithPoolTxns)
@@ -43,7 +42,7 @@ def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
 @pytest.fixture(scope="module")
 def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
              tdirWithPoolTxns):
-    name, pkseed, sigseed = poolTxnClientData
+    name, sigseed = poolTxnClientData
     signer = SimpleSigner(seed=sigseed)
     client = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
                          signer=signer, basedirpath=tdirWithPoolTxns)
@@ -181,14 +180,10 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNode.stop()
     nodeHa, nodeCHa = newHa
     sigseed = randomString(32).encode()
-    pkseed = randomString(32).encode()
-    pubkey = Privateer(pkseed).pubhex.decode()
     verkey = SimpleSigner(seed=sigseed).verkey.decode()
-    changeNodeKeys(looper, newSteward, newNode, verkey, pubkey,
-                   tdirWithPoolTxns, tconf)
-    initLocalKeep(newNode.name, tdirWithPoolTxns, pkseed, sigseed)
-    initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, pkseed,
-                  sigseed)
+    changeNodeKeys(looper, newSteward, newNode, verkey, tdirWithPoolTxns, tconf)
+    initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
+    initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, sigseed)
     looper.removeProdable(name=newNode.name)
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa)

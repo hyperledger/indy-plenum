@@ -119,6 +119,11 @@ def isHex(val: str) -> bool:
     :param val: the string to check
     :return: whether the given str represents a hex value
     """
+    if isinstance(val, bytes):
+        try:
+            val = val.decode()
+        except:
+            return False
     return isinstance(val, str) and all(c in string.hexdigits for c in val)
 
 
@@ -535,7 +540,7 @@ def seedFromHex(seed):
             pass
 
 
-def cleanSeed(seed):
+def cleanSeed(seed=None):
     if seed:
         bts = seedFromHex(seed)
         if not bts:

@@ -92,8 +92,8 @@ def storeGenTxns(baseDir, txn):
     storeToFile(baseDir, GenTxnFile, txn, None, storeHash=False, isLineNoKey=True)
 
 
-def initKeep(baseDir, name, pkseed, sigseed, override=False):
-    pubkey, verkey = initLocalKeep(name, baseDir, pkseed, sigseed, override)
+def initKeep(baseDir, name, sigseed, override=False):
+    pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
     return pubkey, verkey

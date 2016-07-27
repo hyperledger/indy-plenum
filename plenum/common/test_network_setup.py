@@ -114,8 +114,7 @@ class TestNetworkSetup:
             pkseed, sigseed = TestNetworkSetup.getPKSeed(nodeName), \
                               TestNetworkSetup.getSigningSeed(nodeName)
             if nodeNum == num:
-                pubkey, verkey = initLocalKeep(nodeName, baseDir, pkseed, sigseed,
-                                               True)
+                pubkey, verkey = initLocalKeep(nodeName, baseDir, sigseed, True)
                 pubkey, verkey = pubkey.encode(), verkey.encode()
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"
