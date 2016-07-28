@@ -5,6 +5,7 @@ from typing import Tuple
 from plenum.cli.constants import getPipedRegEx
 
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
+from plenum.common.types import PLUGIN_TYPE_PROCESSING
 from plenum.common.util import getlogger
 from plenum.test.plugin.has_cli_commands import HasCliCommands
 
@@ -23,7 +24,7 @@ AMOUNT = "amount"
 # TODO: Create a combined plugin for Validation or processing or create a plugin
 #  package that is always distributed together
 class BankReqProcessorPlugin(HasCliCommands):
-    pluginType = "PROCESSING"
+    pluginType = PLUGIN_TYPE_PROCESSING
     supportsCli = True
 
     validTxnTypes = [CREDIT, GET_BAL, GET_ALL_TXNS]

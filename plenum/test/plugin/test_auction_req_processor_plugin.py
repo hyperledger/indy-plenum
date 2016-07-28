@@ -6,30 +6,37 @@ from plenum.common.txn import TXN_TYPE, DATA, TARGET_NYM
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, setupClients, TestClient, \
     checkSufficientRepliesRecvd
-from plenum.test.plugin.helper import pluginPath
-from plenum.test.plugin.plugin6.plugin_auction_req_processor import \
+from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor import \
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT
+from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
+    AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE
+from plenum.test.plugin.helper import pluginPath
 
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath("plugin5")
+    return pluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")
 def pluginPrcPath():
-    return pluginPath("plugin6")
+    return pluginPath(AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
+
+
+@pytest.fixture(scope="module")
+def allPluginPaths(pluginVerPath, pluginPrcPath):
+    return [pluginVerPath, pluginPrcPath]
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, pluginVerPath, pluginPrcPath):
+def nodeSet(tdir, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerificationPluginPath=pluginVerPath,
-                     reqProcessorPluginPath=pluginPrcPath) as ns:
+                        pluginPaths=allPluginPaths
+                     ) as ns:
 
         for n in ns:  # type: Node
             assert n.reqProcessors is not None

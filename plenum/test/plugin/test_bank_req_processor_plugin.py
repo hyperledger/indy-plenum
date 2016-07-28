@@ -1,14 +1,16 @@
 import pytest
 
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
+from plenum.common.types import OPERATION_VERIFIER_PLUGIN_PATH_KEY, REQ_PROCESSOR_PLUGIN_PATH_KEY
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
     checkReqNack, TestNodeSet, setupClients
+from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import pluginPath
-from plenum.test.plugin.plugin3.plugin_bank_req_validation import CREDIT, AMOUNT, \
+from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import CREDIT, AMOUNT, \
     GET_BAL, GET_ALL_TXNS
-from plenum.test.plugin.plugin4.plugin_bank_req_processor import BALANCE, \
+from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import BALANCE, \
     ALL_TXNS
 
 logger = getlogger()
@@ -16,23 +18,27 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath("plugin3")
+    return pluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")
 def pluginPrcPath():
-    return pluginPath("plugin4")
+    return pluginPath(BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
+
+
+@pytest.fixture(scope="module")
+def allPluginPaths(pluginVerPath, pluginPrcPath):
+    return [pluginVerPath, pluginPrcPath]
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, pluginVerPath, pluginPrcPath):
+def nodeSet(tdir, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerificationPluginPath=pluginVerPath,
-                     reqProcessorPluginPath=pluginPrcPath) as ns:
+                     pluginPaths=allPluginPaths) as ns:
 
         for n in ns:  # type: Node
             assert n.reqProcessors is not None

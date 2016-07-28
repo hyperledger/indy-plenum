@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.skipif(True, reason="Not implemented")
-def testNewStewardKeysWithSeeds(cli, validNodeNames, looper, createAllNodes):
+def testNewStewardKeysWithSeeds(cli, validNodeNames, createAllNodes):
     """
     Create a CLI and issue the following command:
     new keypair with seeds A, B
@@ -10,7 +10,7 @@ def testNewStewardKeysWithSeeds(cli, validNodeNames, looper, createAllNodes):
     cName = 'Joe'
     cli.enterCmd('new client {}'.format(cName))
     printeds = cli.printeds
-    looper.runFor(8)
+    cli.looper.runFor(8)
     assert False
 
 

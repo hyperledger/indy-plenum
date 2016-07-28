@@ -4,28 +4,35 @@ from functools import partial
 import pytest
 
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.test.eventually import eventuallyAll, eventually
 from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
-from plenum.test.plugin.plugin3.plugin_bank_req_validation import AMOUNT, CREDIT
+from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import AMOUNT, CREDIT
+from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
+from plenum.test.plugin.helper import pluginPath
 
 
 @pytest.fixture(scope="module")
-def pluginPath():
-    curPath = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(curPath, 'plugin3')
+def pluginVerPath():
+    return pluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+
+
+@pytest.fixture(scope="module")
+def allPluginPaths(pluginVerPath):
+    return [pluginVerPath]
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg, pluginPath):
+def nodeSet(tdir, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerificationPluginPath=pluginPath) as ns:
+                     pluginPaths=allPluginPaths) as ns:
 
         for n in ns:  # type: Node
             assert n.opVerifiers is not None
@@ -36,9 +43,9 @@ def nodeSet(tdir, nodeReg, pluginPath):
         yield ns
 
 
-def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginPath):
-    plugin = PluginLoader(pluginPath)
-    plugin = next(iter(plugin.plugins['VERIFICATION']))
+def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
+    plugin = PluginLoader(pluginVerPath)
+    plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
     commonError = "client request invalid: AssertionError "
     client2 = setupClient(looper, nodeSet, tmpdir=tdir)
     req, = client1.submit({

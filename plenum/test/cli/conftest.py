@@ -15,7 +15,7 @@ from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin
 
 
 @pytest.yield_fixture(scope="module")
-def looper():
+def cliLooper():
     with Looper(debug=False) as l:
         yield l
 
@@ -36,8 +36,8 @@ def nodeRegsForCLI(nodeNames):
 
 
 @pytest.fixture("module")
-def cli(nodeRegsForCLI, looper, tdir):
-    return newCLI(nodeRegsForCLI, looper, tdir)
+def cli(nodeRegsForCLI, cliLooper, tdir):
+    return newCLI(nodeRegsForCLI, cliLooper, tdir)
 
 
 @pytest.fixture("module")
@@ -59,4 +59,5 @@ def createAllNodes(request, cli):
 
 @pytest.fixture("module")
 def loadOpVerificationPlugin(cli):
-    loadPlugin(cli, 'plugin1')
+    loadPlugin(cli, 'name_age_verification')
+

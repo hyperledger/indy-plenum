@@ -39,8 +39,13 @@ class TestCliCore:
 
     @property
     def lastCmdOutput(self):
-        return ''.join([x['msg'] for x in
-                          list(reversed(self.printeds))[self.lastPrintIndex:]])
+        #TODO Dont reverese self.printeds, just take (len(self.printeds) -
+        # self.lastPrintIndex) number of entries from beginning of
+        printeds = [x['msg'] for x in list(reversed(self.printeds))[self.lastPrintIndex:]]
+        printedTokens = [token[1] for tokens in
+                         list(reversed(self.printedTokens))[self.lastPrintedTokenIndex:]
+                         for token in tokens.get('tokens', []) if len(token) > 1]
+        return ''.join(printeds + [' '] + printedTokens).strip()
 
     # noinspection PyAttributeOutsideInit
     @property
@@ -54,9 +59,22 @@ class TestCliCore:
     def lastPrintIndex(self, index: int) -> None:
         self._lastPrintIndex = index
 
+    # noinspection PyAttributeOutsideInit
+    @property
+    def lastPrintedTokenIndex(self):
+        if not hasattr(self, "_lastPrintedTokenIndex"):
+            self._lastPrintedTokenIndex = 0
+        return self._lastPrintedTokenIndex
+
+    # noinspection PyAttributeOutsideInit
+    @lastPrintedTokenIndex.setter
+    def lastPrintedTokenIndex(self, index: int) -> None:
+        self._lastPrintedTokenIndex = index
+
     # noinspection PyUnresolvedReferences
     def enterCmd(self, cmd: str):
         self.lastPrintIndex = len(self.printeds)
+        self.lastPrintedTokenIndex = len(self.printedTokens)
         self.parse(cmd)
 
     def lastMsg(self):
@@ -132,7 +150,7 @@ def createClientAndConnect(cli, nodeNames, clientName):
                               clientName, retryWait=1, timeout=3))
 
 
-def checkRequest(cli, looper, operation):
+def checkRequest(cli, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
@@ -143,7 +161,7 @@ def checkRequest(cli, looper, operation):
     client = cli.clients[cName]
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
-    looper.run(eventually(
+    cli.looper.run(eventually(
             checkSufficientRepliesRecvd,
             client.inBox,
             client.lastReqId,
@@ -188,14 +206,12 @@ def checkCmdValid(cli, cmd):
 
 def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
-    keys = 0
+    keys = set()
     if cli.activeWallet:
-        keys = len(cli.activeWallet.signers)
+        keys = set(cli.activeWallet.signers.keys())
     checkCmdValid(cli, cmd)
-    assert len(cli.activeWallet.signers) == keys + 1
-    pubKeyMsg = next(s for s in cli.lastCmdOutput.split("\n")
-                     if "Identifier for key" in s)
-    pubKey = lastWord(pubKeyMsg)
+    assert len(cli.activeWallet.signers.keys()) == len(keys) + 1
+    pubKey = set(cli.activeWallet.signers.keys()).difference(keys).pop()
     expected = ['Key created in wallet Default',
                 'Identifier for key is {}'.format(pubKey),
                 'Current identifier set to {}'.format(pubKey)]

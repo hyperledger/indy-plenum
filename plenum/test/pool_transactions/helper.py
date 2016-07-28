@@ -20,7 +20,7 @@ def addNewClient(typ, looper, client, name):
     return newSigner
 
 
-def addNewNode(looper, client, newNodeName, tdir, tconf):
+def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None):
     sigseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
@@ -31,13 +31,14 @@ def addNewNode(looper, client, newNodeName, tdir, tconf):
                           retryWait=1, timeout=5))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
     node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
-                    ha=(nodeIp, nodePort), cliha=(clientIp, clientPort))
+                    ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
+                    pluginPaths=allPluginsPath)
     looper.add(node)
     return node
 
 
 def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
-                         tdir, tconf):
+                         tdir, tconf, allPluginsPath=None):
     newStewardSigner = addNewClient(NEW_STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=nodeReg, ha=genHa(),
@@ -47,7 +48,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
     looper.runFor(.25)
-    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf)
+    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf, allPluginsPath)
     return newSteward, newNode
 
 

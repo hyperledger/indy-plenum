@@ -1,4 +1,5 @@
 from plenum.common.txn import TXN_TYPE, DATA
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 
 CREDIT = "CREDIT"
 GET_BAL = "GET_BAL"
@@ -7,7 +8,7 @@ AMOUNT = "amount"
 
 
 class BankReqValidationPlugin:
-    pluginType = "VERIFICATION"
+    pluginType = PLUGIN_TYPE_VERIFICATION
 
     validTxnTypes = [CREDIT, GET_BAL, GET_ALL_TXNS]
 

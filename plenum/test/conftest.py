@@ -14,7 +14,7 @@ from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX
+from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, TestingHandler, getConfig
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -24,6 +24,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
+from plenum.test.plugin.helper import pluginPath
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -47,8 +48,14 @@ def getValueFromModule(request, name: str, default: Any = None):
     return value
 
 
+basePath = os.path.dirname(os.path.abspath(__file__))
+testPluginBaseDirPath = os.path.join(basePath, "plugin")
+
 overriddenConfigValues = {
-    "SendMonitorStats": False
+    "DefaultPluginPath": {
+        PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
+        PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
+    }
 }
 
 
@@ -97,10 +104,11 @@ def logcapture(request, whitelist):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg):
+def nodeSet(request, tdir, nodeReg, allPluginsPath):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
-                     primaryDecider=primaryDecider) as ns:
+                     primaryDecider=primaryDecider,
+                     pluginPaths=allPluginsPath) as ns:
         yield ns
 
 
@@ -353,13 +361,20 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     return name, seed.encode()
 
 
+@pytest.fixture(scope="module")
+def allPluginsPath():
+    return [pluginPath('stats_consumer')]
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
+                   allPluginsPath,
                    tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
-            node = TestNode(nm, basedirpath=tdirWithPoolTxns, config=tconf)
+            node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+                            config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)
 

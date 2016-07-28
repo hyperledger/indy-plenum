@@ -1,5 +1,8 @@
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
+
+
 class NameAndAgeVerifier:
-    pluginType = 'VERIFICATION'
+    pluginType = PLUGIN_TYPE_VERIFICATION
     supportsCli = True
 
     @staticmethod

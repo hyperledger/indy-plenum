@@ -1,5 +1,8 @@
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
+
+
 class StatefulVerificationPlugin:
-    pluginType = 'VERIFICATION'
+    pluginType = PLUGIN_TYPE_VERIFICATION
 
     validOpTypes = ['buy', 'sell']
 

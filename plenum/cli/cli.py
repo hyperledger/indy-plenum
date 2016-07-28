@@ -735,17 +735,10 @@ Commands:
 
         nodes = []
         for name in names:
-            opVerifiers = set()
-            reqProcessors = set()
-            for path in self.pluginPaths:
-                plugins = PluginLoader(path).plugins
-                opVerifiers = plugins.get('VERIFICATION', set())
-                reqProcessors = plugins.get('PROCESSING', set())
             node = self.NodeClass(name,
                                   nodeRegistry=None if self.nodeRegLoadedFromFile else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  opVerifiers=opVerifiers,
-                                  reqProcessors=reqProcessors)
+                                  pluginPaths=self.pluginPaths)
             from time import sleep
             # sleep(60)
             self.nodes[name] = node
@@ -1134,8 +1127,9 @@ Commands:
 
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
+            seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            self._newSigner(alias=alias, wallet=self.activeWallet)
+            self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
     def _buildWalletClass(self, nm):

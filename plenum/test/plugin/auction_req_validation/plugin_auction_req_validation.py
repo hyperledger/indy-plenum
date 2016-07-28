@@ -1,4 +1,5 @@
 from plenum.common.txn import TXN_TYPE, DATA
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 
 AUCTION_START = "AUCTION_START"
 AUCTION_END = "AUCTION_END"
@@ -9,7 +10,7 @@ ID = "id"
 
 
 class AuctionReqValidationPlugin:
-    pluginType = "VERIFICATION"
+    pluginType = PLUGIN_TYPE_VERIFICATION
 
     validTxnTypes = [AUCTION_START, AUCTION_END, PLACE_BID, GET_BAL]
 
