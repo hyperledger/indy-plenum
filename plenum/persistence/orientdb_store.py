@@ -20,6 +20,16 @@ class OrientDbStore:
         if not self.client.db_exists(dbName, storageType):
             self.createDb(dbName, dbType, storageType)
         self.client.db_open(dbName, user, password)
+        if not (self.serverVersion and self.serverVersion[0] >= 2 and
+                        self.serverVersion[1] >= 2):
+            error("OrientDB version should be atleast 2.2. Current version is {}"
+                  .format(".".join(self.serverVersion)))
+
+    @property
+    def serverVersion(self):
+        if self.client and self.client.version:
+            version = self.client.version
+            return version.major, version.minor, version.build
 
     def createDb(self, dbName, dbType, storageType):
         self.client.db_create(dbName, dbType, storageType)
