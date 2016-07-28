@@ -7,7 +7,7 @@ from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
     checkReqNack, TestNodeSet, setupClients
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
     CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
@@ -18,12 +18,12 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+    return getPluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")
 def pluginPrcPath():
-    return pluginPath(BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
+    return getPluginPath(BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")

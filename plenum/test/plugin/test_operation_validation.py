@@ -5,12 +5,12 @@ import pytest
 from plenum.server.node import Node
 from plenum.test.helper import TestNodeSet
 from plenum.test.plugin.conftest import OPERATION_VALIDATION_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath(OPERATION_VALIDATION_PLUGIN_PATH_VALUE)
+    return getPluginPath(OPERATION_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")

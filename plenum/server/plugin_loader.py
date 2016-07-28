@@ -1,6 +1,7 @@
 import inspect
 import re
 import sys
+from abc import abstractmethod
 from importlib import import_module
 from os import listdir
 from os.path import isfile, join
@@ -10,6 +11,13 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
 from plenum.common.util import getlogger
 
 logger = getlogger()
+
+
+class HasDynamicallyImportedModules:
+
+    @abstractmethod
+    def isModuleImportedSuccessfully(self):
+        raise NotImplementedError
 
 
 class PluginLoader:
@@ -91,14 +99,25 @@ class PluginLoader:
                                            format(mod,
                                                   self._pluginTypeAttrName,
                                                   self._validTypes))
-                        inst = c()
-                        logger.info("plugin {} loaded from module {}".
-                                    format(c.__name__, mod))
-
-                        if typ in plugins:
-                            plugins[typ].add(inst)
                         else:
-                            plugins[typ] = {inst}
+                            inst = c()
+                            importSuccessful = False
+                            if isinstance(inst, HasDynamicallyImportedModules):
+                                importSuccessful = inst.isModuleImportedSuccessfully()
+                            else:
+                                importSuccessful = True
+
+                            if importSuccessful:
+                                logger.info("plugin {} successfully loaded from module {}".
+                                            format(c.__name__, mod))
+                                if typ in plugins:
+                                    plugins[typ].add(inst)
+                                else:
+                                    plugins[typ] = {inst}
+                            else:
+                                logger.info("** ERROR occurred while loading {} plugin from module {}".
+                                            format(c.__name__, mod))
+
             sys.path.pop(0)
 
         if not plugins:

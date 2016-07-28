@@ -230,7 +230,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
 
 replyPat = re.compile("C: ({.+$)")
-pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ loaded from module")
+pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
 
 def assertIncremented(f, var):

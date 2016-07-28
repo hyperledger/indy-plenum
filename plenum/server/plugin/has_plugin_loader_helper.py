@@ -5,10 +5,12 @@ from plenum.common.util import getConfig
 from plenum.server.plugin_loader import PluginLoader
 
 config = getConfig()
+
+
 class PluginLoaderHelper:
 
     @staticmethod
-    def _pluginPath(name):
+    def getPluginPath(name):
         if PLUGIN_BASE_DIR_PATH in config.DefaultPluginPath:
             return os.path.join(config.DefaultPluginPath.get(PLUGIN_BASE_DIR_PATH), name)
         else:
@@ -64,9 +66,9 @@ class PluginLoaderHelper:
         allPluginsPath = []
 
         if typ in config.DefaultPluginPath:
-            allPluginsPath.append(PluginLoaderHelper._pluginPath(config.DefaultPluginPath.get(typ)))
+            allPluginsPath.append(PluginLoaderHelper.getPluginPath(config.DefaultPluginPath.get(typ)))
             allPlugins = PluginLoaderHelper._getAllPlugins(allPluginsPath)
-            return allPlugins[typ]
+            return allPlugins.get(typ, [])
         else:
             return []
 

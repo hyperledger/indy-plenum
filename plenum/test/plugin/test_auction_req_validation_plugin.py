@@ -12,12 +12,12 @@ from plenum.test.helper import TestNodeSet, checkReqNack
 from plenum.test.plugin.auction_req_validation.plugin_auction_req_validation import AMOUNT, \
     PLACE_BID, AUCTION_START, ID, AUCTION_END
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+    return getPluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")

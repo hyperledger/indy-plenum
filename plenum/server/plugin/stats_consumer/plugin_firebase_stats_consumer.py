@@ -1,48 +1,61 @@
+import importlib
+from abc import abstractmethod
 from datetime import datetime
 from functools import partial
 from typing import Dict
 
 import jsonpickle
-from firebase import firebase
-from firebase.async import get_process_pool
-from firebase.lazy import LazyLoadProxy
 
 from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_NODE_STARTED, EVENT_REQ_ORDERED, \
     PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.util import getlogger
+from plenum.server.plugin_loader import HasDynamicallyImportedModules
 from plenum.server.stats_consumer import StatsConsumer
 
+logger = getlogger()
+firebaseModule = None
+firebaseModuleImportedSuccessfully = False
 
-# TODO: When we remove hard dependency, we need to make import of firebase
-# as dynamic import to avoid any failure if firebase plugin is not installed
-# Temporary fix for letting firebase create only 1 extra process
-# TODO: This needs to be some kind of configuration option
-firebase.process_pool.terminate()
-from firebase import async
-async._process_pool = None
-firebase.process_pool = LazyLoadProxy(partial(get_process_pool, 1))
+try:
+    firebaseModule = importlib.import_module("firebase")
+    firebaseModule.process_pool.terminate()
+    firebaseModule.async._process_pool = None
+    # Temporary fix for letting firebase create only 1 extra process
+    # TODO: This needs to be some kind of configuration option
+    firebaseModule.process_pool = firebaseModule.lazy.LazyLoadProxy(partial(firebaseModule.async.__dict__.get('get_process_pool'), 1))
+    firebasePkg = importlib.import_module("firebase.firebase")
+    firebaseModuleImportedSuccessfully = True
+except ImportError:
+    firebaseModuleImportedSuccessfully = False
+    logger.warning("** NOTE: seems firebase dependency NOT installed, "
+                   "please install it if you want to send stats to firebase")
 
 
-class FirebaseStatsConsumer(StatsConsumer):
+class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
     pluginType = PLUGIN_TYPE_STATS_CONSUMER
 
     def __init__(self):
+        super().__init__()
         self._firebaseClient = None
-
+        self._firebaseModuleImportedSuccessfully = firebaseModuleImportedSuccessfully
         self._eventToFunc = {
             EVENT_REQ_ORDERED: self._sendStatsOnReqOrdered,
             EVENT_NODE_STARTED: self._sendStatsOnNodeStart,
             EVENT_PERIODIC_STATS_THROUGHPUT: self._periodicStatsThroughput,
         }
 
+    @abstractmethod
+    def isModuleImportedSuccessfully(self):
+        return self._firebaseModuleImportedSuccessfully
+
     @property
     def firebaseClient(self):
         if self._firebaseClient:
             return self._firebaseClient
         else:
-            self._firebaseClient = firebase.FirebaseApplication(
+            self._firebaseClient = firebasePkg.FirebaseApplication(
                 "https://plenumstats.firebaseio.com/", None)
             return self._firebaseClient
-
 
     def sendStats(self, event: str, stats: Dict[str, object]):
         self._eventToFunc[event](stats)
@@ -89,5 +102,3 @@ class FirebaseStatsConsumer(StatsConsumer):
                                   params={'print': 'silent'},
                                   headers={'Connection': 'keep-alive'},
                                   )
-
-

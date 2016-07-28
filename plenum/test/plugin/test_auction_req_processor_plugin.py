@@ -10,17 +10,17 @@ from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor impor
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+    return getPluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")
 def pluginPrcPath():
-    return pluginPath(AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
+    return getPluginPath(AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")

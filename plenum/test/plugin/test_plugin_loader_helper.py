@@ -2,7 +2,7 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 def assertPluginCounts(typ, pluginPaths, expectedPlugins):
@@ -19,13 +19,13 @@ def testPluginLoaderHelper():
     assertPluginCounts(PLUGIN_TYPE_PROCESSING, [], 0)
     assertPluginCounts(PLUGIN_TYPE_STATS_CONSUMER, [], 1)
 
-    auctionReqValidPluginPath = pluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+    auctionReqValidPluginPath = getPluginPath(AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE)
     pluginPaths = [auctionReqValidPluginPath]
     assertPluginCounts(PLUGIN_TYPE_VERIFICATION, pluginPaths, 1)
     assertPluginCounts(PLUGIN_TYPE_PROCESSING, pluginPaths, 0)
     assertPluginCounts(PLUGIN_TYPE_STATS_CONSUMER, pluginPaths, 1)
 
-    auctionReqProcPluginPath = pluginPath(AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
+    auctionReqProcPluginPath = getPluginPath(AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE)
     pluginPaths = [auctionReqValidPluginPath, auctionReqProcPluginPath]
     assertPluginCounts(PLUGIN_TYPE_VERIFICATION, pluginPaths, 1)
     assertPluginCounts(PLUGIN_TYPE_PROCESSING, pluginPaths, 1)

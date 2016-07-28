@@ -24,7 +24,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -57,6 +57,11 @@ overriddenConfigValues = {
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     }
 }
+
+
+@pytest.fixture(scope="module")
+def allPluginsPath():
+    return [getPluginPath('stats_consumer')]
 
 
 @pytest.fixture(scope="module")
@@ -359,11 +364,6 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     name = poolTxnStewardNames[0]
     seed = poolTxnData["seeds"][name]
     return name, seed.encode()
-
-
-@pytest.fixture(scope="module")
-def allPluginsPath():
-    return [pluginPath('stats_consumer')]
 
 
 @pytest.yield_fixture(scope="module")

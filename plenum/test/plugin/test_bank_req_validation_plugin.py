@@ -12,12 +12,12 @@ from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import pluginPath
+from plenum.test.plugin.helper import getPluginPath
 
 
 @pytest.fixture(scope="module")
 def pluginVerPath():
-    return pluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
+    return getPluginPath(BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE)
 
 
 @pytest.fixture(scope="module")
