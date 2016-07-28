@@ -150,7 +150,7 @@ def createClientAndConnect(cli, nodeNames, clientName):
                               clientName, retryWait=1, timeout=3))
 
 
-def checkRequest(cli, looper, operation):
+def checkRequest(cli, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
@@ -161,7 +161,7 @@ def checkRequest(cli, looper, operation):
     client = cli.clients[cName]
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
-    looper.run(eventually(
+    cli.looper.run(eventually(
             checkSufficientRepliesRecvd,
             client.inBox,
             client.lastReqId,
