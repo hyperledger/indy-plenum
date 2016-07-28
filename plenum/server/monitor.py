@@ -17,6 +17,7 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 logger = getlogger()
 config = getConfig()
 
+
 class Monitor(HasActionQueue, PluginLoaderHelper):
     """
     Implementation of RBFT's monitoring mechanism.
@@ -437,12 +438,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         }
         self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
 
-
     def _sendStatsDataIfRequired(self, event, stats):
         if config.SendMonitorStats:
             for sc in self.statsConsumers:
                 sc.sendStats(event, stats)
-
 
     @staticmethod
     def mean(data):

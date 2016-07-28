@@ -312,7 +312,7 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     console = getConsole()
     verbosity = raet_log_level \
         if raet_log_level is not None \
-        else Console.Wordage.verbose
+        else Console.Wordage.terse
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True
