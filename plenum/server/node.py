@@ -42,7 +42,8 @@ from plenum.common.types import Request, Propagate, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY, LedgerStatus, \
     LedgerStatuses, ConsistencyProofs, ConsistencyProof, CatchupReq, CatchupRep, \
-    NodeRegForClient, CLIENT_STACK_SUFFIX, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
+    NodeRegForClient, CLIENT_STACK_SUFFIX, PLUGIN_TYPE_VERIFICATION, \
+    PLUGIN_TYPE_PROCESSING
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
@@ -110,8 +111,10 @@ class Node(HasActionQueue, Motor,
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup(name, basedirpath)
-        self.opVerifiers = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_VERIFICATION)
-        self.reqProcessors = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_PROCESSING)
+        self.opVerifiers = self.getPluginsByType(pluginPaths,
+                                                 PLUGIN_TYPE_VERIFICATION)
+        self.reqProcessors = self.getPluginsByType(pluginPaths,
+                                                   PLUGIN_TYPE_PROCESSING)
 
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
@@ -1097,7 +1100,8 @@ class Node(HasActionQueue, Motor,
                         key = (getattr(proof, f.OLD_MERKLE_ROOT.nm),
                                getattr(proof, f.NEW_MERKLE_ROOT.nm),
                                tuple(getattr(proof, f.HASHES.nm)))
-                        recvdPrf[(start, end)][key] = recvdPrf[(start, end)].get(key, 0) + 1
+                        recvdPrf[(start, end)][key] = recvdPrf[(start, end)].\
+                                                          get(key, 0) + 1
                         if recvdPrf[(start, end)][key] > self.f:
                             result[ledgerType] = proof
             # TODO: Assuming enough similar consistency proofs would be
