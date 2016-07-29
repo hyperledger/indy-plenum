@@ -330,8 +330,6 @@ class Node(HasActionQueue, Motor,
                 store = self._getOrientDbStore(name,
                                                pyorient.DB_TYPE_GRAPH)
             return OrientDbHashStore(store)
-        elif hsConfig == HS_MEMORY:
-            return MemoryHashStore()
         else:
             return MemoryHashStore()
 
@@ -528,8 +526,6 @@ class Node(HasActionQueue, Motor,
                 logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
                                                                      joined))
                 for n in joined:
-                    # if n not in self.allNodeNames:
-                    #     self.newNodeJoined(n)
                     self.sendElectionMsgsToLaggingNode(n, msgs)
                     self.sendLedgerStatus(n)
 
@@ -552,10 +548,6 @@ class Node(HasActionQueue, Motor,
     def sendNodeHaToClients(self, nodeName):
         msg = NodeRegForClient({self.getClientStackNameOfNode(nodeName):
                                     self.getClientStackHaOfNode(nodeName)})
-        # All clients that are connected and authorized to connect
-        # clients = list(self.connectedClients.intersection(
-        #     set(self.clientAuthNr.clients.keys())))
-
         self.clientstack.transmitToClients(msg,
                                            list(self.clientstack.connectedClients))
 

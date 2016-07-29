@@ -34,10 +34,6 @@ class TestNetworkSetup:
         return ('0' * (32 - len(name)) + name).encode()
 
     @staticmethod
-    def getPKSeed(name: str) -> bytes:
-        return (name + '0' * (32 - len(name))).encode()
-
-    @staticmethod
     def getNymFromVerkey(verkey: bytes):
         return hexToCryptonym(verkey)
 
@@ -87,16 +83,14 @@ class TestNetworkSetup:
         steward1Nym = None
         for num in range(1, nodeCount + 1):
             stewardName = "Steward" + str(num)
-            pkseed, sigseed = TestNetworkSetup.getPKSeed(stewardName), \
-                              TestNetworkSetup.getSigningSeed(stewardName)
-            pubkey, verkey = Privateer(pkseed).pubhex, Signer(sigseed).verhex
+            sigseed = TestNetworkSetup.getSigningSeed(stewardName)
+            verkey = Signer(sigseed).verhex
             stewardNym = TestNetworkSetup.getNymFromVerkey(verkey)
             txn = {
                 TARGET_NYM: stewardNym,
                 TXN_TYPE: NEW_STEWARD,
                 DATA: {
                     ALIAS: stewardName,
-                    PUBKEY: pubkey.decode()
                 },
                 TXN_ID: sha256(stewardName.encode()).hexdigest()
             }
@@ -111,23 +105,21 @@ class TestNetworkSetup:
             nodePort, clientPort = startingPort + (num * 2 - 1), startingPort \
                                    + (num * 2)
             ip = ips[num - 1]
-            pkseed, sigseed = TestNetworkSetup.getPKSeed(nodeName), \
-                              TestNetworkSetup.getSigningSeed(nodeName)
+            sigseed = TestNetworkSetup.getSigningSeed(nodeName)
             if nodeNum == num:
-                pubkey, verkey = initLocalKeep(nodeName, baseDir, sigseed, True)
-                pubkey, verkey = pubkey.encode(), verkey.encode()
+                _, verkey = initLocalKeep(nodeName, baseDir, sigseed, True)
+                verkey = verkey.encode()
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"
                       .format(nodeName, nodePort, clientPort))
             else:
-                pubkey, verkey = Privateer(pkseed).pubhex, Signer(sigseed).verhex
+                verkey = Signer(sigseed).verhex
             txn = {
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
                 TXN_TYPE: NEW_NODE,
                 f.IDENTIFIER.nm: stewardNym,
                 DATA: {
                     CLIENT_IP: ip,
-                    PUBKEY: pubkey.decode(),
                     ALIAS: nodeName,
                     CLIENT_PORT: clientPort,
                     NODE_IP: ip,
@@ -139,16 +131,14 @@ class TestNetworkSetup:
 
         for num in range(1, clientCount + 1):
             clientName = "Client" + str(num)
-            pkseed, sigseed = TestNetworkSetup.getPKSeed(clientName), \
-                              TestNetworkSetup.getSigningSeed(clientName)
-            pubkey, verkey = Privateer(pkseed).pubhex, Signer(sigseed).verhex
+            sigseed = TestNetworkSetup.getSigningSeed(clientName)
+            verkey = Signer(sigseed).verhex
             txn = {
                 f.IDENTIFIER.nm: steward1Nym,
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
                 TXN_TYPE: NEW_CLIENT,
                 DATA: {
                     ALIAS: clientName,
-                    PUBKEY: pubkey.decode()
                 },
                 TXN_ID: sha256(clientName.encode()).hexdigest()
             }
