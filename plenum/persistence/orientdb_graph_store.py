@@ -64,3 +64,8 @@ class OrientDbGraphStore(GraphStore):
             attributes.append(("{} = "+valPlaceHolder).format(key, val))
         createCmd += ", ".join(attributes)
         return self.client.command(createCmd)[0]
+
+    def getEntityByUniqueAttr(self, entityClassName, attrName, attrValue):
+        result = self.client.command("select from {} where {} = '{}'".
+                                     format(entityClassName, attrName, attrValue))
+        return None if not result else result[0]
