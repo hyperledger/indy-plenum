@@ -10,11 +10,11 @@ from plenum.common.util import getConfig
 config = getConfig()
 
 
-def printGenesisTrans(type, name, verkey, pubkey, stewardverkey, nodeip, nodeport):
+def printGenesisTrans(type, name, verkey, stewardverkey, nodeip, nodeport):
     if type == 'steward':
-        print('\n' + getOldAddNewGenStewardCommand(name, verkey, pubkey))
+        print('\n' + getOldAddNewGenStewardCommand(name, verkey))
     elif type == 'node':
-        print('\n' + getOldAddNewGenNodeCommand(name, verkey, pubkey,
+        print('\n' + getOldAddNewGenNodeCommand(name, verkey,
                                                 stewardverkey, nodeip, nodeport,
                                                 None, None))
 
@@ -24,15 +24,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="Generate keys for a node's stacks "
-                    "by taking the node's name and 2 "
-                    "seed values")
+                    "by taking the node's name and a seed")
 
     parser.add_argument('--type', required=True, help='steward or node')
-    parser.add_argument('--stewardverkey', required=False, help="in case of node, requires steward's ver key")
+    parser.add_argument('--stewardverkey', required=False, help="in case of "
+                                                                "node, requires "
+                                                                "steward's verkey")
     parser.add_argument('--nodeip', required=False, help="node ip address")
     parser.add_argument('--nodeport', required=False, help="node port")
     parser.add_argument('--name', required=True, help='node name')
-    parser.add_argument('--seeds', required=True, type=str, nargs=2, help='seeds for keypairs')
+    parser.add_argument('--seed', required=True, type=str, help='seeds for keypair')
     parser.add_argument('--print_gen_txn', help='overrides keys', action='store_true')
     parser.add_argument('--force', help='overrides keys', action='store_true')
 
@@ -40,10 +41,10 @@ if __name__ == "__main__":
 
     # Initialize node stack
     print("For node stack, stack name is", args.name)
-    pubkey, verkey = None, None
+    verkey = None
 
     try:
-        pubkey, verkey = initKeep(config.baseDir, args.name, args.seeds[0], args.seeds[1], args.force)
+        verkey = initKeep(config.baseDir, args.name, args.seed, args.force)
     except Exception as ex:
         print(ex)
         exit()
@@ -51,8 +52,8 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeep(config.baseDir, args.name + CLIENT_STACK_SUFFIX, args.seeds[0],
-             args.seeds[1], args.force)
+        initKeep(config.baseDir, args.name + CLIENT_STACK_SUFFIX, args.seed,
+                 args.force)
     except Exception as ex:
         print(ex)
         exit()
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     # Print genesis transaction commands
     try:
         if args.print_gen_txn:
-            printGenesisTrans(args.type, args.name, verkey, pubkey,
+            printGenesisTrans(args.type, args.name, verkey,
                               args.stewardverkey, args.nodeip, args.nodeport)
     except Exception as ex:
         print(ex)

@@ -16,30 +16,20 @@ if __name__ == "__main__":
         description="Generate steward key")
 
     parser.add_argument('name', action="store")
-    parser.add_argument('--seeds', required=False, type=str, nargs=2, help='seeds for keypairs')
+    parser.add_argument('--seed', required=False, type=str, help='seed for keypair')
     parser.add_argument('--force', help='overrides keys', action='store_true')
-    parser.add_argument('--print_gen_txn', help='prints genesis transactions', action='store_true')
+    parser.add_argument('--print_gen_txn', help='prints genesis transactions',
+                        action='store_true')
 
     args = parser.parse_args()
     name = argv[1]
 
-    # Initialize node stack
-    pubkey, verkey = None, None
-    privSeed = None
-    signSeed = None
-
-    if args.seeds:
-        privSeed, signSeed = args.seeds[0], args.seeds[1]
-
     try:
-        pubkey, verkey = initKeep(config.baseDir, name, privSeed, signSeed, args.force)
-    except Exception as ex:
-        print(ex)
-        exit()
-
-    # Print genesis transaction commands
-    try:
-        generateStewardGenesisTxn(config.baseDir, args.print_gen_txn, args.name, verkey, pubkey)
+        # Initialize node stack
+        pubkey, verkey = initKeep(config.baseDir, name, args.seed, args.force)
+        # Print genesis transaction commands
+        generateStewardGenesisTxn(config.baseDir, args.print_gen_txn, args.name,
+                                  verkey)
     except Exception as ex:
         print(ex)
         exit()
