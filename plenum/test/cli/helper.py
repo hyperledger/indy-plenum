@@ -39,11 +39,11 @@ class TestCliCore:
 
     @property
     def lastCmdOutput(self):
-        #TODO Dont reverese self.printeds, just take (len(self.printeds) -
-        # self.lastPrintIndex) number of entries from beginning of
-        printeds = [x['msg'] for x in list(reversed(self.printeds))[self.lastPrintIndex:]]
+        printeds = [x['msg'] for x in reversed(self.printeds[:
+            (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
-                         list(reversed(self.printedTokens))[self.lastPrintedTokenIndex:]
+                         reversed(self.printedTokens[:
+                         (len(self.printedTokens) - self.lastPrintedTokenIndex)])
                          for token in tokens.get('tokens', []) if len(token) > 1]
         return ''.join(printeds + [' '] + printedTokens).strip()
 

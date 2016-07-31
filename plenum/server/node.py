@@ -1459,6 +1459,10 @@ class Node(HasActionQueue, Motor,
         reply.result.update(merkleProof)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
 
+    @staticmethod
+    def genTxnId(identifier, reqId):
+        return sha256("{}{}".format(identifier, reqId).encode()).hexdigest()
+
     async def generateReply(self, ppTime: float, req: Request) -> Reply:
         """
         Return a new clientReply created using the viewNo, request and the
@@ -1469,8 +1473,7 @@ class Node(HasActionQueue, Motor,
         :return: a Reply generated from the request
         """
         logger.debug("{} replying request {}".format(self, req))
-        txnId = sha256("{}{}".format(req.identifier, req.reqId).
-                       encode('utf-8')).hexdigest()
+        txnId = self.genTxnId(req.identifier, req.reqId)
         result = {f.IDENTIFIER.nm: req.identifier,
                   f.REQ_ID.nm: req.reqId,
                   TXN_ID: txnId,
