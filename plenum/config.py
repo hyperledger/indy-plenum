@@ -21,6 +21,8 @@ cliNodeReg = OrderedDict([
 
 baseDir = "~/.plenum/"
 
+dataDir = "data/nodes"
+
 domainTransactionsFile = "transactions"
 
 poolTransactionsFile = "pool_transactions"
