@@ -47,7 +47,6 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
-    looper.runFor(.25)
     newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf, allPluginsPath)
     return newSteward, newNode
 

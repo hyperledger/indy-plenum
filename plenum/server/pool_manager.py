@@ -106,8 +106,6 @@ class TxnPoolManager(PoolManager):
                 cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
                     if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
                     else None
-                # nodeReg[nodeName] = HA(*nodeHa)
-                # cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
                 if nHa:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
