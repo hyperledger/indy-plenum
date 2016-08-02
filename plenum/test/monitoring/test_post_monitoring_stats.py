@@ -1,3 +1,5 @@
+from time import sleep
+
 from plenum.common.looper import Looper
 from plenum.server.monitor import Monitor
 from plenum.test.eventually import eventually
@@ -19,6 +21,11 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
     After `ThroughputWindowSize` seconds the throughput should be zero
     Test `totalRequests` too.
     """
+
+    # We are sleeping for this window size, because we need to clear previous
+    # values that were being stored for this much time in tests
+    looper.runFor(config.ThroughputWindowSize)
+
     reqCount = 10
     for node in nodeSet:
         assert node.monitor.highResThroughput == 0
@@ -61,6 +68,9 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
     latency till `LatencyWindowSize` should consider those `n` requests.
     After `LatencyWindowSize` seconds the latencies should be zero
     """
+    # We are sleeping for this window size, because we need to clear previous
+    # values that were being stored for this much size
+    looper.runFor(config.LatencyWindowSize)
     reqCount = 10
     for node in nodeSet:
         assert node.monitor.masterLatency == 0
