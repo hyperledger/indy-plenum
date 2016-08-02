@@ -7,7 +7,8 @@ from typing import List
 from typing import Tuple
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
-    EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER
+    EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
 from plenum.common.util import getConfig
 from plenum.common.util import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -351,13 +352,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return avgLatencies
 
     def sendPeriodicStats(self):
-        # TODO: Can the http calls to these 2 methods be combined into one?
         self.sendThroughput()
         self.sendLatencies()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     @property
     def highResThroughput(self):
+        # TODO:KS Move these computations as well to plenum-stats project
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
                         (now - self.orderedRequestsInLast[0]) > \
@@ -409,19 +410,37 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def sendLatencies(self):
         logger.debug("{} sending latencies".format(self))
-        # TODO: Send the latencies, self.masterLatency and self.avgBackupLatency
+        utcTime = datetime.utcnow()
+        # Multiply by 1000 to make it compatible to JavaScript Date()
+        jsTime = time.mktime(utcTime.timetuple()) * 1000
+
+        latencies = dict(
+            masterLatency=self.masterLatency,
+            averageBackupLatency=self.avgBackupLatency,
+            time=jsTime,
+            nodeName=self.name,
+            created_at=utcTime.isoformat()
+        )
+
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
 
     def postOnReqOrdered(self):
-        if self.totalViewChanges != self._lastPostedViewChange:
-            # TODO: Send the view change event
-            self._lastPostedViewChange = self.totalViewChanges
-
         utcTime = datetime.utcnow()
+        # Multiply by 1000 to make it compatible to JavaScript Date()
+        jsTime = time.mktime(utcTime.timetuple()) * 1000
+
+        if self.totalViewChanges != self._lastPostedViewChange:
+            self._lastPostedViewChange = self.totalViewChanges
+            viewChange = dict(
+                time=jsTime,
+                viewChange=self._lastPostedViewChange
+            )
+            self._sendStatsDataIfRequired(EVENT_VIEW_CHANGE, viewChange)
+
         reqOrderedEventDict = dict(self.metrics())
-        reqOrderedEventDict["created_at"] = datetime.utcnow().isoformat()
         reqOrderedEventDict["created_at"] = utcTime.isoformat()
         reqOrderedEventDict["nodeName"] = self.name
-        reqOrderedEventDict["time"] = time.mktime(utcTime.timetuple()) * 1000
+        reqOrderedEventDict["time"] = jsTime
         reqOrderedEventDict["hasMasterPrimary"] = "Y" if self.hasMasterPrimary else "N"
         self._sendStatsDataIfRequired(EVENT_REQ_ORDERED, reqOrderedEventDict)
 
@@ -434,7 +453,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         startedAtData = {"startedAt": startedAt, "ctx": "DEMO"}
         startedEventDict = {
             "startedAtData": startedAtData,
-            "throughputData": throughputData
+            "throughputConfig": throughputData
         }
         self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
 
