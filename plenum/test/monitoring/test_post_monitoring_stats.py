@@ -40,6 +40,8 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
     for node in nodeSet:
         node.monitor.spylog.count(Monitor.sendThroughput.__name__) > 0
 
+    # Run for latency window duration so that `orderedRequestsInLast`
+    # becomes empty
     looper.runFor(config.ThroughputWindowSize)
 
     def chk():
@@ -61,6 +63,9 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
     latency till `LatencyWindowSize` should consider those `n` requests.
     After `LatencyWindowSize` seconds the latencies should be zero
     """
+    # Run for latency window duration so that `latenciesByMasterInLast` and
+    # `latenciesByBackupsInLast` become empty
+    looper.runFor(config.LatencyWindowSize)
     reqCount = 10
     for node in nodeSet:
         assert node.monitor.masterLatency == 0
@@ -79,7 +84,9 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
     for node in nodeSet:
         node.monitor.spylog.count(Monitor.sendLatencies.__name__) > 0
 
-    looper.runFor(config.ThroughputWindowSize)
+    # Run for latency window duration so that `latenciesByMasterInLast` and
+    # `latenciesByBackupsInLast` become empty
+    looper.runFor(config.LatencyWindowSize)
 
     def chk():
         for node in nodeSet:

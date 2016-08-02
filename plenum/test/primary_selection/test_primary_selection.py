@@ -62,7 +62,9 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
     #  has no more than one primary
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=5)
 
-
+"""
+Fails due to https://www.pivotaltracker.com/story/show/127250197
+"""
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
                                         viewChangeDone):
