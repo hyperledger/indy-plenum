@@ -176,44 +176,6 @@ class TestClient(Client, StackedTester):
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
-        # msg, frm = wrappedMsg
-        # if OP_FIELD_NAME in msg and (msg[OP_FIELD_NAME] == REPLY):
-        #     if TXN_TYPE in msg[f.RESULT.nm] and msg[f.RESULT.nm][TXN_TYPE] in (
-        #             CREDIT, GET_BAL, GET_ALL_TXNS):
-        #         reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-        #         reply = self.hasConsensus(reqId)
-        #         if reply:
-        #             n = len(self.getRepliesFromAllNodes(reqId))
-        #             typ = msg[f.RESULT.nm][TXN_TYPE]
-        #             if typ == CREDIT:
-        #                 logger.debug("", extra={"cli": True})
-        #                 logger.debug(
-        #                     "The CREDIT request with id {} was {} as per {} nodes"
-        #                         .format(reqId, "successful" if msg[f.RESULT.nm][
-        #                         SUCCESS] else "unsuccessful", n),
-        #                     extra={"cli": "IMPORTANT"})
-        #                 logger.debug("", extra={"cli": True})
-        #             if typ == GET_BAL:
-        #                 logger.debug("", extra={"cli": True})
-        #                 logger.debug(
-        #                     "The BALANCE request with id {} returned balance as {} as per {} nodes"
-        #                         .format(reqId, msg[f.RESULT.nm][BALANCE], n),
-        #                     extra={"cli": "IMPORTANT"})
-        #                 logger.debug("", extra={"cli": True})
-        #             if typ == GET_ALL_TXNS:
-        #                 allTxns = reply[ALL_TXNS]
-        #                 txns = []
-        #                 for txn in allTxns:
-        #                     if txn[0] in self.signers:
-        #                         txns.append("Transferred {}".format(txn[2]))
-        #                     else:
-        #                         txns.append("Received {}".format(txn[2]))
-        #                 logger.debug("", extra={"cli": True})
-        #                 logger.debug(
-        #                     "The TRANSACTIONS request with id {} returned transactions as per {} nodes: \n{}"
-        #                         .format(reqId, n, '\n'.join(txns)),
-        #                     extra={"cli": "IMPORTANT"})
-        #                 logger.debug("", extra={"cli": True})
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,

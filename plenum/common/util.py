@@ -553,6 +553,7 @@ def cleanSeed(seed=None):
 
 
 def hexToCryptonym(hex):
+    # TODO: Use base58 instead of base64
     if isinstance(hex, str):
         hex = hex.encode()
     return base64.b64encode(unhexlify(hex)).decode()
