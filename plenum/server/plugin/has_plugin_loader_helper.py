@@ -17,6 +17,7 @@ class PluginLoaderHelper:
             curPath = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(curPath, name)
 
+
     @staticmethod
     def _getAllPlugins(allPluginPaths, *types):
         if not allPluginPaths:
@@ -34,6 +35,7 @@ class PluginLoaderHelper:
                     else:
                         allPlugins[key] = value
             return allPlugins
+
 
     @staticmethod
     def getPluginsByType(pluginPaths, typ):
@@ -57,6 +59,7 @@ class PluginLoaderHelper:
             else:
                 finalPlugins[typ] = allPlugins[typ]
         return finalPlugins
+
 
     @staticmethod
     def _getDefaultPluginsByType(typ):

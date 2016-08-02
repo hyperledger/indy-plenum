@@ -341,6 +341,5 @@ PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
 EVENT_REQ_ORDERED = "req_ordered"
 EVENT_NODE_STARTED = "node_started"
 EVENT_PERIODIC_STATS_THROUGHPUT = "periodic_stats_throughput"
-EVENT_VIEW_CHANGE = "view_changed"
-EVENT_PERIODIC_STATS_LATENCIES = "periodic_stats_latencies"
+
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"

@@ -62,7 +62,3 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
-
-# Stats server configuration
-STATS_SERVER_IP = '127.0.0.1'
-STATS_SERVER_PORT = 50000
