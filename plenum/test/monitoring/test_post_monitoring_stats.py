@@ -38,9 +38,9 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
         assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
         assert node.monitor.totalRequests == reqCount
-        count = node.monitor.spylog.count(Monitor.sendThroughput.__name__)
-        if count > 0:
-            assert node.monitor.hasMasterPrimary
+        # TODO: Add implementation to actually call firebase plugin
+        # and test if firebase plugin is sending total request count
+        # if node is primary
 
     looper.runFor(config.DashboardUpdateFreq)
 
