@@ -107,7 +107,7 @@ class Node(HasActionQueue, Motor,
         self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
-        self.dataDir = config.dataDir or "data/nodes"
+        self.dataDir = self.config.dataDir or "data/nodes"
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup(name, basedirpath)
