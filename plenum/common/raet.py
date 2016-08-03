@@ -34,7 +34,8 @@ def initLocalKeep(name, baseDir, sigseed, override=False):
     signer = Signer(sigseed)
     keep = RoadKeep(stackname=name, baseroledirpath=baseDir)
     sigkey, verkey = signer.keyhex, signer.verhex
-    prikey, pubkey = ed25519SkToCurve25519(sigkey, toHex=True), ed25519PkToCurve25519(verkey, toHex=True)
+    prikey, pubkey = ed25519SkToCurve25519(sigkey, toHex=True), \
+                     ed25519PkToCurve25519(verkey, toHex=True)
     data = OrderedDict([
         ("role", name),
         ("prihex", prikey),
@@ -124,20 +125,3 @@ def getLocalEstateData(name, baseDir):
                                                  "estate.json"))
     if os.path.isfile(estatePath):
         return json.loads(open(estatePath).read())
-
-# def clearLocalKeep(name, keepDir):
-#     if not os.path.exists(keepDir):
-#         raise FileExistsError("Keep directory does not exist at {}".
-#                               format(keepDir))
-#     keep = RoadKeep(stackname=name, basedirpath=keepDir, baseroledirpath=keepDir)
-#     keep.clearLocalData()
-#     keep.clearLocalRoleData()
-#
-#
-# def clearRemoteKeep(name, remoteName, keepDir):
-#     if not os.path.exists(keepDir):
-#         raise FileExistsError("Keep directory does not exist at {}".
-#                               format(keepDir))
-#     keep = RoadKeep(stackname=name, basedirpath=keepDir, baseroledirpath=keepDir)
-#     keep.clearRemoteData(remoteName)
-#     keep.clearRemoteRoleData(remoteName)

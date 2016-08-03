@@ -1,34 +1,18 @@
-import importlib
 from abc import abstractmethod
-from datetime import datetime
-from functools import partial
 from typing import Dict
 
 import jsonpickle
 
-from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_NODE_STARTED, EVENT_REQ_ORDERED, \
-    PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
+    EVENT_NODE_STARTED, EVENT_REQ_ORDERED, EVENT_PERIODIC_STATS_LATENCIES, \
+    PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE
 from plenum.common.util import getlogger
+from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT
 from plenum.server.plugin_loader import HasDynamicallyImportedModules
 from plenum.server.stats_consumer import StatsConsumer
+from .stats_publisher import StatsPublisher, Topic
 
 logger = getlogger()
-firebaseModule = None
-firebaseModuleImportedSuccessfully = False
-
-try:
-    firebaseModule = importlib.import_module("firebase")
-    firebaseModule.process_pool.terminate()
-    firebaseModule.async._process_pool = None
-    # Temporary fix for letting firebase create only 1 extra process
-    # TODO: This needs to be some kind of configuration option
-    firebaseModule.process_pool = firebaseModule.lazy.LazyLoadProxy(partial(firebaseModule.async.__dict__.get('get_process_pool'), 1))
-    firebasePkg = importlib.import_module("firebase.firebase")
-    firebaseModuleImportedSuccessfully = True
-except ImportError:
-    firebaseModuleImportedSuccessfully = False
-    logger.warning("** NOTE: seems firebase dependency NOT installed, "
-                   "please install it if you want to send stats to firebase")
 
 
 class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
@@ -36,69 +20,58 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
 
     def __init__(self):
         super().__init__()
-        self._firebaseClient = None
-        self._firebaseModuleImportedSuccessfully = firebaseModuleImportedSuccessfully
+        self.statsPublisher = StatsPublisher(STATS_SERVER_IP, STATS_SERVER_PORT)
         self._eventToFunc = {
             EVENT_REQ_ORDERED: self._sendStatsOnReqOrdered,
             EVENT_NODE_STARTED: self._sendStatsOnNodeStart,
             EVENT_PERIODIC_STATS_THROUGHPUT: self._periodicStatsThroughput,
+            EVENT_VIEW_CHANGE: self._viewChange,
+            EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies
         }
 
     @abstractmethod
     def isModuleImportedSuccessfully(self):
-        return self._firebaseModuleImportedSuccessfully
+        return True
 
-    @property
-    def firebaseClient(self):
-        if self._firebaseClient:
-            return self._firebaseClient
-        else:
-            self._firebaseClient = firebasePkg.FirebaseApplication(
-                "https://plenumstats.firebaseio.com/", None)
-            return self._firebaseClient
+    def _send(self, data: Dict[str, object]):
+        self.statsPublisher.send(jsonpickle.dumps(data))
 
     def sendStats(self, event: str, stats: Dict[str, object]):
         self._eventToFunc[event](stats)
 
-
     def _periodicStatsThroughput(self, stats: Dict[str, object]):
-        self.firebaseClient.post_async(url="/mtr_stats", data=stats,
-                                       callback=lambda response: None,
-                                       params={'print': 'silent'},
-                                       headers={'Connection': 'keep-alive'},
-                                       )
+        stats["eventName"] = str(Topic.PublishMtrStats)
+        self._send(stats)
 
     def _sendStatsOnReqOrdered(self, stats: Dict[str, object]):
-        metrics = jsonpickle.loads(jsonpickle.dumps(dict(stats)))
-        metrics["created_at"] = datetime.utcnow().isoformat()
-        self.firebaseClient.post_async(url="/all_stats", data=metrics,
-                                  callback=lambda response: None,
-                                  params={'print': 'silent'},
-                                  headers={'Connection': 'keep-alive'},
-                                  )
+        stats["eventName"] = str(Topic.PublishAllStats)
+        self._send(stats)
 
         # send total request to different metric
         if stats.get("hasMasterPrimary") == "Y":
-            self.firebaseClient.put_async(url="/totalTransactions",
-                                 name="totalTransactions",
-                                 data=stats.get('total requests'),
-                                 callback=lambda response: None,
-                                 params={'print': 'silent'},
-                                 headers={'Connection': 'keep-alive'},
-                                 )
+            totalTransactions = dict(
+                totalTransactions=stats.get('total requests'),
+                eventName=str(Topic.PublishTotalTransactions)
+            )
+            self._send(totalTransactions)
 
     def _sendStatsOnNodeStart(self, stats: Dict[str, object]):
+        startedAt = dict(
+            startedAt=stats.get('startedAtData'),
+            eventName=str(Topic.PublishStartedAt)
+        )
+        self._send(startedAt)
 
-        self.firebaseClient.put_async(url="/startedAt", name="startedAt",
-                                 data=stats.get('startedAtData'),
-                                 callback=lambda response: None,
-                                 params={'print': 'silent'},
-                                 headers={'Connection': 'keep-alive'},
-                                 )
+        config = dict(
+            throughConfig=stats.get('throughputConfig'),
+            eventName=str(Topic.PublishConfig)
+        )
+        self._send(config)
 
-        self.firebaseClient.put_async(url="/config", name="throughput",
-                                  data=stats.get('throughputData'),
-                                  callback=lambda response: None,
-                                  params={'print': 'silent'},
-                                  headers={'Connection': 'keep-alive'},
-                                  )
+    def _viewChange(self, viewChange: Dict[str, object]):
+        viewChange["eventName"] = str(Topic.PublishViewChange)
+        self._send(viewChange)
+
+    def _sendLatencies(self, latencies: Dict[str, object]):
+        latencies["eventName"] = str(Topic.PublishLatenciesStats)
+        self._send(latencies)

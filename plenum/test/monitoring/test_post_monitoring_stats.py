@@ -1,3 +1,5 @@
+from time import sleep
+
 from plenum.common.looper import Looper
 from plenum.server.monitor import Monitor
 from plenum.test.eventually import eventually
@@ -19,6 +21,11 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
     After `ThroughputWindowSize` seconds the throughput should be zero
     Test `totalRequests` too.
     """
+
+    # We are sleeping for this window size, because we need to clear previous
+    # values that were being stored for this much time in tests
+    looper.runFor(config.ThroughputWindowSize)
+
     reqCount = 10
     for node in nodeSet:
         assert node.monitor.highResThroughput == 0
@@ -31,15 +38,17 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
         assert len(node.monitor.orderedRequestsInLast) == reqCount
         assert node.monitor.highResThroughput > 0
         assert node.monitor.totalRequests == reqCount
-        count = node.monitor.spylog.count(Monitor.sendThroughput.__name__)
-        if count > 0:
-            assert node.monitor.hasMasterPrimary
+        # TODO: Add implementation to actually call firebase plugin
+        # and test if firebase plugin is sending total request count
+        # if node is primary
 
     looper.runFor(config.DashboardUpdateFreq)
 
     for node in nodeSet:
         node.monitor.spylog.count(Monitor.sendThroughput.__name__) > 0
 
+    # Run for latency window duration so that `orderedRequestsInLast`
+    # becomes empty
     looper.runFor(config.ThroughputWindowSize)
 
     def chk():
@@ -61,6 +70,9 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
     latency till `LatencyWindowSize` should consider those `n` requests.
     After `LatencyWindowSize` seconds the latencies should be zero
     """
+    # Run for latency window duration so that `latenciesByMasterInLast` and
+    # `latenciesByBackupsInLast` become empty
+    looper.runFor(config.LatencyWindowSize)
     reqCount = 10
     for node in nodeSet:
         assert node.monitor.masterLatency == 0
@@ -79,7 +91,9 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
     for node in nodeSet:
         node.monitor.spylog.count(Monitor.sendLatencies.__name__) > 0
 
-    looper.runFor(config.ThroughputWindowSize)
+    # Run for latency window duration so that `latenciesByMasterInLast` and
+    # `latenciesByBackupsInLast` become empty
+    looper.runFor(config.LatencyWindowSize)
 
     def chk():
         for node in nodeSet:

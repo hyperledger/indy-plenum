@@ -303,7 +303,6 @@ class Node(HasActionQueue, Motor,
                 (TXN_ID, (str, str)),
                 (TXN_TIME, (str, float)),
                 (TXN_TYPE, (str, str)),
-                (F.seqNo.name, (str, int))
             ])
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                 dataDir=self.getDataLocation(),
