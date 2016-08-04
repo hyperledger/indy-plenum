@@ -24,10 +24,11 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, CATCHUP_REQ, \
+    CONSISTENCY_PROOFS
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, ConsistencyProofs
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger
 from plenum.persistence import orientdb_store
@@ -1298,6 +1299,11 @@ def ppDelay(delay: float, instId: int=None):
 # Delayer of INSTANCE-CHANGE requests
 def icDelay(delay: float):
     return delayerMsgTuple(delay, InstanceChange)
+
+
+# Delayer of CONSISTENCY_PROOFS requests
+def cpDelay(delay: float):
+    return delayerMsgTuple(delay, ConsistencyProofs)
 
 
 def delay(what, frm, to, howlong):
