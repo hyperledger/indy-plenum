@@ -6,7 +6,7 @@ from plenum.server.primary_decider import PrimaryDecider
 
 logger = getlogger()
 
-
+# TODO: Assumes that all nodes are up. Should select only those nodes which are up
 class PrimarySelector(PrimaryDecider):
     def __init__(self, node):
         super().__init__(node)

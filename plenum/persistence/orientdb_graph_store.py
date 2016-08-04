@@ -60,7 +60,7 @@ class OrientDbGraphStore(GraphStore):
         if len(kwargs) > 0:
             createCmd += " set "
         for key, val in kwargs.items():
-            valPlaceHolder = "{}" if isinstance(val, int) else "'{}'"
+            valPlaceHolder = "{}" if isinstance(val, (int, float)) else "'{}'"
             attributes.append(("{} = "+valPlaceHolder).format(key, val))
         createCmd += ", ".join(attributes)
         return self.client.command(createCmd)[0]
@@ -68,4 +68,10 @@ class OrientDbGraphStore(GraphStore):
     def getEntityByUniqueAttr(self, entityClassName, attrName, attrValue):
         result = self.client.command("select from {} where {} = '{}'".
                                      format(entityClassName, attrName, attrValue))
+        return None if not result else result[0]
+
+    def getEntityByAttrs(self, entityClassName, attrs: Dict):
+        attrStr = " and ".join(["{} = '{}'".format(k, v) for k, v in attrs.items()])
+        result = self.client.command("select from {} where {}".
+                                     format(entityClassName, attrStr))
         return None if not result else result[0]
