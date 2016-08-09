@@ -2,6 +2,11 @@ import asyncio
 
 from enum import Enum, unique
 
+from plenum.common.util import getlogger
+
+
+logger = getlogger()
+
 
 class StatsPublisher:
     """
@@ -16,24 +21,34 @@ class StatsPublisher:
 
     async def sendMessage(self, message):
         loop = asyncio.get_event_loop()
-        self.reader, self.writer = await asyncio.streams.open_connection(
-            self.ip, self.port, loop=loop)
-        self.writer.write((message + '\n').encode('utf-8'))
+        try:
+            self.reader, self.writer = await asyncio.streams.open_connection(
+                self.ip, self.port, loop=loop)
+            self.writer.write((message + '\n').encode('utf-8'))
+        except ConnectionRefusedError as ex:
+            logger.debug("connection refused for {}:{} while sending message".
+                         format(self.ip, self.port))
 
     async def closeWriter(self):
         if self.writer is not None:
             self.writer.close()
 
+        # TODO: Can this sleep be removed?
         await asyncio.sleep(0.1)
 
     def send(self, message):
         async def run():
             await self.sendMessage(message=message)
+            # TODO: Can this sleep be removed?
             await asyncio.sleep(0.01)
+            await self.closeWriter()
 
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(run())
-        loop.run_until_complete(self.closeWriter())
+
+        if loop.is_running():
+            loop.call_soon(asyncio.async, run())
+        else:
+            loop.run_until_complete(run())
 
 
 @unique
