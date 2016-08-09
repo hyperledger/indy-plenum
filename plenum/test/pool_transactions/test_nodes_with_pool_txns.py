@@ -127,7 +127,6 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
-
     for nodeName in ("Zeta", "Eta"):
         newStewardName = "testClientSteward"+randomString(3)
         newSteward, newNode = addNewStewardAndNode(looper, steward1,
@@ -142,9 +141,10 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.run(eventually(checkNodeLedgersForEquality, newNode,
                               *txnPoolNodeSet[:4], retryWait=1, timeout=5))
 
+    f = getMaxFailures(len(txnPoolNodeSet))
+
     def checkFValue():
         for node in txnPoolNodeSet:
-            f = getMaxFailures(len(txnPoolNodeSet))
             assert node.f == f
             assert len(node.replicas) == (f + 1)
 

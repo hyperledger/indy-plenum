@@ -509,7 +509,7 @@ class Replica(MessageProcessor):
             if self.isValidPrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
-                logger.warning("{} processed incoming PREPARE {}".
+                logger.debug("{} processed incoming PREPARE {}".
                                format(self, (prepare.viewNo, prepare.ppSeqNo)))
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
@@ -532,7 +532,7 @@ class Replica(MessageProcessor):
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
-            logger.warning("{} processed incoming COMMIT {}".
+            logger.debug("{} processed incoming COMMIT {}".
                            format(self, (commit.viewNo, commit.ppSeqNo)))
 
     def tryCommit(self, prepare: Prepare):
@@ -625,11 +625,13 @@ class Replica(MessageProcessor):
         if self.isPrimaryForMsg(pp) is True:
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
+        # A PRE-PREPARE is sent that has already been received
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         key = (pp.identifier, pp.reqId)
 
+        # A PRE-PREPARE is sent that does not match request digest
         if (key in self.reqsPendingPrePrepare and
                     self.reqsPendingPrePrepare[key] != pp.digest):
             raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
@@ -753,7 +755,9 @@ class Replica(MessageProcessor):
         key = (commit.viewNo, commit.ppSeqNo)
         if (key not in self.prepares and
                 key not in self.preparesWaitingForPrePrepare):
-            raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
+            logger.debug("{} rejecting commit {} due to lack of prepares".format(self, key))
+            # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
+            return False
         elif self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
         elif commit.digest != self.getDigestFromPrepare(*key):
@@ -869,14 +873,16 @@ class Replica(MessageProcessor):
     def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.preparesWaitingForPrePrepare:
-            logging.debug("Processing prepares waiting for pre-prepare for "
-                          "view no {} and seq no {}".format(viewNo, ppSeqNo))
-
+            i = 0
             # Keys of pending prepares that will be processed below
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
                 self.processPrepare(prepare, sender)
+                i += 1
+            logging.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+                          " view no {} and seq no {}".format(self, i, viewNo,
+                                        ppSeqNo))
 
     def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:
         key = (viewNo, ppSeqNo)

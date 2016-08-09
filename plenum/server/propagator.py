@@ -110,11 +110,14 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            propagate = self.createPropagate(request, clientName)
-            logger.display("{} propagating {} request {} from client {}".
-                         format(self, request.identifier, request.reqId, clientName),
-                         extra={"cli": True})
-            self.send(propagate)
+            # Only propagate if the node is participating in the consensus process
+            # which happens when the node has completed the catchup process
+            if self.isParticipating:
+                propagate = self.createPropagate(request, clientName)
+                logger.display("{} propagating {} request {} from client {}".
+                             format(self, request.identifier, request.reqId, clientName),
+                             extra={"cli": True})
+                self.send(propagate)
 
     @staticmethod
     def createPropagate(request: Union[Request, dict], clientName) -> Propagate:
@@ -169,10 +172,10 @@ class Propagator:
         :param clientName:
         """
         self.requests.add(request)
-        # Only propagate if the node is participating in the consensus process
-        # which happens when the node has completed the catchup process
-        if self.isParticipating:
-            self.propagate(request, clientName)
+        # # Only propagate if the node is participating in the consensus process
+        # # which happens when the node has completed the catchup process
+        # if self.isParticipating:
+        self.propagate(request, clientName)
         self.tryForwarding(request)
 
     def tryForwarding(self, request: Request):

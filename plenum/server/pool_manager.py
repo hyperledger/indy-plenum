@@ -116,7 +116,7 @@ class TxnPoolManager(PoolManager):
                         nstack = dict(name=name,
                                       ha=HA('0.0.0.0', nHa[1]),
                                       main=True,
-                                      auto=AutoMode.never)
+                                      auto=AutoMode.always)  # TODO: Just for now, remove it later
                         cstack = dict(name=name + CLIENT_STACK_SUFFIX,
                                       ha=HA('0.0.0.0', cHa[1]),
                                       main=True,
@@ -197,15 +197,20 @@ class TxnPoolManager(PoolManager):
             return
         verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
         try:
-            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
+            # Override any keys found, reason being the scenario where before this node
+            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
+                           override=True)
         except Exception as ex:
-            logger.debug("Exception while initializing keep for remote {}".
+            logger.error("Exception while initializing keep for remote {}".
                          format(ex))
 
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
         self.node.nodeReg[nodeName] = HA(*nodeHa)
         self.node.cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
+        logger.debug("{} adding new node {} with HA {}".format(self.name,
+                                                               nodeName, nodeHa))
+        logger.info(self.node.nodeReg)
         self.node.newNodeJoined(nodeName)
 
     def addNewRole(self, txn):
@@ -253,9 +258,11 @@ class TxnPoolManager(PoolManager):
             self.node.nodestack.keep.clearRemoteRoleData(nodeName)
             verkey = txn[DATA][VERKEY]
             try:
-                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
+                # Override any keys found
+                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
+                               override=True)
             except Exception as ex:
-                logger.debug("Exception while initializing keep for remote {}".
+                logger.error("Exception while initializing keep for remote {}".
                              format(ex))
             logger.debug(
                 "{} removing remote {}".format(self.node, nodeName))

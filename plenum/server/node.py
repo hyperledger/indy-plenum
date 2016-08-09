@@ -226,7 +226,7 @@ class Node(HasActionQueue, Motor,
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
 
-        self.mode = Mode.starting
+        self.mode = None  # type: Optional[Mode]
 
         # Consistency proofs received in process of catching up.
         # Key is the node name and value is a tuple.
@@ -381,6 +381,7 @@ class Node(HasActionQueue, Motor,
                             "".format(self))
             else:
                 self.nodestack.maintainConnections()
+        self.mode = Mode.starting
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -408,8 +409,12 @@ class Node(HasActionQueue, Motor,
         - Close the UDP socket of the nodestack
         """
         self.reset()
-        self.logstats()
+        # TODO: The next 2 lines should be part of reset
         self.nodestack.conns.clear()
+        # TODO: Should `self.clientstack.conns` be cleared too
+        # self.clientstack.conns.clear()
+
+        self.logstats()
         # Stop the txn store
         self.primaryStorage.stop()
 
@@ -418,10 +423,19 @@ class Node(HasActionQueue, Motor,
         if self.clientstack.opened:
             self.clientstack.close()
 
+        self.mode = None
+
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
         self.nodestack.nextCheck = 0
+        logger.debug("{} clearing aqStash of size {}".format(self, len(self.aqStash)))
+        if self.aqStash:
+            logger.debug(self.aqStash)
         self.aqStash.clear()
+        logger.debug(
+            "{} clearing actionQueue of size {}".format(self, len(self.actionQueue)))
+        if self.actionQueue:
+            logger.debug(self.actionQueue)
         self.actionQueue.clear()
         self.elector = None
 
@@ -539,12 +553,14 @@ class Node(HasActionQueue, Motor,
     def newClientsConnected(self, newClients: Set[str]):
         for client in newClients:
             # if client in self.clientAuthNr.clients:
+            logger.debug("sending noderegs to client {}".format(client))
             msg = NodeRegForClient({self.getClientStackNameOfNode(nm):
                                         self.getClientStackHaOfNode(nm)
                                     for nm in self.nodestack.connecteds})
             self.transmitToClient(msg, client)
 
     def sendNodeHaToClients(self, nodeName):
+        logger.debug("sending new node {} info to all clients".format(nodeName))
         msg = NodeRegForClient({self.getClientStackNameOfNode(nodeName):
                                     self.getClientStackHaOfNode(nodeName)})
         self.clientstack.transmitToClients(msg,
@@ -559,7 +575,7 @@ class Node(HasActionQueue, Motor,
         return nodeName + CLIENT_STACK_SUFFIX
 
     def getClientStackHaOfNode(self, nodeName: str) -> HA:
-        return self.cliNodeReg[self.getClientStackNameOfNode(nodeName)]
+        return self.cliNodeReg.get(self.getClientStackNameOfNode(nodeName))
 
     def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
         rid = self.nodestack.getRemote(nodeName).uid
@@ -803,6 +819,8 @@ class Node(HasActionQueue, Motor,
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
                 self.unpackNodeMsg(*vmsg)
+            else:
+                logger.info("{} non validated msg {}".format(self, wrappedMsg))
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
@@ -851,6 +869,7 @@ class Node(HasActionQueue, Motor,
         :param frm: the name of the node that sent this `msg`
         """
         if isinstance(msg, Batch):
+            logger.debug("{} processing a batch {}".format(self, msg))
             for m in msg.messages:
                 self.handleOneNodeMsg((m, frm))
         else:
@@ -863,6 +882,7 @@ class Node(HasActionQueue, Motor,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
+        logger.debug("{} appending to nodeinxbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
     async def processNodeInBox(self):
@@ -987,8 +1007,10 @@ class Node(HasActionQueue, Motor,
         logger.debug("{} received ledger statuses: {} from {}".
                      format(self.name, statuses, frm))
         consistencyProofs = []
-        poolLdgrSt, domainLdgrSt = LedgerStatus(*statuses[0]) if statuses[0] \
-                                       else None, LedgerStatus(*statuses[1])
+        # Nodes might not be using pool txn ledger, might be using simple node
+        # registries (old approach)
+        poolLdgrSt = LedgerStatus(*statuses[0]) if statuses[0] else None
+        domainLdgrSt = LedgerStatus(*statuses[1])
         for status in (poolLdgrSt, domainLdgrSt):
             if status is not None and self.isLedgerOld(status):
                 consistencyProofs.append(self.getConsistencyProof(status))
@@ -999,6 +1021,11 @@ class Node(HasActionQueue, Motor,
                 # a consistency proof from
                 consistencyProofs.append(None)
         rid = self.nodestack.getRemote(frm).uid
+        # TODO: No need to send consistency proofs if the other node is
+        # ahead of this node. Not sending as of now as nodes if do not get
+        # enough consistency proofs don't mark the catchup process as completed.
+        #  Nodes need to only wait for consistency profs if they realize that
+        # they are lagging.
         self.send(ConsistencyProofs(*consistencyProofs), rid)
 
     def processConsistencyProofs(self, proofs: ConsistencyProofs, frm: str):
@@ -1039,15 +1066,14 @@ class Node(HasActionQueue, Motor,
                 ledger = self.getLedgerForMsg(rep)
                 ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
                 catchUpReplies = self.receivedCatchUpReplies[ledgerType]
-                if txns[0][0] - ledger.seqNo != 1:
-                    catchUpReplies = txns + catchUpReplies
-                else:
-                    catchUpReplies = list(heapq.merge(catchUpReplies, txns,
-                                                      key=operator.itemgetter(0)))
+                # if txns[0][0] - ledger.seqNo != 1:
+                #     catchUpReplies = txns + catchUpReplies
+                # else:
+                catchUpReplies = list(heapq.merge(catchUpReplies, txns,
+                                                  key=operator.itemgetter(0)))
                 numProcessed = self.processCatchupReplies(ledgerType, ledger,
                                                           catchUpReplies)
-                catchUpReplies = catchUpReplies[numProcessed:]
-                self.receivedCatchUpReplies[ledgerType] = catchUpReplies
+                self.receivedCatchUpReplies[ledgerType] = catchUpReplies[numProcessed:]
                 if getattr(self.catchUpTill[ledgerType], f.SEQ_NO_END.nm) == \
                         ledger.size:
                     self.catchUpTill[ledgerType] = None
@@ -1061,17 +1087,19 @@ class Node(HasActionQueue, Motor,
 
     def processCatchupReplies(self, ledgerType, ledger: Ledger,
                               catchUpReplies: List):
-        i = 0
+        processed = []
         for seqNo, txn in catchUpReplies:
             if seqNo - ledger.seqNo == 1:
                 txn.pop(F.seqNo.name, None)
                 ledger.add(txn)
                 if ledgerType == 0:
                     self.poolManager.onPoolMembershipChange(txn)
-                i += 1
+                processed.append(seqNo)
             else:
                 break
-        return i
+        logger.debug("{} processed {} catchup replies with sequence numbers {}"
+                     .format(self, len(processed), processed))
+        return len(processed)
 
     # Assuming that all nodes have the same state of the system and no node
     # is lagging behind
@@ -1235,6 +1263,9 @@ class Node(HasActionQueue, Motor,
 
         self.requests.addPropagate(request, frm)
 
+        # # Only propagate if the node is participating in the consensus process
+        # # which happens when the node has completed the catchup process
+        # if self.isParticipating:
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
@@ -1317,8 +1348,11 @@ class Node(HasActionQueue, Motor,
                     return
             else:
                 if self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                    self.reportSuspiciousNode(frm,
-                                              code=Suspicions.DUPLICATE_INST_CHNG)
+                    # A node constantly experiencing degraded performance will
+                    # keep on sending INSTANCE_CHANGE messages.
+                    # self.reportSuspiciousNode(frm,
+                    #                           code=Suspicions.DUPLICATE_INST_CHNG)
+                    pass
                 else:
                     self.instanceChanges.addVote(instChg.viewNo, frm)
 
@@ -1337,6 +1371,11 @@ class Node(HasActionQueue, Motor,
         """
         logger.debug("{} checking its performance".format(self))
         self._schedule(self.checkPerformance, self.perfCheckFreq)
+
+        # Move ahead only if the node has synchronized its state with other
+        # nodes
+        if not self.isParticipating:
+            return
 
         if self.instances.masterId is not None:
             if self.monitor.isMasterDegraded():

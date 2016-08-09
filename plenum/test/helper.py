@@ -28,7 +28,8 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, CATCHUP_REQ, \
     CONSISTENCY_PROOFS
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, ConsistencyProofs
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, ConsistencyProofs, \
+    LedgerStatuses
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger
 from plenum.persistence import orientdb_store
@@ -88,6 +89,7 @@ class Stasher:
         :param tester: a callable that takes as an argument the item
             from the queue and returns a number of seconds it should be delayed
         """
+        logger.debug("{} adding delay for {}".format(self.name, tester))
         self.delayRules.add(tester)
 
     def nodelay(self, tester):
@@ -106,7 +108,7 @@ class Stasher:
             for rx in list(self.queue):
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
-                    logging.debug("{} stashingWhileCatchingUp message {} for "
+                    logging.debug("{} stashing message {} for "
                                   "{} seconds".
                                   format(self.name, rx, secondsToDelay))
                     self.delayeds.append((age + secondsToDelay, rx))
@@ -1299,6 +1301,11 @@ def ppDelay(delay: float, instId: int=None):
 # Delayer of INSTANCE-CHANGE requests
 def icDelay(delay: float):
     return delayerMsgTuple(delay, InstanceChange)
+
+
+# Delayer of LEDGER_STATUSES requests
+def lsDelay(delay: float):
+    return delayerMsgTuple(delay, LedgerStatuses)
 
 
 # Delayer of CONSISTENCY_PROOFS requests

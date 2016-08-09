@@ -486,7 +486,8 @@ class PrimaryElector(PrimaryDecider):
         result = pd >= q
         if result:
             logger.trace("{} primary declarations {} meet required quorum {} "
-                         "for instance id {}".format(replica, pd, q, instId))
+                         "for instance id {}".format(self.node.replicas[instId],
+                                                     pd, q, instId))
         return result
 
     def hasNominationsFromAll(self, instId: int) -> bool:

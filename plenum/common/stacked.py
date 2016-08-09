@@ -44,7 +44,6 @@ class Stack(RoadStack):
         localRoleData = keep.loadLocalRoleData()
 
         sighex = localRoleData['sighex']
-        prihex = localRoleData['prihex']
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
@@ -194,7 +193,8 @@ class Stack(RoadStack):
         :param remoteName: the name of the remote
         """
         rid = self.getRemote(remoteName).uid
-        self.transmit(msg, rid)
+        # Setting timeout to never expire
+        self.transmit(msg, rid, timeout=0)
 
     # TODO: Remove this
     @classmethod
@@ -625,6 +625,7 @@ class KITStack(SimpleStack):
                     logger.debug("{} found a legacy remote {} "
                                  "without a matching ha {}".
                                  format(self, r.name, r.ha))
+                    logger.info(self.registry)
                     legacy.add(r)
 
         # missing from remotes... need to connect
@@ -737,7 +738,8 @@ class Batched(MessageProcessor):
             if msgs:
                 if len(msgs) == 1:
                     msg = msgs.popleft()
-                    self.transmit(msg, rid)
+                    # Setting timeout to never expire
+                    self.transmit(msg, rid, timeout=0)
                     logger.trace("{} sending msg {} to {}".format(self, msg, dest))
                 else:
                     logger.debug("{} batching {} msgs to {} into one transmission".
@@ -749,7 +751,9 @@ class Batched(MessageProcessor):
                     # don't need to sign the batch, when the composed msgs are
                     # signed
                     payload = self.prepForSending(batch)
-                    self.transmit(payload, rid)
+                    logger.debug("{} sending payload to {}: {}".format(self, dest, payload))
+                    # Setting timeout to never expire
+                    self.transmit(payload, rid, timeout=0)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
                            extra={"cli": False})
