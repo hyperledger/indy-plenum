@@ -132,7 +132,8 @@ class TxnPoolManager(PoolManager):
 
         for nm, keys in nodeKeys.items():
             try:
-                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm])
+                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm],
+                               override=True)
             except Exception as ex:
                 print(ex)
 
@@ -197,7 +198,8 @@ class TxnPoolManager(PoolManager):
             return
         verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
         try:
-            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
+            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
+                           override=True)
         except Exception as ex:
             logger.debug("Exception while initializing keep for remote {}".
                          format(ex))
@@ -253,7 +255,8 @@ class TxnPoolManager(PoolManager):
             self.node.nodestack.keep.clearRemoteRoleData(nodeName)
             verkey = txn[DATA][VERKEY]
             try:
-                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey)
+                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
+                               override=True)
             except Exception as ex:
                 logger.debug("Exception while initializing keep for remote {}".
                              format(ex))
