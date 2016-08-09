@@ -29,7 +29,7 @@ class OrientDbStore:
     def serverVersion(self):
         if self.client and self.client.version:
             version = self.client.version
-            return version.major, version.minor, version.build
+            return str(version.major), str(version.minor), str(version.build)
 
     def createDb(self, dbName, dbType, storageType):
         self.client.db_create(dbName, dbType, storageType)
