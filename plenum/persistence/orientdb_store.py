@@ -23,13 +23,13 @@ class OrientDbStore:
         if not (self.serverVersion and self.serverVersion[0] >= 2 and
                         self.serverVersion[1] >= 2):
             error("OrientDB version should be atleast 2.2. Current version is {}"
-                  .format(".".join(self.serverVersion)))
+                  .format(".".join(map(str, self.serverVersion))))
 
     @property
     def serverVersion(self):
         if self.client and self.client.version:
             version = self.client.version
-            return str(version.major), str(version.minor), str(version.build)
+            return version.major, version.minor, version.build
 
     def createDb(self, dbName, dbType, storageType):
         self.client.db_create(dbName, dbType, storageType)
