@@ -8,9 +8,10 @@ from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
     PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE
 from plenum.common.util import getlogger
 from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT
+from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher, \
+    Topic
 from plenum.server.plugin_loader import HasDynamicallyImportedModules
 from plenum.server.stats_consumer import StatsConsumer
-from .stats_publisher import StatsPublisher, Topic
 
 logger = getlogger()
 
