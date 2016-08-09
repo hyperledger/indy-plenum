@@ -67,11 +67,12 @@ def testNewAddGenTxnRegEx(grammar):
     assertCliTokens(matchedVars, {TXN_TYPE:NEW_STEWARD, DATA: exportedData})
 
     exportedData = """{"BCU": {"verkey": "ad1a8dc1836007587f6c6c2d1d6ba91a395616f923b3e63bb5797d52b025a263",
-    "pubkey": "a736ade3f3573881c6b1e16d99378c26774cfb9215b97191f4d0b7fe5a57c157", "node_address": "127.0.0.1:9701",
+    "node_address": "127.0.0.1:9701",
     "client_address": "127.0.0.1:9702"}, "by":ea0690fbea7fbcd8dd4b80ed83f23d0ff2152e6217f602a01532c16c862aab92}"""
     matchedVars = getMatchedVariables(grammar,
                                       'add genesis transaction NEW_NODE with data {}'.format(exportedData))
     assertCliTokens(matchedVars, {TXN_TYPE: NEW_NODE, DATA: exportedData})
+
 
 def testCreateGenesisTxnFileRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "create genesis transaction file")

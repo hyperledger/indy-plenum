@@ -732,7 +732,8 @@ Commands:
         nodes = []
         for name in names:
             node = self.NodeClass(name,
-                                  nodeRegistry=None if self.nodeRegLoadedFromFile else self.nodeRegistry,
+                                  nodeRegistry=None if self.nodeRegLoadedFromFile
+                                  else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths)
             from time import sleep
