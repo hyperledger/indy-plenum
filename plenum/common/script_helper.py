@@ -147,7 +147,7 @@ def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
                                                                   clientport)
     return 'add genesis transaction NEW_NODE for ' + verkey + ' by ' + stewardverkey + ' with data {"node_ip": "' + \
            vnodeip + '", "node_port": ' + vnodeport + ', "client_ip": "' + vclientip + '", "client_port": ' + \
-           vclientport + '", "alias": "' + name + '"}'
+           vclientport + ', "alias": "' + name + '"}'
 
 
 def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,

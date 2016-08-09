@@ -2,29 +2,25 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import base64
-import copy
 import random
 from hashlib import sha256
 from binascii import unhexlify
-from typing import Set
+from typing import Set, Dict
+import shutil
 
 from jsonpickle import json
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
 
-from plenum import config
-
+# Do not remove this import
 import plenum.cli.ensure_logging_not_setup
 
-from typing import Dict
-
-import re
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
-import shutil
 import pyorient
-
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
+
+from plenum import config
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
@@ -33,8 +29,8 @@ from plenum.client.wallet import Wallet
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, NEW_STEWARD, \
-    VERKEY, PUBKEY, BY
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, \
+    VERKEY, BY
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 
 if is_windows():
@@ -384,7 +380,7 @@ class Cli:
             else:
                 nodeName, nodeData = key, value
 
-        withData = {ALIAS: nodeName, PUBKEY: ""}
+        withData = {ALIAS: nodeName}
 
         if typ == NEW_NODE:
             nodeIp, nodePort = nodeData.get('node_address').split(':')
@@ -393,7 +389,7 @@ class Cli:
             withData[NODE_PORT] = int(nodePort)
             withData[CLIENT_IP] = clientIp
             withData[CLIENT_PORT] = int(clientPort)
-            withData[PUBKEY] = nodeData.get(PUBKEY)
+            # withData[PUBKEY] = nodeData.get(PUBKEY)
 
         newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
                           TARGET_NYM: nodeData.get(VERKEY),
