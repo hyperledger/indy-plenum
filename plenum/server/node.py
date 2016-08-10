@@ -534,13 +534,17 @@ class Node(HasActionQueue, Motor,
         self.elector.nodeCount = self.nodeCount
         if self.isReady():
             self.checkInstances()
-            if isinstance(self.elector, PrimaryElector):
+            # TODO: Should we only send election messages when lagged or
+            # otherwise too?
+            if isinstance(self.elector, PrimaryElector) and joined:
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
                 logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
                                                                      joined))
                 for n in joined:
                     self.sendElectionMsgsToLaggingNode(n, msgs)
-                    self.sendLedgerStatus(n)
+        # Send ledger status whether ready (connected to enough nodes) or not
+        for n in joined:
+            self.sendLedgerStatus(n)
 
     def newNodeJoined(self, nodeName: str):
         self.setF()
@@ -1102,7 +1106,8 @@ class Node(HasActionQueue, Motor,
         return len(processed)
 
     # Assuming that all nodes have the same state of the system and no node
-    # is lagging behind
+    # is lagging behind. So if two new nodes are added in quick succession in a
+    # high traffic environment, this can fail
     def canStartCatchUpProcess(self):
         if len(self.receivedConsistencyProofs) > self.f:
             result = [None, None]
@@ -1126,6 +1131,9 @@ class Node(HasActionQueue, Motor,
             # TODO: Assuming enough similar consistency proofs would be
             # received for both ledgers
             return result
+        logger.debug("{} cannot start catchup since received only {} "
+                     "consistency proofs but need at least {}"
+                     .format(self, len(self.receivedConsistencyProofs), self.f))
         return None
 
     def startCatchUpProcess(self, consProofs: ConsistencyProofs):

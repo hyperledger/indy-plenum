@@ -23,7 +23,7 @@ class OrientDbStore:
         if not (self.serverVersion and self.serverVersion[0] >= 2 and
                         self.serverVersion[1] >= 2):
             error("OrientDB version should be atleast 2.2. Current version is {}"
-                  .format(".".join(self.serverVersion)))
+                  .format(".".join(map(str, self.serverVersion))))
 
     @property
     def serverVersion(self):

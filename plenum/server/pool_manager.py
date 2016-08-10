@@ -116,7 +116,7 @@ class TxnPoolManager(PoolManager):
                         nstack = dict(name=name,
                                       ha=HA('0.0.0.0', nHa[1]),
                                       main=True,
-                                      auto=AutoMode.always)  # TODO: Just for now, remove it later
+                                      auto=AutoMode.never)
                         cstack = dict(name=name + CLIENT_STACK_SUFFIX,
                                       ha=HA('0.0.0.0', cHa[1]),
                                       main=True,
@@ -132,7 +132,8 @@ class TxnPoolManager(PoolManager):
 
         for nm, keys in nodeKeys.items():
             try:
-                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm])
+                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm],
+                               override=True)
             except Exception as ex:
                 print(ex)
 
@@ -210,7 +211,6 @@ class TxnPoolManager(PoolManager):
         self.node.cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
         logger.debug("{} adding new node {} with HA {}".format(self.name,
                                                                nodeName, nodeHa))
-        logger.info(str(self.node.nodeReg))
         self.node.newNodeJoined(nodeName)
 
     def addNewRole(self, txn):

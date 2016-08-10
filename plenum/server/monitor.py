@@ -419,7 +419,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             averageBackupLatency=self.avgBackupLatency,
             time=jsTime,
             nodeName=self.name,
-            created_at=utcTime.isoformat()
+            timestamp=utcTime.isoformat()
         )
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)

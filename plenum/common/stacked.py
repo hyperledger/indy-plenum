@@ -603,7 +603,10 @@ class KITStack(SimpleStack):
                                   format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
-                    error("{} ha for {} doesn't match. ha of remote is {} but "
+                    # error("{} ha for {} doesn't match. ha of remote is {} but "
+                    #       "should be {}".
+                    #       format(self, r.name, r.ha, self.registry[r.name]))
+                    logger.error("{} ha for {} doesn't match. ha of remote is {} but "
                           "should be {}".
                           format(self, r.name, r.ha, self.registry[r.name]))
             else:
@@ -637,10 +640,10 @@ class KITStack(SimpleStack):
             logger.error("matches: {}".format(matches))
             logger.error("conflicts: {}".format(conflicts))
             logger.error("nodeReg: {}".format(self.registry.keys()))
-            error("Error reconciling nodeReg with remotes; see logs")
+            logger.error("Error reconciling nodeReg with remotes; see logs")
 
         if conflicts:
-            error("found conflicting address information {} in registry".format(
+            logger.error("found conflicting address information {} in registry".format(
                 conflicts))
         if legacy:
             for l in legacy:
