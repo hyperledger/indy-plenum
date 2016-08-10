@@ -520,13 +520,17 @@ class Node(HasActionQueue, Motor,
         self.elector.nodeCount = self.nodeCount
         if self.isReady():
             self.checkInstances()
-            if isinstance(self.elector, PrimaryElector):
+            # TODO: Should we only send election messages when lagged or
+            # otherwise too?
+            if isinstance(self.elector, PrimaryElector) and joined:
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
                 logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
                                                                      joined))
                 for n in joined:
                     self.sendElectionMsgsToLaggingNode(n, msgs)
-                    self.sendLedgerStatus(n)
+        # Send ledger status whether ready (connected to enough nodes) or not
+        for n in joined:
+            self.sendLedgerStatus(n)
 
     def newNodeJoined(self, nodeName: str):
         self.setF()
