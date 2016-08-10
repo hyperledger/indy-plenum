@@ -1101,7 +1101,7 @@ class Node(HasActionQueue, Motor,
             return result
         logger.debug("{} cannot start catchup since received only {} "
                      "consistency proofs but need at least {}"
-                     .format(len(self.receivedConsistencyProofs), self.f))
+                     .format(self, len(self.receivedConsistencyProofs), self.f))
         return None
 
     def startCatchUpProcess(self, consProofs: ConsistencyProofs):
