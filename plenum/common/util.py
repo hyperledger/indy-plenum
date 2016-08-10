@@ -310,9 +310,16 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     logging.root.setLevel(log_level)
 
     console = getConsole()
+    config = getConfig()
+    try:
+        defaultVerbosity = config.__getattribute__("RAETLogLevel")
+        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
+    except AttributeError:
+        defaultVerbosity = Console.Wordage.terse
+
     verbosity = raet_log_level \
         if raet_log_level is not None \
-        else Console.Wordage.terse
+        else defaultVerbosity
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True

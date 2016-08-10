@@ -68,3 +68,5 @@ LatencyGraphDuration = 240
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 50000
+
+RAETLogLevel = "concise"
