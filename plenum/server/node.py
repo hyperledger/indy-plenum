@@ -1074,7 +1074,8 @@ class Node(HasActionQueue, Motor,
         return i
 
     # Assuming that all nodes have the same state of the system and no node
-    # is lagging behind
+    # is lagging behind. So if two new nodes are added in quick succession in a
+    # high traffic environment, this can fail
     def canStartCatchUpProcess(self):
         if len(self.receivedConsistencyProofs) > self.f:
             result = [None, None]
@@ -1098,6 +1099,9 @@ class Node(HasActionQueue, Motor,
             # TODO: Assuming enough similar consistency proofs would be
             # received for both ledgers
             return result
+        logger.debug("{} cannot start catchup since received only {} "
+                     "consistency proofs but need at least {}"
+                     .format(len(self.receivedConsistencyProofs), self.f))
         return None
 
     def startCatchUpProcess(self, consProofs: ConsistencyProofs):
