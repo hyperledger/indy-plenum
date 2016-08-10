@@ -315,8 +315,10 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
         defaultVerbosity = config.__getattribute__("RAETLogLevel")
         defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
     except AttributeError:
+        logging.debug("Ignoring RAET log level from config")
         defaultVerbosity = Console.Wordage.terse
 
+    logging.info("Choosing RAET log level {}".format(defaultVerbosity))
     verbosity = raet_log_level \
         if raet_log_level is not None \
         else defaultVerbosity
