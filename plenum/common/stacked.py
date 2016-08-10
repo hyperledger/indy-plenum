@@ -628,7 +628,7 @@ class KITStack(SimpleStack):
                     logger.debug("{} found a legacy remote {} "
                                  "without a matching ha {}".
                                  format(self, r.name, r.ha))
-                    logger.info(self.registry)
+                    logger.info(str(self.registry))
                     legacy.add(r)
 
         # missing from remotes... need to connect
