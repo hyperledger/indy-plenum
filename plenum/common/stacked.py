@@ -639,10 +639,10 @@ class KITStack(SimpleStack):
             logger.error("matches: {}".format(matches))
             logger.error("conflicts: {}".format(conflicts))
             logger.error("nodeReg: {}".format(self.registry.keys()))
-            error("Error reconciling nodeReg with remotes; see logs")
+            logger.error("Error reconciling nodeReg with remotes; see logs")
 
         if conflicts:
-            error("found conflicting address information {} in registry".format(
+            logger.error("found conflicting address information {} in registry".format(
                 conflicts))
         if legacy:
             for l in legacy:
