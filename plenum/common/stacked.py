@@ -603,7 +603,10 @@ class KITStack(SimpleStack):
                                   format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
-                    error("{} ha for {} doesn't match. ha of remote is {} but "
+                    # error("{} ha for {} doesn't match. ha of remote is {} but "
+                    #       "should be {}".
+                    #       format(self, r.name, r.ha, self.registry[r.name]))
+                    logger.error("{} ha for {} doesn't match. ha of remote is {} but "
                           "should be {}".
                           format(self, r.name, r.ha, self.registry[r.name]))
             else:
