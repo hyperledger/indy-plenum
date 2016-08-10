@@ -210,7 +210,7 @@ class TxnPoolManager(PoolManager):
         self.node.cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
         logger.debug("{} adding new node {} with HA {}".format(self.name,
                                                                nodeName, nodeHa))
-        logger.info(self.node.nodeReg)
+        logger.info(str(self.node.nodeReg))
         self.node.newNodeJoined(nodeName)
 
     def addNewRole(self, txn):

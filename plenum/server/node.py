@@ -1336,8 +1336,12 @@ class Node(HasActionQueue, Motor,
                          "which is less than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
         else:
+            # TODO: Record instance changes for views but send instance change
+            # only when found master to be degraded. if quorum of view changes
+            #  found then change view even if master not degraded
             if not self.instanceChanges.hasView(instChg.viewNo):
                 if self.monitor.isMasterDegraded():
+                    logger.debug("{} found master degraded after receiving instance change message from {}".format(self, frm))
                     self.instanceChanges.addVote(instChg.viewNo, frm)
                     self.sendInstanceChange(instChg.viewNo)
                 else:
@@ -1387,7 +1391,7 @@ class Node(HasActionQueue, Motor,
                 self.sendInstanceChange(self.viewNo)
                 return False
             else:
-                logger.debug("{}'s master has higher performance than backups".
+                logger.debug("{}s master has higher performance than backups".
                              format(self))
         return True
 

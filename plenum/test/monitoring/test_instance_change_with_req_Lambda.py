@@ -40,7 +40,7 @@ def setup(looper, startedNodes, up, client1):
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, numReqs=5, timeout=80)
+    sendReqsToNodesAndVerifySuffReplies(looper, client1, numReqs=5, timeoutPerReq=80)
 
     return adict(nodes=startedNodes)
 

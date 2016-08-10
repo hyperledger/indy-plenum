@@ -66,7 +66,7 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
 Fails due to https://www.pivotaltracker.com/story/show/127250197
 """
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True)
+@pytest.mark.skipif(True, reason="Fix later")
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
                                         viewChangeDone):
     """

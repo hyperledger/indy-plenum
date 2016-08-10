@@ -32,7 +32,7 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
         assert node.monitor.totalRequests == 0
 
     sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount, nodeSet.f,
-                                        timeout=20)
+                                        timeoutPerReq=20)
 
     for node in nodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
@@ -80,7 +80,7 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
 
     sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount,
                                         nodeSet.f,
-                                        timeout=20)
+                                        timeoutPerReq=20)
 
     for node in nodeSet:
         assert node.monitor.masterLatency > 0

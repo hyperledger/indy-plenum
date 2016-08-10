@@ -22,7 +22,8 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         txnCount = getValueFromModule(request, "txnCount", 5)
-        sendReqsToNodesAndVerifySuffReplies(looper, client, txnCount)
+        sendReqsToNodesAndVerifySuffReplies(looper, client, txnCount,
+                                            timeoutPerReq=25)
 
         newStewardName = randomString()
         newStewardSigner = addNewClient(NEW_STEWARD, looper, client,

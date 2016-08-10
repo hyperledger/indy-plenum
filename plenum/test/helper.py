@@ -569,6 +569,7 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
     logging.debug("received replies {}".format(receivedReplies))
+    logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
     result = None
     for reply in receivedReplies:
@@ -585,16 +586,16 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
                                         numReqs: int, fVal: int=None,
-                                        timeout: float=None):
+                                        timeoutPerReq: float=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
-    timeout = timeout or 3 * nodeCount
+    timeoutPerReq = timeoutPerReq or 3 * nodeCount
 
     requests = sendRandomRequests(client, numReqs)
     for request in requests:
         looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                               request.reqId, fVal,
-                              retryWait=1, timeout=timeout))
+                              retryWait=1, timeout=timeoutPerReq))
     return requests
 
 
