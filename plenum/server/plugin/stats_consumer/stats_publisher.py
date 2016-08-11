@@ -22,26 +22,19 @@ class StatsPublisher:
     async def sendMessage(self, message):
         loop = asyncio.get_event_loop()
         try:
-            self.reader, self.writer = await asyncio.streams.open_connection(
-                self.ip, self.port, loop=loop)
+            if self.writer is None:
+                self.reader, self.writer = await asyncio.streams\
+                    .open_connection(self.ip, self.port, loop=loop)
             self.writer.write((message + '\n').encode('utf-8'))
         except ConnectionRefusedError as ex:
             logger.debug("connection refused for {}:{} while sending message".
                          format(self.ip, self.port))
-
-    async def closeWriter(self):
-        if self.writer is not None:
-            self.writer.close()
-
-        # TODO: Can this sleep be removed?
-        await asyncio.sleep(0.1)
 
     def send(self, message):
         async def run():
             await self.sendMessage(message=message)
             # TODO: Can this sleep be removed?
             await asyncio.sleep(0.01)
-            await self.closeWriter()
 
         loop = asyncio.get_event_loop()
 
