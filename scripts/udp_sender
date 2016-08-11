@@ -1,0 +1,18 @@
+#! /usr/bin/env python3
+
+# TODO: Read ip and port as command line args
+
+import socket
+
+UDP_DEST_IP = "52.160.103.164"
+UDP_DEST_PORT = 9735
+MESSAGE = "Hello, World!"
+UDP_SRC_PORT = 9736
+UDP_SRC_IP = "0.0.0.0"
+
+print("UDP target IP:", UDP_DEST_IP)
+print("UDP target port:", UDP_DEST_PORT)
+print("message:", MESSAGE)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_SRC_IP, UDP_SRC_PORT))
+sock.sendto(MESSAGE.encode(), (UDP_DEST_IP, UDP_DEST_PORT))
