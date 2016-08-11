@@ -20,7 +20,7 @@ def testPromiscuousConnection(tdir):
                      ha=genHa(),
                      main=True,
                      auto=AutoMode.always,
-                      basedirpath=tdir)
+                     basedirpath=tdir)
 
     try:
         betaRemote = RemoteEstate(stack=alpha, ha=beta.ha)
@@ -36,7 +36,6 @@ def testPromiscuousConnection(tdir):
 
 
 def testRaetPreSharedKeysPromiscous(tdir):
-
     alphaSigner = SimpleSigner()
     betaSigner = SimpleSigner()
 
@@ -54,7 +53,7 @@ def testRaetPreSharedKeysPromiscous(tdir):
                      sigkey=betaSigner.naclSigner.keyhex,
                      main=True,
                      auto=AutoMode.always,
-                      basedirpath=tdir)
+                     basedirpath=tdir)
 
     try:
 
@@ -74,7 +73,6 @@ def testRaetPreSharedKeysPromiscous(tdir):
 
 
 def testRaetPreSharedKeysNonPromiscous(tdir):
-
     alphaSigner = SimpleSigner()
     betaSigner = SimpleSigner()
 
@@ -97,7 +95,7 @@ def testRaetPreSharedKeysNonPromiscous(tdir):
                      prikey=betaPrivateer.keyhex,
                      main=True,
                      auto=AutoMode.never,
-                      basedirpath=tdir)
+                     basedirpath=tdir)
 
     alpha.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,

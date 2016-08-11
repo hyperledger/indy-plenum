@@ -4,7 +4,8 @@ import argparse
 
 from sys import argv
 
-from plenum.common.script_helper import buildKeepDirIfNotExists, initKeep, generateStewardGenesisTxn
+from plenum.common.script_helper import buildKeepDirIfNotExists, initKeep, \
+    generateStewardGenesisTxn
 from plenum.common.util import getConfig
 
 config = getConfig()
@@ -16,7 +17,8 @@ if __name__ == "__main__":
         description="Generate steward key")
 
     parser.add_argument('name', action="store")
-    parser.add_argument('--seed', required=False, type=str, help='seed for keypair')
+    parser.add_argument('--seed', required=False, type=str,
+                        help='seed for keypair')
     parser.add_argument('--force', help='overrides keys', action='store_true')
     parser.add_argument('--print_gen_txn', help='prints genesis transactions',
                         action='store_true')
