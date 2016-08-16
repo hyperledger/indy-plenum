@@ -7,11 +7,13 @@ from plenum.test.conftest import getValueFromModule
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, \
     sendReqsToNodesAndVerifySuffReplies, checkNodesConnected
-from plenum.test.pool_transactions.helper import addNewClient, addNewNode
+from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
+    addNewStewardAndNode
 
 
 @pytest.yield_fixture("module")
-def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
+def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                                        poolTxnStewardData, txnPoolCliNodeReg,
                                        tconf, allPluginsPath, request):
     with Looper(debug=True) as looper:
@@ -26,20 +28,32 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                                             timeoutPerReq=25)
 
         newStewardName = randomString()
-        newStewardSigner = addNewClient(NEW_STEWARD, looper, client,
-                                        newStewardName)
-        newStewardClient = TestClient(name=newStewardName,
-                                      nodeReg=txnPoolCliNodeReg, ha=genHa(),
-                                      signer=newStewardSigner,
-                                      basedirpath=tdirWithPoolTxns)
-        looper.add(newStewardClient)
-        looper.run(newStewardClient.ensureConnectedToNodes())
         newNodeName = "Epsilon"
-        newNode = addNewNode(looper, newStewardClient, newNodeName,
-                             tdirWithPoolTxns, tconf, allPluginsPath)
-        txnPoolNodeSet.append(newNode)
-        looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                              timeout=5))
-        looper.run(newStewardClient.ensureConnectedToNodes())
-        looper.run(client.ensureConnectedToNodes())
+        newStewardClient, newNode = addNewStewardAndNode(looper, client,
+                                                         newStewardName,
+                                                         newNodeName,
+                                                         txnPoolCliNodeReg,
+                                                         tdirWithPoolTxns,
+                                                         tconf,
+                                                         allPluginsPath=allPluginsPath,
+                                                         autoStart=True)
         yield looper, newNode, client, newStewardClient
+
+
+@pytest.fixture("module")
+def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+    looper, newNode, client, newStewardClient = nodeCreatedAfterSomeTxns
+    txnPoolNodeSet.append(newNode)
+    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
+                          timeout=5))
+    looper.run(newStewardClient.ensureConnectedToNodes())
+    looper.run(client.ensureConnectedToNodes())
+    return looper, newNode, client, newStewardClient
+
+
+@pytest.fixture("module")
+def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
+    looper, newNode, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    looper.run(eventually(checkNodeLedgersForEquality, newNode,
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=5))
+    return newNode

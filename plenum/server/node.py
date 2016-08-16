@@ -40,12 +40,11 @@ from plenum.common.types import Request, Propagate, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
     RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
-    HS_FILE, NODE_HASH_STORE_SUFFIX, HS_MEMORY, LedgerStatus, \
-    LedgerStatuses, ConsistencyProofs, ConsistencyProof, CatchupReq, CatchupRep, \
-    NodeRegForClient, CLIENT_STACK_SUFFIX, PLUGIN_TYPE_VERIFICATION, \
-    PLUGIN_TYPE_PROCESSING
+    HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
+    CatchupReq, CatchupRep, NodeRegForClient, CLIENT_STACK_SUFFIX, \
+    PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig
+    getConfig, runWithLoop
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -60,7 +59,8 @@ from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.server.pool_manager import HasPoolManager, TxnPoolManager
+from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
+    RegistryPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
@@ -121,6 +121,11 @@ class Node(HasActionQueue, Motor,
         self.requestExecuter = defaultdict(lambda: self.doCustomAction)
 
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        if isinstance(self.poolManager, RegistryPoolManager):
+            self.mode = Mode.discovered
+        else:
+            self.mode = None  # type: Optional[Mode]
+
         self.nodeReg = self.poolManager.nodeReg
 
         # noinspection PyCallingNonCallable
@@ -165,7 +170,7 @@ class Node(HasActionQueue, Motor,
                                Lambda=self.config.LAMBDA,
                                Omega=self.config.OMEGA,
                                instances=self.instances,
-                               pluginPaths = pluginPaths)
+                               pluginPaths=pluginPaths)
 
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
@@ -185,8 +190,8 @@ class Node(HasActionQueue, Motor,
                           [PrePrepare, Prepare, Commit])
 
         nodeRoutes.extend([
-            (LedgerStatuses, self.processLedgerStatuses),
-            (ConsistencyProofs, self.processConsistencyProofs),
+            (LedgerStatus, self.processLedgerStatus),
+            (ConsistencyProof, self.processConsistencyProof),
             (CatchupReq, self.processCatchupReq),
             (CatchupRep, self.processCatchupRep)
         ])
@@ -215,8 +220,8 @@ class Node(HasActionQueue, Motor,
         self.authnWhitelist = (Nomination, Primary, Reelection,
                                Batch,
                                PrePrepare, Prepare,
-                               Commit, InstanceChange, LedgerStatuses,
-                               ConsistencyProofs, CatchupReq, CatchupRep)
+                               Commit, InstanceChange, LedgerStatus,
+                               ConsistencyProof, CatchupReq, CatchupRep)
 
         # Map of request identifier to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -226,14 +231,25 @@ class Node(HasActionQueue, Motor,
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
 
-        self.mode = None  # type: Optional[Mode]
+        # Domain ledger statuses received while this node has still
+        # not discovered its peers
+        self.stashedLedgerStatuses = deque()
+
+        # List of 2 elements with first element corresponding to pool ledger and
+        # the second corresponding to domain ledger.
+        # Each set tracks which nodes claim that this node's ledger status is ok
+        # , if a quorum of nodes (2f+1) say its up to date then mark the catchup
+        #  process as completed
+        self.ledgerStatusOk = [set(), set()]
 
         # Consistency proofs received in process of catching up.
-        # Key is the node name and value is a tuple.
-        # The first element of the tuple is the consistency proof
+        # The first element of the list is the dictionary of consistency proofs
         # received for the pool transaction ledger and second element is the
-        # consistency proof received for the domain transaction ledger
-        self.receivedConsistencyProofs = {}  # type: Dict[str, ConsistencyProofs]
+        # dictionary of consistency proofs received for the domain transaction
+        # ledger. For each dictionary key is the node name and value is a
+        # consistency proof.
+        self.recvdConsistencyProofs = [{}, {}]  # type: List[Dict[str,
+        # ConsistencyProof]]
 
         self.catchUpTill = [None, None]
 
@@ -242,6 +258,15 @@ class Node(HasActionQueue, Motor,
         # pool transaction ledger and the second element is the list of
         # transactions that need to be applied to the domain transaction ledger
         self.receivedCatchUpReplies = [[], []]
+
+        # Ordered requests received from replicas while the node was not
+        # participating
+        self.stashedOrderedReqs = deque()
+
+        # Set of (identifier, reqId) of all transactions that were received
+        # while catching up. Used to detect overlap between stashed requests
+        # and received replies while catching up.
+        self.reqsFromCatchupReplies = set()
 
         self.addReplicas()
 
@@ -381,7 +406,10 @@ class Node(HasActionQueue, Motor,
                             "".format(self))
             else:
                 self.nodestack.maintainConnections()
-        self.mode = Mode.starting
+        if isinstance(self.poolManager, RegistryPoolManager):
+            self.mode = Mode.discovered
+        else:
+            self.mode = Mode.starting
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -532,6 +560,7 @@ class Node(HasActionQueue, Motor,
             else:
                 self.status = Status.starting
         self.elector.nodeCount = self.nodeCount
+
         if self.isReady():
             self.checkInstances()
             # TODO: Should we only send election messages when lagged or
@@ -542,16 +571,31 @@ class Node(HasActionQueue, Motor,
                                                                      joined))
                 for n in joined:
                     self.sendElectionMsgsToLaggingNode(n, msgs)
+                    # Communicate current view number if any view change
+                    # happened to the connected node
+                    if self.viewNo > 0:
+                        logger.debug("{} communicating view number {} to {}"
+                                     .format(self, self.viewNo-1, n))
+                        rid = self.nodestack.getRemote(n).uid
+                        self.send(InstanceChange(self.viewNo-1), rid)
+
+
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:
-            self.sendLedgerStatus(n)
+            self.sendPoolLedgerStatus(n)
+            # Send the domain ledger status only when it has discovered enough
+            # peers otherwise very few peers will know that this node is lagging
+            # behind and it will not receive sufficient consistency proofs to
+            # verify the exact state of the ledger.
+            if self.mode in (Mode.discovered, Mode.participating):
+                self.sendDomainLedgerStatus(n)
 
     def newNodeJoined(self, nodeName: str):
         self.setF()
         if self.addReplicas():
             self.decidePrimaries()
         # TODO: Should tell the client after the new node has synced up its
-            # ledgers
+        # ledgers
         self.sendNodeHaToClients(nodeName)
 
     def newClientsConnected(self, newClients: Set[str]):
@@ -587,11 +631,6 @@ class Node(HasActionQueue, Motor,
             logger.debug("{} sending election message {} to lagged node {}".
                          format(self, msg, nodeName))
             self.send(msg, rid)
-
-    def sendLedgerStatus(self, nodeName: str):
-        rid = self.nodestack.getRemote(nodeName).uid
-        self.send(LedgerStatuses(self.poolLedgerStatus,
-                                 self.domainLedgerStatus), rid)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -698,12 +737,20 @@ class Node(HasActionQueue, Motor,
                                     Commit)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
-                    await self.processOrdered(msg)
+                    # Checking for request in received catchup replies as a
+                    # request ordering might have started when the node was not
+                    # participating but by the time ordering finished, node
+                    # might have started participating
+                    if self.isParticipating and not self.gotInCatchupReplies(msg):
+                        await self.processOrdered(msg)
+                    else:
+                        logger.debug("{} stashing {}".format(self, msg))
+                        self.stashedOrderedReqs.append(msg)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
-                    logger.error("Received msg {} and don't know how to "
-                                 "handle it".format(msg))
+                    logger.error("Received msg {} and don't know how to handle"
+                                 "it".format(msg))
         return msgCount
 
     def serviceReplicaInBox(self, limit: int=None):
@@ -776,19 +823,50 @@ class Node(HasActionQueue, Motor,
                 return idx
         return None
 
-    def isNodeMsgForReplica(self, msg) -> bool:
+    def msgHasAcceptableInstId(self, msg) -> bool:
         """
-        Return whether the node message is valid.
+        Return true if the instance id of message corresponds to a correct
+        replica.
 
         :param msg: the node message to validate
+        :return:
         """
-        if msg.instId < len(self.msgsToReplicas):
-            return True
-        else:
+        instId = getattr(msg, "instId", None)
+        if instId >= len(self.msgsToReplicas):
             # TODO: Should probably queue messages for new instances
             self.discard(msg, "non-existent protocol instance {}"
-                         .format(msg.instId), logMethod=logging.debug)
+                         .format(instId), logMethod=logging.debug)
             return False
+        return True
+
+    def msgHasAcceptableViewNo(self, msg) -> bool:
+        """
+        Return true if the view no of message corresponds to the current view
+        no, or a view no in the past that the replicas know of or a view no in
+        the future
+
+        :param msg: the node message to validate
+        :return:
+        """
+        viewNo = getattr(msg, "viewNo", None)
+        corrects = []
+        for r in self.replicas:
+            if not r.primaryNames.keys():
+                # Replica has not seen any primary
+                corrects.append(True)
+            elif viewNo in r.primaryNames.keys():
+                # Replica has seen primary with this view no
+                corrects.append(True)
+            elif viewNo > max(r.primaryNames.keys()):
+                # msg for a future view no
+                corrects.append(True)
+            else:
+                corrects.append(False)
+        r = all(corrects)
+        if not r:
+            self.discard(msg, "un-acceptable viewNo {}"
+                         .format(viewNo), logMethod=logging.debug)
+        return r
 
     def sendToReplica(self, msg, frm):
         """
@@ -797,7 +875,7 @@ class Node(HasActionQueue, Motor,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.isNodeMsgForReplica(msg):
+        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(msg):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -807,7 +885,8 @@ class Node(HasActionQueue, Motor,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.isNodeMsgForReplica(msg):
+        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(
+                msg):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -1007,41 +1086,63 @@ class Node(HasActionQueue, Motor,
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
 
-    def processLedgerStatuses(self, statuses: LedgerStatuses, frm: str):
-        logger.debug("{} received ledger statuses: {} from {}".
-                     format(self.name, statuses, frm))
-        consistencyProofs = []
+    def processLedgerStatus(self, status: LedgerStatus, frm: str):
+        logger.debug("{} received ledger status: {} from {}".
+                     format(self.name, status, frm))
         # Nodes might not be using pool txn ledger, might be using simple node
         # registries (old approach)
-        poolLdgrSt = LedgerStatus(*statuses[0]) if statuses[0] else None
-        domainLdgrSt = LedgerStatus(*statuses[1])
-        for status in (poolLdgrSt, domainLdgrSt):
-            if status is not None and self.isLedgerOld(status):
-                consistencyProofs.append(self.getConsistencyProof(status))
-            else:
-                # Send None if ledger is at the same state as the other node.
-                # TODO: This can be avoided if the node after checking
-                # `LedgerStatus` can keep a track of nodes that it is expecting
-                # a consistency proof from
-                consistencyProofs.append(None)
-        rid = self.nodestack.getRemote(frm).uid
-        # TODO: No need to send consistency proofs if the other node is
-        # ahead of this node. Not sending as of now as nodes if do not get
-        # enough consistency proofs don't mark the catchup process as completed.
-        #  Nodes need to only wait for consistency profs if they realize that
-        # they are lagging.
-        self.send(ConsistencyProofs(*consistencyProofs), rid)
+        ledgerStatus = LedgerStatus(*status) if status else None
+        ledgerType = getattr(status, f.LEDGER_TYPE.nm)
 
-    def processConsistencyProofs(self, proofs: ConsistencyProofs, frm: str):
-        logger.debug("{} received consistency proofs: {} from {}".
-                     format(self.name, proofs, frm))
-        # Only accept consistency proofs until in starting mode
-        if self.mode == Mode.starting:
-            self.receivedConsistencyProofs[frm] = [ConsistencyProof(*proof) for
-                                                   proof in proofs if proof]
-            catchUpFrm = self.canStartCatchUpProcess()
-            if catchUpFrm:
-                self.startCatchUpProcess(catchUpFrm)
+        if ledgerType == 1 and self.mode in (Mode.starting, Mode.discovering):
+            self.stashedLedgerStatuses.append((status, frm))
+            return
+
+        # If this node's ledger is ahead of the received ledger status
+        if ledgerStatus and self.isLedgerNew(ledgerStatus):
+            consistencyProof = self.getConsistencyProof(ledgerStatus)
+            rid = self.nodestack.getRemote(frm).uid
+            self.send(ConsistencyProof(*consistencyProof), rid)
+
+        if ledgerStatus and not self.isLedgerOld(ledgerStatus):
+            # This node's ledger is not older so it will not receive a
+            # consistency proof unless the other node processes a transaction
+            # post sending this ledger status
+            self.recvdConsistencyProofs[ledgerType][frm] = None
+            self.ledgerStatusOk[ledgerType].add(frm)
+            if len(self.ledgerStatusOk[ledgerType]) == 2*self.f:
+                logger.debug("{} found out from {} that its ledger of type {} "
+                             "is latest".
+                             format(self, self.ledgerStatusOk[ledgerType],
+                                    ledgerType))
+                self.catchupCompleted(ledgerType)
+
+    def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
+        logger.debug("{} received consistency proof: {} from {}".
+                     format(self.name, proof, frm))
+        ledgerType = getattr(proof, f.LEDGER_TYPE.nm)
+        if self.canProcessConsistencyProof(ledgerType):
+            # TODO: Handle case where a malign node can send a consistency
+            # proof for a previous ledger status
+            self.recvdConsistencyProofs[ledgerType][frm] = \
+                ConsistencyProof(*proof)
+            canCatchup, catchUpFrm = self.canStartCatchUpProcess(ledgerType)
+            if canCatchup:
+                self.startCatchUpProcess(ledgerType, catchUpFrm)
+        else:
+            logger.debug("{} ignoring consistency proof since in {} mode".
+                         format(self, self.mode.name))
+
+    def canProcessConsistencyProof(self, ledgerType: int) -> bool:
+        if ledgerType == 0:
+            # Pool txn ledger so only accept consistency proofs if not started
+            # discovering peers
+            return self.mode == Mode.starting
+        if ledgerType == 1:
+            # Domain txn ledger so only accept consistency proofs if not stated
+            # catching up with domain ledger but done discovering peers
+            return self.mode == Mode.discovered
+        return False
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
@@ -1061,18 +1162,15 @@ class Node(HasActionQueue, Motor,
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.debug("{} received catchup reply: {} from {}".
                      format(self.name, rep, frm))
-        if self.mode == Mode.catchingUp:
+        ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
+        if self.canProcessCatchupReply(ledgerType):
             # Not relying on a node sending txns in order of sequence no
             txns = sorted([(int(s), t) for (s, t) in
                            getattr(rep, f.TXNS.nm).items()],
                           key=operator.itemgetter(0))
             if txns:
                 ledger = self.getLedgerForMsg(rep)
-                ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
                 catchUpReplies = self.receivedCatchUpReplies[ledgerType]
-                # if txns[0][0] - ledger.seqNo != 1:
-                #     catchUpReplies = txns + catchUpReplies
-                # else:
                 catchUpReplies = list(heapq.merge(catchUpReplies, txns,
                                                   key=operator.itemgetter(0)))
                 numProcessed = self.processCatchupReplies(ledgerType, ledger,
@@ -1081,13 +1179,7 @@ class Node(HasActionQueue, Motor,
                 if getattr(self.catchUpTill[ledgerType], f.SEQ_NO_END.nm) == \
                         ledger.size:
                     self.catchUpTill[ledgerType] = None
-                if [None, None] == self.catchUpTill:
-                    self.catchupCompleted()
-
-    def catchupCompleted(self):
-        logger.debug("{} completed catching up".format(self))
-        self.mode = Mode.participating
-        self.checkInstances()
+                    self.catchupCompleted(ledgerType)
 
     def processCatchupReplies(self, ledgerType, ledger: Ledger,
                               catchUpReplies: List):
@@ -1099,59 +1191,118 @@ class Node(HasActionQueue, Motor,
                 if ledgerType == 0:
                     self.poolManager.onPoolMembershipChange(txn)
                 processed.append(seqNo)
+                self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
+                                                 txn.get(f.REQ_ID.nm)))
             else:
                 break
         logger.debug("{} processed {} catchup replies with sequence numbers {}"
                      .format(self, len(processed), processed))
         return len(processed)
 
+    def canProcessCatchupReply(self, ledgerType: int) -> bool:
+        if ledgerType == 0:
+            return self.mode == Mode.discovering
+        if ledgerType == 1:
+            return self.mode == Mode.syncing
+        return False
+
+    # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node
     # is lagging behind. So if two new nodes are added in quick succession in a
-    # high traffic environment, this can fail
-    def canStartCatchUpProcess(self):
-        if len(self.receivedConsistencyProofs) > self.f:
-            result = [None, None]
-            recvdPrfs = ({}, {})
-            for nodeName, proofs in self.receivedConsistencyProofs.items():
-                for proof in proofs:
-                    if proof:
-                        ledgerType = getattr(proof, f.LEDGER_TYPE.nm)
-                        recvdPrf = recvdPrfs[ledgerType]
-                        start, end = getattr(proof, f.SEQ_NO_START.nm), \
-                                     getattr(proof, f.SEQ_NO_END.nm)
-                        if (start, end) not in recvdPrf:
-                            recvdPrf[(start, end)] = {}
-                        key = (getattr(proof, f.OLD_MERKLE_ROOT.nm),
-                               getattr(proof, f.NEW_MERKLE_ROOT.nm),
-                               tuple(getattr(proof, f.HASHES.nm)))
-                        recvdPrf[(start, end)][key] = recvdPrf[(start, end)].\
-                                                          get(key, 0) + 1
-                        if recvdPrf[(start, end)][key] > self.f:
-                            result[ledgerType] = proof
-            # TODO: Assuming enough similar consistency proofs would be
-            # received for both ledgers
-            return result
+    # high traffic environment, this logic is faulty
+    def canStartCatchUpProcess(self, ledgerType: int):
+        recvdConsProof = self.recvdConsistencyProofs[ledgerType]
+        # Consider an f value when this node was not connected
+        adjustedF = getMaxFailures(len(set(self.allNodeNames)-{self.name,}))
+        if len(recvdConsProof) >= 2*adjustedF:
+            logger.debug("{} deciding on the basis of CPs {}".format(self,
+                                                                     recvdConsProof))
+            result = None
+            recvdPrf = {}
+            # For the case where the node sending the consistency proof is at
+            # the same state as this node
+            nullProofs = 0
+            for nodeName, proof in recvdConsProof.items():
+                if proof:
+                    start, end = getattr(proof, f.SEQ_NO_START.nm), \
+                                 getattr(proof, f.SEQ_NO_END.nm)
+                    if (start, end) not in recvdPrf:
+                        recvdPrf[(start, end)] = {}
+                    key = (getattr(proof, f.OLD_MERKLE_ROOT.nm),
+                           getattr(proof, f.NEW_MERKLE_ROOT.nm),
+                           tuple(getattr(proof, f.HASHES.nm)))
+                    recvdPrf[(start, end)][key] = recvdPrf[(start, end)]. \
+                                                      get(key, 0) + 1
+                    if recvdPrf[(start, end)][key] > adjustedF:
+                        result = proof
+                else:
+                    logger.debug("{} found proof by {} null".format(self, nodeName))
+                    nullProofs += 1
+
+            if nullProofs == len(recvdConsProof):
+                return True, None
+
+            return bool(result), result
         logger.debug("{} cannot start catchup since received only {} "
                      "consistency proofs but need at least {}"
-                     .format(self, len(self.receivedConsistencyProofs), self.f))
-        return None
+                     .format(self, len(recvdConsProof),
+                             adjustedF + 1))
+        return False, None
 
-    def startCatchUpProcess(self, consProofs: ConsistencyProofs):
-        logger.debug("{} started catching up".format(self))
-        self.mode = Mode.catchingUp
-        for p in consProofs:
-            if p is not None:
-                p = ConsistencyProof(*p)
-                rids = [self.nodestack.getRemote(nm).uid for nm in
-                        self.nodestack.conns]
-                for req in zip(self.getCatchupReqs(p), rids):
-                    self.send(*req)
-                # self.catchUpTill[getattr(p, f.LEDGER_TYPE.nm)] = getattr(
-                #     p, f.SEQ_NO_END.nm)
-                self.catchUpTill[getattr(p, f.LEDGER_TYPE.nm)] = p
-        self.receivedConsistencyProofs = {}
-        if consProofs == [None, None]:
-            self.catchupCompleted()
+    def startCatchUpProcess(self, ledgerType: int, proof: ConsistencyProof):
+        logger.debug("{} started catching up with consistency proof {}".
+                     format(self, proof))
+        self.recvdConsistencyProofs[ledgerType] = {}
+        if proof is not None:
+            if ledgerType == 0:
+                self.mode = Mode.discovering
+            elif ledgerType == 1:
+                self.mode = Mode.syncing
+            else:
+                self.discard(proof, reason="Unknown ledger type {}".
+                             format(ledgerType))
+                return
+            p = ConsistencyProof(*proof)
+            rids = [self.nodestack.getRemote(nm).uid for nm in
+                    self.nodestack.conns]
+            for req in zip(self.getCatchupReqs(p), rids):
+                self.send(*req)
+            self.catchUpTill[getattr(p, f.LEDGER_TYPE.nm)] = p
+        else:
+            self.catchupCompleted(ledgerType)
+
+    def catchupCompleted(self, ledgerType: int):
+        logger.debug("{} completed catching up ledger {}".format(self,
+                                                                 ledgerType))
+        if ledgerType == 0:
+            self.mode = Mode.discovered
+            self.postPoolLedgerCaughtUp()
+        elif ledgerType == 1:
+            loop = asyncio.get_event_loop()
+            runWithLoop(loop, self.postDomainLedgerCaughtUp)
+            # TODO: This should be moved in `postDomainLedgerCaughtUp`
+            self.mode = Mode.participating
+        else:
+            logger.error("{} called catchup completed for ledger {}".
+                         format(self, ledgerType))
+        # TODO: This should be moved under `if ledgerType == 0`
+        self.checkInstances()
+
+    def postPoolLedgerCaughtUp(self):
+        # Node has discovered other nodes now sync up domain ledger
+        for nm in self.nodestack.connecteds:
+            self.sendDomainLedgerStatus(nm)
+        self.processStashedLedgerStatuses()
+
+    async def postDomainLedgerCaughtUp(self):
+        """
+        Process any stashed ordered requests and set the mode to
+        `participating`
+        :return:
+        """
+        logger.debug("{} before processing stashed ordered".format(self))
+        await self.processStashedOrderedReqs()
+        logger.debug("{} after processing stashed ordered".format(self))
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
         nodeCount = len(self.nodestack.conns)
@@ -1170,10 +1321,25 @@ class Node(HasActionQueue, Motor,
                 break
         return reqs
 
-    def isLedgerOld(self, status: LedgerStatus):
+    def _compareLedger(self, status: LedgerStatus):
+        ledgerType = getattr(status, f.LEDGER_TYPE.nm)
         seqNo = getattr(status, f.TXN_SEQ_NO.nm)
         ledger = self.getLedgerForMsg(status)
-        return ledger.seqNo > seqNo
+        logger.debug(
+            "{} comparing its ledger {} of size {} with {}".format(self,
+                                                                   ledgerType,
+                                                                   ledger.seqNo,
+                                                                   seqNo))
+        return ledger.seqNo - seqNo
+
+    def isLedgerOld(self, status: LedgerStatus):
+        return self._compareLedger(status) < 0
+
+    def isLedgerNew(self, status: LedgerStatus):
+        return self._compareLedger(status) > 0
+
+    def isLedgerSame(self, status: LedgerStatus):
+        return self._compareLedger(status) == 0
 
     def getLedgerForMsg(self, msg: Any):
         if self.isPoolLedgerMsg(msg):
@@ -1181,7 +1347,23 @@ class Node(HasActionQueue, Motor,
         elif self.isDomainLedgerMsg(msg):
             return self.primaryStorage
         else:
-            raise ValueError("Invalid ledger msg type")
+            self.discard(msg, reason="Invalid ledger msg type")
+
+    def sendPoolLedgerStatus(self, nodeName):
+        self.sendLedgerStatus(nodeName, 0)
+
+    def sendDomainLedgerStatus(self, nodeName):
+        self.sendLedgerStatus(nodeName, 1)
+
+    def sendLedgerStatus(self, nodeName: str, ledgerType: int):
+        rid = self.nodestack.getRemote(nodeName).uid
+        ledgerStatus = self.poolLedgerStatus if ledgerType == 0 else \
+            self.domainLedgerStatus
+        if ledgerStatus:
+            self.send(ledgerStatus, rid)
+        else:
+            logger.debug("{} not sending ledger {} status to {} as it is null"
+                         .format(self, ledgerType, nodeName))
 
     @staticmethod
     def isPoolLedgerMsg(msg: Any):
@@ -1199,8 +1381,8 @@ class Node(HasActionQueue, Motor,
             # Consistency proof for an empty tree cannot exist. Using the root
             # hash now so that the node which is behind can verify that
             # TODO: Make this an empty list
-            proof = [ledger.tree.root_hash, ]
             oldRoot = ledger.tree.root_hash
+            proof = [oldRoot, ]
         else:
             proof = ledger.tree.consistency_proof(seqNoStart, seqNoEnd)
             oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
@@ -1273,7 +1455,6 @@ class Node(HasActionQueue, Motor,
 
         # # Only propagate if the node is participating in the consensus process
         # # which happens when the node has completed the catchup process
-        # if self.isParticipating:
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
@@ -1344,37 +1525,26 @@ class Node(HasActionQueue, Motor,
                          "which is less than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
         else:
-            # TODO: Record instance changes for views but send instance change
+            # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
-            if not self.instanceChanges.hasView(instChg.viewNo):
-                if self.monitor.isMasterDegraded():
-                    logger.debug("{} found master degraded after receiving instance change message from {}".format(self, frm))
-                    self.instanceChanges.addVote(instChg.viewNo, frm)
-                    self.sendInstanceChange(instChg.viewNo)
-                else:
-                    self.discard(instChg,
-                                 "received instance change message from {} but "
-                                 "did not find the master to be slow".
-                                 format(frm), logger.debug)
-                    return
+            if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
+                self.instanceChanges.addVote(instChg.viewNo, frm)
+            if self.monitor.isMasterDegraded():
+                logger.debug(
+                    "{} found master degraded after receiving instance change "
+                    "message from {}".format(self, frm))
+                self.sendInstanceChange(instChg.viewNo)
             else:
-                if self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                    # A node constantly experiencing degraded performance will
-                    # keep on sending INSTANCE_CHANGE messages.
-                    # self.reportSuspiciousNode(frm,
-                    #                           code=Suspicions.DUPLICATE_INST_CHNG)
-                    pass
-                else:
-                    self.instanceChanges.addVote(instChg.viewNo, frm)
-
-                    if self.canViewChange(instChg.viewNo):
-                        logger.debug("{} initiating a view change with view "
-                                     "no {}".format(self, self.viewNo))
-                        self.startViewChange(instChg.viewNo)
-                    else:
-                        logger.trace("{} cannot initiate a view change".
-                                     format(self))
+                logger.debug(
+                    "{} received instance change message {} but did not "
+                    "find the master to be slow".format(self, instChg))
+            if self.canViewChange(instChg.viewNo):
+                logger.debug("{} initiating a view change with view "
+                             "no {}".format(self, self.viewNo))
+                self.startViewChange(instChg.viewNo)
+            else:
+                logger.trace("{} cannot initiate a view change".format(self))
 
     def checkPerformance(self):
         """
@@ -1391,11 +1561,6 @@ class Node(HasActionQueue, Motor,
 
         if self.instances.masterId is not None:
             if self.monitor.isMasterDegraded():
-                logger.info("{} master has lower performance than backups. "
-                            "Sending an instance change with viewNo {}".
-                            format(self, self.viewNo))
-                logger.info("{} metrics for monitor: {}".
-                            format(self, self.monitor.prettymetrics))
                 self.sendInstanceChange(self.viewNo)
                 return False
             else:
@@ -1409,6 +1574,11 @@ class Node(HasActionQueue, Motor,
 
         :param viewNo: the view number when the instance change is requested
         """
+        logger.info("{} master has lower performance than backups. "
+                    "Sending an instance change with viewNo {}".
+                    format(self, viewNo))
+        logger.info("{} metrics for monitor: {}".
+                    format(self, self.monitor.prettymetrics))
         self.send(InstanceChange(viewNo))
         self.instanceChanges.addVote(viewNo, self.name)
 
@@ -1542,6 +1712,32 @@ class Node(HasActionQueue, Motor,
         result = await self.secondaryStorage.getReply(request.identifier,
                                                       request.reqId)
         return Reply(result) if result else None
+
+    async def processStashedOrderedReqs(self):
+        i = 0
+        while self.stashedOrderedReqs:
+            msg = self.stashedOrderedReqs.pop()
+            if not self.gotInCatchupReplies(msg):
+                await self.processOrdered(msg)
+            i += 1
+        logger.debug("{} processed {} stashed ordered requests".format(self, i))
+        # Resetting monitor after executing all stashed requests so no view
+        # change can be proposed
+        self.monitor.reset()
+        return i
+
+    def processStashedLedgerStatuses(self):
+        i = 0
+        while self.stashedLedgerStatuses:
+            msg, frm = self.stashedLedgerStatuses.pop()
+            i += 1
+            self.processLedgerStatus(msg, frm)
+        logger.debug("{} processed {} stashed ordered requests".format(self, i))
+        return i
+
+    def gotInCatchupReplies(self, msg):
+        key = (getattr(msg, f.IDENTIFIER.nm), getattr(msg, f.REQ_ID.nm))
+        return key in self.reqsFromCatchupReplies
 
     def startKeySharing(self, timeout=60):
         """

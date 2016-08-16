@@ -11,7 +11,7 @@ from plenum.common.util import objSearchReplace
 Entry = NamedTuple('Entry', [('starttime', float),
                              ('endtime', float),
                              ('method', str),
-                             ('params', Tuple),
+                             ('params', Dict),
                              ('result', Any)])
 
 SpyableMethod = Union[str, Callable]

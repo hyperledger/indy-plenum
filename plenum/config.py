@@ -46,9 +46,9 @@ OrientDB = {
     "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
 }
 
-
 DefaultPluginPath = {
-    # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here, if not given, by defaut it will pickup plenum/server/plugin path>",
+    # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
+    #  if not given, by default it will pickup plenum/server/plugin path>",
     PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
 }
 
@@ -69,4 +69,4 @@ LatencyGraphDuration = 240
 STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 50000
 
-RAETLogLevel = "concise"
+RAETLogLevel = "terse"

@@ -56,10 +56,9 @@ def step2(step1, looper):
     newPerfChecks = waitForNextPerfCheck(looper, step1.nodes, lastPerfChecks)
 
     # verify all nodes say that P is performing OK, and that no view changes
-    # have been proposed
+    # have been done
     for n in step1.nodes:
         assert n.viewNo == 0
-        assert newPerfChecks[n.name].result  # True: no view change proposed
 
     # verify Primary is still the same
     assert getPrimaryReplica(step1.nodes) == step1.P

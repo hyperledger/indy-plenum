@@ -1,15 +1,12 @@
 from typing import Iterable
 
-import pytest
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, TestNode, \
     checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 
-
 logger = getlogger()
-
 
 txnCount = 5
 
@@ -24,13 +21,6 @@ def checkNodeDisconnectedFrom(needle: str, haystack: Iterable[TestNode]):
     assert all([needle not in node.nodestack.connecteds for node in haystack])
 
 
-@pytest.fixture("module")
-def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
-    looper, newNode, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=5))
-
-
 def testNewNodeCatchup(newNodeCaughtUp):
     """
     A new node that joins after some transactions should eventually get
@@ -40,6 +30,29 @@ def testNewNodeCatchup(newNodeCaughtUp):
     :return:
     """
     pass
+
+
+def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
+                                                  newNodeCaughtUp):
+    """
+    For new node, this should be the sequence of events:
+     1. Pool ledger starts catching up.
+     2. Pool ledger completes catching up.
+     3. Domain ledger starts catching up
+     4. Domain ledger completes catching up
+    Every node's pool ledger starts catching up before it
+    """
+    newNode = newNodeCaughtUp
+    starts = newNode.spylog.getAll(TestNode.startCatchUpProcess.__name__)
+    completes = newNode.spylog.getAll(TestNode.catchupCompleted.__name__)
+    startTimes = {}
+    completionTimes = {}
+    for start in starts:
+        startTimes[start.params.get('ledgerType')] = start.endtime
+    for comp in completes:
+        completionTimes[comp.params.get('ledgerType')] = comp.endtime
+    assert startTimes[0] < completionTimes[0] < \
+           startTimes[1] < completionTimes[1]
 
 
 # TODO: This test passes but it is observed that PREPAREs are not received at
@@ -57,7 +70,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     """
 
     looper, newNode, _, client = nodeSetWithNodeAddedAfterSomeTxns
-    logger.debug("Stopping node {} with pool ledger size {}".format(newNode.name, newNode.poolManager.txnSeqNo))
+    logger.debug("Stopping node {} with pool ledger size {}".
+                 format(newNode.name, newNode.poolManager.txnSeqNo))
     newNode.stop()
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():

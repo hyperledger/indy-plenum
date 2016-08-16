@@ -1,8 +1,7 @@
 from typing import Iterable
 
 from plenum.common.types import HA
-from plenum.test.helper import TestNode, \
-    TestClient
+from plenum.test.helper import TestNode, TestClient
 
 
 def checkNodeLedgersForEquality(node: TestNode, *otherNodes: Iterable[TestNode]):
@@ -11,7 +10,8 @@ def checkNodeLedgersForEquality(node: TestNode, *otherNodes: Iterable[TestNode])
         assert node.poolManager.poolTxnStore.size == \
                n.poolManager.poolTxnStore.size
         assert node.primaryStorage.root_hash == n.primaryStorage.root_hash
-        assert node.poolManager.poolTxnStore.root_hash == n.poolManager.poolTxnStore.root_hash
+        assert node.poolManager.poolTxnStore.root_hash == \
+               n.poolManager.poolTxnStore.root_hash
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

@@ -6,13 +6,11 @@ from plenum.test.helper import cpDelay, TestClient, genHa, checkNodesConnected, 
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 
-
 logger = getlogger()
-
 
 txnCount = 10
 
-whitelist = ['found legacy entry']  # warnings
+whitelist = ['found legacy entry']  # logged errors to ignore
 
 
 @pytest.mark.skipif(True, reason="Incomplete implementation")

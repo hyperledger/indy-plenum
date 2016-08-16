@@ -14,21 +14,24 @@ def addNewClient(typ, looper, client, name):
     sigseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
     req = client.submitNewClient(typ, name, newSigner.verkey.decode())
+    nodeCount = len(client.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=7))
+                          retryWait=1, timeout=3*nodeCount))
     return newSigner
 
 
-def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None, autoStart=True):
+def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
+               autoStart=True):
     sigseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
     req = client.submitNewNode(newNodeName, newSigner.verkey.decode(),
                                HA(nodeIp, nodePort), HA(clientIp, clientPort))
+    nodeCount = len(client.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=3*nodeCount))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
     node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
@@ -48,8 +51,8 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
-    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf, allPluginsPath,
-                         autoStart=autoStart)
+    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf,
+                         allPluginsPath, autoStart=autoStart)
     return newSteward, newNode
 
 

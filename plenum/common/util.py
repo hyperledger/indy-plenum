@@ -566,3 +566,10 @@ def hexToCryptonym(hex):
     if isinstance(hex, str):
         hex = hex.encode()
     return base64.b64encode(unhexlify(hex)).decode()
+
+
+def runWithLoop(loop, callback, *args, **kwargs):
+    if loop.is_running():
+        loop.call_soon(asyncio.async, callback(*args, **kwargs))
+    else:
+        loop.run_until_complete(callback(*args, **kwargs))

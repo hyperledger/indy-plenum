@@ -251,7 +251,8 @@ class TestNodeCore(StackedTester):
         self.instances = Instances()
 
         pluginPaths = kwargs.get('pluginPaths', [])
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances, pluginPaths=pluginPaths)
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
+                                   pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
 
@@ -364,8 +365,11 @@ class TestNodeCore(StackedTester):
                   Node.propagate,
                   Node.forward,
                   Node.send,
+                  Node.sendInstanceChange,
                   Node.processInstanceChange,
-                  Node.checkPerformance])
+                  Node.checkPerformance,
+                  Node.startCatchUpProcess,
+                  Node.catchupCompleted])
 class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
@@ -1360,8 +1364,11 @@ def getCallableName(callable: Callable):
 
 def checkDiscardMsg(nodeSet, discardedMsg,
                     reasonRegexp, *exclude):
+    if not exclude:
+        exclude = []
     for n in filterNodeSet(nodeSet, exclude):
-        last = n.spylog.getLastParams(Node.discard, required=True)
+        last = n.spylog.getLastParams(Node.discard, required=False)
+        assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
 
@@ -1393,3 +1400,9 @@ TESTMSG = "TESTMSG"
 TestMsg = TaggedTuple(TESTMSG, [
     ("subject", str),
     ("content", str)])
+
+
+def delayNonPrimaries(nodeSet, instId, delay):
+    nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
+    for r in nonPrimReps:
+        r.node.nodeIbStasher.delay(ppDelay(delay, instId))

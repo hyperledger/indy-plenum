@@ -172,6 +172,8 @@ class Replica(MessageProcessor):
         self.stashingWhileCatchingUp = set()       # type: Set[Tuple]
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int):
+        # Replica should only participating in the consensus process and the
+        # replica did not stash any of this request's 3-phase request
         return self.node.isParticipating and (viewNo, ppSeqNo) \
                                              not in self.stashingWhileCatchingUp
 
@@ -286,24 +288,24 @@ class Replica(MessageProcessor):
         Return whether this request's view number is greater than the current
         view number of this replica.
         """
-        # Assumes request has an attribute view no
-        return msg.viewNo > self.viewNo
+        viewNo = getattr(msg, "viewNo", None)
+        return viewNo > self.viewNo
 
     def isMsgForCurrentView(self, msg):
         """
         Return whether this request's view number is equal to the current view
         number of this replica.
         """
-        # Assumes request has an attribute view no
-        return msg.viewNo == self.viewNo
+        viewNo = getattr(msg, "viewNo", None)
+        return viewNo == self.viewNo
 
     def isMsgForPastView(self, msg):
         """
         Return whether this request's view number is less than the current view
         number of this replica.
         """
-        # Assumes request has an attribute view no
-        return msg.viewNo < self.viewNo
+        viewNo = getattr(msg, "viewNo", None)
+        return viewNo < self.viewNo
 
     def isPrimaryForMsg(self, msg) -> Optional[bool]:
         """
@@ -314,10 +316,11 @@ class Replica(MessageProcessor):
 
         :param msg: message
         """
-        # Assumes request has an attribute view no
         if self.isMsgForLaterView(msg):
-            RuntimeError("Cannot get primary status for a request for a later "
-                         "view. Request is {}".format(msg))
+            self.discard(msg,
+                         "Cannot get primary status for a request for a later "
+                         "view {}. Request is {}".format(self.viewNo, msg),
+                         logger.error)
         else:
             return self.isPrimary if self.isMsgForCurrentView(msg) \
                 else self.isPrimaryInView(msg.viewNo)

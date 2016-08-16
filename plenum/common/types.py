@@ -271,6 +271,10 @@ ConsistencyProofs = TaggedTuple(CONSISTENCY_PROOFS, [
     f.DOMAIN_CONS_PROOF
 ])
 
+
+# TODO: Catchup is not a good name, replace it with `sync` or something which
+# is familiar
+
 CatchupReq = TaggedTuple(CATCHUP_REQ, [
     f.LEDGER_TYPE,
     f.SEQ_NO_START,
@@ -325,10 +329,6 @@ NODE_PRIMARY_STORAGE_SUFFIX = "PS"
 NODE_SECONDARY_STORAGE_SUFFIX = "SS"
 NODE_TXN_STORE_SUFFIX = "TS"
 NODE_HASH_STORE_SUFFIX = "HS"
-
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
 
 HS_FILE = "file"
 HS_ORIENT_DB = "orientdb"

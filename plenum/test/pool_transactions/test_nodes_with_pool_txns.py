@@ -20,6 +20,8 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
 
 logger = getlogger()
 
+whitelist = ['found legacy entry']  # logged errors to ignore
+
 
 @pytest.yield_fixture(scope="module")
 def looper():
@@ -56,7 +58,8 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNodeName = "Theta"
     newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
                                                newNodeName, txnPoolCliNodeReg,
-                                               tdirWithPoolTxns, tconf, allPluginsPath)
+                                               tdirWithPoolTxns, tconf,
+                                               allPluginsPath)
     txnPoolNodeSet.append(newNode)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
@@ -133,13 +136,14 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                    newStewardName,
                                                    nodeName,
                                                    txnPoolCliNodeReg,
-                                                   tdirWithPoolTxns, tconf, allPluginsPath)
+                                                   tdirWithPoolTxns, tconf,
+                                                   allPluginsPath)
         txnPoolNodeSet.append(newNode)
         looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                               timeout=5))
         logger.debug("{} connected to the pool".format(newNode))
         looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                              *txnPoolNodeSet[:4], retryWait=1, timeout=5))
+                              *txnPoolNodeSet[:4], retryWait=1, timeout=7))
 
     f = getMaxFailures(len(txnPoolNodeSet))
 

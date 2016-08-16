@@ -1,37 +1,83 @@
+import types
 from functools import partial
 
 import pytest
+from plenum.server.node import Node
 from plenum.test.eventually import eventually
-
-from plenum.test.helper import getNonPrimaryReplicas, ppDelay, \
-    checkViewNoForNodes, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies, getPrimaryReplica, delayNonPrimaries
 
 nodeCount = 7
 
 
+@pytest.fixture()
+def viewNo(nodeSet):
+    viewNos = set()
+    for n in nodeSet:
+        viewNos.add(n.viewNo)
+    assert len(viewNos) == 1
+    return viewNos.pop()
+
+
 # noinspection PyIncorrectDocstring
 @pytest.fixture()
-def viewChangeDone(nodeSet, looper, up, client1):
-    """
-    Test that a view change is done when the performance of master goes down
-    """
-
+def viewChangeDone(nodeSet, looper, up, client1, viewNo):
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
-    nonPrimReps = getNonPrimaryReplicas(nodeSet, 0)
-    for r in nonPrimReps:
-        r.node.nodeIbStasher.delay(ppDelay(10, 0))
+    delayNonPrimaries(nodeSet, 0, 10)
 
     sendReqsToNodesAndVerifySuffReplies(looper, client1, 4)
 
-    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, 1),
+    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo+1),
                           retryWait=1, timeout=20))
 
 
 # noinspection PyIncorrectDocstring
 def testViewChange(viewChangeDone):
     """
+    Test that a view change is done when the performance of master goes down
     Send multiple requests from the client and delay some requests by master
-    instance so that there is a view change
+    instance so that there is a view change. All nodes will agree that master
+    performance degraded
     """
     pass
+
+
+def testViewChangeCase1(nodeSet, looper, up, client1, viewNo):
+    """
+    Node will change view even though it does not find the master to be degraded
+    when a quorum of nodes agree that master performance degraded
+    """
+
+    # Delay processing of PRE-PREPARE from all non primary replicas of master
+    # so master's performance falls and view changes
+    delayNonPrimaries(nodeSet, 0, 10)
+
+    pr = getPrimaryReplica(nodeSet, 0)
+    relucatantNode = pr.node
+
+    # Count sent instance changes of all nodes
+    sentInstChanges = {}
+    instChngMethodName = Node.sendInstanceChange.__name__
+    for n in nodeSet:
+        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
+
+    # Node reluctant to change view, never says master is degraded
+    relucatantNode.monitor.isMasterDegraded = types.MethodType(
+        lambda x: False, relucatantNode.monitor)
+
+    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4)
+
+    # Check that view change happened for all nodes
+    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo + 1),
+                          retryWait=1, timeout=20))
+
+    # All nodes except the reluctant node should have sent a view change and
+    # thus must have called `sendInstanceChange`
+    for n in nodeSet:
+        if n.name != relucatantNode.name:
+            assert n.spylog.count(instChngMethodName) > \
+                   sentInstChanges.get(n.name, 0)
+        else:
+            assert n.spylog.count(instChngMethodName) == \
+                   sentInstChanges.get(n.name, 0)
