@@ -579,7 +579,6 @@ class Node(HasActionQueue, Motor,
                         rid = self.nodestack.getRemote(n).uid
                         self.send(InstanceChange(self.viewNo-1), rid)
 
-
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:
             self.sendPoolLedgerStatus(n)

@@ -198,7 +198,9 @@ class TxnPoolManager(PoolManager):
             return
         verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
         try:
-            # Override any keys found, reason being the scenario where before this node
+            # Override any keys found, reason being the scenario where
+            # before this node comes to know about the other node, the other
+            # node tries to connect to it.
             initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
                            override=True)
         except Exception as ex:
