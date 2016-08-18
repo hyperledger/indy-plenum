@@ -58,7 +58,7 @@ stewardThreshold = 20
 DELTA = 0.8
 LAMBDA = 60
 OMEGA = 5
-SendMonitorStats = False
+SendMonitorStats = True
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
@@ -70,3 +70,4 @@ STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 50000
 
 RAETLogLevel = "terse"
+RAETLogLevelCli = "mute"

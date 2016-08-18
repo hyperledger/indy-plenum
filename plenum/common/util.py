@@ -311,13 +311,15 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
 
     console = getConsole()
     config = getConfig()
-    try:
-        defaultVerbosity = config.__getattribute__("RAETLogLevel")
-        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    except AttributeError:
-        logging.debug("Ignoring RAET log level from config")
-        defaultVerbosity = Console.Wordage.terse
+    # try:
+    #     defaultVerbosity = config.__getattribute__("RAETLogLevel")
+    #     defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
+    # except AttributeError:
+    #     logging.debug("Ignoring RAET log level from config")
+    #     defaultVerbosity = Console.Wordage.terse
 
+    defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
+                                                 Console.Wordage.terse)
     logging.info("Choosing RAET log level {}".format(defaultVerbosity))
     verbosity = raet_log_level \
         if raet_log_level is not None \
@@ -325,6 +327,18 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True
+
+
+def getRAETLogLevelFromConfig(paramName, defaultValue):
+    config = getConfig()
+    try:
+        defaultVerbosity = config.__getattribute__(paramName)
+        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
+    except AttributeError:
+        defaultVerbosity = defaultValue
+        logging.debug("Ignoring RAET log level {} from config and using {} "
+                      "instead".format(paramName, defaultValue))
+    return defaultVerbosity
 
 
 def addTraceToLogging():

@@ -1636,7 +1636,7 @@ class Node(HasActionQueue, Motor,
             req = msg.__getstate__()
 
         identifier = self.clientAuthNr.authenticate(req)
-        logger.display("{} authenticated {} signature on {}request {}".
+        logger.display("{} authenticated {} signature on {} request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 

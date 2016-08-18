@@ -221,7 +221,14 @@ class TxnPoolManager(PoolManager):
         """
         identifier = txn[TARGET_NYM]
         if identifier not in self.node.clientAuthNr.clients:
-            role = STEWARD if txn[TXN_TYPE] == NEW_STEWARD else CLIENT
+            if txn[TXN_TYPE] == NEW_STEWARD:
+                role = STEWARD
+            elif txn[TXN_TYPE] == NEW_CLIENT:
+                role = CLIENT
+            else:
+                logger.error("Unable to get role from transaction type {}"
+                             .format(txn[TXN_TYPE]))
+                return
             verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
             self.node.clientAuthNr.addClient(identifier,
                                              verkey=verkey,
@@ -268,6 +275,7 @@ class TxnPoolManager(PoolManager):
                              format(ex))
             logger.debug(
                 "{} removing remote {}".format(self.node, nodeName))
+            # Removing remote so that the nodestack will attempt to connect
             self.node.nodestack.removeRemoteByName(nodeName)
 
     def getNodeName(self, nym):

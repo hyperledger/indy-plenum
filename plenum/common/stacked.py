@@ -196,25 +196,6 @@ class Stack(RoadStack):
         # Setting timeout to never expire
         self.transmit(msg, rid, timeout=0)
 
-    # TODO: Remove this
-    @classmethod
-    def newStack(cls, stack):
-        """
-        Create a new instance of the given RoadStackClass
-
-        :param stack: a dictionary of Roadstack constructor arguments.
-        :return: the new instance of stack created.
-        """
-        checkPortAvailable(stack['ha'])
-        stk = cls(**stack)
-        if stk.ha[1] != stack['ha'].port:
-            error("the stack port number has changed, likely due to "
-                  "information in the keep")
-        logger.info("stack {} starting at {} in {} mode"
-                    .format(stk.name, stk.ha, stk.keep.auto.name),
-                    extra={"cli": False})
-        return stk
-
 
 class SimpleStack(Stack):
     localips = ['127.0.0.1', '0.0.0.0']
@@ -754,7 +735,9 @@ class Batched(MessageProcessor):
                     # don't need to sign the batch, when the composed msgs are
                     # signed
                     payload = self.prepForSending(batch)
-                    logger.debug("{} sending payload to {}: {}".format(self, dest, payload))
+                    logger.trace("{} sending payload to {}: {}".format(self,
+                                                                       dest,
+                                                                       payload))
                     # Setting timeout to never expire
                     self.transmit(payload, rid, timeout=0)
         for rid in removedRemotes:

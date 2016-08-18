@@ -136,7 +136,9 @@ class Client(Motor):
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
-        self.messagesPendingConnection = deque()
+        # Stores the requests that need to be sent to the nodes when the client
+        # has made sufficient connections to the nodes.
+        self.reqsPendingConnection = deque()
 
         # Temporary node registry. Used to keep locations of unknown validators
         # until location confirmed by consensus. Key is the name of client stack
@@ -231,9 +233,7 @@ class Client(Motor):
             if self.hasSufficientConnections:
                 self.nodestack.send(request, signer=signer)
             else:
-                self.messagesPendingConnection.append((request, signer))
-                logger.debug("Enqueuing request since not enough connections "
-                             "with nodes: {}".format(request))
+                self.pendReqsTillConnection(request, signer)
             requests.append(request)
         return requests
 
@@ -418,14 +418,24 @@ class Client(Motor):
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
 
+    def pendReqsTillConnection(self, request, signer=None):
+        """
+        Enqueue requests that need to be submitted until the client has
+        sufficient connections to nodes
+        :return:
+        """
+        self.reqsPendingConnection.append((request, signer))
+        logger.debug("Enqueuing request since not enough connections "
+                     "with nodes: {}".format(request))
+
     def flushMsgsPendingConnection(self):
-        queueSize = len(self.messagesPendingConnection)
+        queueSize = len(self.reqsPendingConnection)
         if queueSize > 0:
             logger.debug("Flushing pending message queue of size {}"
                          .format(queueSize))
-        while self.messagesPendingConnection:
-            req, signer = self.messagesPendingConnection.popleft()
-            self.nodestack.send(req, signer=signer)
+            while self.reqsPendingConnection:
+                req, signer = self.reqsPendingConnection.popleft()
+                self.nodestack.send(req, signer=signer)
 
     def submitNewClient(self, typ, name: str, verkey: str):
         assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
