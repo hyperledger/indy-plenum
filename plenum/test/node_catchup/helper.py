@@ -6,7 +6,7 @@ from plenum.test.helper import TestNode, TestClient
 
 def checkNodeLedgersForEquality(node: TestNode, *otherNodes: Iterable[TestNode]):
     for n in otherNodes:
-        assert node.primaryStorage.size == n.primaryStorage.size
+        assert node.domainLedger.size == n.domainLedger.size
         assert node.poolLedger.size == n.poolLedger.size
         assert node.domainLedger.root_hash == n.domainLedger.root_hash
         assert node.poolLedger.root_hash == n.poolLedger.root_hash
