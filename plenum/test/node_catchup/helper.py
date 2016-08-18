@@ -7,11 +7,9 @@ from plenum.test.helper import TestNode, TestClient
 def checkNodeLedgersForEquality(node: TestNode, *otherNodes: Iterable[TestNode]):
     for n in otherNodes:
         assert node.primaryStorage.size == n.primaryStorage.size
-        assert node.poolManager.poolTxnStore.size == \
-               n.poolManager.poolTxnStore.size
-        assert node.primaryStorage.root_hash == n.primaryStorage.root_hash
-        assert node.poolManager.poolTxnStore.root_hash == \
-               n.poolManager.poolTxnStore.root_hash
+        assert node.poolLedger.size == n.poolLedger.size
+        assert node.domainLedger.root_hash == n.domainLedger.root_hash
+        assert node.poolLedger.root_hash == n.poolLedger.root_hash
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

@@ -286,8 +286,8 @@ class Node(HasActionQueue, Motor,
 
     @property
     def poolLedger(self):
-        return self.poolManager.poolTxnStore if isinstance(self.poolManager,
-                                                           TxnPoolManager) \
+        return self.poolManager.ledger if isinstance(self.poolManager,
+                                                     TxnPoolManager) \
             else None
 
     @property
@@ -1342,9 +1342,9 @@ class Node(HasActionQueue, Motor,
 
     def getLedgerForMsg(self, msg: Any):
         if self.isPoolLedgerMsg(msg):
-            return self.poolManager.poolTxnStore
+            return self.poolLedger
         elif self.isDomainLedgerMsg(msg):
-            return self.primaryStorage
+            return self.domainLedger
         else:
             self.discard(msg, reason="Invalid ledger msg type")
 

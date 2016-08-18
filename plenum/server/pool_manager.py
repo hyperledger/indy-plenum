@@ -65,30 +65,30 @@ class TxnPoolManager(PoolManager):
         self.config = node.config
         self.basedirpath = node.basedirpath
         self.poolTransactionsFile = self.config.poolTransactionsFile
-        self.poolTxnStore = self.getPoolTxnStore()
+        self._ledger = None
+        # self.ledger = self.getPoolTxnStore()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
 
-    def getPoolTxnStore(self) -> Ledger:
-        """
-        Create and return the pool transaction ledger.
-        """
-        basedirpath = self.basedirpath
-        if not self.node.hasFile(self.poolTransactionsFile):
-            defaultTxnFile = os.path.join(basedirpath,
-                                          self.poolTransactionsFile)
-            if not os.path.isfile(defaultTxnFile):
-                raise FileNotFoundError("Pool transactions file not found")
-            else:
-                shutil.copy(defaultTxnFile, self.node.getDataLocation())
+    @property
+    def ledger(self):
+        if self._ledger is None:
+            basedirpath = self.basedirpath
+            if not self.node.hasFile(self.poolTransactionsFile):
+                defaultTxnFile = os.path.join(basedirpath,
+                                              self.poolTransactionsFile)
+                if not os.path.isfile(defaultTxnFile):
+                    raise FileNotFoundError("Pool transactions file not found")
+                else:
+                    shutil.copy(defaultTxnFile, self.node.getDataLocation())
 
-        dataDir = self.node.getDataLocation()
-        ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
-            dataDir=dataDir)),
-            dataDir=dataDir,
-            fileName=self.poolTransactionsFile)
-        return ledger
+            dataDir = self.node.getDataLocation()
+            self._ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
+                dataDir=dataDir)),
+                dataDir=dataDir,
+                fileName=self.poolTransactionsFile)
+        return self._ledger
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
@@ -97,7 +97,7 @@ class TxnPoolManager(PoolManager):
         nodeReg = OrderedDict()
         cliNodeReg = OrderedDict()
         nodeKeys = {}
-        for _, txn in self.poolTxnStore.getAllTxn().items():
+        for _, txn in self.ledger.getAllTxn().items():
             if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS, CHANGE_HA):
                 nodeName = txn[DATA][ALIAS]
                 nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
@@ -168,7 +168,7 @@ class TxnPoolManager(PoolManager):
         op = req.operation
         self.onPoolMembershipChange(op)
         reply.result.update(op)
-        merkleProof = await self.poolTxnStore.append(
+        merkleProof = await self.ledger.append(
             identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
         reply.result.update(merkleProof)
         self.node.transmitToClient(reply,
@@ -279,7 +279,7 @@ class TxnPoolManager(PoolManager):
             self.node.nodestack.removeRemoteByName(nodeName)
 
     def getNodeName(self, nym):
-        for txn in self.poolTxnStore.getAllTxn().values():
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == nym:
                 return txn[DATA][ALIAS]
         raise Exception("Node with nym {} not found".format(nym))
@@ -299,7 +299,7 @@ class TxnPoolManager(PoolManager):
 
     def authErrorWhileAddingSteward(self, request):
         origin = request.identifier
-        for txn in self.poolTxnStore.getAllTxn().values():
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
                 break
         else:
@@ -313,7 +313,7 @@ class TxnPoolManager(PoolManager):
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
         isSteward = False
-        for txn in self.poolTxnStore.getAllTxn().values():
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
                 isSteward = True
             if txn[TXN_TYPE] == NEW_NODE:
@@ -330,7 +330,7 @@ class TxnPoolManager(PoolManager):
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
         isSteward = False
-        for txn in self.poolTxnStore.getAllTxn().values():
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
                 isSteward = True
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
@@ -348,17 +348,17 @@ class TxnPoolManager(PoolManager):
 
     def countStewards(self) -> int:
         """Count the number of stewards added to the pool transaction store"""
-        allTxns = self.poolTxnStore.getAllTxn().values()
+        allTxns = self.ledger.getAllTxn().values()
         stewards = filter(lambda txn: txn[TXN_TYPE] == NEW_STEWARD, allTxns)
         return sum(1 for _ in stewards)
 
     @property
     def merkleRootHash(self):
-        return self.poolTxnStore.root_hash
+        return self.ledger.root_hash
 
     @property
     def txnSeqNo(self):
-        return self.poolTxnStore.seqNo
+        return self.ledger.seqNo
 
 
 class RegistryPoolManager(PoolManager):
