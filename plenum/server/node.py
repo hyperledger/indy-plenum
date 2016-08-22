@@ -32,6 +32,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
+from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode
@@ -274,19 +275,7 @@ class Node(HasActionQueue, Motor,
 
         self.msgsForFutureReplicas = {}
 
-        self.loadPlugins()
-
-    def loadPlugins(self):
-        pluginsDirPath = os.path.expanduser(os.path.join(self.basedirpath, self.config.PluginsDir))
-        if os.path.exists(pluginsDirPath):
-            for pluginName in self.config.PluginsToLoad:
-                print("********* plugin: {}".format(pluginName))
-                pluginPath = os.path.join(pluginsDirPath, pluginName + ".py")
-                spec = importlib.util.spec_from_file_location(pluginName, pluginPath)
-                plugin = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(plugin)
-
-        print("done")
+        loadPlugins(basedirpath)
 
     def __repr__(self):
         return self.name
