@@ -1,8 +1,10 @@
 import asyncio
 import heapq
+import importlib
 import logging
 import math
 import operator
+import os
 import random
 import time
 from base64 import b64encode
@@ -271,6 +273,20 @@ class Node(HasActionQueue, Motor,
         self.addReplicas()
 
         self.msgsForFutureReplicas = {}
+
+        self.loadPlugins()
+
+    def loadPlugins(self):
+        pluginsDirPath = os.path.expanduser(os.path.join(self.basedirpath, self.config.PluginsDir))
+        if os.path.exists(pluginsDirPath):
+            for pluginName in self.config.PluginsToLoad:
+                print("********* plugin: {}".format(pluginName))
+                pluginPath = os.path.join(pluginsDirPath, pluginName + ".py")
+                spec = importlib.util.spec_from_file_location(pluginName, pluginPath)
+                plugin = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(plugin)
+
+        print("done")
 
     def __repr__(self):
         return self.name

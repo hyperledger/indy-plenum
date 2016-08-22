@@ -70,3 +70,5 @@ STATS_SERVER_IP = '127.0.0.1'
 STATS_SERVER_PORT = 50000
 
 RAETLogLevel = "terse"
+
+PluginsDir = "plugins"
