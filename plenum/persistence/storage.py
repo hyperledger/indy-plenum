@@ -17,7 +17,7 @@ class Storage(ABC):
         pass
 
     @abstractmethod
-    async def append(self, identifier: str, reply: Reply, txnId: str):
+    async def append(self, reply: Reply):
         pass
 
     @abstractmethod

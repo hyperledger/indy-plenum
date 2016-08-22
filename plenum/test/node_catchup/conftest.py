@@ -19,7 +19,7 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
-        client = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
+        client = TestClient(name=name, nodeReg=None, ha=genHa(),
                             signer=stewardSigner, basedirpath=tdirWithPoolTxns)
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())

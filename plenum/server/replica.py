@@ -299,7 +299,7 @@ class Replica(MessageProcessor):
         viewNo = getattr(msg, "viewNo", None)
         return viewNo == self.viewNo
 
-    def isMsgForPastView(self, msg):
+    def isMsgForPrevView(self, msg):
         """
         Return whether this request's view number is less than the current view
         number of this replica.
@@ -333,8 +333,8 @@ class Replica(MessageProcessor):
         :return:
         """
         if self.isMsgForLaterView(msg):
-            RuntimeError("Cannot get primary for a request for a later "
-                         "view. Request is {}".format(msg))
+            logger.error("{} cannot get primary for a request for a later "
+                         "view. Request is {}".format(self, msg))
         else:
             return self.primaryName == sender if self.isMsgForCurrentView(
                 msg) else self.primaryNames[msg.viewNo] == sender
@@ -620,6 +620,7 @@ class Replica(MessageProcessor):
         :param sender: the name of the node that sent the PRE-PREPARE msg
         :return: True if processing is allowed, False otherwise
         """
+        # TODO: Check whether it is rejecting PRE-PREPARE from previous view
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pp, sender):
             raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)

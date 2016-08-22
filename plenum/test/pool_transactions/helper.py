@@ -45,7 +45,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
                          tdir, tconf, allPluginsPath=None, autoStart=True):
     newStewardSigner = addNewClient(NEW_STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
-                            nodeReg=nodeReg, ha=genHa(),
+                            nodeReg=None, ha=genHa(),
                             signer=newStewardSigner,
                             basedirpath=tdir)
 

@@ -15,9 +15,9 @@ class WalletStorageFile(WalletStorage, HasFileStorage):
         HasFileStorage.__init__(self, name="wallet", baseDir=walletDir)
         keysFileName = "keys"
         aliasesFileName = "aliases"
-        self.keyStore = TextFileStore(self.getDataLocation(), keysFileName,
+        self.keyStore = TextFileStore(self.dataLocation, keysFileName,
                                       storeContentHash=False)
-        self.aliasesStore = TextFileStore(self.getDataLocation(),
+        self.aliasesStore = TextFileStore(self.dataLocation,
                                           aliasesFileName,
                                           storeContentHash=False)
 

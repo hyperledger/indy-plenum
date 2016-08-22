@@ -13,7 +13,7 @@ from ledger.ledger import Ledger
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP
+    CLIENT_IP, NODE_PORT
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, TestingHandler, getConfig
 from plenum.test.eventually import eventually, eventuallyAll
@@ -21,7 +21,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, genHa
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -332,7 +332,12 @@ def dirName():
 @pytest.fixture(scope="module")
 def poolTxnData(dirName):
     filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
-    return json.loads(open(filePath).read().strip())
+    data = json.loads(open(filePath).read().strip())
+    for txn in data["txns"]:
+        if txn[TXN_TYPE] == NEW_NODE:
+            txn[DATA][NODE_PORT] = genHa()[1]
+            txn[DATA][CLIENT_PORT] = genHa()[1]
+    return data
 
 
 @pytest.fixture(scope="module")
@@ -364,6 +369,12 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     name = poolTxnStewardNames[0]
     seed = poolTxnData["seeds"][name]
     return name, seed.encode()
+
+
+@pytest.fixture(scope="module")
+def poolTxnClient(tdirWithPoolTxns, txnPoolNodeSet):
+    return genTestClient(txnPoolNodeSet, tmpdir=tdirWithPoolTxns,
+                         usePoolLedger=True)
 
 
 @pytest.yield_fixture(scope="module")

@@ -40,7 +40,7 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
         client = TestClient(name=name,
-                            nodeReg=txnPoolCliNodeReg,
+                            nodeReg=None,
                             ha=genHa(),
                             signer=stewardSigner,
                             basedirpath=tdirWithPoolTxns)

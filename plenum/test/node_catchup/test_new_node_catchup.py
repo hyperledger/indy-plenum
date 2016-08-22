@@ -3,7 +3,7 @@ from typing import Iterable
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, TestNode, \
-    checkNodesConnected
+    checkNodesConnected, TestLedgerManager
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 
 logger = getlogger()
@@ -43,8 +43,10 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
     Every node's pool ledger starts catching up before it
     """
     newNode = newNodeCaughtUp
-    starts = newNode.spylog.getAll(TestNode.startCatchUpProcess.__name__)
-    completes = newNode.spylog.getAll(TestNode.catchupCompleted.__name__)
+    starts = newNode.ledgerManager.spylog.getAll(
+        TestLedgerManager.startCatchUpProcess.__name__)
+    completes = newNode.ledgerManager.spylog.getAll(
+        TestLedgerManager.catchupCompleted.__name__)
     startTimes = {}
     completionTimes = {}
     for start in starts:

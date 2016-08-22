@@ -5,9 +5,8 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST, REQNACK, LEDGER_STATUS, LEDGER_STATUSES, CONSISTENCY_PROOFS, \
-    CONSISTENCY_PROOF, CATCHUP_REQ, CATCHUP_REP, CATCHUP_REQS, CATCHUP_REPS, \
-    CLINODEREG
+    BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
+    CATCHUP_REP, POOL_LEDGER_TXNS
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -55,16 +54,8 @@ class f:  # provides a namespace for reusable field constants
     SEQ_NO_END = Field("seqNoEnd", int)
     HASHES = Field("hashes", List[str])
     TXNS = Field("txns", List[Any])
+    TXN = Field("txn", Any)
     NODES = Field('nodes', Dict[str, HA])
-    # POOL_LEDGER_STATUS = Field("poolLedgerStatus", LedgerStatus)
-    # DOMAIN_LEDGER_STATUS = Field("domainLedgerStatus", LedgerStatus)
-    # CONS_PROOF = Field("consProof", ConsistencyProof)
-    # POOL_CONS_PROOF = Field("poolConsProof", ConsistencyProof)
-    # DOMAIN_CONS_PROOF = Field("domainConsProof", ConsistencyProof)
-    # POOL_CATCHUP_REQ = Field("poolCatchupReq", CatchupReq)
-    # DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", CatchupReq)
-    # POOL_CATCHUP_REP = Field("poolCatchupRep", CatchupRep)
-    # DOMAIN_CATCHUP_REP = Field("domainCatchupRep", CatchupRep)
     POOL_LEDGER_STATUS = Field("poolLedgerStatus", Any)
     DOMAIN_LEDGER_STATUS = Field("domainLedgerStatus", Any)
     CONS_PROOF = Field("consProof", Any)
@@ -198,8 +189,9 @@ RequestNack = TaggedTuple(REQNACK, [
     f.REQ_ID,
     f.REASON])
 
-NodeRegForClient = TaggedTuple(CLINODEREG, [
-    f.NODES])
+PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
+    f.TXN
+])
 
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
@@ -252,11 +244,6 @@ LedgerStatus = TaggedTuple(LEDGER_STATUS, [
     f.TXN_SEQ_NO,
     f.MERKLE_ROOT])
 
-LedgerStatuses = TaggedTuple(LEDGER_STATUSES, [
-    f.POOL_LEDGER_STATUS,
-    f.DOMAIN_LEDGER_STATUS
-])
-
 ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
     f.LEDGER_TYPE,
     f.SEQ_NO_START,
@@ -265,12 +252,6 @@ ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
     f.NEW_MERKLE_ROOT,
     f.HASHES
 ])
-
-ConsistencyProofs = TaggedTuple(CONSISTENCY_PROOFS, [
-    f.POOL_CONS_PROOF,
-    f.DOMAIN_CONS_PROOF
-])
-
 
 # TODO: Catchup is not a good name, replace it with `sync` or something which
 # is familiar
@@ -281,21 +262,12 @@ CatchupReq = TaggedTuple(CATCHUP_REQ, [
     f.SEQ_NO_END,
 ])
 
-CatchupReqs = TaggedTuple(CATCHUP_REQS, [
-    f.POOL_CATCHUP_REQ,
-    f.DOMAIN_CATCHUP_REQ
-])
-
 CatchupRep = TaggedTuple(CATCHUP_REP, [
     f.LEDGER_TYPE,
     f.TXNS,
     f.CONS_PROOF
 ])
 
-CatchupReps = TaggedTuple(CATCHUP_REPS, [
-    f.POOL_CATCHUP_REP,
-    f.DOMAIN_CATCHUP_REP
-])
 
 TaggedTuples = None  # type: Dict[str, class]
 

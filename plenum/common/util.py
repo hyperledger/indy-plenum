@@ -28,7 +28,8 @@ Seconds = TypeVar("Seconds", int, float)
 CONFIG = None
 
 
-def randomString(size: int = 20, chars: str = string.ascii_letters + string.digits) -> str:
+def randomString(size: int = 20,
+                 chars: str = string.ascii_letters + string.digits) -> str:
     """
     Generate a random string of the specified size.
 
@@ -58,7 +59,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(), logMsg: str = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
+                     , logMsg: str = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -310,13 +312,6 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     logging.root.setLevel(log_level)
 
     console = getConsole()
-    config = getConfig()
-    # try:
-    #     defaultVerbosity = config.__getattribute__("RAETLogLevel")
-    #     defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    # except AttributeError:
-    #     logging.debug("Ignoring RAET log level from config")
-    #     defaultVerbosity = Console.Wordage.terse
 
     defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
                                                  Console.Wordage.terse)

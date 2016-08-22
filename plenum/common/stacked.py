@@ -143,6 +143,7 @@ class Stack(RoadStack):
         """
         self.server.close()  # close the UDP socket
 
+    # TODO: Does this serve the same purpose as `conns`, if yes then remove
     @property
     def connecteds(self) -> Set[str]:
         """
@@ -203,6 +204,7 @@ class SimpleStack(Stack):
     def __init__(self, stackParams: Dict, msgHandler: Callable):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
+        self._conns = set()  # type: Set[str]
         # super().__init__(**stackParams, msgHandler=self.msgHandler)
 
     def __repr__(self):
@@ -342,8 +344,6 @@ class KITStack(SimpleStack):
 
         # courteous bi-directional joins
         self.connectNicelyUntil = None
-
-        self._conns = set()  # type: Set[str]
 
         self.reconnectToMissingIn = 6
         self.reconnectToDisconnectedIn = 6
