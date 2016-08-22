@@ -962,7 +962,7 @@ def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
                   signer=None,
-                  testClientClass=TestClient,
+                  testClientClass=None,
                   bootstrapKeys=True) -> TestClient:
     nReg = nodeReg
     if nodeReg:
@@ -981,6 +981,8 @@ def genTestClient(nodes: TestNodeSet = None,
 
     signer = signer if signer else SimpleSigner(identifier)
 
+    if not testClientClass:
+        testClientClass = TestClient
     tc = testClientClass(identifier,
                          nodeReg=nReg,
                          ha=ha,
