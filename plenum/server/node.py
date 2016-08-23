@@ -27,7 +27,8 @@ from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
+    InvalidIdentifier
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
@@ -989,12 +990,11 @@ class Node(HasActionQueue, Motor,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
-        except SuspiciousClient as ex:
+        except Exception as ex:
             msg, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
-            self.reportSuspiciousClient(frm, exc)
-            self.handleInvalidClientMsg(exc, wrappedMsg)
-        except InvalidClientMessageException as ex:
+            if isinstance(ex, SuspiciousClient):
+                self.reportSuspiciousClient(frm, exc)
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
@@ -1039,6 +1039,8 @@ class Node(HasActionQueue, Motor,
             raise InvalidClientRequest from ex
         try:
             self.verifySignature(cMsg)
+        except InvalidIdentifier as ex:
+            raise
         except Exception as ex:
             raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
