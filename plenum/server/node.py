@@ -275,7 +275,8 @@ class Node(HasActionQueue, Motor,
 
         self.msgsForFutureReplicas = {}
 
-        loadPlugins(basedirpath)
+        tp = loadPlugins(self.basedirpath)
+        logger.debug("total plugins loaded in node: {}".format(tp))
 
     def __repr__(self):
         return self.name

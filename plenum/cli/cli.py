@@ -26,6 +26,7 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.client.signer import SimpleSigner
 from plenum.client.wallet import Wallet
+from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
@@ -255,6 +256,10 @@ class Cli:
             self.showNodeRegistry()
         self.print("Type 'help' for more information.")
         self._actions = []
+
+        tp = loadPlugins(self.basedirpath)
+        self.logger.debug("total plugins loaded in cli: {}".format(tp))
+
         # TODO commented out by JAL, DON'T COMMIT
         # uncommented by JN.
         # self.ensureDefaultClientCreated()

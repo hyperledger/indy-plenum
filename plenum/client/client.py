@@ -20,6 +20,7 @@ from ledger.util import F, STH
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
+from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status
@@ -58,6 +59,7 @@ class Client(Motor):
         """
         if not nodeReg:
             nodeReg = config.cliNodeReg
+
         basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
                                          basedirpath)
         self.basedirpath = basedirpath
@@ -144,6 +146,9 @@ class Client(Motor):
         # as key and value as set of names of known validators vetting that
         # location
         self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
+
+        tp = loadPlugins(self.basedirpath)
+        logger.debug("total plugins loaded in client: {}".format(tp))
 
     def setupWallet(self, wallet=None):
         if wallet:
