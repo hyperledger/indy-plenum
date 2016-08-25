@@ -22,6 +22,7 @@ from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.ratchet import Ratchet
 from raet.raeting import AutoMode
 
 from plenum.client.signer import Signer
@@ -197,6 +198,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.perfCheckFreq = 10
 
         self._schedule(self.checkPerformance, self.perfCheckFreq)
+
+        self.initInsChngThrottling()
 
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
@@ -1286,13 +1289,48 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param viewNo: the view number when the instance change is requested
         """
-        logger.info("{} master has lower performance than backups. "
-                    "Sending an instance change with viewNo {}".
-                    format(self, viewNo))
-        logger.info("{} metrics for monitor: {}".
-                    format(self, self.monitor.prettymetrics))
-        self.send(InstanceChange(viewNo))
-        self.instanceChanges.addVote(viewNo, self.name)
+
+        if self.canSendInsChange():
+            logger.info("{} master has lower performance than backups. "
+                        "Sending an instance change with viewNo {}".
+                        format(self, viewNo))
+            logger.info("{} metrics for monitor: {}".
+                        format(self, self.monitor.prettymetrics))
+            self.send(InstanceChange(viewNo))
+            self.instanceChanges.addVote(viewNo, self.name)
+            self.sentInsChngs.append(time.perf_counter())
+        else:
+            logger.debug("{} cannot send instance change as last sent {} ago".
+                         format(self,
+                                time.perf_counter()-self.sentInsChngs[-1]))
+
+    # noinspection PyAttributeOutsideInit
+    def initInsChngThrottling(self):
+        self.sentInsChngs = []
+        self.instChngRatchet = Ratchet(a=2, b=0.05, c=1, base=2,
+                                       peak=self.config.ViewChangeWindowSize)
+
+    def trimSentInsChngs(self):
+        # Remove any entries that are older than `ViewChangeWindowSize`
+        while self.sentInsChngs and \
+                        (time.perf_counter() - self.sentInsChngs[0]) >= \
+                        self.config.ViewChangeWindowSize:
+            self.sentInsChngs = self.sentInsChngs[1:]
+
+    # TODO: This mechanism can be abstracted in a class to perform general
+    # throttling of messages. The class can have methods like canSendMsg,
+    # howMuchWaitBeforeNextSend, etc
+    def canSendInsChange(self):
+        self.trimSentInsChngs()
+        # If not found any sent instance change messages in last
+        # `ViewChangeWindowSize` seconds or the last sent instance change
+        # message was sent long enough ago then instance change message can be
+        # sent otherwise no.
+        if not self.sentInsChngs or (
+                    (time.perf_counter() - self.sentInsChngs[-1]) >
+                    self.instChngRatchet.get(len(self.sentInsChngs))):
+            return True
+        return False
 
     @property
     def quorum(self) -> int:
@@ -1327,6 +1365,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
+        self.initInsChngThrottling()
 
     def verifySignature(self, msg):
         """

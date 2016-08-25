@@ -73,3 +73,5 @@ STATS_SERVER_PORT = 50000
 
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
+
+ViewChangeWindowSize = 60
