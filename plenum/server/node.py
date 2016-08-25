@@ -224,7 +224,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.prepareDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
-        self.addGenesisTxns()
+        self.addGenesisNyms()
         self.ledgerManager = self.getLedgerManager()
 
         if isinstance(self.poolManager, TxnPoolManager):
@@ -1453,7 +1453,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if os.path.isfile(defaultTxnFile):
                 shutil.copy(defaultTxnFile, self.dataLocation)
 
-    def addGenesisTxns(self):
+    def addGenesisNyms(self):
         for _, txn in self.domainLedger.getAllTxn().items():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)

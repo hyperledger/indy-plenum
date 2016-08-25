@@ -181,8 +181,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     async def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
         error = None
-        # if typ == NEW_STEWARD:
-        #     error = self.authErrorWhileAddingSteward(request)
         if typ == NEW_NODE:
             error = self.authErrorWhileAddingNode(request)
         if typ in (CHANGE_HA, CHANGE_KEYS):
