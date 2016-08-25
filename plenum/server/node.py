@@ -46,7 +46,8 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig, getTxnOrderedFields
+    getConfig
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -223,7 +224,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.prepareDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
-        self.addGenesisNyms()
+        self.addGenesisTxns()
         self.ledgerManager = self.getLedgerManager()
 
         if isinstance(self.poolManager, TxnPoolManager):
@@ -1452,7 +1453,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if os.path.isfile(defaultTxnFile):
                 shutil.copy(defaultTxnFile, self.dataLocation)
 
-    def addGenesisNyms(self):
+    def addGenesisTxns(self):
         for _, txn in self.domainLedger.getAllTxn().items():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)

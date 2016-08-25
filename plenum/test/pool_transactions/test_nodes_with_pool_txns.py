@@ -199,4 +199,3 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                           timeout=5))
     looper.run(steward1.ensureConnectedToNodes())
     looper.run(newSteward.ensureConnectedToNodes())
-

@@ -88,9 +88,7 @@ class TestNetworkSetup:
                 TARGET_NYM: stewardNym,
                 TXN_TYPE: NYM,
                 ROLE: STEWARD,
-                DATA: {
-                    ALIAS: stewardName,
-                },
+                ALIAS: stewardName,
                 TXN_ID: sha256(stewardName.encode()).hexdigest()
             }
             if num == 1:
@@ -136,9 +134,7 @@ class TestNetworkSetup:
                 f.IDENTIFIER.nm: steward1Nym,
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
                 TXN_TYPE: NYM,
-                DATA: {
-                    ALIAS: clientName,
-                },
+                ALIAS: clientName,
                 TXN_ID: sha256(clientName.encode()).hexdigest()
             }
             ledger.add(txn)

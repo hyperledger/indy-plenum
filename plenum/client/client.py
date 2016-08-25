@@ -35,7 +35,8 @@ from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym, \
-    MessageProcessor, getTxnOrderedFields, checkIfMoreThanFSameItems
+    MessageProcessor, checkIfMoreThanFSameItems
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -457,9 +458,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             TXN_TYPE: NYM,
             ROLE: role,
             TARGET_NYM: verstr,
-            DATA: {
-                ALIAS: name
-            }
+            ALIAS: name
         })
         return req
 

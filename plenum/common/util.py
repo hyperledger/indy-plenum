@@ -13,7 +13,7 @@ import string
 import sys
 import time
 from binascii import unhexlify
-from collections import Counter, OrderedDict
+from collections import Counter
 from collections import OrderedDict
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -22,9 +22,6 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import libnacl.secret
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
-from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    DATA, ALIAS
-from plenum.common.types import f
 from six import iteritems, string_types
 
 T = TypeVar('T')
@@ -587,19 +584,6 @@ def runWithLoop(loop, callback, *args, **kwargs):
         loop.call_soon(asyncio.async, callback(*args, **kwargs))
     else:
         loop.run_until_complete(callback(*args, **kwargs))
-
-
-def getTxnOrderedFields():
-    return OrderedDict([
-        (f.IDENTIFIER.nm, (str, str)),
-        (f.REQ_ID.nm, (str, int)),
-        (TXN_ID, (str, str)),
-        (TXN_TIME, (str, float)),
-        (TXN_TYPE, (str, str)),
-        (TARGET_NYM, (str, str)),
-        (ROLE, (str, str)),
-        ("{}.{}".format(DATA, ALIAS), (str, str))
-    ])
 
 
 def checkIfMoreThanFSameItems(items, maxF):
