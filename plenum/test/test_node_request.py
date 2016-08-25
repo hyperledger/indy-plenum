@@ -20,8 +20,6 @@ from plenum.test.profiler import profile_this
 whitelist = ['cannot process incoming PREPARE']
 
 
-@pytest.mark.skipif(True, reason="processOrdered is now coroutine, need spylog "
-                                 "to handle coroutines")
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
@@ -38,7 +36,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                         node.processOrdered.__name__)
                     for entry in entries:
                         arg = entry.params['ordered']
-                        result = await entry.result
+                        result = entry.result
                         if arg.instId == node.instances.masterId:
                             assert result
                         else:

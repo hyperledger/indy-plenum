@@ -11,6 +11,9 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 
 
+whitelist = ['found legacy entry']  # warnings
+
+
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,
@@ -36,7 +39,6 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     _, nodeTheta = addNewStewardAndNode(looper, client,
                                                newStewardName,
                                                nodeName,
-                                               txnPoolCliNodeReg,
                                                tdirWithPoolTxns, tconf,
                                                allPluginsPath)
     txnPoolNodeSet.append(nodeTheta)

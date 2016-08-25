@@ -1,8 +1,8 @@
+from plenum.common.txn import STEWARD
 from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import NEW_STEWARD
 from plenum.common.types import HA
 from plenum.common.util import randomString, hexToCryptonym
 from plenum.test.eventually import eventually
@@ -10,10 +10,10 @@ from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient
 
 
-def addNewClient(typ, looper, client, name):
+def addNewClient(role, looper, client, name):
     sigseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
-    req = client.submitNewClient(typ, name, newSigner.verkey.decode())
+    req = client.submitNewClient(role, name, newSigner.verkey.decode())
     nodeCount = len(client.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
@@ -41,9 +41,9 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
     return node
 
 
-def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
-                         tdir, tconf, allPluginsPath=None, autoStart=True):
-    newStewardSigner = addNewClient(NEW_STEWARD, looper, client, stewardName)
+def addNewStewardAndNode(looper, client, stewardName, newNodeName, tdir, tconf,
+                         allPluginsPath=None, autoStart=True):
+    newStewardSigner = addNewClient(STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=None, ha=genHa(),
                             signer=newStewardSigner,
@@ -56,7 +56,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, nodeReg,
     return newSteward, newNode
 
 
-def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
+def changeNodeIp(looper, client, node, nodeHa, clientHa):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
@@ -70,7 +70,7 @@ def changeNodeIp(looper, client, node, nodeHa, clientHa, baseDir, conf):
     node.clientstack.clearRemoteKeeps()
 
 
-def changeNodeKeys(looper, client, node, verkey, baseDir, conf):
+def changeNodeKeys(looper, client, node, verkey):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     req = client.submitNodeKeysChange(node.name, nodeNym, verkey)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,

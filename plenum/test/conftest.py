@@ -9,13 +9,16 @@ import itertools
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
+from ledger.serializers.compact_serializer import CompactSerializer
 
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances, TestingHandler, getConfig
+    CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
+    PLUGIN_TYPE_STATS_CONSUMER, f
+from plenum.common.util import getNoInstances, TestingHandler, getConfig, \
+    getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
@@ -346,7 +349,21 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)
     for item in poolTxnData["txns"]:
-        ledger.add(item)
+        if item.get(TXN_TYPE) in (NEW_NODE, CHANGE_HA, CHANGE_KEYS):
+            ledger.add(item)
+    return tdir
+
+
+@pytest.fixture(scope="module")
+def tdirWithDomainTxns(poolTxnData, tdir, tconf):
+    fields = getTxnOrderedFields()
+    ledger = Ledger(CompactMerkleTree(),
+                    dataDir=tdir,
+                    serializer=CompactSerializer(fields=fields),
+                    fileName=tconf.domainTransactionsFile)
+    for item in poolTxnData["txns"]:
+        if item.get(TXN_TYPE) == NYM:
+            ledger.add(item)
     return tdir
 
 
@@ -372,15 +389,14 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
 
 
 @pytest.fixture(scope="module")
-def poolTxnClient(tdirWithPoolTxns, txnPoolNodeSet):
+def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
     return genTestClient(txnPoolNodeSet, tmpdir=tdirWithPoolTxns,
                          usePoolLedger=True)
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath,
-                   tdirWithNodeKeepInited):
+def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
+                   allPluginsPath, tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:

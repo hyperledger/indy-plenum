@@ -30,7 +30,7 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict, getlogger
+    Seconds, adict, getlogger, checkIfMoreThanFSameItems
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -583,13 +583,18 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     logging.debug("received replies {}".format(receivedReplies))
     logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
-    result = None
-    for reply in receivedReplies:
-        if result is None:
-            result = reply[f.RESULT.nm]
-        else:
-            # all replies should have the same result
-            assert reply[f.RESULT.nm] == result
+    # results = []
+    result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
+                                        receivedReplies], fValue)
+    # for reply in receivedReplies:
+    #     results.append(reply[f.RESULT.nm])
+    #     if result is None:
+    #         result = reply[f.RESULT.nm]
+    #     else:
+    #         # all replies should have the same result
+    #         assert reply[f.RESULT.nm] == result, "received: {}, expected: {}".\
+    #             format(reply[f.RESULT.nm], result)
+    assert result
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
     return result

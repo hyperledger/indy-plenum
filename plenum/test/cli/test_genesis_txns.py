@@ -5,12 +5,12 @@ import re
 @pytest.fixture("module")
 def newStewardsAdded(cli):
     oldGenTxns = len(cli.genesisTransactions)
-    cli.enterCmd("add genesis transaction NEW_STEWARD for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418")
+    cli.enterCmd("add genesis transaction NYM for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role=STEWARD")
     assert len(cli.genesisTransactions) == oldGenTxns + 1
     assert cli.lastCmdOutput == "Genesis transaction added"
     cli.enterCmd(
-        'add genesis transaction NEW_STEWARD for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 '
-        'with data {"alias": "Ty"}')
+        'add genesis transaction NYM for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 '
+        'with data {"alias": "Ty"} role=STEWARD')
     assert len(cli.genesisTransactions) == oldGenTxns + 2
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli

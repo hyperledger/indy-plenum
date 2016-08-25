@@ -13,13 +13,13 @@ from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set, Any, \
     Iterable
 
+from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.exceptions import MissingNodeOp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F, STH
 
 from plenum.client.signer import Signer, SimpleSigner
@@ -29,13 +29,13 @@ from plenum.common.raet import getLocalEstateData
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
-    DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP
+    DATA, ALIAS, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym, \
-    MessageProcessor
+    MessageProcessor, getTxnOrderedFields, checkIfMoreThanFSameItems
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -395,20 +395,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             else:
                 logging.error(
                     "Received a different result from at least one of the nodes..")
-                # Now we need to know the counts of different results and so.
-                jsonResults = [json.dumps(result, sort_keys=True) for result in
-                               resultsList]
-                # counts dictionary for calculating the count of different
-                # results
-                counts = {}
-                for jresult in jsonResults:
-                    counts[jresult] = counts.get(jresult, 0) + 1
-                if counts[max(counts, key=counts.get)] > self.f + 1:
-                    # CONFIRMED, as f + 1 matching results found
-                    return json.loads(max(counts, key=counts.get))
-                else:
-                    # UNCONFIRMED, as f + 1 matching results are not found
-                    return False
+                return checkIfMoreThanFSameItems(resultsList, self.f)
 
     def showReplyDetails(self, reqId: int):
         """
@@ -463,11 +450,12 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
                 req, signer = self.reqsPendingConnection.popleft()
                 self.nodestack.send(req, signer=signer)
 
-    def submitNewClient(self, typ, name: str, verkey: str):
-        assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
+    def submitNewClient(self, role, name: str, verkey: str):
+        assert role in (STEWARD, USER), "Invalid type {}".format(role)
         verstr = hexToCryptonym(verkey)
         req, = self.submit({
-            TXN_TYPE: typ,
+            TXN_TYPE: NYM,
+            ROLE: role,
             TARGET_NYM: verstr,
             DATA: {
                 ALIAS: name
@@ -476,7 +464,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         return req
 
     def submitNewSteward(self, name: str, verkey: str):
-        return self.submitNewClient(NEW_STEWARD, name, verkey)
+        return self.submitNewClient(STEWARD, name, verkey)
 
     def submitNewNode(self, name: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
@@ -545,7 +533,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :return: True
         """
         verifier = MerkleVerifier()
-        serializer = JsonSerializer()
+        fields = getTxnOrderedFields()
+        serializer = CompactSerializer(fields=fields)
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = base64.b64decode(

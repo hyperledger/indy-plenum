@@ -1,12 +1,12 @@
 from copy import copy
 
 import pytest
+from plenum.common.txn import USER
 from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import NEW_CLIENT
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import getlogger, getMaxFailures, \
     randomString
@@ -57,7 +57,7 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Theta"
     newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
-                                               newNodeName, txnPoolCliNodeReg,
+                                               newNodeName,
                                                tdirWithPoolTxns, tconf,
                                                allPluginsPath)
     txnPoolNodeSet.append(newNode)
@@ -84,7 +84,7 @@ def testNodesReceiveClientMsgs(looper, client1, txnPoolNodeSet):
 
 
 def testAddNewClient(looper, txnPoolNodeSet, steward1):
-    newSigner = addNewClient(NEW_CLIENT, looper, steward1, randomString())
+    newSigner = addNewClient(USER, looper, steward1, randomString())
 
     def chk():
         for node in txnPoolNodeSet:
@@ -111,7 +111,7 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNodeName = "Epsilon"
     oldNodeReg = copy(steward1.nodeReg)
     newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
-                                               newNodeName, txnPoolCliNodeReg,
+                                               newNodeName,
                                                tdirWithPoolTxns, tconf,
                                                allPluginsPath)
     txnPoolNodeSet.append(newNode)
@@ -138,15 +138,15 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         newSteward, newNode = addNewStewardAndNode(looper, steward1,
                                                    newStewardName,
                                                    nodeName,
-                                                   txnPoolCliNodeReg,
                                                    tdirWithPoolTxns, tconf,
                                                    allPluginsPath)
         txnPoolNodeSet.append(newNode)
         looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                               timeout=5))
         logger.debug("{} connected to the pool".format(newNode))
+        # TODO: Should be *txnPoolNodeSet[:-1]
         looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                              *txnPoolNodeSet[:4], retryWait=1, timeout=7))
+                              *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
 
     f = getMaxFailures(len(txnPoolNodeSet))
 
@@ -169,8 +169,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNode.stop()
     nodeNewHa, clientNewHa = newHa
     changeNodeIp(looper, newSteward,
-                 newNode, nodeHa=nodeNewHa, clientHa=clientNewHa,
-                 baseDir=tdirWithPoolTxns, conf=tconf)
+                 newNode, nodeHa=nodeNewHa, clientHa=clientNewHa)
     looper.removeProdable(name=newNode.name)
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
@@ -189,7 +188,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     nodeHa, nodeCHa = newHa
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).verkey.decode()
-    changeNodeKeys(looper, newSteward, newNode, verkey, tdirWithPoolTxns, tconf)
+    changeNodeKeys(looper, newSteward, newNode, verkey)
     initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
     initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, sigseed)
     looper.removeProdable(name=newNode.name)

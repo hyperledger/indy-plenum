@@ -1,4 +1,5 @@
 from binascii import hexlify
+from copy import deepcopy
 from typing import Dict, Tuple
 
 from ledger.util import F
@@ -11,8 +12,7 @@ from plenum.common.exceptions import UnsupportedOperation, \
 
 from plenum.common.types import HA, f
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    NEW_STEWARD, ClientBootStrategy, NEW_CLIENT, CLIENT, STEWARD, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
 from plenum.common.util import getlogger
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 
@@ -80,13 +80,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                  ha=None, cliname=None, cliha=None):
         nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
 
-        for seqNo, txn in self.ledger.getAllTxn().items():
-            if txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) \
-                    and self.config.clientBootStrategy == \
-                            ClientBootStrategy.PoolTxn:
-                txn[F.seqNo.name] = seqNo
-                self.addNewRole(txn)
-
         self.addRemoteKeysFromLedger(nodeKeys)
 
         # If node name was not found in the pool transactions file
@@ -126,7 +119,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         op = req.operation
         reply.result.update(op)
         merkleProof = self.node.ledgerManager.appendToLedger(0, reply.result)
-        txn = reply.result
+        txn = deepcopy(reply.result)
         txn[F.seqNo.name] = merkleProof[F.seqNo.name]
         self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
@@ -136,11 +129,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NEW_NODE:
             self.addNewNodeAndConnect(txn)
-            return
-        if txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) and \
-                        self.config.clientBootStrategy == \
-                        ClientBootStrategy.PoolTxn:
-            self.addNewRole(txn)
             return
         if txn[TXN_TYPE] == CHANGE_HA:
             self.nodeHaChanged(txn)
@@ -190,33 +178,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 return txn[DATA][ALIAS]
         raise Exception("Node with nym {} not found".format(nym))
 
-    def addNewRole(self, txn):
-        """
-        Adds a new client or steward to this node based on transaction type.
-        """
-        identifier = txn[TARGET_NYM]
-        if identifier not in self.node.clientAuthNr.clients:
-            if txn[TXN_TYPE] == NEW_STEWARD:
-                role = STEWARD
-            elif txn[TXN_TYPE] == NEW_CLIENT:
-                role = CLIENT
-            else:
-                logger.error("Unable to get role from transaction type {}"
-                             .format(txn[TXN_TYPE]))
-                return
-            verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
-            self.node.clientAuthNr.addClient(identifier,
-                                             verkey=verkey,
-                                             role=role)
-        # TODO: REMOVE ASAP
-        if self.node.isReady():
-            self.node.sendPoolInfoToClients(txn)
-
-    def checkRequestAuthorized(self, request):
+    async def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
         error = None
-        if typ == NEW_STEWARD:
-            error = self.authErrorWhileAddingSteward(request)
+        # if typ == NEW_STEWARD:
+        #     error = self.authErrorWhileAddingSteward(request)
         if typ == NEW_NODE:
             error = self.authErrorWhileAddingNode(request)
         if typ in (CHANGE_HA, CHANGE_KEYS):
@@ -225,25 +191,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def authErrorWhileAddingSteward(self, request):
-        origin = request.identifier
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                break
-        else:
-            return "{} is not a steward so cannot add a new steward". \
-                format(origin)
-        if self.stewardThresholdExceeded():
-            return "New stewards cannot be added by other stewards as "\
-                "there are already {} stewards in the system".format(
-                    self.config.stewardThreshold)
-
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
-        isSteward = False
+        isSteward = self.node.isSteward(origin)
+        if not isSteward:
+            return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                isSteward = True
             if txn[TXN_TYPE] == NEW_NODE:
                 if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
@@ -252,33 +205,18 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     return "transaction data {} has conflicts with " \
                            "request data {}". \
                         format(txn[DATA], request.operation[DATA])
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
-        isSteward = False
+        isSteward = self.node.isSteward(origin)
+        if not isSteward:
+            return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                isSteward = True
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
                     request.operation[TARGET_NYM] and txn[f.IDENTIFIER.nm] == origin:
                 return
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
         return "{} is not a steward of node {}".\
             format(origin, request.data[TARGET_NYM])
-
-    def stewardThresholdExceeded(self) -> bool:
-        """We allow at most `stewardThreshold` number of  stewards to be added
-        by other stewards"""
-        return self.countStewards() > self.config.stewardThreshold
-
-    def countStewards(self) -> int:
-        """Count the number of stewards added to the pool transaction store"""
-        allTxns = self.ledger.getAllTxn().values()
-        stewards = filter(lambda txn: txn[TXN_TYPE] == NEW_STEWARD, allTxns)
-        return sum(1 for _ in stewards)
 
     @property
     def merkleRootHash(self):

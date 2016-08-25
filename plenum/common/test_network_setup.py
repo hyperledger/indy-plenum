@@ -1,18 +1,16 @@
 import argparse
 import os
 from _sha256 import sha256
-from base64 import b64encode
-from binascii import unhexlify
 
-from raet.nacling import Privateer, Signer
+from raet.nacling import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TARGET_NYM, TXN_TYPE, NEW_STEWARD, DATA, ALIAS, \
-    PUBKEY, TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, \
-    NEW_CLIENT
+from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
+    TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, STEWARD, \
+    ROLE
 from plenum.common.types import f
 from plenum.common.util import hexToCryptonym
 
@@ -88,7 +86,8 @@ class TestNetworkSetup:
             stewardNym = TestNetworkSetup.getNymFromVerkey(verkey)
             txn = {
                 TARGET_NYM: stewardNym,
-                TXN_TYPE: NEW_STEWARD,
+                TXN_TYPE: NYM,
+                ROLE: STEWARD,
                 DATA: {
                     ALIAS: stewardName,
                 },
@@ -136,7 +135,7 @@ class TestNetworkSetup:
             txn = {
                 f.IDENTIFIER.nm: steward1Nym,
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
-                TXN_TYPE: NEW_CLIENT,
+                TXN_TYPE: NYM,
                 DATA: {
                     ALIAS: clientName,
                 },

@@ -2,7 +2,7 @@ import pytest
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import TXN_TYPE, NEW_STEWARD, TARGET_NYM, DATA
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, ROLE, STEWARD, NYM
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa
 
@@ -49,7 +49,8 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
         sigseed = b'55555555555555555555555555555555'
         newSigner = SimpleSigner(sigseed)
         client.submit({
-            TXN_TYPE: NEW_STEWARD,
+            TXN_TYPE: NYM,
+            ROLE: STEWARD,
             TARGET_NYM: newSigner.verstr,
             DATA: {
                 "alias": "Robert"

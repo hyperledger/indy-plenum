@@ -38,6 +38,7 @@ class HasPoolManager(TxnStackManager):
         if (seqNo - self.ledger.size) == 1:
             f = getMaxFailures(len(self.nodeReg))
             if len(self.tempNodeTxns[seqNo]) > f:
+                #TODO: Shouldnt this use `checkIfMoreThanFSameItems`
                 txns = [item for item, count in collections.Counter(
                     [json.dumps(t, sort_keys=True) for t in self.tempNodeTxns[seqNo].values()])
                             .items() if count > f]

@@ -1,12 +1,11 @@
 import asyncio
-import heapq
 import logging
-import math
-import operator
+import os
 import random
+import shutil
 import time
-from base64 import b64encode
-from collections import deque, defaultdict, OrderedDict
+from binascii import hexlify
+from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
@@ -21,6 +20,7 @@ from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
+from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import AutoMode
 
@@ -34,7 +34,8 @@ from plenum.common.motor import Motor
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES
+from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, USER, NYM
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -45,7 +46,7 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig, runWithLoop
+    getConfig, getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -219,9 +220,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientIdentifiers = {}     # Dict[str, str]
 
         self.hashStore = self.getHashStore(self.name)
+        self.prepareDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
-
+        self.addGenesisNyms()
         self.ledgerManager = self.getLedgerManager()
 
         if isinstance(self.poolManager, TxnPoolManager):
@@ -310,13 +312,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This is usually an implementation of Ledger
         """
         if self.config.primaryStorage is None:
-            fields = OrderedDict([
-                (f.IDENTIFIER.nm, (str, str)),
-                (f.REQ_ID.nm, (str, int)),
-                (TXN_ID, (str, str)),
-                (TXN_TIME, (str, float)),
-                (TXN_TYPE, (str, str)),
-            ])
+            fields = getTxnOrderedFields()
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.dataLocation,
                           serializer=CompactSerializer(fields=fields),
@@ -590,7 +586,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendPoolInfoToClients(txn)
 
     def sendPoolInfoToClients(self, txn):
-        logger.debug("{} sending new node {} info to all clients".format(self,
+        logger.debug("{} sending new node info {} to all clients".format(self,
                                                                          txn))
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(msg,
@@ -681,8 +677,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.msgsToReplicas.append(deque())
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
-                    format(self, replica, instId, instDesc),
-                    extra={"cli": True, "demo": True})
+                       format(self, replica, instId, instDesc),
+                       extra={"cli": True, "demo": True})
         return replica
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
@@ -1090,6 +1086,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType == 0:
             self.poolManager.onPoolMembershipChange(txn)
+        if ledgerType == 1:
+            if txn.get(TXN_TYPE) == NYM:
+                self.addNewRole(txn)
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
 
@@ -1197,7 +1196,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if key in self.requests:
                 req = self.requests[key].request
                 self.executeRequest(ppTime, req)
-                logger.debug("Node {} executing client request {} {}".
+                logger.debug("Node {} executed client request {} {}".
                              format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
             # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
@@ -1370,7 +1369,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         to match the identifier.
         """
         if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            self.poolManager.checkRequestAuthorized(request)
+            await self.poolManager.checkRequestAuthorized(request)
+        if request.operation.get(TXN_TYPE) == NYM:
+            origin = request.identifier
+            return self.isSteward(origin)
 
     def executeRequest(self, ppTime: float, req: Request) -> None:
         """
@@ -1386,10 +1388,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, req):
         reply = self.generateReply(ppTime, req)
-        # merkleProof = self.primaryStorage.append(reply.result)
+        logger.debug("{} appending to ledger request {}".format(self, req.reqId))
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
+        logger.debug(
+            "{} got merkle proof {} for request {}".format(self, merkleProof,
+                                                           req.reqId))
         reply.result.update(merkleProof)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+        if reply.result.get(TXN_TYPE) == NYM:
+            self.addNewRole(reply.result)
 
     @staticmethod
     def genTxnId(identifier, reqId):
@@ -1406,16 +1413,78 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug("{} replying request {}".format(self, req))
         txnId = self.genTxnId(req.identifier, req.reqId)
-        result = {f.IDENTIFIER.nm: req.identifier,
-                  f.REQ_ID.nm: req.reqId,
-                  TXN_ID: txnId,
-                  TXN_TIME: ppTime,
-                  TXN_TYPE: req.operation.get(TXN_TYPE)}
-
+        result = {
+            f.IDENTIFIER.nm: req.identifier,
+            f.REQ_ID.nm: req.reqId,
+            TXN_ID: txnId,
+            TXN_TIME: ppTime
+        }
+        result.update(req.operation)
         for processor in self.reqProcessors:
             result.update(processor.process(req))
 
         return Reply(result)
+
+    def addNewRole(self, txn):
+        """
+        Adds a new client or steward to this node based on transaction type.
+        """
+        # If the client authenticator is a simple authenticator then add verkey.
+        #  For a custom authenticator, handle appropriately
+        if isinstance(self.clientAuthNr, SimpleAuthNr):
+            identifier = txn[TARGET_NYM]
+            if identifier not in self.clientAuthNr.clients:
+                role = txn.get(ROLE) or USER
+                if role not in (STEWARD, USER):
+                    logger.error("Role {} must be either STEWARD, USER"
+                                 .format(role))
+                    return
+
+                verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
+                self.clientAuthNr.addClient(identifier,
+                                                 verkey=verkey,
+                                                 role=role)
+
+    def prepareDomainLedger(self):
+        if not self.hasFile(self.config.domainTransactionsFile):
+            defaultTxnFile = os.path.join(self.basedirpath,
+                                      self.config.domainTransactionsFile)
+            if os.path.isfile(defaultTxnFile):
+                shutil.copy(defaultTxnFile, self.dataLocation)
+
+    def addGenesisNyms(self):
+        for _, txn in self.domainLedger.getAllTxn().items():
+            if txn.get(TXN_TYPE) == NYM:
+                self.addNewRole(txn)
+
+    def authErrorWhileAddingSteward(self, request):
+        origin = request.identifier
+        if not self.isSteward(origin):
+            return "{} is not a steward so cannot add a new steward". \
+                format(origin)
+        if self.stewardThresholdExceeded():
+            return "New stewards cannot be added by other stewards as "\
+                "there are already {} stewards in the system".format(
+                    self.config.stewardThreshold)
+
+    def stewardThresholdExceeded(self) -> bool:
+        """We allow at most `stewardThreshold` number of  stewards to be added
+        by other stewards"""
+        return self.countStewards() > self.config.stewardThreshold
+
+    def countStewards(self) -> int:
+        """Count the number of stewards added to the pool transaction store"""
+        allTxns = self.domainLedger.getAllTxn().values()
+        stewards = filter(lambda txn: (txn[TXN_TYPE] == NYM) and
+                                      (txn.get(ROLE) == STEWARD), allTxns)
+        return sum(1 for _ in stewards)
+
+    def isSteward(self, nym):
+        for txn in self.domainLedger.getAllTxn().values():
+            if txn[TXN_TYPE] == NYM and txn[TARGET_NYM] == nym and \
+                            txn.get(ROLE) == STEWARD:
+                return True
+        return False
 
     def defaultAuthNr(self):
         return SimpleAuthNr()

@@ -56,22 +56,28 @@ class OrientDbGraphStore(GraphStore):
         return self._createEntity(cmd, **kwargs)
 
     def _createEntity(self, createCmd, **kwargs):
-        attributes = []
         if len(kwargs) > 0:
             createCmd += " set "
-        for key, val in kwargs.items():
-            valPlaceHolder = "{}" if isinstance(val, (int, float)) else "'{}'"
-            attributes.append(("{} = "+valPlaceHolder).format(key, val))
-        createCmd += ", ".join(attributes)
+        createCmd += self.store.getPlaceHolderQueryStringFromDict(kwargs)
         return self.client.command(createCmd)[0]
 
     def getEntityByUniqueAttr(self, entityClassName, attrName, attrValue):
-        result = self.client.command("select from {} where {} = '{}'".
+        query = "select from {} where {} = " + \
+                ("{}" if isinstance(attrValue, (int, float)) else "'{}'")
+        result = self.client.command(query.
                                      format(entityClassName, attrName, attrValue))
         return None if not result else result[0]
 
     def getEntityByAttrs(self, entityClassName, attrs: Dict):
-        attrStr = " and ".join(["{} = '{}'".format(k, v) for k, v in attrs.items()])
+        attrStr = self.store.getPlaceHolderQueryStringFromDict(attrs,
+                                                               joiner=" and ")
         result = self.client.command("select from {} where {}".
                                      format(entityClassName, attrStr))
         return None if not result else result[0]
+
+    def countEntitiesByAttrs(self, entityClassName, attrs: Dict):
+        attrStr = self.store.getPlaceHolderQueryStringFromDict(attrs,
+                                                               joiner=" and ")
+        result = self.client.command("select count(*) from {} where {}".
+                                     format(entityClassName, attrStr))
+        return result[0].oRecordData['count']
