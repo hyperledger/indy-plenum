@@ -9,7 +9,8 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import checkProtocolInstanceSetup, getPrimaryReplica
 
 # noinspection PyUnresolvedReferences
-from plenum.test.view_change.test_view_change import viewChangeDone, viewNo
+from plenum.test.view_change.test_view_change import viewChangeDone
+from plenum.test.view_change.conftest import viewNo
 
 nodeCount = 7
 

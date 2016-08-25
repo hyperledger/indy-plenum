@@ -10,15 +10,6 @@ from plenum.test.helper import checkViewNoForNodes, \
 nodeCount = 7
 
 
-@pytest.fixture()
-def viewNo(nodeSet):
-    viewNos = set()
-    for n in nodeSet:
-        viewNos.add(n.viewNo)
-    assert len(viewNos) == 1
-    return viewNos.pop()
-
-
 # noinspection PyIncorrectDocstring
 @pytest.fixture()
 def viewChangeDone(nodeSet, looper, up, client1, viewNo):

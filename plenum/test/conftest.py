@@ -9,19 +9,22 @@ import itertools
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
+from ledger.serializers.compact_serializer import CompactSerializer
 
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, PLUGIN_TYPE_STATS_CONSUMER
+    CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
+    PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, TestingHandler, getConfig
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, genHa
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -332,7 +335,12 @@ def dirName():
 @pytest.fixture(scope="module")
 def poolTxnData(dirName):
     filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
-    return json.loads(open(filePath).read().strip())
+    data = json.loads(open(filePath).read().strip())
+    for txn in data["txns"]:
+        if txn[TXN_TYPE] == NEW_NODE:
+            txn[DATA][NODE_PORT] = genHa()[1]
+            txn[DATA][CLIENT_PORT] = genHa()[1]
+    return data
 
 
 @pytest.fixture(scope="module")
@@ -341,7 +349,21 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)
     for item in poolTxnData["txns"]:
-        ledger.add(item)
+        if item.get(TXN_TYPE) in (NEW_NODE, CHANGE_HA, CHANGE_KEYS):
+            ledger.add(item)
+    return tdir
+
+
+@pytest.fixture(scope="module")
+def tdirWithDomainTxns(poolTxnData, tdir, tconf):
+    fields = getTxnOrderedFields()
+    ledger = Ledger(CompactMerkleTree(),
+                    dataDir=tdir,
+                    serializer=CompactSerializer(fields=fields),
+                    fileName=tconf.domainTransactionsFile)
+    for item in poolTxnData["txns"]:
+        if item.get(TXN_TYPE) == NYM:
+            ledger.add(item)
     return tdir
 
 
@@ -366,10 +388,15 @@ def poolTxnStewardData(poolTxnStewardNames, poolTxnData):
     return name, seed.encode()
 
 
+@pytest.fixture(scope="module")
+def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
+    return genTestClient(txnPoolNodeSet, tmpdir=tdirWithPoolTxns,
+                         usePoolLedger=True)
+
+
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath,
-                   tdirWithNodeKeepInited):
+def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
+                   allPluginsPath, tdirWithNodeKeepInited):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:

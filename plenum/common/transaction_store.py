@@ -4,7 +4,8 @@ import time
 from typing import Dict
 from typing import Optional
 
-from plenum.common.types import Reply
+from plenum.common.txn import TXN_ID
+from plenum.common.types import Reply, f
 from plenum.persistence.storage import Storage
 
 
@@ -80,12 +81,15 @@ class TransactionStore(Storage):
             self.processedRequests[identifier] = {}
         self.processedRequests[identifier][reply.reqId] = txnId
 
-    async def append(self, identifier: str, reply: Reply, txnId: str = None) \
+    async def append(self, reply: Reply) \
             -> None:
         """
         Add the given Reply to this transaction store's list of responses.
         Also add to processedRequests if not added previously.
         """
+        result = reply.result
+        identifier = result.get(f.IDENTIFIER.nm)
+        txnId = result.get(TXN_ID)
         logging.debug("Reply being sent {}".format(reply))
         if self._isNewTxn(identifier, reply, txnId):
             self.addToProcessedTxns(identifier, txnId, reply)
@@ -93,7 +97,7 @@ class TransactionStore(Storage):
             self.responses[identifier] = asyncio.Queue()
         self.responses[identifier].put(reply)
 
-    async def get(self, identifier, reqId) -> Optional[Reply]:
+    async def get(self, identifier, reqId, **kwargs) -> Optional[Reply]:
         if identifier in self.processedRequests:
             if reqId in self.processedRequests[identifier]:
                 txnId = self.processedRequests[identifier][reqId]

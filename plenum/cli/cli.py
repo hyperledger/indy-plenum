@@ -20,7 +20,6 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
 
-from plenum import config
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
@@ -68,12 +67,15 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
-    randomString, error, cleanSeed
+    randomString, error, cleanSeed, getRAETLogLevelFromConfig
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig
+
+
+config = getConfig()
 
 
 class CustomOutput(Vt100_Output):
@@ -240,11 +242,13 @@ class Cli:
             eventloop=eventloop,
             output=out)
 
+        RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
+                                                     Console.Wordage.mute)
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
         setupLogging(TRACE_LOG_LEVEL,
-                     Console.Wordage.mute,
+                     RAETVerbosity,
                      filename=logFileName)
 
         self.logger = getlogger("cli")
@@ -853,8 +857,6 @@ Commands:
             # TODO signer should not be compulsory in creating client
 
             self.ensureValidClientId(clientName)
-            # TODO: What if the client was already created, need to load its ha
-            # from RAET, this is not relevant in case where we use random client names
             if not isLocalKeepSetup(clientName, self.basedirpath):
                 client_addr = self.nextAvailableClientAddr()
             else:
@@ -1249,7 +1251,6 @@ Commands:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        config = getConfig()
         basePath = os.path.expanduser(config.baseDir)
         dataPath = os.path.join(basePath, "data")
         try:

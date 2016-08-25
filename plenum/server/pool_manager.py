@@ -1,24 +1,18 @@
-import os
-import shutil
 from binascii import hexlify
-from collections import OrderedDict
+from copy import deepcopy
 from typing import Dict, Tuple
 
+from ledger.util import F
 from libnacl.encode import base64_decode
+from plenum.common.stack_manager import TxnStackManager
 from raet.raeting import AutoMode
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
-from ledger.stores.file_hash_store import FileHashStore
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
-from plenum.common.raet import initRemoteKeep
 from plenum.common.types import HA, f
-from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, PUBKEY, \
-    NODE_IP, ALIAS, NODE_PORT, CLIENT_PORT, NEW_STEWARD, ClientBootStrategy, \
-    NEW_CLIENT, TXN_ID, CLIENT, STEWARD, CLIENT_IP, CHANGE_HA, CHANGE_KEYS, \
-    POOL_TXN_TYPES, VERKEY
+from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
 from plenum.common.util import getlogger
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 
@@ -44,7 +38,7 @@ class PoolManager:
 
 
 class HasPoolManager:
-    # noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences, PyTypeChecker
     def __init__(self, nodeRegistry=None, ha=None, cliname=None, cliha=None):
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
@@ -58,105 +52,62 @@ class HasPoolManager:
                                                    cliha)
 
 
-class TxnPoolManager(PoolManager):
+class TxnPoolManager(PoolManager, TxnStackManager):
     def __init__(self, node, ha=None, cliname=None, cliha=None):
         self.node = node
         self.name = node.name
         self.config = node.config
         self.basedirpath = node.basedirpath
-        self.poolTransactionsFile = self.config.poolTransactionsFile
-        self.poolTxnStore = self.getPoolTxnStore()
+        self._ledger = None
+        TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
 
-    def getPoolTxnStore(self) -> Ledger:
-        """
-        Create and return the pool transaction ledger.
-        """
-        basedirpath = self.basedirpath
-        if not self.node.hasFile(self.poolTransactionsFile):
-            defaultTxnFile = os.path.join(basedirpath,
-                                          self.poolTransactionsFile)
-            if not os.path.isfile(defaultTxnFile):
-                raise FileNotFoundError("Pool transactions file not found")
-            else:
-                shutil.copy(defaultTxnFile, self.node.getDataLocation())
+    @property
+    def hasLedger(self):
+        return self.node.hasFile(self.ledgerFile)
 
-        dataDir = self.node.getDataLocation()
-        ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
-            dataDir=dataDir)),
-            dataDir=dataDir,
-            fileName=self.poolTransactionsFile)
-        return ledger
+    @property
+    def ledgerLocation(self):
+        return self.node.dataLocation
+
+    @property
+    def ledgerFile(self):
+        return self.config.poolTransactionsFile
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
-        nstack = None
-        cstack = None
-        nodeReg = OrderedDict()
-        cliNodeReg = OrderedDict()
-        nodeKeys = {}
-        for _, txn in self.poolTxnStore.getAllTxn().items():
-            if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS, CHANGE_HA):
-                nodeName = txn[DATA][ALIAS]
-                nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                    if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                    else None
-                cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                    if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                    else None
-                if nHa:
-                    nodeReg[nodeName] = HA(*nHa)
-                if cHa:
-                    cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
+        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
 
-                if nodeName == name:
-                    if nHa and cHa:
-                        nstack = dict(name=name,
-                                      ha=HA('0.0.0.0', nHa[1]),
-                                      main=True,
-                                      auto=AutoMode.never)
-                        cstack = dict(name=name + CLIENT_STACK_SUFFIX,
-                                      ha=HA('0.0.0.0', cHa[1]),
-                                      main=True,
-                                      auto=AutoMode.always)
-                else:
-                    if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS):
-                        verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
-                        nodeKeys[nodeName] = verkey
-            elif txn[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) \
-                    and self.config.clientBootStrategy == \
-                            ClientBootStrategy.PoolTxn:
-                self.addNewRole(txn)
-
-        for nm, keys in nodeKeys.items():
-            try:
-                initRemoteKeep(name, nm, basedirpath, nodeKeys[nm],
-                               override=True)
-            except Exception as ex:
-                print(ex)
+        self.addRemoteKeysFromLedger(nodeKeys)
 
         # If node name was not found in the pool transactions file
-        if nstack is None or ha is not None:
-            nstack = dict(name=name,
-                          ha=HA('0.0.0.0', ha[1]),
-                          main=True,
-                          auto=AutoMode.never)
-            nodeReg[name] = HA(*ha)
+        if not ha:
+            ha = nodeReg[name]
 
-        if cstack is None or cliha is not None:
-            cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
-                          ha=HA('0.0.0.0', cliha[1]),
-                          main=True,
-                          auto=AutoMode.always)
+        nstack = dict(name=name,
+                      ha=HA('0.0.0.0', ha[1]),
+                      main=True,
+                      auto=AutoMode.never)
+        nodeReg[name] = HA(*ha)
+
+        cliname = cliname or (name + CLIENT_STACK_SUFFIX)
+        if not cliha:
+            cliha = cliNodeReg[cliname]
+        cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
+                      ha=HA('0.0.0.0', cliha[1]),
+                      main=True,
+                      auto=AutoMode.always)
+        cliNodeReg[cliname] = HA(*cliha)
+
         if basedirpath:
             nstack['basedirpath'] = basedirpath
             cstack['basedirpath'] = basedirpath
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    async def executePoolTxnRequest(self, ppTime, req):
+    def executePoolTxnRequest(self, ppTime, req):
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
@@ -164,30 +115,26 @@ class TxnPoolManager(PoolManager):
         :param ppTime: PrePrepare request time
         :param req: request
         """
-        reply = await self.node.generateReply(ppTime, req)
+        reply = self.node.generateReply(ppTime, req)
         op = req.operation
-        self.onPoolMembershipChange(op)
         reply.result.update(op)
-        merkleProof = await self.poolTxnStore.append(
-            identifier=req.identifier, reply=reply, txnId=reply.result[TXN_ID])
+        merkleProof = self.node.ledgerManager.appendToLedger(0, reply.result)
+        txn = deepcopy(reply.result)
+        txn[F.seqNo.name] = merkleProof[F.seqNo.name]
+        self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
         self.node.transmitToClient(reply,
                                    self.node.clientIdentifiers[req.identifier])
 
-    def onPoolMembershipChange(self, op):
-        if op[TXN_TYPE] == NEW_NODE:
-            self.addNewNodeAndConnect(op)
+    def onPoolMembershipChange(self, txn):
+        if txn[TXN_TYPE] == NEW_NODE:
+            self.addNewNodeAndConnect(txn)
             return
-        if op[TXN_TYPE] in (NEW_STEWARD, NEW_CLIENT) and \
-                        self.config.clientBootStrategy == \
-                        ClientBootStrategy.PoolTxn:
-            self.addNewRole(op)
+        if txn[TXN_TYPE] == CHANGE_HA:
+            self.nodeHaChanged(txn)
             return
-        if op[TXN_TYPE] == CHANGE_HA:
-            self.nodeHaChanged(op)
-            return
-        if op[TXN_TYPE] == CHANGE_KEYS:
-            self.nodeKeysChanged(op)
+        if txn[TXN_TYPE] == CHANGE_KEYS:
+            self.nodeKeysChanged(txn)
             return
 
     def addNewNodeAndConnect(self, txn):
@@ -196,36 +143,8 @@ class TxnPoolManager(PoolManager):
             logger.debug("{} not adding itself to node registry".
                          format(self.name))
             return
-        verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
-        try:
-            # Override any keys found, reason being the scenario where
-            # before this node comes to know about the other node, the other
-            # node tries to connect to it.
-            initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
-                           override=True)
-        except Exception as ex:
-            logger.error("Exception while initializing keep for remote {}".
-                         format(ex))
-
-        nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-        cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
-        self.node.nodeReg[nodeName] = HA(*nodeHa)
-        self.node.cliNodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(*cliHa)
-        logger.debug("{} adding new node {} with HA {}".format(self.name,
-                                                               nodeName, nodeHa))
-        self.node.newNodeJoined(nodeName)
-
-    def addNewRole(self, txn):
-        """
-        Adds a new client or steward to this node based on transaction type.
-        """
-        identifier = txn[TARGET_NYM]
-        if identifier not in self.node.clientAuthNr.clients:
-            role = STEWARD if txn[TXN_TYPE] == NEW_STEWARD else CLIENT
-            verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
-            self.node.clientAuthNr.addClient(identifier,
-                                             verkey=verkey,
-                                             role=role)
+        self.addNewRemoteAndConnect(txn, nodeName, self.node)
+        self.node.newNodeJoined(txn)
 
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -238,14 +157,9 @@ class TxnPoolManager(PoolManager):
                          format(self.node.clientstack.name))
             self.node.clientstack.keep.clearLocalData()
         else:
-            logger.debug("{} removing remote {}".format(self.node, nodeName))
-            rid = self.node.nodestack.removeRemoteByName(nodeName)
+            rid = self.stackHaChanged(txn, nodeName, self.node)
             self.node.nodestack.outBoxes.pop(rid, None)
-            nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
-            cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
-            self.node.nodeReg[nodeName] = HA(*nodeHa)
-            self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
-            self.node.sendNodeHaToClients(nodeName)
+            self.node.sendPoolInfoToClients(txn)
 
     def nodeKeysChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -255,32 +169,18 @@ class TxnPoolManager(PoolManager):
                          format(self.name))
             return
         else:
-            logger.debug("{} clearing remote role data in keep of {}".
-                         format(self.node.nodestack.name, nodeName))
-            self.node.nodestack.keep.clearRemoteRoleData(nodeName)
-            verkey = txn[DATA][VERKEY]
-            try:
-                # Override any keys found
-                initRemoteKeep(self.name, nodeName, self.basedirpath, verkey,
-                               override=True)
-            except Exception as ex:
-                logger.error("Exception while initializing keep for remote {}".
-                             format(ex))
-            logger.debug(
-                "{} removing remote {}".format(self.node, nodeName))
-            self.node.nodestack.removeRemoteByName(nodeName)
+            self.stackKeysChanged(txn, nodeName, self.node)
+            self.node.sendPoolInfoToClients(txn)
 
     def getNodeName(self, nym):
-        for txn in self.poolTxnStore.getAllTxn().values():
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == nym:
                 return txn[DATA][ALIAS]
         raise Exception("Node with nym {} not found".format(nym))
 
-    def checkRequestAuthorized(self, request):
+    async def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
         error = None
-        if typ == NEW_STEWARD:
-            error = self.authErrorWhileAddingSteward(request)
         if typ == NEW_NODE:
             error = self.authErrorWhileAddingNode(request)
         if typ in (CHANGE_HA, CHANGE_KEYS):
@@ -289,25 +189,12 @@ class TxnPoolManager(PoolManager):
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
 
-    def authErrorWhileAddingSteward(self, request):
-        origin = request.identifier
-        for txn in self.poolTxnStore.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                break
-        else:
-            return "{} is not a steward so cannot add a new steward". \
-                format(origin)
-        if self.stewardThresholdExceeded():
-            return "New stewards cannot be added by other stewards as "\
-                "there are already {} stewards in the system".format(
-                    self.config.stewardThreshold)
-
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
-        isSteward = False
-        for txn in self.poolTxnStore.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                isSteward = True
+        isSteward = self.node.isSteward(origin)
+        if not isSteward:
+            return "{} is not a steward so cannot add a new node".format(origin)
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_NODE:
                 if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
@@ -316,41 +203,26 @@ class TxnPoolManager(PoolManager):
                     return "transaction data {} has conflicts with " \
                            "request data {}". \
                         format(txn[DATA], request.operation[DATA])
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
-        isSteward = False
-        for txn in self.poolTxnStore.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_STEWARD and txn[TARGET_NYM] == origin:
-                isSteward = True
+        isSteward = self.node.isSteward(origin)
+        if not isSteward:
+            return "{} is not a steward so cannot add a new node".format(origin)
+        for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
                     request.operation[TARGET_NYM] and txn[f.IDENTIFIER.nm] == origin:
                 return
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
         return "{} is not a steward of node {}".\
             format(origin, request.data[TARGET_NYM])
 
-    def stewardThresholdExceeded(self) -> bool:
-        """We allow at most `stewardThreshold` number of  stewards to be added
-        by other stewards"""
-        return self.countStewards() > self.config.stewardThreshold
-
-    def countStewards(self) -> int:
-        """Count the number of stewards added to the pool transaction store"""
-        allTxns = self.poolTxnStore.getAllTxn().values()
-        stewards = filter(lambda txn: txn[TXN_TYPE] == NEW_STEWARD, allTxns)
-        return sum(1 for _ in stewards)
-
     @property
     def merkleRootHash(self):
-        return self.poolTxnStore.root_hash
+        return self.ledger.root_hash
 
     @property
     def txnSeqNo(self):
-        return self.poolTxnStore.seqNo
+        return self.ledger.seqNo
 
 
 class RegistryPoolManager(PoolManager):

@@ -73,6 +73,14 @@ class OrientDbStore:
         ridStr = ",".join(rids)
         return self.client.command("select from [{}]".format(ridStr))
 
+    @staticmethod
+    def getPlaceHolderQueryStringFromDict(args: Dict, joiner=", "):
+        items = []
+        for key, val in args.items():
+            valPlaceHolder = "{}" if isinstance(val, (int, float)) else "'{}'"
+            items.append(("{} = " + valPlaceHolder).format(key, val))
+        return joiner.join(items)
+
 
 def createOrientDbInMemStore(config, name, dbType):
     """

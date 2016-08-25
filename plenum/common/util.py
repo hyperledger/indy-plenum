@@ -3,6 +3,7 @@ import base64
 import importlib.util
 import inspect
 import itertools
+import json
 import logging
 import math
 import os
@@ -28,7 +29,8 @@ Seconds = TypeVar("Seconds", int, float)
 CONFIG = None
 
 
-def randomString(size: int = 20, chars: str = string.ascii_letters + string.digits) -> str:
+def randomString(size: int = 20,
+                 chars: str = string.ascii_letters + string.digits) -> str:
     """
     Generate a random string of the specified size.
 
@@ -58,7 +60,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(), logMsg: str = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
+                     , logMsg: str = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -310,21 +313,29 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     logging.root.setLevel(log_level)
 
     console = getConsole()
-    config = getConfig()
-    try:
-        defaultVerbosity = config.__getattribute__("RAETLogLevel")
-        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    except AttributeError:
-        logging.debug("Ignoring RAET log level from config")
-        defaultVerbosity = Console.Wordage.terse
 
-    logging.info("Choosing RAET log level {}".format(defaultVerbosity))
+    defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
+                                                 Console.Wordage.terse)
+    logging.info("Choosing RAET log level {}".format(defaultVerbosity),
+                 extra={"cli": False})
     verbosity = raet_log_level \
         if raet_log_level is not None \
         else defaultVerbosity
     console.reinit(verbosity=verbosity)
     global loggingConfigured
     loggingConfigured = True
+
+
+def getRAETLogLevelFromConfig(paramName, defaultValue):
+    config = getConfig()
+    try:
+        defaultVerbosity = config.__getattribute__(paramName)
+        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
+    except AttributeError:
+        defaultVerbosity = defaultValue
+        logging.debug("Ignoring RAET log level {} from config and using {} "
+                      "instead".format(paramName, defaultValue))
+    return defaultVerbosity
 
 
 def addTraceToLogging():
@@ -573,3 +584,14 @@ def runWithLoop(loop, callback, *args, **kwargs):
         loop.call_soon(asyncio.async, callback(*args, **kwargs))
     else:
         loop.run_until_complete(callback(*args, **kwargs))
+
+
+def checkIfMoreThanFSameItems(items, maxF):
+    jsonifiedItems = [json.dumps(item, sort_keys=True) for item in items]
+    counts = {}
+    for jItem in jsonifiedItems:
+        counts[jItem] = counts.get(jItem, 0) + 1
+    if counts[max(counts, key=counts.get)] > maxF:
+        return json.loads(max(counts, key=counts.get))
+    else:
+        return False

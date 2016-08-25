@@ -165,15 +165,15 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 
 def getAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction NEW_STEWARD with data {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}}'
+    return 'add genesis transaction NYM with data {"' + name + '": {' \
+                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction NEW_STEWARD for ' + verkey + ' with data ' \
+    return 'add genesis transaction NYM for ' + verkey + ' with data ' \
                                                                  '{"alias": ' \
                                                                  '"' + name +\
-           '"}'
+           '"} role=STEWARD'
 
 
 def generateStewardGenesisTxn(baseDir, displayTxn, name, verkey):
@@ -215,7 +215,7 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
 
 def exportStewardGenTxn(baseDir, displayTxn, name):
     verkey = getLocalVerKey(name, baseDir)
-    txn = 'add genesis transaction NEW_STEWARD with data  {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}}'
+    txn = 'add genesis transaction NYM with data  {"' + name + '": {' \
+                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)

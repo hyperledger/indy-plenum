@@ -4,17 +4,22 @@ Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
 import base64
+import copy
 import json
 import logging
 import os
 import time
-from binascii import unhexlify
 from collections import deque, OrderedDict
-from typing import List, Union, Dict, Optional, Mapping, Tuple, Set
+from typing import List, Union, Dict, Optional, Mapping, Tuple, Set, Any, \
+    Iterable
 
+from ledger.serializers.compact_serializer import CompactSerializer
+from plenum.client.pool_manager import HasPoolManager
+from plenum.common.exceptions import MissingNodeOp
+from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F, STH
 
 from plenum.client.signer import Signer, SimpleSigner
@@ -23,12 +28,16 @@ from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.stacked import NodeStack
-from plenum.common.startable import Status
-from plenum.common.txn import REPLY, CLINODEREG, TXN_TYPE, TARGET_NYM, PUBKEY, \
-    DATA, ALIAS, NEW_STEWARD, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, NEW_CLIENT
-from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA
-from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym
+from plenum.common.startable import Status, LedgerState, Mode
+from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
+    DATA, ALIAS, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
+    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE
+from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
+    LedgerStatus, TaggedTuples
+from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym, \
+    MessageProcessor, checkIfMoreThanFSameItems
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
@@ -36,7 +45,7 @@ logger = getlogger()
 config = getConfig()
 
 
-class Client(Motor):
+class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     def __init__(self,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
@@ -57,11 +66,9 @@ class Client(Motor):
         :param signers: Dict of identifier -> Signer; useful for clients that
             need to support multiple signers
         """
-        if not nodeReg:
-            nodeReg = config.cliNodeReg
-
-        basedirpath = os.path.expanduser(config.baseDir if not basedirpath else
-                                         basedirpath)
+        self.config = config or getConfig()
+        basedirpath = os.path.expanduser(self.config.baseDir
+                                         if not basedirpath else basedirpath)
         self.basedirpath = basedirpath
 
         cha = None
@@ -77,13 +84,27 @@ class Client(Motor):
         self.name = name
         self.lastReqId = lastReqId
 
-        self.minNodesToConnect = getMaxFailures(len(nodeReg)) + 1
+        self.dataDir = self.config.clientDataDir or "data/clients"
+        HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
+                                dataDir=self.dataDir)
 
-        cliNodeReg = OrderedDict()
-        for nm, (ip, port) in nodeReg.items():
-            cliNodeReg[nm] = HA(ip, port)
+        self._ledger = None
 
-        self.nodeReg = cliNodeReg
+        if not nodeReg:
+            self.mode = None
+            HasPoolManager.__init__(self)
+            self.ledgerManager = LedgerManager(self, ownedByNode=False)
+            self.ledgerManager.addLedger(0, self.ledger,
+                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        else:
+            cliNodeReg = OrderedDict()
+            for nm, (ip, port) in nodeReg.items():
+                cliNodeReg[nm] = HA(ip, port)
+            self.nodeReg = cliNodeReg
+            self.mode = Mode.discovered
+
+        self.setF()
 
         stackargs = dict(name=name,
                          ha=cha,
@@ -103,10 +124,10 @@ class Client(Motor):
                     .format(name))
         lengths = [max(x) for x in zip(*[
             (len(name), len(host), len(str(port)))
-            for name, (host, port) in nodeReg.items()])]
+            for name, (host, port) in self.nodeReg.items()])]
         fmt = "    {{:<{}}} listens at {{:<{}}} on port {{:>{}}}".format(
             *lengths)
-        for name, (host, port) in nodeReg.items():
+        for name, (host, port) in self.nodeReg.items():
             logger.info(fmt.format(name, host, port))
 
         Motor.__init__(self)
@@ -138,17 +159,31 @@ class Client(Motor):
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
-        self.messagesPendingConnection = deque()
+        # Stores the requests that need to be sent to the nodes when the client
+        # has made sufficient connections to the nodes.
+        self.reqsPendingConnection = deque()
 
-        # Temporary node registry. Used to keep locations of unknown validators
-        # until location confirmed by consensus. Key is the name of client stack
-        # of unknown validator and value is a dictionary with location, i.e HA
-        # as key and value as set of names of known validators vetting that
-        # location
-        self.tempNodeReg = {}  # type: Dict[str, Dict[tuple, Set[str]]]
-
-        tp = loadPlugins(self.basedirpath)
+	tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
+
+    def __repr__(self):
+        return self.name
+
+    def postPoolLedgerCaughtUp(self):
+        self.mode = Mode.discovered
+
+    def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
+        if ledgerType != 0:
+            logger.error("{} got unknown ledger type {}".format(self, ledgerType))
+            return
+        self.processPoolTxn(txn)
+
+    # noinspection PyAttributeOutsideInit
+    def setF(self):
+        nodeCount = len(self.nodeReg)
+        self.f = getMaxFailures(nodeCount)
+        self.minNodesToConnect = self.f + 1
+        self.totalNodes = nodeCount
 
     def setupWallet(self, wallet=None):
         if wallet:
@@ -190,6 +225,9 @@ class Client(Motor):
         else:
             self.nodestack.start()
             self.nodestack.maintainConnections()
+            if self._ledger:
+                self.ledgerManager.setLedgerCanSync(0, True)
+                self.mode = Mode.starting
 
     async def prod(self, limit) -> int:
         """
@@ -233,12 +271,10 @@ class Client(Motor):
         for op in operations:
             request = self.createRequest(op, identifier)
             signer = self.getSigner(identifier)
-            if self.hasSufficientConnections:
+            if self.mode == Mode.discovered and self.hasSufficientConnections:
                 self.nodestack.send(request, signer=signer)
             else:
-                self.messagesPendingConnection.append((request, signer))
-                logger.debug("Enqueuing request since not enough connections "
-                             "with nodes: {}".format(request))
+                self.pendReqsTillConnection(request, signer)
             requests.append(request)
         return requests
 
@@ -274,44 +310,29 @@ class Client(Motor):
         """
         self.inBox.append(wrappedMsg)
         msg, frm = wrappedMsg
-        # Do not print result of transaction type `CLINODEREG` on the CLI
-        printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) != CLINODEREG
+        # Do not print result of transaction type `POOL_LEDGER_TXNS` on the CLI
+        typs = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP)
+        printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not in typs
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": printOnCli})
-        if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == CLINODEREG:
-            cliNodeReg = msg[f.NODES.nm]
-            for name, ha in cliNodeReg.items():
-                self.newValidatorDiscovered(name, tuple(ha), frm)
-
-    def newValidatorDiscovered(self, stackName: str, stackHA: Tuple[str, int],
-                               frm: str):
-        if stackName in self.nodeReg and \
-                        stackHA == tuple(self.nodeReg[stackName]):
-            # TODO: What if a malicious validator is trying to communicate an
-            # incorrect ha to a client? Probably blacklist it.
-            logger.debug("{} already present in nodeReg".format(stackName))
-            return
-        else:
-            if stackName not in self.tempNodeReg:
-                self.tempNodeReg[stackName] = {}
-            if stackHA not in self.tempNodeReg[stackName]:
-                self.tempNodeReg[stackName][stackHA] = set()
-            self.tempNodeReg[stackName][stackHA].add(frm)
-            f = getMaxFailures(len(self.nodeReg))
-
-            if len(self.tempNodeReg[stackName][stackHA]) > f:
-                if stackName not in self.nodeReg:
-                    self.newNodeFound(stackName, stackHA)
-                else:
-                    self.nodestack.keep.clearRemoteData(stackName)
-                    rid = self.nodestack.removeRemoteByName(stackName)
-                    self.nodestack.outBoxes.pop(rid, None)
-                    self.nodeReg[stackName] = HA(*stackHA)
-
-    def newNodeFound(self, name: str, ha: Tuple[str, int]):
-        self.nodeReg[name] = HA(*ha)
-        del self.tempNodeReg[name]
+        if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] in typs and self._ledger:
+            op = msg.get(OP_FIELD_NAME, None)
+            if not op:
+                raise MissingNodeOp
+            # TODO: Refactor this copying
+            cls = TaggedTuples.get(op, None)
+            t = copy.deepcopy(msg)
+            t.pop(OP_FIELD_NAME, None)
+            cMsg = cls(**t)
+            if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
+                self.poolTxnReceived(cMsg, frm)
+            if msg[OP_FIELD_NAME] == LEDGER_STATUS:
+                self.ledgerManager.processLedgerStatus(cMsg, frm)
+            if msg[OP_FIELD_NAME] == CONSISTENCY_PROOF:
+                self.ledgerManager.processConsistencyProof(cMsg, frm)
+            if msg[OP_FIELD_NAME] == CATCHUP_REP:
+                self.ledgerManager.processCatchupRep(cMsg, frm)
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -321,6 +342,9 @@ class Client(Motor):
         self.nodestack.nextCheck = 0
         if self.nodestack.opened:
             self.nodestack.close()
+        if self._ledger:
+            self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
+            self.mode = None
 
     def getReply(self, reqId: int) -> Optional[Reply]:
         """
@@ -363,11 +387,10 @@ class Client(Motor):
         if not replies:
             raise KeyError(reqId)  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
-        f = getMaxFailures(len(self.nodeReg))
-        if f + 1 > len(replies):
+        if self.f + 1 > len(replies):
             return False  # UNCONFIRMED
         else:
-            onlyResults = {frm: reply['result'] for frm, reply in
+            onlyResults = {frm: reply["result"] for frm, reply in
                            replies.items()}
             resultsList = list(onlyResults.values())
             # if all the elements in the resultList are equal - consensus
@@ -377,20 +400,7 @@ class Client(Motor):
             else:
                 logging.error(
                     "Received a different result from at least one of the nodes..")
-                # Now we need to know the counts of different results and so.
-                jsonResults = [json.dumps(result, sort_keys=True) for result in
-                               resultsList]
-                # counts dictionary for calculating the count of different
-                # results
-                counts = {}
-                for jresult in jsonResults:
-                    counts[jresult] = counts.get(jresult, 0) + 1
-                if counts[max(counts, key=counts.get)] > f + 1:
-                    # CONFIRMED, as f + 1 matching results found
-                    return json.loads(max(counts, key=counts.get))
-                else:
-                    # UNCONFIRMED, as f + 1 matching results are not found
-                    return False
+                return checkIfMoreThanFSameItems(resultsList, self.f)
 
     def showReplyDetails(self, reqId: int):
         """
@@ -406,7 +416,7 @@ class Client(Motor):
         else:
             print("No replies received from Nodes!")
 
-    def onConnsChanged(self, newConns: Set[str], lostConns: Set[str]):
+    def onConnsChanged(self, joined: Set[str], left: Set[str]):
         """
         Modify the current status of the client based on the status of the
         connections changed.
@@ -416,36 +426,48 @@ class Client(Motor):
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
-            if self.hasSufficientConnections:
+            if self.hasSufficientConnections and self.mode == Mode.discovered:
                 self.flushMsgsPendingConnection()
+        if self._ledger:
+            for n in joined:
+                self.sendLedgerStatus(n)
 
     @property
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
 
+    def pendReqsTillConnection(self, request, signer=None):
+        """
+        Enqueue requests that need to be submitted until the client has
+        sufficient connections to nodes
+        :return:
+        """
+        self.reqsPendingConnection.append((request, signer))
+        logger.debug("Enqueuing request since not enough connections "
+                     "with nodes: {}".format(request))
+
     def flushMsgsPendingConnection(self):
-        queueSize = len(self.messagesPendingConnection)
+        queueSize = len(self.reqsPendingConnection)
         if queueSize > 0:
             logger.debug("Flushing pending message queue of size {}"
                          .format(queueSize))
-        while self.messagesPendingConnection:
-            req, signer = self.messagesPendingConnection.popleft()
-            self.nodestack.send(req, signer=signer)
+            while self.reqsPendingConnection:
+                req, signer = self.reqsPendingConnection.popleft()
+                self.nodestack.send(req, signer=signer)
 
-    def submitNewClient(self, typ, name: str, verkey: str):
-        assert typ in (NEW_STEWARD, NEW_CLIENT), "Invalid type {}".format(typ)
+    def submitNewClient(self, role, name: str, verkey: str):
+        assert role in (STEWARD, USER), "Invalid type {}".format(role)
         verstr = hexToCryptonym(verkey)
         req, = self.submit({
-            TXN_TYPE: typ,
+            TXN_TYPE: NYM,
+            ROLE: role,
             TARGET_NYM: verstr,
-            DATA: {
-                ALIAS: name
-            }
+            ALIAS: name
         })
         return req
 
     def submitNewSteward(self, name: str, verkey: str):
-        return self.submitNewClient(NEW_STEWARD, name, verkey)
+        return self.submitNewClient(STEWARD, name, verkey)
 
     def submitNewNode(self, name: str, verkey: str,
                       nodeStackHa: HA, clientStackHa: HA):
@@ -492,6 +514,15 @@ class Client(Motor):
         })
         return req
 
+    def sendLedgerStatus(self, nodeName: str):
+        ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
+        rid = self.nodestack.getRemote(nodeName).uid
+        signer = self.getSigner(self.defaultIdentifier)
+        self.nodestack.send(ledgerStatus, rid)
+
+    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
+        self.nodestack.send(msg, *rids, signer=signer)
+
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:
         """
@@ -505,7 +536,8 @@ class Client(Motor):
         :return: True
         """
         verifier = MerkleVerifier()
-        serializer = JsonSerializer()
+        fields = getTxnOrderedFields()
+        serializer = CompactSerializer(fields=fields)
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = base64.b64decode(

@@ -33,11 +33,11 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     stewardZName = "testClientStewardZ"
     nodeZName = "Theta"
     stewardX, nodeX = addNewStewardAndNode(looper, client, stewardXName,
-                                               nodeXName, txnPoolCliNodeReg,
+                                               nodeXName,
                                                tdirWithPoolTxns, tconf,
                                                allPluginsPath, autoStart=False)
     stewardY, nodeY = addNewStewardAndNode(looper, client, stewardYName,
-                                           nodeYName, txnPoolCliNodeReg,
+                                           nodeYName,
                                            tdirWithPoolTxns, tconf,
                                            allPluginsPath, autoStart=False)
     nodeX.nodeIbStasher.delay(cpDelay(45))

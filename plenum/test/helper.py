@@ -16,6 +16,7 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence, Iterator
 from typing import Union, Callable
 
+from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
@@ -24,14 +25,12 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, CATCHUP_REQ, \
-    CONSISTENCY_PROOFS
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, ConsistencyProofs, \
-    LedgerStatuses
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict, getlogger
+    Seconds, adict, getlogger, checkIfMoreThanFSameItems
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -185,6 +184,13 @@ class TestClient(Client, StackedTester):
                   Monitor.isMasterReqLatencyTooHigh,
                   Monitor.sendThroughput])
 class TestMonitor(Monitor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+@Spyable(methods=[LedgerManager.startCatchUpProcess,
+                  LedgerManager.catchupCompleted])
+class TestLedgerManager(LedgerManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -367,9 +373,8 @@ class TestNodeCore(StackedTester):
                   Node.send,
                   Node.sendInstanceChange,
                   Node.processInstanceChange,
-                  Node.checkPerformance,
-                  Node.startCatchUpProcess,
-                  Node.catchupCompleted])
+                  Node.checkPerformance
+                  ])
 class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
@@ -391,6 +396,9 @@ class TestNode(TestNodeCore, Node):
     @property
     def clientStackClass(self) -> ClientStack:
         return getTestableStack(ClientStack)
+
+    def getLedgerManager(self):
+        return TestLedgerManager(self, ownedByNode=True)
 
 
 def getTestableStack(stack: Stack):
@@ -575,13 +583,18 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     logging.debug("received replies {}".format(receivedReplies))
     logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
-    result = None
-    for reply in receivedReplies:
-        if result is None:
-            result = reply[f.RESULT.nm]
-        else:
-            # all replies should have the same result
-            assert reply[f.RESULT.nm] == result
+    # results = []
+    result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
+                                        receivedReplies], fValue)
+    # for reply in receivedReplies:
+    #     results.append(reply[f.RESULT.nm])
+    #     if result is None:
+    #         result = reply[f.RESULT.nm]
+    #     else:
+    #         # all replies should have the same result
+    #         assert reply[f.RESULT.nm] == result, "received: {}, expected: {}".\
+    #             format(reply[f.RESULT.nm], result)
+    assert result
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
     return result
@@ -962,27 +975,29 @@ def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
                   signer=None,
-                  testClientClass=None,
-                  bootstrapKeys=True) -> TestClient:
-    nReg = nodeReg
-    if nodeReg:
-        assert isinstance(nodeReg, dict)
-    elif hasattr(nodes, "nodeReg"):
-        nReg = nodes.nodeReg.extractCliNodeReg()
+                  testClientClass=TestClient,
+                  bootstrapKeys=True,
+                  usePoolLedger=False) -> TestClient:
+    if not usePoolLedger:
+        nReg = nodeReg
+        if nodeReg:
+            assert isinstance(nodeReg, dict)
+        elif hasattr(nodes, "nodeReg"):
+            nReg = nodes.nodeReg.extractCliNodeReg()
+        else:
+            error("need access to nodeReg")
+        for k, v in nReg.items():
+            assert type(k) == str
+            assert (type(v) == HA or type(v[0]) == HA)
     else:
-        error("need access to nodeReg")
-
-    for k, v in nReg.items():
-        assert type(k) == str
-        assert (type(v) == HA or type(v[0]) == HA)
+        logger.debug("TestClient using pool ledger")
+        nReg = None
 
     ha = genHa()
     identifier = "testClient{}".format(ha.port)
 
     signer = signer if signer else SimpleSigner(identifier)
 
-    if not testClientClass:
-        testClientClass = TestClient
     tc = testClientClass(identifier,
                          nodeReg=nReg,
                          ha=ha,
@@ -1312,12 +1327,12 @@ def icDelay(delay: float):
 
 # Delayer of LEDGER_STATUSES requests
 def lsDelay(delay: float):
-    return delayerMsgTuple(delay, LedgerStatuses)
+    return delayerMsgTuple(delay, LedgerStatus)
 
 
 # Delayer of CONSISTENCY_PROOFS requests
 def cpDelay(delay: float):
-    return delayerMsgTuple(delay, ConsistencyProofs)
+    return delayerMsgTuple(delay, ConsistencyProof)
 
 
 def delay(what, frm, to, howlong):

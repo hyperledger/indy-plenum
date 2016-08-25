@@ -1,7 +1,6 @@
 import pytest
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import NEW_STEWARD
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
 from plenum.test.eventually import eventually
@@ -19,7 +18,7 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
-        client = TestClient(name=name, nodeReg=txnPoolCliNodeReg, ha=genHa(),
+        client = TestClient(name=name, nodeReg=None, ha=genHa(),
                             signer=stewardSigner, basedirpath=tdirWithPoolTxns)
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
@@ -32,7 +31,6 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
         newStewardClient, newNode = addNewStewardAndNode(looper, client,
                                                          newStewardName,
                                                          newNodeName,
-                                                         txnPoolCliNodeReg,
                                                          tdirWithPoolTxns,
                                                          tconf,
                                                          allPluginsPath=allPluginsPath,
