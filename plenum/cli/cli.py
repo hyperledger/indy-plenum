@@ -12,7 +12,7 @@ from jsonpickle import json
 
 
 # Do not remove this import
-import plenum.cli.ensure_logging_not_setup
+# import plenum.cli.ensure_logging_not_setup
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
