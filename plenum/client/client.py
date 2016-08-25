@@ -163,7 +163,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         # has made sufficient connections to the nodes.
         self.reqsPendingConnection = deque()
 
-	tp = loadPlugins(self.basedirpath)
+        tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
 
     def __repr__(self):
