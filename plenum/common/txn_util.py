@@ -25,6 +25,10 @@ def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering):
     ledger = Ledger(CompactMerkleTree(), dataDir=targetDir,
                     serializer=CompactSerializer(fields=fieldOrdering),
                     fileName=fileName)
+
+    # Truncate file if present
+    ledger.reset()
+
     reqIds = {}
     for txn in genesisTxns:
         identifier = txn.get(f.IDENTIFIER.nm, "")
