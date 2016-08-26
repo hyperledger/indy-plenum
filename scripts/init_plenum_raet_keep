@@ -26,7 +26,7 @@ if __name__ == "__main__":
         description="Generate keys for a node's stacks "
                     "by taking the node's name and a seed")
 
-    parser.add_argument('--type', required=True, help='steward or node')
+    parser.add_argument('--type', required=False, help='steward or node')
     parser.add_argument('--stewardverkey', required=False, help="in case of "
                                                                 "node, requires "
                                                                 "steward's verkey")
@@ -58,10 +58,12 @@ if __name__ == "__main__":
         print(ex)
         exit()
 
+    typ = args.type or "node"
+
     # Print genesis transaction commands
     try:
         if args.print_gen_txn:
-            printGenesisTrans(args.type, args.name, verkey,
+            printGenesisTrans(type, args.name, verkey,
                               args.stewardverkey, args.nodeip, args.nodeport)
     except Exception as ex:
         print(ex)
