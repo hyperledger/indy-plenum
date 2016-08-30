@@ -10,6 +10,10 @@ import shutil
 
 from jsonpickle import json
 
+
+# Do not remove this import
+# import plenum.cli.ensure_logging_not_setup
+
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -105,6 +109,7 @@ class Cli:
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
         self.curClientPort = None
+        logging.root.handlers = []
         logging.root.addHandler(CliHandler(self.out))
         # self.cleanUp()
         self.looper = looper
