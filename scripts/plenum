@@ -13,6 +13,9 @@ or supply a command to be executed first
 $ scripts/plenum "new nodes all"
 
 """
+# Do not remove this import
+import plenum.cli.ensure_logging_not_setup
+
 # NOTE: Loading of plugin should happen as early as possible
 # So put all other required imports after loadPlugins function call below
 from plenum.common.util import getConfig

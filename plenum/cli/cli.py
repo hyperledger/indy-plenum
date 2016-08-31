@@ -7,12 +7,7 @@ from hashlib import sha256
 from binascii import unhexlify
 from typing import Set, Dict
 import shutil
-import logging
 from jsonpickle import json
-
-
-# Do not remove this import
-# import plenum.cli.ensure_logging_not_setup
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
