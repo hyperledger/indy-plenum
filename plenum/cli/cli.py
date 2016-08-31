@@ -7,7 +7,7 @@ from hashlib import sha256
 from binascii import unhexlify
 from typing import Set, Dict
 import shutil
-
+import logging
 from jsonpickle import json
 
 
@@ -75,9 +75,6 @@ from plenum.server.replica import Replica
 from plenum.common.util import getConfig
 
 
-config = getConfig()
-
-
 class CustomOutput(Vt100_Output):
     """
     Subclassing Vt100 just to override the `ask_for_cpr` method which prints
@@ -109,21 +106,23 @@ class Cli:
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
         self.curClientPort = None
+        logging.root.handlers = []
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
+        self.config = getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
-            dataDir = os.path.expanduser(config.baseDir)
+            dataDir = os.path.expanduser(self.config.baseDir)
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
-                fileName=config.poolTransactionsFile)
+                fileName=self.config.poolTransactionsFile)
             for _, txn in ledger.getAllTxn().items():
                 if txn[TXN_TYPE] == NEW_NODE:
                     nodeName = txn[DATA][ALIAS]
@@ -361,7 +360,7 @@ class Cli:
         if matchedVars.get('create_gen_txn_file'):
             ledger = Ledger(CompactMerkleTree(),
                             dataDir=self.basedirpath,
-                            fileName=config.poolTransactionsFile)
+                            fileName=self.config.poolTransactionsFile)
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
@@ -1250,17 +1249,17 @@ Commands:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        basePath = os.path.expanduser(config.baseDir)
+        basePath = os.path.expanduser(self.config.baseDir)
         dataPath = os.path.join(basePath, "data")
         try:
             shutil.rmtree(dataPath)
         except FileNotFoundError:
             pass
 
-        client = pyorient.OrientDB(config.OrientDB["host"],
-                                   config.OrientDB["port"])
-        user = config.OrientDB["user"]
-        password = config.OrientDB["password"]
+        client = pyorient.OrientDB(self.config.OrientDB["host"],
+                                   self.config.OrientDB["port"])
+        user = self.config.OrientDB["user"]
+        password = self.config.OrientDB["password"]
         client.connect(user, password)
 
         def dropdbs():
