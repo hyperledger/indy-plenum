@@ -6,6 +6,7 @@ from plenum.common.util import getConfig
 
 
 def loadPlugins(baseDir):
+    print("Plugin loading request came to load plugins from basedir: {}".format(baseDir))
     config = getConfig()
     pluginsDirPath = os.path.expanduser(os.path.join(baseDir, config.PluginsDir))
     i = 0
@@ -25,5 +26,5 @@ def loadPlugins(baseDir):
         print("** Note: Plugins directory does not exists: {}. "
               "Create plugin directory and plugin files if you want to load any plugins".format(pluginsDirPath))
 
-    print("total plugins loaded: {}".format(i))
+    print("Total plugins loaded from basedir {} are : {}".format(baseDir, i))
     return i
