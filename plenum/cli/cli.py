@@ -109,7 +109,7 @@ class Cli:
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
                  debug=False, logFileName=None):
         self.curClientPort = None
-        logging.root.handlers = []
+        # logging.root.handlers = []
         logging.root.addHandler(CliHandler(self.out))
         # self.cleanUp()
         self.looper = looper
