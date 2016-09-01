@@ -32,6 +32,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
+from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
@@ -265,6 +266,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.addReplicas()
 
         self.msgsForFutureReplicas = {}
+
+        tp = loadPlugins(self.basedirpath)
+        logger.debug("total plugins loaded in node: {}".format(tp))
 
     def __repr__(self):
         return self.name

@@ -75,3 +75,4 @@ RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
 
 ViewChangeWindowSize = 60
+PluginsDir = "plugins"
