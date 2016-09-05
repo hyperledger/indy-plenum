@@ -1,5 +1,7 @@
 import pytest
 from plenum.common.looper import Looper
+from plenum.test.node_catchup.helper import \
+    ensureClientConnectedToNodesAndPoolLedgerSame
 
 
 @pytest.yield_fixture(scope="module")
@@ -14,5 +16,6 @@ def testClientUsingPoolTxns(looper, txnPoolNodeSet, poolTxnClient):
     :return:
     """
     looper.add(poolTxnClient)
-    looper.run(poolTxnClient.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, poolTxnClient,
+                                                  *txnPoolNodeSet)
 

@@ -28,7 +28,8 @@ from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
+    Propagate, Prepare, Commit, CatchupReq
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger, checkIfMoreThanFSameItems
 from plenum.persistence import orientdb_store
@@ -189,7 +190,8 @@ class TestMonitor(Monitor):
 
 
 @Spyable(methods=[LedgerManager.startCatchUpProcess,
-                  LedgerManager.catchupCompleted])
+                  LedgerManager.catchupCompleted,
+                  LedgerManager.processConsistencyProofReq])
 class TestLedgerManager(LedgerManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -742,13 +744,14 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     def checkElectionDone():
         unknowns = sum(1 for r in replicas if r.isPrimary is None)
         assert unknowns == 0, "election should be complete, but {} out of {} " \
-                              "don't know who the primary is for protocol no {}" \
-            .format(unknowns, len(replicas), replicas[0].instId)
+                              "don't know who the primary is for " \
+                              "protocol no {}".\
+            format(unknowns, len(replicas), replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
         pris = sum(1 for r in replicas if r.isPrimary)
-        assert pris == 1, "Primary count should be 1, but was {} for protocol no {}" \
-            .format(pris, replicas[0].instId)
+        assert pris == 1, "Primary count should be 1, but was {} for " \
+                          "protocol no {}".format(pris, replicas[0].instId)
 
     def checkPrisAreSame():
         pris = {r.primaryName for r in replicas}
@@ -1315,9 +1318,24 @@ def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
     assert node.elector.viewNo == oldViewNo + 1
 
 
+# Delayer of PROPAGATE requests
+def ppgDelay(delay: float):
+    return delayerMsgTuple(delay, Propagate)
+
+
 # Delayer of PRE-PREPARE requests from a particular instance
 def ppDelay(delay: float, instId: int=None):
     return delayerMsgTuple(delay, PrePrepare, instFilter=instId)
+
+
+# Delayer of PREPARE requests from a particular instance
+def pDelay(delay: float, instId: int=None):
+    return delayerMsgTuple(delay, Prepare, instFilter=instId)
+
+
+# Delayer of COMMIT requests from a particular instance
+def cDelay(delay: float, instId: int=None):
+    return delayerMsgTuple(delay, Commit, instFilter=instId)
 
 
 # Delayer of INSTANCE-CHANGE requests
@@ -1333,6 +1351,11 @@ def lsDelay(delay: float):
 # Delayer of CONSISTENCY_PROOFS requests
 def cpDelay(delay: float):
     return delayerMsgTuple(delay, ConsistencyProof)
+
+
+# Delayer of CATCHUP_REQ requests
+def crDelay(delay: float):
+    return delayerMsgTuple(delay, CatchupReq)
 
 
 def delay(what, frm, to, howlong):

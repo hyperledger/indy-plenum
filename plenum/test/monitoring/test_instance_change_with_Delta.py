@@ -114,11 +114,7 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, client1):
     sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
 
     # wait for every node to run another checkPerformance
-    newPerfChecks = waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
-
-    # verify all nodes recognize P as degraded
-    # for n in step3.nodes:
-    #     assert newPerfChecks[n.name].result is False
+    waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     # verify all nodes have undergone an instance change
     checkViewNoForNodes(step3.nodes, 1)

@@ -63,8 +63,8 @@ if __name__ == "__main__":
     # Print genesis transaction commands
     try:
         if args.print_gen_txn:
-            printGenesisTrans(type, args.name, verkey,
-                              args.stewardverkey, args.nodeip, args.nodeport)
+            printGenesisTrans(typ, args.name, verkey, args.stewardverkey,
+                              args.nodeip, args.nodeport)
     except Exception as ex:
         print(ex)
         exit()

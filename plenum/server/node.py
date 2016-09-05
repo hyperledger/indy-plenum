@@ -46,7 +46,8 @@ from plenum.common.types import Request, Propagate, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
-    PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns
+    PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
+    ConsProofRequest
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
 from plenum.common.txn_util import getTxnOrderedFields
@@ -196,7 +197,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
                           [PrePrepare, Prepare, Commit])
 
-        self.perfCheckFreq = 10
+        self.perfCheckFreq = self.config.PerfCheckFreq
 
         self._schedule(self.checkPerformance, self.perfCheckFreq)
 
@@ -218,7 +219,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                Batch,
                                PrePrepare, Prepare,
                                Commit, InstanceChange, LedgerStatus,
-                               ConsistencyProof, CatchupReq, CatchupRep)
+                               ConsistencyProof, CatchupReq, CatchupRep,
+                               ConsProofRequest)
 
         # Map of request identifier to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -233,15 +235,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(0, self.poolLedger,
-                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.ledgerManager.addLedger(1, self.domainLedger,
-                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
+            (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep)
         ])
@@ -294,13 +297,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def poolLedgerStatus(self):
-        return LedgerStatus(0, self.poolManager.txnSeqNo,
-                            self.poolManager.merkleRootHash) \
+        return LedgerStatus(0, self.poolLedger.size,
+                            self.poolLedger.root_hash) \
             if self.poolLedger else None
 
     @property
     def domainLedgerStatus(self):
-        return LedgerStatus(1, self.primaryStorage.size,
+        return LedgerStatus(1, self.domainLedger.size,
                             self.primaryStorage.root_hash)
 
     @property
@@ -482,6 +485,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceReplicas(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
+            c += self.ledgerManager._serviceActions()
             c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
@@ -1078,7 +1082,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Node has discovered other nodes now sync up domain ledger
         for nm in self.nodestack.connecteds:
             self.sendDomainLedgerStatus(nm)
-        self.checkInstances()
+        if isinstance(self.poolManager, TxnPoolManager):
+            self.checkInstances()
 
     def postDomainLedgerCaughtUp(self):
         """
@@ -1088,7 +1093,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.processStashedOrderedReqs()
         self.mode = Mode.participating
-        # TODO: This should only be in `postPoolLedgerCaughtUp`
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
@@ -1127,7 +1131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param request: the REQUEST from the client
         :param frm: the name of the client that sent this REQUEST
         """
-        logger.debug("Node {} received client request: {} from {}".
+        logger.debug("{} received client request: {} from {}".
                      format(self.name, request, frm))
 
         # If request is already processed(there is a reply for the request in
@@ -1204,7 +1208,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if key in self.requests:
                 req = self.requests[key].request
                 self.executeRequest(ppTime, req)
-                logger.debug("Node {} executed client request {} {}".
+                logger.debug("{} executed client request {} {}".
                              format(self.name, identifier, reqId))
             # If the client request hasn't reached the node but corresponding
             # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
@@ -1213,7 +1217,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 retryNo += 1
                 asyncio.sleep(random.randint(2, 4))
                 self.processOrdered(ordered, retryNo)
-                logger.debug("Node {} retrying executing client request {} {}".
+                logger.debug("{} retrying executing client request {} {}".
                              format(self.name, identifier, reqId))
             return True
         else:
@@ -1432,11 +1436,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, req):
         reply = self.generateReply(ppTime, req)
-        logger.debug("{} appending to ledger request {}".format(self, req.reqId))
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
-        logger.debug(
-            "{} got merkle proof {} for request {}".format(self, merkleProof,
-                                                           req.reqId))
         reply.result.update(merkleProof)
         self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
         if reply.result.get(TXN_TYPE) == NYM:
@@ -1455,7 +1455,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param req: the REQUEST
         :return: a Reply generated from the request
         """
-        logger.debug("{} replying request {}".format(self, req))
+        logger.debug("{} generating reply for {}".format(self, req))
         txnId = self.genTxnId(req.identifier, req.reqId)
         result = {
             f.IDENTIFIER.nm: req.identifier,
@@ -1691,6 +1691,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             msg += " for code {}".format(code)
         logger.debug(msg)
         self.nodeBlacklister.blacklist(nodeName)
+
+    @property
+    def blacklistedNodes(self):
+        return {nm for nm in self.nodeReg.keys() if
+                self.nodeBlacklister.isBlacklisted(nm)}
 
     def transmitToClient(self, msg: Any, remoteName: str):
         self.clientstack.transmitToClient(msg, remoteName)

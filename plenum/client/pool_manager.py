@@ -38,10 +38,12 @@ class HasPoolManager(TxnStackManager):
         if (seqNo - self.ledger.size) == 1:
             f = getMaxFailures(len(self.nodeReg))
             if len(self.tempNodeTxns[seqNo]) > f:
-                #TODO: Shouldnt this use `checkIfMoreThanFSameItems`
-                txns = [item for item, count in collections.Counter(
-                    [json.dumps(t, sort_keys=True) for t in self.tempNodeTxns[seqNo].values()])
-                            .items() if count > f]
+                # TODO: Shouldnt this use `checkIfMoreThanFSameItems`
+                txns = [item for item, count in
+                        collections.Counter(
+                            [json.dumps(t, sort_keys=True)
+                             for t in self.tempNodeTxns[seqNo].values()]
+                        ).items() if count > f]
                 if len(txns) > 0:
                     self.addToLedger(json.loads(txns[0]))
                     self.tempNodeTxns.pop(seqNo)
@@ -64,8 +66,8 @@ class HasPoolManager(TxnStackManager):
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
             self.stackKeysChanged(txn, remoteName, self)
         else:
-            # logger.error("{} received unknown txn type {} in txn {}"
-            #              .format(self.name, typ, txn))
+            logger.error("{} received unknown txn type {} in txn {}"
+                         .format(self.name, typ, txn))
             pass
 
     # noinspection PyUnresolvedReferences

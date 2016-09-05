@@ -6,7 +6,7 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
     BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
-    CATCHUP_REP, POOL_LEDGER_TXNS
+    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, TXN_LIST_REQUEST
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -266,6 +266,13 @@ CatchupRep = TaggedTuple(CATCHUP_REP, [
     f.LEDGER_TYPE,
     f.TXNS,
     f.CONS_PROOF
+])
+
+
+ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
+    f.LEDGER_TYPE,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END
 ])
 
 

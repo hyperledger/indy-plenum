@@ -3,11 +3,11 @@ import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from ledger.test.test_file_hash_store import generateHashes, nodesLeaves
-from plenum.persistence.orientdb_hash_store import OrientDbHashStore
-from plenum.persistence.orientdb_store import OrientDbStore
 from ledger.test.test_file_hash_store import nodesLeaves, \
     generateHashes
+
+from plenum.persistence.orientdb_hash_store import OrientDbHashStore
+from plenum.persistence.orientdb_store import OrientDbStore
 
 
 @pytest.fixture(scope="module")

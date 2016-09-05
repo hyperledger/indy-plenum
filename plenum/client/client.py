@@ -240,6 +240,10 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         if self.isGoing():
             await self.nodestack.serviceLifecycle()
         self.nodestack.flushOutBoxes()
+        # TODO: This if condition has to be removed. `_ledger` if once set wont
+        # be reset ever so in `__init__` the `prod` method should be patched.
+        if self._ledger:
+            s += self.ledgerManager._serviceActions()
         return s
 
     def createRequest(self, operation: Mapping,

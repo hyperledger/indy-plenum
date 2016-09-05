@@ -54,9 +54,12 @@ DefaultPluginPath = {
     PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
 }
 
+PluginsDir = "plugins"
+
 stewardThreshold = 20
 
 # Monitoring configuration
+PerfCheckFreq = 10
 DELTA = 0.8
 LAMBDA = 60
 OMEGA = 5
@@ -75,4 +78,10 @@ RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
 
 ViewChangeWindowSize = 60
-PluginsDir = "plugins"
+
+# Timeout factor after which a node starts requesting consistency proofs if has
+# not found enough matching
+ConsistencyProofsTimeout = 5
+
+# Timeout factor after which a node starts requesting transactions
+CatchupTransactionsTimeout = 5

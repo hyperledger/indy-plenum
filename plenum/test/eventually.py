@@ -154,4 +154,3 @@ async def eventually(coroFunc: FlexFunc,
                              "seconds have passed; args were {}".
                              format(fname, timeout, args))
                 raise ex
-

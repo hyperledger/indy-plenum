@@ -14,7 +14,8 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, TestClient, genHa, \
     checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \
     checkProtocolInstanceSetup
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
+    ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeIp, addNewStewardAndNode, changeNodeKeys
 
@@ -37,7 +38,8 @@ def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
     steward = TestClient(name=name, nodeReg=None, ha=genHa(),
                          signer=signer, basedirpath=tdirWithPoolTxns)
     looper.add(steward)
-    looper.run(steward.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward,
+                                                  *txnPoolNodeSet)
     return steward
 
 
@@ -63,8 +65,10 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
     txnPoolNodeSet.append(newNode)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
-    looper.run(steward1.ensureConnectedToNodes())
-    looper.run(newSteward.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
+                                                  *txnPoolNodeSet)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
+                                                  *txnPoolNodeSet)
     return newSteward, newNode
 
 
@@ -79,7 +83,8 @@ def testNodesConnect(txnPoolNodeSet):
 
 def testNodesReceiveClientMsgs(looper, client1, txnPoolNodeSet):
     looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
+                                                  *txnPoolNodeSet)
     sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)
 
 
@@ -124,8 +129,10 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
         assert (newNode.name + CLIENT_STACK_SUFFIX) in steward1.nodeReg
 
     looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=5))
-    looper.run(steward1.ensureConnectedToNodes())
-    looper.run(newSteward.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
+                                                  *txnPoolNodeSet)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
+                                                  *txnPoolNodeSet)
 
 
 def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -144,7 +151,6 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                               timeout=5))
         logger.debug("{} connected to the pool".format(newNode))
-        # TODO: Should be *txnPoolNodeSet[:-1]
         looper.run(eventually(checkNodeLedgersForEquality, newNode,
                               *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
 
@@ -176,8 +182,10 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(node)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
-    looper.run(steward1.ensureConnectedToNodes())
-    looper.run(newSteward.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
+                                                  *txnPoolNodeSet)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
+                                                  *txnPoolNodeSet)
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -197,5 +205,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(node)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
-    looper.run(steward1.ensureConnectedToNodes())
-    looper.run(newSteward.ensureConnectedToNodes())
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
+                                                  *txnPoolNodeSet)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
+                                                  *txnPoolNodeSet)

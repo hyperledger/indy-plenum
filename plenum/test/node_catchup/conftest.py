@@ -43,7 +43,7 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, newStewardClient = nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=5))
+                          timeout=10))
     looper.run(newStewardClient.ensureConnectedToNodes())
     looper.run(client.ensureConnectedToNodes())
     return looper, newNode, client, newStewardClient
@@ -53,5 +53,5 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=5))
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=10))
     return newNode
