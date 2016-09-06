@@ -1140,7 +1140,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
-        reply = await self.getReplyFor(request)
+        reply = self.getReplyFor(request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -1318,6 +1318,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.instChngRatchet = Ratchet(a=2, b=0.05, c=1, base=2,
                                        peak=self.config.ViewChangeWindowSize)
 
+    # noinspection PyAttributeOutsideInit
     def trimSentInsChngs(self):
         # Remove any entries that are older than `ViewChangeWindowSize`
         while self.sentInsChngs and \
@@ -1533,9 +1534,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def defaultAuthNr(self):
         return SimpleAuthNr()
 
-    async def getReplyFor(self, request):
-        result = await self.secondaryStorage.getReply(request.identifier,
-                                                      request.reqId)
+    def getReplyFor(self, request):
+        result = self.secondaryStorage.getReply(request.identifier,
+                                                request.reqId)
         return Reply(result) if result else None
 
     def processStashedOrderedReqs(self):
