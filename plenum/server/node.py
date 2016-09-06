@@ -1121,7 +1121,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerType, nodeName))
 
-    async def processRequest(self, request: Request, frm: str):
+    def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
         If the request has already been executed, the node re-sends the reply to
@@ -1147,7 +1147,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
-            await self.checkRequestAuthorized(request)
+            self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
@@ -1410,7 +1410,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             except Exception as ex:
                 raise InvalidClientRequest(clientId, reqId) from ex
 
-    async def checkRequestAuthorized(self, request):
+    def checkRequestAuthorized(self, request):
         """
         Subclasses can implement this method to throw an
         UnauthorizedClientRequest if the request is not authorized.
@@ -1419,7 +1419,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         to match the identifier.
         """
         if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            await self.poolManager.checkRequestAuthorized(request)
+            return self.poolManager.checkRequestAuthorized(request)
         if request.operation.get(TXN_TYPE) == NYM:
             origin = request.identifier
             return self.isSteward(origin)

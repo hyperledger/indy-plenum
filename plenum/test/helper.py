@@ -368,7 +368,6 @@ class TestNodeCore(StackedTester):
                   Node.discard,
                   Node.reportSuspiciousNode,
                   Node.reportSuspiciousClient,
-                  Node.processRequest,
                   Node.processPropagate,
                   Node.propagate,
                   Node.forward,
