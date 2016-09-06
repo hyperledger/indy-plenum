@@ -31,8 +31,7 @@ def looper():
 
 
 @pytest.fixture(scope="module")
-def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
-             tdirWithPoolTxns):
+def steward1(looper, txnPoolNodeSet, poolTxnStewardData, tdirWithPoolTxns):
     name, sigseed = poolTxnStewardData
     signer = SimpleSigner(seed=sigseed)
     steward = TestClient(name=name, nodeReg=None, ha=genHa(),
@@ -44,8 +43,7 @@ def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
 
 
 @pytest.fixture(scope="module")
-def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
-             tdirWithPoolTxns):
+def client1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
     name, sigseed = poolTxnClientData
     signer = SimpleSigner(seed=sigseed)
     client = TestClient(name=name, nodeReg=None, ha=genHa(),
@@ -54,8 +52,8 @@ def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
 
 
 @pytest.fixture("module")
-def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        txnPoolCliNodeReg, tconf, steward1, allPluginsPath):
+def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
+                   allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Theta"
     newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
@@ -99,16 +97,16 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1):
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
-                                   txnPoolCliNodeReg, tconf, allPluginsPath):
+                                        tdirWithPoolTxns, tconf,
+                                        allPluginsPath):
     newNodeName = "Epsilon"
     with pytest.raises(AssertionError):
-        addNewNode(looper, steward1, newNodeName, txnPoolCliNodeReg, tconf,
+        addNewNode(looper, steward1, newNodeName, tdirWithPoolTxns, tconf,
                    allPluginsPath)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                txnPoolCliNodeReg, tconf, steward1,
-                                allPluginsPath):
+                                tconf, steward1, allPluginsPath):
     """
     A client should be able to connect to a newly added node
     """
@@ -135,8 +133,8 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                     txnPoolCliNodeReg, tconf, steward1, allPluginsPath):
+def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
+                     allPluginsPath):
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
