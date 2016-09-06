@@ -652,7 +652,7 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 def expectedWaitDirect(count):
-    return count * 0.9 + 1
+    return count * 1 + 1
 
 
 def expectedWait(nodeCount):

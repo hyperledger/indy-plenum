@@ -2,7 +2,7 @@ import pytest
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, ROLE, STEWARD, NYM, \
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa
@@ -35,8 +35,7 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
                              txnPoolCliNodeReg)
 
 
-def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
-                      txnPoolCliNodeReg):
+def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)

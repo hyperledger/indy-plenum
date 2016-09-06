@@ -460,7 +460,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
         self.nodestack.nextCheck = 0
-        logger.debug("{} clearing aqStash of size {}".format(self, len(self.aqStash)))
+        logger.debug("{} clearing aqStash of size {}".format(self,
+                                                             len(self.aqStash)))
         self.nodestack.conns.clear()
         # TODO: Should `self.clientstack.conns` be cleared too
         # self.clientstack.conns.clear()

@@ -1,7 +1,6 @@
 from plenum.client.client import Client
-from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
-from plenum.test.helper import randomOperation, checkSufficientRepliesRecvd, \
+from plenum.test.helper import checkSufficientRepliesRecvd, \
     sendRandomRequest
 
 

@@ -54,7 +54,8 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath):
         with Looper() as looper:
             nodes = []
             for name in nodeReg:
-                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
+                node = TestNode(name, nodeReg, basedirpath=td,
+                                pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -77,7 +78,8 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath):
             rwaits = [randint(1, 10) for _ in names]
 
             for i, name in enumerate(names):
-                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
+                node = TestNode(name, nodeReg, basedirpath=td,
+                                pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
@@ -110,7 +112,8 @@ def testNodeConnection(allPluginsPath):
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nrg, basedirpath=td, pluginPaths=allPluginsPath)
+            A, B = [TestNode(name, nrg, basedirpath=td,
+                             pluginPaths=allPluginsPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing()
@@ -137,7 +140,8 @@ def testNodeConnectionAfterKeysharingRestarted(allPluginsPath):
             names = ["Alpha", "Beta"]
             print(names)
             nrg = {n: nodeReg[n] for n in names}
-            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td,pluginPaths=allPluginsPath)
+            A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=td,
+                             pluginPaths=allPluginsPath)
                     for name in names]
             looper.add(A)
             A.startKeySharing(timeout=timeout)

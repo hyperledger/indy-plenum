@@ -21,7 +21,9 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
 
 logger = getlogger()
 
-whitelist = ['found legacy entry']  # logged errors to ignore
+# logged errors to ignore
+whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
+             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
 
 
 @pytest.yield_fixture(scope="module")
@@ -178,8 +180,13 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
+    # The last element of `txnPoolNodeSet` is the node Theta that was just
+    # stopped
+    txnPoolNodeSet[-1] = node
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
+    looper.run(eventually(checkNodeLedgersForEquality, node,
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
@@ -201,8 +208,13 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(node)
+    # The last element of `txnPoolNodeSet` is the node Theta that was just
+    # stopped
+    txnPoolNodeSet[-1] = node
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
+    looper.run(eventually(checkNodeLedgersForEquality, node,
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
