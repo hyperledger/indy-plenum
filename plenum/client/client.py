@@ -5,7 +5,6 @@ and receives result of the request execution from nodes.
 """
 import base64
 import copy
-import json
 import logging
 import os
 import time
@@ -95,8 +94,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             HasPoolManager.__init__(self)
             self.ledgerManager = LedgerManager(self, ownedByNode=False)
             self.ledgerManager.addLedger(0, self.ledger,
-                                         postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                                         postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
             cliNodeReg = OrderedDict()
             for nm, (ip, port) in nodeReg.items():

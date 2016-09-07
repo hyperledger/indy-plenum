@@ -2,7 +2,6 @@ from copy import copy
 
 import pytest
 from plenum.common.txn import USER
-from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
@@ -214,7 +213,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
     looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=10))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
