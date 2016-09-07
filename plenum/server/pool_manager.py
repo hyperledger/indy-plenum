@@ -191,7 +191,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
-        isSteward = self.node.isSteward(origin)
+        isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
@@ -206,7 +206,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
-        isSteward = self.node.isSteward(origin)
+        isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():

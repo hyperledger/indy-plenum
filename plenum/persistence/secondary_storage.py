@@ -6,6 +6,8 @@ The secondary storage is expected to be able to:
 The data stored in the secondary storage may be a replication of
 the primary storage's data but can be queried more effectively.
 """
+from plenum.common.txn import NYM, STEWARD, ROLE
+from plenum.common.txn import TXN_TYPE, TARGET_NYM
 from plenum.common.types import f
 
 
@@ -20,3 +22,16 @@ class SecondaryStorage:
 
     def getReplies(self, *txnIds, seqNo=None, **kwargs):
         raise NotImplementedError
+
+    def countStewards(self) -> int:
+        """Count the number of stewards added to the pool transaction store"""
+        allTxns = self._primaryStorage.getAllTxn().values()
+        return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
+                   (txn.get(ROLE) == STEWARD))
+
+    def isSteward(self, nym):
+        for txn in self._primaryStorage.getAllTxn().values():
+            if txn[TXN_TYPE] == NYM and txn[TARGET_NYM] == nym and \
+                            txn.get(ROLE) == STEWARD:
+                return True
+        return False

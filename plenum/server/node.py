@@ -228,7 +228,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientIdentifiers = {}     # Dict[str, str]
 
         self.hashStore = self.getHashStore(self.name)
-        self.prepareDomainLedger()
+        self.initDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.secondaryStorage = self.getSecondaryStorage()
         self.addGenesisNyms()
@@ -1408,7 +1408,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.poolManager.checkRequestAuthorized(request)
         if request.operation.get(TXN_TYPE) == NYM:
             origin = request.identifier
-            return self.isSteward(origin)
+            return self.secondaryStorage.isSteward(origin)
 
     def executeRequest(self, ppTime: float, req: Request) -> None:
         """
@@ -1477,7 +1477,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  verkey=verkey,
                                                  role=role)
 
-    def prepareDomainLedger(self):
+    def initDomainLedger(self):
+        # If the domain ledger file is not present initialize it by copying
+        # from genesis transactions
         if not self.hasFile(self.config.domainTransactionsFile):
             defaultTxnFile = os.path.join(self.basedirpath,
                                       self.config.domainTransactionsFile)
@@ -1491,7 +1493,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def authErrorWhileAddingSteward(self, request):
         origin = request.identifier
-        if not self.isSteward(origin):
+        if not self.secondaryStorage.isSteward(origin):
             return "{} is not a steward so cannot add a new steward". \
                 format(origin)
         if self.stewardThresholdExceeded():
@@ -1502,21 +1504,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def stewardThresholdExceeded(self) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
         by other stewards"""
-        return self.countStewards() > self.config.stewardThreshold
-
-    def countStewards(self) -> int:
-        """Count the number of stewards added to the pool transaction store"""
-        allTxns = self.domainLedger.getAllTxn().values()
-        stewards = filter(lambda txn: (txn[TXN_TYPE] == NYM) and
-                                      (txn.get(ROLE) == STEWARD), allTxns)
-        return sum(1 for _ in stewards)
-
-    def isSteward(self, nym):
-        for txn in self.domainLedger.getAllTxn().values():
-            if txn[TXN_TYPE] == NYM and txn[TARGET_NYM] == nym and \
-                            txn.get(ROLE) == STEWARD:
-                return True
-        return False
+        return self.secondaryStorage.countStewards() > \
+               self.config.stewardThreshold
 
     def defaultAuthNr(self):
         return SimpleAuthNr()
