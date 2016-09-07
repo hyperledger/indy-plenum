@@ -72,6 +72,7 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.common.throttler import Throttler
 
 logger = getlogger()
 
@@ -1298,7 +1299,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param viewNo: the view number when the instance change is requested
         """
 
-        if self.canSendInsChange():
+        # If not found any sent instance change messages in last
+        # `ViewChangeWindowSize` seconds or the last sent instance change
+        # message was sent long enough ago then instance change message can be
+        # sent otherwise no.
+        canSendInsChange, cooldown = self.insChngThrottler.acquire()
+
+        if canSendInsChange:
             logger.info("{} master has lower performance than backups. "
                         "Sending an instance change with viewNo {}".
                         format(self, viewNo))
@@ -1306,39 +1313,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, self.monitor.prettymetrics))
             self.send(InstanceChange(viewNo))
             self.instanceChanges.addVote(viewNo, self.name)
-            self.sentInsChngs.append(time.perf_counter())
         else:
-            logger.debug("{} cannot send instance change as last sent {} ago".
-                         format(self,
-                                time.perf_counter()-self.sentInsChngs[-1]))
+            logger.debug("{} cannot send instance change sooner then {} seconds"
+                         .format(self, cooldown))
 
     # noinspection PyAttributeOutsideInit
     def initInsChngThrottling(self):
-        self.sentInsChngs = []
-        self.instChngRatchet = Ratchet(a=2, b=0.05, c=1, base=2,
-                                       peak=self.config.ViewChangeWindowSize)
-
-    def trimSentInsChngs(self):
-        # Remove any entries that are older than `ViewChangeWindowSize`
-        while self.sentInsChngs and \
-                        (time.perf_counter() - self.sentInsChngs[0]) >= \
-                        self.config.ViewChangeWindowSize:
-            self.sentInsChngs = self.sentInsChngs[1:]
-
-    # TODO: This mechanism can be abstracted in a class to perform general
-    # throttling of messages. The class can have methods like canSendMsg,
-    # howMuchWaitBeforeNextSend, etc
-    def canSendInsChange(self):
-        self.trimSentInsChngs()
-        # If not found any sent instance change messages in last
-        # `ViewChangeWindowSize` seconds or the last sent instance change
-        # message was sent long enough ago then instance change message can be
-        # sent otherwise no.
-        if not self.sentInsChngs or (
-                    (time.perf_counter() - self.sentInsChngs[-1]) >
-                    self.instChngRatchet.get(len(self.sentInsChngs))):
-            return True
-        return False
+        windowSize = self.config.ViewChangeWindowSize
+        ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
+        self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
     @property
     def quorum(self) -> int:
