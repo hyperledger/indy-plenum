@@ -461,7 +461,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
         self.nodestack.nextCheck = 0
-        logger.debug("{} clearing aqStash of size {}".format(self, len(self.aqStash)))
+        logger.debug("{} clearing aqStash of size {}".format(self,
+                                                             len(self.aqStash)))
         self.nodestack.conns.clear()
         # TODO: Should `self.clientstack.conns` be cleared too
         # self.clientstack.conns.clear()
@@ -1121,7 +1122,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerType, nodeName))
 
-    async def processRequest(self, request: Request, frm: str):
+    def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
         If the request has already been executed, the node re-sends the reply to
@@ -1141,13 +1142,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
-        reply = await self.getReplyFor(request)
+        reply = self.getReplyFor(request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
-            await self.checkRequestAuthorized(request)
+            self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
@@ -1391,7 +1392,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             except Exception as ex:
                 raise InvalidClientRequest(clientId, reqId) from ex
 
-    async def checkRequestAuthorized(self, request):
+    def checkRequestAuthorized(self, request):
         """
         Subclasses can implement this method to throw an
         UnauthorizedClientRequest if the request is not authorized.
@@ -1400,7 +1401,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         to match the identifier.
         """
         if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            await self.poolManager.checkRequestAuthorized(request)
+            return self.poolManager.checkRequestAuthorized(request)
         if request.operation.get(TXN_TYPE) == NYM:
             origin = request.identifier
             return self.isSteward(origin)
@@ -1516,9 +1517,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def defaultAuthNr(self):
         return SimpleAuthNr()
 
-    async def getReplyFor(self, request):
-        result = await self.secondaryStorage.getReply(request.identifier,
-                                                      request.reqId)
+    def getReplyFor(self, request):
+        result = self.secondaryStorage.getReply(request.identifier,
+                                                request.reqId)
         return Reply(result) if result else None
 
     def processStashedOrderedReqs(self):

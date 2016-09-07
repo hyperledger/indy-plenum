@@ -31,5 +31,5 @@ def ensureClientConnectedToNodesAndPoolLedgerSame(looper, client: TestClient,
                                                   *nodes:Iterable[TestNode]):
     looper.run(eventually(checkClientPoolLedgerSameAsNodes, client,
                           *nodes, retryWait=1,
-                          timeout=2 * len(nodes)))
+                          timeout=3*len(nodes)))
     looper.run(client.ensureConnectedToNodes())

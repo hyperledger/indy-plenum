@@ -1,5 +1,4 @@
 from plenum.common.txn import STEWARD
-from raet.nacling import Privateer
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep

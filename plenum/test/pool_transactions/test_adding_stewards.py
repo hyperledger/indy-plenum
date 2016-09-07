@@ -2,7 +2,7 @@ import pytest
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, ROLE, STEWARD, NYM, \
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa
@@ -22,21 +22,16 @@ def tconf(conf, tdir, request):
 
 
 def testOnlyAStewardCanAddAnotherSteward(txnPoolNodeSet,
-                                         tdirWithPoolTxns, poolTxnClientData,
-                                         txnPoolCliNodeReg):
-    return checkStewardAdded(poolTxnClientData, tdirWithPoolTxns,
-                             txnPoolCliNodeReg)
+                                         tdirWithPoolTxns, poolTxnClientData):
+    return checkStewardAdded(poolTxnClientData, tdirWithPoolTxns)
 
 
 def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
-        tconf, txnPoolNodeSet, tdirWithPoolTxns, poolTxnStewardData,
-        txnPoolCliNodeReg):
-    return checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
-                             txnPoolCliNodeReg)
+        tconf, txnPoolNodeSet, tdirWithPoolTxns, poolTxnStewardData):
+    return checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns)
 
 
-def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
-                      txnPoolCliNodeReg):
+def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)

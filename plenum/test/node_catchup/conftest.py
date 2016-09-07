@@ -13,8 +13,8 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
 
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
-                                       poolTxnStewardData, txnPoolCliNodeReg,
-                                       tconf, allPluginsPath, request):
+                             poolTxnStewardData, tconf,
+                             allPluginsPath, request):
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)

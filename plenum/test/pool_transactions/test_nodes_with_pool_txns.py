@@ -21,7 +21,9 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
 
 logger = getlogger()
 
-whitelist = ['found legacy entry']  # logged errors to ignore
+# logged errors to ignore
+whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
+             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
 
 
 @pytest.yield_fixture(scope="module")
@@ -31,8 +33,7 @@ def looper():
 
 
 @pytest.fixture(scope="module")
-def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
-             tdirWithPoolTxns):
+def steward1(looper, txnPoolNodeSet, poolTxnStewardData, tdirWithPoolTxns):
     name, sigseed = poolTxnStewardData
     signer = SimpleSigner(seed=sigseed)
     steward = TestClient(name=name, nodeReg=None, ha=genHa(),
@@ -44,8 +45,7 @@ def steward1(looper, txnPoolNodeSet, poolTxnStewardData, txnPoolCliNodeReg,
 
 
 @pytest.fixture(scope="module")
-def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
-             tdirWithPoolTxns):
+def client1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
     name, sigseed = poolTxnClientData
     signer = SimpleSigner(seed=sigseed)
     client = TestClient(name=name, nodeReg=None, ha=genHa(),
@@ -54,8 +54,8 @@ def client1(txnPoolNodeSet, poolTxnClientData, txnPoolCliNodeReg,
 
 
 @pytest.fixture("module")
-def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        txnPoolCliNodeReg, tconf, steward1, allPluginsPath):
+def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
+                   allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Theta"
     newSteward, newNode = addNewStewardAndNode(looper, steward1, newStewardName,
@@ -99,16 +99,16 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1):
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
-                                   txnPoolCliNodeReg, tconf, allPluginsPath):
+                                        tdirWithPoolTxns, tconf,
+                                        allPluginsPath):
     newNodeName = "Epsilon"
     with pytest.raises(AssertionError):
-        addNewNode(looper, steward1, newNodeName, txnPoolCliNodeReg, tconf,
+        addNewNode(looper, steward1, newNodeName, tdirWithPoolTxns, tconf,
                    allPluginsPath)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                txnPoolCliNodeReg, tconf, steward1,
-                                allPluginsPath):
+                                tconf, steward1, allPluginsPath):
     """
     A client should be able to connect to a newly added node
     """
@@ -135,8 +135,8 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                     txnPoolCliNodeReg, tconf, steward1, allPluginsPath):
+def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
+                     allPluginsPath):
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
@@ -180,8 +180,13 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
+    # The last element of `txnPoolNodeSet` is the node Theta that was just
+    # stopped
+    txnPoolNodeSet[-1] = node
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
+    looper.run(eventually(checkNodeLedgersForEquality, node,
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
@@ -203,8 +208,13 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(node)
+    # The last element of `txnPoolNodeSet` is the node Theta that was just
+    # stopped
+    txnPoolNodeSet[-1] = node
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
+    looper.run(eventually(checkNodeLedgersForEquality, node,
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,

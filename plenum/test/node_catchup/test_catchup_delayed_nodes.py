@@ -1,8 +1,8 @@
 import pytest
 from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import cpDelay, TestClient, genHa, checkNodesConnected, \
-    lsDelay, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import cpDelay, checkNodesConnected, \
+    sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 
@@ -49,12 +49,14 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
 
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=60))
-    logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name, nodeY.name))
+    logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
+                                                             nodeY.name))
     nodeX.stop()
     nodeY.stop()
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, client, 50)
-    logger.debug("Starting the 2 stopped nodes, {} and {}".format(nodeX.name, nodeY.name))
+    logger.debug("Starting the 2 stopped nodes, {} and {}".format(nodeX.name,
+                                                                  nodeY.name))
     nodeX.start(looper.loop)
     nodeY.start(looper.loop)
     looper.run(eventually(checkNodeLedgersForEquality, nodeX,

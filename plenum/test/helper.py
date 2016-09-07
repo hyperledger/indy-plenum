@@ -368,7 +368,6 @@ class TestNodeCore(StackedTester):
                   Node.discard,
                   Node.reportSuspiciousNode,
                   Node.reportSuspiciousClient,
-                  Node.processRequest,
                   Node.processPropagate,
                   Node.propagate,
                   Node.forward,
@@ -585,17 +584,8 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     logging.debug("received replies {}".format(receivedReplies))
     logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
-    # results = []
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
-    # for reply in receivedReplies:
-    #     results.append(reply[f.RESULT.nm])
-    #     if result is None:
-    #         result = reply[f.RESULT.nm]
-    #     else:
-    #         # all replies should have the same result
-    #         assert reply[f.RESULT.nm] == result, "received: {}, expected: {}".\
-    #             format(reply[f.RESULT.nm], result)
     assert result
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
@@ -608,7 +598,7 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
                                         timeoutPerReq: float=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
-    timeoutPerReq = timeoutPerReq or 3 * nodeCount
+    timeoutPerReq = timeoutPerReq or 5 * nodeCount
 
     requests = sendRandomRequests(client, numReqs)
     for request in requests:
@@ -661,7 +651,7 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 def expectedWaitDirect(count):
-    return count * 0.75 + 1
+    return count * 1 + 1
 
 
 def expectedWait(nodeCount):

@@ -1,6 +1,6 @@
 from abc import abstractproperty, abstractmethod
 from binascii import hexlify
-from typing import Mapping, Dict
+from typing import Dict
 
 from libnacl import randombytes
 from libnacl.encode import base64_encode

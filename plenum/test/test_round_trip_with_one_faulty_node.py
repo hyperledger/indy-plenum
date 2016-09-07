@@ -22,7 +22,8 @@ def alphaDoesntPropagate(startedNodes):
         logging.info("TEST: Evil {} is not processing PROPAGATE".format(self))
 
     def evilPropagateRequest(self, request, clientName):
-        logging.info("TEST: Evil {} is not PROPAGATing client request".format(self))
+        logging.info("TEST: Evil {} is not PROPAGATing client request".
+                     format(self))
 
     epp = types.MethodType(evilProcessPropagate, nodes.Alpha)
     nodes.Alpha.nodeMsgRouter.routes[Propagate] = epp

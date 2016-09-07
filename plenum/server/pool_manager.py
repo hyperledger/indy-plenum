@@ -178,7 +178,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 return txn[DATA][ALIAS]
         raise Exception("Node with nym {} not found".format(nym))
 
-    async def checkRequestAuthorized(self, request):
+    def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
         error = None
         if typ == NEW_NODE:

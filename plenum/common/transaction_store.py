@@ -95,9 +95,9 @@ class TransactionStore(Storage):
             self.addToProcessedTxns(identifier, txnId, reply)
         if identifier not in self.responses:
             self.responses[identifier] = asyncio.Queue()
-        self.responses[identifier].put(reply)
+        await self.responses[identifier].put(reply)
 
-    async def get(self, identifier, reqId, **kwargs) -> Optional[Reply]:
+    def get(self, identifier, reqId, **kwargs) -> Optional[Reply]:
         if identifier in self.processedRequests:
             if reqId in self.processedRequests[identifier]:
                 txnId = self.processedRequests[identifier][reqId]
