@@ -91,14 +91,15 @@ def logcapture(request, whitelist):
     whiteListedExceptions = ['seconds to run once nicely',
                              'Executing %s took %.3f seconds',
                              'is already stopped',
-                             'Error while running coroutine'] + whitelist
+                             'Error while running coroutine',
+                             "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
+                             ] + whitelist
 
     def tester(record):
         isBenign = record.levelno not in [logging.ERROR, logging.CRITICAL]
         # TODO is this sufficient to test if a log is from test or not?
         isTest = os.path.sep + 'test' in record.pathname
-        isWhiteListed = bool([w for w in whiteListedExceptions
-                              if w in record.msg])
+        isWhiteListed = bool([w for w in whiteListedExceptions if w in record.msg])
         assert isBenign or isTest or isWhiteListed
 
     ch = TestingHandler(tester)
