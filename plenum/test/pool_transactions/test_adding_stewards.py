@@ -22,17 +22,13 @@ def tconf(conf, tdir, request):
 
 
 def testOnlyAStewardCanAddAnotherSteward(txnPoolNodeSet,
-                                         tdirWithPoolTxns, poolTxnClientData,
-                                         txnPoolCliNodeReg):
-    return checkStewardAdded(poolTxnClientData, tdirWithPoolTxns,
-                             txnPoolCliNodeReg)
+                                         tdirWithPoolTxns, poolTxnClientData):
+    return checkStewardAdded(poolTxnClientData, tdirWithPoolTxns)
 
 
 def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
-        tconf, txnPoolNodeSet, tdirWithPoolTxns, poolTxnStewardData,
-        txnPoolCliNodeReg):
-    return checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns,
-                             txnPoolCliNodeReg)
+        tconf, txnPoolNodeSet, tdirWithPoolTxns, poolTxnStewardData):
+    return checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns)
 
 
 def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
