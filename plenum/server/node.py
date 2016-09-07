@@ -1244,7 +1244,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("Node {} received instance change request: {} from {}".
                      format(self, instChg, frm))
 
-
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
             self.discard(instChg, "field viewNo has incorrect type: {}".format(type(instChg.viewNo)))
