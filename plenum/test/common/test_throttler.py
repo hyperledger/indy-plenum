@@ -1,6 +1,6 @@
 import pytest
 import time
-from plenum.common.Throttler import Throttler
+from plenum.common.throttler import Throttler
 from plenum.common.ratchet import Ratchet
 
 
