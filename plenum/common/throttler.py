@@ -3,17 +3,17 @@ import time
 
 class Throttler:
 
-    def __init__(self, windowSize, rateFunction = None):
+    def __init__(self, windowSize, delayFunction = None):
         '''
         Limits rate of actions performed in a unit of time (window)
 
         :param windowSize: size (in seconds) of the time window events counted in
-        :param rateFunction: function from **number of actions** to **time to wait after the last one**
+        :param delayFunction: function from **number of actions** to **time to wait after the last one**
         '''
 
         assert windowSize and windowSize > 0
         self.windowSize = windowSize
-        self.rateFunction = rateFunction if rateFunction else self._basicRateFunction
+        self.delayFunction = delayFunction if delayFunction else self._defaultDelayFunction
         self.actionsLog = []
 
     def acquire(self):
@@ -27,7 +27,7 @@ class Throttler:
         if len(self.actionsLog) == 0:
             self.actionsLog.append(now)
             return True, 0.0
-        timeToWaitAfterPreviousTry = self.rateFunction(len(self.actionsLog))
+        timeToWaitAfterPreviousTry = self.delayFunction(len(self.actionsLog))
         timePassed = now - self.actionsLog[-1]
         if timeToWaitAfterPreviousTry < timePassed:
             self.actionsLog.append(now)
@@ -39,9 +39,9 @@ class Throttler:
         while self.actionsLog and now - self.actionsLog[0] > self.windowSize:
             self.actionsLog = self.actionsLog[1:]
 
-    def _basicRateFunction(self, numOfActions):
+    def _defaultDelayFunction(self, numOfActions):
         '''
-        Basic rate function that always returns the size of the window.
+        Default delay function that always returns the size of the window.
         It limits rate of action to one per window
         '''
         return self.windowSize

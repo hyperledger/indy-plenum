@@ -6,7 +6,7 @@ from plenum.common.ratchet import Ratchet
 
 def test_throttler_case1():
     '''
-    Tests throttler with basic rate function
+    Tests throttler with default delay function
     '''
     windowSize = 3
     throttler = Throttler(windowSize)
@@ -23,7 +23,7 @@ def test_throttler_case1():
 
 def test_throttler_case2():
     '''
-    Tests throttler with custom rate function
+    Tests throttler with custom delay function
     '''
     windowSize = 10
     testIterations = windowSize - 2
