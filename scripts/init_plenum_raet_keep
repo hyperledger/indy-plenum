@@ -5,7 +5,7 @@ import argparse
 from plenum.common.script_helper import initKeep, getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
     buildKeepDirIfNotExists
 from plenum.common.types import CLIENT_STACK_SUFFIX
-from plenum.common.util import getConfig
+from plenum.common.util import getConfig, randomString
 
 config = getConfig()
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     parser.add_argument('--nodeip', required=False, help="node ip address")
     parser.add_argument('--nodeport', required=False, help="node port")
     parser.add_argument('--name', required=True, help='node name')
-    parser.add_argument('--seed', required=True, type=str, help='seeds for keypair')
+    parser.add_argument('--seed', required=False, type=str, help='seeds for keypair')
     parser.add_argument('--print_gen_txn', help='overrides keys', action='store_true')
     parser.add_argument('--force', help='overrides keys', action='store_true')
 
@@ -43,6 +43,9 @@ if __name__ == "__main__":
     print("For node stack, stack name is", args.name)
     verkey = None
 
+    if not args.seed:
+        args.seed = randomString(32)
+        print("Generating a random seed for the keypair {}".format(args.seed))
     try:
         verkey = initKeep(config.baseDir, args.name, args.seed, args.force)
     except Exception as ex:

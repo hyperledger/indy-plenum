@@ -85,6 +85,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
+    keygenScript = "init_plenum_raet_keep"
 
     def __init__(self,
                  name: str,
@@ -117,7 +118,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
-        self.ensureKeysAreSetup(name, basedirpath)
+        self.__class__.ensureKeysAreSetup(name, basedirpath)
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
@@ -1581,14 +1582,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
 
-    @staticmethod
-    def ensureKeysAreSetup(name, baseDir):
+    @classmethod
+    def ensureKeysAreSetup(cls, name, baseDir):
         """
         Check whether the keys are setup in the local RAET keep.
         Raises RaetKeysNotFoundException if not found.
         """
         if not isLocalKeepSetup(name, baseDir):
-            raise REx(REx.reason)
+            raise REx(REx.reason + cls.keygenScript)
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """

@@ -86,8 +86,8 @@ class InvalidIdentifier(SigningException, ReqInfo):
 
 class RaetKeysNotFoundException(Exception):
     code = 141
-    reason = 'Key pairs not found in raet keep. ' \
-             'Please run script init_raet_keep.py to generate them'
+    reason = 'Keys not found in the keep. ' \
+             'To generate them run script '
 
 
 class SuspiciousNode(BaseExc):
