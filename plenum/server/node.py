@@ -1142,6 +1142,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if request.identifier not in self.clientIdentifiers:
             self.clientIdentifiers[request.identifier] = frm
 
+        # TODO: What if client sends requests with same request id quickly so
+        # before reply for one is generated, the other comes. In that
+        # case we need to keep track of what requests ids node has seen
+        # in-memory and once request with a particular request id is processed,
+        # it should be removed from that in-memory DS.
         reply = self.getReplyFor(request)
         if reply:
             logger.debug("{} returning REPLY from already processed "

@@ -204,6 +204,9 @@ Ordered = NamedTuple(ORDERED, [
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
 
+# Propagate needs the name of the sender client since every node needs to know
+# who sent the request to send the reply. If all clients had name same as
+# their identifier same as client name (stack name, the name which RAET knows)
 Propagate = TaggedTuple(PROPAGATE, [
     f.REQUEST,
     f.SENDER_CLIENT])

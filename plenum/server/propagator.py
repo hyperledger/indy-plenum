@@ -127,8 +127,13 @@ class Propagator:
         :param request: the client REQUEST
         :return: a new PROPAGATE msg
         """
+        if not isinstance(request, (Request, dict)):
+            logger.error("Request not formatted properly to create propagate")
+            return
         logging.debug("Creating PROPAGATE for REQUEST {}".format(request))
-        return Propagate(request.__getstate__(), clientName)
+        request = request.__getstate__() if isinstance(request, Request) else \
+            request
+        return Propagate(request, clientName)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request) -> bool:
