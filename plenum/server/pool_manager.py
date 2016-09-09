@@ -1,21 +1,17 @@
-from binascii import hexlify
-from copy import deepcopy
 from typing import Dict, Tuple
 
+from copy import deepcopy
 from ledger.util import F
-from libnacl.encode import base64_decode
-from plenum.common.stack_manager import TxnStackManager
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
-
-from plenum.common.types import HA, f
+from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
-from plenum.common.util import getlogger
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
+from plenum.common.types import HA, f
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
-
+from plenum.common.util import getlogger
 
 logger = getlogger()
 

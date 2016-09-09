@@ -1,10 +1,8 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
-import base64
 import random
 from hashlib import sha256
-from binascii import unhexlify
 from typing import Set, Dict
 import shutil
 from jsonpickle import json
@@ -62,7 +60,7 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
-    randomString, error, cleanSeed, getRAETLogLevelFromConfig
+    randomString, error, cleanSeed, getRAETLogLevelFromConfig, hexToCryptonym
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -398,8 +396,7 @@ class Cli:
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
-        destId = base64.b64encode(
-            unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
+        destId = hexToCryptonym(matchedVars.get(TARGET_NYM))
         typ = matchedVars.get(TXN_TYPE)
         txn = {
             TXN_TYPE: typ,
@@ -407,8 +404,7 @@ class Cli:
             TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = base64.b64encode(
-                unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
+            txn[IDENTIFIER] = hexToCryptonym(matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))

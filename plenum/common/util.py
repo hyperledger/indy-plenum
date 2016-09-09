@@ -1,5 +1,5 @@
 import asyncio
-import base64
+import base58
 import importlib.util
 import inspect
 import itertools
@@ -12,7 +12,7 @@ import socket
 import string
 import sys
 import time
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
 from math import floor
@@ -572,11 +572,14 @@ def cleanSeed(seed=None):
         return bts
 
 
-def hexToCryptonym(hex):
-    # TODO: Use base58 instead of base64
+def hexToCryptonym(hex) -> str:
     if isinstance(hex, str):
         hex = hex.encode()
-    return base64.b64encode(unhexlify(hex)).decode()
+    return base58.b58encode(unhexlify(hex))
+
+
+def cryptonymToHex(cryptonym: str) -> bytes:
+    return hexlify(base58.b58decode(cryptonym.encode()))
 
 
 def runWithLoop(loop, callback, *args, **kwargs):

@@ -1,8 +1,8 @@
 """
 Clients are authenticated with a digital signature.
 """
+import base58
 from abc import abstractmethod
-from base64 import b64decode
 from typing import Dict
 
 from raet.nacling import Verifier
@@ -29,7 +29,7 @@ class ClientAuthNr:
 
         :param identifier: some unique identifier; if None, then try to use
         msg['identifier'] as identifier
-        :param signature: a utf-8 and base64 encoded signature
+        :param signature: a utf-8 and base58 encoded signature
         :param msg: the message to authenticate
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
@@ -80,8 +80,7 @@ class NaclAuthNr(ClientAuthNr):
                         raise EmptyIdentifier
                 except KeyError:
                     raise MissingIdentifier
-            b64sig = signature.encode('utf-8')
-            sig = b64decode(b64sig)
+            sig = base58.b58decode(signature)
             ser = self.serializeForSig(msg)
             try:
                 verkey = self.getVerkey(identifier)
