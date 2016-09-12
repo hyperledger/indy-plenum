@@ -20,7 +20,7 @@ class EncryptedWallet:
 
 class Wallet:
     def __init__(self, name: str, storage: WalletStorage):
-        self.name = name
+        self._name = name
         self.signers = {}  # dict cryptonym -> signer object
         self.aliases = {}  # dict alias -> cryptonym
         self.storage = storage
@@ -28,6 +28,14 @@ class Wallet:
             if alias:
                 self.aliases[alias] = signer.identifier
             self.signers[signer.identifier] = signer
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, newName):
+        self._name = newName
 
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':

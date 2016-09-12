@@ -28,7 +28,23 @@ def assertCliTokens(matchedVars, tokens):
 
 def testPromptCommandRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "prompt Alice")
-    assertCliTokens(matchedVars, {"command": "prompt", "name": "Alice"})
+    assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
+    matchedVars = getMatchedVariables(grammar, "prompt Alice ")
+    assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
+
+
+def testNewKeyRingCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1")
+    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1 ")
+    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+
+
+def testRenameKeyRingCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "rename keyring MyKey1 to MyKey2")
+    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": "MyKey1", "to": "MyKey2"})
+    matchedVars = getMatchedVariables(grammar, "rename keyring to MyKey2")
+    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": None, "to": "MyKey2"})
 
 
 def testNewKeypairCommandRegEx(grammar):

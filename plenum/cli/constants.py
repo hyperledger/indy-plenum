@@ -18,13 +18,14 @@ UTIL_GRAMS_LOAD_CMD_REG_EX = "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
     "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) "
 UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list) \s*)"
-UTIL_GRAMS_COMMAND_PROMPT_REG_EX = "(\s* (?P<prompt>prompt) \s+ (?P<name>[a-zA-Z0-9]+))"
+UTIL_GRAMS_COMMAND_PROMPT_REG_EX = "(\s* (?P<prompt>prompt) \s+ (?P<name>[a-zA-Z0-9]+)\s*)"
 
 
 NODE_GRAMS_NODE_COMMAND_REG_EX = \
     "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?) \s+ (?P<node_name>[a-zA-Z0-9\-]+)\s*) "
 NODE_GRAMS_LOAD_PLUGINS_REG_EX = \
     "(\s* (?P<load_plugins>load\s+plugins\s+from) \s+ (?P<plugin_dir>[a-zA-Z0-9-_:{}]+) \s*)"
+
 
 CLIENT_GRAMS_CLIENT_COMMAND_REG_EX = \
     "(\s* (?P<client_command>{}) \s+ (?P<node_or_cli>clients?) \s+ (?P<client_name>[a-zA-Z0-9\-]+) \s*) "
@@ -39,6 +40,15 @@ CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = \
     "(\s* (?P<new_key>new\skey) \s*" \
     "\s? (with\s+seed\s+(?P<seed>[a-zA-Z0-9]+))?" \
     "\s? ((as)?\s+(?P<alias>[a-zA-Z0-9-]+))?" \
+    "\s*) "
+
+CLIENT_GRAMS_NEW_KEYRING_REG_EX = \
+    "(\s* (?P<new_keyring>new\skeyring) \s+ (?P<name>[a-zA-Z0-9]+))\s*"
+
+CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
+    "(\s*(?P<rename_keyring>rename\s+keyring)" \
+    "\s? (\s+(?P<from>[A-Za-z0-9+=/]*))?" \
+    "\s+ (to\s+(?P<to>[A-Za-z0-9+=/]*))" \
     "\s*) "
 
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
@@ -79,6 +89,8 @@ CLIENT_GRAMS_CLIENT_SEND_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_CLIENT_SE
 CLIENT_GRAMS_CLIENT_SHOW_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_CLIENT_SHOW_REG_EX)
 CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_ADD_KEY_REG_EX)
 CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_NEW_KEYPAIR_REG_EX)
+CLIENT_GRAMS_NEW_KEYRING_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_NEW_KEYRING_REG_EX)
+CLIENT_GRAMS_RENAME_KEYRING_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_RENAME_KEYRING_REG_EX)
 CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_LIST_IDS_REG_EX)
 CLIENT_GRAMS_BECOME_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_BECOME_REG_EX)
 CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX = getPipedRegEx(CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX)
