@@ -9,7 +9,8 @@ from ledger.ledger import Ledger
 
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
-    TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, STEWARD, \
+    TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
+    STEWARD, \
     ROLE
 from plenum.common.types import f
 from plenum.common.util import hexToCryptonym
@@ -36,23 +37,28 @@ class TestNetworkSetup:
         return hexToCryptonym(verkey)
 
     @staticmethod
-    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile):
+    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
+                           domainTransactionsFile):
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
 
-        parser.add_argument('--nodes', required=True, type=int, help='node count, '
-                                                                     'should be less than 20')
+        parser.add_argument('--nodes', required=True, type=int,
+                            help='node count, '
+                                 'should be less than 20')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
-        parser.add_argument('--nodeNum', required=True, type=int, help='the number '
-                                                                       'of the node that will run on this machine')
+        parser.add_argument('--nodeNum', required=True, type=int,
+                            help='the number '
+                                 'of the node that will run on this machine')
         parser.add_argument('--ips',
                             help='IPs of the nodes, provide comma separated'
-                                 ' IPs, if no of IPs provided are less than number of nodes then the '
-                                 'remaining nodes are assigned the loopback IP, i.e 127.0.0.1',
+                                 ' IPs, if no of IPs provided are less than '
+                                 'number of nodes then the '
+                                 'remaining nodes are assigned the loopback '
+                                 'IP, i.e 127.0.0.1',
                             type=str)
 
         args = parser.parse_args()
@@ -61,7 +67,8 @@ class TestNetworkSetup:
         nodeNum = args.nodeNum
         ips = args.ips
 
-        assert nodeNum <= nodeCount, "nodeNum should be less than equal to nodeCount"
+        assert nodeNum <= nodeCount, "nodeNum should be less than equal to " \
+                                     "nodeCount"
 
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
@@ -73,10 +80,15 @@ class TestNetworkSetup:
                 else:
                     ips = ips + ['127.0.0.1'] * (nodeCount - len(ips))
 
-        ledger = Ledger(CompactMerkleTree(),
-                        dataDir=baseDir,
-                        fileName=poolTransactionsFile)
-        ledger.reset()
+        poolLedger = Ledger(CompactMerkleTree(),
+                            dataDir=baseDir,
+                            fileName=poolTransactionsFile)
+        poolLedger.reset()
+
+        domainLedger = Ledger(CompactMerkleTree(),
+                              dataDir=baseDir,
+                              fileName=domainTransactionsFile)
+        domainLedger.reset()
 
         steward1Nym = None
         for num in range(1, nodeCount + 1):
@@ -96,7 +108,7 @@ class TestNetworkSetup:
             else:
                 # The first steward adds every steward
                 txn[f.IDENTIFIER.nm] = steward1Nym
-            ledger.add(txn)
+            domainLedger.add(txn)
 
             nodeName = "Node" + str(num)
             nodePort, clientPort = startingPort + (num * 2 - 1), startingPort \
@@ -124,7 +136,7 @@ class TestNetworkSetup:
                 },
                 TXN_ID: sha256(nodeName.encode()).hexdigest()
             }
-            ledger.add(txn)
+            poolLedger.add(txn)
 
         for num in range(1, clientCount + 1):
             clientName = "Client" + str(num)
@@ -137,6 +149,7 @@ class TestNetworkSetup:
                 ALIAS: clientName,
                 TXN_ID: sha256(clientName.encode()).hexdigest()
             }
-            ledger.add(txn)
+            domainLedger.add(txn)
 
-        ledger.stop()
+        poolLedger.stop()
+        domainLedger.stop()
