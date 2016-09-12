@@ -1,9 +1,6 @@
 #! /usr/bin/env python3
 
 import argparse
-from binascii import unhexlify
-
-import base64
 
 from sys import argv
 

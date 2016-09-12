@@ -34,7 +34,7 @@ from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
-from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym, \
+from plenum.common.util import getMaxFailures, getlogger, hexToCryptonym, \
     MessageProcessor, checkIfMoreThanFSameItems
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.wallet_storage_file import WalletStorageFile

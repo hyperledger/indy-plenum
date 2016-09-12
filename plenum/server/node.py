@@ -4,7 +4,6 @@ import os
 import random
 import shutil
 import time
-from binascii import hexlify
 from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
@@ -19,8 +18,6 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
-from ledger.util import F
-from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.ratchet import Ratchet
 from raet.raeting import AutoMode
@@ -49,7 +46,7 @@ from plenum.common.types import Request, Propagate, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig
+    getConfig, cryptonymToHex
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -1477,11 +1474,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     logger.error("Role {} must be either STEWARD, USER"
                                  .format(role))
                     return
-
-                verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
-                self.clientAuthNr.addClient(identifier,
-                                                 verkey=verkey,
-                                                 role=role)
+                verkey = cryptonymToHex(txn[TARGET_NYM]).decode()
+                self.clientAuthNr.addClient(identifier, verkey=verkey,
+                                            role=role)
 
     def initDomainLedger(self):
         # If the domain ledger file is not present initialize it by copying
