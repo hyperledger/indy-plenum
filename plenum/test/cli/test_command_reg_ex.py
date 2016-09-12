@@ -26,6 +26,11 @@ def assertCliTokens(matchedVars, tokens):
         assert matchedVars.get(key) == value
 
 
+def testPromptCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "prompt Alice")
+    assertCliTokens(matchedVars, {"command": "prompt", "name": "Alice"})
+
+
 def testNewKeypairCommandRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "new key")
     assertCliTokens(matchedVars, {"new_key":"new key", "alias":None, "seed":None})

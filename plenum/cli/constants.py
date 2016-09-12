@@ -18,6 +18,8 @@ UTIL_GRAMS_LOAD_CMD_REG_EX = "(\s* (?P<load>load) \s+ (?P<file_name>[.a-zA-z0-9{
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
     "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? (\s+ (?P<node_or_cli>{}) )?\s*) "
 UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list) \s*)"
+UTIL_GRAMS_COMMAND_PROMPT_REG_EX = "(\s* (?P<prompt>prompt) \s+ (?P<name>[a-zA-Z0-9]+))"
+
 
 NODE_GRAMS_NODE_COMMAND_REG_EX = \
     "(\s* (?P<node_command>{}) \s+ (?P<node_or_cli>nodes?) \s+ (?P<node_name>[a-zA-Z0-9\-]+)\s*) "
@@ -66,6 +68,7 @@ NODE_CMDS = CLI_CMDS | {'keyshare'}
 UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_SIMPLE_CMD_REG_EX).format(relist(SIMPLE_CMDS))
 UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_LOAD_CMD_REG_EX).format(psep)
 UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_COMMAND_HELP_REG_EX).format(relist(NODE_OR_CLI))
+UTIL_GRAMS_COMMAND_PROMPT_FORMATTED_REG_EX = getPipedRegEx(UTIL_GRAMS_COMMAND_PROMPT_REG_EX).format(relist(NODE_OR_CLI))
 UTIL_GRAMS_COMMAND_LIST_FORMATTED_REG_EX = UTIL_GRAMS_COMMAND_LIST_REG_EX
 
 NODE_GRAMS_NODE_COMMAND_FORMATTED_REG_EX = getPipedRegEx(NODE_GRAMS_NODE_COMMAND_REG_EX).format(relist(NODE_CMDS))

@@ -282,7 +282,7 @@ class Cli:
                              self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
-                             self._createGenTxnFileAction]
+                             self._createGenTxnFileAction, self._changePrompt]
         return self._actions
 
     @property
@@ -315,6 +315,7 @@ class Cli:
                 'become': WordCompleter(['become']),
                 'use_id': WordCompleter(['use', 'identifier']),
                 'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'prompt': WordCompleter(['prompt']),
                 'create_gen_txn_file': WordCompleter(
                     ['create', 'genesis', 'transaction', 'file'])
             }
@@ -343,12 +344,23 @@ class Cli:
                 'list_ids',
                 'become',
                 'use_id',
+                'prompt',
                 'add_genesis',
                 'create_gen_txn_file'
             }
             lexers = {n: SimpleLexer(Token.Keyword) for n in lexerNames}
             self._lexers = {**lexers}
         return self._lexers
+
+    def _changePrompt(self, matchedVars):
+        promptText = matchedVars.get('name')
+        app = create_prompt_application('{}> '.format(promptText),
+                                        lexer=self.grammarLexer,
+                                        completer=self.grammarCompleter,
+                                        style=self.style,
+                                        history=self.pers_hist)
+        self.cli.application = app
+        return True
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
