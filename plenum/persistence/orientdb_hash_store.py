@@ -18,7 +18,7 @@ class OrientDbHashStore(HashStore):
         self.store = store
         self.leafHashClass = "LeafHashStore"
         self.nodeHashClass = "NodeHashStore"
-        self.store.createClasses(self.classesNeeded())
+        self.store.createClasses(self.classesNeeded)
         self._leafCount = self.leafCount
 
     def writeLeaf(self, leafHash):
@@ -112,6 +112,7 @@ class OrientDbHashStore(HashStore):
         self.store.createClassProperties(className, attributes)
         self.store.createIndexOnClass(className, index, "unique")
 
+    @property
     def classesNeeded(self):
         return [(self.leafHashClass, self.createLeafHashClass),
                 (self.nodeHashClass, self.createNodeHashClass)]
