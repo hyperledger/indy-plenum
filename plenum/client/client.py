@@ -17,6 +17,8 @@ from plenum.client.pool_manager import HasPoolManager
 from plenum.common.exceptions import MissingNodeOp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
+from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
+from plenum.persistence.client_txn_log import ClientTxnLog
 from raet.raeting import AutoMode
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F, STH
@@ -31,7 +33,8 @@ from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
     DATA, ALIAS, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
     CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE, \
+    REQACK, REQNACK
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, getlogger, hexToCryptonym, \
@@ -81,7 +84,9 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             cha = ha if isinstance(ha, HA) else HA(*ha)
 
         self.name = name
-        self.lastReqId = lastReqId
+        self.reqRepStore = self.getReqRepStore()
+        self.txnLog = self.getTxnLogStore()
+        self.lastReqId = lastReqId or self.reqRepStore.lastReqId
 
         self.dataDir = self.config.clientDataDir or "data/clients"
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
@@ -165,6 +170,12 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
 
+    def getReqRepStore(self):
+        return ClientReqRepStoreFile(self.name, self.basedirpath)
+
+    def getTxnLogStore(self):
+        return ClientTxnLog(self.name, self.basedirpath)
+
     def __repr__(self):
         return self.name
 
@@ -173,7 +184,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType != 0:
-            logger.error("{} got unknown ledger type {}".format(self, ledgerType))
+            logger.error("{} got unknown ledger type {}".
+                         format(self, ledgerType))
             return
         self.processPoolTxn(txn)
 
@@ -279,6 +291,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             else:
                 self.pendReqsTillConnection(request, signer)
             requests.append(request)
+        for r in requests:
+            self.reqRepStore.addRequest(r)
         return requests
 
     def getSigner(self, identifier: str = None):
@@ -314,28 +328,48 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         self.inBox.append(wrappedMsg)
         msg, frm = wrappedMsg
         # Do not print result of transaction type `POOL_LEDGER_TXNS` on the CLI
-        typs = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP)
-        printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not in typs
+        txnTypes = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF,
+                    CATCHUP_REP)
+        printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not \
+                                            in txnTypes
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": printOnCli})
-        if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] in typs and self._ledger:
-            op = msg.get(OP_FIELD_NAME, None)
-            if not op:
-                raise MissingNodeOp
-            # TODO: Refactor this copying
-            cls = TaggedTuples.get(op, None)
-            t = copy.deepcopy(msg)
-            t.pop(OP_FIELD_NAME, None)
-            cMsg = cls(**t)
-            if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
-                self.poolTxnReceived(cMsg, frm)
-            if msg[OP_FIELD_NAME] == LEDGER_STATUS:
-                self.ledgerManager.processLedgerStatus(cMsg, frm)
-            if msg[OP_FIELD_NAME] == CONSISTENCY_PROOF:
-                self.ledgerManager.processConsistencyProof(cMsg, frm)
-            if msg[OP_FIELD_NAME] == CATCHUP_REP:
-                self.ledgerManager.processCatchupRep(cMsg, frm)
+        if OP_FIELD_NAME in msg:
+            if msg[OP_FIELD_NAME] in txnTypes and self._ledger:
+                op = msg.get(OP_FIELD_NAME, None)
+                if not op:
+                    raise MissingNodeOp
+                # TODO: Refactor this copying
+                cls = TaggedTuples.get(op, None)
+                t = copy.deepcopy(msg)
+                t.pop(OP_FIELD_NAME, None)
+                cMsg = cls(**t)
+                if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
+                    self.poolTxnReceived(cMsg, frm)
+                if msg[OP_FIELD_NAME] == LEDGER_STATUS:
+                    self.ledgerManager.processLedgerStatus(cMsg, frm)
+                if msg[OP_FIELD_NAME] == CONSISTENCY_PROOF:
+                    self.ledgerManager.processConsistencyProof(cMsg, frm)
+                if msg[OP_FIELD_NAME] == CATCHUP_REP:
+                    self.ledgerManager.processCatchupRep(cMsg, frm)
+            elif msg[OP_FIELD_NAME] == REQACK:
+                self.reqRepStore.addAck(msg, frm)
+            elif msg[OP_FIELD_NAME] == REQNACK:
+                self.reqRepStore.addNack(msg, frm)
+            elif msg[OP_FIELD_NAME] == REPLY:
+                result = msg[f.RESULT.nm]
+                reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
+                numReplies = self.reqRepStore.addReply(reqId, frm, result)
+                self.postReplyRecvd(reqId, frm, result, numReplies)
+
+    def postReplyRecvd(self, reqId, frm, result, numReplies):
+        if not self.txnLog.hasTxnWithReqId(reqId) and numReplies > self.f:
+            replies = self.reqRepStore.getReplies(reqId).values()
+            reply = checkIfMoreThanFSameItems(replies, self.f)
+            if reply:
+                self.txnLog.append(reqId, reply)
+                return reply
 
     def _statusChanged(self, old, new):
         # do nothing for now
@@ -435,9 +469,30 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             for n in joined:
                 self.sendLedgerStatus(n)
 
+    def replyIfConsensus(self, reqId: int):
+        replies, errors = self.reqRepStore.getAllReplies(reqId)
+        r = list(replies.values())[0] if len(replies) > self.f else None
+        e = list(errors.values())[0] if len(errors) > self.f else None
+        return r, e
+
     @property
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
+
+    def hasMadeRequest(self, reqId: int):
+        return self.reqRepStore.hasRequest(reqId)
+
+    def isRequestSuccessful(self, reqId):
+        acks = self.reqRepStore.getAcks(reqId)
+        nacks = self.reqRepStore.getNacks(reqId)
+        f = getMaxFailures(len(self.nodeReg))
+        if len(acks) > f:
+            return True, "Done"
+        elif len(nacks) > f:
+            # TODO: What if the the nacks were different from each node?
+            return False, list(nacks.values())[0]
+        else:
+            return None
 
     def pendReqsTillConnection(self, request, signer=None):
         """
@@ -520,7 +575,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
-        signer = self.getSigner(self.defaultIdentifier)
         self.nodestack.send(ledgerStatus, rid)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):

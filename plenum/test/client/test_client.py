@@ -205,7 +205,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                           2,
                           retryWait=.25,
                           timeout=5))
-    orignalRequestResponsesLen = nodeCount * 2
+    originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
     client1.nodestack._enqueueIntoAllRemotes(sent1, client1.getSigner())
 
@@ -215,7 +215,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                        response[0][f.RESULT.nm][f.REQ_ID.nm] == sent1.reqId) or
                       (response[0].get(OP_FIELD_NAME) == REQACK and
                        response[0].get(f.REQ_ID.nm) == sent1.reqId)],
-                     orignalRequestResponsesLen + duplicateRequestRepliesLen)
+                     originalRequestResponsesLen + duplicateRequestRepliesLen)
 
     looper.run(eventually(
             chk,
