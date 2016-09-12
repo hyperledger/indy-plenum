@@ -1175,7 +1175,7 @@ Commands:
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            conflictFound = self._checkIfIdentifierConflicts(alias)
+            conflictFound = self._checkIfIdentifierConflicts(alias, checkInAliases=False, checkInSigners=False)
             if conflictFound:
                 return True
             else:
@@ -1221,15 +1221,20 @@ Commands:
             self._setActiveIdentifier(nymOrAlias)
             return True
 
-    def _checkIfIdentifierConflicts(self, name):
+    def _checkIfIdentifierConflicts(self, name, checkInWallets=True, checkInAliases=True, checkInSigners=True):
         allAliases = []
         allSigners = []
-        for wk, wv in self.wallets.items():
-            allAliases.extend(list(wv.aliases.keys()))
-        for wk, wv in self.wallets.items():
-            allSigners.extend(list(wv.signers.keys()))
+        allWallets = []
 
-        if name and (self.wallets.get(name) or name in allAliases or name in allSigners):
+        for wk, wv in self.wallets.items():
+            if checkInAliases:
+                allAliases.extend(list(wv.aliases.keys()))
+            if checkInSigners:
+                allSigners.extend(list(wv.signers.keys()))
+            if checkInWallets:
+                allWallets.append(wk)
+
+        if name and (name in allWallets or name in allAliases or name in allSigners):
             self.print("New identifier is not available, please choose a new name", Token.Warning)
             return True
         else:

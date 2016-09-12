@@ -44,8 +44,14 @@ def testKeyAndKeyRing(cli):
     assert 'Active wallet set to "{}"'.format("testkr1") in cli.lastCmdOutput
     assert 'New wallet {} created'.format("testkr1") in cli.lastCmdOutput
 
+    cli.enterCmd("new keyring {}".format("testkr1"))
+    assert 'New identifier is not available, please choose a new name' in cli.lastCmdOutput
+
     cli.enterCmd("new key {}".format("testkr1"))
     assert 'New identifier is not available, please choose a new name' in cli.lastCmdOutput
+
+    cli.enterCmd("new key {}".format("testkey1"))
+    assert 'Key created in wallet {}'.format("testkr1") in cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format("testkey1"))
     assert 'Key created in wallet {}'.format("testkr1") in cli.lastCmdOutput
