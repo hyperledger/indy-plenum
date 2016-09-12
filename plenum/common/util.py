@@ -15,11 +15,13 @@ import time
 from binascii import unhexlify
 from collections import Counter
 from collections import OrderedDict
+from importlib import import_module
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple
 
 import libnacl.secret
+import semver
 from ioflo.base.consoling import getConsole, Console
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
@@ -595,3 +597,38 @@ def checkIfMoreThanFSameItems(items, maxF):
         return json.loads(max(counts, key=counts.get))
     else:
         return False
+
+
+def check_deps(dependencies, parent=""):
+    if isinstance(dependencies, dict):
+        for pkg_name, exp_ver in dependencies.items():
+            if parent:
+                full_name = "{} ({})".format(pkg_name, parent)
+            else:
+                full_name = pkg_name
+            print("Checking version of {}...".format(full_name))
+            meta = import_module('{}.__metadata__'.format(pkg_name))
+            ver = meta.__version__
+            if not semver.match(ver, exp_ver):
+                raise RuntimeError("Incompatible '{}' package version. "
+                                   "Expected: {} "
+                                   "Found: {}".
+                                   format(pkg_name, exp_ver, ver))
+            if hasattr(meta, "__dependencies__"):
+                deps = meta.__dependencies__
+                check_deps(deps, full_name)
+    else:
+        pkg = dependencies if isinstance(dependencies, str) else dependencies.__name__
+        meta = import_module('{}.__metadata__'.format(pkg))
+        deps = meta.__dependencies__
+        check_deps(deps)
+
+#
+#
+# def check_deps_for_pkg(pkg):
+#     if not isinstance(pkg, str):
+#         pkg = pkg.__name__
+#     meta = import_module('{}.__metadata__'.format(pkg))
+#     deps = meta.__dependencies__
+#     check_deps(deps)
+#
