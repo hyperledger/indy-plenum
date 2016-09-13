@@ -1,4 +1,5 @@
 import pytest
+from plenum.test.cli.helper import assertCliTokens
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE, \
@@ -19,11 +20,6 @@ def getMatchedVariables(grammar, cmd):
     m = grammar.match(cmd)
     assert m
     return m.variables()
-
-
-def assertCliTokens(matchedVars, tokens):
-    for key, value in tokens.items():
-        assert matchedVars.get(key) == value
 
 
 def testPromptCommandRegEx(grammar):

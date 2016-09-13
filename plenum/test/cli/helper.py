@@ -287,3 +287,8 @@ def loadPlugin(cli, pluginPkgName):
     cli.enterCmd("load plugins from {}".format(fullPath))
     m = pluginLoadedPat.search(cli.printeds[0]['msg'])
     assert m
+
+
+def assertCliTokens(matchedVars, tokens):
+    for key, value in tokens.items():
+        assert matchedVars.get(key) == value
