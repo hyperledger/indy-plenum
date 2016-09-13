@@ -62,7 +62,8 @@ setup(
         (BASE_DIR, ['data/pool_transactions', ])
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
-                      'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4'],
+                      'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4',
+                      'semver'],
     extras_require= {
         'stats': ['python-firebase']
     },
