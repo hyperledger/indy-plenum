@@ -218,6 +218,8 @@ class Cli:
                                         completer=self.grammarCompleter,
                                         style=self.style,
                                         history=self.pers_hist)
+        self.currPromptText = self.name
+
         if output:
             out = output
         else:
@@ -392,15 +394,7 @@ class Cli:
     def _changePrompt(self, matchedVars):
         if matchedVars.get('prompt'):
             promptText = matchedVars.get('name')
-            app = create_prompt_application('{}> '.format(promptText),
-                                            lexer=self.grammarLexer,
-                                            completer=self.grammarCompleter,
-                                            style=self.style,
-                                            history=self.pers_hist)
-            self.cli.application = app
-            # getTokens = lambda _: [(Token.Prompt, promptText + "> ")]
-            # self.cli.application.layout.children[1].children[0]\
-            #     .content.content.get_tokens = getTokens
+            self._setPrompt(promptText)
             return True
 
     def _createGenTxnFileAction(self, matchedVars):
@@ -470,14 +464,15 @@ class Cli:
         self.print('Genesis transaction added')
         return True
 
-    def _buildClientIfNotExists(self):
+    def _buildClientIfNotExists(self, config=None):
         if not self._activeClient:
             if not self.activeWallet:
                 print("Wallet is not initialized")
                 return
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
-            self.newClient(clientName=name, wallet=self.activeWallet)
+            self.newClient(clientName=name, wallet=self.activeWallet,
+                           config=config)
 
     @property
     def wallets(self):
@@ -896,7 +891,7 @@ Commands:
                 self.printVoid()
 
     def newClient(self, clientName, seed=None, identifier=None, signer=None,
-                  wallet=None):
+                  wallet=None, config=None):
         try:
             # TODO create wallet outside of client
             # TODO signer should not be compulsory in creating client
@@ -922,7 +917,8 @@ Commands:
             # activeSigner else use one of the identifier from wallet.
             if signer:
                 identifier = signer.identifier
-            elif self.activeSigner.identifier in list(wallet.signers.keys()):
+            elif self.activeSigner and (self.activeSigner.identifier in
+                                            list(wallet.signers.keys())):
                 identifier = self.activeSigner.identifier
             else:
                 identifier = next(iter(wallet.signers.keys()))
@@ -930,9 +926,11 @@ Commands:
 
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=self.cliNodeReg,
+                                      # nodeReg=self.cliNodeReg,
+                                      nodeReg=None,
                                       basedirpath=self.basedirpath,
-                                      wallet=wallet)
+                                      wallet=wallet,
+                                      config=config)
             self.activeClient = client
             self.looper.add(client)
             for node in self.nodes.values():
@@ -1103,8 +1101,7 @@ Commands:
                     pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin,
-                                   "supportsCli") and plugin.supportsCli:
+                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
@@ -1112,8 +1109,8 @@ Commands:
                                                list) and plugin.grams:
                                 self._allGrams.append(plugin.grams)
                                 parserReInitNeeded = True
-                            # TODO Need to check if `plugin.cliActionNames` conflicts
-                            #  with any of `self.cliActions`
+                            # TODO Need to check if `plugin.cliActionNames`
+                            #  conflicts with any of `self.cliActions`
                             if hasattr(plugin, "cliActionNames") and \
                                     isinstance(plugin.cliActionNames, set) and \
                                     plugin.cliActionNames:
@@ -1181,7 +1178,8 @@ Commands:
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            conflictFound = self._checkIfIdentifierConflicts(alias, checkInAliases=False, checkInSigners=False)
+            conflictFound = self._checkIfIdentifierConflicts(
+                alias, checkInAliases=False, checkInSigners=False)
             if conflictFound:
                 return True
             else:
@@ -1227,7 +1225,8 @@ Commands:
             self._setActiveIdentifier(nymOrAlias)
             return True
 
-    def _checkIfIdentifierConflicts(self, name, checkInWallets=True, checkInAliases=True, checkInSigners=True):
+    def _checkIfIdentifierConflicts(self, name, checkInWallets=True,
+                                    checkInAliases=True, checkInSigners=True):
         allAliases = []
         allSigners = []
         allWallets = []
@@ -1240,8 +1239,9 @@ Commands:
             if checkInWallets:
                 allWallets.append(wk)
 
-        if name and (name in allWallets or name in allAliases or name in allSigners):
-            self.print("New identifier is not available, please choose a new name", Token.Warning)
+        if name and (name in (allWallets + allAliases + allSigners)):
+            self.print("New identifier is not available, please choose a new "
+                       "name", Token.Warning)
             return True
         else:
             return False
@@ -1264,6 +1264,18 @@ Commands:
                 self.print("Current identifier set to {}".format(nymOrAlias))
                 return True
         self._searchAndSetWallet(nymOrAlias)
+
+    def _setPrompt(self, promptText):
+        app = create_prompt_application('{}> '.format(promptText),
+                                        lexer=self.grammarLexer,
+                                        completer=self.grammarCompleter,
+                                        style=self.style,
+                                        history=self.pers_hist)
+        self.cli.application = app
+        self.currPromptText = promptText
+        # getTokens = lambda _: [(Token.Prompt, promptText + "> ")]
+        # self.cli.application.layout.children[1].children[0]\
+        #     .content.content.get_tokens = getTokens
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()

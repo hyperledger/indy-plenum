@@ -44,7 +44,6 @@ from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
 logger = getlogger()
-config = getConfig()
 
 
 class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
@@ -56,7 +55,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
                  signer: Signer=None,
                  signers: Dict[str, Signer]=None,
                  basedirpath: str=None,
-                 wallet: Wallet=None):
+                 wallet: Wallet=None,
+                 config=None):
         """
         Creates a new client.
 

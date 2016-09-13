@@ -606,7 +606,7 @@ def check_deps(dependencies, parent=""):
                 full_name = "{} ({})".format(pkg_name, parent)
             else:
                 full_name = pkg_name
-            print("Checking version of {}...".format(full_name))
+            # print("Checking version of {}...".format(full_name))
             meta = import_module('{}.__metadata__'.format(pkg_name))
             ver = meta.__version__
             if not semver.match(ver, exp_ver):
