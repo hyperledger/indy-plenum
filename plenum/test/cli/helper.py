@@ -183,14 +183,14 @@ def checkRequest(cli, operation):
     assert printedStatus['msg'] == "Status: {}".format(status)
 
 
-def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
+def newCLI(looper, tdir, cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient):
     mockOutput = MockOutput()
     newcli = cliClass(looper=looper,
                       basedirpath=tdir,
-                      nodeReg=nodeRegsForCLI.nodeReg,
-                      cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                      nodeReg=None,
+                      cliNodeReg=None,
                       output=mockOutput,
                       debug=True)
     newcli.NodeClass = nodeClass

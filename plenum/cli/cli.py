@@ -854,10 +854,10 @@ Commands:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
             ip, port = self.nodeReg.get(nodeName)
-            nha = "{}:{}".format(ip, port)
+            nha = "0.0.0.0:{}".format(port)
             self.print("    Node listener: " + nha)
             ip, port = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
-            cha = "{}:{}".format(ip, port)
+            cha = "0.0.0.0:{}".format(port)
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
             self.print('    Connections: ', newline=False)

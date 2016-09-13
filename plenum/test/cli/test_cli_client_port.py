@@ -1,19 +1,32 @@
 import os
+from shutil import copyfile
 
 import pytest
 from plenum.test.cli.helper import createClientAndConnect, newCLI, newKeyPair
 
 
+def prepDir(dirName, tdirWithPoolTxns, tdirWithDomainTxns, tconf):
+    os.makedirs(dirName)
+    copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
+             os.path.join(dirName, tconf.poolTransactionsFile))
+    copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
+             os.path.join(dirName, tconf.domainTransactionsFile))
+
+
 @pytest.fixture(scope="module")
-def cli1(nodeRegsForCLI, cliLooper, tdir):
+def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl1")
-    return newCLI(nodeRegsForCLI, cliLooper, tempDir)
+    prepDir(tempDir, tdirWithPoolTxns, tdirWithDomainTxns, tconf)
+    return newCLI(cliLooper, tempDir)
 
 
 @pytest.fixture(scope="module")
-def cli2(nodeRegsForCLI, cliLooper, tdir):
+def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl2")
-    return newCLI(nodeRegsForCLI, cliLooper, tempDir)
+    prepDir(tempDir, tdirWithPoolTxns, tdirWithDomainTxns, tconf)
+    return newCLI(cliLooper, tempDir)
 
 
 def testEachClientOnDifferentPort(cli1, cli2):
