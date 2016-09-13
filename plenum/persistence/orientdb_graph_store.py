@@ -15,11 +15,12 @@ class OrientDbGraphStore(GraphStore):
             "OrientDbGraphStore must be initialized with dbType=DB_TYPE_GRAPH"
         super().__init__(store)
 
+    @property
     def classesNeeded(self):
         raise NotImplementedError
 
     def bootstrap(self):
-        self.store.createClasses(self.classesNeeded())
+        self.store.createClasses(self.classesNeeded)
 
     def createVertexClass(self, className: str, properties: Dict=None):
         self.createClass(className, "V", properties)
