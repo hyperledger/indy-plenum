@@ -1259,7 +1259,6 @@ Commands:
                 return True
         self._searchAndSetWallet(nymOrAlias)
 
-
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
