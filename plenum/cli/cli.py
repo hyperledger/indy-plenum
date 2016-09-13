@@ -1153,11 +1153,14 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _addSignerToWallet(self, signer, wallet=None):
+    def _addSignerToGivenWallet(self, signer, wallet=None):
         if not wallet:
             wallet = self._newWallet()
         if not wallet.signers.get(signer.verstr):
             wallet.addSigner(signer)
+
+    def _addSignerToWallet(self, signer, wallet=None):
+        self._addSignerToGivenWallet(signer, wallet)
         self.print("Key created in wallet " + wallet.name)
 
     def _newSigner(self,
