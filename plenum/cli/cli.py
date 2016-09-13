@@ -398,6 +398,9 @@ class Cli:
                                             style=self.style,
                                             history=self.pers_hist)
             self.cli.application = app
+            # getTokens = lambda _: [(Token.Prompt, promptText + "> ")]
+            # self.cli.application.layout.children[1].children[0]\
+            #     .content.content.get_tokens = getTokens
             return True
 
     def _createGenTxnFileAction(self, matchedVars):
