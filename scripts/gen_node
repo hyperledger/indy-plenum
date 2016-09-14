@@ -1,16 +1,13 @@
 #! /usr/bin/env python3
 
 import argparse
-from binascii import unhexlify
-
-import base64
 
 from sys import argv
 
 from plenum.common.script_helper import getStewardKeyFromName, initKeep, \
-    generateNodeGenesisTxn, buildKeepDirIfNotExists, isHexKey
+    generateNodeGenesisTxn, buildKeepDirIfNotExists
 from plenum.common.types import CLIENT_STACK_SUFFIX
-from plenum.common.util import getConfig
+from plenum.common.util import getConfig, isHexKey
 
 config = getConfig()
 

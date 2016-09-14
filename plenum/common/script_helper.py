@@ -1,5 +1,3 @@
-import base64
-
 import os
 
 from jsonpickle import json
@@ -11,17 +9,6 @@ from plenum.common.types import CLIENT_STACK_SUFFIX
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
 ExportedTxnFile = "exported_genesis_txn"
-
-
-def isHexKey(key):
-    try:
-        if len(key) == 64 and int(key, 16):
-            return True
-    except ValueError as ex:
-        return False
-    except Exception as ex:
-        print(ex)
-        exit()
 
 
 def buildKeepDirIfNotExists(baseDir):

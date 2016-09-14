@@ -574,6 +574,22 @@ def cleanSeed(seed=None):
         return bts
 
 
+def isHexKey(key):
+    try:
+        if len(key) == 64 and int(key, 16):
+            return True
+    except ValueError as ex:
+        return False
+    except Exception as ex:
+        print(ex)
+        exit()
+
+
+def getCryptonym(identifier):
+    isHex = isHexKey(identifier)
+    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex else identifier
+
+
 def hexToCryptonym(hex):
     # TODO: Use base58 instead of base64
     if isinstance(hex, str):
