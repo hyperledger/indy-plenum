@@ -356,11 +356,16 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
 
 
 @pytest.fixture(scope="module")
-def tdirWithDomainTxns(poolTxnData, tdir, tconf):
+def domainTxnOrderedFields():
+    return getTxnOrderedFields()
+
+
+@pytest.fixture(scope="module")
+def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
     fields = getTxnOrderedFields()
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
-                    serializer=CompactSerializer(fields=fields),
+                    serializer=CompactSerializer(fields=domainTxnOrderedFields),
                     fileName=tconf.domainTransactionsFile)
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
@@ -395,13 +400,18 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
                          usePoolLedger=True)
 
 
+@pytest.fixture(scope="module")
+def testNodeClass():
+    return TestNode
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath, tdirWithNodeKeepInited):
+                   allPluginsPath, tdirWithNodeKeepInited, testNodeClass):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
-            node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+            node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
                             config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)
