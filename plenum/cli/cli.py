@@ -99,20 +99,20 @@ class Cli:
 
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
-                 debug=False, logFileName=None):
+                 debug=False, logFileName=None, config=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
-        self.config = getConfig()
+        self.config = config or getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
-            dataDir = os.path.expanduser(self.config.baseDir)
+            dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
@@ -364,32 +364,25 @@ class Cli:
             fromName = matchedVars.get('from')
             toName = matchedVars.get('to')
             conflictFound = self._checkIfIdentifierConflicts(toName)
-            if conflictFound:
-                return True
-            else:
-                fromWallet = None
-                if not fromName:
-                    fromWallet = self.activeWallet
-                else:
-                    fromWallet = self.wallets.get(fromName)
-                    if not fromWallet:
-                        self.print('Wallet {} not found'.format(fromName))
-                        return True
+            if not conflictFound:
+                fromWallet = self.wallets.get(fromName) if fromName \
+                    else self.activeWallet
+                if not fromWallet:
+                    self.print('Wallet {} not found'.format(fromName))
+                    return True
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
                 self.print('Wallet {} renamed to {}'.format(fromName, toName))
-                return True
+            return True
 
     def _newKeyring(self, matchedVars):
         if matchedVars.get('new_keyring'):
             name = matchedVars.get('name')
             conflictFound = self._checkIfIdentifierConflicts(name)
-            if conflictFound:
-                return True
-            else:
+            if not conflictFound:
                 self._newWallet(name)
-                return True
+            return True
 
     def _changePrompt(self, matchedVars):
         if matchedVars.get('prompt'):
@@ -1239,10 +1232,26 @@ Commands:
             if checkInWallets:
                 allWallets.append(wk)
 
-        if name and (name in (allWallets + allAliases + allSigners)):
-            self.print("New identifier is not available, please choose a new "
-                       "name", Token.Warning)
-            return True
+        if name:
+            if name in allWallets:
+                self.print(
+                    "{} conflicts with an existing keyring name. Please "
+                    "choose a new name".format(name),
+                    Token.Warning)
+                return True
+            if name in allAliases:
+                self.print(
+                    "{} conflicts with an existing alias. Please choose a new "
+                    "name".format(name),
+                    Token.Warning)
+                return True
+            if name in allSigners:
+                self.print(
+                    "{} conflicts with an existing identifier. Please choose "
+                    "a new name".format(name),
+                    Token.Warning)
+                return True
+            return False
         else:
             return False
 
