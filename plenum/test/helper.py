@@ -970,6 +970,7 @@ def genTestClient(nodes: TestNodeSet = None,
                   signer=None,
                   testClientClass=TestClient,
                   bootstrapKeys=True,
+                  ha=None,
                   usePoolLedger=False) -> TestClient:
     if not usePoolLedger:
         nReg = nodeReg
@@ -986,7 +987,7 @@ def genTestClient(nodes: TestNodeSet = None,
         logger.debug("TestClient using pool ledger")
         nReg = None
 
-    ha = genHa()
+    ha = genHa() if not ha else ha
     identifier = "testClient{}".format(ha.port)
 
     signer = signer if signer else SimpleSigner(identifier)

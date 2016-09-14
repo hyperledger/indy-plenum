@@ -1,8 +1,9 @@
 import pytest
 from plenum.test.cli.helper import assertCliTokens
 from prompt_toolkit.contrib.regular_languages.compiler import compile
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE, \
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE,\
     NYM, ROLE, STEWARD
 
 
@@ -15,7 +16,6 @@ def grammar():
     return compile("".join(grams))
 
 
-@pytest.fixture("module")
 def getMatchedVariables(grammar, cmd):
     m = grammar.match(cmd)
     assert m

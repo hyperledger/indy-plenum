@@ -44,7 +44,6 @@ from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
 logger = getlogger()
-config = getConfig()
 
 
 class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
@@ -56,7 +55,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
                  signer: Signer=None,
                  signers: Dict[str, Signer]=None,
                  basedirpath: str=None,
-                 wallet: Wallet=None):
+                 wallet: Wallet=None,
+                 config=None):
         """
         Creates a new client.
 
@@ -163,6 +163,8 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
+        # TODO: Need to have couple of tests around `reqsPendingConnection`
+        # where we check with and without pool ledger
         # Stores the requests that need to be sent to the nodes when the client
         # has made sufficient connections to the nodes.
         self.reqsPendingConnection = deque()
@@ -181,6 +183,10 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
 
     def postPoolLedgerCaughtUp(self):
         self.mode = Mode.discovered
+        # For the scenario where client has already connected to nodes reading
+        #  the genesis pool transactions and that is enough
+        if self.hasSufficientConnections:
+            self.flushMsgsPendingConnection()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType != 0:

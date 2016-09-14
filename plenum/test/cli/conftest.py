@@ -36,8 +36,9 @@ def nodeRegsForCLI(nodeNames):
 
 
 @pytest.fixture("module")
-def cli(nodeRegsForCLI, cliLooper, tdir):
-    return newCLI(nodeRegsForCLI, cliLooper, tdir)
+def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithNodeKeepInited):
+    return newCLI(cliLooper, tdir)
 
 
 @pytest.fixture("module")

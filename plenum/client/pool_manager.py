@@ -15,6 +15,8 @@ t = f.TXN.nm
 class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
+        self._ledgerFile = None
+        self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
@@ -78,12 +80,16 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     @property
     def ledgerLocation(self):
-        return self.dataLocation
+        if not self._ledgerLocation:
+            self._ledgerLocation = self.dataLocation
+        return self._ledgerLocation
 
     # noinspection PyUnresolvedReferences
     @property
     def ledgerFile(self):
-        return self.config.poolTransactionsFile
+        if not self._ledgerFile:
+            self._ledgerFile = self.config.poolTransactionsFile
+        return self._ledgerFile
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))
