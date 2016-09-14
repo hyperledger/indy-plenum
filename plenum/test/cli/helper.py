@@ -185,14 +185,16 @@ def checkRequest(cli, operation):
 
 def newCLI(looper, tdir, cliClass=TestCli,
            nodeClass=TestNode,
-           clientClass=TestClient):
+           clientClass=TestClient,
+           config=None):
     mockOutput = MockOutput()
     newcli = cliClass(looper=looper,
                       basedirpath=tdir,
                       nodeReg=None,
                       cliNodeReg=None,
                       output=mockOutput,
-                      debug=True)
+                      debug=True,
+                      config=config)
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
     newcli.basedirpath = tdir

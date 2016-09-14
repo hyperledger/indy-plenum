@@ -99,20 +99,20 @@ class Cli:
 
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
-                 debug=False, logFileName=None):
+                 debug=False, logFileName=None, config=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
-        self.config = getConfig()
+        self.config = config or getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
-            dataDir = os.path.expanduser(self.config.baseDir)
+            dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
