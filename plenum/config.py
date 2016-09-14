@@ -43,9 +43,7 @@ OrientDB = {
     "user": "root",
     "password": "password",
     "host": "127.0.0.1",
-    "port": 2424,
-    "startScript": "/opt/orientdb/bin/server.sh",
-    "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
+    "port": 2424
 }
 
 DefaultPluginPath = {
