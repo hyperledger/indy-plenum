@@ -183,16 +183,18 @@ def checkRequest(cli, operation):
     assert printedStatus['msg'] == "Status: {}".format(status)
 
 
-def newCLI(nodeRegsForCLI, looper, tdir, cliClass=TestCli,
+def newCLI(looper, tdir, cliClass=TestCli,
            nodeClass=TestNode,
-           clientClass=TestClient):
+           clientClass=TestClient,
+           config=None):
     mockOutput = MockOutput()
     newcli = cliClass(looper=looper,
                       basedirpath=tdir,
-                      nodeReg=nodeRegsForCLI.nodeReg,
-                      cliNodeReg=nodeRegsForCLI.cliNodeReg,
+                      nodeReg=None,
+                      cliNodeReg=None,
                       output=mockOutput,
-                      debug=True)
+                      debug=True,
+                      config=config)
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
     newcli.basedirpath = tdir
@@ -287,3 +289,8 @@ def loadPlugin(cli, pluginPkgName):
     cli.enterCmd("load plugins from {}".format(fullPath))
     m = pluginLoadedPat.search(cli.printeds[0]['msg'])
     assert m
+
+
+def assertCliTokens(matchedVars, tokens):
+    for key, value in tokens.items():
+        assert matchedVars.get(key) == value

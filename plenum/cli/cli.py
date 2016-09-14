@@ -99,20 +99,20 @@ class Cli:
 
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
-                 debug=False, logFileName=None):
+                 debug=False, logFileName=None, config=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
-        self.config = getConfig()
+        self.config = config or getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
                                                   and sys.argv[1] == "--noreg"):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
-            dataDir = os.path.expanduser(self.config.baseDir)
+            dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
@@ -218,6 +218,8 @@ class Cli:
                                         completer=self.grammarCompleter,
                                         style=self.style,
                                         history=self.pers_hist)
+        self.currPromptText = self.name
+
         if output:
             out = output
         else:
@@ -282,7 +284,8 @@ class Cli:
                              self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
-                             self._createGenTxnFileAction]
+                             self._createGenTxnFileAction, self._changePrompt,
+                             self._newKeyring, self._renameKeyring]
         return self._actions
 
     @property
@@ -311,10 +314,13 @@ class Cli:
                 'add_key': WordCompleter(['add key']),
                 'for_client': WordCompleter(['for client']),
                 'new_key': WordCompleter(['new', 'key']),
+                'new_keyring': WordCompleter(['new', 'keyring']),
+                'rename_keyring': WordCompleter(['rename', 'keyring']),
                 'list_ids': WordCompleter(['list', 'ids']),
                 'become': WordCompleter(['become']),
                 'use_id': WordCompleter(['use', 'identifier']),
                 'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'prompt': WordCompleter(['prompt']),
                 'create_gen_txn_file': WordCompleter(
                     ['create', 'genesis', 'transaction', 'file'])
             }
@@ -343,12 +349,46 @@ class Cli:
                 'list_ids',
                 'become',
                 'use_id',
+                'prompt',
+                'new_keyring',
+                'rename_keyring',
                 'add_genesis',
                 'create_gen_txn_file'
             }
             lexers = {n: SimpleLexer(Token.Keyword) for n in lexerNames}
             self._lexers = {**lexers}
         return self._lexers
+
+    def _renameKeyring(self, matchedVars):
+        if matchedVars.get('rename_keyring'):
+            fromName = matchedVars.get('from')
+            toName = matchedVars.get('to')
+            conflictFound = self._checkIfIdentifierConflicts(toName)
+            if not conflictFound:
+                fromWallet = self.wallets.get(fromName) if fromName \
+                    else self.activeWallet
+                if not fromWallet:
+                    self.print('Wallet {} not found'.format(fromName))
+                    return True
+                fromWallet.name = toName
+                del self.wallets[fromName]
+                self.wallets[toName] = fromWallet
+                self.print('Wallet {} renamed to {}'.format(fromName, toName))
+            return True
+
+    def _newKeyring(self, matchedVars):
+        if matchedVars.get('new_keyring'):
+            name = matchedVars.get('name')
+            conflictFound = self._checkIfIdentifierConflicts(name)
+            if not conflictFound:
+                self._newWallet(name)
+            return True
+
+    def _changePrompt(self, matchedVars):
+        if matchedVars.get('prompt'):
+            promptText = matchedVars.get('name')
+            self._setPrompt(promptText)
+            return True
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
@@ -417,14 +457,15 @@ class Cli:
         self.print('Genesis transaction added')
         return True
 
-    def _buildClientIfNotExists(self):
+    def _buildClientIfNotExists(self, config=None):
         if not self._activeClient:
             if not self.activeWallet:
                 print("Wallet is not initialized")
                 return
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
-            self.newClient(clientName=name, wallet=self.activeWallet)
+            self.newClient(clientName=name, wallet=self.activeWallet,
+                           config=config)
 
     @property
     def wallets(self):
@@ -806,10 +847,10 @@ Commands:
             self.print("\n    Name: " + nodeName)
             node = self.nodes[nodeName]  # type: Node
             ip, port = self.nodeReg.get(nodeName)
-            nha = "{}:{}".format(ip, port)
+            nha = "0.0.0.0:{}".format(port)
             self.print("    Node listener: " + nha)
             ip, port = self.cliNodeReg.get(nodeName + CLIENT_STACK_SUFFIX)
-            cha = "{}:{}".format(ip, port)
+            cha = "0.0.0.0:{}".format(port)
             self.print("    Client listener: " + cha)
             self.print("    Status: {}".format(node.status.name))
             self.print('    Connections: ', newline=False)
@@ -843,7 +884,7 @@ Commands:
                 self.printVoid()
 
     def newClient(self, clientName, seed=None, identifier=None, signer=None,
-                  wallet=None):
+                  wallet=None, config=None):
         try:
             # TODO create wallet outside of client
             # TODO signer should not be compulsory in creating client
@@ -869,7 +910,8 @@ Commands:
             # activeSigner else use one of the identifier from wallet.
             if signer:
                 identifier = signer.identifier
-            elif self.activeSigner.identifier in list(wallet.signers.keys()):
+            elif self.activeSigner and (self.activeSigner.identifier in
+                                            list(wallet.signers.keys())):
                 identifier = self.activeSigner.identifier
             else:
                 identifier = next(iter(wallet.signers.keys()))
@@ -877,9 +919,11 @@ Commands:
 
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=self.cliNodeReg,
+                                      # nodeReg=self.cliNodeReg,
+                                      nodeReg=None,
                                       basedirpath=self.basedirpath,
-                                      wallet=wallet)
+                                      wallet=wallet,
+                                      config=config)
             self.activeClient = client
             self.looper.add(client)
             for node in self.nodes.values():
@@ -1050,8 +1094,7 @@ Commands:
                     pluginsPath).plugins  # type: Dict[str, Set]
                 for pluginSet in plugins.values():
                     for plugin in pluginSet:
-                        if hasattr(plugin,
-                                   "supportsCli") and plugin.supportsCli:
+                        if hasattr(plugin, "supportsCli") and plugin.supportsCli:
                             plugin.cli = self
                             parserReInitNeeded = False
                             if hasattr(plugin, "grams") and \
@@ -1059,8 +1102,8 @@ Commands:
                                                list) and plugin.grams:
                                 self._allGrams.append(plugin.grams)
                                 parserReInitNeeded = True
-                            # TODO Need to check if `plugin.cliActionNames` conflicts
-                            #  with any of `self.cliActions`
+                            # TODO Need to check if `plugin.cliActionNames`
+                            #  conflicts with any of `self.cliActions`
                             if hasattr(plugin, "cliActionNames") and \
                                     isinstance(plugin.cliActionNames, set) and \
                                     plugin.cliActionNames:
@@ -1100,11 +1143,14 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _addSignerToWallet(self, signer, wallet=None):
+    def _addSignerToGivenWallet(self, signer, wallet=None):
         if not wallet:
             wallet = self._newWallet()
         if not wallet.signers.get(signer.verstr):
             wallet.addSigner(signer)
+
+    def _addSignerToWallet(self, signer, wallet=None):
+        self._addSignerToGivenWallet(signer, wallet)
         self.print("Key created in wallet " + wallet.name)
 
     def _newSigner(self,
@@ -1125,8 +1171,13 @@ Commands:
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
-            return True
+            conflictFound = self._checkIfIdentifierConflicts(
+                alias, checkInAliases=False, checkInSigners=False)
+            if conflictFound:
+                return True
+            else:
+                self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
+                return True
 
     def _buildWalletClass(self, nm):
         storage = WalletStorageFile.fromName(nm, self.basedirpath)
@@ -1167,27 +1218,73 @@ Commands:
             self._setActiveIdentifier(nymOrAlias)
             return True
 
-    def _setActiveIdentifier(self, nymOrAlias):
-        if not self.activeWallet:
-            self.print("No active wallet")
-            return
-            # wallets = WalletStorageFile.listWallets()
-            # if len(wallets) == 0:
-            #     self.ensureDefaultClientCreated()
-            # elif len(wallets) == 1:
-            #     self.activeWallet = self._newWallet(wallets[0])
-            # else:
-            #     self.print("Please select a wallet with the command: use wallet <wallet name>")
-            #     self.print("Available wallets: {}".format(wallets))
+    def _checkIfIdentifierConflicts(self, name, checkInWallets=True,
+                                    checkInAliases=True, checkInSigners=True):
+        allAliases = []
+        allSigners = []
+        allWallets = []
 
-        wallet = self.activeWallet
-        nym = wallet.aliases.get(nymOrAlias) or nymOrAlias
-        signer = wallet.signers.get(nym)
-        if signer:
-            self.activeSigner = signer
-            self.print("Current identifier set to {}".format(nymOrAlias))
+        for wk, wv in self.wallets.items():
+            if checkInAliases:
+                allAliases.extend(list(wv.aliases.keys()))
+            if checkInSigners:
+                allSigners.extend(list(wv.signers.keys()))
+            if checkInWallets:
+                allWallets.append(wk)
+
+        if name:
+            if name in allWallets:
+                self.print(
+                    "{} conflicts with an existing keyring name. Please "
+                    "choose a new name".format(name),
+                    Token.Warning)
+                return True
+            if name in allAliases:
+                self.print(
+                    "{} conflicts with an existing alias. Please choose a new "
+                    "name".format(name),
+                    Token.Warning)
+                return True
+            if name in allSigners:
+                self.print(
+                    "{} conflicts with an existing identifier. Please choose "
+                    "a new name".format(name),
+                    Token.Warning)
+                return True
+            return False
         else:
-            self.print("alias or identifier {} not found".format(nymOrAlias))
+            return False
+
+    def _searchAndSetWallet(self, name):
+        wallet = self.wallets.get(name)
+        if wallet:
+            self.activeWallet = wallet
+        else:
+            self.print("No such identifier found")
+        return True
+
+    def _setActiveIdentifier(self, nymOrAlias):
+        if self.activeWallet:
+            wallet = self.activeWallet
+            nym = wallet.aliases.get(nymOrAlias) or nymOrAlias
+            signer = wallet.signers.get(nym)
+            if signer:
+                self.activeSigner = signer
+                self.print("Current identifier set to {}".format(nymOrAlias))
+                return True
+        self._searchAndSetWallet(nymOrAlias)
+
+    def _setPrompt(self, promptText):
+        app = create_prompt_application('{}> '.format(promptText),
+                                        lexer=self.grammarLexer,
+                                        completer=self.grammarCompleter,
+                                        style=self.style,
+                                        history=self.pers_hist)
+        self.cli.application = app
+        self.currPromptText = promptText
+        # getTokens = lambda _: [(Token.Prompt, promptText + "> ")]
+        # self.cli.application.layout.children[1].children[0]\
+        #     .content.content.get_tokens = getTokens
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()

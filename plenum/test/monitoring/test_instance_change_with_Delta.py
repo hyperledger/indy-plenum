@@ -22,7 +22,7 @@ verify a view change happens
 """
 
 
-logging.root.setLevel(logging.INFO)
+logging.root.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope="module")
