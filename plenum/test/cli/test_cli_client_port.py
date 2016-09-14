@@ -5,19 +5,22 @@ import pytest
 from plenum.test.cli.helper import createClientAndConnect, newCLI, newKeyPair
 
 
-def prepDir(dirName, tdirWithPoolTxns, tdirWithDomainTxns, tconf):
+def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
+                           tdirWithDomainTxns=None):
     os.makedirs(dirName)
-    copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
-             os.path.join(dirName, tconf.poolTransactionsFile))
-    copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
-             os.path.join(dirName, tconf.domainTransactionsFile))
+    if tdirWithPoolTxns:
+        copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
+                 os.path.join(dirName, tconf.poolTransactionsFile))
+    if tdirWithDomainTxns:
+        copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
+                 os.path.join(dirName, tconf.domainTransactionsFile))
 
 
 @pytest.fixture(scope="module")
 def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl1")
-    prepDir(tempDir, tdirWithPoolTxns, tdirWithDomainTxns, tconf)
+    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
     return newCLI(cliLooper, tempDir)
 
 
@@ -25,7 +28,7 @@ def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl2")
-    prepDir(tempDir, tdirWithPoolTxns, tdirWithDomainTxns, tconf)
+    initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
     return newCLI(cliLooper, tempDir)
 
 
