@@ -1232,10 +1232,26 @@ Commands:
             if checkInWallets:
                 allWallets.append(wk)
 
-        if name and (name in (allWallets + allAliases + allSigners)):
-            self.print("New identifier is not available, please choose a new "
-                       "name", Token.Warning)
-            return True
+        if name:
+            if name in allWallets:
+                self.print(
+                    "{} conflicts with an existing keyring name. Please "
+                    "choose a new name",
+                    Token.Warning)
+                return True
+            if name in allAliases:
+                self.print(
+                    "{} conflicts with an existing alias. Please choose a new "
+                    "name",
+                    Token.Warning)
+                return True
+            if name in allSigners:
+                self.print(
+                    "{} conflicts with an existing identifier. Please choose "
+                    "a new name",
+                    Token.Warning)
+                return True
+            return False
         else:
             return False
 
