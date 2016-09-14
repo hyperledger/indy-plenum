@@ -364,32 +364,25 @@ class Cli:
             fromName = matchedVars.get('from')
             toName = matchedVars.get('to')
             conflictFound = self._checkIfIdentifierConflicts(toName)
-            if conflictFound:
-                return True
-            else:
-                fromWallet = None
-                if not fromName:
-                    fromWallet = self.activeWallet
-                else:
-                    fromWallet = self.wallets.get(fromName)
-                    if not fromWallet:
-                        self.print('Wallet {} not found'.format(fromName))
-                        return True
+            if not conflictFound:
+                fromWallet = self.wallets.get(fromName) if fromName \
+                    else self.activeWallet
+                if not fromWallet:
+                    self.print('Wallet {} not found'.format(fromName))
+                    return True
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
                 self.print('Wallet {} renamed to {}'.format(fromName, toName))
-                return True
+            return True
 
     def _newKeyring(self, matchedVars):
         if matchedVars.get('new_keyring'):
             name = matchedVars.get('name')
             conflictFound = self._checkIfIdentifierConflicts(name)
-            if conflictFound:
-                return True
-            else:
+            if not conflictFound:
                 self._newWallet(name)
-                return True
+            return True
 
     def _changePrompt(self, matchedVars):
         if matchedVars.get('prompt'):
