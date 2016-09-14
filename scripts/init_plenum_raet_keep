@@ -28,13 +28,17 @@ if __name__ == "__main__":
 
     parser.add_argument('--type', required=False, help='steward or node')
     parser.add_argument('--stewardverkey', required=False, help="in case of "
-                                                                "node, requires "
-                                                                "steward's verkey")
+                                                                "node, "
+                                                                "requires "
+                                                                "steward's "
+                                                                "verkey")
     parser.add_argument('--nodeip', required=False, help="node ip address")
     parser.add_argument('--nodeport', required=False, help="node port")
     parser.add_argument('--name', required=True, help='node name')
-    parser.add_argument('--seed', required=False, type=str, help='seeds for keypair')
-    parser.add_argument('--print_gen_txn', help='overrides keys', action='store_true')
+    parser.add_argument('--seed', required=False, type=str,
+                        help='seeds for keypair')
+    parser.add_argument('--print_gen_txn', help='overrides keys',
+                        action='store_true')
     parser.add_argument('--force', help='overrides keys', action='store_true')
 
     args = parser.parse_args()
