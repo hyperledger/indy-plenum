@@ -30,7 +30,7 @@ def renameToExistingKeyring(oldName, newName, cli):
         cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
     else:
         cli.enterCmd("rename keyring to {}".format(newName))
-    assert 'New identifier is not available, please choose a new name' in \
+    assert '{} conflicts with an existing keyring name. Please choose a new name'.format(newName) in \
            cli.lastCmdOutput
 
 
@@ -47,11 +47,11 @@ def testKeyAndKeyRing(cli):
     assert 'New wallet {} created'.format("testkr1") in cli.lastCmdOutput
 
     cli.enterCmd("new keyring {}".format("testkr1"))
-    assert 'New identifier is not available, please choose a new name' in \
+    assert 'testkr1 conflicts with an existing keyring name. Please choose a new name' in \
            cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format("testkr1"))
-    assert 'New identifier is not available, please choose a new name' in \
+    assert 'testkr1 conflicts with an existing keyring name. Please choose a new name' in \
            cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format("testkey1"))
@@ -61,7 +61,7 @@ def testKeyAndKeyRing(cli):
     assert 'Key created in wallet {}'.format("testkr1") in cli.lastCmdOutput
 
     cli.enterCmd("new keyring {}".format("testkey1"))
-    assert 'New identifier is not available, please choose a new name' in \
+    assert 'testkey1 conflicts with an existing alias. Please choose a new name' in \
            cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format("testkey1"))

@@ -1236,19 +1236,19 @@ Commands:
             if name in allWallets:
                 self.print(
                     "{} conflicts with an existing keyring name. Please "
-                    "choose a new name",
+                    "choose a new name".format(name),
                     Token.Warning)
                 return True
             if name in allAliases:
                 self.print(
                     "{} conflicts with an existing alias. Please choose a new "
-                    "name",
+                    "name".format(name),
                     Token.Warning)
                 return True
             if name in allSigners:
                 self.print(
                     "{} conflicts with an existing identifier. Please choose "
-                    "a new name",
+                    "a new name".format(name),
                     Token.Warning)
                 return True
             return False
