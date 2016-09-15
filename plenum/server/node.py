@@ -29,8 +29,7 @@ from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    InvalidIdentifier
+    InvalidClientMessageException, RaetKeysNotFoundException as REx
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -984,11 +983,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
-        except Exception as ex:
+        except SuspiciousClient as ex:
             msg, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
-            if isinstance(ex, SuspiciousClient):
-                self.reportSuspiciousClient(frm, exc)
+            self.reportSuspiciousClient(frm, exc)
+            self.handleInvalidClientMsg(exc, wrappedMsg)
+        except InvalidClientMessageException as ex:
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
@@ -1026,16 +1026,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if cls not in (Batch, LedgerStatus, CatchupReq):
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
-            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
-                                       msg.get(f.REQ_ID.nm))
+            raise InvalidClientRequest
         try:
             cMsg = cls(**msg)
         except Exception as ex:
             raise InvalidClientRequest from ex
         try:
             self.verifySignature(cMsg)
-        except InvalidIdentifier as ex:
-            raise
         except Exception as ex:
             raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
