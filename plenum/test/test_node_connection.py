@@ -30,7 +30,8 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath):
             logger.debug("Node names: {}".format(names))
 
             def create(name):
-                node = TestNode(name, nodeReg, basedirpath=td, pluginPaths=allPluginsPath)
+                node = TestNode(name, nodeReg, basedirpath=td,
+                                pluginPaths=allPluginsPath)
                 looper.add(node)
                 node.startKeySharing()
                 nodes.append(node)
