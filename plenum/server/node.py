@@ -1032,7 +1032,8 @@ class Node(HasActionQueue, Motor,
             if cls is not Batch:
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
-            raise InvalidClientRequest
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm))
         try:
             cMsg = cls(**msg)
         except Exception as ex:
