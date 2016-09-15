@@ -599,6 +599,16 @@ def checkIfMoreThanFSameItems(items, maxF):
         return False
 
 
+def getPackageMeta(pkg):
+    try:
+        meta = import_module('{}.__metadata__'.format(pkg))
+    except ImportError:
+        print("A dependency named {} is not installed. Installation cannot "
+              "proceed without it.".format(pkg))
+        sys.exit(1)
+    return meta
+
+
 def check_deps(dependencies, parent=""):
     if isinstance(dependencies, dict):
         for pkg_name, exp_ver in dependencies.items():
@@ -606,8 +616,7 @@ def check_deps(dependencies, parent=""):
                 full_name = "{} ({})".format(pkg_name, parent)
             else:
                 full_name = pkg_name
-            # print("Checking version of {}...".format(full_name))
-            meta = import_module('{}.__metadata__'.format(pkg_name))
+            meta = getPackageMeta(pkg_name)
             ver = meta.__version__
             if not semver.match(ver, exp_ver):
                 raise RuntimeError("Incompatible '{}' package version. "
@@ -618,8 +627,9 @@ def check_deps(dependencies, parent=""):
                 deps = meta.__dependencies__
                 check_deps(deps, full_name)
     else:
-        pkg = dependencies if isinstance(dependencies, str) else dependencies.__name__
-        meta = import_module('{}.__metadata__'.format(pkg))
+        pkg = dependencies if isinstance(dependencies, str) else \
+            dependencies.__name__
+        meta = getPackageMeta(pkg)
         deps = meta.__dependencies__
         check_deps(deps)
 
