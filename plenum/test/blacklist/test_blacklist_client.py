@@ -19,6 +19,9 @@ def testBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
     # Every node should blacklist the client
     def chk():
         for node in nodeSet:
-            assert node.isClientBlacklisted(client1.name)
+            assert not node.isClientBlacklisted(client1.name)
+
+    # TODO: Add test for client sending invalid signature to node not being
+    #  blacklisted.
 
     looper.run(eventually(chk, retryWait=1, timeout=3))
