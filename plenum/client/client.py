@@ -318,7 +318,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :param msg: Message to be signed
         :return: message
         """
-        if f.SIG.nm not in msg or not msg[f.SIG.nm]:
+        if not msg.get(f.SIG.nm):
             if signer:
                 msg[f.SIG.nm] = signer.sign(msg)
             else:
