@@ -48,7 +48,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
     commonError = "client request invalid: AssertionError "
     client2 = setupClient(looper, nodeSet, tmpdir=tdir)
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: "dummy",
         TARGET_NYM: client2.defaultIdentifier,
         DATA: {
@@ -61,7 +61,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros1 = [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: CREDIT,
         TARGET_NYM: client2.defaultIdentifier,
         })
@@ -73,7 +73,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros2 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: CREDIT,
         TARGET_NYM: client2.defaultIdentifier,
         DATA: "some string"})
@@ -85,7 +85,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros3 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: CREDIT,
         TARGET_NYM: client2.defaultIdentifier,
         DATA: {
@@ -101,7 +101,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
 
     looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=5))
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: CREDIT,
         TARGET_NYM: client2.defaultIdentifier,
         DATA: {

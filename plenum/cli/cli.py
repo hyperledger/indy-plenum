@@ -952,7 +952,7 @@ Commands:
     def sendMsg(self, clientName, msg):
         client = self.clients.get(clientName, None)
         if client:
-            request, = client.submit(msg)
+            request, = client.submit_DEPRECATED(msg)
             self.requests[str(request.reqId)] = request.reqId
         else:
             self.printMsgForUnknownClient()

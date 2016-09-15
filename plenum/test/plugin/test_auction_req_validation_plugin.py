@@ -49,7 +49,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
     commonError = "client request invalid: AssertionError "
     allCoros = []
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: "dummy",
         DATA: {
             AMOUNT: 30
@@ -61,7 +61,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_START,
     })
 
@@ -72,7 +72,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         })
 
@@ -83,7 +83,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         DATA: "some string"
     })
@@ -95,7 +95,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         DATA: {
             AMOUNT: 453
@@ -107,7 +107,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_START,
         DATA: {
         }})
@@ -118,7 +118,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_END,
         DATA: {
         }})
@@ -130,7 +130,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
              for node in nodeSet]
 
     auctionId = str(uuid4())
-    req, = client1.submit({
+    req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         DATA: {
             ID: auctionId,

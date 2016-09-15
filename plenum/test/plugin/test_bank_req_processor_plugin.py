@@ -55,7 +55,7 @@ def clients(looper, nodeSet, tdir):
 
 def sendMoney(looper, frm: TestClient, to: TestClient, amount: int, nodes,
               expected: bool=True):
-    req, = frm.submit({
+    req, = frm.submit_DEPRECATED({
             TXN_TYPE: CREDIT,
             TARGET_NYM: to.defaultIdentifier,
             DATA: {
@@ -74,7 +74,7 @@ def sendMoney(looper, frm: TestClient, to: TestClient, amount: int, nodes,
 
 
 def checkBalance(looper, client: TestClient):
-    req, = client.submit({
+    req, = client.submit_DEPRECATED({
         TXN_TYPE: GET_BAL,
         TARGET_NYM: client.defaultIdentifier
     })
@@ -86,7 +86,7 @@ def checkBalance(looper, client: TestClient):
 
 
 def checkTxns(looper, client: TestClient):
-    req, = client.submit({
+    req, = client.submit_DEPRECATED({
         TXN_TYPE: GET_ALL_TXNS,
         TARGET_NYM: client.defaultIdentifier
     })

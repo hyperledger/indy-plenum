@@ -207,7 +207,7 @@ def request1():
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submit(request1)[0]
+    return client1.submit_DEPRECATED(request1)[0]
 
 
 @pytest.fixture(scope="module")

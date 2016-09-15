@@ -44,7 +44,7 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
         looper.run(client.ensureConnectedToNodes())
         sigseed = b'55555555555555555555555555555555'
         newSigner = SimpleSigner(sigseed)
-        client.submit({
+        client.submit_DEPRECATED({
             TXN_TYPE: NYM,
             ROLE: STEWARD,
             TARGET_NYM: newSigner.verstr,

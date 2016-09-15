@@ -52,7 +52,7 @@ def clients(looper, nodeSet, tdir):
 
 
 def auction(looper, client: TestClient, aucId, start=True):
-    req, = client.submit({
+    req, = client.submit_DEPRECATED({
         TXN_TYPE: AUCTION_START if start else AUCTION_END,
         DATA: {
             ID: aucId
@@ -64,7 +64,7 @@ def auction(looper, client: TestClient, aucId, start=True):
 
 
 def getBalance(looper, client: TestClient) -> int:
-    req, = client.submit({
+    req, = client.submit_DEPRECATED({
         TXN_TYPE: GET_BAL,
         TARGET_NYM: client.defaultIdentifier
     })
@@ -74,7 +74,7 @@ def getBalance(looper, client: TestClient) -> int:
 
 
 def bid(looper, client, aucId, amount):
-    req, = client.submit({
+    req, = client.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         DATA: {
             ID: aucId,

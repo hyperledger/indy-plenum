@@ -1027,12 +1027,12 @@ def randomOperation():
 
 
 def sendRandomRequest(client: Client):
-    return client.submit(randomOperation())[0]
+    return client.submit_DEPRECATED(randomOperation())[0]
 
 
 def sendRandomRequests(client: Client, count: int):
     ops = [randomOperation() for _ in range(count)]
-    return client.submit(*ops)
+    return client.submit_DEPRECATED(*ops)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:

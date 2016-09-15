@@ -46,7 +46,89 @@ from plenum.common.util import getConfig
 logger = getlogger()
 
 
-class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
+class ClientWallet:
+    def __init__(self,
+                 signer: Signer=None,
+                 signers: Dict[str, Signer]=None,
+                 basedirpath: str=None,
+                 wallet: Wallet=None):
+        """
+        :param signer: Signer; mutually exclusive of signers
+        :param signers: Dict of identifier -> Signer; useful for clients that
+            need to support multiple signers
+        """
+        if signer and signers:
+            raise ValueError("only one of 'signer' or 'signers' can be used")
+
+        self.setupWallet(wallet)
+        signers = None  # type: Dict[str, Signer]
+        self.defaultIdentifier = None
+        if not self.wallet.signers:
+            if signer:
+                signers = {signer.identifier: signer}
+                self.defaultIdentifier = signer.identifier
+            elif signers:
+                signers = signers
+            else:
+                signers = self.setupDefaultSigner()
+
+            for s in signers.values():
+                self.wallet.addSigner(signer=s)
+        else:
+            if len(self.wallet.signers) == 1:
+                self.defaultIdentifier = list(self.wallet.signers.values())[
+                    0].identifier
+
+    def setupWallet(self, wallet=None):
+        if wallet:
+            self.wallet = wallet
+        else:
+            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
+            self.wallet = Wallet(self.name, storage)
+
+    @property
+    def signers(self):
+        return self.wallet.signers
+
+    def setupDefaultSigner(self):
+        """
+        Create one SimpleSigner and add it to signers
+        against the client's name.
+        """
+        signer = SimpleSigner(self.name)
+        signers = {self.name: signer}
+        self.defaultIdentifier = self.name
+        self.wallet.aliases[self.defaultIdentifier] = signer
+        return signers
+
+    def getSigner(self, identifier: str = None):
+        """
+        Look up and return a signer corresponding to the identifier specified.
+        Return None if not found.
+        """
+        try:
+            return self.signers[identifier or self.defaultIdentifier]
+        except KeyError:
+            return None
+
+    def sign(self, msg: Dict, signer: Signer) -> Dict:
+        """
+        Signs the message if a signer is configured
+
+        :param msg: Message to be signed
+        :return: message
+        """
+        if not msg.get(f.SIG.nm):
+            if signer:
+                msg[f.SIG.nm] = signer.sign(msg)
+            else:
+                logger.warning("{} signer not configured so not signing {}".
+                               format(self, msg))
+        return msg
+
+
+class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
+             HasPoolManager):
     def __init__(self,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
@@ -64,9 +146,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :param nodeReg: names and host addresses of all nodes in the pool
         :param ha: tuple of host and port
         :param lastReqId: Request Id of the last request sent by client
-        :param signer: Signer; mutually exclusive of signers
-        :param signers: Dict of identifier -> Signer; useful for clients that
-            need to support multiple signers
         """
         self.config = config or getConfig()
         basedirpath = os.path.expanduser(self.config.baseDir
@@ -138,28 +217,10 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
 
         self.inBox = deque()
 
-        if signer and signers:
-            raise ValueError("only one of 'signer' or 'signers' can be used")
-
-        self.setupWallet(wallet)
-        signers = None  # type: Dict[str, Signer]
-        self.defaultIdentifier = None
-        if not self.wallet.signers:
-            if signer:
-                signers = {signer.identifier: signer}
-                self.defaultIdentifier = signer.identifier
-            elif signers:
-                signers = signers
-            else:
-                signers = self.setupDefaultSigner()
-
-            for s in signers.values():
-                self.wallet.addSigner(signer=s)
-        else:
-            if len(self.wallet.signers) == 1:
-                self.defaultIdentifier = list(self.wallet.signers.values())[
-                    0].identifier
-
+        ClientWallet.__init__(self,
+                              signer=signer,
+                              signers=signers,
+                              wallet=wallet)
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
@@ -202,13 +263,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
 
-    def setupWallet(self, wallet=None):
-        if wallet:
-            self.wallet = wallet
-        else:
-            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
-            self.wallet = Wallet(self.name, storage)
-
     @staticmethod
     def exists(name, basedirpath):
         return os.path.exists(basedirpath) and \
@@ -217,21 +271,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     @property
     def nodeStackClass(self) -> NodeStack:
         return NodeStack
-
-    @property
-    def signers(self):
-        return self.wallet.signers
-
-    def setupDefaultSigner(self):
-        """
-        Create one SimpleSigner and add it to signers
-        against the client's name.
-        """
-        signer = SimpleSigner(self.name)
-        signers = {self.name: signer}
-        self.defaultIdentifier = self.name
-        self.wallet.aliases[self.defaultIdentifier] = signer
-        return signers
 
     def start(self, loop):
         oldstatus = self.status
@@ -263,6 +302,12 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             s += self.ledgerManager._serviceActions()
         return s
 
+    def setReqId(self, request: Request) -> Request:
+        if request.reqId is None:
+            request.reqId = self.lastReqId + 1
+            self.lastReqId += 1
+        return request
+
     def createRequest(self, operation: Mapping,
                       identifier: str = None) -> Request:
         """
@@ -272,14 +317,26 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :return: New client request
         """
 
-        request = Request(identifier or self.defaultIdentifier,
-                          self.lastReqId + 1,
-                          operation)
-        self.lastReqId += 1
+        request = Request(identifier=identifier or self.defaultIdentifier,
+                          operation=operation)
+        self.setReqId(request)
         return request
 
-    def submit(self, *operations: Mapping, identifier: str = None) -> List[
-        Request]:
+    def submitReqs(self, *reqs: Request) -> List[Request]:
+        requests = []
+        for request in reqs:
+            self.setReqId(request)
+            if self.mode == Mode.discovered and self.hasSufficientConnections:
+                self.nodestack.send(request)
+            else:
+                self.pendReqsTillConnection(request)
+            requests.append(request)
+        for r in requests:
+            self.reqRepStore.addRequest(r)
+        return requests
+
+    def submit_DEPRECATED(self, *operations: Mapping, identifier: str = None) \
+            -> List[Request]:
         """
         Sends an operation to the consensus pool
 
@@ -292,39 +349,11 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         for op in operations:
             request = self.createRequest(op, identifier)
             signer = self.getSigner(identifier)
-            if self.mode == Mode.discovered and self.hasSufficientConnections:
-                self.nodestack.send(request, signer=signer)
-            else:
-                self.pendReqsTillConnection(request, signer)
-            requests.append(request)
-        for r in requests:
-            self.reqRepStore.addRequest(r)
-        return requests
-
-    def getSigner(self, identifier: str = None):
-        """
-        Look up and return a signer corresponding to the identifier specified.
-        Return None if not found.
-        """
-        try:
-            return self.signers[identifier or self.defaultIdentifier]
-        except KeyError:
-            return None
-
-    def sign(self, msg: Dict, signer: Signer) -> Dict:
-        """
-        Signs the message if a signer is configured
-
-        :param msg: Message to be signed
-        :return: message
-        """
-        if not msg.get(f.SIG.nm):
             if signer:
-                msg[f.SIG.nm] = signer.sign(msg)
-            else:
-                logger.warning("{} signer not configured so not signing {}".
-                               format(self, msg))
-        return msg
+                request.signature = signer.sign(request.__getstate__())
+            requests.append(request)
+        self.submitReqs(*requests)
+        return requests
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
@@ -522,7 +551,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     def submitNewClient(self, role, name: str, verkey: str):
         assert role in (STEWARD, USER), "Invalid type {}".format(role)
         verstr = hexToCryptonym(verkey)
-        req, = self.submit({
+        req, = self.submit_DEPRECATED({
             TXN_TYPE: NYM,
             ROLE: role,
             TARGET_NYM: verstr,
@@ -537,7 +566,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
                       nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
         verstr = hexToCryptonym(verkey)
-        req, = self.submit({
+        req, = self.submit_DEPRECATED({
             TXN_TYPE: NEW_NODE,
             TARGET_NYM: verstr,
             DATA: {
@@ -554,7 +583,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     def submitNodeIpChange(self, name: str, nym: str, nodeStackHa: HA,
                            clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        req, = self.submit({
+        req, = self.submit_DEPRECATED({
             TXN_TYPE: CHANGE_HA,
             TARGET_NYM: nym,
             DATA: {
@@ -568,7 +597,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         return req
 
     def submitNodeKeysChange(self, name: str, nym: str, verkey: str):
-        req, = self.submit({
+        req, = self.submit_DEPRECATED({
             TXN_TYPE: CHANGE_KEYS,
             TARGET_NYM: nym,
             DATA: {

@@ -96,7 +96,7 @@ def testSendRequestWithoutSignatureFails(pool):
         await client1.ensureConnectedToNodes()
 
         operation = randomOperation()
-        request = client1.submit(operation)[0]
+        request = client1.submit_DEPRECATED(operation)[0]
 
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
