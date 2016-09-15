@@ -103,7 +103,7 @@ class SuspiciousNode(BaseExc):
         return "Error code: {}. {}".format(self.code, self.reason)
 
 
-class SuspiciousClient(BaseExc):
+class SuspiciousClient(BaseExc, ReqInfo):
     pass
 
 
