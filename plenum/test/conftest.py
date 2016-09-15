@@ -362,7 +362,6 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    fields = getTxnOrderedFields()
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
                     serializer=CompactSerializer(fields=domainTxnOrderedFields),
