@@ -2,6 +2,7 @@ import argparse
 import os
 from _sha256 import sha256
 
+from ledger.serializers.compact_serializer import CompactSerializer
 from raet.nacling import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -38,7 +39,7 @@ class TestNetworkSetup:
 
     @staticmethod
     def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
-                           domainTransactionsFile):
+                           domainTransactionsFile, domainTxnFieldOrder):
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
 
@@ -86,6 +87,8 @@ class TestNetworkSetup:
         poolLedger.reset()
 
         domainLedger = Ledger(CompactMerkleTree(),
+                              serializer=CompactSerializer(fields=
+                                                           domainTxnFieldOrder),
                               dataDir=baseDir,
                               fileName=domainTransactionsFile)
         domainLedger.reset()

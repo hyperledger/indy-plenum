@@ -70,16 +70,18 @@ class NaclAuthNr(ClientAuthNr):
                 try:
                     signature = msg[f.SIG.nm]
                     if not signature:
-                        raise EmptySignature(identifier, msg.get(f.REQ_ID.nm))
+                        raise EmptySignature(msg.get(f.IDENTIFIER.nm),
+                                             msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingSignature
+                    raise MissingSignature(msg.get(f.IDENTIFIER.nm),
+                                           msg.get(f.REQ_ID.nm))
             if not identifier:
                 try:
                     identifier = msg[f.IDENTIFIER.nm]
                     if not identifier:
-                        raise EmptyIdentifier
+                        raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingIdentifier
+                    raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
             b64sig = signature.encode('utf-8')
             sig = b64decode(b64sig)
             ser = self.serializeForSig(msg)

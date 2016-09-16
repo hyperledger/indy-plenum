@@ -11,14 +11,14 @@ def setup(client1):
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-def testBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
+def testDoNotBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
     """
-    Client should be blacklisted by node on sending an unsigned request
+    Client should be not be blacklisted by node on sending an unsigned request
     """
 
-    # Every node should blacklist the client
+    # No node should blacklist the client
     def chk():
         for node in nodeSet:
-            assert node.isClientBlacklisted(client1.name)
+            assert not node.isClientBlacklisted(client1.name)
 
     looper.run(eventually(chk, retryWait=1, timeout=3))

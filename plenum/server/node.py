@@ -29,7 +29,8 @@ from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
+    InvalidIdentifier
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -983,12 +984,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
-        except SuspiciousClient as ex:
+        except Exception as ex:
             msg, frm = wrappedMsg
             exc = ex.__cause__ if ex.__cause__ else ex
-            self.reportSuspiciousClient(frm, exc)
-            self.handleInvalidClientMsg(exc, wrappedMsg)
-        except InvalidClientMessageException as ex:
+            if isinstance(ex, SuspiciousClient):
+                self.reportSuspiciousClient(frm, exc)
+
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
@@ -996,8 +997,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         exc = ex.__cause__ if ex.__cause__ else ex
         reason = "client request invalid: {} {}".\
             format(exc.__class__.__name__, exc)
-        self.transmitToClient(RequestNack(ex.reqId, reason), frm)
-        self.discard(wrappedMsg, ex, logger.warning, cliOutput=True)
+        reqId = getattr(exc, f.REQ_ID.nm, None)
+        if not reqId:
+            reqId = getattr(ex, f.REQ_ID.nm, None)
+        self.transmitToClient(RequestNack(reqId, reason), frm)
+        self.discard(wrappedMsg, exc, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1026,13 +1030,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if cls not in (Batch, LedgerStatus, CatchupReq):
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
-            raise InvalidClientRequest
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm))
         try:
             cMsg = cls(**msg)
         except Exception as ex:
             raise InvalidClientRequest from ex
         try:
             self.verifySignature(cMsg)
+        except InvalidIdentifier as ex:
+            raise
         except Exception as ex:
             raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
