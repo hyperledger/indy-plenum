@@ -971,7 +971,8 @@ def genTestClient(nodes: TestNodeSet = None,
                   testClientClass=TestClient,
                   bootstrapKeys=True,
                   ha=None,
-                  usePoolLedger=False) -> TestClient:
+                  usePoolLedger=False,
+                  name=None) -> TestClient:
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:
@@ -988,7 +989,7 @@ def genTestClient(nodes: TestNodeSet = None,
         nReg = None
 
     ha = genHa() if not ha else ha
-    identifier = "testClient{}".format(ha.port)
+    identifier = name or "testClient{}".format(ha.port)
 
     signer = signer if signer else SimpleSigner(identifier)
 

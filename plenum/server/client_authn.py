@@ -5,6 +5,7 @@ from abc import abstractmethod
 from base64 import b64decode
 from typing import Dict
 
+from plenum.common.util import getlogger
 from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
@@ -12,6 +13,9 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
 from plenum.common.signing import serializeForSig
 from plenum.common.types import f
+
+
+logger = getlogger()
 
 
 class ClientAuthNr:
@@ -124,7 +128,8 @@ class SimpleAuthNr(NaclAuthNr):
 
     def addClient(self, identifier, verkey, role=None):
         if identifier in self.clients:
-            raise RuntimeError("client already added")
+            # raise RuntimeError("client already added")
+            logger.error("client already added")
         self.clients[identifier] = {
             "verkey": verkey,
             "role": role
