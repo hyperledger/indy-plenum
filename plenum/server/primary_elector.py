@@ -17,6 +17,16 @@ from plenum.server.suspicion_codes import Suspicions
 logger = getlogger()
 
 
+# The elector should not blacklist nodes if it receives multiple nominations
+# or primary or re-election messages, until there are roo many (over 50 maybe)
+# duplicate messages. Consider a case where a node say Alpha, took part in
+# election and election completed and soon after that Alpha crashed. Now Alpha
+#  comes back up and receives Nominations and Primary. Now Alpha will react to
+#  that and send Nominations or Primary, which will lead to it being
+# blacklisted. Maybe Alpha should not react to Nomination or Primary it gets
+# for elections it was not part of. Elections need to have round numbers.
+
+
 class PrimaryElector(PrimaryDecider):
     """
     Responsible for managing the election of a primary for all instances for
@@ -294,9 +304,10 @@ class PrimaryElector(PrimaryDecider):
 
             key = (Nomination.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
+
             # If got more than one duplicate message then blacklist
-            if self.duplicateMsgs[key] > 1:
-                self.send(BlacklistMsg(Suspicions.DUPLICATE_NOM_SENT.code, sender))
+            # if self.duplicateMsgs[key] > 1:
+            #     self.send(BlacklistMsg(Suspicions.DUPLICATE_NOM_SENT.code, sender))
 
     def processPrimary(self, prim: Primary, sender: str) -> None:
         """
@@ -379,9 +390,9 @@ class PrimaryElector(PrimaryDecider):
             key = (Primary.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
             # If got more than one duplicate message then blacklist
-            if self.duplicateMsgs[key] > 1:
-                self.send(BlacklistMsg(
-                    Suspicions.DUPLICATE_PRI_SENT.code, sender))
+            # if self.duplicateMsgs[key] > 1:
+            #     self.send(BlacklistMsg(
+            #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
 
     def processReelection(self, reelection: Reelection, sender: str):
         """
