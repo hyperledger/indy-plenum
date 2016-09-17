@@ -138,12 +138,25 @@ def testConnectionWithHaChanged(tdir):
     logger.debug("Alpha's verkey {}".format(alphaSigner.verkey))
     logger.debug("Beta's verkey {}".format(betaSigner.verkey))
 
-    alpha = RoadStack(name='alpha',
-                      ha=genHa(),
-                      sigkey=alphaSigner.naclSigner.keyhex,
-                      prikey=alphaPrivateer.keyhex,
-                      auto=AutoMode.never,
-                      basedirpath=tdir)
+    alpha = None
+
+    def setupAlpha(ha):
+        nonlocal alpha
+        alpha = RoadStack(name='alpha',
+                          ha=ha,
+                          sigkey=alphaSigner.naclSigner.keyhex,
+                          prikey=alphaPrivateer.keyhex,
+                          auto=AutoMode.never,
+                          basedirpath=tdir)
+
+        alpha.keep.dumpRemoteRoleData({
+            "acceptance": Acceptance.accepted.value,
+            "verhex": betaSigner.verkey,
+            "pubhex": betaPrivateer.pubhex
+        }, "beta")
+
+    oldHa = genHa()
+    setupAlpha(oldHa)
 
     beta = RoadStack(name='beta',
                      ha=genHa(),
@@ -153,14 +166,6 @@ def testConnectionWithHaChanged(tdir):
                      auto=AutoMode.never,
                      basedirpath=tdir, mutable=True)
 
-    # beta.mutable = True
-
-    alpha.keep.dumpRemoteRoleData({
-        "acceptance": Acceptance.accepted.value,
-        "verhex": betaSigner.verkey,
-        "pubhex": betaPrivateer.pubhex
-    }, "beta")
-
     beta.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,
         "verhex": alphaSigner.verkey,
@@ -168,47 +173,25 @@ def testConnectionWithHaChanged(tdir):
     }, "alpha")
 
     try:
-
         betaRemote = RemoteEstate(stack=alpha, ha=beta.ha)
-
         alpha.addRemote(betaRemote)
-
         alpha.join(uid=betaRemote.uid, cascade=True)
-
         handshake(alpha, beta)
-
         sendMsgs(alpha, beta, betaRemote)
-
-        logger.debug("beta knows alpha as {}".format(getRemote(beta, "alpha").ha))
-
+        logger.debug("beta knows alpha as {}".
+                     format(getRemote(beta, "alpha").ha))
         cleanup(alpha)
 
         newHa = genHa()
-
         logger.debug("alpha changing ha to {}".format(newHa))
 
-        alpha = RoadStack(name='alpha',
-                          ha=newHa,
-                          sigkey=alphaSigner.naclSigner.keyhex,
-                          prikey=alphaPrivateer.keyhex,
-                          auto=AutoMode.never,
-                          basedirpath=tdir)
-        alpha.keep.dumpRemoteRoleData({
-            "acceptance": Acceptance.accepted.value,
-            "verhex": betaSigner.verkey,
-            "pubhex": betaPrivateer.pubhex
-        }, "beta")
-
+        setupAlpha(newHa)
         betaRemote = RemoteEstate(stack=alpha, ha=beta.ha)
-
         alpha.addRemote(betaRemote)
-
         alpha.join(uid=betaRemote.uid, cascade=True)
-
         handshake(alpha, beta)
-
         sendMsgs(alpha, beta, betaRemote)
-
-        logger.debug("beta knows alpha as {}".format(getRemote(beta, "alpha").ha))
+        logger.debug("beta knows alpha as {}".
+                     format(getRemote(beta, "alpha").ha))
     finally:
         cleanup(alpha, beta)

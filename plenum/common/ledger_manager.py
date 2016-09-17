@@ -511,7 +511,10 @@ class LedgerManager(HasActionQueue):
                            getattr(catchupReply, f.TXNS.nm).items()],
                           key=operator.itemgetter(0))
             anyNew = any([s > ledger.size for s, _ in txns])
-            noGapsOrDups = len(txns) == (txns[-1][0] - txns[0][0] + 1)
+            # The transactions should be contiguous in terms of sequence numbers
+            # TODO: CHECK FOR EMPTY TRANSACTION LIST
+            noGapsOrDups = len(txns) == 0 or \
+                    (len(txns) == (txns[-1][0] - txns[0][0] + 1))
             if not anyNew:
                 self.discard(catchupReply,
                              reason="ledger has size {} and it already contains"
