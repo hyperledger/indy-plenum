@@ -6,7 +6,7 @@ from plenum.common.txn import USER
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getlogger, getMaxFailures, \
     randomString
 from plenum.test.eventually import eventually
@@ -193,11 +193,11 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, nodeThetaAdded, newHa,
+                        tconf, steward1, nodeThetaAdded,
                         allPluginsPath=None):
     newSteward, newNode = nodeThetaAdded
     newNode.stop()
-    nodeHa, nodeCHa = newHa
+    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).verkey.decode()
     changeNodeKeys(looper, newSteward, newNode, verkey)

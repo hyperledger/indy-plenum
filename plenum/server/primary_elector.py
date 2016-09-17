@@ -117,8 +117,8 @@ class PrimaryElector(PrimaryDecider):
                     filtered.append(wrappedMsg)
                 elif reqViewNo > self.viewNo:
                     logger.debug(
-                        "{}'s elector queueing {} since it is for a later view".format(
-                            self.name, wrappedMsg))
+                        "{}'s elector queueing {} since it is for a later view"
+                            .format(self.name, wrappedMsg))
                     self.pendMsgForLaterView((msg, sender), reqViewNo)
                 else:
                     self.discard(wrappedMsg,
