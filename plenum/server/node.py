@@ -307,7 +307,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return LedgerStatus(1, self.domainLedger.size,
-                            self.primaryStorage.root_hash)
+                            self.domainLedger.root_hash)
 
     @property
     def isParticipating(self):
@@ -1157,7 +1157,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case we need to keep track of what requests ids node has seen
         # in-memory and once request with a particular request id is processed,
         # it should be removed from that in-memory DS.
-        reply = self.getReplyFor(request)
+
+        typ = request.operation.get(TXN_TYPE)
+        if typ in POOL_TXN_TYPES:
+            reply = self.poolManager.getReplyFor(request)
+        else:
+            reply = self.getReplyFor(request)
+
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))

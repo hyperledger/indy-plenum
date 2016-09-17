@@ -208,7 +208,8 @@ class PrimaryElector(PrimaryDecider):
         aren't yet completed) as primary.
         """
         if not self.node.isParticipating:
-            logger.debug("Cannot nominate a replica yet since catching up")
+            logger.debug("{} cannot nominate a replica yet since catching up"
+                         .format(self))
             return
 
         undecideds = [i for i, r in enumerate(self.replicas)
