@@ -123,7 +123,7 @@ class PrimaryElector(PrimaryDecider):
                 else:
                     self.discard(wrappedMsg,
                                  "its view no {} is less than the elector's {}"
-                                 .format(wrappedMsg, reqViewNo, self.viewNo),
+                                 .format(reqViewNo, self.viewNo),
                                  logger.debug)
             else:
                 filtered.append(wrappedMsg)
@@ -289,7 +289,7 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(nom,
                          "already got nomination from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
             key = (Nomination.typename, instId, sndrRep)
@@ -373,7 +373,7 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(prim,
                          "already got primary declaration from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
             key = (Primary.typename, instId, sndrRep)
@@ -451,7 +451,7 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(reelection,
                          "already got re-election proposal from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
     def hasReelectionQuorum(self, instId: int) -> bool:
