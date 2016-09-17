@@ -148,6 +148,8 @@ class Looper:
             else:
                 logger.warn("Trying to remove a prodable {} which is not present"
                             .format(prodable))
+        else:
+            logger.error("Provide a prodable object or a prodable name")
 
     async def runOnceNicely(self):
         """
