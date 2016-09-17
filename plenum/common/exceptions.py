@@ -84,6 +84,11 @@ class InvalidIdentifier(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class UnregisteredIdentifier(SigningException):
+    code = 136
+    reason = 'provided owner identifier not registered with agent'
+
+
 class RaetKeysNotFoundException(Exception):
     code = 141
     reason = 'Keys not found in the keep. ' \

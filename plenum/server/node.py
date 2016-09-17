@@ -1036,12 +1036,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             cMsg = cls(**msg)
         except Exception as ex:
             raise InvalidClientRequest from ex
-        try:
-            self.verifySignature(cMsg)
-        except InvalidIdentifier as ex:
-            raise
-        except Exception as ex:
-            raise SuspiciousClient from ex
+
+        if self.isSignatureVerificationNeeded(msg):
+            try:
+                self.verifySignature(cMsg)
+            except InvalidIdentifier as ex:
+                raise
+            except Exception as ex:
+                raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -1400,6 +1402,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.display("{} authenticated {} signature on {} request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
+
+    def isSignatureVerificationNeeded(self, msg: Any):
+        return True
 
     def checkValidOperation(self, clientId, reqId, msg):
         if self.opVerifiers:
