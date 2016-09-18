@@ -19,7 +19,6 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
-from ledger.util import F
 from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.ratchet import Ratchet

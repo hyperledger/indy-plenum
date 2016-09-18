@@ -624,15 +624,14 @@ class KITStack(SimpleStack):
             logger.error("Error reconciling nodeReg with remotes; see logs")
 
         if conflicts:
-            logger.error("found conflicting address information {} in registry".format(
-                conflicts))
+            logger.error("found conflicting address information {} in registry"
+                         .format(conflicts))
         if legacy:
             for l in legacy:
                 logger.error("{} found legacy entry [{}, {}] in remotes, "
                              "that were not in registry".
                              format(self, l.name, l.ha))
-                # TODO probably need to reap
-                l.reap()
+                self.removeRemote(l)
         return missing
 
     def remotesByConnected(self):
