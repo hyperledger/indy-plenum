@@ -203,7 +203,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                           client1.inBox,
                           sent1.reqId,
                           2,
-                          retryWait=.25,
+                          retryWait=.5,
                           timeout=5))
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
@@ -219,5 +219,5 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     looper.run(eventually(
             chk,
-            retryWait=.25,
+            retryWait=1,
             timeout=20))

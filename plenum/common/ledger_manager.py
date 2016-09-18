@@ -243,7 +243,7 @@ class LedgerManager(HasActionQueue):
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence "
                                               "number from {}".format(frm),
-                               logMethod=logger.info)
+                               logMethod=logger.warn)
         if not status:
             logger.debug("{} found ledger status to be null from {}".
                          format(self, frm))
@@ -465,11 +465,6 @@ class LedgerManager(HasActionQueue):
         finalSize = getattr(cp, f.SEQ_NO_END.nm)
         finalMTH = getattr(cp, f.NEW_MERKLE_ROOT.nm)
         try:
-            # logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
-            #              format(self, tempTree.tree_size, finalSize,
-            #                     tempTree.root_hash, b64decode(finalMTH),
-            #                     [b64decode(p) for p in proof]))
-
             verified = verifier.verify_tree_consistency(tempTree.tree_size,
                                                         finalSize,
                                                         tempTree.root_hash,
@@ -512,7 +507,6 @@ class LedgerManager(HasActionQueue):
                           key=operator.itemgetter(0))
             anyNew = any([s > ledger.size for s, _ in txns])
             # The transactions should be contiguous in terms of sequence numbers
-            # TODO: CHECK FOR EMPTY TRANSACTION LIST
             noGapsOrDups = len(txns) == 0 or \
                     (len(txns) == (txns[-1][0] - txns[0][0] + 1))
             if not anyNew:

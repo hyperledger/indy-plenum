@@ -47,7 +47,7 @@ class Stack(RoadStack):
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
-            prihex = ed25519SkToCurve25519(sighex)
+            prihex = ed25519SkToCurve25519(sighex, toHex=True)
         kwargs['sigkey'] = sighex
         kwargs['prikey'] = prihex
         self.msgHandler = kwargs.pop('msgHandler', None)  # type: Callable

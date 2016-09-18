@@ -6,7 +6,7 @@ from plenum.common.txn import USER
 from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getlogger, getMaxFailures, \
     randomString
 from plenum.test.eventually import eventually
@@ -16,7 +16,7 @@ from plenum.test.helper import TestNode, TestClient, genHa, \
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeIp, addNewStewardAndNode, changeNodeKeys
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys
 
 logger = getlogger()
 
@@ -74,6 +74,10 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
 @pytest.fixture("module")
 def newHa():
     return genHa(2)
+
+
+def getNodeWithName(txnPoolNodeSet, name: str):
+    return next(node for node in txnPoolNodeSet if node.name == name)
 
 
 def testNodesConnect(txnPoolNodeSet):
@@ -173,9 +177,13 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newSteward, newNode = nodeThetaAdded
     newNode.stop()
     nodeNewHa, clientNewHa = newHa
-    changeNodeIp(looper, newSteward,
+    logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
+                                                   clientNewHa))
+    changeNodeHa(looper, newSteward,
                  newNode, nodeHa=nodeNewHa, clientHa=clientNewHa)
     looper.removeProdable(name=newNode.name)
+    logger.debug("{} starting with HAs {} {}".format(newNode, nodeNewHa,
+                                            clientNewHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeNewHa, cliha=clientNewHa)
     looper.add(node)
@@ -185,7 +193,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
     looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=10))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
@@ -193,17 +201,23 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
 
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, nodeThetaAdded, newHa,
+                        tconf, steward1, nodeThetaAdded,
                         allPluginsPath=None):
     newSteward, newNode = nodeThetaAdded
+
+    # Since the node returned by fixture `nodeThetaAdded` was abandoned in the
+    # previous test, so getting node `Theta` from `txnPoolNodeSet`
+    newNode = getNodeWithName(txnPoolNodeSet, newNode.name)
+
     newNode.stop()
-    nodeHa, nodeCHa = newHa
+    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).verkey.decode()
     changeNodeKeys(looper, newSteward, newNode, verkey)
     initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
     initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, sigseed)
     looper.removeProdable(name=newNode.name)
+    logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(node)
