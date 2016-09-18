@@ -153,6 +153,16 @@ class LedgerManager(HasActionQueue):
                 # the same nodes. This is done to avoid scenario where a node
                 # does not reply at all.
                 # TODO: Need some way to detect nodes that are not responding.
+
+                # TODO: What id all nodes are blacklisted so `eligibleNodes`
+                # is empty? It will lead to divide by 0. This should not happen
+                #  but its happening.
+                # https://www.pivotaltracker.com/story/show/130602115
+                if not eligibleNodes:
+                    logger.error("{} could not find any node to request "
+                                 "transactions from. Catchup process cannot "
+                                 "move ahead.".format(self))
+                    return
                 shuffle(eligibleNodes)
                 batchSize = math.ceil(totalMissing/len(eligibleNodes))
                 cReqs = []
@@ -268,8 +278,7 @@ class LedgerManager(HasActionQueue):
                     self.sendTo(ledgerStatus, frm)
 
         # If a ledger is yet to sync and cannot sync right now,
-        # then stash the
-        # ledger status to be processed later
+        # then stash the ledger status to be processed later
         if self.ledgers[ledgerType]["state"] != LedgerState.synced and \
                 not self.ledgers[ledgerType]["canSync"]:
             self.stashLedgerStatus(ledgerType, status, frm)
@@ -421,7 +430,7 @@ class LedgerManager(HasActionQueue):
                     if self.ownedByNode:
                         self.owner.blacklistNode(nodeName,
                                                  reason="Sent transactions "
-                                                        "that could not be"
+                                                        "that could not be "
                                                         "verified")
                         self._removePrcdCatchupReply(ledgerType, nodeName,
                                                      seqNo)
@@ -465,6 +474,10 @@ class LedgerManager(HasActionQueue):
         finalSize = getattr(cp, f.SEQ_NO_END.nm)
         finalMTH = getattr(cp, f.NEW_MERKLE_ROOT.nm)
         try:
+            logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
+                         format(self, tempTree.tree_size, finalSize,
+                                tempTree.root_hash, b64decode(finalMTH),
+                                [b64decode(p) for p in proof]))
             verified = verifier.verify_tree_consistency(tempTree.tree_size,
                                                         finalSize,
                                                         tempTree.root_hash,
