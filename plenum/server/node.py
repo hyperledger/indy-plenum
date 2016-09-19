@@ -47,7 +47,7 @@ from plenum.common.types import Request, Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest
+    ConsProofRequest, ElectionType, ThreePhaseType
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
     getConfig
 from plenum.common.txn_util import getTxnOrderedFields
@@ -268,9 +268,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # and received replies while catching up.
         self.reqsFromCatchupReplies = set()
 
-        self.addReplicas()
-
+        # Any messages that are intended for protocol instances not created.
+        # Helps in cases where a new protocol instance have been added by a
+        # majority of nodes due to joining of a new node, but some slow nodes
+        # are not aware of it. Key is instance id and value is a deque
+        # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
+
+        self.addReplicas()
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
@@ -570,13 +575,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # otherwise too?
             if isinstance(self.elector, PrimaryElector) and joined:
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
-                logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
-                                                                     joined))
+                logger.debug("{} has msgs {} for new nodes {}".
+                             format(self, msgs, joined))
                 for n in joined:
                     self.sendElectionMsgsToLaggingNode(n, msgs)
                     # Communicate current view number if any view change
                     # happened to the connected node
                     if self.viewNo > 0:
+                        # TODO: This is little cryptic since we send the
+                        # InstanceChange with the viewNo 1 less than what we
+                        # want the other node to switch to. The way to fix it is
+                        # to send the InstanceChange with the viewNo as exactly
+                        # what we want the other node to switch to.
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, n))
                         rid = self.nodestack.getRemote(n).uid
@@ -652,7 +662,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.addReplica()
             newReplicas += 1
+            self.processStashedMsgsForReplica(len(self.replicas)-1)
         return newReplicas
+
+    def processStashedMsgsForReplica(self, instId: int):
+        if instId not in self.msgsForFutureReplicas:
+            return
+        i = 0
+        while self.msgsForFutureReplicas[instId]:
+            msg, frm = self.msgsForFutureReplicas[instId].popleft()
+            if isinstance(msg, ElectionType):
+                self.sendToElector(msg, frm)
+            elif isinstance(msg, ThreePhaseType):
+                self.sendToReplica(msg, frm)
+            else:
+                self.discard(msg, reason="Unknown message type for replica id"
+                             .format(instId), logMethod=logger.warn)
+        logger.debug("{} processed {} stashed msgs for replica {}".
+                     format(self, i, instId))
 
     def decidePrimaries(self):
         """
@@ -816,7 +843,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return idx
         return None
 
-    def msgHasAcceptableInstId(self, msg) -> bool:
+    def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
         replica.
@@ -825,10 +852,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         instId = getattr(msg, "instId", None)
+        if instId is None or not isinstance(instId, int) or instId < 0:
+            return False
         if instId >= len(self.msgsToReplicas):
-            # TODO: Should probably queue messages for new instances
-            self.discard(msg, "non-existent protocol instance {}"
-                         .format(instId), logMethod=logging.debug)
+            if instId not in self.msgsForFutureReplicas:
+                self.msgsForFutureReplicas[instId] = deque()
+            self.msgsForFutureReplicas[instId].append((msg, frm))
+            logger.debug("{} queueing message {} for future protocol "
+                         "instance {}".format(self, msg, instId))
             return False
         return True
 
@@ -842,18 +873,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         viewNo = getattr(msg, "viewNo", None)
+        if viewNo is None or not isinstance(viewNo, int) or viewNo < 0:
+            return False
         corrects = []
         for r in self.replicas:
-            if not r.primaryNames.keys():
-                # Replica has not seen any primary
+            if not r.primaryNames:
+                # The replica and thus this node does not know any viewNos
                 corrects.append(True)
-            elif viewNo in r.primaryNames.keys():
+                continue
+            if viewNo in r.primaryNames.keys():
                 # Replica has seen primary with this view no
                 corrects.append(True)
             elif viewNo > max(r.primaryNames.keys()):
                 # msg for a future view no
                 corrects.append(True)
             else:
+                # Replica has not seen any primary for this `viewNo` and its
+                # less than the current `viewNo`
                 corrects.append(False)
         r = all(corrects)
         if not r:
@@ -868,7 +904,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(msg):
+        if self.msgHasAcceptableInstId(msg, frm) and \
+                self.msgHasAcceptableViewNo(msg):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -878,8 +915,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(
-                msg):
+        if self.msgHasAcceptableInstId(msg, frm) and \
+                self.msgHasAcceptableViewNo(msg):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -1267,7 +1304,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".format(type(instChg.viewNo)))
+            self.discard(instChg, "field viewNo has incorrect type: {}".
+                         format(type(instChg.viewNo)))
         elif instChg.viewNo < self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
