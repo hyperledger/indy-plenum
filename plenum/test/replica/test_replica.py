@@ -40,7 +40,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
     primaryRepl.prePrepareSeqNo -= 1
-    request2 = sendRandomRequest(client1)
+    request2 = sendRandomRequest(wallet1, client1)
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=10))
 
@@ -50,7 +50,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.prePrepareSeqNo,
-        client1.defaultIdentifier,
+        wallet1.defaultId,
         request2.reqId,
         request2.digest,
         time.time()
@@ -70,7 +70,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  client1.defaultIdentifier,
+                                  wallet1.defaultId,
                                   request2.reqId,
                                   retryWait=1,
                                   timeout=10))
