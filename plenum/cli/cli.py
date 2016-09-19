@@ -491,7 +491,7 @@ class Cli:
     @activeWallet.setter
     def activeWallet(self, wallet: Wallet):
         self._activeWallet = wallet  # type: Wallet
-        self.print('Active wallet set to "{}"'.format(wallet.name))
+        self.print('Active keyring set to "{}"'.format(wallet.name))
 
     @property
     def activeClient(self):
@@ -1168,7 +1168,7 @@ Commands:
 
     def _addSignerToWallet(self, signer, wallet=None):
         self._addSignerToGivenWallet(signer, wallet)
-        self.print("Key created in wallet " + wallet.name)
+        self.print("Key created in keyring " + wallet.name)
 
     def _newSigner(self,
                    wallet=None,
@@ -1216,7 +1216,7 @@ Commands:
             return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
-        self.print("New wallet {} created".format(nm))
+        self.print("New keyring {} created".format(nm))
         self.activeWallet = wallet
         # TODO when the command is implemented
         # if nm == self.defaultWalletName:
