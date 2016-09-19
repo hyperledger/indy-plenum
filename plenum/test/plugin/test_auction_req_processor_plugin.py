@@ -2,7 +2,9 @@ from uuid import uuid4
 
 import pytest
 
+from plenum.client.wallet import Wallet
 from plenum.common.txn import TXN_TYPE, DATA, TARGET_NYM
+from plenum.common.types import Request
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, setupClients, TestClient, \
     checkSufficientRepliesRecvd
@@ -47,103 +49,117 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
 
 
 @pytest.fixture(scope="module")
-def clients(looper, nodeSet, tdir):
-    return setupClients(5, looper, nodeSet, tmpdir=tdir)
+def apps(looper, nodeSet, tdir):
+    cs, ws = setupClients(5, looper, nodeSet, tmpdir=tdir)
+    return [App(ws[k], cs[k], looper) for k in cs.keys()]
 
 
-def auction(looper, client: TestClient, aucId, start=True):
-    req, = client.submit_DEPRECATED({
-        TXN_TYPE: AUCTION_START if start else AUCTION_END,
-        DATA: {
-            ID: aucId
-        }
-    })
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=10))
-    return req
+class App:
+
+    def __init__(self, wallet: Wallet, client: TestClient, looper):
+        self.wallet = wallet
+        self.client = client
+        self.looper = looper
+
+    def auction(self, aucId, start=True):
+        req = self.submit({
+            TXN_TYPE: AUCTION_START if start else AUCTION_END,
+            DATA: {
+                ID: aucId
+            }
+        })
+        self.looper.run(eventually(checkSufficientRepliesRecvd,
+                                   self.client.inBox, req.reqId,
+                                   1, retryWait=1, timeout=10))
+        return req
+
+    def submit(self, op):
+        req = self.wallet.signOp(op)
+        self.client.submitReqs(req)
+        return req
+
+    def getBalance(self) -> int:
+        req = self.submit({
+            TXN_TYPE: GET_BAL,
+            TARGET_NYM: self.wallet.defaultId
+        })
+        self.looper.run(eventually(checkSufficientRepliesRecvd,
+                                   self.client.inBox, req.reqId,
+                                   1, retryWait=1, timeout=10))
+        return self.client.hasConsensus(req.reqId)[BALANCE]
+
+    def bid(self, aucId, amount):
+        req = self.submit({
+            TXN_TYPE: PLACE_BID,
+            DATA: {
+                ID: aucId,
+                AMOUNT: amount
+            }
+        })
+        self.looper.run(eventually(checkSufficientRepliesRecvd,
+                                   self.client.inBox, req.reqId,
+                                   1, retryWait=1, timeout=10))
+        return req
 
 
-def getBalance(looper, client: TestClient) -> int:
-    req, = client.submit_DEPRECATED({
-        TXN_TYPE: GET_BAL,
-        TARGET_NYM: client.defaultIdentifier
-    })
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=10))
-    return client.hasConsensus(req.reqId)[BALANCE]
-
-
-def bid(looper, client, aucId, amount):
-    req, = client.submit_DEPRECATED({
-        TXN_TYPE: PLACE_BID,
-        DATA: {
-            ID: aucId,
-            AMOUNT: amount
-        }
-    })
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=10))
-    return req
-
-
-def testAuctionTransactions(nodeSet, up, looper, clients):
-    jason, tyler, les, john, timothy = tuple(clients.keys())
+def testAuctionTransactions(nodeSet, up, looper, apps):
+    jason, tyler, les, john, timothy = apps
     auctionId = str(uuid4())
-    bal1Ty = getBalance(looper, clients[tyler])
-    bal1Le = getBalance(looper, clients[les])
-    bal1Jn = getBalance(looper, clients[john])
-    bal1Ti = getBalance(looper, clients[timothy])
+    bal1Ty = tyler.getBalance()
+    bal1Le = les.getBalance()
+    bal1Jn = john.getBalance()
+    bal1Ti = timothy.getBalance()
 
     # Jason creating auction
-    saReqJl = auction(looper, clients[jason], auctionId, start=True)
+    saReqJl = jason.auction(auctionId, start=True)
 
     # Tyler bidding 20
-    biReqTy = bid(looper, clients[tyler], auctionId, 20)
+    biReqTy = tyler.bid(auctionId, 20)
 
     # Tyler's balance should be 20 less than his starting balance
-    bal2Ty = getBalance(looper, clients[tyler])
+    bal2Ty = tyler.getBalance()
     assert bal1Ty - bal2Ty == 20
 
     # Les bidding 40
-    biReqLe = bid(looper, clients[les], auctionId, 40)
+    biReqLe = les.bid(auctionId, 40)
 
     # Tyler should get back his money and his balance should be same as starting
     #  balance
-    bal3Ty = getBalance(looper, clients[tyler])
+    bal3Ty = tyler.getBalance()
     assert bal3Ty == bal1Ty
 
     # Les's balance should be 40 less than his starting balance
-    bal2Le = getBalance(looper, clients[les])
+    bal2Le = les.getBalance()
     assert bal1Le - bal2Le == 40
 
     # John bids 30 but since that is lower than the highest bid, it is rejected
-    biReqJn = bid(looper, clients[john], auctionId, 30)
-    bal2Jn = getBalance(looper, clients[john])
+    biReqJn = john.bid(auctionId, 30)
+    bal2Jn = john.getBalance()
     assert bal2Jn == bal1Jn
 
     # Timothy bids 200 and the highest bidder, i.e Les' money should be returned
     #  and Timothy's balance shoulbe 200 less than the starting balance
-    biReqTi = bid(looper, clients[timothy], auctionId, 200)
-    bal2Ti = getBalance(looper, clients[timothy])
+    biReqTi = timothy.bid(auctionId, 200)
+    bal2Ti = timothy.getBalance()
     assert bal1Ti - bal2Ti == 200
-    bal3Le = getBalance(looper, clients[les])
+    bal3Le = les.getBalance()
     assert bal3Le == bal1Le
 
     # Jason ending auction
-    enReqJl = auction(looper, clients[jason], auctionId, start=False)
+    enReqJl = jason.auction(auctionId, start=False)
 
     # John bids 300 which is higher than the highest bid but the auction has
     # ended so his money is not deducted
-    biReqJn = bid(looper, clients[john], auctionId, 300)
-    bal3Jn = getBalance(looper, clients[john])
+    biReqJn = john.bid(auctionId, 300)
+    bal3Jn = john.getBalance()
     assert bal3Jn == bal1Jn
 
     # Every one's balance should be same as their initial balance except
     # Timothy's balance
-    bal4Ty = getBalance(looper, clients[tyler])
-    bal4Le = getBalance(looper, clients[les])
-    bal4Jn = getBalance(looper, clients[john])
-    bal3Ti = getBalance(looper, clients[timothy])
+    bal4Ty = tyler.getBalance()
+    bal4Le = les.getBalance()
+    bal4Jn = john.getBalance()
+    bal3Ti = timothy.getBalance()
     assert bal4Ty == bal1Ty
     assert bal4Le == bal1Le
     assert bal4Jn == bal3Jn

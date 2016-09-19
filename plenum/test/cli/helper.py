@@ -6,8 +6,10 @@ import re
 from pygments.token import Token
 
 import plenum.cli.cli as cli
+from plenum.client.wallet import Wallet
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
+from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
 from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
@@ -157,14 +159,21 @@ def checkRequest(cli, operation):
     cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
                               cName, retryWait=1, timeout=5))
     # Send request to all nodes
+
+    createNewKeyring(cName, cli)
+
+    cli.enterCmd("new key {}".format("testkey1"))
+    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
+
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
+    wallet = cli.wallets[cName]  # type: Wallet
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
     cli.looper.run(eventually(
             checkSufficientRepliesRecvd,
             client.inBox,
-            client.lastReqId,
+            wallet._getIdData().lastReqId,
             f,
             retryWait=2,
             timeout=10))
@@ -208,12 +217,12 @@ def checkCmdValid(cli, cmd):
 
 def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
-    keys = set()
+    idrs = set()
     if cli.activeWallet:
-        keys = set(cli.activeWallet.signers.keys())
+        idrs = set(cli.activeWallet.listIds())
     checkCmdValid(cli, cmd)
-    assert len(cli.activeWallet.signers.keys()) == len(keys) + 1
-    pubKey = set(cli.activeWallet.signers.keys()).difference(keys).pop()
+    assert len(cli.activeWallet.listIds()) == len(idrs) + 1
+    pubKey = set(cli.activeWallet.listIds()).difference(idrs).pop()
     expected = ['Key created in wallet Default',
                 'Identifier for key is {}'.format(pubKey),
                 'Current identifier set to {}'.format(pubKey)]

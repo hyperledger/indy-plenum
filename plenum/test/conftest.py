@@ -193,21 +193,34 @@ def delayedPerf(nodeSet):
 
 
 @pytest.fixture(scope="module")
-def client1(looper, nodeSet, tdir, up):
-    client = genTestClient(nodeSet, tmpdir=tdir)
+def clientAndWallet1(looper, nodeSet, tdir, up):
+    return genTestClient(nodeSet, tmpdir=tdir)
+
+
+@pytest.fixture(scope="module")
+def client1(clientAndWallet1, looper):
+    client, _ = clientAndWallet1
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     return client
 
 
 @pytest.fixture(scope="module")
-def request1():
-    return randomOperation()
+def wallet1(clientAndWallet1):
+    _, wallet = clientAndWallet1
+    return wallet
+
+
+@pytest.fixture(scope="module")
+def request1(wallet1):
+    op = randomOperation()
+    req = wallet1.signOp(op)
+    return req
 
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submit_DEPRECATED(request1)[0]
+    return client1.submitReqs(request1)[0]
 
 
 @pytest.fixture(scope="module")
@@ -273,13 +286,13 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, nodeSet, client1, committed1):
+def replied1(looper, nodeSet, client1, committed1, wallet1):
     for instId in range(getNoInstances(len(nodeSet))):
         getPrimaryReplica(nodeSet, instId)
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,
-                                client1.defaultIdentifier,
+                                wallet1.defaultId,
                                 committed1.reqId,
                                 committed1.digest,
                                 instId,

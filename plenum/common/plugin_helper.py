@@ -54,7 +54,7 @@ def loadPlugins(baseDir):
                         "** Error occurred during loading plugin {}: {}".format(
                             pluginPath, str(ex)))
         else:
-            logger.warn("** Note: Plugins directory does not exists: {}. "
+            logger.info("Plugins directory does not exists: {}. "
                         "Create plugin directory and plugin files if you want "
                         "to load any plugins".format(pluginsDirPath))
 

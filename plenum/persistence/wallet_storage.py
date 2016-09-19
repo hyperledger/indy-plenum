@@ -1,19 +1,27 @@
 from abc import abstractmethod, abstractproperty
 
+from plenum.client.id_data import IdData
+from plenum.common.types import Identifier
+
 
 class WalletStorage:
     @abstractmethod
-    def addSigner(self, identifier=None, seed=None, signer=None):
+    def putIdData(self, identifier: Identifier, idData: IdData):
         pass
 
     @abstractmethod
-    def getSigner(self, identifier=None, alias=None):
+    def getIdData(self, identifier: Identifier):
         pass
 
     @abstractproperty
-    def signers(self):
+    def identifiers(self):
         pass
 
+    # DEPR
+    # @abstractproperty
+    # def signers(self):
+    #     pass
+    #
     @abstractproperty
     def aliases(self):
         pass

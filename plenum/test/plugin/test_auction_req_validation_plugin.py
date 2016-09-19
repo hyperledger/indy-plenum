@@ -55,33 +55,34 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
             AMOUNT: 30
         }})
 
-    update = {'reason': '{}dummy is not a valid transaction type, must be one of {}'.
-        format(commonError, ', '.join(plugin.validTxnTypes))}
+    update = {
+        'reason': '{}dummy is not a valid transaction type, must be one '
+                  'of {}'.format(commonError, ', '.join(plugin.validTxnTypes))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-              for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_START,
     })
 
     update = {
-        'reason': "{}{} attribute is missing or not in proper format" \
-            .format(commonError, DATA)}
+        'reason': "{}{} attribute is missing or not in proper "
+                  "format".format(commonError, DATA)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
         })
 
     update = {
-        'reason': "{}{} attribute is missing or not in proper format" \
-            .format(commonError, DATA)}
+        'reason': "{}{} attribute is missing or not in proper "
+                  "format".format(commonError, DATA)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
@@ -89,11 +90,11 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
     })
 
     update = {
-        'reason': "{}{} attribute is missing or not in proper format" \
-            .format(commonError, DATA)}
+        'reason': "{}{} attribute is missing or not in proper "
+                  "format".format(commonError, DATA)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: PLACE_BID,
@@ -105,7 +106,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
         'reason': "{}No id provided for auction".format(commonError)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_START,
@@ -116,7 +117,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
         'reason': "{}No id provided for auction".format(commonError)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     req, = client1.submit_DEPRECATED({
         TXN_TYPE: AUCTION_END,
@@ -127,7 +128,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
         'reason': "{}No id provided for auction".format(commonError)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+                 for node in nodeSet]
 
     auctionId = str(uuid4())
     req, = client1.submit_DEPRECATED({
@@ -138,11 +139,11 @@ def testAuctionReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath
         }})
 
     update = {
-        'reason': "{}{} must be present and should be a number greater than 0"\
-                    .format(commonError, AMOUNT)}
+        'reason': "{}{} must be present and should be a number greater "
+                  "than 0".format(commonError, AMOUNT)}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-              for node in nodeSet]
+                 for node in nodeSet]
 
     looper.run(eventuallyAll(*allCoros, totalTimeout=5))
 

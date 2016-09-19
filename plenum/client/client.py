@@ -46,88 +46,93 @@ from plenum.common.util import getConfig
 logger = getlogger()
 
 
-class ClientWallet:
-    def __init__(self,
-                 signer: Signer=None,
-                 signers: Dict[str, Signer]=None,
-                 basedirpath: str=None,
-                 wallet: Wallet=None):
-        """
-        :param signer: Signer; mutually exclusive of signers
-        :param signers: Dict of identifier -> Signer; useful for clients that
-            need to support multiple signers
-        """
-        if signer and signers:
-            raise ValueError("only one of 'signer' or 'signers' can be used")
+# class ClientWallet:
+#     def __init__(self,
+#                  signer: Signer=None,
+#                  signers: Dict[str, Signer]=None,
+#                  basedirpath: str=None,
+#                  wallet: Wallet=None):
+#         """
+#         :param signer: Signer; mutually exclusive of signers
+#         :param signers: Dict of identifier -> Signer; useful for clients that
+#             need to support multiple signers
+#         """
+#         if signer and signers:
+#             raise ValueError("only one of 'signer' or 'signers' can be used")
+#
+        # DEPR
+        # self.setupWallet(wallet)
+        # signers = None  # type: Dict[str, Signer]
+        # self.defaultIdentifier = None
+        # if not self.wallet.signers:
+        #     if signer:
+        #         signers = {signer.identifier: signer}
+        #         self.defaultIdentifier = signer.identifier
+        #     elif signers:
+        #         signers = signers
+        #     else:
+        #         signers = self.setupDefaultSigner()
+        #
+        #     for s in signers.values():
+        #         self.wallet.addSigner(signer=s)
+        # else:
+        #     if len(self.wallet.signers) == 1:
+        #         self.defaultIdentifier = list(self.wallet.signers.values())[
+        #             0].identifier
 
-        self.setupWallet(wallet)
-        signers = None  # type: Dict[str, Signer]
-        self.defaultIdentifier = None
-        if not self.wallet.signers:
-            if signer:
-                signers = {signer.identifier: signer}
-                self.defaultIdentifier = signer.identifier
-            elif signers:
-                signers = signers
-            else:
-                signers = self.setupDefaultSigner()
+    # DEPR
+    # def setupWallet(self, wallet=None):
+    #     if wallet:
+    #         self.wallet = wallet
+    #     else:
+    #         storage = WalletStorageFile.fromName(self.name, self.basedirpath)
+    #         self.wallet = Wallet(self.name, storage)
 
-            for s in signers.values():
-                self.wallet.addSigner(signer=s)
-        else:
-            if len(self.wallet.signers) == 1:
-                self.defaultIdentifier = list(self.wallet.signers.values())[
-                    0].identifier
+    # @property
+    # def signers(self):
+    #     return self.wallet.signers
 
-    def setupWallet(self, wallet=None):
-        if wallet:
-            self.wallet = wallet
-        else:
-            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
-            self.wallet = Wallet(self.name, storage)
+    # def setupDefaultSigner(self):
+    #     """
+    #     Create one SimpleSigner and add it to signers
+    #     against the client's name.
+    #     """
+    #     signer = SimpleSigner(self.name)
+    #     signers = {self.name: signer}
+    #     self.defaultIdentifier = self.name
+    #     self.wallet.aliases[self.defaultIdentifier] = signer
+    #     return signers
 
-    @property
-    def signers(self):
-        return self.wallet.signers
+    # def getSigner(self, identifier: str = None):
+    #     """
+    #     Look up and return a signer corresponding to the identifier specified.
+    #     Return None if not found.
+    #     """
+    #     try:
+    #         return self.signers[identifier or self.defaultIdentifier]
+    #     except KeyError:
+    #         return None
 
-    def setupDefaultSigner(self):
-        """
-        Create one SimpleSigner and add it to signers
-        against the client's name.
-        """
-        signer = SimpleSigner(self.name)
-        signers = {self.name: signer}
-        self.defaultIdentifier = self.name
-        self.wallet.aliases[self.defaultIdentifier] = signer
-        return signers
-
-    def getSigner(self, identifier: str = None):
-        """
-        Look up and return a signer corresponding to the identifier specified.
-        Return None if not found.
-        """
-        try:
-            return self.signers[identifier or self.defaultIdentifier]
-        except KeyError:
-            return None
-
-    def sign(self, msg: Dict, signer: Signer) -> Dict:
-        """
-        Signs the message if a signer is configured
-
-        :param msg: Message to be signed
-        :return: message
-        """
-        if not msg.get(f.SIG.nm):
-            if signer:
-                msg[f.SIG.nm] = signer.sign(msg)
-            else:
-                logger.warning("{} signer not configured so not signing {}".
-                               format(self, msg))
-        return msg
+    # def sign(self, msg: Dict, signer: Signer) -> Dict:
+    #     """
+    #     Signs the message if a signer is configured
+    #
+    #     :param msg: Message to be signed
+    #     :return: message
+    #     """
+    #     if not msg.get(f.SIG.nm):
+    #         if signer:
+    #             msg[f.SIG.nm] = signer.sign(msg)
+    #         else:
+    #             logger.warning("{} signer not configured so not signing {}".
+    #                            format(self, msg))
+    #     return msg
 
 
-class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
+class Client(Motor,
+             # ClientWallet,
+             MessageProcessor,
+             HasFileStorage,
              HasPoolManager):
     def __init__(self,
                  name: str,
@@ -165,7 +170,8 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
         self.name = name
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
-        self.lastReqId = lastReqId or self.reqRepStore.lastReqId
+        # DEPR
+        # self.lastReqId = lastReqId or self.reqRepStore.lastReqId
 
         self.dataDir = self.config.clientDataDir or "data/clients"
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
@@ -201,7 +207,9 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
                                              self.handleOneNodeMsg,
                                              self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
-        self.nodestack.sign = self.sign
+
+        # DEPR
+        # self.nodestack.sign = self.sign
 
         logger.info("Client {} initialized with the following node registry:"
                     .format(name))
@@ -217,10 +225,11 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
 
         self.inBox = deque()
 
-        ClientWallet.__init__(self,
-                              signer=signer,
-                              signers=signers,
-                              wallet=wallet)
+        # DEPR
+        # ClientWallet.__init__(self,
+        #                       signer=signer,
+        #                       signers=signers,
+        #                       wallet=wallet)
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
@@ -302,11 +311,12 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
             s += self.ledgerManager._serviceActions()
         return s
 
-    def setReqId(self, request: Request) -> Request:
-        if request.reqId is None:
-            request.reqId = self.lastReqId + 1
-            self.lastReqId += 1
-        return request
+    # DEPR
+    # def setReqId(self, request: Request) -> Request:
+    #     if request.reqId is None:
+    #         request.reqId = self.lastReqId + 1
+    #         self.lastReqId += 1
+    #     return request
 
     def createRequest(self, operation: Mapping,
                       identifier: str = None) -> Request:
@@ -319,13 +329,15 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
 
         request = Request(identifier=identifier or self.defaultIdentifier,
                           operation=operation)
-        self.setReqId(request)
+        # DEPR
+        # self.setReqId(request)
         return request
 
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         for request in reqs:
-            self.setReqId(request)
+            # DEPR
+            # self.setReqId(request)
             if self.mode == Mode.discovered and self.hasSufficientConnections:
                 self.nodestack.send(request)
             else:
@@ -335,25 +347,26 @@ class Client(Motor, ClientWallet, MessageProcessor, HasFileStorage,
             self.reqRepStore.addRequest(r)
         return requests
 
-    def submit_DEPRECATED(self, *operations: Mapping, identifier: str = None) \
-            -> List[Request]:
-        """
-        Sends an operation to the consensus pool
-
-        :param operations: a sequence of operations
-        :param identifier: an optional identifier to use for signing
-        :return: A list of client requests to be sent to the nodes in the system
-        """
-        identifier = identifier if identifier else self.defaultIdentifier
-        requests = []
-        for op in operations:
-            request = self.createRequest(op, identifier)
-            signer = self.getSigner(identifier)
-            if signer:
-                request.signature = signer.sign(request.__getstate__())
-            requests.append(request)
-        self.submitReqs(*requests)
-        return requests
+    # DEPR
+    # def submit_DEPRECATED(self, *operations: Mapping, identifier: str = None) \
+    #         -> List[Request]:
+    #     """
+    #     Sends an operation to the consensus pool
+    #
+    #     :param operations: a sequence of operations
+    #     :param identifier: an optional identifier to use for signing
+    #     :return: A list of client requests to be sent to the nodes in the system
+    #     """
+    #     identifier = identifier if identifier else self.defaultIdentifier
+    #     requests = []
+    #     for op in operations:
+    #         request = self.createRequest(op, identifier)
+    #         signer = self.getSigner(identifier)
+    #         if signer:
+    #             request.signature = signer.sign(request.__getstate__())
+    #         requests.append(request)
+    #     self.submitReqs(*requests)
+    #     return requests
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """

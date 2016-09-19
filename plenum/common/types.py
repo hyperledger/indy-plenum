@@ -131,10 +131,12 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 
 OPERATION = 'operation'
 
+Identifier = str
+
 
 class Request:
     def __init__(self,
-                 identifier: str=None,
+                 identifier: Identifier=None,
                  reqId: int=None,
                  operation: Mapping=None,
                  signature: str=None):

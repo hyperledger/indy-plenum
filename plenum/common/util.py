@@ -633,12 +633,16 @@ def check_deps(dependencies, parent=""):
         deps = meta.__dependencies__
         check_deps(deps)
 
-#
-#
-# def check_deps_for_pkg(pkg):
-#     if not isinstance(pkg, str):
-#         pkg = pkg.__name__
-#     meta = import_module('{}.__metadata__'.format(pkg))
-#     deps = meta.__dependencies__
-#     check_deps(deps)
-#
+
+def friendlyEx(ex: Exception) -> str:
+    curEx = ex
+    friendly = ""
+    end = ""
+    while curEx:
+        if len(friendly):
+            friendly += " [caused by "
+            end += "]"
+        friendly += "{}".format(curEx)
+        curEx = curEx.__cause__
+    friendly += end
+    return friendly

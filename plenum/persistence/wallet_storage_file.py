@@ -3,10 +3,13 @@ from binascii import unhexlify
 from typing import Optional
 
 from ledger.stores.text_file_store import TextFileStore
-from plenum.client.signer import SimpleSigner
+from plenum.client.id_data import IdData
+from plenum.client.signer import SimpleSigner, Signer
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.types import Identifier
 from plenum.common.util import error
 from plenum.persistence.wallet_storage import WalletStorage
+import jsonpickle
 
 
 class WalletStorageFile(WalletStorage, HasFileStorage):
@@ -15,8 +18,8 @@ class WalletStorageFile(WalletStorage, HasFileStorage):
         HasFileStorage.__init__(self, name="wallet", baseDir=walletDir)
         keysFileName = "keys"
         aliasesFileName = "aliases"
-        self.keyStore = TextFileStore(self.dataLocation, keysFileName,
-                                      storeContentHash=False)
+        self.idStore = TextFileStore(self.dataLocation, keysFileName,
+                                     storeContentHash=False)
         self.aliasesStore = TextFileStore(self.dataLocation,
                                           aliasesFileName,
                                           storeContentHash=False)
@@ -48,39 +51,52 @@ class WalletStorageFile(WalletStorage, HasFileStorage):
         return [name for name in ls
                 if os.path.isdir(os.path.join(p, name))]
 
-    def addSigner(self, identifier=None, seed=None, signer=None):
-        if not (seed or signer):
-            error("Provide a seed or signer")
-        if not signer:
-            signer = SimpleSigner(identifier=identifier, seed=seed)
-        identifier = signer.identifier
-        if not self.getSigner(identifier):
-            self.keyStore.put(key=identifier, value=signer.seedHex.decode())
-            if signer.alias:
-                self.aliasesStore.put(key=signer.alias, value=identifier)
-        else:
-            error("Signer already present")
+    def putIdData(self, identifier: Identifier, idData: IdData):
+        self.idStore.put(key=identifier,
+                         value=jsonpickle.encode(idData.__getstate__()))
+        if idData.signer.alias:
+            self.aliasesStore.put(key=idData.signer.alias, value=identifier)
 
-    def getSigner(self, identifier=None, alias=None) -> Optional[SimpleSigner]:
-        if alias:
-            identifier = self.aliasesStore.get(key=alias)
-
-        if identifier:
-            seedHex = self.keyStore.get(identifier)
-            if seedHex:
-                return SimpleSigner(identifier=identifier,
-                                    seed=unhexlify(seedHex.encode()))
+    def getIdData(self, identifier: Identifier) -> Optional[IdData]:
+        encoded = self.idStore.get(identifier)
+        if encoded:
+            decoded = jsonpickle.decode(encoded)
+            idData = IdData()
+            idData.__setstate__(decoded)
+            return idData
 
     @property
-    def signers(self):
-        signers = {identifier: SimpleSigner(identifier=identifier,
-                                            seed=unhexlify(seedHex.encode()))
-                   for identifier, seedHex in self.keyStore.iterator()}
-        aliases = {}
-        for alias, identifier in self.aliasesStore.iterator():
-            aliases[identifier] = alias
-        return [(signer, aliases.get(idf)) for idf, signer in signers.items()]
+    def identifiers(self):
+        return [idr for idr in self.idStore.iterator(includeValue=False)]
 
+    # DEPR
+    # @property
+    # def signers(self):
+    #     signers = {identifier: SimpleSigner(identifier=identifier,
+    #                                         seed=unhexlify(seedHex.encode()))
+    #                for identifier, seedHex in self.idStore.iterator()}
+    #     aliases = {}
+    #     for alias, identifier in self.aliasesStore.iterator():
+    #         aliases[identifier] = alias
+    #     return [(signer, aliases.get(idf)) for idf, signer in signers.items()]
+    #
     @property
     def aliases(self):
         return self.aliasesStore.iterator()
+
+
+# import pickledb
+#
+# class A:
+#     def __init__(self):
+#         self.a = 1
+#         self.b = 2
+#
+#     def __getstate__(self):
+#         return self.__dict__
+#
+#
+# db = pickledb.load('test.db', False)
+# db.set('key3', A())
+# db.get('key')
+# db.dump()

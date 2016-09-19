@@ -6,7 +6,7 @@ def createNewKeyring(name, cli):
     assert not oldKeyring or (
     oldKeyring and oldKeyring.name != cli._activeWallet.name)
     assert cli.activeWallet.name == name
-    assert len(cli._activeWallet.signers) == 0
+    assert len(cli._activeWallet.identifiers) == 0
 
 
 def testNewKeyring(cli):
@@ -22,7 +22,7 @@ def renameKeyring(oldName, newName, cli):
     assert 'Wallet {} renamed to {}'.format(oldName,
                                             newName) in cli.lastCmdOutput
     assert cli._activeWallet.name == newName
-    assert len(cli.activeWallet.signers) == 0
+    assert len(cli.activeWallet.identifiers) == 0
 
 
 def renameToExistingKeyring(oldName, newName, cli):

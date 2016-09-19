@@ -802,7 +802,7 @@ class LedgerManager(HasActionQueue):
         # If the message is being sent by a client
         else:
             rid = self.nodestack.getRemote(to).uid
-            signer = self.owner.getSigner(self.owner.defaultIdentifier)
+            signer = self.owner.fetchSigner(self.owner.defaultIdentifier)
             self.nodestack.send(msg, rid, signer=signer)
 
     @property

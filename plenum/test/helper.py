@@ -16,6 +16,7 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence, Iterator
 from typing import Union, Callable
 
+from plenum.client.wallet import Wallet
 from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import TrnsKind, PcktKind
 
@@ -29,10 +30,12 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
-    Propagate, Prepare, Commit, CatchupReq
+    Propagate, Prepare, Commit, CatchupReq, Identifier
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger, checkIfMoreThanFSameItems
 from plenum.persistence import orientdb_store
+from plenum.persistence.wallet_storage_file import WalletStorageFile
+from plenum.persistence.wallet_storage_memory import WalletStorageMemory
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -888,13 +891,17 @@ def setupNodesAndClient(looper: Looper, nodes: Sequence[TestNode], nodeReg=None,
 def setupClient(looper: Looper,
                 nodes: Sequence[TestNode] = None,
                 nodeReg=None,
-                tmpdir=None):
-    client1 = genTestClient(nodes=nodes,
-                            nodeReg=nodeReg,
-                            tmpdir=tmpdir)
+                tmpdir=None,
+                identifier=None,
+                verkey=None):
+    client1, wallet = genTestClient(nodes=nodes,
+                                    nodeReg=nodeReg,
+                                    tmpdir=tmpdir,
+                                    identifier=identifier,
+                                    verkey=verkey)
     looper.add(client1)
     looper.run(client1.ensureConnectedToNodes())
-    return client1
+    return client1, wallet
 
 
 def setupClients(count: int,
@@ -902,11 +909,25 @@ def setupClients(count: int,
                 nodes: Sequence[TestNode] = None,
                 nodeReg=None,
                 tmpdir=None):
+    wallets = {}
     clients = {}
     for i in range(count):
-        client = setupClient(looper, nodes, nodeReg, tmpdir)
+        name = "test-wallet-{}".format(i)
+        storage = WalletStorageFile.fromName(name, tmpdir)
+        wallet = Wallet(name, storage)
+        signer = SimpleSigner()
+        wallet.addSigner(signer)
+        idr = wallet.defaultId
+        verkey = wallet.getVerKey(idr)
+        client = setupClient(looper,
+                             nodes,
+                             nodeReg,
+                             tmpdir,
+                             identifier=idr,
+                             verkey=verkey)
         clients[client.name] = client
-    return clients
+        wallets[client.name] = wallet
+    return clients, wallets
 
 
 # noinspection PyIncorrectDocstring
@@ -967,8 +988,9 @@ genHa = PortDispenser("127.0.0.1").getNext
 def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
-                  signer=None,
                   testClientClass=TestClient,
+                  identifier: Identifier=None,
+                  verkey: str=None,
                   bootstrapKeys=True,
                   ha=None,
                   usePoolLedger=False) -> TestClient:
@@ -988,26 +1010,28 @@ def genTestClient(nodes: TestNodeSet = None,
         nReg = None
 
     ha = genHa() if not ha else ha
-    identifier = "testClient{}".format(ha.port)
+    name = "testClient{}".format(ha.port)
 
-    signer = signer if signer else SimpleSigner(identifier)
-
-    tc = testClientClass(identifier,
+    tc = testClientClass(name,
                          nodeReg=nReg,
                          ha=ha,
-                         basedirpath=tmpdir,
-                         signer=signer)
+                         basedirpath=tmpdir)
+    w = None  # type: Wallet
     if bootstrapKeys and nodes:
-        bootstrapClientKeys(tc, nodes)
-    return tc
+        if not identifier or not verkey:
+            # no identifier or verkey were provided, so creating a wallet
+            w = Wallet(name, WalletStorageMemory())
+            w.addSigner()
+            identifier = w.defaultId
+            verkey = w.getVerKey()
+        bootstrapClientKeys(identifier, verkey, nodes)
+    return tc, w
 
 
-def bootstrapClientKeys(client, nodes):
+def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        sig = client.getSigner()
-        idAndKey = sig.identifier, sig.verkey
-        n.clientAuthNr.addClient(*idAndKey)
+        n.clientAuthNr.addClient(identifier, verkey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
@@ -1026,8 +1050,10 @@ def randomOperation():
     return {"type": "buy", "amount": random.randint(10, 100)}
 
 
-def sendRandomRequest(client: Client):
-    return client.submit_DEPRECATED(randomOperation())[0]
+def sendRandomRequest(wallet: Wallet, client: Client):
+    op = randomOperation()
+    req = wallet.signOp(op)
+    return client.submitReqs(req)[0]
 
 
 def sendRandomRequests(client: Client, count: int):
