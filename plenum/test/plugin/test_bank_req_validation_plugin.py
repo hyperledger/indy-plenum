@@ -12,7 +12,7 @@ from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import getPluginPath
+from plenum.test.plugin.helper import getPluginPath, submitOp
 
 
 @pytest.fixture(scope="module")
@@ -43,14 +43,21 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
-def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
+def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
+                                pluginVerPath):
     plugin = PluginLoader(pluginVerPath)
     plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
     commonError = "client request invalid: AssertionError "
-    client2 = setupClient(looper, nodeSet, tmpdir=tdir)
-    req, = client1.submit_DEPRECATED({
+    client2, wallet2 = setupClient(looper, nodeSet, tmpdir=tdir)
+    # req, = client1.submit_DEPRECATED({
+    #     TXN_TYPE: "dummy",
+    #     TARGET_NYM: client2.defaultIdentifier,
+    #     DATA: {
+    #         AMOUNT: 30
+    #     }})
+    req = submitOp(wallet1, client1, {
         TXN_TYPE: "dummy",
-        TARGET_NYM: client2.defaultIdentifier,
+        TARGET_NYM: wallet2.defaultId,
         DATA: {
             AMOUNT: 30
         }})
@@ -61,9 +68,9 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros1 = [partial(checkReqNack, client1, node, req.reqId, update)
               for node in nodeSet]
 
-    req, = client1.submit_DEPRECATED({
+    req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
-        TARGET_NYM: client2.defaultIdentifier,
+        TARGET_NYM: wallet2.defaultId,
         })
 
     update = {
@@ -73,9 +80,9 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros2 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit_DEPRECATED({
+    req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
-        TARGET_NYM: client2.defaultIdentifier,
+        TARGET_NYM: wallet2.defaultId,
         DATA: "some string"})
 
     update = {
@@ -85,9 +92,9 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
     coros3 = [partial(checkReqNack, client1, node, req.reqId, update)
              for node in nodeSet]
 
-    req, = client1.submit_DEPRECATED({
+    req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
-        TARGET_NYM: client2.defaultIdentifier,
+        TARGET_NYM: wallet2.defaultId,
         DATA: {
             AMOUNT: -3
         }})
@@ -101,9 +108,9 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, tdir, pluginVerPath):
 
     looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=5))
 
-    req, = client1.submit_DEPRECATED({
+    req, = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
-        TARGET_NYM: client2.defaultIdentifier,
+        TARGET_NYM: wallet2.defaultId,
         DATA: {
             AMOUNT: 30
         }})

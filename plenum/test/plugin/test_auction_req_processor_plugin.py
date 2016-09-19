@@ -12,7 +12,7 @@ from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor impor
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import getPluginPath
+from plenum.test.plugin.helper import getPluginPath, App
 
 
 @pytest.fixture(scope="module")
@@ -51,15 +51,10 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
 @pytest.fixture(scope="module")
 def apps(looper, nodeSet, tdir):
     cs, ws = setupClients(5, looper, nodeSet, tmpdir=tdir)
-    return [App(ws[k], cs[k], looper) for k in cs.keys()]
+    return [AuctionApp(ws[k], cs[k], looper) for k in cs.keys()]
 
 
-class App:
-
-    def __init__(self, wallet: Wallet, client: TestClient, looper):
-        self.wallet = wallet
-        self.client = client
-        self.looper = looper
+class AuctionApp(App):
 
     def auction(self, aucId, start=True):
         req = self.submit({
@@ -71,11 +66,6 @@ class App:
         self.looper.run(eventually(checkSufficientRepliesRecvd,
                                    self.client.inBox, req.reqId,
                                    1, retryWait=1, timeout=10))
-        return req
-
-    def submit(self, op):
-        req = self.wallet.signOp(op)
-        self.client.submitReqs(req)
         return req
 
     def getBalance(self) -> int:

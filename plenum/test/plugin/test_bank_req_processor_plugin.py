@@ -7,7 +7,7 @@ from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
     checkReqNack, TestNodeSet, setupClients
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import getPluginPath
+from plenum.test.plugin.helper import getPluginPath, App
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
     CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
@@ -97,28 +97,72 @@ def checkTxns(looper, client: TestClient):
     return req
 
 
-def testBankTransactions(nodeSet, up, looper, clients):
-    jason, john, les = tuple(clients.keys())
-    balReqJl = checkBalance(looper, clients[jason])
-    balReqJb = checkBalance(looper, clients[john])
-    bal1Jason = clients[jason].hasConsensus(balReqJl.reqId)[BALANCE]
-    bal1John = clients[john].hasConsensus(balReqJb.reqId)[BALANCE]
+@pytest.fixture(scope="module")
+def apps(looper, nodeSet, tdir):
+    cs, ws = setupClients(3, looper, nodeSet, tmpdir=tdir)
+    return [AccountApp(ws[k], cs[k], looper) for k in cs.keys()]
+
+
+class AccountApp(App):
+    def sendMoney(self, to: str, amount: int, nodes, expected: bool = True):
+        req = self.submit({
+            TXN_TYPE: CREDIT,
+            TARGET_NYM: to,
+            DATA: {
+                AMOUNT: amount
+            }})
+        if expected:
+            self.looper.run(eventually(checkSufficientRepliesRecvd,
+                                       self.client.inBox, req.reqId, 1,
+                                       retryWait=1, timeout=5))
+        else:
+            for node in nodes:
+                self.looper.run(eventually(checkReqNack, self.client, node,
+                                      req.reqId, None,
+                                      retryWait=1, timeout=5))
+        return req
+
+    def getBalance(self) -> int:
+        req = self.submit({
+            TXN_TYPE: GET_BAL,
+            TARGET_NYM: self.wallet.defaultId
+        })
+        self.looper.run(eventually(checkSufficientRepliesRecvd,
+                                   self.client.inBox, req.reqId,
+                                   1, retryWait=1, timeout=10))
+        return self.client.hasConsensus(req.reqId)[BALANCE]
+
+    def checkTxns(self):
+        req = self.submit({
+            TXN_TYPE: GET_ALL_TXNS,
+            TARGET_NYM: self.wallet.defaultId
+        })
+        self.looper.run(
+            eventually(checkSufficientRepliesRecvd, self.client.inBox,
+                       req.reqId, 1, retryWait=1, timeout=5))
+        return req
+
+
+def testBankTransactions(nodeSet, up, looper, apps):
+    jason, john, les = apps
+
+    bal1Jason = jason.getBalance()
+    bal1John = john.getBalance()
+
     logger.display("Balance for Jason Law is {}".format(bal1Jason))
     logger.display("Balance for John Best is {}".format(bal1John))
     logger.display("Jason Law transfers 100USD to John Best")
-    req = sendMoney(looper, clients[jason], clients[john], 100, nodeSet)
-    assert clients[jason].hasConsensus(req.reqId)
-    balReqJl = checkBalance(looper, clients[jason])
-    balReqJb = checkBalance(looper, clients[john])
-    bal2Jason = clients[jason].hasConsensus(balReqJl.reqId)[BALANCE]
-    bal2John = clients[john].hasConsensus(balReqJb.reqId)[BALANCE]
+    req = jason.sendMoney(john.wallet.defaultId, 100, nodeSet)
+    assert jason.client.hasConsensus(req.reqId)
+    bal2Jason = jason.getBalance()
+    bal2John = john.getBalance()
     assert bal1Jason - bal2Jason == 100
     assert bal2John - bal1John == 100
     logger.display("Balance for Jason Law is {}".format(bal2Jason))
     logger.display("Balance for John Best is {}".format(bal2John))
-    req = sendMoney(looper, clients[jason], clients[john], 100, nodeSet)
-    txnReqJl = checkTxns(looper, clients[jason])
-    txnReqJb = checkTxns(looper, clients[john])
-    txnJason = clients[jason].hasConsensus(txnReqJl.reqId)[ALL_TXNS]
-    txnJohn = clients[john].hasConsensus(txnReqJb.reqId)[ALL_TXNS]
+    jason.sendMoney(john.wallet.defaultId, 100, nodeSet)
+    txnReqJl = jason.checkTxns()
+    txnReqJb = john.checkTxns()
+    txnJason = jason.client.hasConsensus(txnReqJl.reqId)[ALL_TXNS]
+    txnJohn = john.client.hasConsensus(txnReqJb.reqId)[ALL_TXNS]
     assert txnJason == txnJohn
