@@ -47,7 +47,7 @@ class Stack(RoadStack):
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
-            prihex = ed25519SkToCurve25519(sighex)
+            prihex = ed25519SkToCurve25519(sighex, toHex=True)
         kwargs['sigkey'] = sighex
         kwargs['prikey'] = prihex
         self.msgHandler = kwargs.pop('msgHandler', None)  # type: Callable
@@ -624,15 +624,14 @@ class KITStack(SimpleStack):
             logger.error("Error reconciling nodeReg with remotes; see logs")
 
         if conflicts:
-            logger.error("found conflicting address information {} in registry".format(
-                conflicts))
+            logger.error("found conflicting address information {} in registry"
+                         .format(conflicts))
         if legacy:
             for l in legacy:
                 logger.error("{} found legacy entry [{}, {}] in remotes, "
                              "that were not in registry".
                              format(self, l.name, l.ha))
-                # TODO probably need to reap
-                l.reap()
+                self.removeRemote(l)
         return missing
 
     def remotesByConnected(self):
@@ -752,6 +751,9 @@ class Batched(MessageProcessor):
 
 class ClientStack(SimpleStack):
     def __init__(self, stackParams: dict, msgHandler: Callable):
+        # The client stack needs to be mutable unless we explicitly decide
+        # not to
+        stackParams["mutable"] = stackParams.get("mutable", True)
         SimpleStack.__init__(self, stackParams, msgHandler)
         self.connectedClients = set()
 
@@ -788,6 +790,9 @@ class NodeStack(Batched, KITStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA]):
         Batched.__init__(self)
+        # TODO: Just to get around the restriction of port numbers changed on
+        # Azure. Remove this soon to relax port numbers only but not IP.
+        stackParams["mutable"] = stackParams.get("mutable", True)
         KITStack.__init__(self, stackParams, msgHandler, registry)
 
     def start(self):

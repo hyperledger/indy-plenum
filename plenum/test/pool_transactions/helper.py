@@ -90,7 +90,7 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, tdir, tconf,
     return newSteward, newNode
 
 
-def changeNodeIp(looper, client, node, nodeHa, clientHa):
+def changeNodeHa(looper, client, node, nodeHa, clientHa):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),

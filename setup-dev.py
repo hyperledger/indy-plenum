@@ -50,7 +50,7 @@ setup(
     author=__author__,
     author_email='dev@evernym.us',
     license=__license__,
-    keywords='Byzantine plenum',
+    keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
     package_data={

@@ -19,7 +19,6 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
-from ledger.util import F
 from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.ratchet import Ratchet
@@ -307,7 +306,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return LedgerStatus(1, self.domainLedger.size,
-                            self.primaryStorage.root_hash)
+                            self.domainLedger.root_hash)
 
     @property
     def isParticipating(self):
@@ -1036,12 +1035,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             cMsg = cls(**msg)
         except Exception as ex:
             raise InvalidClientRequest from ex
-        try:
-            self.verifySignature(cMsg)
-        except InvalidIdentifier as ex:
-            raise
-        except Exception as ex:
-            raise SuspiciousClient from ex
+
+        if self.isSignatureVerificationNeeded(msg):
+            try:
+                self.verifySignature(cMsg)
+            except InvalidIdentifier as ex:
+                raise
+            except Exception as ex:
+                raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -1155,7 +1156,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case we need to keep track of what requests ids node has seen
         # in-memory and once request with a particular request id is processed,
         # it should be removed from that in-memory DS.
-        reply = self.getReplyFor(request)
+
+        typ = request.operation.get(TXN_TYPE)
+        if typ in POOL_TXN_TYPES:
+            reply = self.poolManager.getReplyFor(request)
+        else:
+            reply = self.getReplyFor(request)
+
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -1400,6 +1407,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.display("{} authenticated {} signature on {} request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
+
+    def isSignatureVerificationNeeded(self, msg: Any):
+        return True
 
     def checkValidOperation(self, clientId, reqId, msg):
         if self.opVerifiers:

@@ -9,6 +9,7 @@ whitelist = ['got primary declaration',
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skipif(True, reason="Implementation changed.")
 def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
                                                    keySharedNodes,
                                                    ready):

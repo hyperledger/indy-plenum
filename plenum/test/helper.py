@@ -996,7 +996,8 @@ def genTestClient(nodes: TestNodeSet = None,
                   verkey: str=None,
                   bootstrapKeys=True,
                   ha=None,
-                  usePoolLedger=False) -> TestClient:
+                  usePoolLedger=False,
+                  name=None) -> TestClient:
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:
@@ -1013,7 +1014,7 @@ def genTestClient(nodes: TestNodeSet = None,
         nReg = None
 
     ha = genHa() if not ha else ha
-    name = "testClient{}".format(ha.port)
+    name = name or "testClient{}".format(ha.port)
 
     tc = testClientClass(name,
                          nodeReg=nReg,
