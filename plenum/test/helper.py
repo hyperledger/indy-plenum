@@ -1293,7 +1293,8 @@ def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
         rec.update(update)
     expected = (rec, node.clientstack.name)
     # one and only one matching message should be in the client's inBox
-    assert sum(1 for x in client.inBox if x == expected) == 1
+    # assert sum(1 for x in client.inBox if x == expected) == 1
+    assert client.inBox.count(expected) == 1
 
 
 def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
@@ -1302,7 +1303,8 @@ def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
         rec.update(update)
     expected = (rec, node.clientstack.name)
     # one and only one matching message should be in the client's inBox
-    assert sum(1 for x in client.inBox if x == expected) == 1
+    # assert sum(1 for x in client.inBox if x == expected) == 1
+    assert client.inBox.count(expected) == 1
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -1330,8 +1332,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
     :param oldViewNo: The view no on which the nodes were before the view change
     :return:
     """
-    params = [args for args in getAllArgs(
-            node, TestNode.startViewChange)]
+    params = [args for args in getAllArgs(node, TestNode.startViewChange)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == oldViewNo

@@ -43,7 +43,7 @@ def nodeSet(tdir, nodeReg, allPluginPaths):
         yield ns
 
 
-def testAuctionReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
+def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                    pluginVerPath):
     # TODO: Test more cases
     plugin = PluginLoader(pluginVerPath)
