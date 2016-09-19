@@ -25,9 +25,9 @@ nodeDataDir = "data/nodes"
 
 clientDataDir = "data/clients"
 
-domainTransactionsFile = "transactions"
+domainTransactionsFile = "transactions_sandbox"
 
-poolTransactionsFile = "pool_transactions"
+poolTransactionsFile = "pool_transactions_sandbox"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 

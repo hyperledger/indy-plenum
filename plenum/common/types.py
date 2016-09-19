@@ -295,10 +295,12 @@ def loadRegistry():
 
 loadRegistry()
 
-ThreePhaseMsg = TypeVar("3PhaseMsg",
-                        PrePrepare,
-                        Prepare,
-                        Commit)
+ThreePhaseType = (PrePrepare, Prepare, Commit)
+ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
+
+
+ElectionType = (Nomination, Primary, Reelection)
+ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,

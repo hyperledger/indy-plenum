@@ -7,7 +7,8 @@ from plenum.common.types import PrePrepare
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import checkPrePrepareReqSent, checkPrePrepareReqRecvd, \
+from plenum.test.helper import checkPrePrepareReqSent, \
+    checkPrePrepareReqRecvd, \
     checkPrepareReqSent
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
     getPrimaryReplica, getNonPrimaryReplicas
@@ -36,7 +37,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
     primaryRepl = getPrimaryReplica(nodeSet)
     logging.debug("Primary Replica: {}".format(primaryRepl))
     logging.debug(
-        "Decrementing the primary replica's pre-prepare sequence number by one...")
+        "Decrementing the primary replica's pre-prepare sequence number by "
+        "one...")
     primaryRepl.prePrepareSeqNo -= 1
     request2 = sendRandomRequest(client1)
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
@@ -45,14 +47,14 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
     logging.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
     prePrepareReq = PrePrepare(
-            primaryRepl.instId,
-            primaryRepl.viewNo,
-            primaryRepl.prePrepareSeqNo,
-            client1.defaultIdentifier,
-            request2.reqId,
-            request2.digest,
-            time.time()
-            )
+        primaryRepl.instId,
+        primaryRepl.viewNo,
+        primaryRepl.prePrepareSeqNo,
+        client1.defaultIdentifier,
+        request2.reqId,
+        request2.digest,
+        time.time()
+    )
 
     logging.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
@@ -61,7 +63,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
                           prePrepareReq,
                           retryWait=1,
                           timeout=10))
-    logging.debug("""Check that none of the non primary replicas didn't send any prepare message "
+    logging.debug("""Check that none of the non primary replicas didn't send
+    any prepare message "
                              in response to the pre-prepare message""")
     for npr in nonPrimaryReplicas:
         with pytest.raises(AssertionError):
