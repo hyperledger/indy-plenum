@@ -22,6 +22,13 @@ def getMatchedVariables(grammar, cmd):
     return m.variables()
 
 
+def testUseKeyringRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "use keyring abc")
+    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc"})
+    matchedVars = getMatchedVariables(grammar, "use keyring abc ")
+    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc"})
+
+
 def testPromptCommandRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "prompt Alice")
     assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})

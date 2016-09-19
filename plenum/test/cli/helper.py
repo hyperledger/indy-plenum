@@ -214,7 +214,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.signers.keys()) == len(keys) + 1
     pubKey = set(cli.activeWallet.signers.keys()).difference(keys).pop()
-    expected = ['Key created in wallet Default',
+    expected = ['Key created in keyring Default',
                 'Identifier for key is {}'.format(pubKey),
                 'Current identifier set to {}'.format(pubKey)]
     # TODO: Reconsider this

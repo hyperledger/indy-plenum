@@ -285,7 +285,8 @@ class Cli:
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
                              self._createGenTxnFileAction, self._changePrompt,
-                             self._newKeyring, self._renameKeyring]
+                             self._newKeyring, self._renameKeyring,
+                             self._useKeyringAction]
         return self._actions
 
     @property
@@ -319,6 +320,7 @@ class Cli:
                 'list_ids': WordCompleter(['list', 'ids']),
                 'become': WordCompleter(['become']),
                 'use_id': WordCompleter(['use', 'identifier']),
+                'use_kr': WordCompleter(['use', 'keyring']),
                 'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
                 'prompt': WordCompleter(['prompt']),
                 'create_gen_txn_file': WordCompleter(
@@ -368,18 +370,19 @@ class Cli:
                 fromWallet = self.wallets.get(fromName) if fromName \
                     else self.activeWallet
                 if not fromWallet:
-                    self.print('Wallet {} not found'.format(fromName))
+                    self.print('Keyring {} not found'.format(fromName))
                     return True
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
-                self.print('Wallet {} renamed to {}'.format(fromName, toName))
+                self.print('Keyring {} renamed to {}'.format(fromName, toName))
             return True
 
     def _newKeyring(self, matchedVars):
         if matchedVars.get('new_keyring'):
             name = matchedVars.get('name')
-            conflictFound = self._checkIfIdentifierConflicts(name)
+            conflictFound = self._checkIfIdentifierConflicts(
+                name, checkInAliases=False, checkInSigners=False)
             if not conflictFound:
                 self._newWallet(name)
             return True
@@ -460,7 +463,7 @@ class Cli:
     def _buildClientIfNotExists(self, config=None):
         if not self._activeClient:
             if not self.activeWallet:
-                print("Wallet is not initialized")
+                print("Keyring is not initialized")
                 return
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
@@ -487,7 +490,7 @@ class Cli:
     @activeWallet.setter
     def activeWallet(self, wallet):
         self._activeWallet = wallet
-        self.print('Active wallet set to "{}"'.format(wallet.name))
+        self.print('Active keyring set to "{}"'.format(wallet.name))
 
     @property
     def activeClient(self):
@@ -1151,7 +1154,7 @@ Commands:
 
     def _addSignerToWallet(self, signer, wallet=None):
         self._addSignerToGivenWallet(signer, wallet)
-        self.print("Key created in wallet " + wallet.name)
+        self.print("Key created in keyring " + wallet.name)
 
     def _newSigner(self,
                    wallet=None,
@@ -1171,13 +1174,8 @@ Commands:
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
             alias = matchedVars.get('alias')
-            conflictFound = self._checkIfIdentifierConflicts(
-                alias, checkInAliases=False, checkInSigners=False)
-            if conflictFound:
-                return True
-            else:
-                self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
-                return True
+            self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
+            return True
 
     def _buildWalletClass(self, nm):
         storage = WalletStorageFile.fromName(nm, self.basedirpath)
@@ -1186,13 +1184,13 @@ Commands:
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
         if nm in self.wallets:
-            self.print("Wallet {} already exists".format(nm))
+            self.print("Keyring {} already exists".format(nm))
             wallet = self._wallets[nm]
             self.activeWallet = wallet
             return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
-        self.print("New wallet {} created".format(nm))
+        self.print("New keyring {} created".format(nm))
         self.activeWallet = wallet
         # TODO when the command is implemented
         # if nm == self.defaultWalletName:
@@ -1202,20 +1200,8 @@ Commands:
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
-            self.print("Active wallet: {}".format(self.activeWallet.name))
+            self.print("Active keyring: {}".format(self.activeWallet.name))
             self.print('\n'.join(self.activeWallet.listIds()))
-            return True
-
-    # def _becomeAction(self, matchedVars):
-    #     if matchedVars.get('become') == 'become':
-    #         keypair = matchedVars.get('id')
-    #         self._setActiveIdentifier(keypair)
-    #         return True
-
-    def _useIdentifierAction(self, matchedVars):
-        if matchedVars.get('use_id') == 'use identifier':
-            nymOrAlias = matchedVars.get('identifier')
-            self._setActiveIdentifier(nymOrAlias)
             return True
 
     def _checkIfIdentifierConflicts(self, name, checkInWallets=True,
@@ -1235,21 +1221,18 @@ Commands:
         if name:
             if name in allWallets:
                 self.print(
-                    "{} conflicts with an existing keyring name. Please "
-                    "choose a new name".format(name),
-                    Token.Warning)
+                    "{} conflicts with an existing keyring name. "
+                    "Please choose a new name".format(name), Token.Warning)
                 return True
             if name in allAliases:
                 self.print(
-                    "{} conflicts with an existing alias. Please choose a new "
-                    "name".format(name),
-                    Token.Warning)
+                    "{} conflicts with an existing alias. "
+                    "Please choose a new name".format(name), Token.Warning)
                 return True
             if name in allSigners:
                 self.print(
-                    "{} conflicts with an existing identifier. Please choose "
-                    "a new name".format(name),
-                    Token.Warning)
+                    "{} conflicts with an existing identifier. "
+                    "Please choose a new name".format(name), Token.Warning)
                 return True
             return False
         else:
@@ -1259,9 +1242,16 @@ Commands:
         wallet = self.wallets.get(name)
         if wallet:
             self.activeWallet = wallet
+            self.print("Current keyring set to {}".format(name))
         else:
-            self.print("No such identifier found")
+            self.print("No such keyring found")
         return True
+
+    def _useKeyringAction(self, matchedVars):
+        if matchedVars.get('use_kr') == 'use keyring':
+            name = matchedVars.get('keyring')
+            self._searchAndSetWallet(name)
+            return True
 
     def _setActiveIdentifier(self, nymOrAlias):
         if self.activeWallet:
@@ -1272,7 +1262,18 @@ Commands:
                 self.activeSigner = signer
                 self.print("Current identifier set to {}".format(nymOrAlias))
                 return True
-        self._searchAndSetWallet(nymOrAlias)
+            else:
+                return False
+        else:
+            return False
+
+    def _useIdentifierAction(self, matchedVars):
+        if matchedVars.get('use_id') == 'use identifier':
+            nymOrAlias = matchedVars.get('identifier')
+            found = self._setActiveIdentifier(nymOrAlias)
+            if not found:
+                self.print("No such identifier found in current keyring")
+            return True
 
     def _setPrompt(self, promptText):
         app = create_prompt_application('{}> '.format(promptText),

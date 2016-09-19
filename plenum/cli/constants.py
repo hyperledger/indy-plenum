@@ -14,8 +14,7 @@ psep = re.escape(os.path.sep)
 # general reusable reg ex
 NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
-# UTIL_GRAMS_LOAD_CMD_REG_EX = "(\s* (?P<load>load) " \
-#                              "\s+ (?P<file_name>[.a-zA-z0-9{}]+) \s*) "
+
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
     "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? " \
     "(\s+ (?P<node_or_cli>{}) )?\s*) "
@@ -65,6 +64,9 @@ CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) " \
 CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) " \
                                   "\s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
 
+CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_kr>use\s+keyring) " \
+                                  "\s+ (?P<keyring>[A-Za-z0-9+=/]*) \s*) "
+
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
     "\s+ (?P<type>[a-zA-Z0-9_]+)" \
@@ -88,8 +90,7 @@ NODE_CMDS = CLI_CMDS | {'keyshare'}
 # command formatted reg exs
 UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX = \
     getPipedRegEx(UTIL_GRAMS_SIMPLE_CMD_REG_EX).format(relist(SIMPLE_CMDS))
-# UTIL_GRAMS_LOAD_CMD_FORMATTED_REG_EX = \
-#     getPipedRegEx(UTIL_GRAMS_LOAD_CMD_REG_EX).format(psep)
+
 UTIL_GRAMS_COMMAND_HELP_FORMATTED_REG_EX = \
     getPipedRegEx(UTIL_GRAMS_COMMAND_HELP_REG_EX).format(relist(NODE_OR_CLI))
 UTIL_GRAMS_COMMAND_PROMPT_FORMATTED_REG_EX = \
@@ -125,4 +126,6 @@ CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX)
 CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_USE_KEYPAIR_REG_EX)
+CLIENT_GRAMS_USE_KEYRING_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_USE_KEYRING_REG_EX)
 
