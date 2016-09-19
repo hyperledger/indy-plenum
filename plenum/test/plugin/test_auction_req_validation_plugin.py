@@ -12,7 +12,7 @@ from plenum.test.helper import TestNodeSet, checkReqNack
 from plenum.test.plugin.auction_req_validation.plugin_auction_req_validation import AMOUNT, \
     PLACE_BID, AUCTION_START, ID, AUCTION_END
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE
-from plenum.test.plugin.helper import getPluginPath, submitOp
+from plenum.test.plugin.helper import getPluginPath, submitOp, makeReason
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +48,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     # TODO: Test more cases
     plugin = PluginLoader(pluginVerPath)
     plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
-    commonError = "client request invalid: AssertionError "
+    commonError = "client request invalid: InvalidClientRequest()"
     allCoros = []
     # req, = client1.submit_DEPRECATED({
     #     TXN_TYPE: "dummy",
@@ -61,9 +61,11 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
             AMOUNT: 30
     }}
     req = submitOp(wallet1, client1, op)
+    validTypes = ', '.join(plugin.validTxnTypes)
     update = {
-        'reason': '{}dummy is not a valid transaction type, must be one '
-                  'of {}'.format(commonError, ', '.join(plugin.validTxnTypes))}
+        'reason': makeReason(commonError, "dummy is not a valid transaction "
+                                          "type, must be one of {}"
+                             .format(validTypes))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -76,8 +78,9 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}{} attribute is missing or not in proper "
-                  "format".format(commonError, DATA)}
+        'reason': makeReason(commonError,
+                             "{} attribute is missing or not in proper format"
+                             .format(DATA))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -90,8 +93,9 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}{} attribute is missing or not in proper "
-                  "format".format(commonError, DATA)}
+        'reason': makeReason(commonError,
+                             "{} attribute is missing or not in proper format"
+                             .format(DATA))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -106,8 +110,9 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}{} attribute is missing or not in proper "
-                  "format".format(commonError, DATA)}
+        'reason': makeReason(commonError,
+                             "{} attribute is missing or not in proper format"
+                             .format(DATA))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -125,7 +130,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }}
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}No id provided for auction".format(commonError)}
+        'reason': makeReason(commonError, "No id provided for auction")}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -141,7 +146,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}No id provided for auction".format(commonError)}
+        'reason': makeReason(commonError, "No id provided for auction")}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -156,7 +161,7 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}No id provided for auction".format(commonError)}
+        'reason': makeReason(commonError, "No id provided for auction")}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]
@@ -178,8 +183,9 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     }
     req = submitOp(wallet1, client1, op)
     update = {
-        'reason': "{}{} must be present and should be a number greater "
-                  "than 0".format(commonError, AMOUNT)}
+        'reason': makeReason(commonError, "{} must be present and should be "
+                                          "a number greater than 0"
+                             .format(AMOUNT))}
 
     allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
                  for node in nodeSet]

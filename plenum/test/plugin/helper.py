@@ -27,3 +27,7 @@ class App:
         req = self.wallet.signOp(op)
         self.client.submitReqs(req)
         return req
+
+
+def makeReason(common, specific):
+    return '{} [caused by {}]'.format(common, specific)
