@@ -12,12 +12,12 @@ nodeCount = 7
 
 # noinspection PyIncorrectDocstring
 @pytest.fixture()
-def viewChangeDone(nodeSet, looper, up, client1, viewNo):
+def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(nodeSet, 0, 10)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo+1),
                           retryWait=1, timeout=20))
@@ -34,7 +34,7 @@ def testViewChange(viewChangeDone):
     pass
 
 
-def testViewChangeCase1(nodeSet, looper, up, client1, viewNo):
+def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     """
     Node will change view even though it does not find the master to be degraded
     when a quorum of nodes agree that master performance degraded
@@ -57,7 +57,7 @@ def testViewChangeCase1(nodeSet, looper, up, client1, viewNo):
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
         lambda x: False, relucatantNode.monitor)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # Check that view change happened for all nodes
     looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo + 1),

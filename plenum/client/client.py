@@ -40,7 +40,8 @@ from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
 from plenum.common.util import getMaxFailures, getlogger, error, hexToCryptonym, \
     MessageProcessor, checkIfMoreThanFSameItems
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.persistence.wallet_storage_file import WalletStorageFile
+# DEPR
+# from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
 logger = getlogger()
@@ -130,6 +131,7 @@ logger = getlogger()
 
 
 class Client(Motor,
+             # DEPR
              # ClientWallet,
              MessageProcessor,
              HasFileStorage,
@@ -138,11 +140,13 @@ class Client(Motor,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
-                 lastReqId: int = 0,
-                 signer: Signer=None,
-                 signers: Dict[str, Signer]=None,
+                 # DEPR
+                 # lastReqId: int = 0,
+                 # signer: Signer=None,
+                 # signers: Dict[str, Signer]=None,
                  basedirpath: str=None,
-                 wallet: Wallet=None,
+                 # DEPR
+                 # wallet: Wallet=None,
                  config=None):
         """
         Creates a new client.
@@ -561,36 +565,37 @@ class Client(Motor,
                 req, signer = self.reqsPendingConnection.popleft()
                 self.nodestack.send(req, signer=signer)
 
-    def submitNewClient(self, role, name: str, verkey: str):
-        assert role in (STEWARD, USER), "Invalid type {}".format(role)
-        verstr = hexToCryptonym(verkey)
-        req, = self.submit_DEPRECATED({
-            TXN_TYPE: NYM,
-            ROLE: role,
-            TARGET_NYM: verstr,
-            ALIAS: name
-        })
-        return req
-
-    def submitNewSteward(self, name: str, verkey: str):
-        return self.submitNewClient(STEWARD, name, verkey)
-
-    def submitNewNode(self, name: str, verkey: str,
-                      nodeStackHa: HA, clientStackHa: HA):
-        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        verstr = hexToCryptonym(verkey)
-        req, = self.submit_DEPRECATED({
-            TXN_TYPE: NEW_NODE,
-            TARGET_NYM: verstr,
-            DATA: {
-                NODE_IP: nodeIp,
-                NODE_PORT: nodePort,
-                CLIENT_IP: clientIp,
-                CLIENT_PORT: clientPort,
-                ALIAS: name
-            }
-        })
-        return req
+    # DEPR
+    # def submitNewClient(self, role, name: str, verkey: str):
+    #     assert role in (STEWARD, USER), "Invalid type {}".format(role)
+    #     verstr = hexToCryptonym(verkey)
+    #     req, = self.submit_DEPRECATED({
+    #         TXN_TYPE: NYM,
+    #         ROLE: role,
+    #         TARGET_NYM: verstr,
+    #         ALIAS: name
+    #     })
+    #     return req
+    #
+    # def submitNewSteward(self, name: str, verkey: str):
+    #     return self.submitNewClient(STEWARD, name, verkey)
+    #
+    # def submitNewNode(self, name: str, verkey: str,
+    #                   nodeStackHa: HA, clientStackHa: HA):
+    #     (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
+    #     verstr = hexToCryptonym(verkey)
+    #     req, = self.submit_DEPRECATED({
+    #         TXN_TYPE: NEW_NODE,
+    #         TARGET_NYM: verstr,
+    #         DATA: {
+    #             NODE_IP: nodeIp,
+    #             NODE_PORT: nodePort,
+    #             CLIENT_IP: clientIp,
+    #             CLIENT_PORT: clientPort,
+    #             ALIAS: name
+    #         }
+    #     })
+    #     return req
 
     # TODO: Shouldn't the nym be fetched from the ledger
     def submitNodeIpChange(self, name: str, nym: str, nodeStackHa: HA,

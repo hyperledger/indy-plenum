@@ -6,7 +6,8 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID
 from raet.raeting import AutoMode
 
 from plenum.common.types import f, OP_FIELD_NAME, Request
-from plenum.persistence.wallet_storage_memory import WalletStorageMemory
+# DEPR
+# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
@@ -43,7 +44,7 @@ def testGeneratedRequestSequencing(tdir_for_func):
     Request ids must be generated in an increasing order
     """
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet('test', WalletStorageMemory())
+        w = Wallet('test')
         w.addSigner()
 
         operation = randomOperation()

@@ -80,11 +80,11 @@ def testNodesConnect(txnPoolNodeSet):
     pass
 
 
-def testNodesReceiveClientMsgs(looper, client1, txnPoolNodeSet):
+def testNodesReceiveClientMsgs(looper, wallet1, client1, txnPoolNodeSet):
     looper.add(client1)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
                                                   *txnPoolNodeSet)
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
 
 
 def testAddNewClient(looper, txnPoolNodeSet, steward1):

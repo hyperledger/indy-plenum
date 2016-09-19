@@ -1,5 +1,6 @@
 import pytest
 from plenum.client.signer import SimpleSigner
+from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
@@ -18,12 +19,14 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
     with Looper(debug=True) as looper:
         name, sigseed = poolTxnStewardData
         stewardSigner = SimpleSigner(seed=sigseed)
+        wallet = Wallet(name)
+        wallet.addSigner(signer=stewardSigner)
         client = TestClient(name=name, nodeReg=None, ha=genHa(),
-                            signer=stewardSigner, basedirpath=tdirWithPoolTxns)
+                            basedirpath=tdirWithPoolTxns)
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         txnCount = getValueFromModule(request, "txnCount", 5)
-        sendReqsToNodesAndVerifySuffReplies(looper, client, txnCount,
+        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, txnCount,
                                             timeoutPerReq=25)
 
         newStewardName = randomString()
@@ -35,18 +38,18 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                                                          tconf,
                                                          allPluginsPath=allPluginsPath,
                                                          autoStart=True)
-        yield looper, newNode, client, newStewardClient
+        yield looper, newNode, client, newStewardWallet, newStewardClient
 
 
 @pytest.fixture("module")
 def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
-    looper, newNode, client, newStewardClient = nodeCreatedAfterSomeTxns
+    looper, newNode, client, newStewardWallet, newStewardClient = nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=10))
     looper.run(newStewardClient.ensureConnectedToNodes())
     looper.run(client.ensureConnectedToNodes())
-    return looper, newNode, client, newStewardClient
+    return looper, newNode, client, newStewardWallet, newStewardClient
 
 
 @pytest.fixture("module")

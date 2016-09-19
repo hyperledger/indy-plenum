@@ -11,8 +11,9 @@ from plenum.common.util import getConfig
 config = getConfig()
 
 
-def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNodeSet,
-                          client1):
+def testPostingThroughput(postingStatsEnabled, looper: Looper,
+                          nodeSet: TestNodeSet,
+                          wallet1, client1):
     """
     The throughput after `DashboardUpdateFreq` seconds and before sending any
     requests should be zero.
@@ -31,7 +32,7 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
         assert node.monitor.highResThroughput == 0
         assert node.monitor.totalRequests == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount, nodeSet.f,
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount, nodeSet.f,
                                         timeoutPerReq=20)
 
     for node in nodeSet:
@@ -62,7 +63,7 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper, nodeSet: TestNode
 
 def testPostingLatency(postingStatsEnabled, looper: Looper,
                           nodeSet: TestNodeSet,
-                          client1):
+                          wallet1, client1):
     """
     The latencies (master as well as average of backups) after
     `DashboardUpdateFreq` seconds and before sending any requests should be zero.
@@ -78,7 +79,7 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
         assert node.monitor.masterLatency == 0
         assert node.monitor.avgBackupLatency == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, reqCount,
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount,
                                         nodeSet.f,
                                         timeoutPerReq=20)
 

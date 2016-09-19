@@ -170,18 +170,19 @@ def checkRequest(cli, operation):
     wallet = cli.wallets[cName]  # type: Wallet
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
+    lastReqId = wallet._getIdData().lastReqId
     cli.looper.run(eventually(
             checkSufficientRepliesRecvd,
             client.inBox,
-            wallet._getIdData().lastReqId,
+            lastReqId,
             f,
             retryWait=2,
             timeout=10))
 
-    txn, status = client.getReply(client.lastReqId)
+    txn, status = client.getReply(lastReqId)
 
     # Ensure the cli shows appropriate output
-    cli.enterCmd('client {} show {}'.format(cName, client.lastReqId))
+    cli.enterCmd('client {} show {}'.format(cName, lastReqId))
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
@@ -190,6 +191,7 @@ def checkRequest(cli, operation):
     assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)
+    return client, wallet
 
 
 def newCLI(looper, tdir, cliClass=TestCli,
@@ -223,9 +225,16 @@ def newKeyPair(cli: TestCli, alias: str=None):
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.listIds()) == len(idrs) + 1
     pubKey = set(cli.activeWallet.listIds()).difference(idrs).pop()
-    expected = ['Key created in wallet Default',
-                'Identifier for key is {}'.format(pubKey),
-                'Current identifier set to {}'.format(pubKey)]
+    expected = ['Key created in wallet Default']
+    if alias:
+        expected.append('Identifier for key is {}'.
+                        format(cli.activeWallet.aliases.get(alias)))
+        expected.append('Alias for identifier is {}'.format(alias))
+    else:
+        expected.append('Identifier for key is {}'.format(pubKey))
+    expected.append('Current identifier set to {}'.format(pubKey))
+
+
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
     # be the first time wallet is accessed so wallet would be created and some

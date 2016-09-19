@@ -14,7 +14,8 @@ nodeCount = 7
 
 
 # noinspection PyIncorrectDocstring
-def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
+def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
+                                  wallet1, client1):
     """
     Test if every node queues 3 Phase requests(PRE-PREPARE, PREPARE and COMMIT)
     that come from a view which is greater than the current view
@@ -33,7 +34,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelayer)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4,
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4,
                                         timeoutPerReq=5 * nodeCount)
 
     # Every node except Node A should have a view change

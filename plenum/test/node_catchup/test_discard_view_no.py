@@ -29,7 +29,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, 10)
-    sendReqsToNodesAndVerifySuffReplies(looper, client, 4)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
     looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet, viewNo + 1),
                           retryWait=1, timeout=20))
 

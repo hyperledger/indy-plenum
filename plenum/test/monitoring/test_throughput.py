@@ -11,15 +11,14 @@ nodeCount = 4
 
 
 # noinspection PyIncorrectDocstring
-def testThroughput(looper, nodeSet: Iterable[Node], client1):
+def testThroughput(looper, nodeSet: Iterable[Node], wallet1, client1):
     """
     Checking if the throughput is being set
     """
-    client = client1
     for i in range(5):
-        req = sendRandomRequest(client)
+        req = sendRandomRequest(wallet1, client1)
         looper.run(eventually(checkSufficientRepliesRecvd,
-                              client.inBox, req.reqId, 1,
+                              client1.inBox, req.reqId, 1,
                               retryWait=1, timeout=5))
 
     for node in nodeSet:

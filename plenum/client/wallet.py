@@ -7,7 +7,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
 from plenum.client.id_data import IdData
 from plenum.client.signer import SimpleSigner
 from plenum.common.util import getlogger
-from plenum.persistence.wallet_storage import WalletStorage
+# from plenum.persistence.wallet_storage import WalletStorage
 from plenum.common.types import f, Identifier, Request
 
 logger = getlogger()
@@ -26,11 +26,17 @@ Alias = str
 
 
 class Wallet:
-    def __init__(self, name: str, storage: WalletStorage):
+    def __init__(self,
+                 name: str,
+                 # DEPR
+                 # storage: WalletStorage
+                 ):
         self._name = name
+        self.ids = {}  # type: Dict[Identifier, IdData]
         self.aliases = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        self.storage = storage
+        # DEPR
+        # self.storage = storage
         # for (signer, alias) in self.storage.signers:
         #     if alias:
         #         self.aliases[alias] = signer.identifier
@@ -65,7 +71,7 @@ class Wallet:
         idr = signer.identifier
         if self.defaultId is None:
             self.defaultId = idr
-        self.storage.putIdData(idr, IdData(signer=signer))
+        self.ids[idr] = IdData(signer=signer)
         if signer.alias:
             self.aliases[signer.alias] = signer.identifier
         return signer
@@ -73,7 +79,7 @@ class Wallet:
     def _requiredIdr(self, idr: Identifier=None, alias: str=None,
                      other: Identifier=None):
         idr = idr or other or (
-            self.storage.aliases[alias] if alias else self.defaultId)
+            self.aliases[alias] if alias else self.defaultId)
         if not idr:
             raise RuntimeError('identifier required, but none found')
         return idr
@@ -92,7 +98,7 @@ class Wallet:
         if idData.signer:
             req.signature = idData.signer.sign(req.__getstate__())
             idData.lastReqId += 1
-            self.storage.putIdData(idr, idData)
+            self.ids[idr] = idData
         else:
             raise RuntimeError('{} signer not configured so cannot sign '
                                '{}'.format(self, req))
@@ -113,7 +119,8 @@ class Wallet:
                    idr: Identifier=None,
                    alias: Alias=None) -> IdData:
         idr = self._requiredIdr(idr, alias)
-        return self.storage.getIdData(idr)
+        return self.ids.get(idr, None)
+        # DEPR
         # return self.storage.getSigner(identifier=identifier, alias=alias)
 
     def getVerKey(self, idr: Identifier=None) -> str:
@@ -133,7 +140,7 @@ class Wallet:
         :return: List of identifiers/aliases.
         """
         lst = list(self.aliases.keys())
-        others = set(self.storage.identifiers) - set(self.aliases.values())
+        others = set(self.ids.keys()) - set(self.aliases.values())
         lst.extend(list(others))
         for x in exclude:
             lst.remove(x)

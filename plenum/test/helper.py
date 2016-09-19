@@ -34,8 +34,9 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
 from plenum.common.util import randomString, error, getMaxFailures, \
     Seconds, adict, getlogger, checkIfMoreThanFSameItems
 from plenum.persistence import orientdb_store
-from plenum.persistence.wallet_storage_file import WalletStorageFile
-from plenum.persistence.wallet_storage_memory import WalletStorageMemory
+# DEPR
+# from plenum.persistence.wallet_storage_file import WalletStorageFile
+# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -596,14 +597,15 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     # TODO add test case for what happens when replies don't have the same data
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
+def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
+                                        client: TestClient,
                                         numReqs: int, fVal: int=None,
                                         timeoutPerReq: float=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     timeoutPerReq = timeoutPerReq or 5 * nodeCount
 
-    requests = sendRandomRequests(client, numReqs)
+    requests = sendRandomRequests(wallet, client, numReqs)
     for request in requests:
         looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                               request.reqId, fVal,
@@ -913,13 +915,14 @@ def setupClients(count: int,
     clients = {}
     for i in range(count):
         name = "test-wallet-{}".format(i)
-        storage = WalletStorageFile.fromName(name, tmpdir)
-        wallet = Wallet(name, storage)
-        signer = SimpleSigner()
-        wallet.addSigner(signer)
+        # DEPR
+        # storage = WalletStorageFile.fromName(name, tmpdir)
+        # wallet = Wallet(name, storage)
+        wallet = Wallet(name)
+        wallet.addSigner()
         idr = wallet.defaultId
         verkey = wallet.getVerKey(idr)
-        client = setupClient(looper,
+        client, _ = setupClient(looper,
                              nodes,
                              nodeReg,
                              tmpdir,
@@ -1020,7 +1023,7 @@ def genTestClient(nodes: TestNodeSet = None,
     if bootstrapKeys and nodes:
         if not identifier or not verkey:
             # no identifier or verkey were provided, so creating a wallet
-            w = Wallet(name, WalletStorageMemory())
+            w = Wallet(name)
             w.addSigner()
             identifier = w.defaultId
             verkey = w.getVerKey()
@@ -1056,9 +1059,9 @@ def sendRandomRequest(wallet: Wallet, client: Client):
     return client.submitReqs(req)[0]
 
 
-def sendRandomRequests(client: Client, count: int):
-    ops = [randomOperation() for _ in range(count)]
-    return client.submit_DEPRECATED(*ops)
+def sendRandomRequests(wallet: Wallet, client: Client, count: int):
+    reqs = [wallet.signOp(randomOperation()) for _ in range(count)]
+    return client.submitReqs(*reqs)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:

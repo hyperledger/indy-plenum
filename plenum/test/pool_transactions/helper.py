@@ -1,4 +1,7 @@
-from plenum.common.txn import STEWARD
+from plenum.client.client import Client
+from plenum.client.wallet import Wallet
+from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
+    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
@@ -9,24 +12,55 @@ from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient
 
 
-def addNewClient(role, looper, client, name):
-    sigseed = randomString(32).encode()
-    newSigner = SimpleSigner(seed=sigseed)
-    req = client.submitNewClient(role, name, newSigner.verkey.decode())
+def addNewClient(role, looper, client: Client, name):
+    wallet = Wallet(name)
+    wallet.addSigner()
+    verstr = wallet._getIdData().signer.verstr
+
+    op = {
+        TXN_TYPE: NYM,
+        ROLE: role,
+        TARGET_NYM: verstr,
+        ALIAS: name
+    }
+
+    req = wallet.signOp(op)
+    client.submitReqs(req)
+
+    # DEPR
+    # req = client.submitNewClient(role, name, newSigner.verkey.decode())
     nodeCount = len(client.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=3*nodeCount))
-    return newSigner
+    return wallet._getIdData().signer
 
 
 def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
                autoStart=True):
+    wallet = Wallet(client.name)
     sigseed = randomString(32).encode()
     newSigner = SimpleSigner(seed=sigseed)
+
+    wallet.addSigner(newSigner)
+    verstr = wallet._getIdData().signer.verstr
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
-    req = client.submitNewNode(newNodeName, newSigner.verkey.decode(),
-                               HA(nodeIp, nodePort), HA(clientIp, clientPort))
+
+    op = {
+        TXN_TYPE: NEW_NODE,
+        TARGET_NYM: verstr,
+        DATA: {
+            NODE_IP: nodeIp,
+            NODE_PORT: nodePort,
+            CLIENT_IP: clientIp,
+            CLIENT_PORT: clientPort,
+            ALIAS: newNodeName
+        }
+    }
+
+    req = wallet.signOp(op)
+    client.submitReqs(req)
+
     nodeCount = len(client.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                           req.reqId, 1,
@@ -45,7 +79,8 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, tdir, tconf,
     newStewardSigner = addNewClient(STEWARD, looper, client, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=None, ha=genHa(),
-                            signer=newStewardSigner,
+                            # DEPR
+                            # signer=newStewardSigner,
                             basedirpath=tdir)
 
     looper.add(newSteward)

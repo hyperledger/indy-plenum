@@ -91,13 +91,14 @@ class BankReqProcessorPlugin(HasCliCommands):
                 frm = client_name
                 to = matchedVars.get('second_client_name')
                 toClient = self.cli.clients.get(to, None)
+                toWallet = self.cli.wallets.get(to, None)
                 if not self.cli.clientExists(frm) or not self.cli.clientExists(to):
                     self.cli.printMsgForUnknownClient()
                 else:
                     amount = int(matchedVars.get('amount'))
                     txn = {
                         TXN_TYPE: CREDIT,
-                        TARGET_NYM: toClient.defaultIdentifier,
+                        TARGET_NYM: toWallet.defaultId,
                         DATA: {
                             AMOUNT: amount
                         }}

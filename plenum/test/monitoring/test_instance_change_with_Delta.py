@@ -26,7 +26,7 @@ logging.root.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope="module")
-def step1(looper, nodeSet, up, client1):
+def step1(looper, nodeSet, up, wallet1, client1):
     startedNodes = nodeSet
     """
     stand up a pool of nodes and send 5 requests to client
@@ -34,7 +34,7 @@ def step1(looper, nodeSet, up, client1):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    requests = sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    requests = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,
@@ -109,9 +109,9 @@ def step3(step2):
     return step2
 
 
-def testInstChangeWithLowerRatioThanDelta(looper, step3, client1):
+def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)

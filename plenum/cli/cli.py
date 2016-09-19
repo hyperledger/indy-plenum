@@ -26,7 +26,8 @@ from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, \
     VERKEY, BY
-from plenum.persistence.wallet_storage_file import WalletStorageFile
+# DEPR
+# from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.test.helper import bootstrapClientKeys
 
 if is_windows():
@@ -105,7 +106,8 @@ class Cli:
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        WalletStorageFile.basepath = self.basedirpath
+        # DEPR
+        # WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
@@ -488,8 +490,8 @@ class Cli:
         return self._activeWallet
 
     @activeWallet.setter
-    def activeWallet(self, wallet):
-        self._activeWallet = wallet
+    def activeWallet(self, wallet: Wallet):
+        self._activeWallet = wallet  # type: Wallet
         self.print('Active wallet set to "{}"'.format(wallet.name))
 
     @property
@@ -1179,7 +1181,9 @@ Commands:
 
         signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToWallet(signer, wallet)
-        self.print("Identifier for key is " + signer.identifier)
+        self.print("Identifier for key is {}".format(signer.identifier))
+        if alias:
+            self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
         bootstrapClientKeys(signer.identifier,
                             signer.verkey,
@@ -1199,15 +1203,17 @@ Commands:
                 return True
 
     def _buildWalletClass(self, nm):
-        storage = WalletStorageFile.fromName(nm, self.basedirpath)
-        return Wallet(nm, storage)
+        # DEPR
+        # storage = WalletStorageFile.fromName(nm, self.basedirpath)
+        # return Wallet(nm, storage)
+        return Wallet(nm)
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
         if nm in self.wallets:
             self.print("Wallet {} already exists".format(nm))
             wallet = self._wallets[nm]
-            self.activeWallet = wallet
+            self.activeWallet = wallet  # type: Wallet
             return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
@@ -1285,8 +1291,18 @@ Commands:
     def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            self.activeIdentifier = wallet.aliases.get(idrOrAlias) or idrOrAlias
-            self.print("Current identifier set to {}".format(idrOrAlias))
+            idrFromAlias = wallet.aliases.get(idrOrAlias)
+            if idrFromAlias:
+                self.activeIdentifier = idrFromAlias
+                self.activeAlias = idrOrAlias
+            else:
+                alias = [k for k, v
+                         in wallet.aliases.items()
+                         if v == idrOrAlias]
+                self.activeAlias = alias[0] if alias else None
+                self.activeIdentifier = idrOrAlias
+            self.print("Current identifier set to {}".
+                       format(self.activeAlias or self.activeIdentifier))
             return True
         self._searchAndSetWallet(idrOrAlias)
 
