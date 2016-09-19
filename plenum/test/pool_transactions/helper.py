@@ -1,7 +1,8 @@
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
-    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT
+    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT, CHANGE_HA, \
+    CHANGE_KEYS, VERKEY
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
@@ -9,10 +10,11 @@ from plenum.common.types import HA
 from plenum.common.util import randomString, hexToCryptonym
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
-    TestClient
+    TestClient, genTestClient
 
 
-def addNewClient(role, looper, client: Client, name):
+def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
+                 name: str):
     wallet = Wallet(name)
     wallet.addSigner()
     verstr = wallet._getIdData().signer.verstr
@@ -24,31 +26,28 @@ def addNewClient(role, looper, client: Client, name):
         ALIAS: name
     }
 
-    req = wallet.signOp(op)
-    client.submitReqs(req)
+    req = creatorWallet.signOp(op)
+    creatorClient.submitReqs(req)
 
     # DEPR
     # req = client.submitNewClient(role, name, newSigner.verkey.decode())
-    nodeCount = len(client.nodeReg)
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+    nodeCount = len(creatorClient.nodeReg)
+    looper.run(eventually(checkSufficientRepliesRecvd, creatorClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=3*nodeCount))
-    return wallet._getIdData().signer
+    return wallet
 
 
-def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
-               autoStart=True):
-    wallet = Wallet(client.name)
+def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
+               allPluginsPath=None, autoStart=True):
     sigseed = randomString(32).encode()
-    newSigner = SimpleSigner(seed=sigseed)
+    nodeSigner = SimpleSigner(seed=sigseed)
 
-    wallet.addSigner(newSigner)
-    verstr = wallet._getIdData().signer.verstr
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
 
     op = {
         TXN_TYPE: NEW_NODE,
-        TARGET_NYM: verstr,
+        TARGET_NYM: nodeSigner.verstr,
         DATA: {
             NODE_IP: nodeIp,
             NODE_PORT: nodePort,
@@ -58,11 +57,11 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
         }
     }
 
-    req = wallet.signOp(op)
-    client.submitReqs(req)
+    req = stewardWallet.signOp(op)
+    stewardClient.submitReqs(req)
 
-    nodeCount = len(client.nodeReg)
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+    nodeCount = len(stewardClient.nodeReg)
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=3*nodeCount))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
@@ -74,9 +73,11 @@ def addNewNode(looper, client, newNodeName, tdir, tconf, allPluginsPath=None,
     return node
 
 
-def addNewStewardAndNode(looper, client, stewardName, newNodeName, tdir, tconf,
+def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
+                         newNodeName, tdir, tconf,
                          allPluginsPath=None, autoStart=True):
-    newStewardSigner = addNewClient(STEWARD, looper, client, stewardName)
+    newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
+                                    creatorWallet, stewardName)
     newSteward = TestClient(name=stewardName,
                             nodeReg=None, ha=genHa(),
                             # DEPR
@@ -85,17 +86,32 @@ def addNewStewardAndNode(looper, client, stewardName, newNodeName, tdir, tconf,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
-    newNode = addNewNode(looper, newSteward, newNodeName, tdir, tconf,
-                         allPluginsPath, autoStart=autoStart)
-    return newSteward, newNode
+    newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
+                         tdir, tconf, allPluginsPath, autoStart=autoStart)
+    return newSteward, newStewardWallet, newNode
 
 
-def changeNodeHa(looper, client, node, nodeHa, clientHa):
+def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
-    req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
-                                    HA(clientIp, clientPort))
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+    op = {
+        TXN_TYPE: CHANGE_HA,
+        TARGET_NYM: nodeNym,
+        DATA: {
+            NODE_IP: nodeIp,
+            NODE_PORT: nodePort,
+            CLIENT_IP: clientIp,
+            CLIENT_PORT: clientPort,
+            ALIAS: node.name
+        }
+    }
+
+    # DEPR
+    # req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
+    #                                 HA(clientIp, clientPort))
+    req = stewardWallet.signOp(op)
+    stewardClient.submitReqs(req)
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
     node.nodestack.clearLocalKeep()
@@ -104,10 +120,24 @@ def changeNodeHa(looper, client, node, nodeHa, clientHa):
     node.clientstack.clearRemoteKeeps()
 
 
-def changeNodeKeys(looper, client, node, verkey):
+def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
-    req = client.submitNodeKeysChange(node.name, nodeNym, verkey)
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+
+    # DEPR
+    # req = client.submitNodeKeysChange(node.name, nodeNym, verkey)
+
+    op = {
+        TXN_TYPE: CHANGE_KEYS,
+        TARGET_NYM: nodeNym,
+        DATA: {
+            VERKEY: verkey,
+            ALIAS: node.name
+        }
+    }
+    req = stewardWallet.signOp(op)
+    stewardClient.submitReqs(req)
+
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
     node.nodestack.clearLocalRoleKeep()
@@ -116,3 +146,12 @@ def changeNodeKeys(looper, client, node, verkey):
     node.clientstack.clearLocalRoleKeep()
     node.clientstack.clearRemoteRoleKeeps()
     node.clientstack.clearAllDir()
+
+
+def buildPoolClientAndWallet(clientData, tempDir):
+    name, sigseed = clientData
+    w = Wallet(name)
+    w.addSigner(seed=sigseed)
+    client, _ = genTestClient(name=name, identifier=w.defaultId,
+                         tmpdir=tempDir, usePoolLedger=True)
+    return client, w

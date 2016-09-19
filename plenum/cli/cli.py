@@ -24,8 +24,7 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, \
-    VERKEY, BY
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
 # DEPR
 # from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.test.helper import bootstrapClientKeys

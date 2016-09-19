@@ -19,7 +19,7 @@ whitelist = ['doing nothing for now',
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
+def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -28,7 +28,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
     """
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
-    request1 = sendRandomRequest(client1)
+    request1 = sendRandomRequest(wallet1, client1)
     result1 = looper.run(
         eventually(checkSufficientRepliesRecvd, client1.inBox,
                    request1.reqId, fValue,

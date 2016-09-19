@@ -92,6 +92,8 @@ def logcapture(request, whitelist):
                              'Executing %s took %.3f seconds',
                              'is already stopped',
                              'Error while running coroutine',
+                             # TODO: This is too specific, move it to the
+                             # particular test
                              "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
                              ] + whitelist
 

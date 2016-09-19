@@ -597,9 +597,10 @@ class Client(Motor,
     #     })
     #     return req
 
+    # DEPR
     # TODO: Shouldn't the nym be fetched from the ledger
-    def submitNodeIpChange(self, name: str, nym: str, nodeStackHa: HA,
-                           clientStackHa: HA):
+    def submitNodeIpChange_DEPRECATED(self, name: str, nym: str,
+                                      nodeStackHa: HA, clientStackHa: HA):
         (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
         req, = self.submit_DEPRECATED({
             TXN_TYPE: CHANGE_HA,
@@ -614,7 +615,7 @@ class Client(Motor,
         })
         return req
 
-    def submitNodeKeysChange(self, name: str, nym: str, verkey: str):
+    def submitNodeKeysChange_DEPRECATED(self, name: str, nym: str, verkey: str):
         req, = self.submit_DEPRECATED({
             TXN_TYPE: CHANGE_KEYS,
             TARGET_NYM: nym,

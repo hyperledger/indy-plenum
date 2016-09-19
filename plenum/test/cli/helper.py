@@ -148,6 +148,8 @@ def checkClientConnected(cli, nodeNames, clientName):
 
 def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
+    createNewKeyring(clientName, cli)
+    cli.enterCmd("new key clientName{}".format("key"))
     cli.looper.run(eventually(checkClientConnected, cli, nodeNames,
                               clientName, retryWait=1, timeout=3))
 

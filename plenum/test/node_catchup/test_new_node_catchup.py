@@ -71,7 +71,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     :return:
     """
 
-    looper, newNode, _, client = nodeSetWithNodeAddedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode.name, newNode.poolManager.txnSeqNo))
     newNode.stop()
@@ -100,7 +100,7 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     until it has caught up
     :return:
     """
-    looper, newNode, _, wallet, client = nodeSetWithNodeAddedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
 
     for node in txnPoolNodeSet[:4]:

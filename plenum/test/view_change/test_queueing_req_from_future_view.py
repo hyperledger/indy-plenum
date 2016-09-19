@@ -61,7 +61,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
         node.nodeIbStasher.nodelay(ppDelayer)
 
     # Send one more request
-    sendRandomRequest(client1)
+    sendRandomRequest(wallet1, client1)
 
     def checkPending3PhaseReqs():
         # Get all replicas that have their primary status decided
