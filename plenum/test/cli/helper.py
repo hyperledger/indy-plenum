@@ -123,6 +123,7 @@ def checkAllNodesUp(cli):
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = "{nm}:{inst} selected primary {pri} " \
                "for instance {inst} (view 0)"
+    assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
         for inst in [0, 1]:
