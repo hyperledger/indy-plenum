@@ -1,8 +1,8 @@
 def createNewKeyring(name, cli):
-    oldKeyring = cli._activeWallet
+    oldKeyring = cli.activeWallet
     cli.enterCmd("new keyring {}".format(name))
-    assert 'Active wallet set to "{}"'.format(name) in cli.lastCmdOutput
-    assert 'New wallet {} created'.format(name) in cli.lastCmdOutput
+    assert 'Active keyring set to "{}"'.format(name) in cli.lastCmdOutput
+    assert 'New keyring {} created'.format(name) in cli.lastCmdOutput
     assert not oldKeyring or (
     oldKeyring and oldKeyring.name != cli._activeWallet.name)
     assert cli.activeWallet.name == name
@@ -19,7 +19,7 @@ def renameKeyring(oldName, newName, cli):
         cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
     else:
         cli.enterCmd("rename keyring to {}".format(newName))
-    assert 'Wallet {} renamed to {}'.format(oldName,
+    assert 'Keyring {} renamed to {}'.format(oldName,
                                             newName) in cli.lastCmdOutput
     assert cli._activeWallet.name == newName
     assert len(cli.activeWallet.identifiers) == 0
@@ -30,7 +30,8 @@ def renameToExistingKeyring(oldName, newName, cli):
         cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
     else:
         cli.enterCmd("rename keyring to {}".format(newName))
-    assert '{} conflicts with an existing keyring name. Please choose a new name'.format(newName) in \
+    assert '{} conflicts with an existing keyring name. ' \
+           'Please choose a new name'.format(newName) in \
            cli.lastCmdOutput
 
 
@@ -96,31 +97,25 @@ def testKeyAndKeyRing(cli):
     assert 'Active keyring set to "{}"'.format(keyring1) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(keyring1) in cli.lastCmdOutput
 
-    cli.enterCmd("new keyring {}".format(keyring1))
-    assert '{} conflicts with an existing keyring name. ' \
-           'Please choose a new name'.format(keyring1) in cli.lastCmdOutput
+    cli.enterCmd("new key {}".format(keyring1))
+    assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
 
-    # cli.enterCmd("new key {}".format(keyring1))
-    # assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
-    #
-    # cli.enterCmd("new key {}".format(keyring1))
-    # assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
+    cli.enterCmd("new key {}".format(keyring1))
+    assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
 
     key1 = "testkey1"
     cli.enterCmd("new key {}".format(key1))
     assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
 
     cli.enterCmd("new keyring {}".format(key1))
-    assert "{} conflicts with an existing alias. Please choose a new name".\
-        format(key1) in cli.lastCmdOutput
-    # assert 'Active keyring set to "{}"'.format(key1) in cli.lastCmdOutput
-    # assert 'New keyring {} created'.format(key1) in cli.lastCmdOutput
+    assert 'Active keyring set to "{}"'.format(key1) in cli.lastCmdOutput
+    assert 'New keyring {} created'.format(key1) in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
-    assert 'Current identifier set to {}'.format(key1) in cli.lastCmdOutput
+    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
 
-    # cli.enterCmd("use identifier {}".format(keyring1))
-    # assert 'No such identifier found in current keyring' in cli.lastCmdOutput
+    cli.enterCmd("use identifier {}".format(keyring1))
+    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
 
     keyring2 = "testkr2"
     cli.enterCmd("new keyring {}".format(keyring2))
@@ -128,12 +123,10 @@ def testKeyAndKeyRing(cli):
     assert 'New keyring {} created'.format(keyring2) in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
-    assert 'Current identifier set to {}'.format(key1) in cli.lastCmdOutput
+    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
 
-    # TODO: The following 2 conditions fail. This has to be fixed in the test.
     cli.enterCmd("use keyring {}".format(keyring1))
     assert 'Active keyring set to "{}"'.format(keyring1) in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
     assert 'Current identifier set to {}'.format(key1) in cli.lastCmdOutput
-

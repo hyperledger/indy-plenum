@@ -125,6 +125,7 @@ def checkAllNodesUp(cli):
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = "{nm}:{inst} selected primary {pri} " \
                "for instance {inst} (view 0)"
+    assert len(cli.nodes) > 0
     for nm, node in cli.nodes.items():
         assert node
         for inst in [0, 1]:
@@ -165,7 +166,7 @@ def checkRequest(cli, operation):
     createNewKeyring(cName, cli)
 
     cli.enterCmd("new key {}".format("testkey1"))
-    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
+    assert 'Key created in keyring {}'.format(cName) in cli.lastCmdOutput
 
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
@@ -227,7 +228,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.listIds()) == len(idrs) + 1
     pubKey = set(cli.activeWallet.listIds()).difference(idrs).pop()
-    expected = ['Key created in wallet Default']
+    expected = ['Key created in keyring Default']
     if alias:
         expected.append('Identifier for key is {}'.
                         format(cli.activeWallet.aliases.get(alias)))
@@ -235,7 +236,6 @@ def newKeyPair(cli: TestCli, alias: str=None):
     else:
         expected.append('Identifier for key is {}'.format(pubKey))
     expected.append('Current identifier set to {}'.format(pubKey))
-
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
