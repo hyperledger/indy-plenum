@@ -6,7 +6,8 @@ from plenum.common.startable import Status
 
 class Motor(Prodable):
     """
-    Helper functions for Status.
+    Base class for Prodable that includes status management.
+    Subclasses are responsible for changing status from starting to started.
     """
 
     def __init__(self):
@@ -79,5 +80,5 @@ class Motor(Prodable):
         """
         raise NotImplementedError("{} must implement this method".format(self))
 
-    def prod(self, limit) -> int:
+    async def prod(self, limit) -> int:
         raise NotImplementedError("{} must implement this method".format(self))

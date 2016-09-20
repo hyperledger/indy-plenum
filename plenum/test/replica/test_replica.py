@@ -19,7 +19,7 @@ whitelist = ['doing nothing for now',
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
+def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -28,7 +28,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
     """
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
-    request1 = sendRandomRequest(client1)
+    request1 = sendRandomRequest(wallet1, client1)
     result1 = looper.run(
         eventually(checkSufficientRepliesRecvd, client1.inBox,
                    request1.reqId, fValue,
@@ -40,7 +40,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
     primaryRepl.prePrepareSeqNo -= 1
-    request2 = sendRandomRequest(client1)
+    request2 = sendRandomRequest(wallet1, client1)
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=10))
 
@@ -50,7 +50,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.prePrepareSeqNo,
-        client1.defaultIdentifier,
+        wallet1.defaultId,
         request2.reqId,
         request2.digest,
         time.time()
@@ -70,7 +70,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1):
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  client1.defaultIdentifier,
+                                  wallet1.defaultId,
                                   request2.reqId,
                                   retryWait=1,
                                   timeout=10))

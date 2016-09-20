@@ -24,9 +24,10 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, \
-    VERKEY, BY
-from plenum.persistence.wallet_storage_file import WalletStorageFile
+    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+# DEPR
+# from plenum.persistence.wallet_storage_file import WalletStorageFile
+from plenum.test.helper import bootstrapClientKeys
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -104,7 +105,8 @@ class Cli:
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        WalletStorageFile.basepath = self.basedirpath
+        # DEPR
+        # WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig()
         if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
@@ -159,10 +161,10 @@ class Cli:
         self.plugins = {}
         self.pluginPaths = []
         self.defaultClient = None
-        self.activeSigner = None
+        self.activeIdentifier = None
         # Wallet and Client are the same from user perspective for now
         self._activeClient = None
-        self._wallets = None
+        self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
         '''
@@ -472,10 +474,12 @@ class Cli:
 
     @property
     def wallets(self):
-        if self._wallets is None:
-            wts = WalletStorageFile.listWallets(self.basedirpath)
-            self._wallets = {name: self._buildWalletClass(name)
-                             for name in wts}
+        # DEPR
+        # This is to magical; CLI should do this manually
+        # if self._wallets is None:
+        #     wts = WalletStorageFile.listWallets(self.basedirpath)
+        #     self._wallets = {name: self._buildWalletClass(name)
+        #                      for name in wts}
         return self._wallets
 
     @property
@@ -886,8 +890,12 @@ Commands:
             else:
                 self.printVoid()
 
-    def newClient(self, clientName, seed=None, identifier=None, signer=None,
-                  wallet=None, config=None):
+    def newClient(self, clientName,
+                  # seed=None,
+                  # identifier=None,
+                  # signer=None,
+                  # wallet=None,
+                  config=None):
         try:
             # TODO create wallet outside of client
             # TODO signer should not be compulsory in creating client
@@ -898,40 +906,43 @@ Commands:
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
-            assert not (signer and wallet)
-            if not wallet:
-                wallet = self._newWallet(clientName)
-                if not (wallet.signers or signer):
-                    signer = self._newSigner(wallet,
-                                             identifier=identifier,
-                                             seed=seed)
-                if signer:
-                    self._addSignerToWallet(signer, wallet)
-
-            # If signer provided then set activeSigner to the one provided else
-            # if activeSigner's identifier is present in wallet then use
-            # activeSigner else use one of the identifier from wallet.
-            if signer:
-                identifier = signer.identifier
-            elif self.activeSigner and (self.activeSigner.identifier in
-                                            list(wallet.signers.keys())):
-                identifier = self.activeSigner.identifier
-            else:
-                identifier = next(iter(wallet.signers.keys()))
-            self._setActiveIdentifier(identifier)
+            # DEPR
+            # assert not (signer and wallet)
+            # if not wallet:
+            #     wallet = self._newWallet(clientName)
+            #     if not (wallet.signers or signer):
+            #         signer = self._newSigner(wallet,
+            #                                  identifier=identifier,
+            #                                  seed=seed)
+            #     if signer:
+            #         self._addSignerToWallet(signer, wallet)
+            #
+            # # If signer provided then set activeSigner to the one provided else
+            # # if activeSigner's identifier is present in wallet then use
+            # # activeSigner else use one of the identifier from wallet.
+            # if signer:
+            #     identifier = signer.identifier
+            # elif self.activeSigner and (self.activeSigner.identifier in
+            #                                 list(wallet.signers.keys())):
+            #     identifier = self.activeSigner.identifier
+            # else:
+            #     identifier = next(iter(wallet.signers.keys()))
+            # self._setActiveIdentifier(identifier)
 
             client = self.ClientClass(clientName,
                                       ha=client_addr,
                                       # nodeReg=self.cliNodeReg,
                                       nodeReg=None,
                                       basedirpath=self.basedirpath,
-                                      wallet=wallet,
+                                      # wallet=wallet,  # DEPR
                                       config=config)
             self.activeClient = client
             self.looper.add(client)
-            for node in self.nodes.values():
-                self.bootstrapClientKey(client, node,
-                                        identifier=self.activeSigner.identifier)
+            # DEPR
+            # for node in self.nodes.values():
+            #     self.bootstrapKey(wallet,
+            #                       node,
+            #                       identifier=self.activeSigner.identifier)
             self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
             return client
@@ -939,12 +950,11 @@ Commands:
             self.print(ve.args[0], Token.Error)
 
     @staticmethod
-    def bootstrapClientKey(client, node, identifier=None):
-        identifier = identifier or client.defaultIdentifier
+    def bootstrapKey(wallet, node, identifier=None):
+        identifier = identifier or wallet.defaultId
         # TODO: Should not raise an error but should be able to choose a signer
         assert identifier, "Client has multiple signers, cannot choose one"
-        idAndKey = identifier, client.getSigner(identifier=identifier).verkey
-        node.clientAuthNr.addClient(*idAndKey)
+        node.clientAuthNr.addClient(identifier, wallet.getVerKey(identifier))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -952,11 +962,19 @@ Commands:
     def printMsgForUnknownClient(self):
         self.print("No such client. See: 'help new' for more details")
 
+    def printMsgForUnknownWallet(self, walletName):
+        self.print("No such wallet {}.".format(walletName))
+
     def sendMsg(self, clientName, msg):
         client = self.clients.get(clientName, None)
+        wallet = self.wallets.get(clientName, None)  # type: Wallet
         if client:
-            request, = client.submit(msg)
-            self.requests[str(request.reqId)] = request.reqId
+            if wallet:
+                req = wallet.signOp(msg)
+                request, = client.submitReqs(req)
+                self.requests[str(request.reqId)] = request.reqId
+            else:
+                self.printMsgForUnknownWallet(clientName)
         else:
             self.printMsgForUnknownClient()
 
@@ -1146,11 +1164,10 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _addSignerToGivenWallet(self, signer, wallet=None):
+    def _addSignerToGivenWallet(self, signer, wallet: Wallet=None):
         if not wallet:
             wallet = self._newWallet()
-        if not wallet.signers.get(signer.verstr):
-            wallet.addSigner(signer)
+        wallet.addSigner(signer=signer)
 
     def _addSignerToWallet(self, signer, wallet=None):
         self._addSignerToGivenWallet(signer, wallet)
@@ -1166,8 +1183,13 @@ Commands:
 
         signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToWallet(signer, wallet)
-        self.print("Identifier for key is " + signer.identifier)
+        self.print("Identifier for key is {}".format(signer.identifier))
+        if alias:
+            self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
+        bootstrapClientKeys(signer.identifier,
+                            signer.verkey,
+                            self.nodes.values())
         return signer
 
     def _newKeyAction(self, matchedVars):
@@ -1178,15 +1200,17 @@ Commands:
             return True
 
     def _buildWalletClass(self, nm):
-        storage = WalletStorageFile.fromName(nm, self.basedirpath)
-        return Wallet(nm, storage)
+        # DEPR
+        # storage = WalletStorageFile.fromName(nm, self.basedirpath)
+        # return Wallet(nm, storage)
+        return Wallet(nm)
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
         if nm in self.wallets:
             self.print("Keyring {} already exists".format(nm))
             wallet = self._wallets[nm]
-            self.activeWallet = wallet
+            self.activeWallet = wallet  # type: Wallet
             return wallet
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
@@ -1214,7 +1238,7 @@ Commands:
             if checkInAliases:
                 allAliases.extend(list(wv.aliases.keys()))
             if checkInSigners:
-                allSigners.extend(list(wv.signers.keys()))
+                allSigners.extend(list(wv.listIds()))
             if checkInWallets:
                 allWallets.append(wk)
 
@@ -1253,19 +1277,26 @@ Commands:
             self._searchAndSetWallet(name)
             return True
 
-    def _setActiveIdentifier(self, nymOrAlias):
+    def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            nym = wallet.aliases.get(nymOrAlias) or nymOrAlias
-            signer = wallet.signers.get(nym)
-            if signer:
-                self.activeSigner = signer
-                self.print("Current identifier set to {}".format(nymOrAlias))
-                return True
-            else:
+            if idrOrAlias not in wallet.aliases and idrOrAlias not in wallet.ids:
                 return False
-        else:
-            return False
+            idrFromAlias = wallet.aliases.get(idrOrAlias)
+            # If alias found
+            if idrFromAlias:
+                self.activeIdentifier = idrFromAlias
+                self.activeAlias = idrOrAlias
+            else:
+                alias = [k for k, v
+                         in wallet.aliases.items()
+                         if v == idrOrAlias]
+                self.activeAlias = alias[0] if alias else None
+                self.activeIdentifier = idrOrAlias
+            self.print("Current identifier set to {}".
+                       format(self.activeAlias or self.activeIdentifier))
+            return True
+        return False
 
     def _useIdentifierAction(self, matchedVars):
         if matchedVars.get('use_id') == 'use identifier':

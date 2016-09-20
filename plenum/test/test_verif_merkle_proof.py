@@ -9,8 +9,8 @@ def testMerkleProofForFirstLeaf(client1: Client, replied1):
     assert Client.verifyMerkleProof(*replies)
 
 
-def testMerkleProofForNonFirstLeaf(looper, nodeSet, client1: Client, replied1):
-    req2 = sendRandomRequest(client1)
+def testMerkleProofForNonFirstLeaf(looper, nodeSet, wallet1, client1, replied1):
+    req2 = sendRandomRequest(wallet1, client1)
     f = nodeSet.f
     looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox, req2.reqId
                           , f, retryWait=1, timeout=15))

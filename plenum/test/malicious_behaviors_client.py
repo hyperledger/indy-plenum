@@ -67,7 +67,7 @@ def repeatsRequest(client: Client, count: int) -> Client:
                 requests.append(request)
         return requests
 
-    client.submit = types.MethodType(evilSubmit, client)
+    client.submit_DEPRECATED = types.MethodType(evilSubmit, client)
     return client
 
 
