@@ -68,7 +68,7 @@ setup(
         'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
-    tests_require=['pytest', 'pytest-xdist'],
+    tests_require=['pytest==3.0.2', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
