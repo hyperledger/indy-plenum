@@ -568,16 +568,18 @@ class Replica(MessageProcessor):
             logger.error("Non participating node is attempting PRE-PREPARE. "
                         "This should not happen.")
             return
-        logger.debug("{} Sending PRE-PREPARE at {}".
-                     format(self, time.perf_counter()))
         self.prePrepareSeqNo += 1
         tm = time.time()*1000
+        logger.debug("{} Sending PRE-PREPARE {} at {}".
+                     format(self, (self.viewNo, self.prePrepareSeqNo),
+                            time.perf_counter()))
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
                                    self.prePrepareSeqNo,
                                    *reqDigest,
                                    tm)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest, tm)
+        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest,
+                                                                   tm)
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
