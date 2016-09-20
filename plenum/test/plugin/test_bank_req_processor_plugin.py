@@ -53,50 +53,6 @@ def clients(looper, nodeSet, tdir):
     return setupClients(3, looper, nodeSet, tmpdir=tdir)
 
 
-def sendMoney(looper, frm: TestClient, to: TestClient, amount: int, nodes,
-              expected: bool=True):
-    req, = frm.submit_DEPRECATED({
-            TXN_TYPE: CREDIT,
-            TARGET_NYM: to.defaultIdentifier,
-            DATA: {
-                AMOUNT: amount
-            }})
-    if expected:
-        looper.run(eventually(checkSufficientRepliesRecvd, frm.inBox,
-                              req.reqId, 1,
-                              retryWait=1, timeout=5))
-    else:
-        for node in nodes:
-            looper.run(eventually(checkReqNack, frm, node,
-                                  req.reqId, None,
-                                  retryWait=1, timeout=5))
-    return req
-
-
-def checkBalance(looper, client: TestClient):
-    req, = client.submit_DEPRECATED({
-        TXN_TYPE: GET_BAL,
-        TARGET_NYM: client.defaultIdentifier
-    })
-
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=10))
-
-    return req
-
-
-def checkTxns(looper, client: TestClient):
-    req, = client.submit_DEPRECATED({
-        TXN_TYPE: GET_ALL_TXNS,
-        TARGET_NYM: client.defaultIdentifier
-    })
-
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          1, retryWait=1, timeout=5))
-
-    return req
-
-
 @pytest.fixture(scope="module")
 def apps(looper, nodeSet, tdir):
     cs, ws = setupClients(3, looper, nodeSet, tmpdir=tdir)

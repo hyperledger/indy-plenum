@@ -49,12 +49,6 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
     plugin = next(iter(plugin.plugins[PLUGIN_TYPE_VERIFICATION]))
     commonError = "client request invalid: InvalidClientRequest()"
     client2, wallet2 = setupClient(looper, nodeSet, tmpdir=tdir)
-    # req, = client1.submit_DEPRECATED({
-    #     TXN_TYPE: "dummy",
-    #     TARGET_NYM: client2.defaultIdentifier,
-    #     DATA: {
-    #         AMOUNT: 30
-    #     }})
     req = submitOp(wallet1, client1, {
         TXN_TYPE: "dummy",
         TARGET_NYM: wallet2.defaultId,
