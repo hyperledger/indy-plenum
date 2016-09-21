@@ -1187,10 +1187,14 @@ Commands:
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
-        bootstrapClientKeys(signer.identifier,
+        self.bootstrapClientKeys(signer.identifier,
                             signer.verkey,
                             self.nodes.values())
         return signer
+
+    @staticmethod
+    def bootstrapClientKeys(idr, verkey, nodes):
+        bootstrapClientKeys(idr, verkey, nodes)
 
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':

@@ -148,10 +148,13 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     node.clientstack.clearAllDir()
 
 
-def buildPoolClientAndWallet(clientData, tempDir):
+def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
+                             walletClass=None):
+    walletClass = walletClass or Wallet
     name, sigseed = clientData
-    w = Wallet(name)
+    w = walletClass(name)
     w.addSigner(seed=sigseed)
     client, _ = genTestClient(name=name, identifier=w.defaultId,
-                         tmpdir=tempDir, usePoolLedger=True)
+                         tmpdir=tempDir, usePoolLedger=True,
+                        testClientClass=clientClass)
     return client, w
