@@ -84,7 +84,7 @@ class Wallet:
             raise RuntimeError('identifier required, but none found')
         return idr
 
-    def signRequest(self, req: Request, identifier: Identifier=None):
+    def signRequest(self, req: Request, identifier: Identifier=None) -> Request:
         """
         Signs request. Modifies reqId and signature. May modify identifier.
         :param req:
@@ -96,7 +96,7 @@ class Wallet:
         idData = self._getIdData(idr)
         req.reqId = idData.lastReqId + 1
         if idData.signer:
-            req.signature = idData.signer.sign(req.__getstate__())
+            req.signature = idData.signer.sign(req.getSigningState())
             idData.lastReqId += 1
             self.ids[idr] = idData
         else:
