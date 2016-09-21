@@ -155,6 +155,6 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     w = walletClass(name)
     w.addSigner(seed=sigseed)
     client, _ = genTestClient(name=name, identifier=w.defaultId,
-                         tmpdir=tempDir, usePoolLedger=True,
-                        testClientClass=clientClass)
+                              tmpdir=tempDir, usePoolLedger=True,
+                              testClientClass=clientClass)
     return client, w
