@@ -508,7 +508,10 @@ class LedgerManager(HasActionQueue):
         seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
         consistencyProof = self._buildConsistencyProof(ledgerType, seqNoStart,
                                                        seqNoEnd)
-        self.sendTo(consistencyProof, frm)
+        # TODO: Build a test for this scenario where a node cannot service a
+        # consistency proof request
+        if consistencyProof:
+            self.sendTo(consistencyProof, frm)
 
     def canProcessCatchupReply(self, catchupReply: CatchupRep) -> List[Tuple]:
         ledgerType = getattr(catchupReply, f.LEDGER_TYPE.nm)
