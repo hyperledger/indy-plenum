@@ -647,7 +647,7 @@ class Cli:
             show link <name> - Shows link info in case of one matching link, otherwise shows all the matching link <names>
             connect <test> |<live> - Let's you connect to the respective environment
             sync <link name> - Synchronizes the link between the endpoints""".
-                       format(self.properName, self.fullName))
+                format(self.properName, self.fullName))
 
     def printCmdHelper(self, command=None):
         self.functionMappings[command]()
