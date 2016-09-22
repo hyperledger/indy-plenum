@@ -619,7 +619,7 @@ class Cli:
             'prompt' : promtHelper,
             'principals' : principalsHelper,
             'load' :      loadHelper,
-            #'show link' : showLinkHelper,  //TODO need to check with someone about how to get it work
+            'show link' : showLinkHelper,
             'connect': connectHelper,
             'sync'  : syncHelper,
             'plugins': pluginHelper
