@@ -3,7 +3,7 @@ from typing import Dict, Tuple, Union
 from plenum.common.types import Request, Propagate
 from plenum.common.util import getlogger
 
-logger = getlogger(__name__)
+logger = getlogger()
 
 
 class ReqState:

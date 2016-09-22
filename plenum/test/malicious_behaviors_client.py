@@ -5,7 +5,7 @@ from typing import List, Any, Mapping
 from plenum.client.client import Client
 from plenum.common.types import Request
 
-logger = getLogger(__name__)
+logger = getLogger()
 
 
 def makeClientFaulty(client, *behaviors):

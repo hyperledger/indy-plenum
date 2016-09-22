@@ -469,8 +469,7 @@ class Cli:
                 return
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
-            self.newClient(clientName=name, wallet=self.activeWallet,
-                           config=config)
+            self.newClient(clientName=name, config=config)
 
     @property
     def wallets(self):

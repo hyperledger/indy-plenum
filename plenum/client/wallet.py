@@ -127,9 +127,18 @@ class Wallet:
         data = self._getIdData(idr)
         return data.signer.verkey
 
+    def getAlias(self, idr: Identifier):
+        for alias, identifier in self.aliases.items():
+            if identifier == idr:
+                return alias
+
     @property
     def identifiers(self):
         return self.listIds()
+
+    @property
+    def defaultAlias(self):
+        return self.getAlias(self.defaultId)
 
     def listIds(self, exclude=list()):
         """

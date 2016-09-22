@@ -106,6 +106,8 @@ def checkNodeStarted(cli, nodeName):
 
     def chk():
         msgs = {stmt['msg'] for stmt in cli.printeds}
+        print("checking for {}".format(nodeName))
+        print(msgs)
         assert "{} added replica {}:0 to instance 0 (master)" \
                    .format(nodeName, nodeName) in msgs
         assert "{} added replica {}:1 to instance 1 (backup)" \
@@ -224,10 +226,10 @@ def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
     idrs = set()
     if cli.activeWallet:
-        idrs = set(cli.activeWallet.listIds())
+        idrs = set(cli.activeWallet.ids.keys())
     checkCmdValid(cli, cmd)
-    assert len(cli.activeWallet.listIds()) == len(idrs) + 1
-    pubKey = set(cli.activeWallet.listIds()).difference(idrs).pop()
+    assert len(cli.activeWallet.ids.keys()) == len(idrs) + 1
+    pubKey = set(cli.activeWallet.ids.keys()).difference(idrs).pop()
     expected = ['Key created in keyring Default']
     if alias:
         expected.append('Identifier for key is {}'.
@@ -235,7 +237,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
         expected.append('Alias for identifier is {}'.format(alias))
     else:
         expected.append('Identifier for key is {}'.format(pubKey))
-    expected.append('Current identifier set to {}'.format(pubKey))
+    expected.append('Current identifier set to {}'.format(alias or pubKey))
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might

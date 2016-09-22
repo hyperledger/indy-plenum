@@ -151,6 +151,7 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
                              walletClass=None):
     walletClass = walletClass or Wallet
+    clientClass = clientClass or TestClient
     name, sigseed = clientData
     w = walletClass(name)
     w.addSigner(seed=sigseed)

@@ -24,7 +24,8 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
         # client = TestClient(name=name, nodeReg=None, ha=genHa(),
         #                     basedirpath=tdirWithPoolTxns)
         client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                                  tdirWithPoolTxns)
+                                                  tdirWithPoolTxns,
+                                                  clientClass=TestClient)
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         txnCount = getValueFromModule(request, "txnCount", 5)
