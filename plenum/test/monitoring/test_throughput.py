@@ -1,6 +1,7 @@
 import logging
 from typing import Iterable
 
+from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, \
@@ -8,6 +9,7 @@ from plenum.test.helper import sendRandomRequest, \
 
 
 nodeCount = 4
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring

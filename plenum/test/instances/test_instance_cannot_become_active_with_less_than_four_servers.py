@@ -2,6 +2,7 @@ import logging
 from typing import Iterable, Optional
 
 from plenum.common.looper import Looper
+from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 
@@ -11,6 +12,8 @@ from plenum.test.helper import TestNodeSet, JOINED_NOT_ALLOWED, CONNECTED, \
     checkNodesConnected
 
 whitelist = ['discarding message']
+
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring

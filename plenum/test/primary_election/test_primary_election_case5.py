@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from plenum.common.types import Primary, Nomination
+from plenum.common.util import getlogger
 
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
@@ -13,6 +14,9 @@ whitelist = ['because already got primary declaration',
              Suspicions.DUPLICATE_PRI_SENT.reason,
              'doing nothing for now',
              'know how to handle it']
+
+
+logger = getlogger()
 
 
 @pytest.fixture()

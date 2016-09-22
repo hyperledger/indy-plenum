@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from plenum.common.util import getlogger
 
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually
@@ -15,6 +16,8 @@ from plenum.test.primary_election.helpers import checkNomination, \
 nodeCount = 4
 whitelist = ['already got nomination',
              'doing nothing for now']
+
+logger = getlogger()
 
 
 @pytest.fixture()

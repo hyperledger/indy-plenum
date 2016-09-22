@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 
 from plenum.common.types import PrePrepare
-from plenum.common.util import getMaxFailures, getNoInstances, adict
+from plenum.common.util import getMaxFailures, getNoInstances, adict, getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
@@ -22,7 +22,8 @@ verify a view change happens
 """
 
 
-logger.root.setLevel(logger.DEBUG)
+logger = getlogger()
+logger.root.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope="module")

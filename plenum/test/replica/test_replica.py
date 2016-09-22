@@ -6,7 +6,7 @@ import time
 from plenum.common.types import PrePrepare
 from plenum.test.eventually import eventually
 
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, getlogger
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent
@@ -16,6 +16,9 @@ from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
 whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',
              'InvalidSignature']
+
+
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
