@@ -3,11 +3,14 @@ import unittest
 from typing import Any
 from unittest import TestCase
 
+from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.testable import Spyable
 
 
 pr = slice(3, 5)  # params and result
+
+logger = getlogger()
 
 
 class TestHelpers(TestCase):
