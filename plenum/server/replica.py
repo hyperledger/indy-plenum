@@ -1,4 +1,3 @@
-import logging
 import time
 from collections import deque, OrderedDict
 from enum import IntEnum
@@ -553,7 +552,7 @@ class Replica(MessageProcessor):
         Try to order if the Commit message is ready to be ordered.
         """
         if self.canOrder(commit):
-            logging.debug("{} returning request to node".format(self))
+            logger.debug("{} returning request to node".format(self))
             self.tryOrdering(commit)
         else:
             logger.trace("{} cannot return request to node".format(self))
@@ -869,7 +868,7 @@ class Replica(MessageProcessor):
         self.ordered.add((viewNo, ppSeqNo))
 
     def enqueuePrepare(self, request: Prepare, sender: str):
-        logging.debug("Queueing prepares due to unavailability of "
+        logger.debug("Queueing prepares due to unavailability of "
                       "pre-prepare. request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
@@ -886,8 +885,8 @@ class Replica(MessageProcessor):
                     key].popleft()
                 self.processPrepare(prepare, sender)
                 i += 1
-            logging.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                          " view no {} and seq no {}".format(self, i, viewNo,
+            logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+                         " view no {} and seq no {}".format(self, i, viewNo,
                                         ppSeqNo))
 
     def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:

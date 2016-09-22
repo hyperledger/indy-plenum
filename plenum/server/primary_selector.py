@@ -1,5 +1,3 @@
-import logging
-
 from plenum.common.util import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -24,7 +22,7 @@ class PrimarySelector(PrimaryDecider):
             primaryName = replica.Replica.generateName(
                 self.nodeNamesByRank[prim],
                 idx)
-            logging.debug("{} has primary {}".format(r.name, primaryName))
+            logger.debug("{} has primary {}".format(r.name, primaryName))
             r.primaryName = primaryName
 
     def viewChanged(self, viewNo: int):
@@ -32,5 +30,5 @@ class PrimarySelector(PrimaryDecider):
             self.viewNo = viewNo
             self.startSelection()
         else:
-            logging.warning("Provided view no {} is not greater than the "
-                            "current view no {}".format(viewNo, self.viewNo))
+            logger.warning("Provided view no {} is not greater than the "
+                           "current view no {}".format(viewNo, self.viewNo))

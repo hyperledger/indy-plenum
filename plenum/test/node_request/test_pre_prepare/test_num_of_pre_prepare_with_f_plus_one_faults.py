@@ -42,4 +42,4 @@ def testNumOfPrePrepareWithFPlusOneFaults(afterElection,
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:
-                logging.info("{} is primary".format(r))
+                logger.info("{} is primary".format(r))

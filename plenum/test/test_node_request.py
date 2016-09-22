@@ -1,10 +1,8 @@
-import logging
 from pprint import pprint
-
-import pytest
 
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
+from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import TestNodeSet, setupNodesAndClient, \
@@ -18,6 +16,7 @@ from plenum.common.looper import Looper
 from plenum.test.profiler import profile_this
 
 whitelist = ['cannot process incoming PREPARE']
+logger = getlogger()
 
 
 def testReqExecWhenReturnedByMaster(tdir_for_func):
@@ -55,7 +54,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             prepareNodeSet(looper, nodeSet)
-            logging.debug("Add the seven nodes back in")
+            logger.debug("Add the seven nodes back in")
             # Every node except A delays self nomination so A can become primary
             nodeA = addNodeBack(nodeSet, looper, nodeNames[0])
             for i in range(1, 7):

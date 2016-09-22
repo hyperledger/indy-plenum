@@ -23,7 +23,7 @@ def checkDblImp():
     track this down. I'm sure there's a better way to do this, but this seems
     to work for the basic testing I did.
     """
-    logging.info("-------------checking for double imports-------------")
+    logger.info("-------------checking for double imports-------------")
     ignore = {'posixpath.py',
               'helpers/pydev/pydevd.py',
               'importlib/_bootstrap.py',

@@ -88,7 +88,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
                                           retryWait=1, timeout=30)
 
     for node in nodes:
-        logging.debug(
+        logger.debug(
             "{}'s nominations {}".format(node, node.elector.nominations))
     # Node D should not have any primary
     assert not nodeD.hasPrimary

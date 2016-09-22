@@ -51,7 +51,7 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
 
     checkPoolReady(looper, nodeSet)
 
-    logging.debug("Check nomination")
+    logger.debug("Check nomination")
     # Checking whether Node A nominated itself
     looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
 

@@ -33,10 +33,10 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         eventually(checkSufficientRepliesRecvd, client1.inBox,
                    request1.reqId, fValue,
                    retryWait=1, timeout=5))
-    logging.debug("request {} gives result {}".format(request1, result1))
+    logger.debug("request {} gives result {}".format(request1, result1))
     primaryRepl = getPrimaryReplica(nodeSet)
-    logging.debug("Primary Replica: {}".format(primaryRepl))
-    logging.debug(
+    logger.debug("Primary Replica: {}".format(primaryRepl))
+    logger.debug(
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
     primaryRepl.prePrepareSeqNo -= 1
@@ -45,7 +45,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                           retryWait=1, timeout=10))
 
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
-    logging.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
+    logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         primaryRepl.viewNo,
@@ -56,14 +56,14 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         time.time()
     )
 
-    logging.debug("""Checking whether all the non primary replicas have received
+    logger.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
     looper.run(eventually(checkPrePrepareReqRecvd,
                           nonPrimaryReplicas,
                           prePrepareReq,
                           retryWait=1,
                           timeout=10))
-    logging.debug("""Check that none of the non primary replicas didn't send
+    logger.debug("""Check that none of the non primary replicas didn't send
     any prepare message "
                              in response to the pre-prepare message""")
     for npr in nonPrimaryReplicas:

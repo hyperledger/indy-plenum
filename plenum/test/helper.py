@@ -100,7 +100,7 @@ class Stasher:
         if tester in self.delayRules:
             self.delayRules.remove(tester)
         else:
-            logging.debug("{} not present in {}".format(tester, self.name))
+            logger.debug("{} not present in {}".format(tester, self.name))
 
     def process(self, age: float = None):
         age = age if age is not None else time.perf_counter() - self.created
@@ -112,7 +112,7 @@ class Stasher:
             for rx in list(self.queue):
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
-                    logging.debug("{} stashing message {} for "
+                    logger.debug("{} stashing message {} for "
                                   "{} seconds".
                                   format(self.name, rx, secondsToDelay))
                     self.delayeds.append((age + secondsToDelay, rx))
@@ -128,14 +128,14 @@ class Stasher:
         """
         for d in self.delayeds:
             if age >= d[0]:
-                logging.debug(
+                logger.debug(
                         "{} unstashing message {} ({:.0f} milliseconds overdue)".
                             format(self.name, d[1], (age - d[0]) * 1000))
                 self.queue.appendleft(d[1])
                 self.delayeds.remove(d)
 
     def resetDelays(self):
-        logging.debug("{} resetting delays".format(self.name))
+        logger.debug("{} resetting delays".format(self.name))
         self.delayRules = set()
 
 
@@ -168,7 +168,7 @@ class StackedTester:
 
     async def ensureConnectedToNodes(self):
         wait = expectedWait(len(self.nodeReg))
-        logging.debug(
+        logger.debug(
                 "waiting for {} seconds to check client connections to nodes...".format(
                         wait))
         await eventuallyAll(self.checkIfConnectedToAll, retryWait=.5,
@@ -289,18 +289,18 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
-        logging.debug("{} delaying start election".format(self))
+        logger.debug("{} delaying start election".format(self))
         delayerElection = partial(delayerMethod,
                                   TestPrimaryElector.startElection)
         self.elector.actionQueueStasher.delay(delayerElection(delay))
 
     def delayCheckPerformance(self, delay: Seconds):
-        logging.debug("{} delaying check performance".format(self))
+        logger.debug("{} delaying check performance".format(self))
         delayerCheckPerf = partial(delayerMethod, TestNode.checkPerformance)
         self.actionQueueStasher.delay(delayerCheckPerf(delay))
 
     def resetDelays(self):
-        logging.debug("{} resetting delays".format(self))
+        logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays()
         for r in self.replicas:
@@ -310,7 +310,7 @@ class TestNodeCore(StackedTester):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
-        logging.debug("{} white listing {} for codes {}"
+        logger.debug("{} white listing {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
@@ -327,7 +327,7 @@ class TestNodeCore(StackedTester):
         if clientName not in self.whitelistedClients:
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
-        logging.debug("{} white listing {} for codes {}"
+        logger.debug("{} white listing {} for codes {}"
                       .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
@@ -347,7 +347,7 @@ class TestNodeCore(StackedTester):
         return super().validateNodeMsg(wrappedMsg)
 
     async def eatTestMsg(self, msg, frm):
-        logging.debug("{0} received Test message: {1} from {2}".
+        logger.debug("{0} received Test message: {1} from {2}".
                       format(self.nodestack.name, msg, frm))
 
     def serviceReplicaOutBox(self, *args, **kwargs) -> int:
@@ -585,7 +585,7 @@ class TestNodeSet(ExitStack):
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
-    logging.debug("received replies {}".format(receivedReplies))
+    logger.debug("received replies {}".format(receivedReplies))
     logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
@@ -662,7 +662,7 @@ def expectedWaitDirect(count):
 def expectedWait(nodeCount):
     c = totalConnections(nodeCount)
     w = expectedWaitDirect(c)
-    logging.debug("wait time for {} nodes and {} connections is {}".format(
+    logger.debug("wait time for {} nodes and {} connections is {}".format(
             nodeCount, c, w))
     return w
 
@@ -673,7 +673,7 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
     wait = overrideTimeout if overrideTimeout else expectedWait(len(stacks))
-    logging.debug("waiting for {} seconds to check connections...".format(wait))
+    logger.debug("waiting for {} seconds to check connections...".format(wait))
     # verify every node can see every other as a remote
     funcs = [
         partial(checkRemoteExists, frm.nodestack, to.name, expectedRemoteState)
@@ -695,7 +695,7 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
             s = states[remote.name] if states else state
             checkState(s, remote, "from: {}, to: {}".format(node, remote.name))
         except Exception as ex:
-            logging.debug("state checking exception is {} and args are {}"
+            logger.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
             raise RuntimeError(
                     "Error with {} checking remote {} in {}".format(node.name,
@@ -805,7 +805,7 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
     newTimeout = timeout - timeConsumed if timeout is not None else None
 
     for instId, replicas in insts.items():
-        logging.debug("Checking replicas in instance: {}".format(instId))
+        logger.debug("Checking replicas in instance: {}".format(instId))
         checkIfSameReplicaIPrimary(looper=looper,
                                    replicas=replicas,
                                    retryWait=retryWait,
@@ -1125,7 +1125,7 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
                           msg: Optional[Tuple]=None,
                           timeout: Optional[int]=15
                           ):
-    logging.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
     frmnode = nodes.getNode(frm)
     rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
@@ -1316,7 +1316,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     viewNos = set()
     for node in nodes:
-        logging.debug("{}'s view no is {}".format(node, node.viewNo))
+        logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
     assert len(viewNos) == 1
     vNo, = viewNos

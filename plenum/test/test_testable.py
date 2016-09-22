@@ -13,7 +13,7 @@ pr = slice(3, 5)  # params and result
 class TestHelpers(TestCase):
     def subTestV(self, msg=None, **params):  # verbose subtest
         if msg is not None:
-            logging.info("-------Starting sub test: " + msg)
+            logger.info("-------Starting sub test: " + msg)
         return self.subTest(msg, **params)
 
     def checkOneInit(self, z, params):
@@ -169,7 +169,7 @@ class NewBaseClass:
         self.p = p
 
     def mymethod(self, inp: Any) -> None:
-        logging.debug(
+        logger.debug(
             "input '{}' and values '{}', '{}'".format(inp, self.s, self.p))
 
     def eatCorn(self, kind: str) -> str:
@@ -197,7 +197,7 @@ class BaseClassNoMC:
         self.p = p
 
     def mymethod(self, inp: Any) -> None:
-        logging.debug(
+        logger.debug(
             "input '{}' and values '{}', '{}'".format(inp, self.s, self.p))
 
     def eatCorn(self, kind: str) -> str:

@@ -47,7 +47,7 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                     assert node.status == expectedStatus
 
             def addNodeBackAndCheck(nodeIdx: int, expectedStatus: Status):
-                logging.info("Add back the {} node and see status of {}".
+                logger.info("Add back the {} node and see status of {}".
                              format(ordinal(nodeIdx + 1), expectedStatus))
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
                 looper.run(
@@ -57,15 +57,15 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
 
             # tests
 
-            logging.debug("Sharing keys")
+            logger.debug("Sharing keys")
             looper.run(checkNodesConnected(nodeSet))
 
-            logging.debug("Remove all the nodes")
+            logger.debug("Remove all the nodes")
             for n in nodeNames:
                 looper.removeProdable(nodeSet.nodes[n])
                 nodeSet.removeNode(n, shouldClean=False)
 
-            logging.debug("Add nodes back one at a time")
+            logger.debug("Add nodes back one at a time")
             for i in range(nodeCount):
                 nodes = i + 1
                 if nodes < minimumNodesToBeUp:

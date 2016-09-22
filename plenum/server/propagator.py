@@ -1,9 +1,9 @@
-import logging
 from typing import Dict, Tuple, Union
 
 from plenum.common.types import Request, Propagate
+from plenum.common.util import getlogger
 
-logger = logging.getLogger(__name__)
+logger = getlogger(__name__)
 
 
 class ReqState:
@@ -130,7 +130,7 @@ class Propagator:
         if not isinstance(request, (Request, dict)):
             logger.error("Request not formatted properly to create propagate")
             return
-        logging.debug("Creating PROPAGATE for REQUEST {}".format(request))
+        logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.__getstate__() if isinstance(request, Request) else \
             request
         return Propagate(request, clientName)
@@ -161,7 +161,7 @@ class Propagator:
 
         :param request: the REQUEST to propagate
         """
-        logging.debug("{} forwarding client request {} to its replicas".
+        logger.debug("{} forwarding client request {} to its replicas".
                       format(self.name, request.key))
         for repQueue in self.msgsToReplicas:
             repQueue.append(request.reqDigest)

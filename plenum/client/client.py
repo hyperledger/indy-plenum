@@ -5,7 +5,6 @@ and receives result of the request execution from nodes.
 """
 import base64
 import copy
-import logging
 import os
 import time
 from collections import deque, OrderedDict
@@ -487,7 +486,7 @@ class Client(Motor,
             if all(result == resultsList[0] for result in resultsList):
                 return resultsList[0]  # CONFIRMED
             else:
-                logging.error(
+                logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
 

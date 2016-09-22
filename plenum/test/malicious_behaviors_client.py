@@ -1,11 +1,11 @@
-import logging
 import types
+from logging import getLogger
 from typing import List, Any, Mapping
 
 from plenum.client.client import Client
 from plenum.common.types import Request
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 def makeClientFaulty(client, *behaviors):

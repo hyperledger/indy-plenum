@@ -23,7 +23,7 @@ def testThroughput(looper, nodeSet: Iterable[Node], wallet1, client1):
 
     for node in nodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.instances.masterId)
-        logging.debug("Master throughput: {}. Avg. backup throughput: {}".
+        logger.debug("Master throughput: {}. Avg. backup throughput: {}".
                       format(masterThroughput, avgBackupThroughput))
         assert masterThroughput > 0
         assert avgBackupThroughput > 0

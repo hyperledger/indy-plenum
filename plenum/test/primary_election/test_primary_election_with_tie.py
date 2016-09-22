@@ -59,11 +59,11 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
 
     for node in nodeSet.nodes.values():
         for instId, replica in enumerate(node.elector.replicas):
-            logging.debug("replica {} {} with votes {}".
+            logger.debug("replica {} {} with votes {}".
                           format(replica.name, replica.instId,
                                  node.elector.nominations.get(instId, {})))
 
-    logging.debug("Check nomination")
+    logger.debug("Check nomination")
     # Checking whether Node A nominated itself
     looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
 

@@ -1,12 +1,14 @@
 import asyncio
-import logging
 import time
 from typing import Dict
 from typing import Optional
 
 from plenum.common.txn import TXN_ID
 from plenum.common.types import Reply, f
+from plenum.common.util import getlogger
 from plenum.persistence.storage import Storage
+
+logger = getlogger()
 
 
 class StoreStopping(Exception):
@@ -90,7 +92,7 @@ class TransactionStore(Storage):
         result = reply.result
         identifier = result.get(f.IDENTIFIER.nm)
         txnId = result.get(TXN_ID)
-        logging.debug("Reply being sent {}".format(reply))
+        logger.debug("Reply being sent {}".format(reply))
         if self._isNewTxn(identifier, reply, txnId):
             self.addToProcessedTxns(identifier, txnId, reply)
         if identifier not in self.responses:

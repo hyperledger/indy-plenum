@@ -1,7 +1,8 @@
-import logging
-
 from plenum.common.looper import Prodable
 from plenum.common.startable import Status
+from plenum.common.util import getlogger
+
+logger = getlogger()
 
 
 class Motor(Prodable):
@@ -29,7 +30,7 @@ class Motor(Prodable):
         if not self._status == value:
             old = self._status
             self._status = value
-            logging.debug("{} changing status from {} to {}".
+            logger.debug("{} changing status from {} to {}".
                           format(self, old.name, value.name))
             self._statusChanged(old, value)
 
@@ -59,7 +60,7 @@ class Motor(Prodable):
         with the provided args and kwargs.
         """
         if self.status in (Status.stopping, Status.stopped):
-            logging.info("{} is already {}".format(self, self.status.name))
+            logger.info("{} is already {}".format(self, self.status.name))
         else:
             self.status = Status.stopping
             self.onStopping(*args, **kwargs)

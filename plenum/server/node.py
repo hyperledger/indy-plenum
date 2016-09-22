@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import random
 import shutil
@@ -894,7 +893,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = all(corrects)
         if not r:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logging.debug)
+                         .format(viewNo), logMethod=logger.debug)
         return r
 
     def sendToReplica(self, msg, frm):

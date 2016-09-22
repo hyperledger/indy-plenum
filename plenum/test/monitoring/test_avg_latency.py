@@ -26,7 +26,7 @@ def testAvgReqLatency(looper: Looper, nodeSet: TestNodeSet, wallet1, client1):
                                                    node.instances.masterId)
         bLat = node.monitor.getAvgLatencyForClient(wallet1.defaultId,
                                                    *node.instances.backupIds)
-        logging.debug("Avg. master latency : {}. Avg. backup latency: {}".
+        logger.debug("Avg. master latency : {}. Avg. backup latency: {}".
                       format(mLat, bLat))
         assert mLat > 0
         assert bLat > 0

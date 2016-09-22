@@ -1,5 +1,5 @@
-import json
 import logging
+import json
 import os
 from functools import partial
 from typing import Dict, Any
@@ -17,7 +17,8 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances, TestingHandler, getConfig
+from plenum.common.util import getNoInstances, TestingHandler, getConfig, \
+    getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -28,6 +29,8 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+
+logger = getlogger()
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -42,11 +45,11 @@ def getValueFromModule(request, name: str, default: Any = None):
     """
     if hasattr(request.module, name):
         value = getattr(request.module, name)
-        logging.info("found {} in the module: {}".
+        logger.info("found {} in the module: {}".
                      format(name, value))
     else:
         value = default if default is not None else None
-        logging.info("no {} found in the module, using the default: {}".
+        logger.info("no {} found in the module, using the default: {}".
                      format(name, value))
     return value
 
@@ -132,7 +135,7 @@ def counter():
 def tdir(tmpdir_factory, counter):
     tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
                            str(next(counter)))
-    logging.debug("module-level temporary directory: {}".format(tempdir))
+    logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 

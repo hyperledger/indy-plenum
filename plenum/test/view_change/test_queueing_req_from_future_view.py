@@ -4,13 +4,15 @@ from functools import partial
 import pytest
 from plenum.test.eventually import eventually
 
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, getlogger
 from plenum.test.helper import TestReplica
 from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
     ppDelay, checkViewChangeInitiatedForNode, icDelay, \
     sendReqsToNodesAndVerifySuffReplies
 
 nodeCount = 7
+
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
@@ -69,7 +71,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
         # Atleast one replica should have its primary status decided
         assert len(reps) > 0
         for r in reps:  # type: TestReplica
-            logging.debug("primary status for replica {} is {}"
+            logger.debug("primary status for replica {} is {}"
                           .format(r, r.primaryNames))
             assert len(r.threePhaseMsgsForLaterView) > 0
 
