@@ -145,4 +145,3 @@ class Wallet:
         for x in exclude:
             lst.remove(x)
         return lst
-
