@@ -485,7 +485,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.isGoing():
             await self.nodestack.serviceLifecycle()
-            newClients = self.clientstack.serviceClientStack()
+            self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)

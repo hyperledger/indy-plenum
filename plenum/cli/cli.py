@@ -7,6 +7,7 @@ from hashlib import sha256
 from binascii import unhexlify
 from typing import Set, Dict
 import shutil
+
 from jsonpickle import json
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
@@ -63,7 +64,8 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
-    randomString, error, cleanSeed, getRAETLogLevelFromConfig
+    randomString, error, cleanSeed, getRAETLogLevelFromConfig, \
+    getRAETLogFilePath
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -239,13 +241,16 @@ class Cli:
             output=out)
 
         RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-                                                     Console.Wordage.mute)
+                                                  Console.Wordage.mute,
+                                                  self.config)
+        RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
         setupLogging(TRACE_LOG_LEVEL,
                      RAETVerbosity,
-                     filename=logFileName)
+                     filename=logFileName,
+                     raet_log_file=RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
