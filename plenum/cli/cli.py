@@ -639,14 +639,7 @@ class Cli:
             status <node_name>|<client_name> - Shows specific status
             list - Shows the list of commands you can run
             license - Show the license
-            exit - exit the command-line interface ('quit' also works)
-            prompt <principal name> - Changes the prompt to <principal name>
-            principals (a person like Alice, an organization like Faber College, or an IoT-style thing)
-            load <invitation filename> - Creates the link, generates Identifier and signing keys
-            show <invitation filename> - Shows the info about the link invitation
-            show link <name> - Shows link info in case of one matching link, otherwise shows all the matching link <names>
-            connect <test> |<live> - Let's you connect to the respective environment
-            sync <link name> - Synchronizes the link between the endpoints""".
+            exit - exit the command-line interface ('quit' also works)""".
                 format(self.properName, self.fullName))
 
     def printCmdHelper(self, command=None):
