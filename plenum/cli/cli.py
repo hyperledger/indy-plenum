@@ -549,18 +549,6 @@ class Cli:
         def exitHelper():
             self.print("Exits the CLI")
 
-        def promtHelper():
-            self.print("""Changes the prompt to provided principal name
-                       Usage: prompt <principal name>""")
-
-        def principalsHelper():
-            self.print("a person like Alice, an organization like Faber College, or an IoT-style thing")
-
-        def loadHelper():
-            self.print("""Creates the link, generates Identifier and signing keys
-            Usage: load <invitation filename>""")
-
-
         def licenseHelper():
             self.print("""
                         Copyright 2016 Evernym, Inc.
@@ -585,18 +573,6 @@ class Cli:
             self.print("""Used to show status of request sent by the client"
                      Usage: client <clientName> show <reqID>""")
 
-        def showLinkHelper():
-            self.print("""Shows link info in case of one matching link, otherwise shows all the matching links
-                      Usage: show link <name>""")
-
-        def connectHelper():
-            self.print("""Let's you connect to the respective environment
-                     Usage:  connect <test> |<live>""")
-
-        def syncHelper():
-            self.print("""Synchronizes the link between the endpoints
-                     Usage:  sync <link name>""")
-
         def defaultHelper():
             self.printHelp()
 
@@ -616,12 +592,6 @@ class Cli:
             'send': sendHelper,
             'show': showHelper,
             'exit': exitHelper,
-            'prompt' : promtHelper,
-            'principals' : principalsHelper,
-            'load' :      loadHelper,
-            'show link' : showLinkHelper,
-            'connect': connectHelper,
-            'sync'  : syncHelper,
             'plugins': pluginHelper
         }
 
