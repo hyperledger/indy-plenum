@@ -5,6 +5,7 @@ import inspect
 import itertools
 import json
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import math
 import os
 import random
@@ -299,17 +300,24 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     addTraceToLogging()
     addDisplayToLogging()
 
+    logHandlers = []
     if filename:
-        mode = 'w'
-        h = logging.FileHandler(filename, mode)
-    else:
-        h = logging.StreamHandler(sys.stdout)
+        fileHandler = TimedRotatingFileHandler(filename,
+                                               when='D',
+                                               interval=1,
+                                               backupCount=10,
+                                               utc=True)
+        logHandlers.append(fileHandler)
 
-    handlers = [h]
+    logHandlers.append(logging.StreamHandler(sys.stdout))
+
+
+
+
     log_format = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
     fmt = logging.Formatter(fmt=log_format, style='{')
 
-    for h in handlers:
+    for h in logHandlers:
         if h.formatter is None:
             h.setFormatter(fmt)
         logging.root.addHandler(h)
