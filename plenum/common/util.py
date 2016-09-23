@@ -306,8 +306,8 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     else:
         h = logging.StreamHandler(sys.stdout)
     handlers = [h]
-    log_format = '{relativeCreated:,.0f} {levelname:7s} {message:s}'
-    fmt = logging.Formatter(log_format, None, style='{')
+    log_format = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
+    fmt = logging.Formatter(fmt=log_format, style='{')
     for h in handlers:
         if h.formatter is None:
             h.setFormatter(fmt)
