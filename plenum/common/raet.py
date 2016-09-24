@@ -121,7 +121,6 @@ def getEncodedLocalVerKey(name, baseDir=None):
 
 
 def getLocalEstateData(name, baseDir):
-    estatePath = os.path.expanduser(os.path.join(baseDir, name, "local",
-                                                 "estate.json"))
+    estatePath = os.path.expanduser(os.path.join(baseDir, name, "local", "estate.json"))
     if os.path.isfile(estatePath):
         return json.loads(open(estatePath).read())

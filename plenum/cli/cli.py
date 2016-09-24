@@ -1380,8 +1380,7 @@ Commands:
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
     def cleanUp(self):
-        basePath = os.path.expanduser(self.config.baseDir)
-        dataPath = os.path.join(basePath, "data")
+        dataPath = os.path.join(self.config.baseDir, "data")
         try:
             shutil.rmtree(dataPath)
         except FileNotFoundError:
