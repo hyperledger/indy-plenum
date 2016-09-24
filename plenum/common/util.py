@@ -292,30 +292,25 @@ def setupLogging(log_level, raet_log_level=None, filename=None):
     Setup for logging.
     log level is TRACE by default.
     """
-    if filename:
-        d = os.path.dirname(filename)
-        if not os.path.exists(d):
-            os.makedirs(d)
-
+    config = getConfig()
     addTraceToLogging()
     addDisplayToLogging()
 
     logHandlers = []
     if filename:
+        d = os.path.dirname(filename)
+        if not os.path.exists(d):
+            os.makedirs(d)
         fileHandler = TimedRotatingFileHandler(filename,
-                                               when='D',
-                                               interval=1,
-                                               backupCount=10,
+                                               when=config.logRotationWhen,
+                                               interval=config.logRotationInterval,
+                                               backupCount=config.logRotationBackupCount,
                                                utc=True)
         logHandlers.append(fileHandler)
 
     logHandlers.append(logging.StreamHandler(sys.stdout))
 
-
-
-
-    log_format = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
-    fmt = logging.Formatter(fmt=log_format, style='{')
+    fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
 
     for h in logHandlers:
         if h.formatter is None:

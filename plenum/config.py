@@ -83,3 +83,10 @@ ConsistencyProofsTimeout = 5
 
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
+
+# Log configuration
+logRotationWhen = 'D'
+logRotationInterval = 1
+logRotationBackupCount = 10
+logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
+logFormatStyle='{'
