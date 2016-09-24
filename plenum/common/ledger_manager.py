@@ -366,6 +366,11 @@ class LedgerManager(HasActionQueue):
 
         # TODO: This is very inefficient for long ledgers
         txns = ledger.getAllTxn(start, end)
+
+
+        logger.debug("node {} requested catchup for {} from {} to {}"
+                     .format(frm, end - start, start, end))
+
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, ledger.size))
         consProof = [b64encode(p).decode() for p in
@@ -374,10 +379,14 @@ class LedgerManager(HasActionQueue):
                                    consProof), to=frm)
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
-        logger.debug("{} received catchup reply: {} from {}".
-                     format(self, rep, frm))
+        logger.debug("{} received catchup reply from {}: {}".
+                     format(self, frm, rep))
+
         ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
         txns = self.canProcessCatchupReply(rep)
+        txnsNum = len(txns) if txns else 0
+        logger.debug("{} found {} transactions in the catchup from {}"
+                     .format(self, txnsNum, frm))
         if txns:
             ledger = self.getLedgerForMsg(rep)
             if frm not in self.recvdCatchupRepliesFrm[ledgerType]:
@@ -386,8 +395,14 @@ class LedgerManager(HasActionQueue):
             catchUpReplies = self.receivedCatchUpReplies[ledgerType]
             # Creating a list of txns sorted on the basis of sequence
             # numbers
+            logger.debug("{} merging all received catchups".format(self))
             catchUpReplies = list(heapq.merge(catchUpReplies, txns,
                                               key=operator.itemgetter(0)))
+            logger.debug(
+                "{} merged catchups, there are {} of them now, from {} to {}"
+                .format(self, len(catchUpReplies), catchUpReplies[0][0],
+                        catchUpReplies[-1][0]))
+
             numProcessed = self._processCatchupReplies(ledgerType, ledger,
                                                        catchUpReplies)
             logger.debug(

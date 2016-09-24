@@ -6,6 +6,7 @@ import inspect
 import itertools
 import json
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import math
 import os
 import random
@@ -294,27 +295,31 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
     Setup for logging.
     log level is TRACE by default.
     """
+    config = getConfig()
+    addTraceToLogging()
+    addDisplayToLogging()
+
+    logHandlers = []
     if filename:
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-
-    addTraceToLogging()
-    addDisplayToLogging()
-
-    if filename:
-        mode = 'w'
-        h = logging.FileHandler(filename, mode)
-
+        fileHandler = TimedRotatingFileHandler(filename,
+                                               when=config.logRotationWhen,
+                                               interval=config.logRotationInterval,
+                                               backupCount=config.logRotationBackupCount,
+                                               utc=True)
+        logHandlers.append(fileHandler)
     else:
-        h = logging.StreamHandler(sys.stdout)
-    handlers = [h]
-    log_format = '{relativeCreated:,.0f} {levelname:7s} {message:s}'
-    fmt = logging.Formatter(log_format, None, style='{')
-    for h in handlers:
+        logHandlers.append(logging.StreamHandler(sys.stdout))
+
+    fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
+
+    for h in logHandlers:
         if h.formatter is None:
             h.setFormatter(fmt)
         logging.root.addHandler(h)
+
     logging.root.setLevel(log_level)
 
     console = getConsole()

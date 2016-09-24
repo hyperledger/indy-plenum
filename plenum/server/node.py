@@ -930,6 +930,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
+                logger.info("{} msg validated {}".format(self, wrappedMsg))
                 self.unpackNodeMsg(*vmsg)
             else:
                 logger.info("{} non validated msg {}".format(self, wrappedMsg))
@@ -1738,6 +1739,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientstack.transmitToClient(msg, remoteName)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
+        if rids:
+            remoteNames = [self.nodestack.remotes[rid].name for rid in rids]
+            recipientsNum = len(remoteNames)
+        else:
+            # so it is broadcast
+            remoteNames = [remote.name for remote in
+                           self.nodestack.remotes.values()]
+            recipientsNum = 'all'
+
+        logger.debug("{} sending message {} to {} recipients: {}"
+                     .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
     def __enter__(self):
