@@ -33,7 +33,7 @@ def testInvalidOperations(plugin):
     operations = [
         {"name": "Alice has a very long name, too long in fact", "age": 27},
         {"name": "Susan", "age": -1},
-        {"name": "John", "age": "fourty-seven"}
+        {"name": "John", "age": "forty-seven"}
     ]
 
     for operation in operations:

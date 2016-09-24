@@ -24,7 +24,7 @@ Verify a view change happens
 
 
 @pytest.fixture(scope="module")
-def setup(looper, startedNodes, up, client1):
+def setup(looper, startedNodes, up, wallet1, client1):
     # Get the master replica of the master protocol instance
     P = getPrimaryReplica(startedNodes)
 
@@ -40,7 +40,8 @@ def setup(looper, startedNodes, up, client1):
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, numReqs=5, timeoutPerReq=80)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
+                                        numReqs=5, timeoutPerReq=80)
 
     return adict(nodes=startedNodes)
 

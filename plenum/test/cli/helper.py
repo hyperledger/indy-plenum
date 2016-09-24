@@ -6,8 +6,10 @@ import re
 from pygments.token import Token
 
 import plenum.cli.cli as cli
+from plenum.client.wallet import Wallet
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
+from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
 from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
@@ -104,6 +106,8 @@ def checkNodeStarted(cli, nodeName):
 
     def chk():
         msgs = {stmt['msg'] for stmt in cli.printeds}
+        print("checking for {}".format(nodeName))
+        print(msgs)
         assert "{} added replica {}:0 to instance 0 (master)" \
                    .format(nodeName, nodeName) in msgs
         assert "{} added replica {}:1 to instance 1 (backup)" \
@@ -147,6 +151,8 @@ def checkClientConnected(cli, nodeNames, clientName):
 
 def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
+    createNewKeyring(clientName, cli)
+    cli.enterCmd("new key clientName{}".format("key"))
     cli.looper.run(eventually(checkClientConnected, cli, nodeNames,
                               clientName, retryWait=1, timeout=3))
 
@@ -158,22 +164,30 @@ def checkRequest(cli, operation):
     cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
                               cName, retryWait=1, timeout=5))
     # Send request to all nodes
+
+    createNewKeyring(cName, cli)
+
+    cli.enterCmd("new key {}".format("testkey1"))
+    assert 'Key created in keyring {}'.format(cName) in cli.lastCmdOutput
+
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
+    wallet = cli.wallets[cName]  # type: Wallet
     f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
+    lastReqId = wallet._getIdData().lastReqId
     cli.looper.run(eventually(
             checkSufficientRepliesRecvd,
             client.inBox,
-            client.lastReqId,
+            lastReqId,
             f,
             retryWait=2,
             timeout=10))
 
-    txn, status = client.getReply(client.lastReqId)
+    txn, status = client.getReply(lastReqId)
 
     # Ensure the cli shows appropriate output
-    cli.enterCmd('client {} show {}'.format(cName, client.lastReqId))
+    cli.enterCmd('client {} show {}'.format(cName, lastReqId))
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
@@ -182,6 +196,7 @@ def checkRequest(cli, operation):
     assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)
+    return client, wallet
 
 
 def newCLI(looper, tdir, cliClass=TestCli,
@@ -209,15 +224,21 @@ def checkCmdValid(cli, cmd):
 
 def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
-    keys = set()
+    idrs = set()
     if cli.activeWallet:
-        keys = set(cli.activeWallet.signers.keys())
+        idrs = set(cli.activeWallet.ids.keys())
     checkCmdValid(cli, cmd)
-    assert len(cli.activeWallet.signers.keys()) == len(keys) + 1
-    pubKey = set(cli.activeWallet.signers.keys()).difference(keys).pop()
-    expected = ['Key created in keyring Default',
-                'Identifier for key is {}'.format(pubKey),
-                'Current identifier set to {}'.format(pubKey)]
+    assert len(cli.activeWallet.ids.keys()) == len(idrs) + 1
+    pubKey = set(cli.activeWallet.ids.keys()).difference(idrs).pop()
+    expected = ['Key created in keyring Default']
+    if alias:
+        expected.append('Identifier for key is {}'.
+                        format(cli.activeWallet.aliases.get(alias)))
+        expected.append('Alias for identifier is {}'.format(alias))
+    else:
+        expected.append('Identifier for key is {}'.format(pubKey))
+    expected.append('Current identifier set to {}'.format(alias or pubKey))
+
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
     # be the first time wallet is accessed so wallet would be created and some

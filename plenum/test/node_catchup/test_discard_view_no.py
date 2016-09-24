@@ -23,19 +23,20 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     know of (view nos before it joined the pool)
     :return:
     """
-    looper, nodeX, _, client = nodeSetWithNodeAddedAfterSomeTxns
+    looper, nodeX, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     viewNo = nodeX.viewNo
 
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, 10)
-    sendReqsToNodesAndVerifySuffReplies(looper, client, 4)
-    looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet, viewNo + 1),
-                          retryWait=1, timeout=20))
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
+    looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet,
+                                  viewNo + 1), retryWait=1, timeout=20))
 
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"
-    _, nodeTheta = addNewStewardAndNode(looper, client,
+    _, _, nodeTheta = addNewStewardAndNode(looper, client,
+                                               wallet,
                                                newStewardName,
                                                nodeName,
                                                tdirWithPoolTxns, tconf,
@@ -53,8 +54,8 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
             0,
             viewNo,
             10,
-            client.defaultIdentifier,
-            client.lastReqId+1,
+            wallet.defaultId,
+            wallet._getIdData().lastReqId+1,
             "random digest",
             time.time()
             )

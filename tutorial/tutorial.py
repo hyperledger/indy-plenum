@@ -130,7 +130,7 @@ with TemporaryDirectory() as tmpdir:
         """
         And submit it to the pool.
         """
-        request, = client.submit(msg)
+        request, = client.submit_DEPRECATED(msg)
 
         """
         Allow some time for the request to be executed.
@@ -169,7 +169,7 @@ with TemporaryDirectory() as tmpdir:
         """
         And submit it to the pool.
         """
-        request2, = client.submit(msg)
+        request2, = client.submit_DEPRECATED(msg)
 
         """
         Allow time for the message to be executed.

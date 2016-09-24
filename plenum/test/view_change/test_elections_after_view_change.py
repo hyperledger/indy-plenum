@@ -11,7 +11,8 @@ nodeCount = 7
 
 
 # noinspection PyIncorrectDocstring
-def testElectionsAfterViewChange(delayedPerf, looper: Looper, nodeSet: TestNodeSet, up, client1):
+def testElectionsAfterViewChange(delayedPerf, looper: Looper,
+                                 nodeSet: TestNodeSet, up, wallet1, client1):
     """
     Test that a primary election does happen after a view change
     """
@@ -23,7 +24,7 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper, nodeSet: TestNodeS
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(10, 0))
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # Ensure view change happened for both node and its primary elector
     for node in nodeSet:

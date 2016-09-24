@@ -53,7 +53,7 @@ def run_node():
         msg = {'life_answer': 42}
 
         # submit the request to the pool
-        request, = client.submit(msg)
+        request, = client.submit_DEPRECATED(msg)
 
         # allow time for the request to be executed
         looper.runFor(3)

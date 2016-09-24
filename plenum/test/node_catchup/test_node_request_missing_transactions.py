@@ -16,7 +16,7 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     complete the process till the timeout and then requests the missing
     transactions.
     """
-    looper, newNode, client, _ = nodeCreatedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
     for node in txnPoolNodeSet:
@@ -31,7 +31,7 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # One of the node does not process catchup request.
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, txnPoolNodeSet[0].ledgerManager)
-    sendRandomRequests(client, 10)
+    sendRandomRequests(wallet, client, 10)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=60))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,

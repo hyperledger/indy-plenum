@@ -19,7 +19,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     conclude about the state of transactions in the system. So the new node
     requests consistency proof for a particular range from all nodes.
     """
-    looper, newNode, client, _ = nodeCreatedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
 
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
@@ -50,7 +50,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     newNode.sendDomainLedgerStatus = types.MethodType(sendDLStatus, newNode)
 
     print("sending 10 requests")
-    sendRandomRequests(client, 10)
+    sendRandomRequests(wallet, client, 10)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=60))
 

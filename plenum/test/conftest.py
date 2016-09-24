@@ -1,5 +1,5 @@
-import json
 import logging
+import json
 import os
 from functools import partial
 from typing import Dict, Any
@@ -17,7 +17,8 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances, TestingHandler, getConfig
+from plenum.common.util import getNoInstances, TestingHandler, getConfig, \
+    getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -28,6 +29,8 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+
+logger = getlogger()
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -42,11 +45,11 @@ def getValueFromModule(request, name: str, default: Any = None):
     """
     if hasattr(request.module, name):
         value = getattr(request.module, name)
-        logging.info("found {} in the module: {}".
+        logger.info("found {} in the module: {}".
                      format(name, value))
     else:
         value = default if default is not None else None
-        logging.info("no {} found in the module, using the default: {}".
+        logger.info("no {} found in the module, using the default: {}".
                      format(name, value))
     return value
 
@@ -92,6 +95,8 @@ def logcapture(request, whitelist):
                              'Executing %s took %.3f seconds',
                              'is already stopped',
                              'Error while running coroutine',
+                             # TODO: This is too specific, move it to the
+                             # particular test
                              "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
                              ] + whitelist
 
@@ -130,7 +135,7 @@ def counter():
 def tdir(tmpdir_factory, counter):
     tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
                            str(next(counter)))
-    logging.debug("module-level temporary directory: {}".format(tempdir))
+    logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 
@@ -193,21 +198,34 @@ def delayedPerf(nodeSet):
 
 
 @pytest.fixture(scope="module")
-def client1(looper, nodeSet, tdir, up):
-    client = genTestClient(nodeSet, tmpdir=tdir)
+def clientAndWallet1(looper, nodeSet, tdir, up):
+    return genTestClient(nodeSet, tmpdir=tdir)
+
+
+@pytest.fixture(scope="module")
+def client1(clientAndWallet1, looper):
+    client, _ = clientAndWallet1
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     return client
 
 
 @pytest.fixture(scope="module")
-def request1():
-    return randomOperation()
+def wallet1(clientAndWallet1):
+    _, wallet = clientAndWallet1
+    return wallet
+
+
+@pytest.fixture(scope="module")
+def request1(wallet1):
+    op = randomOperation()
+    req = wallet1.signOp(op)
+    return req
 
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submit(request1)[0]
+    return client1.submitReqs(request1)[0]
 
 
 @pytest.fixture(scope="module")
@@ -273,13 +291,13 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, nodeSet, client1, committed1):
+def replied1(looper, nodeSet, client1, committed1, wallet1):
     for instId in range(getNoInstances(len(nodeSet))):
         getPrimaryReplica(nodeSet, instId)
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,
-                                client1.defaultIdentifier,
+                                wallet1.defaultId,
                                 committed1.reqId,
                                 committed1.digest,
                                 instId,

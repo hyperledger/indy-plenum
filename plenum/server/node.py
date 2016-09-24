@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import random
 import shutil
@@ -49,7 +48,7 @@ from plenum.common.types import Request, Propagate, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
 from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig
+    getConfig, friendlyEx
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -486,7 +485,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.isGoing():
             await self.nodestack.serviceLifecycle()
-            newClients = self.clientstack.serviceClientStack()
+            self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
@@ -894,7 +893,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         r = all(corrects)
         if not r:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logging.debug)
+                         .format(viewNo), logMethod=logger.debug)
         return r
 
     def sendToReplica(self, msg, frm):
@@ -1023,22 +1022,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.unpackClientMsg(*vmsg)
         except Exception as ex:
             msg, frm = wrappedMsg
-            exc = ex.__cause__ if ex.__cause__ else ex
+            friendly = friendlyEx(ex)
             if isinstance(ex, SuspiciousClient):
-                self.reportSuspiciousClient(frm, exc)
+                self.reportSuspiciousClient(frm, friendly)
 
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
         _, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
-        reason = "client request invalid: {} {}".\
-            format(exc.__class__.__name__, exc)
+        friendly = friendlyEx(ex)
+        reason = "client request invalid: {}".format(friendly)
         reqId = getattr(exc, f.REQ_ID.nm, None)
         if not reqId:
             reqId = getattr(ex, f.REQ_ID.nm, None)
         self.transmitToClient(RequestNack(reqId, reason), frm)
-        self.discard(wrappedMsg, exc, logger.warning, cliOutput=True)
+        self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """

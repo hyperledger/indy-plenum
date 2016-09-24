@@ -1,4 +1,3 @@
-import logging
 import sys
 import time
 from collections import Callable
@@ -13,23 +12,26 @@ from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
-from raet.road.transacting import Joiner, Allower
+from raet.road.transacting import Joiner, Allower, Messenger
 
 from plenum.client.signer import Signer
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, getlogger, checkPortAvailable
+    MessageProcessor, getlogger, checkPortAvailable, getConfig
 
 logger = getlogger()
 
 # this overrides the defaults
 Joiner.RedoTimeoutMin = 1.0
-Joiner.RedoTimeoutMax = 2.0
+Joiner.RedoTimeoutMax = 10.0
 
 Allower.RedoTimeoutMin = 1.0
-Allower.RedoTimeoutMax = 2.0
+Allower.RedoTimeoutMax = 10.0
+
+Messenger.RedoTimeoutMin = 1.0
+Messenger.RedoTimeoutMax = 10.0
 
 
 class Stack(RoadStack):
@@ -60,6 +62,12 @@ class Stack(RoadStack):
         logger.info("stack {} starting at {} in {} mode"
                         .format(self.name, self.ha, self.keep.auto.name),
                         extra={"cli": False})
+        config = getConfig()
+        try:
+            self.messageTimeout = config.RAETMessageTimeout
+        except AttributeError:
+            # if no timeout is set then message will never timeout
+            self.messageTimeout = 0
 
     # def start(self):
     #     self.coro = self._raetcoro()
@@ -195,7 +203,7 @@ class Stack(RoadStack):
         """
         rid = self.getRemote(remoteName).uid
         # Setting timeout to never expire
-        self.transmit(msg, rid, timeout=0)
+        self.transmit(msg, rid, timeout=self.messageTimeout)
 
 
 class SimpleStack(Stack):
@@ -376,7 +384,7 @@ class KITStack(SimpleStack):
             attempted
         """
         # if not self.isKeySharing:
-        #     logging.debug("{} skipping join with {} because not key sharing".
+        #     logger.debug("{} skipping join with {} because not key sharing".
         #                   format(self, name))
         #     return None
         if rid:
@@ -572,15 +580,15 @@ class KITStack(SimpleStack):
         matches = set()  # good matches found in nodestack remotes
         legacy = set()  # old remotes that are no longer in registry
         conflicts = set()  # matches found, but the ha conflicts
-        logging.debug("{} nodereg is {}".
+        logger.debug("{} nodereg is {}".
                       format(self, self.registry.items()))
-        logging.debug("{} nodestack is {}".
+        logger.debug("{} nodestack is {}".
                       format(self, self.remotes.values()))
         for r in self.remotes.values():
             if r.name in self.registry:
                 if self.sameAddr(r.ha, self.registry[r.name]):
                     matches.add(r.name)
-                    logging.debug("{} matched remote is {} {}".
+                    logger.debug("{} matched remote is {} {}".
                                   format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
@@ -598,7 +606,7 @@ class KITStack(SimpleStack):
                 # `test_node_connection`
                 # regName = [nm for nm, ha in self.nodeReg.items() if ha ==
                 #            r.ha and (r.joined or r.joinInProcess())]
-                logging.debug("{} unmatched remote is {} {}".
+                logger.debug("{} unmatched remote is {} {}".
                               format(self, r.uid, r.ha))
                 if regName:
                     logger.debug("{} forgiving name mismatch for {} with same "
@@ -745,7 +753,7 @@ class Batched(MessageProcessor):
             msgs = self.outBoxes[rid]
             if msgs:
                 self.discard(msgs, "rid {} no longer available".format(rid),
-                             logMethod=logging.debug)
+                             logMethod=logger.debug)
             del self.outBoxes[rid]
 
 
