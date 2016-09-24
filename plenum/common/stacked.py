@@ -12,23 +12,26 @@ from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
-from raet.road.transacting import Joiner, Allower
+from raet.road.transacting import Joiner, Allower, Messenger
 
 from plenum.client.signer import Signer
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, getlogger, checkPortAvailable
+    MessageProcessor, getlogger, checkPortAvailable, getConfig
 
 logger = getlogger()
 
 # this overrides the defaults
 Joiner.RedoTimeoutMin = 1.0
-Joiner.RedoTimeoutMax = 2.0
+Joiner.RedoTimeoutMax = 10.0
 
 Allower.RedoTimeoutMin = 1.0
-Allower.RedoTimeoutMax = 2.0
+Allower.RedoTimeoutMax = 10.0
+
+Messenger.RedoTimeoutMin = 1.0
+Messenger.RedoTimeoutMax = 10.0
 
 
 class Stack(RoadStack):
@@ -59,6 +62,12 @@ class Stack(RoadStack):
         logger.info("stack {} starting at {} in {} mode"
                         .format(self.name, self.ha, self.keep.auto.name),
                         extra={"cli": False})
+        config = getConfig()
+        try:
+            self.messageTimeout = config.RAETMessageTimeout
+        except AttributeError:
+            # if no timeout is set then message will never timeout
+            self.messageTimeout = 0
 
     # def start(self):
     #     self.coro = self._raetcoro()
@@ -194,7 +203,7 @@ class Stack(RoadStack):
         """
         rid = self.getRemote(remoteName).uid
         # Setting timeout to never expire
-        self.transmit(msg, rid, timeout=0)
+        self.transmit(msg, rid, timeout=self.messageTimeout)
 
 
 class SimpleStack(Stack):

@@ -76,6 +76,8 @@ RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
 RAETLogFilePath = None
 RAETLogFilePathCli = None
+RAETMessageTimeout = 60
+
 
 ViewChangeWindowSize = 60
 
