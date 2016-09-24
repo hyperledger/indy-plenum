@@ -310,8 +310,8 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
                                                backupCount=config.logRotationBackupCount,
                                                utc=True)
         logHandlers.append(fileHandler)
-
-    logHandlers.append(logging.StreamHandler(sys.stdout))
+    else:
+        logHandlers.append(logging.StreamHandler(sys.stdout))
 
     fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
 
