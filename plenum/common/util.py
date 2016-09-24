@@ -511,7 +511,7 @@ def getInstalledConfig(installDir, configFile):
         raise FileNotFoundError("No file found at location {}".format(configPath))
 
 
-def getConfig(baseDir=None):
+def getConfig(homeDir=None):
     """
     Reads a file called config.py in the project directory
 
@@ -522,12 +522,15 @@ def getConfig(baseDir=None):
     if not CONFIG:
         refConfig = importlib.import_module("plenum.config")
         try:
-            homeDir = baseDir or os.path.expanduser("~")
+            homeDir = os.path.expanduser(homeDir or "~")
+
             configDir = os.path.join(homeDir, ".plenum")
             config = getInstalledConfig(configDir, "plenum_config.py")
+
             refConfig.__dict__.update(config.__dict__)
         except FileNotFoundError:
             pass
+        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
         CONFIG = refConfig
     return CONFIG
 
