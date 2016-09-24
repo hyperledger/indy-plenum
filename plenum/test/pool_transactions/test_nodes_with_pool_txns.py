@@ -33,11 +33,6 @@ def looper():
 
 @pytest.fixture(scope="module")
 def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
-    # name, sigseed = poolTxnClientData
-    # w = Wallet(name)
-    # w.addSigner(seed=sigseed)
-    # return genTestClient(name=name, identifier=w.defaultId,
-    #                      tmpdir=tdirWithPoolTxns, usePoolLedger=True), w
     return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
 
 
@@ -59,12 +54,6 @@ def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
 
 @pytest.fixture(scope="module")
 def steward1(looper, txnPoolNodeSet, stewardAndWallet1):
-    # name, sigseed = poolTxnStewardData
-    # signer = SimpleSigner(seed=sigseed)
-    # steward = TestClient(name=name, nodeReg=None, ha=genHa(),
-    #                      signer=signer, basedirpath=tdirWithPoolTxns)
-    # steward, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-    #                                            tdirWithPoolTxns)
     steward, wallet = stewardAndWallet1
     looper.add(steward)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward,

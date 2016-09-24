@@ -6,7 +6,6 @@ from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
-from plenum.common.types import HA
 from plenum.common.util import randomString, hexToCryptonym
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
@@ -29,8 +28,6 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
 
-    # DEPR
-    # req = client.submitNewClient(role, name, newSigner.verkey.decode())
     nodeCount = len(creatorClient.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, creatorClient.inBox,
                           req.reqId, 1,
@@ -106,9 +103,6 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
         }
     }
 
-    # DEPR
-    # req = client.submitNodeIpChange(node.name, nodeNym, HA(nodeIp, nodePort),
-    #                                 HA(clientIp, clientPort))
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
@@ -122,9 +116,6 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
-
-    # DEPR
-    # req = client.submitNodeKeysChange(node.name, nodeNym, verkey)
 
     op = {
         TXN_TYPE: CHANGE_KEYS,

@@ -34,13 +34,6 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
 
 def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
     with Looper(debug=True) as looper:
-        # name, sigseed = poolTxnStewardData
-        # stewardSigner = SimpleSigner(seed=sigseed)
-        # client = TestClient(name=name,
-        #                     nodeReg=None,
-        #                     ha=genHa(),
-        #                     signer=stewardSigner,
-        #                     basedirpath=tdirWithPoolTxns)
         client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                                   tdirWithPoolTxns)
         looper.add(client)
@@ -54,12 +47,6 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
             ALIAS: "Robert",
         }
         req = wallet.signOp(op)
-        # client.submit_DEPRECATED({
-        #     TXN_TYPE: NYM,
-        #     ROLE: STEWARD,
-        #     TARGET_NYM: newSigner.verstr,
-        #     ALIAS: "Robert",
-        # })
         client.submitReqs(req)
 
         def chk():
