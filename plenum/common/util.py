@@ -13,7 +13,7 @@ import socket
 import string
 import sys
 import time
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
 from importlib import import_module
@@ -126,6 +126,7 @@ def isHex(val: str) -> bool:
     :return: whether the given str represents a hex value
     """
     if isinstance(val, bytes):
+        # only decodes utf-8 string
         try:
             val = val.decode()
         except:
@@ -600,7 +601,8 @@ def isHexKey(key):
 
 def getCryptonym(identifier):
     isHex = isHexKey(identifier)
-    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex else identifier
+    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+        else identifier
 
 
 def hexToCryptonym(hex):
@@ -608,6 +610,13 @@ def hexToCryptonym(hex):
     if isinstance(hex, str):
         hex = hex.encode()
     return base64.b64encode(unhexlify(hex)).decode()
+
+
+def cryptonymToHex(cryptonym):
+    # TODO: Use base58 instead of base64
+    if isinstance(cryptonym, str):
+        cryptonym = cryptonym.encode()
+    return hexlify(base64.b64decode(cryptonym)).decode()
 
 
 def runWithLoop(loop, callback, *args, **kwargs):
