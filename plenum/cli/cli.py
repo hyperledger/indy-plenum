@@ -1168,14 +1168,17 @@ Commands:
                 n.clientAuthNr.addClient(identifier, verkey)
             return True
 
-    def _addSignerToGivenWallet(self, signer, wallet: Wallet=None):
+    def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,
+                                showMsg: bool=False):
         if not wallet:
             wallet = self._newWallet()
         wallet.addSigner(signer=signer)
+        if showMsg:
+            self.print("Key created in keyring " + wallet.name)
 
-    def _addSignerToWallet(self, signer, wallet=None):
-        self._addSignerToGivenWallet(signer, wallet)
-        self.print("Key created in keyring " + wallet.name)
+    # def _addSignerToWallet(self, signer, wallet=None):
+    #     self._addSignerToGivenWallet(signer, wallet)
+    #     self.print("Key created in keyring " + wallet.name)
 
     def _newSigner(self,
                    wallet=None,
@@ -1186,7 +1189,7 @@ Commands:
         cseed = cleanSeed(seed)
 
         signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
-        self._addSignerToWallet(signer, wallet)
+        self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("Identifier for key is {}".format(signer.identifier))
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
