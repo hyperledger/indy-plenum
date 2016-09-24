@@ -156,8 +156,7 @@ class Client(Motor,
         :param lastReqId: Request Id of the last request sent by client
         """
         self.config = config or getConfig()
-        basedirpath = os.path.expanduser(self.config.baseDir
-                                         if not basedirpath else basedirpath)
+        basedirpath = self.config.baseDir if not basedirpath else basedirpath
         self.basedirpath = basedirpath
 
         cha = None

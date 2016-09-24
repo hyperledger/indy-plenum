@@ -26,7 +26,7 @@ def run_node():
         # using an ephemeral temporary directory when proving a concept is a
         # nice way to keep things clean.
         config = getConfig()
-        basedirpath = os.path.expanduser(config.baseDir)
+        basedirpath = config.baseDir
         cliNodeReg = {k: v[0] for k, v in config.cliNodeReg.items()}
         clientName = 'Alice'
 

@@ -22,8 +22,7 @@ def loadPlugins(baseDir):
             "Plugin loading started to load plugins from basedir: {}".format(
                 baseDir))
         config = getConfig()
-        pluginsDirPath = os.path.expanduser(
-            os.path.join(baseDir, config.PluginsDir))
+        pluginsDirPath = os.path.join(baseDir, config.PluginsDir)
 
         if os.path.exists(pluginsDirPath):
             for pluginName in config.PluginsToLoad:
