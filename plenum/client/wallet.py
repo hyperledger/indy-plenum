@@ -35,12 +35,6 @@ class Wallet:
         self.ids = {}  # type: Dict[Identifier, IdData]
         self.aliases = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        # DEPR
-        # self.storage = storage
-        # for (signer, alias) in self.storage.signers:
-        #     if alias:
-        #         self.aliases[alias] = signer.identifier
-        #     self.ids[signer.identifier] = IdData(signer)
 
     @property
     def name(self):
