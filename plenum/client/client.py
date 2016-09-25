@@ -26,7 +26,7 @@ from plenum.client.signer import Signer, SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getLocalEstateData
+from plenum.common.raet import getLocalEstateData, getHaFromLocalEstate
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
@@ -163,11 +163,15 @@ class Client(Motor,
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
-            clientEstate = getLocalEstateData(name, basedirpath)
-            if clientEstate:
-                cha = HA(*clientEstate["ha"])
+            cha = getHaFromLocalEstate(name, basedirpath)
+            if cha:
+                cha = HA(*cha)
+            # clientEstate = getLocalEstateData(name, basedirpath)
+            # if clientEstate:
+            #     cha = HA(*clientEstate["ha"])
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
+
 
         self.name = name
         self.reqRepStore = self.getReqRepStore()

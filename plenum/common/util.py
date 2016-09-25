@@ -692,4 +692,3 @@ def friendlyEx(ex: Exception) -> str:
         curEx = curEx.__cause__
     friendly += end
     return friendly
-
