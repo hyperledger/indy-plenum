@@ -172,20 +172,9 @@ class Stack(RoadStack):
     def isConnectedTo(self, name: str=None, ha: Tuple=None):
         assert (name, ha).count(None) == 1, "One and only one of name or ha " \
                                             "should be passed"
-        # if name:
-        #     try:
-        #         remote = self.getRemote(name)
-        #     except RemoteNotFound:
-        #         return False
-        # else:
-        #     try:
-        #         remote = self.findInRemotesByHA(ha)
-        #     except AssertionError:
-        #         return False
-        #     if not remote:
-        #         return False
-        remote = self.getRemote(name, ha)
-        if not remote:
+        try:
+            remote = self.getRemote(name, ha)
+        except RemoteNotFound:
             return False
         return self.isRemoteConnected(remote)
 
