@@ -78,6 +78,17 @@ class Wallet:
             raise RuntimeError('identifier required, but none found')
         return idr
 
+    def signMsg(self, msg: Dict, identifier: Identifier=None,
+                otherIdentifier: Identifier=None):
+        idr = self._requiredIdr(idr=identifier, other=otherIdentifier)
+        idData = self._getIdData(idr)
+        if idData.signer:
+            signature = idData.signer.sign(msg)
+        else:
+            raise RuntimeError('{} signer not configured so cannot sign '
+                               '{}'.format(self, msg))
+        return signature
+
     def signRequest(self, req: Request, identifier: Identifier=None) -> Request:
         """
         Signs request. Modifies reqId and signature. May modify identifier.
@@ -89,13 +100,10 @@ class Wallet:
         req.identifier = idr
         idData = self._getIdData(idr)
         req.reqId = idData.lastReqId + 1
-        if idData.signer:
-            req.signature = idData.signer.sign(req.getSigningState())
-            idData.lastReqId += 1
-            self.ids[idr] = idData
-        else:
-            raise RuntimeError('{} signer not configured so cannot sign '
-                               '{}'.format(self, req))
+        req.signature = self.signMsg(msg=req.getSigningState(),identifier=idr,
+                                     otherIdentifier=req.identifier)
+        idData.lastReqId += 1
+        self.ids[idr] = idData
         return req
 
     def signOp(self, op: Dict, identifier: Identifier=None) -> Request:
