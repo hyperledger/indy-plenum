@@ -83,6 +83,12 @@ class OrientDbHashStore(HashStore):
                                            format(self.leafHashClass))
         return result[0].oRecordData['count']
 
+    @property
+    def nodeCount(self) -> int:
+        result = self.store.client.command("select count(*) from {}".
+                                           format(self.nodeHashClass))
+        return result[0].oRecordData['count']
+
     @leafCount.setter
     def leafCount(self, count: int) -> None:
         self._leafCount = count
@@ -116,3 +122,14 @@ class OrientDbHashStore(HashStore):
     def classesNeeded(self):
         return [(self.leafHashClass, self.createLeafHashClass),
                 (self.nodeHashClass, self.createNodeHashClass)]
+
+    def reset(self) -> bool:
+        def trunc(clazz):
+            self.store.client.command(
+                "truncate class {}".format(clazz))
+
+        trunc(self.nodeHashClass)
+        trunc(self.leafHashClass)
+
+        return True
+
