@@ -250,9 +250,6 @@ class DemoHandler(logging.Handler):
         self.callback = callback
 
     def emit(self, record):
-        """
-        Passes the log record back to the CLI for rendering
-        """
         if hasattr(record, "demo"):
             if record.cli:
                 self.callback(record, record.cli)

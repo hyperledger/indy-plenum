@@ -551,11 +551,13 @@ class Replica(MessageProcessor):
         """
         Try to order if the Commit message is ready to be ordered.
         """
-        if self.canOrder(commit):
+        canOrder, reason = self.canOrder(commit)
+        if canOrder:
             logger.debug("{} returning request to node".format(self))
             self.tryOrdering(commit)
         else:
-            logger.trace("{} cannot return request to node".format(self))
+            logger.trace("{} cannot return request to node: {}".
+                         format(self, reason))
 
     def doPrePrepare(self, reqDigest: ReqDigest) -> None:
         """
@@ -787,7 +789,7 @@ class Replica(MessageProcessor):
     def hasOrdered(self, request) -> bool:
         return (request.viewNo, request.ppSeqNo) in self.ordered
 
-    def canOrder(self, commit: Commit) -> bool:
+    def canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
         """
         Return whether the specified commitRequest can be returned to the node.
 
@@ -801,8 +803,12 @@ class Replica(MessageProcessor):
 
         :param commit: the COMMIT
         """
-        return self.commits.hasQuorum(commit, self.f) and \
-               not self.hasOrdered(commit)
+        if not self.commits.hasQuorum(commit, self.f):
+            return False, "no quorum: {} commits where f is {}".\
+                          format(commit, self.f)
+        if self.hasOrdered(commit):
+            return False, "already ordered"
+        return True, None
 
     def tryOrdering(self, commit: Commit) -> None:
         """
