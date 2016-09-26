@@ -22,8 +22,7 @@ def loadPlugins(baseDir):
             "Plugin loading started to load plugins from basedir: {}".format(
                 baseDir))
         config = getConfig()
-        pluginsDirPath = os.path.expanduser(
-            os.path.join(baseDir, config.PluginsDir))
+        pluginsDirPath = os.path.join(baseDir, config.PluginsDir)
 
         if os.path.exists(pluginsDirPath):
             for pluginName in config.PluginsToLoad:
@@ -44,17 +43,16 @@ def loadPlugins(baseDir):
                     else:
                         logger.warn("** Note: Plugin file does not exists: {}. "
                                     "Create plugin file if you want to load "
-                                    "it".format(
-                            pluginPath))
+                                    "it".format(pluginPath))
                 except Exception as ex:
                     # TODO: Is this strategy ok to catch any exception and
                     # just print the error and continue,
                     # or it should fail if there is error in plugin loading
                     logger.warn(
-                        "** Error occurred during loading plugin {}: {}".format(
-                            pluginPath, str(ex)))
+                        "** Error occurred during loading plugin {}: {}"
+                            .format(pluginPath, str(ex)))
         else:
-            logger.warn("** Note: Plugins directory does not exists: {}. "
+            logger.info("Plugins directory does not exists: {}. "
                         "Create plugin directory and plugin files if you want "
                         "to load any plugins".format(pluginsDirPath))
 

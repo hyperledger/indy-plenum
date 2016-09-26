@@ -8,6 +8,7 @@ from raet.nacling import Signer as NaclSigner
 from raet.nacling import SigningKey
 
 from plenum.common.signing import serializeForSig
+from plenum.common.types import Identifier
 
 
 class Signer:
@@ -15,7 +16,7 @@ class Signer:
     Interface that defines a sign method.
     """
     @abstractproperty
-    def identifier(self) -> str:
+    def identifier(self) -> Identifier:
         raise NotImplementedError
 
     @abstractmethod

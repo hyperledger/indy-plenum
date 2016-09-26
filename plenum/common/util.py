@@ -1,10 +1,12 @@
 import asyncio
 import base64
+import datetime
 import importlib.util
 import inspect
 import itertools
 import json
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import math
 import os
 import random
@@ -12,7 +14,7 @@ import socket
 import string
 import sys
 import time
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
 from importlib import import_module
@@ -125,6 +127,7 @@ def isHex(val: str) -> bool:
     :return: whether the given str represents a hex value
     """
     if isinstance(val, bytes):
+        # only decodes utf-8 string
         try:
             val = val.decode()
         except:
@@ -247,9 +250,6 @@ class DemoHandler(logging.Handler):
         self.callback = callback
 
     def emit(self, record):
-        """
-        Passes the log record back to the CLI for rendering
-        """
         if hasattr(record, "demo"):
             if record.cli:
                 self.callback(record, record.cli)
@@ -286,50 +286,58 @@ class TestingHandler(logging.Handler):
         self.tester(record)
 
 
-def setupLogging(log_level, raet_log_level=None, filename=None):
+def setupLogging(log_level, raet_log_level=None, filename=None,
+                 raet_log_file=None):
     """
     Setup for logging.
     log level is TRACE by default.
     """
+    config = getConfig()
+    addTraceToLogging()
+    addDisplayToLogging()
+
+    logHandlers = []
     if filename:
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-
-    addTraceToLogging()
-    addDisplayToLogging()
-
-    if filename:
-        mode = 'w'
-        h = logging.FileHandler(filename, mode)
-
+        fileHandler = TimedRotatingFileHandler(filename,
+                                               when=config.logRotationWhen,
+                                               interval=config.logRotationInterval,
+                                               backupCount=config.logRotationBackupCount,
+                                               utc=True)
+        logHandlers.append(fileHandler)
     else:
-        h = logging.StreamHandler(sys.stdout)
-    handlers = [h]
-    log_format = '{relativeCreated:,.0f} {levelname:7s} {message:s}'
-    fmt = logging.Formatter(log_format, None, style='{')
-    for h in handlers:
+        logHandlers.append(logging.StreamHandler(sys.stdout))
+
+    fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
+
+    for h in logHandlers:
         if h.formatter is None:
             h.setFormatter(fmt)
         logging.root.addHandler(h)
+
     logging.root.setLevel(log_level)
 
     console = getConsole()
+    # TODO: This should take directory
+    config = getConfig()
 
     defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
-                                                 Console.Wordage.terse)
+                                                 Console.Wordage.terse, config)
     logging.info("Choosing RAET log level {}".format(defaultVerbosity),
                  extra={"cli": False})
     verbosity = raet_log_level \
         if raet_log_level is not None \
         else defaultVerbosity
-    console.reinit(verbosity=verbosity)
+    raetLogFilePath = raet_log_file or getRAETLogFilePath("RAETLogFilePath",
+                                                          config)
+    console.reinit(verbosity=verbosity, path=raetLogFilePath, flushy=True)
     global loggingConfigured
     loggingConfigured = True
 
 
-def getRAETLogLevelFromConfig(paramName, defaultValue):
-    config = getConfig()
+def getRAETLogLevelFromConfig(paramName, defaultValue, config):
     try:
         defaultVerbosity = config.__getattribute__(paramName)
         defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
@@ -338,6 +346,14 @@ def getRAETLogLevelFromConfig(paramName, defaultValue):
         logging.debug("Ignoring RAET log level {} from config and using {} "
                       "instead".format(paramName, defaultValue))
     return defaultVerbosity
+
+
+def getRAETLogFilePath(paramName, config):
+    try:
+        filePath = config.__getattribute__(paramName)
+    except AttributeError:
+        filePath = None
+    return filePath
 
 
 def addTraceToLogging():
@@ -492,7 +508,7 @@ def getInstalledConfig(installDir, configFile):
         raise FileNotFoundError("No file found at location {}".format(configPath))
 
 
-def getConfig():
+def getConfig(homeDir=None):
     """
     Reads a file called config.py in the project directory
 
@@ -503,12 +519,15 @@ def getConfig():
     if not CONFIG:
         refConfig = importlib.import_module("plenum.config")
         try:
-            homeDir = os.path.expanduser("~")
+            homeDir = os.path.expanduser(homeDir or "~")
+
             configDir = os.path.join(homeDir, ".plenum")
             config = getInstalledConfig(configDir, "plenum_config.py")
+
             refConfig.__dict__.update(config.__dict__)
         except FileNotFoundError:
             pass
+        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
         CONFIG = refConfig
     return CONFIG
 
@@ -587,7 +606,8 @@ def isHexKey(key):
 
 def getCryptonym(identifier):
     isHex = isHexKey(identifier)
-    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex else identifier
+    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+        else identifier
 
 
 def hexToCryptonym(hex):
@@ -595,6 +615,13 @@ def hexToCryptonym(hex):
     if isinstance(hex, str):
         hex = hex.encode()
     return base64.b64encode(unhexlify(hex)).decode()
+
+
+def cryptonymToHex(cryptonym):
+    # TODO: Use base58 instead of base64
+    if isinstance(cryptonym, str):
+        cryptonym = cryptonym.encode()
+    return hexlify(base64.b64decode(cryptonym)).decode()
 
 
 def runWithLoop(loop, callback, *args, **kwargs):
@@ -649,12 +676,16 @@ def check_deps(dependencies, parent=""):
         deps = meta.__dependencies__
         check_deps(deps)
 
-#
-#
-# def check_deps_for_pkg(pkg):
-#     if not isinstance(pkg, str):
-#         pkg = pkg.__name__
-#     meta = import_module('{}.__metadata__'.format(pkg))
-#     deps = meta.__dependencies__
-#     check_deps(deps)
-#
+
+def friendlyEx(ex: Exception) -> str:
+    curEx = ex
+    friendly = ""
+    end = ""
+    while curEx:
+        if len(friendly):
+            friendly += " [caused by "
+            end += "]"
+        friendly += "{}".format(curEx)
+        curEx = curEx.__cause__
+    friendly += end
+    return friendly

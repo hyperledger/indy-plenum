@@ -91,13 +91,14 @@ class BankReqProcessorPlugin(HasCliCommands):
                 frm = client_name
                 to = matchedVars.get('second_client_name')
                 toClient = self.cli.clients.get(to, None)
+                toWallet = self.cli.wallets.get(to, None)
                 if not self.cli.clientExists(frm) or not self.cli.clientExists(to):
                     self.cli.printMsgForUnknownClient()
                 else:
                     amount = int(matchedVars.get('amount'))
                     txn = {
                         TXN_TYPE: CREDIT,
-                        TARGET_NYM: toClient.defaultIdentifier,
+                        TARGET_NYM: toWallet.defaultId,
                         DATA: {
                             AMOUNT: amount
                         }}
@@ -108,10 +109,10 @@ class BankReqProcessorPlugin(HasCliCommands):
                 if not self.cli.clientExists(frm):
                     self.cli.printMsgForUnknownClient()
                 else:
-                    frmClient = self.cli.clients.get(frm, None)
+                    wallet = self.cli.wallets.get(frm, None)
                     txn = {
                         TXN_TYPE: GET_BAL,
-                        TARGET_NYM: frmClient.defaultIdentifier
+                        TARGET_NYM: wallet.defaultId
                     }
                     self.cli.sendMsg(frm, txn)
                 return True
@@ -120,10 +121,10 @@ class BankReqProcessorPlugin(HasCliCommands):
                 if not self.cli.clientExists(frm):
                     self.cli.printMsgForUnknownClient()
                 else:
-                    frmClient = self.cli.clients.get(frm, None)
+                    wallet = self.cli.wallets.get(frm, None)
                     txn = {
                         TXN_TYPE: GET_ALL_TXNS,
-                        TARGET_NYM: frmClient.defaultIdentifier
+                        TARGET_NYM: wallet.defaultId
                     }
                     self.cli.sendMsg(frm, txn)
                 return True

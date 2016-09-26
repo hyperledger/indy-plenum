@@ -71,7 +71,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     :return:
     """
 
-    looper, newNode, _, client = nodeSetWithNodeAddedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode.name, newNode.poolManager.txnSeqNo))
     newNode.stop()
@@ -83,7 +83,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     #                       txnPoolNodeSet[:4], retryWait=1, timeout=5))
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, client, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode.name))
     newNode.start(looper.loop)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
@@ -100,8 +100,8 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     until it has caught up
     :return:
     """
-    looper, newNode, _, client = nodeSetWithNodeAddedAfterSomeTxns
-    sendReqsToNodesAndVerifySuffReplies(looper, client, 5)
+    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
 
     for node in txnPoolNodeSet[:4]:
         for replica in node.replicas:

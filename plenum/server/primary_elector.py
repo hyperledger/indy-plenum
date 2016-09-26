@@ -1,4 +1,3 @@
-import logging
 import math
 import random
 import time
@@ -6,13 +5,12 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any, Union, List
 
-from plenum.common.types import Nomination, Reelection, Primary, \
-    f, BlacklistMsg
+from plenum.common.types import Nomination, Reelection, Primary, f
 from plenum.common.util import mostCommonElement, getQuorum, getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions
+
 
 logger = getlogger()
 
@@ -656,7 +654,7 @@ class PrimaryElector(PrimaryDecider):
         """
         replica = self.replicas[instId]
         if not self.scheduledPrimaryDecisions[instId]:
-            logging.debug("{} scheduling primary decision".format(replica))
+            logger.debug("{} scheduling primary decision".format(replica))
             self.scheduledPrimaryDecisions[instId] = time.perf_counter()
             self._schedule(partial(self.decidePrimary, instId),
                            (1 * self.nodeCount))
@@ -664,7 +662,7 @@ class PrimaryElector(PrimaryDecider):
             logger.debug(
                 "{} already scheduled primary decision".format(replica))
             if self.hasPrimaryDecisionTimerExpired(instId):
-                logging.debug(
+                logger.debug(
                     "{} executing already scheduled primary decision "
                     "since timer expired"
                     .format(replica))

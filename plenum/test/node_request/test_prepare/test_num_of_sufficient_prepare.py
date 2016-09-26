@@ -4,13 +4,15 @@ from functools import partial
 import pytest
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
-from plenum.common.util import adict
+from plenum.common.util import adict, getlogger
 
 from plenum.test.helper import TestNodeSet
 
 nodeCount = 7
 faultyNodes = 2
 whitelist = ['cannot process incoming PREPARE']
+
+logger = getlogger()
 
 
 @pytest.fixture(scope="module")
@@ -35,4 +37,4 @@ def testNumOfSufficientPrepare(afterElection, prepared1, nodeSet: TestNodeSet):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:
-                logging.info("{} is primary".format(r))
+                logger.info("{} is primary".format(r))

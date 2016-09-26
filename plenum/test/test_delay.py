@@ -1,6 +1,6 @@
-import logging
-
 import pytest
+
+from plenum.common.util import getlogger
 from plenum.test.eventually import eventually
 
 from plenum.common.looper import Looper
@@ -8,6 +8,9 @@ from plenum.server.node import Node
 from plenum.test.helper import TestNodeSet, checkNodesConnected, prepareNodeSet, \
     randomMsg, sendMsgAndCheck, addNodeBack, ensureElectionsDone, \
     delayerMsgTuple
+
+
+logger = getlogger()
 
 
 def assertExp(condition):
@@ -24,12 +27,12 @@ def testTestNodeDelay(tdir_for_func):
             for n in nodes:
                 n.startKeySharing()
 
-            logging.debug("connect")
+            logger.debug("connect")
             looper.run(checkNodesConnected(nodes))
-            logging.debug("send one message, without delay")
+            logger.debug("send one message, without delay")
             msg = randomMsg()
             looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 1))
-            logging.debug("set delay, then send another message and find that "
+            logger.debug("set delay, then send another message and find that "
                           "it doesn't arrive")
             msg = randomMsg()
 
@@ -37,10 +40,10 @@ def testTestNodeDelay(tdir_for_func):
 
             with pytest.raises(AssertionError):
                 looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 3))
-            logging.debug("but then find that it arrives after the delay "
+            logger.debug("but then find that it arrives after the delay "
                           "duration has passed")
             looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 4))
-            logging.debug(
+            logger.debug(
                     "reset the delay, and find another message comes quickly")
             nodeB.nodeIbStasher.resetDelays()
             msg = randomMsg()

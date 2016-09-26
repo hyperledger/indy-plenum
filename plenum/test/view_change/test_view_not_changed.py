@@ -12,7 +12,8 @@ F = getMaxFailures(nodeCount)
 
 
 # noinspection PyIncorrectDocstring
-def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, client1):
+def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, wallet1,
+                       client1):
     """
     Test that a view change is not done when the performance of master does
     not go down
@@ -31,6 +32,6 @@ def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, client1):
         for r in nonPrimReps:
             r.node.nodeIbStasher.delay(ppDelay(10, i))
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     checkViewNoForNodes(nodeSet, 0)

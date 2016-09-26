@@ -9,6 +9,7 @@ from plenum.test.helper import genTestClient, genHa
 from plenum.common.looper import Looper
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
 
 @pytest.yield_fixture(scope="module")
@@ -29,28 +30,29 @@ def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet,
     :return:
     """
     # TODO: Check for change of IP too
-    name, seed = poolTxnClientData
-    signer = SimpleSigner(seed=seed)
-    name = "testClient96541"
-    ha = genHa()
-    client = genTestClient(txnPoolNodeSet, signer=signer, ha=ha,
-                           tmpdir=tdirWithPoolTxns, usePoolLedger=True,
-                           name=name)
+    # name, seed = poolTxnClientData
+    # signer = SimpleSigner(seed=seed)
+    # name = "testClient96541"
+    # ha = genHa()
+    # client = genTestClient(txnPoolNodeSet, signer=signer, ha=ha,
+    #                        tmpdir=tdirWithPoolTxns, usePoolLedger=True,
+    #                        name=name)
+    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
+                                              tdirWithPoolTxns)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet)
     basedirpath = client.basedirpath
-    dataLocation = client.dataLocation
     looper.removeProdable(client)
 
     # Removing RAET keep directory otherwise the client will use the same port
     #  since it will a directory of its name in the keep
-    shutil.rmtree(os.path.join(basedirpath, name), ignore_errors=True)
+    shutil.rmtree(os.path.join(basedirpath, client.name), ignore_errors=True)
 
     ha = genHa()
-    client = genTestClient(txnPoolNodeSet, signer=signer, ha=ha,
-                           tmpdir=tdirWithPoolTxns, usePoolLedger=True,
-                           name=name)
+    client, _ = genTestClient(txnPoolNodeSet, identifier=wallet.defaultId,
+                              ha=ha, tmpdir=tdirWithPoolTxns,
+                              usePoolLedger=True, name=client.name)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet)

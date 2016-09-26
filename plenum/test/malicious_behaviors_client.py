@@ -1,11 +1,11 @@
-import logging
 import types
+from logging import getLogger
 from typing import List, Any, Mapping
 
 from plenum.client.client import Client
 from plenum.common.types import Request
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 def makeClientFaulty(client, *behaviors):
@@ -67,7 +67,7 @@ def repeatsRequest(client: Client, count: int) -> Client:
                 requests.append(request)
         return requests
 
-    client.submit = types.MethodType(evilSubmit, client)
+    client.submit_DEPRECATED = types.MethodType(evilSubmit, client)
     return client
 
 
