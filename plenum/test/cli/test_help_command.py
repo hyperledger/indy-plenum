@@ -3,18 +3,18 @@ def testDefaultHelp(cli):
     Testing `help` command
     """
     cli.enterCmd("help")
-    defaultHelpMsg = """Plenum-CLI, a simple command-line interface for a
-        Plenum protocol sandbox.
-Commands:
-    help - Shows this help message
-    help <command> - Shows the help message of <command>
-    new - creates one or more new nodes or clients
-    keyshare - manually starts key sharing of a node
-    status - Shows general status of the sandbox
-    status <node_name>|<client_name> - Shows specific status
-    list - Shows the list of commands you can run
-    license - Show the license
-    exit - exit the command-line interface ('quit' also works)"""
+    defaultHelpMsg = """Plenum-CLI, a simple command-line interface for a Plenum protocol sandbox.
+        Commands:
+            help - Shows this help message
+            help <command> - Shows the help message of <command>
+            new - creates one or more new nodes or clients
+            keyshare - manually starts key sharing of a node
+            status - Shows general status of the sandbox
+            status <node_name>|<client_name> - Shows specific status
+            list - Shows the list of commands you can run
+            license - Show the license
+            exit - exit the command-line interface ('quit' also works)"""
+
     msg = cli.lastPrintArgs['msg']
     assert msg == defaultHelpMsg
 
