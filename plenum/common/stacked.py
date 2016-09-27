@@ -169,7 +169,40 @@ class Stack(RoadStack):
         """
         return r.joined and r.allowed and r.alived
 
-    def getRemote(self, name: str) -> RemoteEstate:
+    def isConnectedTo(self, name: str=None, ha: Tuple=None):
+        assert (name, ha).count(None) == 1, "One and only one of name or ha " \
+                                            "should be passed"
+        try:
+            remote = self.getRemote(name, ha)
+        except RemoteNotFound:
+            return False
+        return self.isRemoteConnected(remote)
+
+    def getRemote(self, name: str=None, ha: Tuple=None) -> RemoteEstate:
+        """
+        Find the remote by name or ha.
+
+        :param name: the name of the remote to find
+        :param ha: host address pair the remote to find
+        :raises: RemoteNotFound
+        """
+        assert (name, ha).count(None) == 1, "One and only one of name or ha " \
+                                            "should be passed"
+        remote = self.findInRemotesByName(name) if name else \
+            self.findInRemotesByHA(ha)
+        if not remote:
+            raise RemoteNotFound(name or ha)
+        return remote
+
+    def findInRemotesByHA(self, remoteHa):
+        remotes = [r for r in self.remotes.values()
+                   if r.ha == remoteHa]
+        assert len(remotes) <= 1
+        if remotes:
+            return remotes[0]
+        return None
+
+    def findInRemotesByName(self, name: str) -> RemoteEstate:
         """
         Find the remote by name.
 
@@ -180,7 +213,7 @@ class Stack(RoadStack):
             return next(r for r in self.remotes.values()
                         if r.name == name)
         except StopIteration:
-            raise RemoteNotFound(name)
+            return None
 
     def removeRemoteByName(self, name: str) -> int:
         """
@@ -549,14 +582,6 @@ class KITStack(SimpleStack):
                                "same ha {}: {}".format(remoteHa, regName))
         if regName:
             return regName[0]
-        return None
-
-    def findInRemotesByHA(self, remoteHa):
-        remotes = [r for r in self.remotes.values()
-                   if r.ha == remoteHa]
-        assert len(remotes) <= 1
-        if remotes:
-            return remotes[0]
         return None
 
     def reconcileNodeReg(self):
