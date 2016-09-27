@@ -100,7 +100,8 @@ class Wallet:
         req.identifier = idr
         idData = self._getIdData(idr)
         req.reqId = idData.lastReqId + 1
-        req.signature = self.signMsg(msg=req.getSigningState(),identifier=idr,
+        req.signature = self.signMsg(msg=req.getSigningState(),
+                                     identifier=idr,
                                      otherIdentifier=req.identifier)
         idData.lastReqId += 1
         self.ids[idr] = idData
