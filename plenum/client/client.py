@@ -46,92 +46,7 @@ from plenum.common.util import getConfig
 logger = getlogger()
 
 
-# class ClientWallet:
-#     def __init__(self,
-#                  signer: Signer=None,
-#                  signers: Dict[str, Signer]=None,
-#                  basedirpath: str=None,
-#                  wallet: Wallet=None):
-#         """
-#         :param signer: Signer; mutually exclusive of signers
-#         :param signers: Dict of identifier -> Signer; useful for clients that
-#             need to support multiple signers
-#         """
-#         if signer and signers:
-#             raise ValueError("only one of 'signer' or 'signers' can be used")
-#
-        # DEPR
-        # self.setupWallet(wallet)
-        # signers = None  # type: Dict[str, Signer]
-        # self.defaultIdentifier = None
-        # if not self.wallet.signers:
-        #     if signer:
-        #         signers = {signer.identifier: signer}
-        #         self.defaultIdentifier = signer.identifier
-        #     elif signers:
-        #         signers = signers
-        #     else:
-        #         signers = self.setupDefaultSigner()
-        #
-        #     for s in signers.values():
-        #         self.wallet.addSigner(signer=s)
-        # else:
-        #     if len(self.wallet.signers) == 1:
-        #         self.defaultIdentifier = list(self.wallet.signers.values())[
-        #             0].identifier
-
-    # DEPR
-    # def setupWallet(self, wallet=None):
-    #     if wallet:
-    #         self.wallet = wallet
-    #     else:
-    #         storage = WalletStorageFile.fromName(self.name, self.basedirpath)
-    #         self.wallet = Wallet(self.name, storage)
-
-    # @property
-    # def signers(self):
-    #     return self.wallet.signers
-
-    # def setupDefaultSigner(self):
-    #     """
-    #     Create one SimpleSigner and add it to signers
-    #     against the client's name.
-    #     """
-    #     signer = SimpleSigner(self.name)
-    #     signers = {self.name: signer}
-    #     self.defaultIdentifier = self.name
-    #     self.wallet.aliases[self.defaultIdentifier] = signer
-    #     return signers
-
-    # def getSigner(self, identifier: str = None):
-    #     """
-    #     Look up and return a signer corresponding to the identifier specified.
-    #     Return None if not found.
-    #     """
-    #     try:
-    #         return self.signers[identifier or self.defaultIdentifier]
-    #     except KeyError:
-    #         return None
-
-    # def sign(self, msg: Dict, signer: Signer) -> Dict:
-    #     """
-    #     Signs the message if a signer is configured
-    #
-    #     :param msg: Message to be signed
-    #     :return: message
-    #     """
-    #     if not msg.get(f.SIG.nm):
-    #         if signer:
-    #             msg[f.SIG.nm] = signer.sign(msg)
-    #         else:
-    #             logger.warning("{} signer not configured so not signing {}".
-    #                            format(self, msg))
-    #     return msg
-
-
 class Client(Motor,
-             # DEPR
-             # ClientWallet,
              MessageProcessor,
              HasFileStorage,
              HasPoolManager):
@@ -139,13 +54,7 @@ class Client(Motor,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
-                 # DEPR
-                 # lastReqId: int = 0,
-                 # signer: Signer=None,
-                 # signers: Dict[str, Signer]=None,
                  basedirpath: str=None,
-                 # DEPR
-                 # wallet: Wallet=None,
                  config=None):
         """
         Creates a new client.
@@ -317,13 +226,6 @@ class Client(Motor,
             s += self.ledgerManager._serviceActions()
         return s
 
-    # DEPR
-    # def setReqId(self, request: Request) -> Request:
-    #     if request.reqId is None:
-    #         request.reqId = self.lastReqId + 1
-    #         self.lastReqId += 1
-    #     return request
-
     def createRequest(self, operation: Mapping,
                       identifier: str = None) -> Request:
         """
@@ -352,27 +254,6 @@ class Client(Motor,
         for r in requests:
             self.reqRepStore.addRequest(r)
         return requests
-
-    # DEPR
-    # def submit_DEPRECATED(self, *operations: Mapping, identifier: str = None) \
-    #         -> List[Request]:
-    #     """
-    #     Sends an operation to the consensus pool
-    #
-    #     :param operations: a sequence of operations
-    #     :param identifier: an optional identifier to use for signing
-    #     :return: A list of client requests to be sent to the nodes in the system
-    #     """
-    #     identifier = identifier if identifier else self.defaultIdentifier
-    #     requests = []
-    #     for op in operations:
-    #         request = self.createRequest(op, identifier)
-    #         signer = self.getSigner(identifier)
-    #         if signer:
-    #             request.signature = signer.sign(request.__getstate__())
-    #         requests.append(request)
-    #     self.submitReqs(*requests)
-    #     return requests
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """

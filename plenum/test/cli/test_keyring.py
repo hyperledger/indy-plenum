@@ -42,55 +42,6 @@ def testRenameKeyring(cli):
     renameToExistingKeyring("MyKeyring5", "MyKeyring3", cli)
 
 
-# def testKeyAndKeyRing(cli):
-#     cli.enterCmd("new keyring {}".format("testkr1"))
-#     assert 'Active wallet set to "{}"'.format("testkr1") in cli.lastCmdOutput
-#     assert 'New wallet {} created'.format("testkr1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("new keyring {}".format("testkr1"))
-#     assert 'testkr1 conflicts with an existing keyring name. Please choose a new name' in \
-#            cli.lastCmdOutput
-#
-#     cli.enterCmd("new key {}".format("testkr1"))
-#     assert 'testkr1 conflicts with an existing keyring name. Please choose a new name' in \
-#            cli.lastCmdOutput
-#
-#     cli.enterCmd("new key {}".format("testkey1"))
-#     assert 'Key created in wallet {}'.format("testkr1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("new key {}".format("testkey1"))
-#     assert 'Key created in wallet {}'.format("testkr1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("new keyring {}".format("testkey1"))
-#     assert 'testkey1 conflicts with an existing alias. Please choose a new name' in \
-#            cli.lastCmdOutput
-#
-#     cli.enterCmd("use identifier {}".format("testkey1"))
-#     assert "Current identifier set to {}".format(
-#         "testkey1") in cli.lastCmdOutput
-#
-#     # TODO: This is wrong, uncomment and fix it.
-#     cli.enterCmd("use identifier {}".format("testkr1"))
-#     assert 'Active wallet set to "{}"'.format("testkr1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("use identifier {}".format("testkey1"))
-#     assert 'Current identifier set to {}'.format(
-#         "testkey1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("new keyring {}".format("testkr2"))
-#     assert 'Active wallet set to "{}"'.format("testkr2") in cli.lastCmdOutput
-#     assert 'New wallet {} created'.format("testkr2") in cli.lastCmdOutput
-#
-#     cli.enterCmd("use identifier {}".format("testkey1"))
-#     assert 'No such identifier found' in cli.lastCmdOutput
-#
-#     cli.enterCmd("use identifier {}".format("testkr1"))
-#     assert 'Active wallet set to "{}"'.format("testkr1") in cli.lastCmdOutput
-#
-#     cli.enterCmd("use identifier {}".format("testkey1"))
-#     assert 'Current identifier set to {}'.format(
-#         "testkey1") in cli.lastCmdOutput
-
 def testKeyAndKeyRing(cli):
     keyring1 = "testkr1"
     cli.enterCmd("new keyring {}".format(keyring1))

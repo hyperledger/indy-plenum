@@ -408,7 +408,6 @@ class Cli:
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
-
             self.print('Genesis transaction file created at {} '
                        .format(ledger._transactionLog.dbPath))
             return True
@@ -440,7 +439,6 @@ class Cli:
             withData[NODE_PORT] = int(nodePort)
             withData[CLIENT_IP] = clientIp
             withData[CLIENT_PORT] = int(clientPort)
-            # withData[PUBKEY] = nodeData.get(PUBKEY)
 
         newMatchedVars = {TXN_TYPE: typ, DATA: json.dumps(withData),
                           TARGET_NYM: nodeData.get(VERKEY),
