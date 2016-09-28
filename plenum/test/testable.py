@@ -129,7 +129,8 @@ def Spyable(name: str = None, methods: SpyableMethods = None):
             for m in methods:
                 if m not in matches:
                     logger.warning(
-                        "method {} not found, so no spy added".format(m))
+                        "method {} not found, so no spy added".format(m),
+                        extra={"cli": False})
 
         objSearchReplace(spyable, morphed, logMsg="Applying spy remapping")
         return spyable
