@@ -25,6 +25,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import libnacl.secret
 import semver
 from ioflo.base.consoling import getConsole, Console
+from ledger.util import F
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
@@ -689,3 +690,10 @@ def friendlyEx(ex: Exception) -> str:
         curEx = curEx.__cause__
     friendly += end
     return friendly
+
+
+def updateFieldsWithSeqNo(fields):
+    r = OrderedDict()
+    r[F.seqNo.name] = (str, int)
+    r.update(fields)
+    return r

@@ -1,11 +1,14 @@
 import json
 import os
+from collections import OrderedDict
 from typing import Any, Sequence, List
 
 from ledger.stores.directory_store import DirectoryStore
+from ledger.util import F
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Request, f
+from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
 
 
@@ -69,7 +72,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     @property
     def txnFieldOrdering(self):
-        return getTxnOrderedFields()
+        fields = getTxnOrderedFields()
+        return updateFieldsWithSeqNo(fields)
 
     @staticmethod
     def serializeReq(req: Request):
