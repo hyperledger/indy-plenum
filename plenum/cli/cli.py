@@ -894,50 +894,18 @@ class Cli:
                 self.printVoid()
 
     def newClient(self, clientName,
-                  # seed=None,
-                  # identifier=None,
-                  # signer=None,
-                  # wallet=None,
                   config=None):
         try:
-            # TODO create wallet outside of client
-            # TODO signer should not be compulsory in creating client
-
             self.ensureValidClientId(clientName)
             if not isLocalKeepSetup(clientName, self.basedirpath):
                 client_addr = self.nextAvailableClientAddr()
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
-            # DEPR
-            # assert not (signer and wallet)
-            # if not wallet:
-            #     wallet = self._newWallet(clientName)
-            #     if not (wallet.signers or signer):
-            #         signer = self._newSigner(wallet,
-            #                                  identifier=identifier,
-            #                                  seed=seed)
-            #     if signer:
-            #         self._addSignerToWallet(signer, wallet)
-            #
-            # # If signer provided then set activeSigner to the one provided else
-            # # if activeSigner's identifier is present in wallet then use
-            # # activeSigner else use one of the identifier from wallet.
-            # if signer:
-            #     identifier = signer.identifier
-            # elif self.activeSigner and (self.activeSigner.identifier in
-            #                                 list(wallet.signers.keys())):
-            #     identifier = self.activeSigner.identifier
-            # else:
-            #     identifier = next(iter(wallet.signers.keys()))
-            # self._setActiveIdentifier(identifier)
-
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      # nodeReg=self.cliNodeReg,
                                       nodeReg=None,
                                       basedirpath=self.basedirpath,
-                                      # wallet=wallet,  # DEPR
                                       config=config)
             self.activeClient = client
             self.looper.add(client)
