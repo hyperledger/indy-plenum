@@ -25,14 +25,20 @@ class IdData:
     def lastReqId(self):
         return self._lastReqId
 
+    def refresh(self):
+        self._lastReqId += 1
+
 class StoredIdData(IdData):
 
     def __init__(self,
                  reqRepStore: ClientReqRepStore,
                  signer: Signer=None):
-        id = reqRepStore.lastReqId # type: int
-        super().__init__(signer, id)
+        self.reqRepStore = reqRepStore
+        super().__init__(signer, self.lastReqId)
 
     @property
-    def lastReqId(self):
-        return self._lastReqId
+    def lastReqId(self) -> int:
+        return self.reqRepStore.lastReqId  # type: int
+
+    def refresh(self):
+        pass
