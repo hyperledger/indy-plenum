@@ -106,56 +106,40 @@ source <name of virtual environment>/bin/activate
 
 
 ### Initializing Keep
+To run a node you need to generate its keys. The keys are stored in on disk in files in a location called `keep`. 
+The  following generates keys for 4 nodes named `Alpha`, `Beta`, `Gamma` and `Delta` in the keep. 
+The keep for node `Alpha` is located at `~/.plenum/Alpha`. 
 ```
-init_plenum_raet_keep --name Alpha --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
-```
-
-```
-init_plenum_raet_keep --name Beta --seeds 0000000000000000000000000000Beta Beta0000000000000000000000000000 --force
-```
-
-```
-init_plenum_raet_keep --name Gamma --seeds 000000000000000000000000000Gamma Gamma000000000000000000000000000 --force
+init_plenum_raet_keep --name Alpha [--seed 000000000000000000000000000Alpha] [--force]
 ```
 
 ```
-init_plenum_raet_keep --name Delta --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
+init_plenum_raet_keep --name Beta [--seed 0000000000000000000000000000Beta] [--force]
 ```
-Note: Seed can be any randomly chosen 32 byte value. It does not have to be in the format `00..<name of the node>`.
 
+```
+init_plenum_raet_keep --name Gamma [--seed 000000000000000000000000000Gamma] [--force]
+```
 
-### Seeds used for generating clients
-1. Seed used for steward Bob's signing key pair ```11111111111111111111111111111111```
-2. Seed used for steward Bob's public private key pair ```33333333333333333333333333333333```
-3. Seed used for client Alice's signing key pair ```22222222222222222222222222222222```
-4. Seed used for client Alice's public private key pair ```44444444444444444444444444444444```
+```
+init_plenum_raet_keep --name Delta [--seed 000000000000000000000000000Delta] [--force]
+```
+Note: `seed` is optional. Seed can be any randomly chosen 32 byte value. It does not have to be in the format `00..<name of the node>`.
+`force` is optional too. If you use this `--force` then the existing keys will be overwritten.
+To see the public keys of the node with name say `Alpha`, use the command
+```
+get_keys Alpha
+```
 
 
 ### Running Node
 
 ```
-start_plenum_node Alpha
+start_plenum_node Alpha 9601 9602
 ```
+The node uses a separate UDP channels for communicating with nodes and clients. 
+The first port number is for the node-to-node communication channel and the second is for node-to-client communication channel.
 
 
 ### Updating configuration
 To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum` directory inside your home directory. 
-eg. To update the node registry to use `127.0.0.1` as host put these in your `plenum_config.py`.
-
-```python
-from collections import OrderedDict
-
-nodeReg = OrderedDict([
-    ('Alpha', (('127.0.0.1', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('Beta', (('127.0.0.1', 9703), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('Gamma', (('127.0.0.1', 9705), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('Delta', (('127.0.0.1', 9707), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-
-cliNodeReg = OrderedDict([
-    ('AlphaC', (('127.0.0.1', 9702), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('BetaC', (('127.0.0.1', 9704), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('GammaC', (('127.0.0.1', 9706), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('DeltaC', (('127.0.0.1', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-```

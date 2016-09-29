@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import datetime
+import getpass
 import importlib.util
 import inspect
 import itertools
@@ -23,6 +24,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple
 
 import libnacl.secret
+import pwd
 import semver
 from ioflo.base.consoling import getConsole, Console
 from ledger.util import F
@@ -697,3 +699,7 @@ def updateFieldsWithSeqNo(fields):
     r[F.seqNo.name] = (str, int)
     r.update(fields)
     return r
+
+
+def getLoggedInUser():
+    return getpass.getuser()
