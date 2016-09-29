@@ -476,12 +476,6 @@ class Cli:
 
     @property
     def wallets(self):
-        # DEPR
-        # This is to magical; CLI should do this manually
-        # if self._wallets is None:
-        #     wts = WalletStorageFile.listWallets(self.basedirpath)
-        #     self._wallets = {name: self._buildWalletClass(name)
-        #                      for name in wts}
         return self._wallets
 
     @property
@@ -907,11 +901,6 @@ class Cli:
                                       config=config)
             self.activeClient = client
             self.looper.add(client)
-            # DEPR
-            # for node in self.nodes.values():
-            #     self.bootstrapKey(wallet,
-            #                       node,
-            #                       identifier=self.activeSigner.identifier)
             self.clients[clientName] = client
             self.clientWC.words = list(self.clients.keys())
             return client

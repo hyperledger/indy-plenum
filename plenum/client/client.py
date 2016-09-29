@@ -123,9 +123,6 @@ class Client(Motor,
                                              self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
-        # DEPR
-        # self.nodestack.sign = self.sign
-
         logger.info("Client {} initialized with the following node registry:"
                     .format(name))
         lengths = [max(x) for x in zip(*[
@@ -140,11 +137,6 @@ class Client(Motor,
 
         self.inBox = deque()
 
-        # DEPR
-        # ClientWallet.__init__(self,
-        #                       signer=signer,
-        #                       signers=signers,
-        #                       wallet=wallet)
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
@@ -447,67 +439,6 @@ class Client(Motor,
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
                 self.nodestack.send(req, signer=signer)
-
-    # DEPR
-    # def submitNewClient(self, role, name: str, verkey: str):
-    #     assert role in (STEWARD, USER), "Invalid type {}".format(role)
-    #     verstr = hexToCryptonym(verkey)
-    #     req, = self.submit_DEPRECATED({
-    #         TXN_TYPE: NYM,
-    #         ROLE: role,
-    #         TARGET_NYM: verstr,
-    #         ALIAS: name
-    #     })
-    #     return req
-    #
-    # def submitNewSteward(self, name: str, verkey: str):
-    #     return self.submitNewClient(STEWARD, name, verkey)
-    #
-    # def submitNewNode(self, name: str, verkey: str,
-    #                   nodeStackHa: HA, clientStackHa: HA):
-    #     (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-    #     verstr = hexToCryptonym(verkey)
-    #     req, = self.submit_DEPRECATED({
-    #         TXN_TYPE: NEW_NODE,
-    #         TARGET_NYM: verstr,
-    #         DATA: {
-    #             NODE_IP: nodeIp,
-    #             NODE_PORT: nodePort,
-    #             CLIENT_IP: clientIp,
-    #             CLIENT_PORT: clientPort,
-    #             ALIAS: name
-    #         }
-    #     })
-    #     return req
-
-    # DEPR
-    # TODO: Shouldn't the nym be fetched from the ledger
-    def submitNodeIpChange_DEPRECATED(self, name: str, nym: str,
-                                      nodeStackHa: HA, clientStackHa: HA):
-        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        req, = self.submit_DEPRECATED({
-            TXN_TYPE: CHANGE_HA,
-            TARGET_NYM: nym,
-            DATA: {
-                NODE_IP: nodeIp,
-                NODE_PORT: nodePort,
-                CLIENT_IP: clientIp,
-                CLIENT_PORT: clientPort,
-                ALIAS: name
-            }
-        })
-        return req
-
-    def submitNodeKeysChange_DEPRECATED(self, name: str, nym: str, verkey: str):
-        req, = self.submit_DEPRECATED({
-            TXN_TYPE: CHANGE_KEYS,
-            TARGET_NYM: nym,
-            DATA: {
-                VERKEY: verkey,
-                ALIAS: name
-            }
-        })
-        return req
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
