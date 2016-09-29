@@ -34,7 +34,7 @@ class StoredIdData(IdData):
                  reqRepStore: ClientReqRepStore,
                  signer: Signer=None):
         self.reqRepStore = reqRepStore
-        super().__init__(signer, self.lastReqId)
+        super().__init__(signer, 0)
 
     @property
     def lastReqId(self) -> int:
