@@ -91,7 +91,7 @@ Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``
 
 ### Using a virtual environment (recommended)
 We recommend creating a new Python virtual environment for trying out Plenum.
-a virtual environment is a Python environment which is isolated from the
+A virtual environment is a Python environment which is isolated from the
 system's default Python environment (you can change that) and any other
 virtual environment you create. You can create a new virtual environment by:
 ```
@@ -106,7 +106,7 @@ source <name of virtual environment>/bin/activate
 
 
 ### Initializing Keep
-To run a node you need to generate its keys. The keys are stored in on disk in files in a location called `keep`. 
+To run a node you need to generate its keys. The keys are stored on disk in files in the location called `keep`. 
 The  following generates keys for 4 nodes named `Alpha`, `Beta`, `Gamma` and `Delta` in the keep. 
 The keep for node `Alpha` is located at `~/.plenum/Alpha`. 
 ```
