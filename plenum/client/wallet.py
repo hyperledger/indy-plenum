@@ -66,8 +66,19 @@ class Wallet:
                   seed=None,
                   signer=None,
                   reqRepStore: ClientReqRepStore = None):
+        '''
+        Adds signer to the wallet.
+        Requires pair if identifier and seed or complete signer.
+        If reqRepStore is provided - wallet will use it for setting request id
+        for signed request. In another case it will use incremental ids
+        starting from 0.
 
-        assert signer or (identifier and seed)
+        :param identifier: signer identifier
+        :param seed: signer key seed
+        :param signer: request signer to add
+        :param reqRepStore: the store where client request are stored  (unique for signer)
+        :return:
+        '''
 
         if not signer:
             signer = SimpleSigner(identifier=identifier, seed=seed)
@@ -75,7 +86,8 @@ class Wallet:
         idr = signer.identifier
 
         if self.defaultId is None:
-            # setting this signer as default signer
+            # setting this signer as default signer to let use sign* methods
+            # without passing identifier
             self.defaultId = idr
 
         self.ids[idr] = (
