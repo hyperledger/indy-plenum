@@ -32,13 +32,9 @@ from plenum.common.looper import Looper
 
 def run_cli():
     commands = sys.argv[1:]
-    nodeReg = config.nodeReg
-    cliNodeReg = config.cliNodeReg
     with Looper(debug=False) as looper:
         cli = Cli(looper=looper,
                   basedirpath=basedirpath,
-                  nodeReg=nodeReg,
-                  cliNodeReg=cliNodeReg,
                   logFileName='log/cli.log')
 
         looper.run(cli.shell(*commands))

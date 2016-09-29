@@ -101,18 +101,16 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
-                 debug=False, logFileName=None, config=None):
+    def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
+                 output=None, debug=False, logFileName=None, config=None):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        # DEPR
-        # WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
-        self.config = config or getConfig()
-        if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
-                                                  and sys.argv[1] == "--noreg"):
+        self.config = config or getConfig(self.basedirpath)
+        if not (len(sys.argv) > 1 and sys.argv[1] == "--noreg" and
+                    nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
@@ -1165,9 +1163,6 @@ class Cli:
             return True
 
     def _buildWalletClass(self, nm):
-        # DEPR
-        # storage = WalletStorageFile.fromName(nm, self.basedirpath)
-        # return Wallet(nm, storage)
         return Wallet(nm)
 
     def _newWallet(self, walletName=None):
@@ -1329,8 +1324,8 @@ class Cli:
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.".format(
-                self.curClientPort, ex))]
+                                    "trying another port.".
+                       format(self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
 
