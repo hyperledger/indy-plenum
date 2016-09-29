@@ -831,10 +831,12 @@ class Cli:
                 self.printNames(client.nodestack.conns, newline=True)
             else:
                 self.printVoid()
-            self.print("    Identifier: {}".format(client.defaultIdentifier))
-            self.print(
-                "    Verification key: {}".format(client.getSigner().verkey))
-            self.print("    Submissions: {}".format(client.lastReqId))
+            if self.activeWallet and self.activeWallet.defaultId:
+                wallet = self.activeWallet
+                self.print("    Identifier: {}".format(wallet.defaultId))
+                self.print(
+                    "    Verification key: {}".format(wallet.getVerKey(wallet.defaultId)))
+                self.print("    Submissions: {}".format(client.reqRepStore.lastReqId))
 
     def statusNode(self, nodeName):
         if nodeName == "all":

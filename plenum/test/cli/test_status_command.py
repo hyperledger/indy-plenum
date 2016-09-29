@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
-    checkClientConnected
+    checkClientConnected, checkActiveIdrPrinted
 from plenum.test.eventually import eventually
 
 
@@ -111,7 +111,10 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     cli.enterCmd("new client {}".format(clientName))
     cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
                               clientName, retryWait=1, timeout=3))
-
+    cli.enterCmd("new key")
+    cli.enterCmd("status client {}".format(clientName))
+    cli.looper.run(eventually(checkActiveIdrPrinted, cli, retryWait=1,
+                              timeout=3))
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
         # the node status here after the client is connected
