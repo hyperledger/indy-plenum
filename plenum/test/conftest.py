@@ -111,7 +111,7 @@ def logcapture(request, whitelist):
     logging.getLogger().addHandler(ch)
 
     request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
-    config = getConfig()
+    config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
     return whiteListedExceptions
@@ -336,10 +336,12 @@ def poolTxnStewardNames():
 
 
 @pytest.fixture(scope="module")
-def conf():
-    return getConfig()
+def conf(tdir):
+    return getConfig(tdir)
 
 
+# TODO: This fixture is probably not needed now, as getConfig takes the
+# `baseDir`. Confirm and remove
 @pytest.fixture(scope="module")
 def tconf(conf, tdir):
     conf.baseDir = tdir
