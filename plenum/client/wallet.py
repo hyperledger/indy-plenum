@@ -8,6 +8,7 @@ from plenum.client.id_data import IdData
 from plenum.client.signer import SimpleSigner
 from plenum.common.util import getlogger
 # from plenum.persistence.wallet_storage import WalletStorage
+from plenum.persistence.client_req_rep_store import ClientReqRepStore
 from plenum.common.types import f, Identifier, Request
 
 logger = getlogger()
@@ -28,10 +29,12 @@ Alias = str
 class Wallet:
     def __init__(self,
                  name: str,
+                 reqRepStore: ClientReqRepStore
                  # DEPR
                  # storage: WalletStorage
                  ):
         self._name = name
+        self._reqRepStore = reqRepStore
         self.ids = {}  # type: Dict[Identifier, IdData]
         self.aliases = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
@@ -59,13 +62,22 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
+    def _lastRequestId(self, identifier) -> int:
+        '''
+        gets id of the last request sent by owner of identifier
+        :param identifier:
+        :return: request id of the most recent request
+        '''
+        return self._reqRepStore.lastReqId
+
     def addSigner(self, identifier=None, seed=None, signer=None):
         if not signer:
             signer = SimpleSigner(identifier=identifier, seed=seed)
         idr = signer.identifier
         if self.defaultId is None:
             self.defaultId = idr
-        self.ids[idr] = IdData(signer=signer)
+        reqId = self._lastRequestId(idr)
+        self.ids[idr] = IdData(signer=signer, lastReqId=reqId)
         if signer.alias:
             self.aliases[signer.alias] = signer.identifier
         return signer
