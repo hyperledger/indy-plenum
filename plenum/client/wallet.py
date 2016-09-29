@@ -134,7 +134,7 @@ class Wallet:
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
-        idData.lastReqId += 1
+        idData.refresh()
         self.ids[idr] = idData
         return req
 
