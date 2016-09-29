@@ -5,6 +5,7 @@ import os
 from plenum.common.util import getConfig, getlogger
 
 pluginsLoaded = {}  # Dict(baseDir, List[plugin names])
+pluginsNotFound = {}  # Dict(baseDir, List[plugin names])
 
 logger = getlogger("plugin-loader")
 
@@ -21,14 +22,21 @@ def loadPlugins(baseDir):
         logger.debug(
             "Plugin loading started to load plugins from basedir: {}".format(
                 baseDir))
-        config = getConfig()
-        pluginsDirPath = os.path.join(baseDir, config.PluginsDir)
 
-        if os.path.exists(pluginsDirPath):
+        config = getConfig()
+        pluginsDirPath = os.path.expanduser(os.path.join(
+            baseDir, config.PluginsDir))
+
+        if not os.path.exists(pluginsDirPath):
+            os.makedirs(pluginsDirPath)
+            logger.debug("Plugin directory created at: {}".format(
+                pluginsDirPath))
+
+        if hasattr(config, "PluginsToLoad"):
             for pluginName in config.PluginsToLoad:
                 try:
-                    pluginPath = os.path.join(pluginsDirPath,
-                                              pluginName + ".py")
+                    pluginPath = os.path.expanduser(os.path.join(pluginsDirPath,
+                                              pluginName + ".py"))
                     if os.path.exists(pluginPath):
                         spec = importlib.util.spec_from_file_location(
                             pluginName,
@@ -41,9 +49,12 @@ def loadPlugins(baseDir):
                             pluginsLoaded[baseDir] = {pluginName}
                         i += 1
                     else:
-                        logger.warn("** Note: Plugin file does not exists: {}. "
-                                    "Create plugin file if you want to load "
-                                    "it".format(pluginPath))
+                        if not pluginsNotFound.get(pluginPath):
+                            logger.warn("Note: Plugin file does not exists: {}. "
+                                        "Create plugin file if you want to load it"
+                                        .format(pluginPath))
+                            pluginsNotFound[pluginPath] = "Notified"
+
                 except Exception as ex:
                     # TODO: Is this strategy ok to catch any exception and
                     # just print the error and continue,
@@ -51,10 +62,6 @@ def loadPlugins(baseDir):
                     logger.warn(
                         "** Error occurred during loading plugin {}: {}"
                             .format(pluginPath, str(ex)))
-        else:
-            logger.info("Plugins directory does not exists: {}. "
-                        "Create plugin directory and plugin files if you want "
-                        "to load any plugins".format(pluginsDirPath))
 
     logger.debug(
         "Total plugins loaded from basedir {} are : {}".format(baseDir, i))

@@ -21,7 +21,6 @@ from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
-from plenum.client.signer import SimpleSigner
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, NodeStack, ClientStack
@@ -45,7 +44,7 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.test.testing_utils import PortDispenser
+from plenum.cli.helper import PortDispenser, genHa
 
 # checkDblImp()
 
@@ -983,9 +982,6 @@ def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
         Sequence[TestReplica]:
     return [node.replicas[instId] for node in nodes]
-
-
-genHa = PortDispenser("127.0.0.1").getNext
 
 
 def genTestClient(nodes: TestNodeSet = None,
