@@ -155,6 +155,7 @@ def testEveryNodeRepliesWithNoFaultyNodes(looper, client1, replied1):
     def chk():
         receivedReplies = getRepliesFromClientInbox(client1.inBox,
                                                     replied1.reqId)
+        print(receivedReplies)
         assert len(receivedReplies) == nodeCount
 
     looper.run(eventually(chk))
@@ -233,3 +234,12 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
             chk,
             retryWait=1,
             timeout=20))
+
+# noinspection PyIncorrectDocstring
+def testReplyMatchesRequest(looper, client1, wallet1):
+    request = sendRandomRequest(wallet1, client1)
+    req1Amount = request.operation['amount']
+    looper.run(eventually(checkResponseRecvdFromNodes, client1, 2 * nodeCount, retryWait=.25, timeout=15))
+    replies = [r[0]['result']['amount'] for r in client1.inBox if r[0]['op'] == "REPLY"]
+    assert all(r == replies[0] for r in replies)
+    assert replies[0] == req1Amount
