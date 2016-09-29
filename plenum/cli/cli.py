@@ -1320,7 +1320,7 @@ class Cli:
         self.curClientPort = self.curClientPort or curClientPort
         # TODO: Find a better way to do this
         self.curClientPort += random.randint(1, 200)
-        host = "127.0.0.1"
+        host = "0.0.0.0"
         try:
             checkPortAvailable((host, self.curClientPort))
             return host, self.curClientPort

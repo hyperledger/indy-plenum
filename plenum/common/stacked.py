@@ -113,10 +113,10 @@ class Stack(RoadStack):
                 if isinstance(ex, OSError) and \
                         len(ex.args) > 0 and \
                         ex.args[0] == 22:
-                    logger.error("Error servicing stack: {}. This could be "
+                    logger.error("Error servicing stack {}: {}. This could be "
                                  "due to binding to an internal network "
                                  "and trying to route to an external one.".
-                                 format(ex), extra={'cli': 'WARNING'})
+                                 format(self.name, ex), extra={'cli': 'WARNING'})
                 else:
                     logger.error("Error servicing stack {}: {} {}".
                                  format(self.name, ex, ex.args),
