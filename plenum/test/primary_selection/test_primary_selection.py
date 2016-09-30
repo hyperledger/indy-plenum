@@ -10,6 +10,7 @@ from plenum.test.helper import checkProtocolInstanceSetup, getPrimaryReplica
 
 # noinspection PyUnresolvedReferences
 from plenum.test.view_change.test_view_change import viewChangeDone
+from plenum.test.view_change.conftest import viewNo
 
 nodeCount = 7
 
@@ -32,26 +33,26 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
     def checkPrimaryPlacement():
         # Node names sorted by rank
         sortedNodeNames = sorted(nodeSet.nodes.values(),
-                          key=operator.attrgetter("rank"))
+                                 key=operator.attrgetter("rank"))
 
         for idx, node in enumerate(sortedNodeNames):
             # For instance 0, the primary replica should be on the node with rank 0
             if idx == 0:
-                primaryName = Replica.generateName(sortedNodeNames[idx], 0)
+                Replica.generateName(sortedNodeNames[idx], 0)
                 assert node.replicas[0].isPrimary
                 assert not node.replicas[1].isPrimary
                 assert not node.replicas[2].isPrimary
 
             # For instance 1, the primary replica should be on the node with rank 1
             if idx == 1:
-                primaryName = Replica.generateName(sortedNodeNames[idx], 1)
+                Replica.generateName(sortedNodeNames[idx], 1)
                 assert not node.replicas[0].isPrimary
                 assert node.replicas[1].isPrimary
                 assert not node.replicas[2].isPrimary
 
             # For instance 2, the primary replica should be on the node with rank 2
             if idx == 2:
-                primaryName = Replica.generateName(sortedNodeNames[idx], 2)
+                Replica.generateName(sortedNodeNames[idx], 2)
                 assert not node.replicas[0].isPrimary
                 assert not node.replicas[1].isPrimary
                 assert node.replicas[2].isPrimary
@@ -62,12 +63,15 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
     #  has no more than one primary
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=5)
 
-
+"""
+Fails due to https://www.pivotaltracker.com/story/show/127250197
+"""
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
                                         viewChangeDone):
     """
-    Test that primary replica of a protocol instance shifts to a new node after a view change.
+    Test that primary replica of a protocol instance shifts to a new node after
+    a view change.
     """
 
     # Primary replicas before view change

@@ -2,7 +2,7 @@ from typing import Dict
 
 import pyorient
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.persistence.graph_store import GraphStore
 from plenum.persistence.orientdb_store import OrientDbStore
 
@@ -15,19 +15,28 @@ class OrientDbGraphStore(GraphStore):
             "OrientDbGraphStore must be initialized with dbType=DB_TYPE_GRAPH"
         super().__init__(store)
 
+    @property
     def classesNeeded(self):
         raise NotImplementedError
 
     def bootstrap(self):
-        self.store.createClasses(self.classesNeeded())
+        self.store.createClasses(self.classesNeeded)
 
     def createVertexClass(self, className: str, properties: Dict=None):
-        self.client.command("create class {} extends V".format(className))
-        if properties:
-            self.store.createClassProperties(className, properties)
+        self.createClass(className, "V", properties)
 
     def createEdgeClass(self, className: str, properties: Dict=None):
-        self.client.command("create class {} extends E".format(className))
+        self.createClass(className, "E", properties)
+
+    def createClass(self, className: str, superclass: str, properties: Dict=None):
+        self.client.command("create class {} extends {}".
+                            format(className, superclass))
+        # TODO tried the following to see if it increases performance, but
+        # it didn't seem to.
+        # See https://www.mail-archive.com/orient-database@googlegroups.com/msg12419.html
+        # self.client.command("create class {}".format(className))
+        # self.client.command("alter class {} superclass {}".
+        #                     format(className, superclass))
         if properties:
             self.store.createClassProperties(className, properties)
 
@@ -39,19 +48,37 @@ class OrientDbGraphStore(GraphStore):
             self.client.command("create property {}.out link {}".
                                 format(edgeClass, out))
 
-    def createVertex(self, name, **kwargs):
-        cmd = "create vertex {}".format(name)
+    def createVertex(self, vertexName, **kwargs):
+        cmd = "create vertex {}".format(vertexName)
         return self._createEntity(cmd, **kwargs)
 
-    def createEdge(self, name, frm, to, **kwargs):
-        cmd = "create edge {} from {} to {}".format(name, frm, to)
+    def createEdge(self, edgeName, edgeFrm, edgeTo, **kwargs):
+        cmd = "create edge {} from {} to {}".format(edgeName, edgeFrm, edgeTo)
         return self._createEntity(cmd, **kwargs)
 
     def _createEntity(self, createCmd, **kwargs):
-        attributes = []
         if len(kwargs) > 0:
             createCmd += " set "
-        for key, val in kwargs.items():
-            attributes.append("{} = '{}'".format(key, val))
-        createCmd += ", ".join(attributes)
+        createCmd += self.store.getPlaceHolderQueryStringFromDict(kwargs)
         return self.client.command(createCmd)[0]
+
+    def getEntityByUniqueAttr(self, entityClassName, attrName, attrValue):
+        query = "select from {} where {} = " + \
+                ("{}" if isinstance(attrValue, (int, float)) else "'{}'")
+        result = self.client.command(query.
+                                     format(entityClassName, attrName, attrValue))
+        return None if not result else result[0]
+
+    def getEntityByAttrs(self, entityClassName, attrs: Dict):
+        attrStr = self.store.getPlaceHolderQueryStringFromDict(attrs,
+                                                               joiner=" and ")
+        result = self.client.command("select from {} where {}".
+                                     format(entityClassName, attrStr))
+        return None if not result else result[0]
+
+    def countEntitiesByAttrs(self, entityClassName, attrs: Dict):
+        attrStr = self.store.getPlaceHolderQueryStringFromDict(attrs,
+                                                               joiner=" and ")
+        result = self.client.command("select count(*) from {} where {}".
+                                     format(entityClassName, attrStr))
+        return result[0].oRecordData['count']

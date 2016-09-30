@@ -5,6 +5,7 @@ import pytest
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, delaysPrePrepareProcessing, \
     changesRequest
 from plenum.common.util import adict
+from plenum.common.log import getlogger
 
 from plenum.test.helper import TestNodeSet
 
@@ -14,6 +15,8 @@ faultyNodes = 3
 whitelist = ['InvalidSignature',
              'discarding message',
              'cannot process incoming PREPARE']
+
+logger = getlogger()
 
 
 @pytest.fixture(scope="module")
@@ -42,4 +45,4 @@ def testNumOfPrePrepareWithFPlusOneFaults(afterElection,
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:
-                logging.info("{} is primary".format(r))
+                logger.info("{} is primary".format(r))

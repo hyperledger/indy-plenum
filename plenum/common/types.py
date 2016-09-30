@@ -5,7 +5,18 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST, REQNACK
+    BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
+    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, TXN_LIST_REQUEST
+
+HA = NamedTuple("HA", [
+    ("host", str),
+    ("port", int)])
+
+NodeDetail = NamedTuple("NodeDetail", [
+    ("ha", HA),
+    ("cliname", str),
+    ("cliha", HA)])
+
 
 Field = namedtuple("Field", ["nm", "tp"])
 
@@ -33,7 +44,27 @@ class f:  # provides a namespace for reusable field constants
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
-    MERKLE_PROOF = Field("merkleProof", Any)
+    MERKLE_ROOT = Field("merkleRoot", str)
+    OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
+    NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
+    TXN_SEQ_NO = Field("txnSeqNo", int)
+    # 0 for pool transaction ledger, 1 for domain transaction ledger
+    LEDGER_TYPE = Field("ledgerType", int)
+    SEQ_NO_START = Field("seqNoStart", int)
+    SEQ_NO_END = Field("seqNoEnd", int)
+    HASHES = Field("hashes", List[str])
+    TXNS = Field("txns", List[Any])
+    TXN = Field("txn", Any)
+    NODES = Field('nodes', Dict[str, HA])
+    POOL_LEDGER_STATUS = Field("poolLedgerStatus", Any)
+    DOMAIN_LEDGER_STATUS = Field("domainLedgerStatus", Any)
+    CONS_PROOF = Field("consProof", Any)
+    POOL_CONS_PROOF = Field("poolConsProof", Any)
+    DOMAIN_CONS_PROOF = Field("domainConsProof", Any)
+    POOL_CATCHUP_REQ = Field("poolCatchupReq", Any)
+    DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", Any)
+    POOL_CATCHUP_REP = Field("poolCatchupRep", Any)
+    DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
 
 
 # TODO: Move this to `txn.py` which should be renamed to constants.py
@@ -100,10 +131,12 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 
 OPERATION = 'operation'
 
+Identifier = str
+
 
 class Request:
     def __init__(self,
-                 identifier: str=None,
+                 identifier: Identifier=None,
                  reqId: int=None,
                  operation: Mapping=None,
                  signature: str=None):
@@ -133,6 +166,9 @@ class Request:
     def __getstate__(self):
         return self.__dict__
 
+    def getSigningState(self):
+        return self.__dict__
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         return self
@@ -158,6 +194,10 @@ RequestNack = TaggedTuple(REQNACK, [
     f.REQ_ID,
     f.REASON])
 
+PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
+    f.TXN
+])
+
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
@@ -169,6 +209,9 @@ Ordered = NamedTuple(ORDERED, [
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
 
+# Propagate needs the name of the sender client since every node needs to know
+# who sent the request to send the reply. If all clients had name same as
+# their identifier same as client name (stack name, the name which RAET knows)
 Propagate = TaggedTuple(PROPAGATE, [
     f.REQUEST,
     f.SENDER_CLIENT])
@@ -204,6 +247,43 @@ InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO
 ])
 
+LedgerStatus = TaggedTuple(LEDGER_STATUS, [
+    f.LEDGER_TYPE,
+    f.TXN_SEQ_NO,
+    f.MERKLE_ROOT])
+
+ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
+    f.LEDGER_TYPE,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END,
+    f.OLD_MERKLE_ROOT,
+    f.NEW_MERKLE_ROOT,
+    f.HASHES
+])
+
+# TODO: Catchup is not a good name, replace it with `sync` or something which
+# is familiar
+
+CatchupReq = TaggedTuple(CATCHUP_REQ, [
+    f.LEDGER_TYPE,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END,
+])
+
+CatchupRep = TaggedTuple(CATCHUP_REP, [
+    f.LEDGER_TYPE,
+    f.TXNS,
+    f.CONS_PROOF
+])
+
+
+ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
+    f.LEDGER_TYPE,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END
+])
+
+
 TaggedTuples = None  # type: Dict[str, class]
 
 
@@ -211,16 +291,19 @@ def loadRegistry():
     global TaggedTuples
     if not TaggedTuples:
         this = sys.modules[__name__]
-        TaggedTuples = {getattr(this, x).__name__: getattr(this, x) for x in dir(this)
-                        if callable(getattr(getattr(this, x), "melted", None))
+        TaggedTuples = {getattr(this, x).__name__: getattr(this, x)
+                        for x in dir(this) if
+                        callable(getattr(getattr(this, x), "melted", None))
                         and getattr(getattr(this, x), "_fields", None)}
 
 loadRegistry()
 
-ThreePhaseMsg = TypeVar("3PhaseMsg",
-                        PrePrepare,
-                        Prepare,
-                        Commit)
+ThreePhaseType = (PrePrepare, Prepare, Commit)
+ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
+
+
+ElectionType = (Nomination, Primary, Reelection)
+ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
@@ -236,15 +319,17 @@ NODE_SECONDARY_STORAGE_SUFFIX = "SS"
 NODE_TXN_STORE_SUFFIX = "TS"
 NODE_HASH_STORE_SUFFIX = "HS"
 
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
-
-NodeDetail = NamedTuple("NodeDetail", [
-    ("ha", HA),
-    ("cliname", str),
-    ("cliha", HA)])
-
 HS_FILE = "file"
 HS_ORIENT_DB = "orientdb"
 HS_MEMORY = "memory"
+
+PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
+PLUGIN_TYPE_PROCESSING = "PROCESSING"
+PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
+
+EVENT_REQ_ORDERED = "req_ordered"
+EVENT_NODE_STARTED = "node_started"
+EVENT_PERIODIC_STATS_THROUGHPUT = "periodic_stats_throughput"
+EVENT_VIEW_CHANGE = "view_changed"
+EVENT_PERIODIC_STATS_LATENCIES = "periodic_stats_latencies"
+PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"

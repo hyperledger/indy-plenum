@@ -3,21 +3,8 @@ from typing import Sequence
 import pytest
 
 from plenum.server.node import Node
-from plenum.test.eventually import eventually
-from plenum.test.helper import checkSufficientRepliesRecvd, sendRandomRequest
 
-nodeCount = 4
-
-
-@pytest.fixture(scope="module")
-def requests(looper, client1):
-    requests = []
-    for i in range(5):
-        req = sendRandomRequest(client1)
-        looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox, req.reqId, 1,
-                              retryWait=1, timeout=5))
-        requests.append(req)
-    return requests
+nodeCount = 7
 
 
 def testThroughtputThreshold(nodeSet, requests):

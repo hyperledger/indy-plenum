@@ -1,11 +1,11 @@
-import logging
 import types
+from logging import getLogger
 from typing import List, Any, Mapping
 
 from plenum.client.client import Client
 from plenum.common.types import Request
 
-logger = logging.getLogger(__name__)
+logger = getLogger()
 
 
 def makeClientFaulty(client, *behaviors):
@@ -63,11 +63,11 @@ def repeatsRequest(client: Client, count: int) -> Client:
         for op in operations:
             for _ in range(count):
                 request = self.createRequest(op)
-                self.send(request)
+                self.nodestack.send(request)
                 requests.append(request)
         return requests
 
-    client.submit = types.MethodType(evilSubmit, client)
+    client.submit_DEPRECATED = types.MethodType(evilSubmit, client)
     return client
 
 
@@ -81,5 +81,5 @@ def sendsUnsignedRequest(client) -> Client:
     def evilSign(self, msg, signer) -> Mapping:
         logger.debug("EVIL: client doesn't sign any of the requests")
         return msg
-    client.sign = types.MethodType(evilSign, client)
+    client.nodestack.sign = types.MethodType(evilSign, client)
     return client

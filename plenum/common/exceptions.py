@@ -84,10 +84,15 @@ class InvalidIdentifier(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class UnregisteredIdentifier(SigningException):
+    code = 136
+    reason = 'provided owner identifier not registered with agent'
+
+
 class RaetKeysNotFoundException(Exception):
     code = 141
-    reason = 'Key pairs not found in raet keep. ' \
-             'Please run script init_raet_keep.py to generate them'
+    reason = 'Keys not found in the keep. ' \
+             'To generate them run script '
 
 
 class SuspiciousNode(BaseExc):
@@ -103,7 +108,7 @@ class SuspiciousNode(BaseExc):
         return "Error code: {}. {}".format(self.code, self.reason)
 
 
-class SuspiciousClient(BaseExc):
+class SuspiciousClient(BaseExc, ReqInfo):
     pass
 
 
@@ -120,6 +125,7 @@ class InvalidClientMessageException(InvalidMessageException):
         super().__init__(*args, **kwargs)
         self.identifier = identifier
         self.reqId = reqId
+        self.args = args
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):
@@ -163,4 +169,8 @@ class DataDirectoryNotFound(StorageException):
 
 
 class DBConfigNotFound(StorageException):
+    pass
+
+
+class UnsupportedOperation(Exception):
     pass

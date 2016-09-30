@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.plugin_loader import PluginLoader
 
 curPath = os.path.dirname(os.path.abspath(__file__))
@@ -9,8 +10,8 @@ curPath = os.path.dirname(os.path.abspath(__file__))
 
 @pytest.fixture
 def plugin():
-    pl = PluginLoader(os.path.join(curPath, 'plugin1'))
-    verPlugins = pl.plugins['VERIFICATION']
+    pl = PluginLoader(os.path.join(curPath, 'name_age_verification'))
+    verPlugins = pl.plugins[PLUGIN_TYPE_VERIFICATION]
     assert len(verPlugins) == 1
     p, = verPlugins
     assert p.__class__.__name__ == 'NameAndAgeVerifier'
@@ -32,7 +33,7 @@ def testInvalidOperations(plugin):
     operations = [
         {"name": "Alice has a very long name, too long in fact", "age": 27},
         {"name": "Susan", "age": -1},
-        {"name": "John", "age": "fourty-seven"}
+        {"name": "John", "age": "forty-seven"}
     ]
 
     for operation in operations:

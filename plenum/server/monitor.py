@@ -1,17 +1,24 @@
-import logging
 import time
+from datetime import datetime
 from statistics import mean
-from typing import Dict
+from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
 
-from plenum.common.util import getlogger
+from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
+    EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
+from plenum.common.util import getConfig
+from plenum.common.log import getlogger
+from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
+from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 logger = getlogger()
+config = getConfig()
 
 
-class Monitor:
+class Monitor(HasActionQueue, PluginLoaderHelper):
     """
     Implementation of RBFT's monitoring mechanism.
 
@@ -21,13 +28,14 @@ class Monitor:
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances):
+                 instances: Instances, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
 
         self.Delta = Delta
         self.Lambda = Lambda
         self.Omega = Omega
+        self.statsConsumers = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_STATS_CONSUMER)
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and
@@ -35,9 +43,9 @@ class Monitor:
         # protocol instance
         self.numOrderedRequests = []  # type: List[Tuple[int, int]]
 
-        # Requests that have been sent for ordering but have not been ordered
-        # yet. Key of the dictionary is a tuple of client id and request id and
-        # the value is the time at which the request was submitted for ordering
+        # Requests that have been sent for ordering. Key of the dictionary is a
+        # tuple of client id and request id and the value is the time at which
+        # the request was submitted for ordering
         self.requestOrderingStarted = {}  # type: Dict[Tuple[str, int], float]
 
         # Request latencies for the master protocol instances. Key of the
@@ -51,6 +59,38 @@ class Monitor:
         # requests and average time taken by that number of requests for the
         # `i`th protocol instance
         self.clientAvgReqLatencies = []  # type: List[Dict[str, Tuple[int, float]]]
+
+        # TODO: Set this if this monitor belongs to a node which has primary
+        # of master. Will be used to set `totalRequests`
+        self.hasMasterPrimary = None
+
+        # Total requests that have been ordered since the node started
+        self.totalRequests = 0
+
+        self.started = datetime.utcnow().isoformat()
+
+        # Times of requests ordered by master in last
+        # `ThroughputWindowSize` seconds. `ThroughputWindowSize` is
+        # defined in config
+        self.orderedRequestsInLast = []
+
+        # Times and latencies (as a tuple) of requests ordered by master in last
+        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
+        # defined in config
+        self.latenciesByMasterInLast = []
+
+        # Times and latencies (as a tuple) of requests ordered by backups in last
+        # `LatencyWindowSize` seconds. `LatencyWindowSize` is
+        # defined in config. Dictionary where key corresponds to instance id and
+        #  value is a tuple of ordering time and latency of a request
+        self.latenciesByBackupsInLast = {}
+
+        self.totalViewChanges = 0
+        self._lastPostedViewChange = 0
+        HasActionQueue.__init__(self)
+
+        if config.SendMonitorStats:
+            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     def __repr__(self):
         return self.name
@@ -68,15 +108,16 @@ class Monitor:
             ("Omega", self.Omega),
             ("instances started", self.instances.started),
             ("ordered request counts",
-                {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
             ("ordered request durations",
-                {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
+             {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("request ordering started", self.requestOrderingStarted),
             ("master request latencies", self.masterReqLatencies),
             ("client avg request latencies", self.clientAvgReqLatencies),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
             ("master throughput", masterThrp),
+            ("total requests", self.totalRequests),
             ("avg backup throughput", backupThrp),
             ("master throughput ratio", r)]
         return m
@@ -93,11 +134,12 @@ class Monitor:
         """
         Reset the monitor. Sets all monitored values to defaults.
         """
-        logging.debug("Monitor being reset")
+        logger.debug("Monitor being reset")
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
+        self.totalViewChanges += 1
 
     def addInstance(self):
         """
@@ -113,16 +155,24 @@ class Monitor:
         Measure the time taken for ordering of a request
         """
         if (identifier, reqId) not in self.requestOrderingStarted:
-            logging.debug("Got ordered request with identifier {} and reqId {} "
+            logger.debug("Got ordered request with identifier {} and reqId {} "
                           "but it was from a previous view".
                           format(identifier, reqId))
             return
-        duration = time.perf_counter() - self.requestOrderingStarted[
+        now = time.perf_counter()
+        duration = now - self.requestOrderingStarted[
             (identifier, reqId)]
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
             self.masterReqLatencies[(identifier, reqId)] = duration
+            self.orderedRequestsInLast.append(now)
+            self.latenciesByMasterInLast.append((now, duration))
+        else:
+            if instId not in self.latenciesByBackupsInLast:
+                self.latenciesByBackupsInLast[instId] = []
+            self.latenciesByBackupsInLast[instId].append((now, duration))
+
         if identifier not in self.clientAvgReqLatencies[instId]:
             self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
         totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
@@ -131,6 +181,14 @@ class Monitor:
         # `((n*a)+y)/n+1`
         self.clientAvgReqLatencies[instId][identifier] = \
             (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+
+        # TODO: Inefficient, as on every request a minimum of a large list is
+        # calculated
+        if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
+            self.totalRequests += 1
+            self.postOnReqOrdered()
+            if 0 == reqs:
+                self.postOnNodeStarted(self.started)
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
@@ -233,7 +291,7 @@ class Monitor:
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
-                avgReqsPerInst = totalReqs/self.instances.count
+                avgReqsPerInst = totalReqs / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None
@@ -291,6 +349,117 @@ class Monitor:
         avgLatencies = {cid: mean(lat) for cid, lat in avgLatencies.items()}
 
         return avgLatencies
+
+    def sendPeriodicStats(self):
+        self.sendThroughput()
+        self.sendLatencies()
+        self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    @property
+    def highResThroughput(self):
+        # TODO:KS Move these computations as well to plenum-stats project
+        now = time.perf_counter()
+        while self.orderedRequestsInLast and \
+                        (now - self.orderedRequestsInLast[0]) > \
+                        config.ThroughputWindowSize:
+            self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
+
+        return len(self.orderedRequestsInLast) / config.ThroughputWindowSize
+
+    def sendThroughput(self):
+        logger.debug("{} sending throughput".format(self))
+
+        throughput = self.highResThroughput
+        utcTime = datetime.utcnow()
+        mtrStats = {
+            "throughput": throughput,
+            "timestamp": utcTime.isoformat(),
+            "nodeName": self.name,
+            # Multiply by 1000 for JavaScript date conversion
+            "time": time.mktime(utcTime.timetuple()) * 1000
+        }
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_THROUGHPUT, mtrStats)
+
+    @property
+    def masterLatency(self):
+        now = time.perf_counter()
+        while self.latenciesByMasterInLast and \
+                        (now - self.latenciesByMasterInLast[0][0]) > \
+                        config.LatencyWindowSize:
+            self.latenciesByMasterInLast = self.latenciesByMasterInLast[1:]
+        return (sum(l[1] for l in self.latenciesByMasterInLast) /
+            len(self.latenciesByMasterInLast)) if \
+            len(self.latenciesByMasterInLast) > 0 else 0
+
+    @property
+    def avgBackupLatency(self):
+        now = time.perf_counter()
+        backupLatencies = []
+        for instId, latencies in self.latenciesByBackupsInLast.items():
+            while latencies and \
+                            (now - latencies[0][0]) > \
+                            config.LatencyWindowSize:
+                latencies = latencies[1:]
+            backupLatencies.append(
+                (sum(l[1] for l in latencies) / len(latencies)) if
+                len(latencies) > 0 else 0)
+            self.latenciesByBackupsInLast[instId] = latencies
+
+        return self.mean(backupLatencies)
+
+    def sendLatencies(self):
+        logger.debug("{} sending latencies".format(self))
+        utcTime = datetime.utcnow()
+        # Multiply by 1000 to make it compatible to JavaScript Date()
+        jsTime = time.mktime(utcTime.timetuple()) * 1000
+
+        latencies = dict(
+            masterLatency=self.masterLatency,
+            averageBackupLatency=self.avgBackupLatency,
+            time=jsTime,
+            nodeName=self.name,
+            timestamp=utcTime.isoformat()
+        )
+
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
+
+    def postOnReqOrdered(self):
+        utcTime = datetime.utcnow()
+        # Multiply by 1000 to make it compatible to JavaScript Date()
+        jsTime = time.mktime(utcTime.timetuple()) * 1000
+
+        if self.totalViewChanges != self._lastPostedViewChange:
+            self._lastPostedViewChange = self.totalViewChanges
+            viewChange = dict(
+                time=jsTime,
+                viewChange=self._lastPostedViewChange
+            )
+            self._sendStatsDataIfRequired(EVENT_VIEW_CHANGE, viewChange)
+
+        reqOrderedEventDict = dict(self.metrics())
+        reqOrderedEventDict["created_at"] = utcTime.isoformat()
+        reqOrderedEventDict["nodeName"] = self.name
+        reqOrderedEventDict["time"] = jsTime
+        reqOrderedEventDict["hasMasterPrimary"] = "Y" if self.hasMasterPrimary else "N"
+        self._sendStatsDataIfRequired(EVENT_REQ_ORDERED, reqOrderedEventDict)
+
+    def postOnNodeStarted(self, startedAt):
+        throughputData = {
+            "throughputWindowSize": config.ThroughputWindowSize,
+            "updateFrequency": config.DashboardUpdateFreq,
+            "graphDuration": config.ThroughputGraphDuration
+        }
+        startedAtData = {"startedAt": startedAt, "ctx": "DEMO"}
+        startedEventDict = {
+            "startedAtData": startedAtData,
+            "throughputConfig": throughputData
+        }
+        self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
+
+    def _sendStatsDataIfRequired(self, event, stats):
+        if config.SendMonitorStats:
+            for sc in self.statsConsumers:
+                sc.sendStats(event, stats)
 
     @staticmethod
     def mean(data):

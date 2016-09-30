@@ -9,10 +9,8 @@ def overlapNodePorts(nodeReg):
     """
     From the given node registry, make Alpha and Beta run on the same port.
     """
-    print(nodeReg)
     A = nodeReg['Alpha']
     betaPort = nodeReg['Beta'].ha.port
-    betaClientPort = nodeReg['Beta'].cliha.port
     nodeReg['Alpha'] = NodeDetail(HA(A.ha.host, betaPort), A.cliname,
                                   HA(A.cliha.host, A.cliha.port))
 

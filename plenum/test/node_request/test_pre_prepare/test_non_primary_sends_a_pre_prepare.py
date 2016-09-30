@@ -8,7 +8,7 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
     getNodeSuspicions
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.instances.helper import recvdPrePrepare
 

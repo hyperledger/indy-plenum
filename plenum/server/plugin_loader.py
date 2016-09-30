@@ -1,14 +1,24 @@
 import inspect
 import re
 import sys
+from abc import abstractmethod
 from importlib import import_module
 from os import listdir
 from os.path import isfile, join
 from typing import Any, Set, Dict
 
-from plenum.common.util import getlogger
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
+
+from plenum.common.log import getlogger
 
 logger = getlogger()
+
+
+class HasDynamicallyImportedModules:
+
+    @abstractmethod
+    def isModuleImportedSuccessfully(self):
+        raise NotImplementedError
 
 
 class PluginLoader:
@@ -20,7 +30,7 @@ class PluginLoader:
     will look for any classes declared in these modules that have a class
     attribute named 'pluginType', and then it checks to see that the
     'pluginType' attribute is equal to any of the valid types. Right now there
-    is only one valid type, 'VERIFICATION'. Then, it instantiates an object of
+    three types of plugins: 'VERIFICATION', 'PROCESSING' and STATS_CONSUMER. Then, it instantiates an object of
     that class type, without any constructor arguments. This is the plugin
     instance.
 
@@ -44,7 +54,8 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = ['VERIFICATION']
+        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
+                            PLUGIN_TYPE_STATS_CONSUMER]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 
@@ -62,8 +73,8 @@ class PluginLoader:
         mods = [m.groups()[0] for m in matches if m]
         for m in mods:
             if m in sys.modules:
-                logger.warning("skipping plugin {} because it is already "
-                               "loaded".format(m))
+                logger.debug("skipping plugin {} because it is already "
+                             "loaded".format(m))
         return mods
 
     def _load(self) -> Dict[str, Set[Any]]:
@@ -78,26 +89,40 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.warning("skipping plugin {} because it does not "
-                                       "have a '{}' attribute".
-                                       format(mod, self._pluginTypeAttrName))
+                        logger.debug("skipping plugin {}[class: {}] "
+                                     "because it does not have a '{}' "
+                                     "attribute".
+                                       format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
                         if typ not in self._validTypes:
-                            logger.warning("skipping plugin '{0}' because it "
+                            logger.debug("skipping plugin '{0}' because it "
                                            "does not have a valid '{1}' "
                                            "attribute; valid {1} are: {2}".
                                            format(mod,
                                                   self._pluginTypeAttrName,
                                                   self._validTypes))
-                        inst = c()
-                        logger.info("plugin {} loaded from module {}".
-                                    format(c.__name__, mod))
-
-                        if typ in plugins:
-                            plugins[typ].add(inst)
                         else:
-                            plugins[typ] = {inst}
+                            inst = c()
+                            importSuccessful = False
+                            if isinstance(inst, HasDynamicallyImportedModules):
+                                importSuccessful = inst.isModuleImportedSuccessfully()
+                            else:
+                                importSuccessful = True
+
+                            if importSuccessful:
+                                logger.info("plugin {} successfully loaded "
+                                             "from module {}".
+                                            format(c.__name__, mod))
+                                if typ in plugins:
+                                    plugins[typ].add(inst)
+                                else:
+                                    plugins[typ] = {inst}
+                            else:
+                                logger.info("** ERROR occurred while loading "
+                                            "{} plugin from module {}".
+                                            format(c.__name__, mod))
+
             sys.path.pop(0)
 
         if not plugins:

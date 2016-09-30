@@ -13,31 +13,28 @@ or supply a command to be executed first
 $ scripts/plenum "new nodes all"
 
 """
-import os
-import sys
-from collections import OrderedDict
-from configparser import ConfigParser
-from tempfile import TemporaryDirectory
+# Do not remove this import
+import plenum.cli.ensure_logging_not_setup
 
+# NOTE: Loading of plugin should happen as early as possible
+# So put all other required imports after loadPlugins function call below
+from plenum.common.util import getConfig
+from plenum.common.plugin_helper import loadPlugins
+config = getConfig()
+basedirpath = config.baseDir
+loadPlugins(basedirpath)
+
+# NOTE: Put all regular imports below (not related to loadplugin)
+import sys
 from plenum.cli.cli import Cli
 from plenum.common.looper import Looper
-from plenum.common.util import getConfig
 
 
 def run_cli():
-
     commands = sys.argv[1:]
-
-    config = getConfig()
-    nodeReg = config.nodeReg
-    cliNodeReg = config.cliNodeReg
-    basedirpath = config.baseDir
-
     with Looper(debug=False) as looper:
         cli = Cli(looper=looper,
                   basedirpath=basedirpath,
-                  nodeReg=nodeReg,
-                  cliNodeReg=cliNodeReg,
                   logFileName='log/cli.log')
 
         looper.run(cli.shell(*commands))

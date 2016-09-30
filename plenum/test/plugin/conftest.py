@@ -1,0 +1,6 @@
+OPERATION_VALIDATION_PLUGIN_PATH_VALUE = "operation_verification"
+AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE = "auction_req_validation"
+AUCTION_REQ_PROCESSOR_PLUGIN_PATH_VALUE = "auction_req_processor"
+BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE = "bank_req_validation"
+BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE = "bank_req_processor"
+STATS_CONSUMER_PLUGIN_PATH_VALUE = "stats_consumer"

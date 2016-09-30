@@ -1,3 +1,4 @@
+from plenum.server.node import Node
 from plenum.test.eventually import eventually
 
 from plenum.common.types import InstanceChange
@@ -26,7 +27,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
 
 
 # noinspection PyIncorrectDocstring
-def testDiscardInstChngMsgIfMasterDoesntSeePerformanceProblem(
+def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
         nodeSet, looper, ensureView):
     """
     A node that received an INSTANCE_CHANGE message must not send an
@@ -36,14 +37,20 @@ def testDiscardInstChngMsgIfMasterDoesntSeePerformanceProblem(
 
     curViewNo = ensureView
 
+    # Count sent instance changes of all nodes
+    sentInstChanges = {}
+    instChngMethodName = Node.sendInstanceChange.__name__
+    for n in nodeSet:
+        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
+
     # Send an instance change message to all nodes
     icMsg = InstanceChange(curViewNo)
     nodeSet.Alpha.send(icMsg)
 
-    # ensure every node but Alpha discards the invalid instance change request
-    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
-                          'did not find the master to be slow', nodeSet.Alpha,
-                          timeout=5))
-
     # Check that that message is discarded.
     looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    # No node should have sent a view change and thus must not have called
+    # `sendInstanceChange`
+    for n in nodeSet:
+        assert n.spylog.count(instChngMethodName) == \
+                   sentInstChanges.get(n.name, 0)

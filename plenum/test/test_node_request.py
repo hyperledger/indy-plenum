@@ -1,10 +1,8 @@
-import logging
 from pprint import pprint
-
-import pytest
 
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import TestNodeSet, setupNodesAndClient, \
@@ -18,17 +16,18 @@ from plenum.common.looper import Looper
 from plenum.test.profiler import profile_this
 
 whitelist = ['cannot process incoming PREPARE']
+logger = getlogger()
 
 
-@pytest.mark.skipif(True, reason="processOrdered is now coroutine, need spylog "
-                                 "to handle coroutines")
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             for n in nodeSet:
                 n.startKeySharing()
-            client1 = setupNodesAndClient(looper, nodeSet, tmpdir=tdir_for_func)
-            req = sendRandomRequest(client1)
+            client1, wallet1 = setupNodesAndClient(looper,
+                                                   nodeSet,
+                                                   tmpdir=tdir_for_func)
+            req = sendRandomRequest(wallet1, client1)
             looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox,
                                   req.reqId, 1,
                                   retryWait=1, timeout=15))
@@ -38,7 +37,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                         node.processOrdered.__name__)
                     for entry in entries:
                         arg = entry.params['ordered']
-                        result = await entry.result
+                        result = entry.result
                         if arg.instId == node.instances.masterId:
                             assert result
                         else:
@@ -55,7 +54,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
             prepareNodeSet(looper, nodeSet)
-            logging.debug("Add the seven nodes back in")
+            logger.debug("Add the seven nodes back in")
             # Every node except A delays self nomination so A can become primary
             nodeA = addNodeBack(nodeSet, looper, nodeNames[0])
             for i in range(1, 7):
@@ -74,13 +73,13 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
             assert nodeA.hasPrimary
 
             instNo = nodeA.primaryReplicaNo
-            client1 = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
-            req = sendRandomRequest(client1)
+            client1, wallet1 = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
+            req = sendRandomRequest(wallet1, client1)
 
             # All nodes including B should return their ordered requests
             for node in nodeSet:
                 looper.run(eventually(checkRequestReturnedToNode, node,
-                                      client1.defaultIdentifier, req.reqId,
+                                      wallet1.defaultId, req.reqId,
                                       req.digest,
                                       instNo, retryWait=1, timeout=30))
 
@@ -113,8 +112,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 
-            client1 = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
-            request = sendRandomRequest(client1)
+            client1, wal = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
+            request = sendRandomRequest(wal, client1)
 
             # TODO Rethink this
             instNo = 0
@@ -171,11 +170,13 @@ def testMultipleRequests(tdir_for_func):
                 n.startKeySharing()
 
             ss0 = snapshotStats(*nodeSet)
-            client = setupNodesAndClient(looper, nodeSet, tmpdir=tdir_for_func)
+            client, wal = setupNodesAndClient(looper,
+                                              nodeSet,
+                                              tmpdir=tdir_for_func)
             ss1 = snapshotStats(*nodeSet)
 
             def x():
-                requests = [sendRandomRequest(client) for _ in range(10)]
+                requests = [sendRandomRequest(wal, client) for _ in range(10)]
                 for request in requests:
                     looper.run(eventually(
                         checkSufficientRepliesRecvd, client.inBox,

@@ -1,6 +1,7 @@
 from collections import deque
 
 
+# TODO: Remove it if its not needed anymore
 class StashingDeque:
     def __init__(self):
         super().__init__()

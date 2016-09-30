@@ -10,4 +10,4 @@ def testClientRequestWithPluginLoaded(cli,
         assert node.opVerifiers is not None
         assert len(node.opVerifiers) == 1
     operation = '{"name": "John", "age": "10"}'
-    checkRequest(cli, cli.looper, operation)
+    checkRequest(cli, operation)

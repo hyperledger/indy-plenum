@@ -1,12 +1,13 @@
-import logging
-
 from plenum.common.exceptions import RemoteNotFound
-from plenum.server.client_authn import SimpleAuthNr
+from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from plenum.common.looper import Looper
 from plenum.test.helper import genNodeReg, checkNodesConnected, TestNodeSet, \
     RemoteState, msgAll
+
+
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
@@ -17,7 +18,7 @@ def testKeyShareParty(tdir_for_func):
     """
     nodeReg = genNodeReg(5)
 
-    logging.debug("-----sharing keys-----")
+    logger.debug("-----sharing keys-----")
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
@@ -25,7 +26,7 @@ def testKeyShareParty(tdir_for_func):
                 n.startKeySharing()
             looper.run(checkNodesConnected(nodeSet))
 
-    logging.debug("-----key sharing done, connect after key sharing-----")
+    logger.debug("-----key sharing done, connect after key sharing-----")
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as loop:

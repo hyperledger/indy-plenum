@@ -19,14 +19,16 @@ class Router:
         """
         Create a new router with a list of routes
 
-        :param routes: each route is a tuple of a type and a callable, so that the router knows which
-        callable to invoke when presented with an object of a particular type.
+        :param routes: each route is a tuple of a type and a callable, so that
+        the router knows which callable to invoke when presented with an object
+         of a particular type.
         """
         self.routes = OrderedDict(routes)
 
     def getFunc(self, o: Any) -> Callable:
         """
-        Get the next function from the list of routes that is capable of processing o's type.
+        Get the next function from the list of routes that is capable of
+        processing o's type.
 
         :param o: the object to process
         :return: the next function

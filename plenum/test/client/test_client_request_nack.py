@@ -3,8 +3,9 @@ from functools import partial
 import pytest
 
 from plenum.common.txn import REQNACK
+from plenum.common.types import OP_FIELD_NAME
 from plenum.test.eventually import eventuallyAll
-from plenum.test.helper import checkReqAck
+from plenum.test.helper import checkReqAck, checkReqNack
 
 whitelist = ['discarding message']
 
@@ -22,8 +23,11 @@ def restrictiveVerifier(nodeSet):
 
 
 @pytest.fixture(scope="module")
-def request1():
-    return {"type": "buy", "amount": 999}
+def request1(wallet1):
+    op = {"type": "buy",
+          "amount": 999}
+    req = wallet1.signOp(op)
+    return req
 
 
 def testRequestFullRoundTrip(restrictiveVerifier,
@@ -32,10 +36,9 @@ def testRequestFullRoundTrip(restrictiveVerifier,
                              looper,
                              nodeSet):
 
-    update = {'op': 'REQNACK',
-              'reason': 'client request invalid: AssertionError amount too '
-                        'high\nassert 999 <= 100'}
+    update = {'reason': 'client request invalid: InvalidClientRequest() '
+                        '[caused by amount too high\nassert 999 <= 100]'}
 
-    coros2 = [partial(checkReqAck, client1, node, sent1.reqId, update)
+    coros2 = [partial(checkReqNack, client1, node, sent1.reqId, update)
               for node in nodeSet]
     looper.run(eventuallyAll(*coros2, totalTimeout=5))

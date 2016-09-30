@@ -1,0 +1,32 @@
+#! /usr/bin/env python3
+
+import socket
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ip', type=str, required=True,
+                    help='send data to a socket '
+                         'listening on this IP')
+parser.add_argument('--port', type=int, required=True,
+                    help='send data to a socket '
+                         'listening on this port')
+parser.add_argument('--listen', type=int, required=True,
+                    help='listen on this port for'
+                         ' data')
+args = parser.parse_args()
+
+UDP_DEST_IP = args.ip
+UDP_DEST_PORT = args.port
+UDP_SRC_PORT = args.listen
+UDP_SRC_IP = "0.0.0.0"
+MESSAGE = "Hello, World!"
+
+print("UDP target IP:", UDP_DEST_IP)
+print("UDP target port:", UDP_DEST_PORT)
+print("message:", MESSAGE)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_SRC_IP, UDP_SRC_PORT))
+print("Socket bound to {}:{}".format(UDP_SRC_IP, UDP_SRC_PORT))
+sent = sock.sendto(MESSAGE.encode(), (UDP_DEST_IP, UDP_DEST_PORT))
+print("{} bytes sent".format(sent))

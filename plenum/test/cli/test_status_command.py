@@ -3,7 +3,9 @@ import logging
 import pytest
 
 from plenum.common.util import getMaxFailures
-from plenum.test.cli.helper import isNameToken
+from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
+    checkClientConnected, checkActiveIdrPrinted
+from plenum.test.eventually import eventually
 
 
 def checkForNamedTokens(printedTokens, expectedNames):
@@ -42,7 +44,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     nodeName = validNodeNames[0]
     cli.enterCmd("new node {}".format(nodeName))
     # Let the node start up
-    cli.looper.runFor(3)
+    checkNodeStarted(cli, nodeName)
 
     cli.enterCmd("status")
     startedNodeToken = cli.printedTokens[1]
@@ -52,15 +54,14 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert clientStatus['msg'] == "Clients: No clients are running. Try " \
                                   "typing " \
                                   "'new client <name>'."
-
     cli.enterCmd("status node {}".format(nodeName))
     msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
     assert "Name: {}".format(node.name) in msgs[0]['msg']
-    assert "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                         node.nodestack.ha[1]) in msgs[1]['msg']
-    assert "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                           node.clientstack.ha[1]) in msgs[2]['msg']
+    assert "Node listener: 0.0.0.0:{}".format(node.nodestack.ha[1]) in \
+           msgs[1]['msg']
+    assert "Client listener: 0.0.0.0:{}".format(node.clientstack.ha[1]) \
+           in msgs[2]['msg']
     assert "Status:" in msgs[3]['msg']
     assert "Connections:" in msgs[4]['msg']
     assert not msgs[4]['newline']
@@ -71,12 +72,12 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert not msgs[9]['newline']
 
 
+# This test fails when the whole test package is run, fails because the
+# fixture `createAllNodes` fails, the relevant bug is
+# https://www.pivotaltracker.com/story/show/126771175
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
-    # waiting here for 5 seconds, So that after creating a node the whole output is printed first.
-    cli.looper.runFor(5)
     cli.enterCmd("status")
-    cli.looper.runFor(1)
     printeds = cli.printeds
     clientStatus = printeds[4]
     fValue = printeds[3]['msg']
@@ -84,7 +85,7 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
                                   "typing " \
                                   "'new client <name>'."
     assert fValue == "f-value (number of possible faulty nodes): {}".format(
-            getMaxFailures(len(validNodeNames)))
+        getMaxFailures(len(validNodeNames)))
 
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
@@ -103,15 +104,17 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
             checkForNamedTokens(cli.printedTokens[1], cli.voidMsg)
 
 
+# This test fails when the whole test package is run, fails because the
+# fixture `createAllNodes` fails
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
-    # waiting here for 5 seconds, So that after creating a node the whole
-    # output is printed first.
-    cli.looper.runFor(5)
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
-    # Let the client get connected to the nodes
-    cli.looper.runFor(5)
-
+    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
+                              clientName, retryWait=1, timeout=3))
+    cli.enterCmd("new key")
+    cli.enterCmd("status client {}".format(clientName))
+    cli.looper.run(eventually(checkActiveIdrPrinted, cli, retryWait=1,
+                              timeout=3))
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
         # the node status here after the client is connected
@@ -155,10 +158,9 @@ def checkNonPrimaryLogs(node, msgs):
 
 def checkCommonLogs(node, msgs):
     shouldBePresent = ["Name: {}".format(node.name),
-                       "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                                     node.nodestack.ha[1]),
-                       "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                                       node.clientstack.ha[1]),
+                       "Node listener: 0.0.0.0:{}".format(node.nodestack.ha[1]),
+                       "Client listener: 0.0.0.0:{}".format(
+                           node.clientstack.ha[1]),
                        "Status:",
                        "Connections:"
                        ]

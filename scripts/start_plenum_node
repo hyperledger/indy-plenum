@@ -5,22 +5,25 @@ import sys
 
 from plenum.common.looper import Looper
 from plenum.common.raet import initRemoteKeep
+from plenum.common.types import HA
 from plenum.common.util import getConfig
 from plenum.server.node import Node
 
 config = getConfig()
-keepDir = os.path.expanduser(config.baseDir)
+keepDir = config.baseDir
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Provide a name for the node")
+    if len(sys.argv) < 4:
+        print("Provide name and 2 port numbers for running the node "
+              "and client stacks")
         exit()
     else:
         selfName = sys.argv[1]
+        ha = HA("0.0.0.0", int(sys.argv[2]))
+        cliha = HA("0.0.0.0", int(sys.argv[3]))
         with Looper(debug=True) as looper:
-            node = Node(selfName, nodeRegistry=None, basedirpath=keepDir)
+            node = Node(selfName, nodeRegistry=None, basedirpath=keepDir, ha=ha,
+                        cliha=cliha)
             looper.add(node)
             looper.run()
-
-

@@ -7,11 +7,14 @@ from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
 from typing import Dict
 
 from plenum.common.util import objSearchReplace
+from plenum.common.log import getlogger
+
+logger = getlogger()
 
 Entry = NamedTuple('Entry', [('starttime', float),
                              ('endtime', float),
                              ('method', str),
-                             ('params', Tuple),
+                             ('params', Dict),
                              ('result', Any)])
 
 SpyableMethod = Union[str, Callable]
@@ -119,15 +122,16 @@ def Spyable(name: str = None, methods: SpyableMethods = None):
                 newFunc = spy(func, isInit, shouldSpy)
                 morphed[func] = newFunc
                 setattr(spyable, nm, newFunc)
-                logging.debug("in {} added spy on {}".
+                logger.debug("in {} added spy on {}".
                               format(spyable.__name__, nm))
             matches.append(matched)
 
         if methods:
             for m in methods:
                 if m not in matches:
-                    logging.warning(
-                        "method {} not found, so no spy added".format(m))
+                    logger.warning(
+                        "method {} not found, so no spy added".format(m),
+                        extra={"cli": False})
 
         objSearchReplace(spyable, morphed, logMsg="Applying spy remapping")
         return spyable

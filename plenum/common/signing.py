@@ -24,7 +24,8 @@ from collections import Iterable
 from typing import Mapping
 
 from plenum.common.types import f
-from plenum.common.util import error, getlogger
+from plenum.common.util import error
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

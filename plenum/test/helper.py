@@ -1,5 +1,4 @@
 import inspect
-import logging
 import math
 import operator
 import random
@@ -11,36 +10,37 @@ from copy import copy
 from functools import partial
 from itertools import combinations, permutations
 from typing import Set
-from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple, List, \
-    Any, Sequence, Iterator
+from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
+    List, Any, Sequence, Iterator
 from typing import Union, Callable
 
-import pyorient
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
-from plenum.client.signer import SimpleSigner
+from plenum.client.wallet import Wallet
 from plenum.common.exceptions import RemoteNotFound
+from plenum.common.ledger_manager import LedgerManager
 from plenum.common.looper import Looper
-from plenum.common.stacked import NodeStacked, Stack
+from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.txn import REPLY, REQACK, TXN_ID
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     Reply, f, PrePrepare, InstanceChange, TaggedTuples, \
-    CLIENT_STACK_SUFFIX, NodeDetail, HA
+    CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
+    Propagate, Prepare, Commit, CatchupReq, Identifier
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict
-from plenum.persistence.orientdb_store import OrientDbStore
+    Seconds, adict, checkIfMoreThanFSameItems, bootstrapClientKeys
+from plenum.common.port_dispenser import genHa
+from plenum.common.log import getlogger
+from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.plugin_loader import PluginLoader
 from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.test.testing_utils import PortDispenser
 
 # checkDblImp()
 
@@ -52,6 +52,9 @@ RaetDelay = NamedTuple("RaetDelay", [
     ("tk", Optional[TrnsKind]),
     ("pk", Optional[PcktKind]),
     ("fromPort", Optional[int])])
+
+
+logger = getlogger()
 
 
 class TestStack(Stack):
@@ -69,13 +72,6 @@ class TestStack(Stack):
     def resetDelays(self):
         self.stasher.resetDelays()
 
-    @staticmethod
-    def _soft(func, *args):
-        try:
-            return func(*args)
-        except ValueError:
-            return None
-
 
 class Stasher:
     def __init__(self, queue, name: str = None):
@@ -92,13 +88,14 @@ class Stasher:
         :param tester: a callable that takes as an argument the item
             from the queue and returns a number of seconds it should be delayed
         """
+        logger.debug("{} adding delay for {}".format(self.name, tester))
         self.delayRules.add(tester)
 
     def nodelay(self, tester):
         if tester in self.delayRules:
             self.delayRules.remove(tester)
         else:
-            logging.debug("{} not present in {}".format(tester, self.name))
+            logger.debug("{} not present in {}".format(tester, self.name))
 
     def process(self, age: float = None):
         age = age if age is not None else time.perf_counter() - self.created
@@ -110,7 +107,8 @@ class Stasher:
             for rx in list(self.queue):
                 secondsToDelay = tester(rx)
                 if secondsToDelay:
-                    logging.debug("{} stashing message {} for {} seconds".
+                    logger.debug("{} stashing message {} for "
+                                  "{} seconds".
                                   format(self.name, rx, secondsToDelay))
                     self.delayeds.append((age + secondsToDelay, rx))
                     self.queue.remove(rx)
@@ -125,14 +123,14 @@ class Stasher:
         """
         for d in self.delayeds:
             if age >= d[0]:
-                logging.debug(
+                logger.debug(
                         "{} unstashing message {} ({:.0f} milliseconds overdue)".
                             format(self.name, d[1], (age - d[0]) * 1000))
                 self.queue.appendleft(d[1])
                 self.delayeds.remove(d)
 
     def resetDelays(self):
-        logging.debug("{} resetting delays".format(self.name))
+        logger.debug("{} resetting delays".format(self.name))
         self.delayRules = set()
 
 
@@ -165,7 +163,7 @@ class StackedTester:
 
     async def ensureConnectedToNodes(self):
         wait = expectedWait(len(self.nodeReg))
-        logging.debug(
+        logger.debug(
                 "waiting for {} seconds to check client connections to nodes...".format(
                         wait))
         await eventuallyAll(self.checkIfConnectedToAll, retryWait=.5,
@@ -174,22 +172,36 @@ class StackedTester:
 
 @Spyable(methods=[Client.handleOneNodeMsg])
 class TestClient(Client, StackedTester):
-    @staticmethod
-    def stackType():
-        return TestStack
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return getTestableStack(NodeStack)
+
+    def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
+        super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
-                    Monitor.isMasterReqLatencyTooHigh])
+                  Monitor.isMasterReqLatencyTooHigh,
+                  Monitor.sendThroughput])
 class TestMonitor(Monitor):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+@Spyable(methods=[LedgerManager.startCatchUpProcess,
+                  LedgerManager.catchupCompleted,
+                  LedgerManager.processConsistencyProofReq])
+class TestLedgerManager(LedgerManager):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.actionQueueStasher = Stasher(self.actionQueue,
-                                          "actionQueueStasher~elector~" + self.name)
+                                          "actionQueueStasher~elector~" +
+                                          self.name)
 
     def _serviceActions(self):
         self.actionQueueStasher.process()
@@ -204,7 +216,8 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
-                  replica.Replica.doPrepare])
+                  replica.Replica.doPrepare,
+                  replica.Replica.doOrder])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -232,7 +245,7 @@ class TestNodeCore(StackedTester):
         # is among the set of suspicion codes mapped to its name. If the set of
         # suspicion codes is empty then the node would not be blacklisted for
         #  any suspicion code
-        self.whitelistedClients = {}          # type: Dict[str, Set[int]]
+        self.whitelistedNodes = {}          # type: Dict[str, Set[int]]
 
         # Clients that wont be blacklisted by this node if the suspicion code
         # is among the set of suspicion codes mapped to its name. If the set of
@@ -243,13 +256,12 @@ class TestNodeCore(StackedTester):
         # Reinitialize the monitor
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances)
+
+        pluginPaths = kwargs.get('pluginPaths', [])
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
+                                   pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
-
-    @staticmethod
-    def stackType():
-        return TestStack
 
     async def processNodeInBox(self):
         self.nodeIbStasher.process()
@@ -272,18 +284,18 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
-        logging.debug("{} delaying start election".format(self))
+        logger.debug("{} delaying start election".format(self))
         delayerElection = partial(delayerMethod,
                                   TestPrimaryElector.startElection)
         self.elector.actionQueueStasher.delay(delayerElection(delay))
 
     def delayCheckPerformance(self, delay: Seconds):
-        logging.debug("{} delaying check performance".format(self))
+        logger.debug("{} delaying check performance".format(self))
         delayerCheckPerf = partial(delayerMethod, TestNode.checkPerformance)
         self.actionQueueStasher.delay(delayerCheckPerf(delay))
 
     def resetDelays(self):
-        logging.debug("{} resetting delays".format(self))
+        logger.debug("{} resetting delays".format(self))
         self.nodestack.resetDelays()
         self.nodeIbStasher.resetDelays()
         for r in self.replicas:
@@ -293,7 +305,7 @@ class TestNodeCore(StackedTester):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
-        logging.debug("{} white listing {} for codes {}"
+        logger.debug("{} white listing {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
@@ -310,7 +322,7 @@ class TestNodeCore(StackedTester):
         if clientName not in self.whitelistedClients:
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
-        logging.debug("{} white listing {} for codes {}"
+        logger.debug("{} white listing {} for codes {}"
                       .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
@@ -330,7 +342,7 @@ class TestNodeCore(StackedTester):
         return super().validateNodeMsg(wrappedMsg)
 
     async def eatTestMsg(self, msg, frm):
-        logging.debug("{0} received Test message: {1} from {2}".
+        logger.debug("{0} received Test message: {1} from {2}".
                       format(self.nodestack.name, msg, frm))
 
     def serviceReplicaOutBox(self, *args, **kwargs) -> int:
@@ -338,25 +350,9 @@ class TestNodeCore(StackedTester):
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
 
-    @staticmethod
-    def ensureKeysAreSetup(name, baseDir):
+    @classmethod
+    def ensureKeysAreSetup(cls, name, baseDir):
         pass
-
-    def _getOrientDbStore(self, name, dbType):
-        client = pyorient.OrientDB(host="localhost", port=2424)
-        client.connect(user=self.config.OrientDB['user'],
-                       password=self.config.OrientDB['password'])
-        try:
-            if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
-                client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
-        # This is to avoid a known bug in OrientDb.
-        except pyorient.exceptions.PyOrientDatabaseException:
-            client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)
-        return OrientDbStore(user=self.config.OrientDB["user"],
-                             password=self.config.OrientDB["password"],
-                             dbName=name,
-                             dbType=dbType,
-                             storageType=pyorient.STORAGE_TYPE_MEMORY)
 
 
 # noinspection PyShadowingNames
@@ -371,17 +367,54 @@ class TestNodeCore(StackedTester):
                   Node.discard,
                   Node.reportSuspiciousNode,
                   Node.reportSuspiciousClient,
-                  Node.processRequest,
                   Node.processPropagate,
                   Node.propagate,
                   Node.forward,
                   Node.send,
+                  Node.sendInstanceChange,
                   Node.processInstanceChange,
-                  Node.checkPerformance])
+                  Node.checkPerformance
+                  ])
 class TestNode(TestNodeCore, Node):
     def __init__(self, *args, **kwargs):
         Node.__init__(self, *args, **kwargs)
-        TestNodeCore.__init__(self)
+        TestNodeCore.__init__(self, *args, **kwargs)
+        # Balances of all client
+        self.balances = {}  # type: Dict[str, int]
+
+        # Txns of all clients, each txn is a tuple like (from, to, amount)
+        self.txns = []  # type: List[Tuple]
+
+    def _getOrientDbStore(self, name, dbType):
+        return orientdb_store.createOrientDbInMemStore(
+            self.config, name, dbType)
+
+    @property
+    def nodeStackClass(self) -> NodeStack:
+        return getTestableStack(NodeStack)
+
+    @property
+    def clientStackClass(self) -> ClientStack:
+        return getTestableStack(ClientStack)
+
+    def getLedgerManager(self):
+        return TestLedgerManager(self, ownedByNode=True)
+
+
+def getTestableStack(stack: Stack):
+    """
+    Dynamically modify a class that extends from `Stack` and introduce
+    `TestStack` in the class hierarchy
+    :param stack:
+    :return:
+    """
+    mro = stack.__mro__
+    newMro = []
+    for c in mro[1:]:
+        if c == Stack:
+            newMro.append(TestStack)
+        newMro.append(c)
+    return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
 
 
 def randomMsg() -> TaggedTuple:
@@ -404,7 +437,7 @@ def ordinal(n):
 
 def getLastMsgReceivedForNode(node: TestNode, method: str = None) -> Tuple:
     return node.spylog.getLast(
-            method if method else NodeStacked.handleOneNodeMsg.__name__,
+            method if method else TestNode.handleOneNodeMsg.__name__,
             required=True).params[
         'wrappedMsg']  # params should return a one element tuple
 
@@ -433,6 +466,7 @@ def getAllReturnVals(obj: Any, method: SpyableMethod) -> List[Any]:
 
 
 class TestNodeSet(ExitStack):
+
     def __init__(self,
                  names: Iterable[str] = None,
                  count: int = None,
@@ -440,14 +474,12 @@ class TestNodeSet(ExitStack):
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 opVerificationPluginPath=None,
+                 pluginPaths:Iterable[str]=None,
                  testNodeClass=TestNode):
         super().__init__()
-
         self.tmpdir = tmpdir
-
         self.primaryDecider = primaryDecider
-        self.opVerificationPluginPath = opVerificationPluginPath
+        self.pluginPaths = pluginPaths
 
         self.testNodeClass = testNodeClass
         self.nodes = OrderedDict()  # type: Dict[str, TestNode]
@@ -455,7 +487,6 @@ class TestNodeSet(ExitStack):
         # but then have to pluck attributes from the `self.nodes` so keeping
         # it simple a the cost of extra memory and its test code so not a big
         # deal
-
         if nodeReg:
             self.nodeReg = nodeReg
         else:
@@ -465,26 +496,16 @@ class TestNodeSet(ExitStack):
             self.nodeReg = genNodeReg(
                     names=nodeNames)  # type: Dict[str, NodeDetail]
         for name in self.nodeReg.keys():
-
             self.addNode(name)
-
         # The following lets us access the nodes by name as attributes of the
         # NodeSet. It's not a problem unless a node name shadows a member.
         self.__dict__.update(self.nodes)
 
     def addNode(self, name: str) -> TestNode:
-
         if name in self.nodes:
             error("{} already added".format(name))
-
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
-
-        if self.opVerificationPluginPath:
-            pl = PluginLoader(self.opVerificationPluginPath)
-            opVerifiers = pl.plugins['VERIFICATION']
-        else:
-            opVerifiers = None
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
@@ -495,7 +516,7 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              opVerifiers=opVerifiers))
+                              pluginPaths=self.pluginPaths))
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
@@ -555,40 +576,35 @@ class TestNodeSet(ExitStack):
     def getAllMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
-# TODO: This file is becoming too big. Move things out of here.
-# Start with TestNodeSet
-
 
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
-    logging.debug("received replies {}".format(receivedReplies))
+    logger.debug("received replies {}".format(receivedReplies))
+    logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue
-    result = None
-    for reply in receivedReplies:
-        if result is None:
-            result = reply[f.RESULT.nm]
-        else:
-            # all replies should have the same result
-            assert reply[f.RESULT.nm] == result
+    result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
+                                        receivedReplies], fValue)
+    assert result
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
     return result
     # TODO add test case for what happens when replies don't have the same data
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper, client: TestClient,
+def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
+                                        client: TestClient,
                                         numReqs: int, fVal: int=None,
-                                        timeout: float=None):
+                                        timeoutPerReq: float=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
-    timeout = timeout or 3 * nodeCount
+    timeoutPerReq = timeoutPerReq or 5 * nodeCount
 
-    requests = sendRandomRequests(client, numReqs)
+    requests = sendRandomRequests(wallet, client, numReqs)
     for request in requests:
         looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
                               request.reqId, fVal,
-                              retryWait=1, timeout=timeout))
+                              retryWait=1, timeout=timeoutPerReq))
     return requests
 
 
@@ -635,24 +651,24 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 def expectedWaitDirect(count):
-    return count * 0.75 + 1
+    return count * 1.1 + 1
 
 
 def expectedWait(nodeCount):
     c = totalConnections(nodeCount)
     w = expectedWaitDirect(c)
-    logging.debug("wait time for {} nodes and {} connections is {}".format(
+    logger.debug("wait time for {} nodes and {} connections is {}".format(
             nodeCount, c, w))
     return w
 
 
-async def checkNodesConnected(stacks: Iterable[NodeStacked],
+async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               expectedRemoteState=None,
                               overrideTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
     wait = overrideTimeout if overrideTimeout else expectedWait(len(stacks))
-    logging.debug("waiting for {} seconds to check connections...".format(wait))
+    logger.debug("waiting for {} seconds to check connections...".format(wait))
     # verify every node can see every other as a remote
     funcs = [
         partial(checkRemoteExists, frm.nodestack, to.name, expectedRemoteState)
@@ -667,13 +683,14 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
                      state: RemoteState = None):
     assert states or state, "either state or states is required"
     assert not (
-        states and state), "only one of state or states should be provided, but not both"
+        states and state), "only one of state or states should be provided, " \
+                           "but not both"
     for remote in node.nodestack.remotes.values():
         try:
             s = states[remote.name] if states else state
             checkState(s, remote, "from: {}, to: {}".format(node, remote.name))
         except Exception as ex:
-            logging.debug("state checking exception is {} and args are {}"
+            logger.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
             raise RuntimeError(
                     "Error with {} checking remote {} in {}".format(node.name,
@@ -717,13 +734,14 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     def checkElectionDone():
         unknowns = sum(1 for r in replicas if r.isPrimary is None)
         assert unknowns == 0, "election should be complete, but {} out of {} " \
-                              "don't know who the primary is for protocol no {}" \
-            .format(unknowns, len(replicas), replicas[0].instId)
+                              "don't know who the primary is for " \
+                              "protocol no {}".\
+            format(unknowns, len(replicas), replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
         pris = sum(1 for r in replicas if r.isPrimary)
-        assert pris == 1, "Primary count should be 1, but was {} for protocol no {}" \
-            .format(pris, replicas[0].instId)
+        assert pris == 1, "Primary count should be 1, but was {} for " \
+                          "protocol no {}".format(pris, replicas[0].instId)
 
     def checkPrisAreSame():
         pris = {r.primaryName for r in replicas}
@@ -738,6 +756,17 @@ def checkIfSameReplicaIPrimary(looper: Looper,
 def checkNodesAreReady(nodes: Sequence[TestNode]):
     for node in nodes:
         assert node.isReady()
+
+
+async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
+    if not timeout:
+        timeout = .75 * len(nodes)
+
+    def chk():
+        for node in nodes:
+            assert node.isParticipating
+
+    await eventually(chk, retryWait=1, timeout=timeout)
 
 
 def instances(nodes: Sequence[Node]) -> Dict[int, List[replica.Replica]]:
@@ -771,7 +800,7 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
     newTimeout = timeout - timeConsumed if timeout is not None else None
 
     for instId, replicas in insts.items():
-        logging.debug("Checking replicas in instance: {}".format(instId))
+        logger.debug("Checking replicas in instance: {}".format(instId))
         checkIfSameReplicaIPrimary(looper=looper,
                                    replicas=replicas,
                                    retryWait=retryWait,
@@ -832,8 +861,9 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
 
 def assertLength(collection: Sequence[Any], expectedLength: int):
     assert len(
-            collection) == expectedLength, "Observed length was {} but expected length was {}".format(
-            len(collection), expectedLength)
+            collection) == expectedLength, "Observed length was {} but " \
+                                           "expected length was {}".\
+        format(len(collection), expectedLength)
 
 
 def assertNonEmpty(elem: Any):
@@ -858,13 +888,44 @@ def setupNodesAndClient(looper: Looper, nodes: Sequence[TestNode], nodeReg=None,
 def setupClient(looper: Looper,
                 nodes: Sequence[TestNode] = None,
                 nodeReg=None,
-                tmpdir=None):
-    client1 = genTestClient(nodes=nodes,
-                            nodeReg=nodeReg,
-                            tmpdir=tmpdir)
+                tmpdir=None,
+                identifier=None,
+                verkey=None):
+    client1, wallet = genTestClient(nodes=nodes,
+                                    nodeReg=nodeReg,
+                                    tmpdir=tmpdir,
+                                    identifier=identifier,
+                                    verkey=verkey)
     looper.add(client1)
     looper.run(client1.ensureConnectedToNodes())
-    return client1
+    return client1, wallet
+
+
+def setupClients(count: int,
+                looper: Looper,
+                nodes: Sequence[TestNode] = None,
+                nodeReg=None,
+                tmpdir=None):
+    wallets = {}
+    clients = {}
+    for i in range(count):
+        name = "test-wallet-{}".format(i)
+        # DEPR
+        # storage = WalletStorageFile.fromName(name, tmpdir)
+        # wallet = Wallet(name, storage)
+        wallet = Wallet(name)
+        wallet.addSigner()
+        idr = wallet.defaultId
+        verkey = wallet.getVerKey(idr)
+        client, _ = setupClient(looper,
+                             nodes,
+                             nodeReg,
+                             tmpdir,
+                             identifier=idr,
+                             verkey=verkey)
+        clients[client.name] = client
+        wallets[client.name] = wallet
+    return clients, wallets
 
 
 # noinspection PyIncorrectDocstring
@@ -919,49 +980,48 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
     return [node.replicas[instId] for node in nodes]
 
 
-genHa = PortDispenser("127.0.0.1").getNext
-# genHa = HaGen().getNext
-
-
 def genTestClient(nodes: TestNodeSet = None,
                   nodeReg=None,
                   tmpdir=None,
-                  signer=None,
                   testClientClass=TestClient,
-                  bootstrapKeys=True) -> TestClient:
-    nReg = nodeReg
-    if nodeReg:
-        assert isinstance(nodeReg, dict)
-    elif hasattr(nodes, "nodeReg"):
-        nReg = nodes.nodeReg.extractCliNodeReg()
+                  identifier: Identifier=None,
+                  verkey: str=None,
+                  bootstrapKeys=True,
+                  ha=None,
+                  usePoolLedger=False,
+                  name=None) -> TestClient:
+    if not usePoolLedger:
+        nReg = nodeReg
+        if nodeReg:
+            assert isinstance(nodeReg, dict)
+        elif hasattr(nodes, "nodeReg"):
+            nReg = nodes.nodeReg.extractCliNodeReg()
+        else:
+            error("need access to nodeReg")
+        for k, v in nReg.items():
+            assert type(k) == str
+            assert (type(v) == HA or type(v[0]) == HA)
     else:
-        error("need access to nodeReg")
+        logger.debug("TestClient using pool ledger")
+        nReg = None
 
-    for k, v in nReg.items():
-        assert type(k) == str
-        assert (type(v) == HA or type(v[0]) == HA)
+    ha = genHa() if not ha else ha
+    name = name or "testClient{}".format(ha.port)
 
-    ha = genHa()
-    identifier = "testClient{}".format(ha.port)
-
-    signer = signer if signer else SimpleSigner(identifier)
-
-    tc = testClientClass(identifier,
+    tc = testClientClass(name,
                          nodeReg=nReg,
                          ha=ha,
-                         basedirpath=tmpdir,
-                         signer=signer)
+                         basedirpath=tmpdir)
+    w = None  # type: Wallet
     if bootstrapKeys and nodes:
-        bootstrapClientKeys(tc, nodes)
-    return tc
-
-
-def bootstrapClientKeys(client, nodes):
-    # bootstrap client verification key to all nodes
-    for n in nodes:
-        sig = client.getSigner()
-        idAndKey = sig.identifier, sig.verkey
-        n.clientAuthNr.addClient(*idAndKey)
+        if not identifier or not verkey:
+            # no identifier or verkey were provided, so creating a wallet
+            w = Wallet(name)
+            w.addSigner()
+            identifier = w.defaultId
+            verkey = w.getVerKey()
+        bootstrapClientKeys(identifier, verkey, nodes)
+    return tc, w
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,
@@ -980,13 +1040,15 @@ def randomOperation():
     return {"type": "buy", "amount": random.randint(10, 100)}
 
 
-def sendRandomRequest(client: Client):
-    return client.submit(randomOperation())[0]
+def sendRandomRequest(wallet: Wallet, client: Client):
+    op = randomOperation()
+    req = wallet.signOp(op)
+    return client.submitReqs(req)[0]
 
 
-def sendRandomRequests(client: Client, count: int):
-    ops = [randomOperation() for _ in range(count)]
-    return client.submit(*ops)
+def sendRandomRequests(wallet: Wallet, client: Client, count: int):
+    reqs = [wallet.signOp(randomOperation()) for _ in range(count)]
+    return client.submitReqs(*reqs)
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -1049,11 +1111,11 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
                           msg: Optional[Tuple]=None,
                           timeout: Optional[int]=15
                           ):
-    logging.debug("Sending msg from {} to {}".format(frm, to))
+    logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
     frmnode = nodes.getNode(frm)
     rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
-    frmnode.send(msg, rid)
+    frmnode.nodestack.send(msg, rid)
     await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
                      ratchetSteps=10)
 
@@ -1217,7 +1279,18 @@ def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
         rec.update(update)
     expected = (rec, node.clientstack.name)
     # one and only one matching message should be in the client's inBox
-    assert sum(1 for x in client.inBox if x == expected) == 1
+    # assert sum(1 for x in client.inBox if x == expected) == 1
+    assert client.inBox.count(expected) == 1
+
+
+def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQNACK, 'reqId': reqId}
+    if update:
+        rec.update(update)
+    expected = (rec, node.clientstack.name)
+    # one and only one matching message should be in the client's inBox
+    # assert sum(1 for x in client.inBox if x == expected) == 1
+    assert client.inBox.count(expected) == 1
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -1229,7 +1302,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     viewNos = set()
     for node in nodes:
-        logging.debug("{}'s view no is {}".format(node, node.viewNo))
+        logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
     assert len(viewNos) == 1
     vNo, = viewNos
@@ -1245,8 +1318,7 @@ def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
     :param oldViewNo: The view no on which the nodes were before the view change
     :return:
     """
-    params = [args for args in getAllArgs(
-            node, TestNode.startViewChange)]
+    params = [args for args in getAllArgs(node, TestNode.startViewChange)]
     assert len(params) > 0
     args = params[-1]
     assert args["proposedViewNo"] == oldViewNo
@@ -1254,14 +1326,44 @@ def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
     assert node.elector.viewNo == oldViewNo + 1
 
 
+# Delayer of PROPAGATE requests
+def ppgDelay(delay: float):
+    return delayerMsgTuple(delay, Propagate)
+
+
 # Delayer of PRE-PREPARE requests from a particular instance
 def ppDelay(delay: float, instId: int=None):
     return delayerMsgTuple(delay, PrePrepare, instFilter=instId)
 
 
+# Delayer of PREPARE requests from a particular instance
+def pDelay(delay: float, instId: int=None):
+    return delayerMsgTuple(delay, Prepare, instFilter=instId)
+
+
+# Delayer of COMMIT requests from a particular instance
+def cDelay(delay: float, instId: int=None):
+    return delayerMsgTuple(delay, Commit, instFilter=instId)
+
+
 # Delayer of INSTANCE-CHANGE requests
 def icDelay(delay: float):
     return delayerMsgTuple(delay, InstanceChange)
+
+
+# Delayer of LEDGER_STATUSES requests
+def lsDelay(delay: float):
+    return delayerMsgTuple(delay, LedgerStatus)
+
+
+# Delayer of CONSISTENCY_PROOFS requests
+def cpDelay(delay: float):
+    return delayerMsgTuple(delay, ConsistencyProof)
+
+
+# Delayer of CATCHUP_REQ requests
+def crDelay(delay: float):
+    return delayerMsgTuple(delay, CatchupReq)
 
 
 def delay(what, frm, to, howlong):
@@ -1310,8 +1412,11 @@ def getCallableName(callable: Callable):
 
 def checkDiscardMsg(nodeSet, discardedMsg,
                     reasonRegexp, *exclude):
+    if not exclude:
+        exclude = []
     for n in filterNodeSet(nodeSet, exclude):
-        last = n.spylog.getLastParams(Node.discard, required=True)
+        last = n.spylog.getLastParams(Node.discard, required=False)
+        assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
 
@@ -1343,3 +1448,9 @@ TESTMSG = "TESTMSG"
 TestMsg = TaggedTuple(TESTMSG, [
     ("subject", str),
     ("content", str)])
+
+
+def delayNonPrimaries(nodeSet, instId, delay):
+    nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
+    for r in nonPrimReps:
+        r.node.nodeIbStasher.delay(ppDelay(delay, instId))

@@ -1,0 +1,17 @@
+#! /usr/bin/env python3
+
+import os
+
+from plenum.common.test_network_setup import TestNetworkSetup
+from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.util import getConfig
+
+config = getConfig()
+keepDir = config.baseDir
+portsStart = 9600
+
+if __name__ == "__main__":
+    TestNetworkSetup.bootstrapTestNodes(portsStart, keepDir,
+                                        config.poolTransactionsFile,
+                                        config.domainTransactionsFile,
+                                        getTxnOrderedFields())

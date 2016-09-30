@@ -8,7 +8,7 @@ from asyncio.coroutines import CoroWrapper
 from typing import List
 
 from plenum.common.startable import Status
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -97,10 +97,27 @@ class Looper:
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
         self.loop.set_debug(debug)
-        if sys.platform == 'win32':
-            signal.signal(signal.SIGINT, self.onSigInt)
-        else:
-            self.loop.add_signal_handler(signal.SIGINT, self.onSigInt)
+
+        # TODO: uncomment this when python bug fixed (not just closed, but solved!)
+        # https://bugs.python.org/issue23548
+        #
+        # signals = [item for item in dir(signal)
+        #             if item.startswith("SIG") and item[3] != "_"]
+
+        signals = ["SIGINT"]
+
+        setSignal = \
+            signal.signal if sys.platform == 'win32' \
+            else self.loop.add_signal_handler
+
+        for sigName in signals:
+            try:
+                logger.debug("Setting handler for {}".format(sigName))
+                sigNum = getattr(signal, sigName)
+                setSignal(sigNum, self.handleSignal)
+            except RuntimeError as e:
+                logger.debug("Cannot set handler for {} because {}".format(sigName, e))
+
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
             self.startall()
@@ -130,13 +147,26 @@ class Looper:
         if self.autoStart:
             prodable.start(self.loop)
 
-    def removeProdable(self, prodable: Prodable) -> None:
+    def removeProdable(self, prodable: Prodable=None, name: str=None) -> None:
         """
         Remove the specified Prodable object from this Looper's list of Prodables
 
         :param prodable: the Prodable to remove
         """
-        self.prodables.remove(prodable)
+        if prodable:
+            self.prodables.remove(prodable)
+        elif name:
+            for p in self.prodables:
+                if hasattr(p, "name") and getattr(p, "name") == name:
+                    prodable = p
+                    break
+            if prodable:
+                self.prodables.remove(prodable)
+            else:
+                logger.warn("Trying to remove a prodable {} which is not present"
+                            .format(prodable))
+        else:
+            logger.error("Provide a prodable object or a prodable name")
 
     async def runOnceNicely(self):
         """
@@ -149,7 +179,7 @@ class Looper:
             await asyncio.sleep(0.01)  # if no let other stuff run
         dur = time.perf_counter() - start
         if dur >= 0.5:
-            logger.warning("it took {:.3f} seconds to run once nicely".
+            logger.info("it took {:.3f} seconds to run once nicely".
                            format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
@@ -198,8 +228,8 @@ class Looper:
             what = self.runFut
         return self.loop.run_until_complete(what)
 
-    def onSigInt(self):
-        logger.info("SIGINT received, stopping looper...")
+    def handleSignal(self, sig):
+        logger.info("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):

@@ -5,7 +5,7 @@ from asyncio.coroutines import CoroWrapper
 from inspect import isawaitable
 from typing import Callable, TypeVar, Optional, Iterable
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 from plenum.common.ratchet import Ratchet
 
@@ -154,4 +154,3 @@ async def eventually(coroFunc: FlexFunc,
                              "seconds have passed; args were {}".
                              format(fname, timeout, args))
                 raise ex
-

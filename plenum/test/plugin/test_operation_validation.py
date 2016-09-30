@@ -4,18 +4,28 @@ import pytest
 
 from plenum.server.node import Node
 from plenum.test.helper import TestNodeSet
+from plenum.test.plugin.conftest import OPERATION_VALIDATION_PLUGIN_PATH_VALUE
+from plenum.test.plugin.helper import getPluginPath
+
+
+@pytest.fixture(scope="module")
+def pluginVerPath():
+    return getPluginPath(OPERATION_VALIDATION_PLUGIN_PATH_VALUE)
+
+
+@pytest.fixture(scope="module")
+def allPluginPaths(pluginVerPath):
+    return [pluginVerPath]
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(tdir, nodeReg):
+def nodeSet(tdir, nodeReg, allPluginPaths):
     """
     Overrides the fixture from conftest.py
     """
-    curPath = os.path.dirname(os.path.abspath(__file__))
-    pluginPath = os.path.join(curPath, 'plugin2')
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir,
-                     opVerificationPluginPath=pluginPath) as ns:
+                     pluginPaths=allPluginPaths) as ns:
 
         for n in ns:  # type: Node
             assert n.opVerifiers is not None
@@ -27,9 +37,6 @@ def nodeSet(tdir, nodeReg):
 
 
 def testWithOpValidationPlugin(nodeSet, replied1):
-
-    # sendReqsToNodesAndVerifySuffReplies(looper, client1, 1)
-
     for n in nodeSet:  # type: Node
         opVerifier, = n.opVerifiers
         assert opVerifier.count == 1

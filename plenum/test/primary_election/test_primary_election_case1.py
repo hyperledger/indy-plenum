@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from plenum.common.log import getlogger
 
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually
@@ -15,6 +16,8 @@ from plenum.test.primary_election.helpers import checkNomination, \
 nodeCount = 4
 whitelist = ['already got nomination',
              'doing nothing for now']
+
+logger = getlogger()
 
 
 @pytest.fixture()
@@ -73,7 +76,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     for i in range(5):
         nodeB.send(Nomination(nodeD.name, instId, nodeB.viewNo))
-    nodeB.flushOutBoxes()
+    nodeB.nodestack.flushOutBoxes()
 
     # No node from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have more than one nomination for node D since
@@ -88,7 +91,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
                                           retryWait=1, timeout=30)
 
     for node in nodes:
-        logging.debug(
+        logger.debug(
             "{}'s nominations {}".format(node, node.elector.nominations))
     # Node D should not have any primary
     assert not nodeD.hasPrimary

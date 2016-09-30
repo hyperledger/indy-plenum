@@ -3,24 +3,31 @@ from collections import OrderedDict
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
 
 from plenum.common.txn import ClientBootStrategy
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
 
 nodeReg = OrderedDict([
-    ('Alpha', (('qcfbchain.cloudapp.net', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('Beta', (('qcfbchain.cloudapp.net', 9703), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('Gamma', (('52.160.103.164', 9705), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('Delta', (('52.160.103.164', 9707), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
+    ('Alpha', ('127.0.0.1', 9701)),
+    ('Beta', ('127.0.0.1', 9703)),
+    ('Gamma', ('127.0.0.1', 9705)),
+    ('Delta', ('127.0.0.1', 9707))
 ])
 
 cliNodeReg = OrderedDict([
-    ('AlphaC', (('qcfbchain.cloudapp.net', 9702), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('BetaC', (('qcfbchain.cloudapp.net', 9704), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('GammaC', (('52.160.103.164', 9706), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('DeltaC', (('52.160.103.164', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
+    ('AlphaC', ('127.0.0.1', 9702)),
+    ('BetaC', ('127.0.0.1', 9704)),
+    ('GammaC', ('127.0.0.1', 9706)),
+    ('DeltaC', ('127.0.0.1', 9708))
 ])
 
 baseDir = "~/.plenum/"
 
-poolTransactionsFile = "pool_transactions"
+nodeDataDir = "data/nodes"
+
+clientDataDir = "data/clients"
+
+domainTransactionsFile = "transactions_sandbox"
+
+poolTransactionsFile = "pool_transactions_sandbox"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
@@ -36,7 +43,54 @@ OrientDB = {
     "user": "root",
     "password": "password",
     "host": "127.0.0.1",
-    "port": 2424,
-    "startScript": "/opt/orientdb/bin/server.sh",
-    "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
+    "port": 2424
 }
+
+DefaultPluginPath = {
+    # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,
+    #  if not given, by default it will pickup plenum/server/plugin path>",
+    PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
+}
+
+PluginsDir = "plugins"
+
+stewardThreshold = 20
+
+# Monitoring configuration
+PerfCheckFreq = 10
+DELTA = 0.8
+LAMBDA = 60
+OMEGA = 5
+SendMonitorStats = True
+ThroughputWindowSize = 30
+DashboardUpdateFreq = 5
+ThroughputGraphDuration = 240
+LatencyWindowSize = 30
+LatencyGraphDuration = 240
+
+# Stats server configuration
+STATS_SERVER_IP = '127.0.0.1'
+STATS_SERVER_PORT = 50000
+
+RAETLogLevel = "terse"
+RAETLogLevelCli = "mute"
+RAETLogFilePath = None
+RAETLogFilePathCli = None
+RAETMessageTimeout = 60
+
+
+ViewChangeWindowSize = 60
+
+# Timeout factor after which a node starts requesting consistency proofs if has
+# not found enough matching
+ConsistencyProofsTimeout = 5
+
+# Timeout factor after which a node starts requesting transactions
+CatchupTransactionsTimeout = 5
+
+# Log configuration
+logRotationWhen = 'D'
+logRotationInterval = 1
+logRotationBackupCount = 10
+logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
+logFormatStyle='{'

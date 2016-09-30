@@ -1,12 +1,14 @@
-import logging
 import types
 
 import pytest
 
 from plenum.common.types import Propagate
+from plenum.common.log import getlogger
 
 nodeCount = 4
 faultyNodes = 1
+
+logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
@@ -19,10 +21,11 @@ def alphaDoesntPropagate(startedNodes):
     """
     nodes = startedNodes
     async def evilProcessPropagate(self, msg, frm):
-        logging.info("TEST: Evil {} is not processing PROPAGATE".format(self))
+        logger.info("TEST: Evil {} is not processing PROPAGATE".format(self))
 
     def evilPropagateRequest(self, request, clientName):
-        logging.info("TEST: Evil {} is not PROPAGATing client request".format(self))
+        logger.info("TEST: Evil {} is not PROPAGATing client request".
+                     format(self))
 
     epp = types.MethodType(evilProcessPropagate, nodes.Alpha)
     nodes.Alpha.nodeMsgRouter.routes[Propagate] = epp

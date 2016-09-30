@@ -1,7 +1,9 @@
 import asyncio
+import base64
+import getpass
 import importlib.util
-import inspect
 import itertools
+import json
 import logging
 import math
 import os
@@ -10,22 +12,28 @@ import socket
 import string
 import sys
 import time
+from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
+from importlib import import_module
 from math import floor
-from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, Tuple, \
-    Union, List, NamedTuple
+from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
+    Tuple, Union, List, NamedTuple
 
 import libnacl.secret
-from ioflo.base.consoling import getConsole, Console
+import semver
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
+from ledger.util import F
+
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
+CONFIG = None
 
 
-def randomString(size: int = 20, chars: str = string.ascii_letters + string.digits) -> str:
+def randomString(size: int = 20,
+                 chars: str = string.ascii_letters + string.digits) -> str:
     """
     Generate a random string of the specified size.
 
@@ -55,7 +63,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(), logMsg: str = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
+                     , logMsg: str = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -116,6 +125,12 @@ def isHex(val: str) -> bool:
     :param val: the string to check
     :return: whether the given str represents a hex value
     """
+    if isinstance(val, bytes):
+        # only decodes utf-8 string
+        try:
+            val = val.decode()
+        except:
+            return False
     return isinstance(val, str) and all(c in string.hexdigits for c in val)
 
 
@@ -141,7 +156,6 @@ def getSymmetricallyEncryptedVal(val, secretKey: Union[str, bytes]=None) -> Tupl
     :param secretKey: Optional key, if provided should be either in hex or bytes
     :return: Tuple of the encrypted value and secret key encoded in hex
     """
-
     if isinstance(val, str):
         val = val.encode("utf-8")
     if secretKey:
@@ -152,7 +166,6 @@ def getSymmetricallyEncryptedVal(val, secretKey: Union[str, bytes]=None) -> Tupl
         box = libnacl.secret.SecretBox(secretKey)
     else:
         box = libnacl.secret.SecretBox()
-
     return box.encrypt(val).hex(), box.sk.hex()
 
 
@@ -194,108 +207,6 @@ def getNoInstances(nodeCount: int) -> int:
     :return: number of protocol instances
     """
     return getMaxFailures(nodeCount) + 1
-
-
-TRACE_LOG_LEVEL = 5
-
-
-class CustomAdapter(logging.LoggerAdapter):
-    def trace(self, msg, *args, **kwargs):
-        self.log(TRACE_LOG_LEVEL, msg, *args, **kwargs)
-
-
-class CliHandler(logging.Handler):
-    def __init__(self, callback):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.callback = callback
-
-    def emit(self, record):
-        """
-        Passes the log record back to the CLI for rendering
-        """
-        if hasattr(record, "cli"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
-
-
-loggingConfigured = False
-
-
-def getlogger(name=None):
-    if not loggingConfigured:
-        setupLogging(TRACE_LOG_LEVEL)
-    if not name:
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        name = inspect.getmodule(calframe[1][0]).__name__
-    logger = logging.getLogger(name)
-    return logger
-
-
-class TestingHandler(logging.Handler):
-    def __init__(self, tester):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.tester = tester
-
-    def emit(self, record):
-        """
-        Captures a record.
-        """
-        self.tester(record)
-
-
-def setupLogging(log_level, raet_log_level=None, filename=None):
-    """
-    Setup for logging.
-    log level is TRACE by default.
-    """
-    if filename:
-        d = os.path.dirname(filename)
-        if not os.path.exists(d):
-            os.makedirs(d)
-
-    addTraceToLogging()
-
-    if filename:
-        mode = 'w'
-        h = logging.FileHandler(filename, mode)
-
-    else:
-        h = logging.StreamHandler(sys.stdout)
-    handlers = [h]
-    log_format = '{relativeCreated:,.0f} {levelname:7s} {message:s}'
-    fmt = logging.Formatter(log_format, None, style='{')
-    for h in handlers:
-        if h.formatter is None:
-            h.setFormatter(fmt)
-        logging.root.addHandler(h)
-    logging.root.setLevel(log_level)
-
-    console = getConsole()
-    verbosity = raet_log_level \
-        if raet_log_level is not None \
-        else Console.Wordage.terse
-    console.reinit(verbosity=verbosity)
-    global loggingConfigured
-    loggingConfigured = True
-
-
-def addTraceToLogging():
-    logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
-
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LOG_LEVEL):
-            self._log(TRACE_LOG_LEVEL, message, args, **kwargs)
-
-    logging.Logger.trace = trace
 
 
 def prime_gen() -> int:
@@ -430,22 +341,29 @@ def getInstalledConfig(installDir, configFile):
         raise FileNotFoundError("No file found at location {}".format(configPath))
 
 
-def getConfig():
+def getConfig(homeDir=None):
     """
     Reads a file called config.py in the project directory
 
     :raises: FileNotFoundError
     :return: the configuration as a python object
     """
-    refConfig = importlib.import_module("plenum.config")
-    try:
-        homeDir = os.path.expanduser("~")
-        configDir = os.path.join(homeDir, ".plenum")
-        config = getInstalledConfig(configDir, "plenum_config.py")
-        refConfig.__dict__.update(config.__dict__)
-    except FileNotFoundError:
-        pass
-    return refConfig
+    global CONFIG
+    if not CONFIG:
+        refConfig = importlib.import_module("plenum.config")
+        try:
+            homeDir = os.path.expanduser(homeDir or "~")
+
+            configDir = os.path.join(homeDir, ".plenum")
+            config = getInstalledConfig(configDir, "plenum_config.py")
+
+            refConfig.__dict__.update(config.__dict__)
+        except FileNotFoundError:
+            pass
+        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
+        CONFIG = refConfig
+    return CONFIG
+
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
     """
@@ -465,3 +383,159 @@ async def untilTrue(condition, *args, timeout=5) -> bool:
         await asyncio.sleep(.1)
         elapsed = time.perf_counter() - start
     return result
+
+
+def hasKeys(data, keynames):
+    """
+    Checks whether all keys are present in the given data, and are not None
+    """
+    # if all keys in `keynames` are not present in `data`
+    if len(set(keynames).difference(set(data.keys()))) != 0:
+        return False
+    for key in keynames:
+        if data[key] is None:
+            return False
+    return True
+
+
+def firstKey(d: Dict):
+    return next(iter(d.keys()))
+
+
+def firstValue(d: Dict):
+    return next(iter(d.values()))
+
+
+def seedFromHex(seed):
+    if len(seed) == 64:
+        try:
+            return unhexlify(seed)
+        except:
+            pass
+
+
+def cleanSeed(seed=None):
+    if seed:
+        bts = seedFromHex(seed)
+        if not bts:
+            if isinstance(seed, str):
+                seed = seed.encode('utf-8')
+            bts = bytes(seed)
+            if len(seed) != 32:
+                error('seed length must be 32 bytes')
+        return bts
+
+
+def isHexKey(key):
+    try:
+        if len(key) == 64 and int(key, 16):
+            return True
+    except ValueError as ex:
+        return False
+    except Exception as ex:
+        print(ex)
+        exit()
+
+
+def getCryptonym(identifier):
+    isHex = isHexKey(identifier)
+    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+        else identifier
+
+
+def hexToCryptonym(hex):
+    # TODO: Use base58 instead of base64
+    if isinstance(hex, str):
+        hex = hex.encode()
+    return base64.b64encode(unhexlify(hex)).decode()
+
+
+def cryptonymToHex(cryptonym):
+    # TODO: Use base58 instead of base64
+    if isinstance(cryptonym, str):
+        cryptonym = cryptonym.encode()
+    return hexlify(base64.b64decode(cryptonym)).decode()
+
+
+def runWithLoop(loop, callback, *args, **kwargs):
+    if loop.is_running():
+        loop.call_soon(asyncio.async, callback(*args, **kwargs))
+    else:
+        loop.run_until_complete(callback(*args, **kwargs))
+
+
+def checkIfMoreThanFSameItems(items, maxF):
+    jsonifiedItems = [json.dumps(item, sort_keys=True) for item in items]
+    counts = {}
+    for jItem in jsonifiedItems:
+        counts[jItem] = counts.get(jItem, 0) + 1
+    if counts[max(counts, key=counts.get)] > maxF:
+        return json.loads(max(counts, key=counts.get))
+    else:
+        return False
+
+
+def getPackageMeta(pkg):
+    try:
+        meta = import_module('{}.__metadata__'.format(pkg))
+    except ImportError:
+        print("A dependency named {} is not installed. Installation cannot "
+              "proceed without it.".format(pkg))
+        sys.exit(1)
+    return meta
+
+
+def check_deps(dependencies, parent=""):
+    if isinstance(dependencies, dict):
+        for pkg_name, exp_ver in dependencies.items():
+            if parent:
+                full_name = "{} ({})".format(pkg_name, parent)
+            else:
+                full_name = pkg_name
+            meta = getPackageMeta(pkg_name)
+            ver = meta.__version__
+            if not semver.match(ver, exp_ver):
+                raise RuntimeError("Incompatible '{}' package version. "
+                                   "Expected: {} "
+                                   "Found: {}".
+                                   format(pkg_name, exp_ver, ver))
+            if hasattr(meta, "__dependencies__"):
+                deps = meta.__dependencies__
+                check_deps(deps, full_name)
+    else:
+        pkg = dependencies if isinstance(dependencies, str) else \
+            dependencies.__name__
+        meta = getPackageMeta(pkg)
+        deps = meta.__dependencies__
+        check_deps(deps)
+
+
+def friendlyEx(ex: Exception) -> str:
+    curEx = ex
+    friendly = ""
+    end = ""
+    while curEx:
+        if len(friendly):
+            friendly += " [caused by "
+            end += "]"
+        friendly += "{}".format(curEx)
+        curEx = curEx.__cause__
+    friendly += end
+    return friendly
+
+
+def updateFieldsWithSeqNo(fields):
+    r = OrderedDict()
+    r[F.seqNo.name] = (str, int)
+    r.update(fields)
+    return r
+
+
+def getLoggedInUser():
+    return getpass.getuser()
+
+
+def bootstrapClientKeys(identifier, verkey, nodes):
+    # bootstrap client verification key to all nodes
+    for n in nodes:
+        n.clientAuthNr.addClient(identifier, verkey)

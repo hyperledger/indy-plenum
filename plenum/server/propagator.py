@@ -1,9 +1,9 @@
-import logging
 from typing import Dict, Tuple, Union
 
 from plenum.common.types import Request, Propagate
+from plenum.common.log import getlogger
 
-logger = logging.getLogger(__name__)
+logger = getlogger()
 
 
 class ReqState:
@@ -110,11 +110,14 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            propagate = self.createPropagate(request, clientName)
-            logger.debug("{} propagating {} request {} from client {}".
-                         format(self, request.identifier, request.reqId, clientName),
-                         extra={"cli": True})
-            self.send(propagate)
+            # Only propagate if the node is participating in the consensus process
+            # which happens when the node has completed the catchup process
+            if self.isParticipating:
+                propagate = self.createPropagate(request, clientName)
+                logger.display("{} propagating {} request {} from client {}".
+                             format(self, request.identifier, request.reqId, clientName),
+                             extra={"cli": True})
+                self.send(propagate)
 
     @staticmethod
     def createPropagate(request: Union[Request, dict], clientName) -> Propagate:
@@ -124,8 +127,13 @@ class Propagator:
         :param request: the client REQUEST
         :return: a new PROPAGATE msg
         """
-        logging.debug("Creating PROPAGATE for REQUEST {}".format(request))
-        return Propagate(request.__getstate__(), clientName)
+        if not isinstance(request, (Request, dict)):
+            logger.error("Request not formatted properly to create propagate")
+            return
+        logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
+        request = request.__getstate__() if isinstance(request, Request) else \
+            request
+        return Propagate(request, clientName)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request) -> bool:
@@ -153,13 +161,14 @@ class Propagator:
 
         :param request: the REQUEST to propagate
         """
-        logging.debug("{} forwarding client request {} to its replicas".
+        logger.debug("{} forwarding client request {} to its replicas".
                       format(self.name, request.key))
         for repQueue in self.msgsToReplicas:
             repQueue.append(request.reqDigest)
         self.monitor.requestUnOrdered(*request.key)
         self.requests.flagAsForwarded(request)
 
+    # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):
         """
         Record the request in the list of requests and propagate.
@@ -168,6 +177,9 @@ class Propagator:
         :param clientName:
         """
         self.requests.add(request)
+        # # Only propagate if the node is participating in the consensus process
+        # # which happens when the node has completed the catchup process
+        # if self.isParticipating:
         self.propagate(request, clientName)
         self.tryForwarding(request)
 

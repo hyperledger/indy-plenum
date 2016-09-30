@@ -1,6 +1,9 @@
+from binascii import hexlify
+
 import pytest
 from libnacl import randombytes, crypto_sign, crypto_sign_open
 from libnacl.public import SecretKey, Box
+from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer, SigningKey, Verifier, PrivateKey
 
 pytestmark = pytest.mark.smoke
@@ -126,3 +129,20 @@ def testSimpleSigningWithSimpleKeys():
     assert len(pubkey) == 32
     msg = b'1234'
     cmsg = crypto_sign(msg, prikey)
+
+
+def testKeyConversionFromEd25519ToCurve25519():
+    signer = Signer()
+    sk = signer.keyraw
+    vk = signer.verraw
+    # Check when keys are passed as raw bytes
+    secretKey = ed25519SkToCurve25519(sk)
+    publicKey = ed25519PkToCurve25519(vk)
+    assert PrivateKey(secretKey).public_key.__bytes__() == publicKey
+    assert ed25519PkToCurve25519(vk, toHex=True) == \
+           hexlify(PrivateKey(secretKey).public_key.__bytes__())
+
+    # Check when keys are passed as hex
+    secretKey = ed25519SkToCurve25519(hexlify(sk))
+    publicKey = ed25519PkToCurve25519(hexlify(vk))
+    assert PrivateKey(secretKey).public_key.__bytes__() == publicKey

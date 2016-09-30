@@ -1,0 +1,20 @@
+#! /usr/bin/env python3
+
+import socket
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--listen', type=int, required=True, help='listen on this '
+                                                              'port for data')
+args = parser.parse_args()
+
+UDP_IP = "0.0.0.0"
+UDP_PORT = args.listen
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+print("Socket listening on {}:{}".format(UDP_IP, UDP_PORT))
+while True:
+    data, addr = sock.recvfrom(1024)
+    print("received from address:", addr)
+    print("received message:", data)

@@ -1,7 +1,10 @@
-import logging
 import time
 from collections import deque
 from typing import Callable
+
+from plenum.common.log import getlogger
+
+logger = getlogger()
 
 
 class HasActionQueue:
@@ -23,11 +26,11 @@ class HasActionQueue:
             nxt = time.perf_counter() + seconds
             if nxt < self.aqNextCheck:
                 self.aqNextCheck = nxt
-            logging.debug("{} scheduling action {} with id {} to run in {} "
+            logger.debug("{} scheduling action {} with id {} to run in {} "
                           "seconds".format(self, action, self.aid, seconds))
             self.aqStash.append((nxt, (action, self.aid)))
         else:
-            logging.debug("{} scheduling action {} with id {} to run now".
+            logger.debug("{} scheduling action {} with id {} to run now".
                           format(self, action, self.aid))
             self.actionQueue.append((action, self.aid))
         return self.aid
@@ -53,7 +56,7 @@ class HasActionQueue:
         count = len(self.actionQueue)
         while self.actionQueue:
             action, aid = self.actionQueue.popleft()
-            logging.debug("{} running action {} with id {}".
-                          format(self, action, aid))
+            logger.debug("{} running action {} with id {}".
+                         format(self, action, aid))
             action()
         return count

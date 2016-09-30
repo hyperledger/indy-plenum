@@ -5,6 +5,7 @@ from abc import abstractmethod
 from base64 import b64decode
 from typing import Dict
 
+from plenum.common.log import getlogger
 from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
@@ -12,6 +13,9 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
 from plenum.common.signing import serializeForSig
 from plenum.common.types import f
+
+
+logger = getlogger()
 
 
 class ClientAuthNr:
@@ -36,7 +40,7 @@ class ClientAuthNr:
         """
 
     @abstractmethod
-    def addClient(self, identifier, verkey, pubkey=None, role=None):
+    def addClient(self, identifier, verkey, role=None):
         """
         Adding a client should be an auditable and authenticated action.
         Robust implementations of ClientAuthNr would authenticate this
@@ -70,19 +74,21 @@ class NaclAuthNr(ClientAuthNr):
                 try:
                     signature = msg[f.SIG.nm]
                     if not signature:
-                        raise EmptySignature(identifier, msg.get(f.REQ_ID.nm))
+                        raise EmptySignature(msg.get(f.IDENTIFIER.nm),
+                                             msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingSignature
+                    raise MissingSignature(msg.get(f.IDENTIFIER.nm),
+                                           msg.get(f.REQ_ID.nm))
             if not identifier:
                 try:
                     identifier = msg[f.IDENTIFIER.nm]
                     if not identifier:
-                        raise EmptyIdentifier
+                        raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingIdentifier
+                    raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
             b64sig = signature.encode('utf-8')
             sig = b64decode(b64sig)
-            ser = serializeForSig(msg)
+            ser = self.serializeForSig(msg)
             try:
                 verkey = self.getVerkey(identifier)
             except KeyError:
@@ -99,12 +105,15 @@ class NaclAuthNr(ClientAuthNr):
         return identifier
 
     @abstractmethod
-    def addClient(self, identifier, verkey, pubkey=None, role=None):
+    def addClient(self, identifier, verkey, role=None):
         pass
 
     @abstractmethod
     def getVerkey(self, identifier):
         pass
+
+    def serializeForSig(self, msg):
+        return serializeForSig(msg)
 
 
 class SimpleAuthNr(NaclAuthNr):
@@ -117,12 +126,12 @@ class SimpleAuthNr(NaclAuthNr):
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
 
-    def addClient(self, identifier, verkey, pubkey=None, role=None):
+    def addClient(self, identifier, verkey, role=None):
         if identifier in self.clients:
-            raise RuntimeError("client already added")
+            # raise RuntimeError("client already added")
+            logger.error("client already added")
         self.clients[identifier] = {
             "verkey": verkey,
-            "pubkey": pubkey,
             "role": role
         }
 

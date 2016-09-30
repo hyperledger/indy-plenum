@@ -5,6 +5,7 @@ import pytest
 
 from plenum.common.types import PrePrepare
 from plenum.common.util import getMaxFailures, getNoInstances, adict
+from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
@@ -22,11 +23,12 @@ verify a view change happens
 """
 
 
-logging.root.setLevel(logging.INFO)
+logger = getlogger()
+logger.root.setLevel(logging.DEBUG)
 
 
 @pytest.fixture(scope="module")
-def step1(looper, nodeSet, up, client1):
+def step1(looper, nodeSet, up, wallet1, client1):
     startedNodes = nodeSet
     """
     stand up a pool of nodes and send 5 requests to client
@@ -34,7 +36,7 @@ def step1(looper, nodeSet, up, client1):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    requests = sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    requests = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,
@@ -56,10 +58,9 @@ def step2(step1, looper):
     newPerfChecks = waitForNextPerfCheck(looper, step1.nodes, lastPerfChecks)
 
     # verify all nodes say that P is performing OK, and that no view changes
-    # have been proposed
+    # have been done
     for n in step1.nodes:
         assert n.viewNo == 0
-        assert newPerfChecks[n.name].result  # True: no view change proposed
 
     # verify Primary is still the same
     assert getPrimaryReplica(step1.nodes) == step1.P
@@ -110,16 +111,12 @@ def step3(step2):
     return step2
 
 
-def testInstChangeWithLowerRatioThanDelta(looper, step3, client1):
+def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     # wait for every node to run another checkPerformance
-    newPerfChecks = waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
-
-    # verify all nodes recognize P as degraded
-    # for n in step3.nodes:
-    #     assert newPerfChecks[n.name].result is False
+    waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     # verify all nodes have undergone an instance change
     checkViewNoForNodes(step3.nodes, 1)

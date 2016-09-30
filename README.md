@@ -38,59 +38,20 @@ python -m plenum.test
 
 **Ubuntu:**
 
-Add a repository for python 3.5
-```
-sudo apt-get install software-properties-common
-sudo add-apt-repository ppa:fkrull/deadsnakes
-sudo apt-get update
-```
+1. Run ```sudo add-apt-repository ppa:fkrull/deadsnakes```
 
-Install python 3.5
-```
-sudo apt-get install python3.5
-```
+2. Run ```sudo apt-get update```
 
-Install libsodium
-```
-sudo apt-get install libsodium13
-```
+3. Run ```sudo apt-get install python3.5```
 
-If you get the error `E: Unable to locate package libsodium13` then add the following lines to your `/etc/apt/sources.list`
+4. First, check that the universe repository is enabled by inspecting ```/etc/apt/sources.list``` file with your favorite editor.
 
-```
-deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main
-deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main
-```
+5. You will need to use sudo to ensure that you have permissions to edit the file. If universe is not included then modify the file so that it does include the following line:
+```deb http://us.archive.ubuntu.com/ubuntu vivid main universe```
 
-Now run
- 
-```
-sudo apt-get update
-sudo apt-get install libsodium13
-```
+6. Run ```sudo apt-get update```
 
-While doing the above steps if you get the error
-
-```
-W: GPG error: http://ppa.launchpad.net trusty Release: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY B9316A7BC7917B12
-```
-
-Then you need to download the pubkey from the [OpenPGP Public Key Server](http://keyserver.ubuntu.com) and add it to your system. Steps to do that
-
-1. Go to the [OpenPGP Public Key Server](http://keyserver.ubuntu.com)
-2. Search for `0xB9316A7BC7917B12`
-3. Click on the link provided in the pub section. This should take you to page containing the key.
-4. Copy everything starting from `-----BEGIN PGP PUBLIC KEY` and save it in a file say `libsodium.key`:
-5. Now run `sudo apt-key add libsodium.key`
-
-[Courtesy: Askubuntu](http://askubuntu.com/a/358424)
-
-Now run
-
-```
-sudo apt-get update
-sudo apt-get install libsodium13
-```
+7. Run ```sudo apt-get install libsodium13```
 
 8. If you still get the error ```E: Unable to locate package libsodium13``` then add ```deb http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` and ```deb-src http://ppa.launchpad.net/chris-lea/libsodium/ubuntu trusty main``` to your ```/etc/apt/sources.list```. 
 Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``` 
@@ -130,7 +91,7 @@ Now run ```sudo apt-get update``` and then ```sudo apt-get install libsodium13``
 
 ### Using a virtual environment (recommended)
 We recommend creating a new Python virtual environment for trying out Plenum.
-a virtual environment is a Python environment which is isolated from the
+A virtual environment is a Python environment which is isolated from the
 system's default Python environment (you can change that) and any other
 virtual environment you create. You can create a new virtual environment by:
 ```
@@ -145,56 +106,107 @@ source <name of virtual environment>/bin/activate
 
 
 ### Initializing Keep
+To run a node you need to generate its keys. The keys are stored on disk in files in the location called `keep`. 
+The  following generates keys for 4 nodes named `Alpha`, `Beta`, `Gamma` and `Delta` in the keep. 
+The keep for node `Alpha` is located at `~/.plenum/Alpha`. 
 ```
-init_plenum_raet_keep --name Alpha --seeds 000000000000000000000000000Alpha Alpha000000000000000000000000000 --force
-```
-
-```
-init_plenum_raet_keep --name Beta --seeds 0000000000000000000000000000Beta Beta0000000000000000000000000000 --force
-```
-
-```
-init_plenum_raet_keep --name Gamma --seeds 000000000000000000000000000Gamma Gamma000000000000000000000000000 --force
+init_plenum_raet_keep --name Alpha [--seed 000000000000000000000000000Alpha] [--force]
 ```
 
 ```
-init_plenum_raet_keep --name Delta --seeds 000000000000000000000000000Delta Delta000000000000000000000000000 --force
+init_plenum_raet_keep --name Beta [--seed 0000000000000000000000000000Beta] [--force]
 ```
-Note: Seed can be any randomly chosen 32 byte value. It does not have to be in the format `00..<name of the node>`.
 
+```
+init_plenum_raet_keep --name Gamma [--seed 000000000000000000000000000Gamma] [--force]
+```
 
-### Seeds used for generating clients
-1. Seed used for steward Bob's signing key pair ```11111111111111111111111111111111```
-2. Seed used for steward Bob's public private key pair ```33333333333333333333333333333333```
-3. Seed used for client Alice's signing key pair ```22222222222222222222222222222222```
-4. Seed used for client Alice's public private key pair ```44444444444444444444444444444444```
+```
+init_plenum_raet_keep --name Delta [--seed 000000000000000000000000000Delta] [--force]
+```
+Note: `seed` is optional. Seed can be any randomly chosen 32 byte value. It does not have to be in the format `00..<name of the node>`.
+`force` is optional too. If you use this `--force` then the existing keys will be overwritten.
+To see the public keys of the node with name say `Alpha`, use the command
+```
+get_keys Alpha
+```
 
 
 ### Running Node
 
 ```
-start_plenum_node Alpha
+start_plenum_node Alpha 9601 9602
+```
+The node uses a separate UDP channels for communicating with nodes and clients. 
+The first port number is for the node-to-node communication channel and the second is for node-to-client communication channel.
+
+
+## Running a Plenum test cluster.
+If you want to try out a Plenum cluster of a few nodes with the nodes running on your local machine or different remote machines, 
+then you can use the script called, `generate_plenum_pool_transactions`. Eg. If you want to run 4 nodes on you local machine and have 
+5 clients bootstrapped so they can make write requests to the nodes, this is what you do.
+
+```
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 1
+This node with name Node1 will use ports 9601 and 9602 for nodestack and clientstack respectively
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 2
+This node with name Node2 will use ports 9603 and 9604 for nodestack and clientstack respectively
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 3
+This node with name Node3 will use ports 9605 and 9606 for nodestack and clientstack respectively
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 4
+his node with name Node4 will use ports 9607 and 9608 for nodestack and clientstack respectively
+```
+
+Now you can run the 4 nodes as 
+```
+start_plenum_node Node1 9601 9602
+```
+```
+start_plenum_node Node2 9603 9604
+```
+```
+start_plenum_node Node3 9605 9606
+```
+```
+start_plenum_node Node4 9607 9608
+```
+
+These 4 commands created keys for 4 nodes `Node1`, `Node2`, `Node3` and `Node4`
+The `nodes` argument specifies the number of nodes and the `clients` argument specifies the number of client. 
+The `nodeNum` argument specifies the node number for which you intend to create the private keys locally. 
+Since you run on the machine where you run this command. Since you are running all 4 nodes on same machine you create private keys for all nodes locally.
+ 
+Now lets say you want to 4 nodes on 4 different machines as
+1. Node1 running on 191.177.76.26
+2. Node2 running on 22.185.194.102
+3. Node3 running on 247.81.153.79
+4. Node4 running on 93.125.199.45
+
+For this
+On machine with IP 191.177.76.26 you will run
+```
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 1 --ips '191.177.76.26,22.185.194.102,247.81.153.79,93.125.199.45'
+This node with name Node1 will use ports 9601 and 9602 for nodestack and clientstack respectively
+```
+
+On machine with IP 22.185.194.102 you will run
+```
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 2 --ips '191.177.76.26,22.185.194.102,247.81.153.79,93.125.199.45'
+This node with name Node2 will use ports 9603 and 9604 for nodestack and clientstack respectively
+```
+
+On machine with IP 247.81.153.79 you will run
+```
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 3 --ips '191.177.76.26,22.185.194.102,247.81.153.79,93.125.199.45'
+This node with name Node3 will use ports 9605 and 9606 for nodestack and clientstack respectively
+```
+
+On machine with IP 93.125.199.45 you will run
+```
+~$ generate_plenum_pool_transactions --nodes 4 --clients 5 --nodeNum 4 --ips '191.177.76.26,22.185.194.102,247.81.153.79,93.125.199.45'
+This node with name Node4 will use ports 9607 and 9608 for nodestack and clientstack respectively
 ```
 
 
 ### Updating configuration
 To update any configuration parameters, you need to update the `plenum_config.py` in `.plenum` directory inside your home directory. 
-eg. To update the node registry to use `127.0.0.1` as host put these in your `plenum_config.py`.
-
-```python
-from collections import OrderedDict
-
-nodeReg = OrderedDict([
-    ('Alpha', (('127.0.0.1', 9701), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('Beta', (('127.0.0.1', 9703), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('Gamma', (('127.0.0.1', 9705), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('Delta', (('127.0.0.1', 9707), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-
-cliNodeReg = OrderedDict([
-    ('AlphaC', (('127.0.0.1', 9702), '0490a246940fa636235c664b8e767f2a79e48899324c607d73241e11e558bbd7', 'ea95ae1c913b59b7470443d79a6578c1b0d6e1cad0471d10cee783dbf9fda655')),
-    ('BetaC', (('127.0.0.1', 9704), 'b628de8ac1198031bd1dba3ab38077690ca9a65aa18aec615865578af309b3fb', '18833482f6625d9bc788310fe390d44dd268427003f9fd91534e7c382501cd3c')),
-    ('GammaC', (('127.0.0.1', 9706), '92d820f5eb394cfaa8d6e462f14708ddecbd4dbe0a388fbc7b5da1d85ce1c25a', 'b7e161743144814552e90dc3e1c11d37ee5a488f9b669de9b8617c4af69d566c')),
-    ('DeltaC', (('127.0.0.1', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
-])
-```

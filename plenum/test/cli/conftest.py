@@ -3,15 +3,17 @@ from collections import OrderedDict
 
 import pytest
 
+import plenum.common.log
 import plenum.common.util
 from plenum.common.looper import Looper
-from plenum.test.cli.mock_output import MockOutput
-from plenum.test.helper import genHa, TestNode, TestClient
 from plenum.common.util import adict
+from plenum.common.port_dispenser import genHa
+from plenum.test.eventually import eventually
+from plenum.test.helper import genHa
 
-plenum.common.util.loggingConfigured = False
+plenum.common.log.loggingConfigured = False
 
-from plenum.test.cli.helper import TestCli
+from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin
 
 
 @pytest.yield_fixture(scope="module")
@@ -21,7 +23,12 @@ def cliLooper():
 
 
 @pytest.fixture("module")
-def nodeRegsForCLI():
+def nodeNames():
+    return ['Alpha', 'Beta', 'Gamma', 'Delta']
+
+
+@pytest.fixture("module")
+def nodeRegsForCLI(nodeNames):
     nodeNames = ['Alpha', 'Beta', 'Gamma', 'Delta']
     has = [genHa(2) for _ in nodeNames]
     nodeNamesC = [n + 'C' for n in nodeNames]
@@ -31,19 +38,9 @@ def nodeRegsForCLI():
 
 
 @pytest.fixture("module")
-def cli(nodeRegsForCLI, cliLooper, tdir):
-    mockOutput = MockOutput()
-
-    Cli = TestCli(looper=cliLooper,
-                  basedirpath=tdir,
-                  nodeReg=nodeRegsForCLI.nodeReg,
-                  cliNodeReg=nodeRegsForCLI.cliNodeReg,
-                  output=mockOutput,
-                  debug=True)
-    Cli.NodeClass = TestNode
-    Cli.ClientClass = TestClient
-    Cli.basedirpath = tdir
-    return Cli
+def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithNodeKeepInited):
+    return newCLI(cliLooper, tdir)
 
 
 @pytest.fixture("module")
@@ -52,19 +49,18 @@ def validNodeNames(cli):
 
 
 @pytest.fixture("module")
-def createAllNodes(cli):
+def createAllNodes(request, cli):
     cli.enterCmd("new node all")
-    cli.looper.runFor(5)
+    cli.looper.run(eventually(checkAllNodesUp, cli, retryWait=1, timeout=20))
 
-@pytest.fixture("module")
-def allNodesUp(cli, createAllNodes, up):
-    # Let nodes complete election and the output be rendered on the screen
-    cli.looper.runFor(5)
+    def stopNodes():
+        for node in cli.nodes.values():
+            node.stop()
+
+    request.addfinalizer(stopNodes)
 
 
 @pytest.fixture("module")
 def loadOpVerificationPlugin(cli):
-    curPath = os.path.dirname(os.path.dirname(__file__))
-    fullPath = os.path.join(curPath, 'plugin', 'plugin1')
-    cli.enterCmd("load plugins from {}".format(fullPath))
-    cli.looper.runFor(2)
+    loadPlugin(cli, 'name_age_verification')
+
