@@ -8,7 +8,7 @@ from asyncio.coroutines import CoroWrapper
 from typing import List
 
 from plenum.common.startable import Status
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

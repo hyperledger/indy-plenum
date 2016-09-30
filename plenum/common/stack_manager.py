@@ -12,7 +12,7 @@ from plenum.common.raet import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NEW_NODE, CHANGE_KEYS, CHANGE_HA
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

@@ -6,7 +6,7 @@ from plenum.cli.constants import getPipedRegEx
 
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.types import PLUGIN_TYPE_PROCESSING
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.plugin.has_cli_commands import HasCliCommands
 
 logger = getlogger()

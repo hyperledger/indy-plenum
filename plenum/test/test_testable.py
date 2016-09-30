@@ -3,7 +3,7 @@ import unittest
 from typing import Any
 from unittest import TestCase
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.testable import Spyable
 

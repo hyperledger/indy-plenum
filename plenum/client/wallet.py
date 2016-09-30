@@ -6,7 +6,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
 
 from plenum.client.id_data import IdData
 from plenum.client.signer import SimpleSigner
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 # from plenum.persistence.wallet_storage import WalletStorage
 from plenum.common.types import f, Identifier, Request
 

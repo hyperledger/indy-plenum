@@ -1,7 +1,7 @@
 import types
 
 from plenum.common.types import CatchupReq
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkNodesConnected, sendRandomRequests
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality

@@ -1,14 +1,10 @@
 import asyncio
 import base64
-import datetime
 import getpass
 import importlib.util
-import inspect
 import itertools
 import json
 import logging
-import tempfile
-from logging.handlers import TimedRotatingFileHandler
 import math
 import os
 import random
@@ -25,16 +21,11 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple
 
 import libnacl.secret
-import pwd
-
-import portalocker
 import semver
-from ioflo.base.consoling import getConsole, Console
-from ledger.util import F
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
-from plenum.common.types import HA
+from ledger.util import F
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -216,172 +207,6 @@ def getNoInstances(nodeCount: int) -> int:
     :return: number of protocol instances
     """
     return getMaxFailures(nodeCount) + 1
-
-
-TRACE_LOG_LEVEL = 5
-DISPLAY_LOG_LEVEL = 25
-
-
-class CustomAdapter(logging.LoggerAdapter):
-    def trace(self, msg, *args, **kwargs):
-        self.log(TRACE_LOG_LEVEL, msg, *args, **kwargs)
-
-    def display(self, msg, *args, **kwargs):
-        self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
-
-
-class CliHandler(logging.Handler):
-    def __init__(self, callback):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.callback = callback
-
-    def emit(self, record):
-        """
-        Passes the log record back to the CLI for rendering
-        """
-        if hasattr(record, "cli"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
-
-
-class DemoHandler(logging.Handler):
-    def __init__(self, callback):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.callback = callback
-
-    def emit(self, record):
-        if hasattr(record, "demo"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
-
-
-loggingConfigured = False
-
-
-def getlogger(name=None):
-    if not loggingConfigured:
-        setupLogging(TRACE_LOG_LEVEL)
-    if not name:
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        name = inspect.getmodule(calframe[1][0]).__name__
-    logger = logging.getLogger(name)
-    return logger
-
-
-class TestingHandler(logging.Handler):
-    def __init__(self, tester):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.tester = tester
-
-    def emit(self, record):
-        """
-        Captures a record.
-        """
-        self.tester(record)
-
-
-def setupLogging(log_level, raet_log_level=None, filename=None,
-                 raet_log_file=None):
-    """
-    Setup for logging.
-    log level is TRACE by default.
-    """
-    config = getConfig()
-    addTraceToLogging()
-    addDisplayToLogging()
-
-    logHandlers = []
-    if filename:
-        d = os.path.dirname(filename)
-        if not os.path.exists(d):
-            os.makedirs(d)
-        fileHandler = TimedRotatingFileHandler(filename,
-                                               when=config.logRotationWhen,
-                                               interval=config.logRotationInterval,
-                                               backupCount=config.logRotationBackupCount,
-                                               utc=True)
-        logHandlers.append(fileHandler)
-    else:
-        logHandlers.append(logging.StreamHandler(sys.stdout))
-
-    fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
-
-    for h in logHandlers:
-        if h.formatter is None:
-            h.setFormatter(fmt)
-        logging.root.addHandler(h)
-
-    logging.root.setLevel(log_level)
-
-    console = getConsole()
-    # TODO: This should take directory
-    config = getConfig()
-
-    defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
-                                                 Console.Wordage.terse, config)
-    logging.info("Choosing RAET log level {}".format(defaultVerbosity),
-                 extra={"cli": False})
-    verbosity = raet_log_level \
-        if raet_log_level is not None \
-        else defaultVerbosity
-    raetLogFilePath = raet_log_file or getRAETLogFilePath("RAETLogFilePath",
-                                                          config)
-    console.reinit(verbosity=verbosity, path=raetLogFilePath, flushy=True)
-    global loggingConfigured
-    loggingConfigured = True
-
-
-def getRAETLogLevelFromConfig(paramName, defaultValue, config):
-    try:
-        defaultVerbosity = config.__getattribute__(paramName)
-        defaultVerbosity = Console.Wordage.__getattribute__(defaultVerbosity)
-    except AttributeError:
-        defaultVerbosity = defaultValue
-        logging.debug("Ignoring RAET log level {} from config and using {} "
-                      "instead".format(paramName, defaultValue))
-    return defaultVerbosity
-
-
-def getRAETLogFilePath(paramName, config):
-    try:
-        filePath = config.__getattribute__(paramName)
-    except AttributeError:
-        filePath = None
-    return filePath
-
-
-def addTraceToLogging():
-    logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
-
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LOG_LEVEL):
-            self._log(TRACE_LOG_LEVEL, message, args, **kwargs)
-
-    logging.Logger.trace = trace
-
-
-def addDisplayToLogging():
-    logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
-
-    def display(self, message, *args, **kwargs):
-        if self.isEnabledFor(DISPLAY_LOG_LEVEL):
-            self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
-
-    logging.Logger.display = display
 
 
 def prime_gen() -> int:
@@ -714,70 +539,3 @@ def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
         n.clientAuthNr.addClient(identifier, verkey)
-
-
-class PortDispenser:
-    """
-    This class provides a system-wide mechanism to provide a available socket
-    ports for testing. Tests should call getNext to get the next available port.
-    There is no guarantee of sequential port numbers, as other tests running
-    concurrently might grab a port before one process is done getting all the
-    ports it needs. This should pose no problem, as tests shouldn't depend on
-    port numbers. It leverages the filesystem lock mechanism to ensure there
-    are no overlaps.
-    """
-
-    maxportretries = 3
-    logger = getlogger()
-
-    def __init__(self, ip: str, filename: str=None, minPort=6000, maxPort=9999):
-        self.ip = ip
-        self.FILE = filename or os.path.join(tempfile.gettempdir(),
-                                             'plenum-portmutex.{}.txt'.format(ip))
-        self.minPort = minPort
-        self.maxPort = maxPort
-        self.initFile()
-
-    def initFile(self):
-        if not os.path.exists(self.FILE):
-            with open(self.FILE, "w") as file:
-                file.write(str(self.minPort))
-
-    def get(self, count: int=1, readOnly: bool=False, recurlvl=0):
-        with open(self.FILE, "r+") as file:
-            portalocker.lock(file, portalocker.LOCK_EX)
-            ports = []
-            while len(ports) < count:
-                file.seek(0)
-                port = int(file.readline())
-                if readOnly:
-                    return port
-                port += 1
-                if port > self.maxPort:
-                    port = self.minPort
-                file.seek(0)
-                file.write(str(port))
-                try:
-                    checkPortAvailable(("",port))
-                    ports.append(port)
-                    self.logger.debug("new port dispensed: {}".format(port))
-                except:
-                    if recurlvl < self.maxportretries:
-                        self.logger.debug("port {} unavailable, trying again...".
-                                     format(port))
-                    else:
-                        self.logger.debug("port {} unavailable, max retries {} "
-                                     "reached".
-                                     format(port, self.maxportretries))
-                        raise
-            return ports
-
-    def getNext(self, count: int=1):
-        has = [HA(self.ip, port) for port in self.get(count)]
-        if len(has) == 1:
-            return has[0]
-        else:
-            return has
-
-
-genHa = PortDispenser("127.0.0.1").getNext

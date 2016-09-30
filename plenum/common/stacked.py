@@ -19,7 +19,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, getlogger, checkPortAvailable, getConfig
+    MessageProcessor, checkPortAvailable, getConfig
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

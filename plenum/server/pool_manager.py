@@ -13,7 +13,7 @@ from plenum.common.exceptions import UnsupportedOperation, \
 from plenum.common.types import HA, f, Reply
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
     CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 
 

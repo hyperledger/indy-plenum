@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.types import Propagate
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 nodeCount = 4
 faultyNodes = 1

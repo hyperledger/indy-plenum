@@ -6,7 +6,8 @@ import time
 from plenum.common.types import PrePrepare
 from plenum.test.eventually import eventually
 
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures
+from plenum.common.log import getlogger
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent

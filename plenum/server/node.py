@@ -47,8 +47,9 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig, friendlyEx
+from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx
+
+from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore

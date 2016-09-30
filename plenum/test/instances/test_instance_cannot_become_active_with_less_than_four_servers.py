@@ -2,7 +2,7 @@ import logging
 from typing import Iterable, Optional
 
 from plenum.common.looper import Looper
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 

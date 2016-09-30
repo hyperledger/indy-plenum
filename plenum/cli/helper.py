@@ -17,8 +17,7 @@ from plenum.cli.constants import UTIL_GRAMS_SIMPLE_CMD_FORMATTED_REG_EX, \
     CLIENT_GRAMS_NEW_KEYRING_FORMATTED_REG_EX, \
     CLIENT_GRAMS_RENAME_KEYRING_FORMATTED_REG_EX, \
     CLIENT_GRAMS_USE_KEYRING_FORMATTED_REG_EX
-from plenum.common.util import getlogger
-
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

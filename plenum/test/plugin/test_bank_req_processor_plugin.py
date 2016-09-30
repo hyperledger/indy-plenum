@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
     checkReqNack, TestNodeSet, setupClients

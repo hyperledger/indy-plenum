@@ -3,7 +3,7 @@ from base64 import b64encode
 
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequests, checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality

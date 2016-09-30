@@ -5,7 +5,7 @@ from abc import abstractmethod
 from base64 import b64decode
 from typing import Dict
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \

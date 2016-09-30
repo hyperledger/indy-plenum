@@ -8,7 +8,8 @@ from os.path import isfile, join
 from typing import Any, Set, Dict
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getlogger
+
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

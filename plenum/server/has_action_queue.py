@@ -2,7 +2,7 @@ import time
 from collections import deque
 from typing import Callable
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

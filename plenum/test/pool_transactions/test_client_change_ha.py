@@ -5,7 +5,7 @@ import pytest
 from plenum.client.signer import SimpleSigner
 
 from plenum.test.helper import genTestClient
-from plenum.common.util import genHa
+from plenum.common.port_dispenser import genHa
 
 from plenum.common.looper import Looper
 from plenum.test.node_catchup.helper import \

@@ -1,6 +1,7 @@
 import pytest
 from plenum.common.looper import Looper
-from plenum.common.util import randomString, genHa
+from plenum.common.util import randomString
+from plenum.common.port_dispenser import genHa
 from plenum.test.conftest import getValueFromModule
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, \

@@ -6,7 +6,8 @@ from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
     Callable
 from typing import Dict
 
-from plenum.common.util import objSearchReplace, getlogger
+from plenum.common.util import objSearchReplace
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

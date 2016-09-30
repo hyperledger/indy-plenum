@@ -59,10 +59,10 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
-    randomString, error, cleanSeed, getRAETLogLevelFromConfig, \
-    getRAETLogFilePath, bootstrapClientKeys
+from plenum.common.util import getMaxFailures, \
+    checkPortAvailable, firstValue, randomString, cleanSeed, bootstrapClientKeys
+from plenum.common.log import CliHandler, getlogger, setupLogging, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
