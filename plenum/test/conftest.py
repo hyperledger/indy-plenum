@@ -356,7 +356,7 @@ def dirName():
 
 @pytest.fixture(scope="module")
 def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
+    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
     data = json.loads(open(filePath).read().strip())
     for txn in data["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
