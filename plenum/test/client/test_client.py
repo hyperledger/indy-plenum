@@ -1,24 +1,8 @@
 import pytest
-
-from plenum.client.wallet import Wallet
-from plenum.common.exceptions import EmptySignature
-from plenum.common.txn import REPLY, REQACK, TXN_ID
 from raet.raeting import AutoMode
 
-from plenum.common.types import f, OP_FIELD_NAME, Request
-# DEPR
-# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
-from plenum.test.eventually import eventually
-
-from plenum.common.util import getMaxFailures
-from plenum.server.node import Node
-from plenum.test.helper import NotConnectedToAny
-from plenum.test.helper import TestNodeSet, randomOperation, \
-    checkLastClientReqForNode, \
-    getRepliesFromClientInbox
-from plenum.test.helper import checkResponseCorrectnessFromNodes
-from plenum.test.helper import sendRandomRequest, genTestClient, \
-    checkSufficientRepliesRecvd, assertLength
+from plenum.test.conftest import clientAndWallet1
+from plenum.test.helper import *
 
 nodeCount = 7
 
@@ -236,6 +220,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
             timeout=20))
 
 # noinspection PyIncorrectDocstring
+<<<<<<< Updated upstream
 def testReplyMatchesRequest(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     req1Amount = request.operation['amount']
@@ -243,3 +228,48 @@ def testReplyMatchesRequest(looper, client1, wallet1):
     replies = [r[0]['result']['amount'] for r in client1.inBox if r[0]['op'] == "REPLY"]
     assert all(r == replies[0] for r in replies)
     assert replies[0] == req1Amount
+=======
+def testReplyMatchesRequest(looper, nodeSet, tdir, up):
+
+    def makeClient():
+        client, wallet = clientAndWallet1(looper, nodeSet, tdir, up)
+        looper.add(client)
+        looper.run(client.ensureConnectedToNodes())
+        return client, wallet
+
+    # creating clients
+    numOfClients = 10
+    clients = set()
+    for i in range(numOfClients):
+        caw = makeClient()
+        clients.add(caw)
+
+    experiments = 5
+    for i in range(1, experiments + 1):
+
+        # sending requests
+        requests = {}
+
+        for client, wallet in clients:
+            request = sendRandomRequest(wallet, client)
+            requests[client] = (request.reqId, request.operation['amount'])
+
+        # checking results
+        for client, wallet in clients:
+            looper.run(eventually(checkResponseRecvdFromNodes,
+                                  client,
+                                  2 * nodeCount * i,
+                                  retryWait=.25,
+                                  timeout=15))
+
+            (reqId, sentAmount) = requests[client]
+            print("Expected amount for request {} is {}".format(reqId, sentAmount))
+
+            replies = [r[0]['result']['amount']
+                       for r in client.inBox
+                       if r[0]['op'] == 'REPLY'
+                       and r[0]['result']['reqId'] == reqId]
+
+            assert all(replies[0] == r for r in replies)
+            assert replies[0] == sentAmount
+>>>>>>> Stashed changes
