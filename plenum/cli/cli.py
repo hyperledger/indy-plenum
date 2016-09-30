@@ -835,8 +835,10 @@ class Cli:
                 wallet = self.activeWallet
                 self.print("    Identifier: {}".format(wallet.defaultId))
                 self.print(
-                    "    Verification key: {}".format(wallet.getVerKey(wallet.defaultId)))
-                self.print("    Submissions: {}".format(client.reqRepStore.lastReqId))
+                    "    Verification key: {}".
+                        format(wallet.getVerKey(wallet.defaultId)))
+                self.print("    Submissions: {}".
+                           format(client.reqRepStore.lastReqId))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
