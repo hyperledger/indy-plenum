@@ -6,7 +6,7 @@ from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
 
 from plenum.client.signer import SimpleSigner
 from plenum.common.raet import initLocalKeep
-from plenum.common.util import randomString, hexToCryptonym
+from plenum.common.util import randomString, hexToCryptonym, genHa
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient, genTestClient

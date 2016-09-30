@@ -8,7 +8,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.txn import USER
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getlogger, getMaxFailures, \
-    randomString
+    randomString, genHa
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, genHa, \
     checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \

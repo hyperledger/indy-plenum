@@ -5,7 +5,7 @@ import pytest
 
 import plenum.common.util
 from plenum.common.looper import Looper
-from plenum.common.util import adict
+from plenum.common.util import adict, genHa
 from plenum.test.eventually import eventually
 from plenum.test.helper import genHa
 

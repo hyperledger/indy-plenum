@@ -6,7 +6,7 @@ from ioflo.aid import getConsole
 
 from plenum.common.looper import Looper
 from plenum.common.types import NodeDetail
-from plenum.common.util import getlogger
+from plenum.common.util import getlogger, genHa
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkNodesConnected, checkProtocolInstanceSetup,\
     genHa, TestNode

@@ -18,7 +18,7 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER, f
 from plenum.common.util import getNoInstances, TestingHandler, getConfig, \
-    getlogger
+    getlogger, genHa
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \

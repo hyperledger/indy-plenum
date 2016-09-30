@@ -16,7 +16,6 @@ from typing import Union, Callable
 
 from raet.raeting import TrnsKind, PcktKind
 
-from plenum.cli.helper import genHa
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import RemoteNotFound
@@ -30,7 +29,8 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
     Propagate, Prepare, Commit, CatchupReq, Identifier
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict, getlogger, checkIfMoreThanFSameItems, bootstrapClientKeys
+    Seconds, adict, getlogger, checkIfMoreThanFSameItems, bootstrapClientKeys, \
+    genHa
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances

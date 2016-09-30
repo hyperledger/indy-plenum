@@ -5,7 +5,8 @@ from plenum.common.looper import Looper
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, genHa
+from plenum.test.helper import TestClient
+from plenum.common.util import genHa
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
 
