@@ -703,3 +703,9 @@ def updateFieldsWithSeqNo(fields):
 
 def getLoggedInUser():
     return getpass.getuser()
+
+
+def bootstrapClientKeys(identifier, verkey, nodes):
+    # bootstrap client verification key to all nodes
+    for n in nodes:
+        n.clientAuthNr.addClient(identifier, verkey)

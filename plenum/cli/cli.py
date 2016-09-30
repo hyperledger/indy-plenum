@@ -26,9 +26,6 @@ from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
-# DEPR
-# from plenum.persistence.wallet_storage_file import WalletStorageFile
-from plenum.test.helper import bootstrapClientKeys
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -65,7 +62,7 @@ from plenum.client.client import Client
 from plenum.common.util import setupLogging, getlogger, CliHandler, \
     TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
     randomString, error, cleanSeed, getRAETLogLevelFromConfig, \
-    getRAETLogFilePath
+    getRAETLogFilePath, bootstrapClientKeys
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
