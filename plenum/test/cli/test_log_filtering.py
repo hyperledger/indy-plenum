@@ -10,7 +10,6 @@ from plenum.test.helper import checkSufficientRepliesRecvd
 def testLogFiltering(cli, validNodeNames, createAllNodes):
     msg = '{"Hello": "There"}'
     client, wallet = checkRequest(cli, msg)
-    # client = next(iter(cli.clients.values()))
 
     x = client.handleOneNodeMsg
 

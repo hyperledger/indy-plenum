@@ -59,8 +59,8 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import getMaxFailures, \
-    checkPortAvailable, firstValue, randomString, cleanSeed, bootstrapClientKeys
+from plenum.common.util import getMaxFailures, checkPortAvailable, \
+    firstValue, randomString, cleanSeed, bootstrapClientKeys
 from plenum.common.log import CliHandler, getlogger, setupLogging, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
@@ -99,14 +99,15 @@ class Cli:
 
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
-                 output=None, debug=False, logFileName=None, config=None):
+                 output=None, debug=False, logFileName=None, config=None,
+                 useNodeReg=False):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig(self.basedirpath)
-        if not (len(sys.argv) > 1 and sys.argv[1] == "--noreg" and
+        if not (useNodeReg and
                     nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
@@ -251,7 +252,7 @@ class Cli:
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         if nodeReg:
             self.print("Node registry loaded.")
-            self.print("None of these are created or running yet.")
+            # self.print("None of these are created or running yet.")
 
             self.showNodeRegistry()
         self.print("Type 'help' for more information.")
@@ -893,9 +894,10 @@ class Cli:
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
+            nodeReg = None if self.nodeRegLoadedFromFile else self.cliNodeReg
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=None,
+                                      nodeReg=nodeReg,
                                       basedirpath=self.basedirpath,
                                       config=config)
             self.activeClient = client
@@ -931,7 +933,8 @@ class Cli:
                 request, = client.submitReqs(req)
                 self.requests[str(request.reqId)] = request.reqId
             else:
-                self.printMsgForUnknownWallet(clientName)
+                self._newWallet(clientName)
+                self.printNoKeyMsg()
         else:
             self.printMsgForUnknownClient()
 
@@ -1329,6 +1332,23 @@ class Cli:
                        format(self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
+
+    @property
+    def hasAnyKey(self):
+        if not self.activeWallet.defaultId:
+            self.printNoKeyMsg()
+            return False
+        return True
+
+    def printNoKeyMsg(self):
+        self.print("No key present in keyring")
+        self.printUsage("new key")
+
+    def printUsage(self, msgs):
+        self.print("\nUsage:")
+        for m in msgs:
+            self.print('  {}'.format(m))
+        self.print("\n")
 
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?
