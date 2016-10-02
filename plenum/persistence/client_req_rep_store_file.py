@@ -1,7 +1,7 @@
 import json
 import os
 from collections import OrderedDict
-from typing import Any, Sequence, List
+from typing import Any, Sequence, List, Dict
 
 from ledger.stores.directory_store import DirectoryStore
 from ledger.util import F
@@ -47,13 +47,13 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
         self.reqStore.appendToValue(str(reqId),
                                     "R:{}:{}".format(sender, serializedReply))
-        return len(self._getSerailzedReplies(reqId))
+        return len(self._getSerializedReplies(reqId))
 
     def hasRequest(self, reqId: int) -> bool:
         return self.reqStore.exists(str(reqId))
 
     def getReplies(self, reqId: int):
-        replies = self._getSerailzedReplies(reqId)
+        replies = self._getSerializedReplies(reqId)
         for sender, reply in replies.items():
             replies[sender] = self.txnSerializer.deserialize(reply)
         return replies
@@ -76,15 +76,15 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return updateFieldsWithSeqNo(fields)
 
     @staticmethod
-    def serializeReq(req: Request):
+    def serializeReq(req: Request) -> str:
         return json.dumps(req.__getstate__())
 
-    def _getLinesWithPrefix(self, reqId: int, prefix: str):
+    def _getLinesWithPrefix(self, reqId: int, prefix: str) -> List[str]:
         data = self.reqStore.get(str(reqId))
         return [line for line in data.split(os.linesep)
-                if line.startswith(prefix)]
+                if line.startswith(prefix)] if data else []
 
-    def _getSerailzedReplies(self, reqId: int):
+    def _getSerializedReplies(self, reqId: int) -> Dict[str, str]:
         replyLines = self._getLinesWithPrefix(reqId, "R:")
         result = {}
         for line in replyLines:
