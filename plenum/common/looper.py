@@ -228,7 +228,9 @@ class Looper:
             what = self.runFut
         return self.loop.run_until_complete(what)
 
-    def handleSignal(self, sig):
+    def handleSignal(self, sig=None):
+        # Allowing sig to be optional since asyncio not passing the signal or
+        # KeyboardInterrupt (Ctrl+C)
         logger.info("Signal {} received, stopping looper...".format(sig))
         self.running = False
 

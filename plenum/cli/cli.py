@@ -1342,7 +1342,7 @@ class Cli:
 
     def printNoKeyMsg(self):
         self.print("No key present in keyring")
-        self.printUsage("new key")
+        self.printUsage(("new key", ))
 
     def printUsage(self, msgs):
         self.print("\nUsage:")
