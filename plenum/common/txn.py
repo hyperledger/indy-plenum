@@ -46,6 +46,7 @@ TYPE = "type"
 TXN_TYPE = "type"
 TXN_ID = "txnId"
 ORIGIN = "origin"
+# Use f.IDENTIFIER.nm
 IDENTIFIER = "identifier"
 TARGET_NYM = "dest"
 DATA = "data"
