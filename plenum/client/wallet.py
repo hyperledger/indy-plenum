@@ -130,6 +130,12 @@ class Wallet:
         idr = self._requiredIdr(idr=identifier, other=req.identifier)
         req.identifier = idr
         idData = self._getIdData(idr)
+
+        for x in self.ids:
+            print(x)
+
+        print("=============")
+        print(identifier)
         req.reqId = idData.lastReqId + 1
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,

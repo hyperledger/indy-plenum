@@ -222,31 +222,35 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 # noinspection PyIncorrectDocstring
 def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
-    def makeClient():
-        client, wallet = clientAndWallet1(looper, nodeSet, tdir, up)
+    def makeClient(id):
+        client, wallet = genTestClient(nodeSet,
+                                       tmpdir=tdir,
+                                       name="client-{}".format(id))
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         return client, wallet
 
     # creating clients
-    numOfClients = 10
+    numOfClients = 5
     clients = set()
 
-    sharedWallet = None
+    sharedWallet = Wallet("shared_wallet")
     for i in range(numOfClients):
-        client, wallet = makeClient()
-        if not sharedWallet:
-            sharedWallet = wallet
+        client, wallet = makeClient(i)
+        clientSigner = wallet.ids[wallet.defaultId].signer
+        sharedWallet.addSigner(identifier=client.name, signer=clientSigner)
         clients.add(client)
 
-    experiments = 5
+    experiments = 1
     for i in range(1, experiments + 1):
 
         # sending requests
         requests = {}
 
         for client in clients:
-            request = sendRandomRequest(sharedWallet, client)
+            op = randomOperation()
+            req = sharedWallet.signOp(op, identifier=client.name)
+            request = client.submitReqs(req)[0]
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
