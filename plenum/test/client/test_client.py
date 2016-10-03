@@ -220,15 +220,6 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
             timeout=20))
 
 # noinspection PyIncorrectDocstring
-<<<<<<< Updated upstream
-def testReplyMatchesRequest(looper, client1, wallet1):
-    request = sendRandomRequest(wallet1, client1)
-    req1Amount = request.operation['amount']
-    looper.run(eventually(checkResponseRecvdFromNodes, client1, 2 * nodeCount, retryWait=.25, timeout=15))
-    replies = [r[0]['result']['amount'] for r in client1.inBox if r[0]['op'] == "REPLY"]
-    assert all(r == replies[0] for r in replies)
-    assert replies[0] == req1Amount
-=======
 def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
     def makeClient():
@@ -240,9 +231,13 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
     # creating clients
     numOfClients = 10
     clients = set()
+
+    sharedWallet = None
     for i in range(numOfClients):
-        caw = makeClient()
-        clients.add(caw)
+        client, wallet = makeClient()
+        if not sharedWallet:
+            sharedWallet = wallet
+        clients.add(client)
 
     experiments = 5
     for i in range(1, experiments + 1):
@@ -250,12 +245,12 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
         # sending requests
         requests = {}
 
-        for client, wallet in clients:
-            request = sendRandomRequest(wallet, client)
+        for client in clients:
+            request = sendRandomRequest(sharedWallet, client)
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
-        for client, wallet in clients:
+        for client in clients:
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
                                   2 * nodeCount * i,
@@ -272,4 +267,3 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
             assert all(replies[0] == r for r in replies)
             assert replies[0] == sentAmount
->>>>>>> Stashed changes
