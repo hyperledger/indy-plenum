@@ -99,6 +99,8 @@ class Wallet:
         idr = self._requiredIdr(idr=identifier, other=req.identifier)
         req.identifier = idr
         idData = self._getIdData(idr)
+        if not idData:
+            raise RuntimeError("Identifier not present in wallet, cannot sign")
         req.reqId = idData.lastReqId + 1
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
@@ -122,7 +124,7 @@ class Wallet:
                    idr: Identifier=None,
                    alias: Alias=None) -> IdData:
         idr = self._requiredIdr(idr, alias)
-        return self.ids.get(idr, None)
+        return self.ids.get(idr)
         # DEPR
         # return self.storage.getSigner(identifier=identifier, alias=alias)
 
