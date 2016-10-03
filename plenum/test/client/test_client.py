@@ -12,7 +12,8 @@ from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
-from plenum.test.helper import NotConnectedToAny
+from plenum.test.helper import NotConnectedToAny, \
+    sendReqsToNodesAndVerifySuffReplies
 from plenum.test.helper import TestNodeSet, randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
@@ -233,3 +234,15 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
             chk,
             retryWait=1,
             timeout=20))
+
+
+def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
+                                                client1, wallet1):
+    newClient, _ = genTestClient(nodeSet, tmpdir=tdir)
+    looper.add(newClient)
+    looper.run(newClient.ensureConnectedToNodes())
+    client1InboxSize = len(client1.inBox)
+    newClientInboxSize = len(newClient.inBox)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
+    assert len(client1.inBox) == client1InboxSize
+    assert len(newClient.inBox) > newClientInboxSize

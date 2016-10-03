@@ -811,6 +811,8 @@ class ClientStack(SimpleStack):
         payload = self.prepForSending(msg)
         try:
             self.send(payload, remoteName)
+            # TODO: Remove this log
+            logger.debug("{} sending to client {}: {}".format(self, remoteName, payload))
         except Exception as ex:
             logger.error("{} unable to send message {} to client {}; Exception: {}"
                          .format(self.name, msg, remoteName, ex.__repr__()))
