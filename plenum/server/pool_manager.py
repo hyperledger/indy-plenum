@@ -124,7 +124,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
         self.node.transmitToClient(reply,
-                                   self.node.clientIdentifiers[req.key])
+                                   self.node.requestSender[req.key])
 
     def getReplyFor(self, request):
         txn = self.ledger.get(identifier=request.identifier,

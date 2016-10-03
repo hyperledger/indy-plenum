@@ -226,9 +226,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        # TODO: Rename to requestSender, this should be persisted in
+        # TODO: This should be persisted in
         # case the node crashes before sending the reply to the client
-        self.clientIdentifiers = {}     # Dict[Tuple[str, int], str]
+        self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         self.hashStore = self.getHashStore(self.name)
         self.initDomainLedger()
@@ -1211,7 +1211,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
-            self.clientIdentifiers[request.key] = frm
+            self.requestSender[request.key] = frm
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
@@ -1235,8 +1235,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if request.key not in self.clientIdentifiers:
-            self.clientIdentifiers[request.key] = clientName
+        if request.key not in self.requestSender:
+            self.requestSender[request.key] = clientName
         self.requests.addPropagate(request, frm)
 
         # # Only propagate if the node is participating in the consensus process
@@ -1491,7 +1491,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reply = self.generateReply(ppTime, req)
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
         reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.clientIdentifiers[req.key])
+        self.transmitToClient(reply, self.requestSender[req.key])
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
 
