@@ -16,7 +16,8 @@ if __name__ == "__main__":
         description="Export keys")
 
     parser.add_argument('name', action="store")
-    parser.add_argument('--print_gen_txn', help='overrides keys', action='store_true')
+    parser.add_argument('--print_gen_txn', help='overrides keys',
+                        action='store_true')
 
     args = parser.parse_args()
     name = argv[1]
