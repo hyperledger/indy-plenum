@@ -100,7 +100,8 @@ class Wallet:
         req.identifier = idr
         idData = self._getIdData(idr)
         if not idData:
-            raise RuntimeError("Identifier not present in wallet, cannot sign")
+            raise RuntimeError("Identifier {} not present in wallet, "
+                               "cannot sign".format(idr))
         req.reqId = idData.lastReqId + 1
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
