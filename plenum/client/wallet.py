@@ -7,6 +7,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.types import Identifier, Request
 from plenum.common.util import getlogger
+from plenum.client.request_id_store import *
 
 logger = getlogger()
 
@@ -26,7 +27,7 @@ Alias = str
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore = None,
+                 requestIdStore: RequestIdStore = None
                  # DEPR
                  # storage: WalletStorage
                  ):
@@ -203,62 +204,3 @@ class Wallet:
         for x in exclude:
             lst.remove(x)
         return lst
-
-
-class RequestIdStore:
-
-    from abc import abstractmethod
-
-    @abstractmethod
-    def nextId(self, clientId, signerId) -> int:
-        pass
-
-    @abstractmethod
-    def currentId(self, clientId, signerId) -> int:
-        pass
-
-class FileRequestIdStore(RequestIdStore):
-
-    def __init__(self, filePath):
-        self.isOpen = False
-        self.storeFilePath = filePath
-        self._storage = {}
-
-    def open(self):
-        if self.isOpen:
-            raise RuntimeError("Storage is already open!")
-        self._loadStorage()
-
-    def close(self):
-        if self.isOpen:
-            self._saveStorage()
-
-    def _loadStorage(self):
-        with open(self.storeFilePath) as file:
-            for line in file:
-                (signerId, clientId, lastRequest) = line.split(";")
-                self._storage[clientId, signerId] = int(lastRequest)
-
-    def _saveStorage(self):
-        with open(self.storeFilePath) as file:
-            pass
-
-    def __enter__(self):
-        self.open()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def nextId(self, clientId, signerId) -> int:
-        lastRequestId = self._storage.get((clientId, signerId))
-        if not lastRequestId:
-            self._storage[signerId, signerId] = 1
-            return 1
-            
-
-        return lastRequestId
-
-    def currentId(self, clientId, signerId) -> int:
-        clients = self._storage.get(signerId)
-        if not clients:
-            return None
