@@ -27,7 +27,7 @@ Alias = str
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore = None
+                 requestIdStore: RequestIdStore
                  # DEPR
                  # storage: WalletStorage
                  ):
@@ -35,8 +35,7 @@ class Wallet:
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        file = ""
-        self._requestIdStore = requestIdStore or FileRequestIdStore(file)
+        self._requestIdStore = requestIdStore
 
     @property
     def name(self):
@@ -125,7 +124,7 @@ class Wallet:
 
     def signRequest(self,
                     req: Request,
-                    requestIdStore: RequestIdStore,
+                    clientId,
                     identifier: Identifier=None) -> Request:
         """
         Signs request. Modifies reqId and signature. May modify identifier.
@@ -138,7 +137,7 @@ class Wallet:
 
         idr = self._requiredIdr(idr=identifier, other=req.identifier)
         req.identifier = idr
-        req.reqId = requestIdStore.nextId()
+        req.reqId = self._requestIdStore.nextId(clientId=clientId, signerId=idr)
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
@@ -146,7 +145,7 @@ class Wallet:
 
     def signOp(self,
                op: Dict,
-               requestIdStore: RequestIdStore,
+               clientId,
                identifier: Identifier=None) -> Request:
         """
         Signs the message if a signer is configured
@@ -157,7 +156,7 @@ class Wallet:
         :return: a signed Request object
         """
         request = Request(operation=op)
-        return self.signRequest(request, requestIdStore, identifier)
+        return self.signRequest(request,clientId, identifier)
 
     # Removed:
     # _getIdData - removed in favor of passing RequestIdStore
