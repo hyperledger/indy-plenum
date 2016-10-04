@@ -22,6 +22,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import libnacl.secret
 import semver
+import shutil
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
@@ -539,3 +540,14 @@ def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
         n.clientAuthNr.addClient(identifier, verkey)
+
+
+def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
+    loggedInUser = getLoggedInUser()
+    try:
+        shutil.chown(directory, loggedInUser, loggedInUser)
+    except Exception as e:
+        if raiseEx:
+            raise e
+        else:
+            pass
