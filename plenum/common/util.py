@@ -22,6 +22,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import libnacl.secret
 import semver
+import shutil
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
@@ -584,3 +585,14 @@ def prettyDate(time=False):
     if day_diff < 7:
         return str(day_diff) + " days ago"
 
+
+
+def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
+    loggedInUser = getLoggedInUser()
+    try:
+        shutil.chown(directory, loggedInUser, loggedInUser)
+    except Exception as e:
+        if raiseEx:
+            raise e
+        else:
+            pass
