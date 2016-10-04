@@ -7,6 +7,8 @@ from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
 
+# import uvloop
+
 from plenum.common.startable import Status
 from plenum.common.log import getlogger
 
@@ -77,6 +79,9 @@ class Looper:
         self.prodables = list(prodables) if prodables is not None \
             else []  # type: List[Prodable]
 
+        # if sys.platform == 'linux':
+        #     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         if loop:
             self.loop = loop
         else:
@@ -90,8 +95,9 @@ class Looper:
             except Exception as ex:
                 logger.warning("Looper could not get default event loop; "
                                "creating a new one: {}".format(ex))
+                # Trying out uvloop for linux
                 l = asyncio.new_event_loop()
-                asyncio.set_event_loop(l)
+            asyncio.set_event_loop(l)
             self.loop = l
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
@@ -121,6 +127,11 @@ class Looper:
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
             self.startall()
+
+    # @staticmethod
+    # def new_event_loop():
+    #     eventLib = asyncio if sys.platform == 'win32' else uvloop
+    #     return eventLib.new_event_loop()
 
     async def prodAllOnce(self):
         """
