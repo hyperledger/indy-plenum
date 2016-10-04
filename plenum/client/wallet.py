@@ -4,12 +4,9 @@ import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
-from plenum.client.id_data import IdData, StoredIdData
-from plenum.client.signer import SimpleSigner
+from plenum.client.signer import Signer, SimpleSigner
+from plenum.common.types import Identifier, Request
 from plenum.common.util import getlogger
-# from plenum.persistence.wallet_storage import WalletStorage
-from plenum.persistence.client_req_rep_store import ClientReqRepStore
-from plenum.common.types import f, Identifier, Request
 
 logger = getlogger()
 
@@ -33,10 +30,9 @@ class Wallet:
                  # storage: WalletStorage
                  ):
         self._name = name
-        self.ids = {}  # type: Dict[Identifier, IdData]
-        self.aliases = {}  # type: Dict[Alias, Identifier]
+        self.idsToSigners = {}  # type: Dict[Identifier, Signer]
+        self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-
 
     @property
     def name(self):
@@ -67,75 +63,87 @@ class Wallet:
                   signer=None):
         '''
         Adds signer to the wallet.
-        Requires complete signer or identifier and seed
+        Requires complete signer, identifier or seed.
 
-        :param identifier: signer identifier
-        :param seed: signer key seed
+        :param identifier: signer identifier or None to use random one
+        :param seed: signer key seed or None to use random one
         :param signer: signer to add
         :return:
         '''
 
-        if not signer:
-            signer = SimpleSigner(identifier=identifier, seed=seed)
-
-        idr = signer.identifier
-
+        signer = signer or SimpleSigner(identifier=identifier, seed=seed)
+        self.idsToSigners[signer.identifier] = signer
         if self.defaultId is None:
             # setting this signer as default signer to let use sign* methods
-            # without explicit specification of signer identifier
-            self.defaultId = idr
-
-        self.ids[idr] = signer
-
+            # without explicit specification of signer
+            self.defaultId = signer.identifier
         if signer.alias:
-            self.aliases[signer.alias] = signer.identifier
-
+            self.aliasesToIds[signer.alias] = signer.identifier
         return signer
 
-    def _requiredIdr(self, idr: Identifier=None, alias: str=None,
+    def _requiredIdr(self,
+                     idr: Identifier=None,
+                     alias: str=None,
                      other: Identifier=None):
-        idr = idr or other or (
-            self.aliases[alias] if alias else self.defaultId)
+        '''
+        Checks whether signer identifier specified, or can it be
+        inferred from alias or can be default used instead
+
+        :param idr:
+        :param alias:
+        :param other:
+
+        :return: signer identifier
+        '''
+
+        idr = idr or other or (self.aliasesToIds[alias] if alias else self.defaultId)
         if not idr:
             raise RuntimeError('identifier required, but none found')
         return idr
 
-    def signMsg(self, msg: Dict, identifier: Identifier=None,
+    def signMsg(self,
+                msg: Dict,
+                identifier: Identifier=None,
                 otherIdentifier: Identifier=None):
+        '''
+        Creates signature for message using specified signer
+
+        :param msg: message to sign
+        :param identifier: signer identifier
+        :param otherIdentifier:
+        :return: signature that then can be assigned to request
+        '''
+
         idr = self._requiredIdr(idr=identifier, other=otherIdentifier)
-        idData = self._getIdData(idr)
-        if idData.signer:
-            signature = idData.signer.sign(msg)
-        else:
-            raise RuntimeError('{} signer not configured so cannot sign '
-                               '{}'.format(self, msg))
+        signer = self._signerById(idr)
+        signature = signer.sign(msg)
         return signature
 
-    def signRequest(self, req: Request, identifier: Identifier=None) -> Request:
+    def signRequest(self,
+                    req: Request,
+                    requestIdStore: RequestIdStore,
+                    identifier: Identifier=None) -> Request:
         """
         Signs request. Modifies reqId and signature. May modify identifier.
-        :param req:
-        :param identifier:
-        :return:
+
+        :param req: request
+        :param requestIdStore: request id generator
+        :param identifier: signer identifier
+        :return: signed request
         """
+
         idr = self._requiredIdr(idr=identifier, other=req.identifier)
         req.identifier = idr
-        idData = self._getIdData(idr)
-
-        for x in self.ids:
-            print(x)
-
-        print("=============")
-        print(identifier)
-        req.reqId = idData.lastReqId + 1
+        req.reqId = requestIdStore.nextId()
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
-        idData.refresh()
-        self.ids[idr] = idData
         return req
 
-    def signOp(self, op: Dict, identifier: Identifier=None) -> Request:
+    def signOp(self,
+               op: Dict,
+               requestIdStore: RequestIdStore,
+               identifier: Identifier=None) -> Request:
         """
         Signs the message if a signer is configured
 
@@ -144,22 +152,29 @@ class Wallet:
         :param op: Operation to be signed
         :return: a signed Request object
         """
-        return self.signRequest(Request(operation=op), identifier=identifier)
+        request = Request(operation=op)
+        return self.signRequest(request, requestIdStore, identifier)
 
-    def _getIdData(self,
-                   idr: Identifier=None,
-                   alias: Alias=None) -> IdData:
-        idr = self._requiredIdr(idr, alias)
-        return self.ids.get(idr, None)
-        # DEPR
-        # return self.storage.getSigner(identifier=identifier, alias=alias)
+    # Removed:
+    # _getIdData - removed in favor of passing RequestIdStore
+
+    def _signerById(self, idr: Identifier):
+        signer = self.idsToSigners.get(idr)
+        if not signer:
+            raise RuntimeError("No signer with idr '{}'".format(idr))
+        return signer
+
+    def _signerByAlias(self, alias: Alias):
+        id = self.aliasesToIds.get(alias)
+        if not id:
+            raise RuntimeError("No signer with alias '{}'".format(alias))
+        return self._signerById(id)
 
     def getVerKey(self, idr: Identifier=None) -> str:
-        data = self._getIdData(idr)
-        return data.signer.verkey
+        return self._signerById(idr or self.defaultId).verkey
 
     def getAlias(self, idr: Identifier):
-        for alias, identifier in self.aliases.items():
+        for alias, identifier in self.aliasesToIds.items():
             if identifier == idr:
                 return alias
 
@@ -179,9 +194,21 @@ class Wallet:
         :param exclude:
         :return: List of identifiers/aliases.
         """
-        lst = list(self.aliases.keys())
-        others = set(self.ids.keys()) - set(self.aliases.values())
+        lst = list(self.aliasesToIds.keys())
+        others = set(self.idsToSigners.keys()) - set(self.aliasesToIds.values())
         lst.extend(list(others))
         for x in exclude:
             lst.remove(x)
         return lst
+
+
+class RequestIdStore:
+    # TODO: make it generator?
+    from abc import abstractproperty
+
+    def nextId(self) -> int:
+        pass
+
+    @abstractproperty
+    def currentId(self) -> int:
+        pass

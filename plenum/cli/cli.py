@@ -1201,7 +1201,7 @@ class Cli:
 
         for wk, wv in self.wallets.items():
             if checkInAliases:
-                allAliases.extend(list(wv.aliases.keys()))
+                allAliases.extend(list(wv.aliasesToIds.keys()))
             if checkInSigners:
                 allSigners.extend(list(wv.listIds()))
             if checkInWallets:
@@ -1245,16 +1245,16 @@ class Cli:
     def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            if idrOrAlias not in wallet.aliases and idrOrAlias not in wallet.ids:
+            if idrOrAlias not in wallet.aliasesToIds and idrOrAlias not in wallet.idsToSigners:
                 return False
-            idrFromAlias = wallet.aliases.get(idrOrAlias)
+            idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
             if idrFromAlias:
                 self.activeIdentifier = idrFromAlias
                 self.activeAlias = idrOrAlias
             else:
                 alias = [k for k, v
-                         in wallet.aliases.items()
+                         in wallet.aliasesToIds.items()
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
                 self.activeIdentifier = idrOrAlias
