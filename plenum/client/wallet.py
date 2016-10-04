@@ -7,7 +7,6 @@ from libnacl import crypto_secretbox_open, randombytes, \
 from plenum.client.id_data import IdData
 from plenum.client.signer import SimpleSigner
 from plenum.common.log import getlogger
-# from plenum.persistence.wallet_storage import WalletStorage
 from plenum.common.types import f, Identifier, Request
 
 logger = getlogger()
@@ -126,8 +125,6 @@ class Wallet:
                    alias: Alias=None) -> IdData:
         idr = self._requiredIdr(idr, alias)
         return self.ids.get(idr)
-        # DEPR
-        # return self.storage.getSigner(identifier=identifier, alias=alias)
 
     def getVerKey(self, idr: Identifier=None) -> str:
         data = self._getIdData(idr)
