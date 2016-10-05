@@ -60,6 +60,7 @@ class FileRequestIdStore(RequestIdStore):
         lastRequestId = self._storage.get(signerId)
         nextId = lastRequestId + 1 if lastRequestId is not None else 0
         self._storage[signerId] = nextId
+        self.flush()
         return nextId
 
     def currentId(self, signerId) -> int:
