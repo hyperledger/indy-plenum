@@ -409,7 +409,7 @@ class TestNode(TestNodeCore, Node):
 class TestRequestIdStore(RequestIdStore):
 
     def __init__(self):
-        self._currentId = -1
+        self._currentId = 0
 
     def nextId(self, signerId) -> int:
         self._currentId += 1
