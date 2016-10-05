@@ -536,7 +536,7 @@ def getLoggedInUser():
     if sys.platform == 'wind32':
         return getpass.getuser()
     else:
-        if os.environ.has_key('SUDO_USER'):
+        if 'SUDO_USER' in os.environ:
             return os.environ['SUDO_USER']
         else:
             return os.environ['USER']
