@@ -533,7 +533,14 @@ def updateFieldsWithSeqNo(fields):
 
 
 def getLoggedInUser():
-    return getpass.getuser()
+    if sys.platform == 'wind32':
+        return getpass.getuser()
+    else:
+        if os.environ.has_key('SUDO_USER'):
+            return os.environ['SUDO_USER']
+        else:
+            return os.environ['USER']
+    # return getpass.getuser()
 
 
 def bootstrapClientKeys(identifier, verkey, nodes):
