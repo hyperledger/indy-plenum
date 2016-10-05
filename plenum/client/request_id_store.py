@@ -1,8 +1,7 @@
 from pathlib import Path
+from abc import abstractmethod
 
 class RequestIdStore:
-
-    from abc import abstractmethod
 
     @abstractmethod
     def nextId(self, signerId) -> int:
