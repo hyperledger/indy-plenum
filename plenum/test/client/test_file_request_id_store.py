@@ -18,8 +18,7 @@ def test_file_request_id_store():
             assert store.currentId(signerId) is None
             for requestIndex in range(3):
                 reqId = store.nextId(str(signerId))
-                print(reqId)
-                assert reqId == requestIndex
+                assert reqId == requestIndex + 1
                 assert store.currentId(signerId) == reqId
 
     # check that store does contain the data

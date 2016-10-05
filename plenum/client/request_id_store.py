@@ -57,8 +57,8 @@ class FileRequestIdStore(RequestIdStore):
                 file.write(line + "\n")
 
     def nextId(self, signerId) -> int:
-        lastRequestId = self._storage.get(signerId)
-        nextId = lastRequestId + 1 if lastRequestId is not None else 0
+        lastRequestId = self._storage.get(signerId) or 0
+        nextId = lastRequestId + 1
         self._storage[signerId] = nextId
         self.flush()
         return nextId
