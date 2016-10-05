@@ -409,14 +409,16 @@ class TestNode(TestNodeCore, Node):
 class TestRequestIdStore(RequestIdStore):
 
     def __init__(self):
-        self._currentId = 0
+        self.ids = {}
 
     def nextId(self, signerId) -> int:
-        self._currentId += 1
-        return self._currentId
+        id = (self.ids.get(signerId) or 0)
+        next = id + 1
+        self.ids[signerId] = next
+        return next
 
     def currentId(self, signerId) -> int:
-        return self._currentId
+        return self.ids.get(signerId)
 
 def randomSeed():
     chars = "0123456789abcdef"
