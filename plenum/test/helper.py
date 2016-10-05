@@ -45,6 +45,7 @@ from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
 from plenum.cli.helper import PortDispenser, genHa
+from plenum.client.request_id_store import RequestIdStore
 
 # checkDblImp()
 
@@ -404,6 +405,22 @@ class TestNode(TestNodeCore, Node):
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True)
 
+
+class TestRequestIdStore(RequestIdStore):
+
+    def __init__(self):
+        self._currentId = -1
+
+    def nextId(self, signerId) -> int:
+        self._currentId += 1
+        return self._currentId
+
+    def currentId(self, signerId) -> int:
+        return self._currentId
+
+def randomSeed():
+    chars = "0123456789abcdef"
+    return str.encode("".join(random.choice(chars) for _ in range(32)))
 
 def getTestableStack(stack: Stack):
     """

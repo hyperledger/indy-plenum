@@ -1,23 +1,7 @@
 import pytest
-import random
 from plenum.client.wallet import Wallet
-from plenum.client.request_id_store import RequestIdStore
+from plenum.test.helper import TestRequestIdStore, randomSeed
 
-class TestRequestIdStore(RequestIdStore):
-
-    def __init__(self):
-        self._currentId = -1
-
-    def nextId(self, signerId) -> int:
-        self._currentId += 1
-        return self._currentId
-
-    def currentId(self, signerId) -> int:
-        return self._currentId
-
-def randomSeed():
-    chars = "0123456789abcdef"
-    return str.encode("".join(random.choice(chars) for _ in range(32)))
 
 def add_and_sign(signersNum = 10):
     store = TestRequestIdStore()
