@@ -14,10 +14,11 @@ class RequestIdStore:
 
 class FileRequestIdStore(RequestIdStore):
 
-    def __init__(self, filePath):
+    def __init__(self, filePath, valueSeparator = '|'):
         self.isOpen = False
         self.storeFilePath = filePath
         self._storage = {}
+        self._valueSeparator = valueSeparator
 
     def __enter__(self):
         self.open()
@@ -46,13 +47,16 @@ class FileRequestIdStore(RequestIdStore):
         if storageFile.exists():
             with storageFile.open() as file:
                 for line in file:
-                    (clientId, signerId, lastRequest) = line.split(";")
+                    (clientId, signerId, lastRequest) = \
+                        line.split(self._valueSeparator)
                     self._storage[clientId, signerId] = int(lastRequest)
 
     def _saveStorage(self):
         with open(self.storeFilePath, 'w') as file:
             for (clientId, signerId), lastRequest in self._storage.items():
-                file.write("{};{};{}\n".format(clientId, signerId, lastRequest))
+                values = [str(x) for x in [clientId, signerId, lastRequest]]
+                line = self._valueSeparator.join(values)
+                file.write(line + "\n")
 
     def nextId(self, clientId, signerId) -> int:
         lastRequestId = self._storage.get((clientId, signerId))
