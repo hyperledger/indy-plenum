@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import random
 import shutil
@@ -111,6 +112,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         of a protocol instance
         """
         self.created = time.perf_counter()
+        self.createdEpoch = time.time()
         self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
@@ -281,6 +283,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
+        self.logNodeInfo()
 
     def __repr__(self):
         return self.name
@@ -615,9 +618,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendPoolInfoToClients(self, txn):
         logger.debug("{} sending new node info {} to all clients".format(self,
                                                                          txn))
+        self.logNodestackData()
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(msg,
                                            list(self.clientstack.connectedClients))
+
+    def logNodestackData(self):
+        logNodeInfoFile = open(os.path.join(self.config.baseDir, 'nodestack'), 'w')
+        logNodeInfoFile.write(self.nodestack)
+        logNodeInfoFile.close()
 
     @property
     def clientStackName(self):
@@ -1424,6 +1433,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
         self.initInsChngThrottling()
+        self.logNodeInfo()
 
     def verifySignature(self, msg):
         """
@@ -1794,3 +1804,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(len(self.aqStash), id(self.aqStash)))
 
         logger.info("\n".join(lines), extra={"cli": False})
+
+    def logNodeInfo(self):
+        """
+        Print the node's info to log for the REST backend to read.
+        """
+        info = {
+            'name': self.name,
+            'rank': self.rank,
+            'view': self.viewNo,
+            'creationDate': self.createdEpoch,
+            'baseDir': self.basedirpath
+        }
+
+        logNodeInfoFile = open(os.path.join(self.config.baseDir, 'node_info'), 'w')
+        logNodeInfoFile.write(json.dumps(info))
+        logNodeInfoFile.close()
+
