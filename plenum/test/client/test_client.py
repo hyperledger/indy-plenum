@@ -223,6 +223,11 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
 # noinspection PyIncorrectDocstring
 def testReplyMatchesRequest(looper, nodeSet, tdir, up):
+    '''
+    This tests does check following things:
+      - wallet works correctly when used by multiple clients
+      - clients do receive responses for exactly the same request they sent
+    '''
 
     def makeClient(id):
         client, wallet = genTestClient(nodeSet,
