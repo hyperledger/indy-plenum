@@ -42,9 +42,9 @@ class FileRequestIdStore(RequestIdStore):
             self._saveStorage()
 
     def _loadStorage(self):
-        my_file = Path("/path/to/file")
-        if my_file.exists():
-            with open(self.storeFilePath) as file:
+        storageFile = Path(self.storeFilePath)
+        if storageFile.exists():
+            with storageFile.open() as file:
                 for line in file:
                     (clientId, signerId, lastRequest) = line.split(";")
                     self._storage[clientId, signerId] = int(lastRequest)
