@@ -1,33 +1,38 @@
 import pytest
 import random
 from plenum.client.wallet import Wallet
-from plenum.persistence.client_req_rep_store import ClientReqRepStore
+from plenum.client.request_id_store import RequestIdStore
 
-class TestClientReqRepStore:
-    def __init__(self, lastReqId):
-        self._lastReqId = lastReqId - 1
-    @property
-    def lastReqId(self):
-        self._lastReqId += 1
-        return self._lastReqId
+class TestRequestIdStore(RequestIdStore):
 
-def add_and_sign(clientsNum = 10):
-    # configuring wallet
-    wallet = Wallet("shared wallet")
-    for i in range(clientsNum):
-        store = TestClientReqRepStore(i)  # type: ClientReqRepStore
+    def __init__(self):
+        self._currentId = -1
+
+    def nextId(self, signerId) -> int:
+        self._currentId += 1
+        return self._currentId
+
+    def currentId(self, signerId) -> int:
+        return self._currentId
+
+def randomSeed():
+    chars = "0123456789abcdef"
+    return str.encode("".join(random.choice(chars) for _ in range(32)))
+
+def add_and_sign(signersNum = 10):
+    store = TestRequestIdStore()
+    wallet = Wallet("shared wallet", store)
+    idrs = []
+    for i in range(signersNum):
         identifier = "signer_{}".format(i)
-        seed = str.encode("".join(random.choice("0123456789abcdef") for _ in range(32)))
-        wallet.addSigner(identifier, seed, reqRepStore=store)
-
-    # testing indexes
-    for i in range(clientsNum):
-        op = {}
-        signed = wallet.signOp(op)
-        assert i + 1 == signed.reqId
+        idrs.append(identifier)
+        wallet.addSigner(identifier, seed=randomSeed())
+    for idr in idrs:
+        signed = wallet.signOp(op = {}, identifier=idr)
+        assert signed.reqId == store.currentId(idr)
 
 def test_wallet_uses_store():
-    add_and_sign(clientsNum=1)
+    add_and_sign(signersNum=1)
 
 def test_wallet_used_with_multiple_signers():
-    add_and_sign(clientsNum=10)
+    add_and_sign(signersNum=10)
