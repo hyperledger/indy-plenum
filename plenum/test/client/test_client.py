@@ -16,9 +16,11 @@ whitelist = ['signer not configured so not signing',
 
 def checkResponseRecvdFromNodes(client, expectedCount: int):
     respCount = 0
+    sign = randomSeed()
     for (resp, nodeNm) in client.inBox:
         if resp.get(OP_FIELD_NAME) in (REQACK, REPLY):
             respCount += 1
+            print(client, resp)
     assert respCount == expectedCount
 
 
@@ -28,7 +30,7 @@ def testGeneratedRequestSequencing(tdir_for_func):
     Request ids must be generated in an increasing order
     """
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet('test')
+        w = Wallet("test", requestIdStore=(TestRequestIdStore()))
         w.addSigner()
 
         operation = randomOperation()
@@ -231,37 +233,36 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
         return client, wallet
 
     # creating clients
-    numOfClients = 5
-    clients = set()
+    numOfClients = 3
+    numOfRequests = 1
 
-    sharedWallet = Wallet("shared_wallet")
+    clients = set()
+    sharedWallet = None
     for i in range(numOfClients):
         client, wallet = makeClient(i)
-        clientSigner = wallet.ids[wallet.defaultId].signer
-        sharedWallet.addSigner(identifier=client.name, signer=clientSigner)
+        if sharedWallet is None:
+            sharedWallet = wallet
         clients.add(client)
 
-    experiments = 1
-    for i in range(1, experiments + 1):
+    for i in range(1, numOfRequests + 1):
 
         # sending requests
         requests = {}
-
         for client in clients:
             op = randomOperation()
-            req = sharedWallet.signOp(op, identifier=client.name)
+            req = sharedWallet.signOp(op)
+
             request = client.submitReqs(req)[0]
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
-        for client in clients:
+        for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
                                   2 * nodeCount * i,
                                   retryWait=.25,
-                                  timeout=15))
+                                  timeout=20))
 
-            (reqId, sentAmount) = requests[client]
             print("Expected amount for request {} is {}".format(reqId, sentAmount))
 
             replies = [r[0]['result']['amount']
