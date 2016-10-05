@@ -12,14 +12,16 @@ def test_file_request_id_store():
         # since random empty file created for this test loaded storage should be empty
         assert len(store._storage) == 0
 
-        clientId = "client-id"
-        signerId = "signer-id"
-        assert store.currentId(clientId, signerId) is None
 
-        for i in range(5):
-            reqId = store.nextId(clientId, signerId)
-            assert reqId == i
-            assert store.currentId(clientId, signerId) == reqId
+        for signerIndex in range(3):
+            signerId = "signer-id-{}".format(signerIndex)
+            assert store.currentId(signerId) is None
+            for requestIndex in range(3):
+                reqId = store.nextId(str(signerId))
+                print(reqId)
+                assert reqId == requestIndex
+                assert store.currentId(signerId) == reqId
 
     # check that store does contain the data
-    assert os.path.getsize(storeFilePath) == 22
+    assert os.path.getsize(storeFilePath) == 42
+    os.remove(storeFilePath)
