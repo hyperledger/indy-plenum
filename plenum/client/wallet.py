@@ -124,7 +124,6 @@ class Wallet:
 
     def signRequest(self,
                     req: Request,
-                    clientId,
                     identifier: Identifier=None) -> Request:
         """
         Signs request. Modifies reqId and signature. May modify identifier.
@@ -137,7 +136,7 @@ class Wallet:
 
         idr = self._requiredIdr(idr=identifier, other=req.identifier)
         req.identifier = idr
-        req.reqId = self._requestIdStore.nextId(clientId=clientId, signerId=idr)
+        req.reqId = self._requestIdStore.nextId(signerId=idr)
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
@@ -145,7 +144,6 @@ class Wallet:
 
     def signOp(self,
                op: Dict,
-               clientId,
                identifier: Identifier=None) -> Request:
         """
         Signs the message if a signer is configured
@@ -156,7 +154,7 @@ class Wallet:
         :return: a signed Request object
         """
         request = Request(operation=op)
-        return self.signRequest(request,clientId, identifier)
+        return self.signRequest(request, identifier)
 
     # Removed:
     # _getIdData - removed in favor of passing RequestIdStore
