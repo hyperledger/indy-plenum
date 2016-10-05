@@ -104,7 +104,6 @@ class PluginLoader:
                                                   self._validTypes))
                         else:
                             inst = c()
-                            importSuccessful = False
                             if isinstance(inst, HasDynamicallyImportedModules):
                                 importSuccessful = inst.isModuleImportedSuccessfully()
                             else:
@@ -113,7 +112,8 @@ class PluginLoader:
                             if importSuccessful:
                                 logger.info("plugin {} successfully loaded "
                                              "from module {}".
-                                            format(c.__name__, mod))
+                                            format(c.__name__, mod),
+                                            extra={"cli": False})
                                 if typ in plugins:
                                     plugins[typ].add(inst)
                                 else:
