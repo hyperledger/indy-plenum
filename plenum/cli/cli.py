@@ -71,7 +71,7 @@ from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig
-
+from plenum.client.request_id_store import FileRequestIdStore
 
 class CustomOutput(Vt100_Output):
     """
@@ -1164,11 +1164,18 @@ class Cli:
             self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
-    def _buildWalletClass(self, nm):
+    def _buildWalletClass(self, nm, walletFilePath = None):
         # DEPR
         # storage = WalletStorageFile.fromName(nm, self.basedirpath)
         # return Wallet(nm, storage)
-        return Wallet(nm)
+
+        if not walletFilePath:
+            walletFilePath = \
+                os.path.join(self.config.baseDir, self.config.walletFile)
+
+        requestIdStore = FileRequestIdStore(walletFilePath)
+        requestIdStore.open() # TODO: find the best place for closing
+        return Wallet(nm, requestIdStore)
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
