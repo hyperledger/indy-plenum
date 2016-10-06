@@ -1,5 +1,5 @@
 from plenum.common.exceptions import RemoteNotFound
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from plenum.common.looper import Looper

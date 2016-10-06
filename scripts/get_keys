@@ -6,6 +6,8 @@
 import json
 import os
 import sys
+
+from plenum.common.util import getLoggedInUser
 from raet.nacling import Signer, Privateer
 
 
@@ -25,27 +27,25 @@ if len(sys.argv) < 2:
 
 NODE_OR_CLIENT_NAME = sys.argv.pop(1)
 
-# The user should ideally be "plenum"
-CURRENT_LOGGED_IN_USER = "sovrin"
+CURRENT_LOGGED_IN_USER = getLoggedInUser()
 
 path = "/home/{}/.plenum/{}/role/local/role.json".\
     format(CURRENT_LOGGED_IN_USER, NODE_OR_CLIENT_NAME)
 
 if not os.path.exists(path):
-    breakIt("Sorry, please check the client or node name you've "
-                    "entered")
+    breakIt("Please check the client or node name you've entered.")
 with open(path, "r") as f:
     keyString = f.read().strip()
 try:
     d = json.loads(keyString)
 except json.decoder.JSONDecodeError:
-    breakIt("non json content exception message here")
+    breakIt("Key file data is not in JSON. Cannot parse. Regenerate the keys.")
 
 # TODO: move the lines below to above try block and catch key errors
 if 'prihex' not in d:
-    breakIt("key not defined in given data")
+    breakIt("Key not defined in given data")
 if 'sighex' not in d:
-    breakIt("key not defined in given data")
+    breakIt("Key not defined in given data")
 
 
 prihex = d['prihex']

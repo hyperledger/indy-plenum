@@ -1,6 +1,6 @@
 import pytest
 from plenum.common.startable import Mode
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkNodesConnected, sendRandomRequests, crDelay
 from plenum.test.node_catchup.helper import \

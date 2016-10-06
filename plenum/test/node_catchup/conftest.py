@@ -1,14 +1,13 @@
 import pytest
-from plenum.client.signer import SimpleSigner
-from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
 from plenum.common.util import randomString
+from plenum.common.port_dispenser import genHa
 from plenum.test.conftest import getValueFromModule
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestClient, genHa, \
     sendReqsToNodesAndVerifySuffReplies, checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
-from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
+from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 
 
@@ -17,12 +16,6 @@ def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
                              poolTxnStewardData, tconf,
                              allPluginsPath, request):
     with Looper(debug=True) as looper:
-        # name, sigseed = poolTxnStewardData
-        # stewardSigner = SimpleSigner(seed=sigseed)
-        # wallet = Wallet(name)
-        # wallet.addSigner(signer=stewardSigner)
-        # client = TestClient(name=name, nodeReg=None, ha=genHa(),
-        #                     basedirpath=tdirWithPoolTxns)
         client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                                   tdirWithPoolTxns,
                                                   clientClass=TestClient)

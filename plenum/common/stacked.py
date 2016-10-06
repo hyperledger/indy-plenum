@@ -19,7 +19,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ratchet import Ratchet
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, getlogger, checkPortAvailable, getConfig
+    MessageProcessor, checkPortAvailable, getConfig
+from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -113,10 +114,10 @@ class Stack(RoadStack):
                 if isinstance(ex, OSError) and \
                         len(ex.args) > 0 and \
                         ex.args[0] == 22:
-                    logger.error("Error servicing stack: {}. This could be "
+                    logger.error("Error servicing stack {}: {}. This could be "
                                  "due to binding to an internal network "
                                  "and trying to route to an external one.".
-                                 format(ex), extra={'cli': 'WARNING'})
+                                 format(self.name, ex), extra={'cli': 'WARNING'})
                 else:
                     logger.error("Error servicing stack {}: {} {}".
                                  format(self.name, ex, ex.args),

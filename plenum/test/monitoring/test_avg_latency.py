@@ -1,7 +1,7 @@
 import logging
 
+from plenum.common.log import getlogger
 from plenum.common.looper import Looper
-from plenum.common.util import getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, sendRandomRequest, \

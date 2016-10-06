@@ -6,8 +6,10 @@ from libnacl import crypto_secretbox_open, randombytes, \
 
 from plenum.client.signer import Signer, SimpleSigner
 from plenum.common.types import Identifier, Request
-from plenum.common.util import getlogger
 from plenum.client.request_id_store import *
+from plenum.client.signer import SimpleSigner
+from plenum.common.log import getlogger
+from plenum.common.types import f, Identifier, Request
 
 logger = getlogger()
 

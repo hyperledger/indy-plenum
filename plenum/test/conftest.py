@@ -17,8 +17,9 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances, TestingHandler, getConfig, \
-    getlogger
+from plenum.common.util import getNoInstances, getConfig
+from plenum.common.port_dispenser import genHa
+from plenum.common.log import getlogger, TestingHandler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -355,7 +356,7 @@ def dirName():
 
 @pytest.fixture(scope="module")
 def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
+    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
     data = json.loads(open(filePath).read().strip())
     for txn in data["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:

@@ -1,8 +1,6 @@
 import inspect
-import logging
 import math
 import operator
-import os
 import random
 import time
 import types
@@ -16,12 +14,12 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence, Iterator
 from typing import Union, Callable
 
-from plenum.client.wallet import Wallet
-from plenum.common.ledger_manager import LedgerManager
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
+from plenum.client.wallet import Wallet
 from plenum.common.exceptions import RemoteNotFound
+from plenum.common.ledger_manager import LedgerManager
 from plenum.common.looper import Looper
 from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
@@ -31,11 +29,10 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
     Propagate, Prepare, Commit, CatchupReq, Identifier
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict, getlogger, checkIfMoreThanFSameItems
+    Seconds, adict, checkIfMoreThanFSameItems, bootstrapClientKeys
+from plenum.common.port_dispenser import genHa
+from plenum.common.log import getlogger
 from plenum.persistence import orientdb_store
-# DEPR
-# from plenum.persistence.wallet_storage_file import WalletStorageFile
-# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -1045,12 +1042,6 @@ def genTestClient(nodes: TestNodeSet = None,
             verkey = w.getVerKey()
         bootstrapClientKeys(identifier, verkey, nodes)
     return tc, w
-
-
-def bootstrapClientKeys(identifier, verkey, nodes):
-    # bootstrap client verification key to all nodes
-    for n in nodes:
-        n.clientAuthNr.addClient(identifier, verkey)
 
 
 def genTestClientProvider(nodes: TestNodeSet = None,

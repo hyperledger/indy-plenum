@@ -4,7 +4,7 @@ import pytest
 from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer
 from raet.road.estating import RemoteEstate
-from plenum.test.helper import genHa
+from plenum.common.port_dispenser import genHa
 from plenum.test.raet.helper import handshake, cleanup, sendMsgs
 from raet.raeting import AutoMode, Acceptance
 from raet.road.stacking import RoadStack

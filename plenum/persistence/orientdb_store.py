@@ -1,7 +1,8 @@
 from typing import Dict
 
 import pyorient
-from plenum.common.util import getlogger, error
+from plenum.common.util import error
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

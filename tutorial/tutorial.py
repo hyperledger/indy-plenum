@@ -7,7 +7,11 @@ from tempfile import TemporaryDirectory
 from ioflo.base.consoling import getConsole
 
 from plenum.client.client import Client
+from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
+from plenum.common.script_helper import initKeep
+from plenum.common.types import HA, NodeDetail
+from plenum.common.util import randomString
 from plenum.server.node import Node
 from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
 
@@ -26,16 +30,32 @@ with TemporaryDirectory() as tmpdir:
     It's also a context manager, so it cleans up after itself.
     """
     with Looper(debug=False) as looper:
+        """
+        The nodes need to have the their keys initialized
+        """
+        initKeep(tmpdir, 'Alpha', randomString(32), override=True)
+        initKeep(tmpdir, 'AlphaC', randomString(32), override=True)
+        initKeep(tmpdir, 'Beta', randomString(32), override=True)
+        initKeep(tmpdir, 'BetaC', randomString(32), override=True)
+        initKeep(tmpdir, 'Gamma', randomString(32), override=True)
+        initKeep(tmpdir, 'GammaC', randomString(32), override=True)
+        initKeep(tmpdir, 'Delta', randomString(32), override=True)
+        initKeep(tmpdir, 'DeltaC', randomString(32), override=True)
 
         """
         A node registry is a dictionary of Node names and their IP addresses
         and port numbers.
         """
         nodeReg = {
-            'Alpha': ('127.0.0.1', 7560),
-            'Beta': ('127.0.0.1', 7562),
-            'Gamma': ('127.0.0.1', 7564),
-            'Delta': ('127.0.0.1', 7566)}
+            'Alpha': NodeDetail(HA('127.0.0.1', 7560), "AlphaC",
+                                HA('127.0.0.1', 7561)),
+            'Beta': NodeDetail(HA('127.0.0.1', 7562), "BetaC",
+                               HA('127.0.0.1', 7563)),
+            'Gamma': NodeDetail(HA('127.0.0.1', 7564), "GammaC",
+                                HA('127.0.0.1', 7565)),
+            'Delta': NodeDetail(HA('127.0.0.1', 7566), "DeltaC",
+                                HA('127.0.0.1', 7567))
+        }
 
         """
         Create a node called Alpha
@@ -88,6 +108,17 @@ with TemporaryDirectory() as tmpdir:
             'DeltaC': ('127.0.0.1', 7567)}
 
         """
+        Create a wallet to the keys that the client will use to have a
+        secure communication with the nodes.
+        """
+        wallet = Wallet("my_wallet")
+
+        """
+        Now the wallet needs to have one keypair, so lets add it.
+        """
+        wallet.addSigner()
+
+        """
         A bi-directional connection is made from the client. This is the ip
         address and port for the client's interfact to the nodes.
         """
@@ -107,7 +138,7 @@ with TemporaryDirectory() as tmpdir:
         A client signs its requests. By default, a simple yet secure signing
         mechanism is created for a client.
         """
-        idAndKey = client.getSigner().identifier, client.getSigner().verkey
+        idAndKey = wallet.defaultId, wallet.getVerKey(wallet.defaultId)
 
         """
         A client's signature verification key must be bootstrapped out of band
@@ -128,9 +159,15 @@ with TemporaryDirectory() as tmpdir:
         msg = {'life_answer': 42}
 
         """
-        And submit it to the pool.
+        Before sending this message to the pool, the message needs to be signed
+        first with a key from the wallet
         """
-        request, = client.submit_DEPRECATED(msg)
+        request = wallet.signOp(msg, identifier=wallet.defaultId)
+
+        """
+        And submit the request to the pool.
+        """
+        client.submitReqs(request)
 
         """
         Allow some time for the request to be executed.
@@ -167,9 +204,10 @@ with TemporaryDirectory() as tmpdir:
         msg = {"type": "sell", "amount": 101}
 
         """
-        And submit it to the pool.
+        And now sign and submit it to the pool.
         """
-        request2, = client.submit_DEPRECATED(msg)
+        request2 = wallet.signOp(msg, identifier=wallet.defaultId)
+        client.submitReqs(request2)
 
         """
         Allow time for the message to be executed.

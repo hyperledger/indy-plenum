@@ -11,7 +11,8 @@ import plenum.server.node
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.types import ReqDigest, PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.util import MessageProcessor, getlogger
+from plenum.common.util import MessageProcessor
+from plenum.common.log import getlogger
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions

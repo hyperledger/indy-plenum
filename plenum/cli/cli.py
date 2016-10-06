@@ -26,9 +26,6 @@ from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
-# DEPR
-# from plenum.persistence.wallet_storage_file import WalletStorageFile
-from plenum.test.helper import bootstrapClientKeys
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -62,10 +59,10 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import setupLogging, getlogger, CliHandler, \
-    TRACE_LOG_LEVEL, getMaxFailures, checkPortAvailable, firstValue, \
-    randomString, error, cleanSeed, getRAETLogLevelFromConfig, \
-    getRAETLogFilePath
+from plenum.common.util import getMaxFailures, checkPortAvailable, \
+    firstValue, randomString, cleanSeed, bootstrapClientKeys
+from plenum.common.log import CliHandler, getlogger, setupLogging, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -101,18 +98,17 @@ class Cli:
     _genesisTransactions = []
 
     # noinspection PyPep8
-    def __init__(self, looper, basedirpath, nodeReg, cliNodeReg, output=None,
-                 debug=False, logFileName=None, config=None):
+    def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
+                 output=None, debug=False, logFileName=None, config=None,
+                 useNodeReg=False):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        # DEPR
-        # WalletStorageFile.basepath = self.basedirpath
         self.nodeRegLoadedFromFile = False
-        self.config = config or getConfig()
-        if not (nodeReg and len(nodeReg) > 0) or (len(sys.argv) > 1
-                                                  and sys.argv[1] == "--noreg"):
+        self.config = config or getConfig(self.basedirpath)
+        if not (useNodeReg and
+                    nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
             nodeReg = {}
             cliNodeReg = {}
@@ -256,7 +252,7 @@ class Cli:
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         if nodeReg:
             self.print("Node registry loaded.")
-            self.print("None of these are created or running yet.")
+            # self.print("None of these are created or running yet.")
 
             self.showNodeRegistry()
         self.print("Type 'help' for more information.")
@@ -833,10 +829,14 @@ class Cli:
                 self.printNames(client.nodestack.conns, newline=True)
             else:
                 self.printVoid()
-            self.print("    Identifier: {}".format(client.defaultIdentifier))
-            self.print(
-                "    Verification key: {}".format(client.getSigner().verkey))
-            self.print("    Submissions: {}".format(client.lastReqId))
+            if self.activeWallet and self.activeWallet.defaultId:
+                wallet = self.activeWallet
+                self.print("    Identifier: {}".format(wallet.defaultId))
+                self.print(
+                    "    Verification key: {}".
+                        format(wallet.getVerKey(wallet.defaultId)))
+                self.print("    Submissions: {}".
+                           format(client.reqRepStore.lastReqId))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
@@ -894,9 +894,10 @@ class Cli:
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
+            nodeReg = None if self.nodeRegLoadedFromFile else self.cliNodeReg
             client = self.ClientClass(clientName,
                                       ha=client_addr,
-                                      nodeReg=None,
+                                      nodeReg=nodeReg,
                                       basedirpath=self.basedirpath,
                                       config=config)
             self.activeClient = client
@@ -932,7 +933,8 @@ class Cli:
                 request, = client.submitReqs(req)
                 self.requests[str(request.reqId)] = request.reqId
             else:
-                self.printMsgForUnknownWallet(clientName)
+                self._newWallet(clientName)
+                self.printNoKeyMsg()
         else:
             self.printMsgForUnknownClient()
 
@@ -1330,16 +1332,33 @@ class Cli:
         self.curClientPort = self.curClientPort or curClientPort
         # TODO: Find a better way to do this
         self.curClientPort += random.randint(1, 200)
-        host = "127.0.0.1"
+        host = "0.0.0.0"
         try:
             checkPortAvailable((host, self.curClientPort))
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.".format(
-                self.curClientPort, ex))]
+                                    "trying another port.".
+                       format(self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
+
+    @property
+    def hasAnyKey(self):
+        if not self.activeWallet.defaultId:
+            self.printNoKeyMsg()
+            return False
+        return True
+
+    def printNoKeyMsg(self):
+        self.print("No key present in keyring")
+        self.printUsage(("new key", ))
+
+    def printUsage(self, msgs):
+        self.print("\nUsage:")
+        for m in msgs:
+            self.print('  {}'.format(m))
+        self.print("\n")
 
     # TODO: Do we keep this? What happens when we allow the CLI to connect
     # to remote nodes?

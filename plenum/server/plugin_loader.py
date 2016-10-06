@@ -8,7 +8,8 @@ from os.path import isfile, join
 from typing import Any, Set, Dict
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getlogger
+
+from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -103,7 +104,6 @@ class PluginLoader:
                                                   self._validTypes))
                         else:
                             inst = c()
-                            importSuccessful = False
                             if isinstance(inst, HasDynamicallyImportedModules):
                                 importSuccessful = inst.isModuleImportedSuccessfully()
                             else:
@@ -112,7 +112,8 @@ class PluginLoader:
                             if importSuccessful:
                                 logger.info("plugin {} successfully loaded "
                                              "from module {}".
-                                            format(c.__name__, mod))
+                                            format(c.__name__, mod),
+                                            extra={"cli": False})
                                 if typ in plugins:
                                     plugins[typ].add(inst)
                                 else:

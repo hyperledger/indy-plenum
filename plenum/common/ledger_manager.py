@@ -19,7 +19,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
     CatchupReq, ConsProofRequest
-from plenum.common.util import getlogger, getMaxFailures, getConfig
+from plenum.common.util import getMaxFailures, getConfig
+from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()

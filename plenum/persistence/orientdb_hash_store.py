@@ -2,7 +2,7 @@ from base64 import b64encode, b64decode
 
 from ledger.stores.hash_store import HashStore
 from ledger.util import F
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.persistence.orientdb_store import OrientDbStore
 
 

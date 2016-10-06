@@ -6,7 +6,8 @@ from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, NEW_NODE, ALIAS, DATA, CHANGE_HA, \
     CHANGE_KEYS
 from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures
+from plenum.common.log import getlogger
 
 logger = getlogger()
 t = f.TXN.nm

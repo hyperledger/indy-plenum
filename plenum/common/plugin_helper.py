@@ -2,7 +2,8 @@ import importlib
 
 import os
 
-from plenum.common.util import getConfig, getlogger
+from plenum.common.util import getConfig
+from plenum.common.log import getlogger
 
 pluginsLoaded = {}  # Dict(baseDir, List[plugin names])
 pluginsNotFound = {}  # Dict(baseDir, List[plugin names])
@@ -52,7 +53,7 @@ def loadPlugins(baseDir):
                         if not pluginsNotFound.get(pluginPath):
                             logger.warn("Note: Plugin file does not exists: {}. "
                                         "Create plugin file if you want to load it"
-                                        .format(pluginPath))
+                                        .format(pluginPath), extra={"cli": False})
                             pluginsNotFound[pluginPath] = "Notified"
 
                 except Exception as ex:

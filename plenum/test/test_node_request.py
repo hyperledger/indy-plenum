@@ -2,7 +2,7 @@ from pprint import pprint
 
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import TestNodeSet, setupNodesAndClient, \

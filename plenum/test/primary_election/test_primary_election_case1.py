@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually

@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, TestNode, \
     checkNodesConnected, TestLedgerManager

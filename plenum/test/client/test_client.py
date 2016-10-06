@@ -1,8 +1,21 @@
 import pytest
 from raet.raeting import AutoMode
-
 from plenum.test.conftest import clientAndWallet1
 from plenum.test.helper import *
+from plenum.common.types import f, OP_FIELD_NAME, Request
+# DEPR
+# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
+from plenum.test.eventually import eventually
+from plenum.common.util import getMaxFailures
+from plenum.server.node import Node
+from plenum.test.helper import NotConnectedToAny, \
+    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import TestNodeSet, randomOperation, \
+    checkLastClientReqForNode, \
+    getRepliesFromClientInbox
+from plenum.test.helper import checkResponseCorrectnessFromNodes
+from plenum.test.helper import sendRandomRequest, genTestClient, \
+    checkSufficientRepliesRecvd, assertLength
 
 nodeCount = 7
 
@@ -277,3 +290,14 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
             assert all(replies[0] == r for r in replies)
             assert replies[0] == sentAmount
+
+def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
+                                                client1, wallet1):
+    newClient, _ = genTestClient(nodeSet, tmpdir=tdir)
+    looper.add(newClient)
+    looper.run(newClient.ensureConnectedToNodes())
+    client1InboxSize = len(client1.inBox)
+    newClientInboxSize = len(newClient.inBox)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
+    assert len(client1.inBox) == client1InboxSize
+    assert len(newClient.inBox) > newClientInboxSize

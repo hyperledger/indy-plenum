@@ -9,7 +9,7 @@ from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
 from plenum.common.util import getConfig
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper

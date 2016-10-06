@@ -1,6 +1,6 @@
 from plenum.common.looper import Prodable
 from plenum.common.startable import Status
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

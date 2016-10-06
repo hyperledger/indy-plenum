@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 
 from plenum.common.looper import Looper

@@ -149,6 +149,11 @@ def checkClientConnected(cli, nodeNames, clientName):
     assert printedMsgs == expectedMsgs
 
 
+def checkActiveIdrPrinted(cli):
+    assert 'Identifier:' in cli.lastCmdOutput
+    assert 'Verification key:' in cli.lastCmdOutput
+
+
 def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
     createNewKeyring(clientName, cli)

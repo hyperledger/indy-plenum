@@ -47,8 +47,9 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig, friendlyEx
+from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx
+
+from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -223,9 +224,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                ConsistencyProof, CatchupReq, CatchupRep,
                                ConsProofRequest)
 
-        # Map of request identifier to client name. Used for
+        # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        self.clientIdentifiers = {}     # Dict[str, str]
+        # TODO: This should be persisted in
+        # case the node crashes before sending the reply to the client
+        self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         self.hashStore = self.getHashStore(self.name)
         self.initDomainLedger()
@@ -1182,17 +1185,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received client request: {} from {}".
                      format(self.name, request, frm))
 
-        # If request is already processed(there is a reply for the request in
-        # the node's transaction store then return the reply from the
-        # transaction store)
-        if request.identifier not in self.clientIdentifiers:
-            self.clientIdentifiers[request.identifier] = frm
-
         # TODO: What if client sends requests with same request id quickly so
         # before reply for one is generated, the other comes. In that
         # case we need to keep track of what requests ids node has seen
         # in-memory and once request with a particular request id is processed,
         # it should be removed from that in-memory DS.
+
+        # If request is already processed(there is a reply for the
+        # request in
+        # the node's transaction store then return the reply from the
+        # transaction store)
+        # TODO: What if the reply was a REQNACK? Its not gonna be found in the
+        # replies.
 
         typ = request.operation.get(TXN_TYPE)
         if typ in POOL_TXN_TYPES:
@@ -1207,6 +1211,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
+            self.requestSender[request.key] = frm
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
@@ -1230,9 +1235,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if request.identifier not in self.clientIdentifiers:
-            self.clientIdentifiers[request.identifier] = clientName
-
+        if request.key not in self.requestSender:
+            self.requestSender[request.key] = clientName
         self.requests.addPropagate(request, frm)
 
         # # Only propagate if the node is participating in the consensus process
@@ -1487,7 +1491,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reply = self.generateReply(ppTime, req)
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
         reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+        self.transmitToClient(reply, self.requestSender[req.key])
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
 

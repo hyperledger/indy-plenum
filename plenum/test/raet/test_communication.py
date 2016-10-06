@@ -1,7 +1,8 @@
 from ioflo.base.consoling import getConsole
 from raet.road.estating import RemoteEstate
 from plenum.client.signer import SimpleSigner
-from plenum.common.util import getlogger
+from plenum.common.port_dispenser import genHa
+from plenum.common.log import getlogger
 from plenum.test.helper import genHa
 from plenum.test.raet.helper import handshake, cleanup, sendMsgs, getRemote
 from raet.nacling import Privateer

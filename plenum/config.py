@@ -94,5 +94,5 @@ CatchupTransactionsTimeout = 5
 logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
-logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} | {message:s}'
+logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'

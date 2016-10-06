@@ -18,7 +18,8 @@ import plenum.cli.ensure_logging_not_setup
 
 # NOTE: Loading of plugin should happen as early as possible
 # So put all other required imports after loadPlugins function call below
-from plenum.common.util import getConfig
+from plenum.common.raet import initLocalKeep
+from plenum.common.util import getConfig, randomString
 from plenum.common.plugin_helper import loadPlugins
 config = getConfig()
 basedirpath = config.baseDir
@@ -31,15 +32,18 @@ from plenum.common.looper import Looper
 
 
 def run_cli():
-    commands = sys.argv[1:]
     nodeReg = config.nodeReg
     cliNodeReg = config.cliNodeReg
+    commands = sys.argv[1:]
+    for name in {**nodeReg, **cliNodeReg}:
+        initLocalKeep(name, basedirpath, randomString(32), True)
     with Looper(debug=False) as looper:
         cli = Cli(looper=looper,
-                  basedirpath=basedirpath,
                   nodeReg=nodeReg,
                   cliNodeReg=cliNodeReg,
-                  logFileName='log/cli.log')
+                  basedirpath=basedirpath,
+                  logFileName='log/cli.log',
+                  useNodeReg=True)
 
         looper.run(cli.shell(*commands))
 

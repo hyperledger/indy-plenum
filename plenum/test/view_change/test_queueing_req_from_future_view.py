@@ -4,7 +4,8 @@ from functools import partial
 import pytest
 from plenum.test.eventually import eventually
 
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures
+from plenum.common.log import getlogger
 from plenum.test.helper import TestReplica
 from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
     ppDelay, checkViewChangeInitiatedForNode, icDelay, \
