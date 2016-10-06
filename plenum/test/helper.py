@@ -41,7 +41,6 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.cli.helper import PortDispenser, genHa
 from plenum.client.request_id_store import RequestIdStore
 
 # checkDblImp()
