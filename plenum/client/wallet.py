@@ -203,3 +203,8 @@ class Wallet:
         for x in exclude:
             lst.remove(x)
         return lst
+
+    @property
+    def defaultSigner(self) -> Signer:
+        if self.defaultId is not None:
+            return self.idsToSigners[self.defaultId]
