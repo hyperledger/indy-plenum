@@ -96,9 +96,9 @@ def testSendRequestWithoutSignatureFails(pool):
         client1, wallet = genTestClient(ctx.nodeset, tmpdir=ctx.tmpdir)
 
         # remove the client's ability to sign
-        assert wallet._getIdData().signer
-        wallet._getIdData().signer = None
-        assert not wallet._getIdData().signer
+        assert wallet.defaultId
+        wallet.defaultId = None
+        assert not wallet.defaultId
 
         ctx.looper.add(client1)
         await client1.ensureConnectedToNodes()
