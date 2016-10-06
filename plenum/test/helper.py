@@ -936,7 +936,7 @@ def setupClients(count: int,
         # DEPR
         # storage = WalletStorageFile.fromName(name, tmpdir)
         # wallet = Wallet(name, storage)
-        wallet = Wallet(name, requestIdStore=(TestRequestIdStore()))
+        wallet = Wallet(name, requestIdStore=TestRequestIdStore())
         wallet.addSigner()
         idr = wallet.defaultId
         verkey = wallet.getVerKey(idr)
@@ -1039,7 +1039,7 @@ def genTestClient(nodes: TestNodeSet = None,
     if bootstrapKeys and nodes:
         if not identifier or not verkey:
             # no identifier or verkey were provided, so creating a wallet
-            w = Wallet("test", requestIdStore=(TestRequestIdStore()))
+            w = Wallet("test", requestIdStore=TestRequestIdStore())
             w.addSigner()
             identifier = w.defaultId
             verkey = w.getVerKey()

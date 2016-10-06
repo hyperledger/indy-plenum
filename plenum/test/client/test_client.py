@@ -30,7 +30,7 @@ def testGeneratedRequestSequencing(tdir_for_func):
     Request ids must be generated in an increasing order
     """
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet("test", requestIdStore=(TestRequestIdStore()))
+        w = Wallet("test", requestIdStore=TestRequestIdStore())
         w.addSigner()
 
         operation = randomOperation()
