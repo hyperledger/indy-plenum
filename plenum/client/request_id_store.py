@@ -68,3 +68,19 @@ class FileRequestIdStore(RequestIdStore):
 
     def clear(self):
         self._storage = {}
+
+
+
+class MemoryRequestIdStore(RequestIdStore):
+
+    def __init__(self):
+        self.ids = {}
+
+    def nextId(self, signerId) -> int:
+        id = (self.ids.get(signerId) or 0)
+        next = id + 1
+        self.ids[signerId] = next
+        return next
+
+    def currentId(self, signerId) -> int:
+        return self.ids.get(signerId)

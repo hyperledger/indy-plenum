@@ -41,7 +41,7 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.client.request_id_store import RequestIdStore
+from plenum.client.request_id_store import MemoryRequestIdStore
 
 # checkDblImp()
 
@@ -402,19 +402,8 @@ class TestNode(TestNodeCore, Node):
         return TestLedgerManager(self, ownedByNode=True)
 
 
-class TestRequestIdStore(RequestIdStore):
-
-    def __init__(self):
-        self.ids = {}
-
-    def nextId(self, signerId) -> int:
-        id = (self.ids.get(signerId) or 0)
-        next = id + 1
-        self.ids[signerId] = next
-        return next
-
-    def currentId(self, signerId) -> int:
-        return self.ids.get(signerId)
+class TestRequestIdStore(MemoryRequestIdStore):
+    pass
 
 def randomSeed():
     chars = "0123456789abcdef"
