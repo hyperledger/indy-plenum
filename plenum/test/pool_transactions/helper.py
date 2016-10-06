@@ -17,7 +17,7 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
     wallet = Wallet(name, requestIdStore=TestRequestIdStore())
     wallet.addSigner()
-        verstr = wallet.defaultSigner.verstr
+    verstr = wallet.defaultSigner.verstr
 
     op = {
         TXN_TYPE: NYM,
