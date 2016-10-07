@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, NamedTuple
 
 import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
@@ -26,18 +26,22 @@ class EncryptedWallet:
 Alias = str
 
 
+IdData = HA = NamedTuple("IdData", [
+    ("signer", Signer),
+    ("lastReqId", int)])
+
+
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore
-                 # DEPR
-                 # storage: WalletStorage
+                 requestIdStore: RequestIdStore=None
                  ):
         self._name = name
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        self._requestIdStore = requestIdStore
+        self._requestIdStore = requestIdStore if requestIdStore else \
+            MemoryRequestIdStore()
 
     @property
     def name(self):
@@ -208,3 +212,11 @@ class Wallet:
     def defaultSigner(self) -> Signer:
         if self.defaultId is not None:
             return self.idsToSigners[self.defaultId]
+
+    def _getIdData(self,
+                   idr: Identifier = None,
+                   alias: Alias = None) -> IdData:
+        idr = self._requiredIdr(idr, alias)
+        signer = self.idsToSigners.get(idr)
+        lastReqId = self._requestIdStore.currentId(idr)
+        return IdData(signer, lastReqId)

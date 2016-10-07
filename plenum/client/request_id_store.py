@@ -1,6 +1,7 @@
 from pathlib import Path
 from abc import abstractmethod
 
+
 class RequestIdStore:
 
     @abstractmethod
@@ -11,8 +12,8 @@ class RequestIdStore:
     def currentId(self, signerId) -> int:
         pass
 
-class FileRequestIdStore(RequestIdStore):
 
+class FileRequestIdStore(RequestIdStore):
     def __init__(self, filePath, valueSeparator = '|'):
         # isOpen shows the state of the store
         # if True then data is loaded from file (if store file exists)
@@ -72,7 +73,6 @@ class FileRequestIdStore(RequestIdStore):
 
     def clear(self):
         self._storage = {}
-
 
 
 class MemoryRequestIdStore(RequestIdStore):
