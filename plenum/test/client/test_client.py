@@ -38,6 +38,7 @@ def checkResponseRecvdFromNodes(client, expectedCount: int):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skipif(True, reason="Implementation changed")
 def testGeneratedRequestSequencing(tdir_for_func):
     """
     Request ids must be generated in an increasing order
@@ -169,7 +170,7 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount * request.reqId,
+                       2 * nodeCount,
                        retryWait=.25, timeout=15))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
@@ -188,7 +189,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # have a different operations
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount * request.reqId,
+                       2 * nodeCount,
                        retryWait=.25, timeout=15))
 
     replies = (msg for msg, frm in client1.inBox
