@@ -4,7 +4,7 @@ import os
 from setuptools import setup, find_packages, __version__
 from pip.req import parse_requirements
 import data
-from plenum.common.util import changeOwnerAndGrpToLoggedInUser
+
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -90,4 +90,5 @@ if not os.path.exists(CONFIG_FILE):
 DATA_DIR = os.path.dirname(data.__file__)
 shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
                 POOL_TXN_FILE)
+from plenum.common.util import changeOwnerAndGrpToLoggedInUser
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
