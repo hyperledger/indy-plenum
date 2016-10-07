@@ -65,7 +65,7 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import getConfig
+from plenum.common.util import getConfig, hexToCryptonym
 
 
 class CustomOutput(Vt100_Output):
