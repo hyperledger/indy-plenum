@@ -1166,18 +1166,20 @@ class Cli:
             self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
-    def _buildWalletClass(self, nm, walletFilePath = None):
-        # DEPR
-        # storage = WalletStorageFile.fromName(nm, self.basedirpath)
-        # return Wallet(nm, storage)
-
+    def _buildWalletClass(self, nm, walletFilePath=None):
         if not walletFilePath:
-            walletFilePath = \
-                os.path.join(self.config.baseDir, self.config.walletFile)
-
+            walletDirPath = \
+                os.path.join(self.basedirpath, self.config.walletDir)
+            if not os.path.exists(walletDirPath):
+                os.makedirs(walletDirPath)
+            walletFilePath = os.path.join(walletDirPath, nm)
         requestIdStore = FileRequestIdStore(walletFilePath)
         requestIdStore.open() # TODO: find the best place for closing
-        return Wallet(nm, requestIdStore)
+        return self.walletClass(nm, requestIdStore)
+
+    @property
+    def walletClass(self):
+        return Wallet
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName

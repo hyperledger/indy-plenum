@@ -14,7 +14,7 @@ class RequestIdStore:
 
 
 class FileRequestIdStore(RequestIdStore):
-    def __init__(self, filePath, valueSeparator = '|'):
+    def __init__(self, filePath, valueSeparator='|'):
         # isOpen shows the state of the store
         # if True then data is loaded from file (if store file exists)
         # and store can be used for getting ids.

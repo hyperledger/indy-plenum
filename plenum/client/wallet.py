@@ -4,8 +4,7 @@ import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
-from plenum.client.signer import Signer, SimpleSigner
-from plenum.common.types import Identifier, Request
+from plenum.client.signer import Signer
 from plenum.client.request_id_store import *
 from plenum.client.signer import SimpleSigner
 from plenum.common.log import getlogger
@@ -36,6 +35,8 @@ class Wallet:
                  name: str,
                  requestIdStore: RequestIdStore=None
                  ):
+        # If a requestIdStore is not passed, it will use a MemoryRequestIdStore
+        #  which does not persist request ids over restart
         self._name = name
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
