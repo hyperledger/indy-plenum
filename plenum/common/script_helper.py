@@ -11,17 +11,6 @@ GenTxnFile = "genesis_txn"
 ExportedTxnFile = "exported_genesis_txn"
 
 
-def isHexKey(key):
-    try:
-        if len(key) == 64 and int(key, 16):
-            return True
-    except ValueError as ex:
-        return False
-    except Exception as ex:
-        print(ex)
-        exit()
-
-
 def buildKeepDirIfNotExists(baseDir):
     keepDir = os.path.expanduser(baseDir)
     if not os.path.exists(keepDir):

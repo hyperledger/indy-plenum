@@ -1,4 +1,3 @@
-import logging
 import time
 from datetime import datetime
 from statistics import mean
@@ -10,7 +9,7 @@ from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
 from plenum.common.util import getConfig
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
@@ -135,7 +134,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         Reset the monitor. Sets all monitored values to defaults.
         """
-        logging.debug("Monitor being reset")
+        logger.debug("Monitor being reset")
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
@@ -156,7 +155,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Measure the time taken for ordering of a request
         """
         if (identifier, reqId) not in self.requestOrderingStarted:
-            logging.debug("Got ordered request with identifier {} and reqId {} "
+            logger.debug("Got ordered request with identifier {} and reqId {} "
                           "but it was from a previous view".
                           format(identifier, reqId))
             return

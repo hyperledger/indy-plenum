@@ -2,8 +2,7 @@ import asyncio
 
 from enum import Enum, unique
 
-from plenum.common.util import getlogger
-
+from plenum.common.log import getlogger
 
 logger = getlogger()
 

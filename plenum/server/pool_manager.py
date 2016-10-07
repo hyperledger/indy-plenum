@@ -6,12 +6,16 @@ from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
+
 from plenum.common.stack_manager import TxnStackManager
+
+from plenum.common.types import HA, f, Reply
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
-from plenum.common.types import HA, f
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
+from plenum.common.log import getlogger
+
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
-from plenum.common.util import getlogger
+
 
 logger = getlogger()
 
@@ -120,7 +124,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
         self.node.transmitToClient(reply,
-                                   self.node.clientIdentifiers[req.identifier])
+                                   self.node.requestSender[req.key])
+
+    def getReplyFor(self, request):
+        txn = self.ledger.get(identifier=request.identifier,
+                              reqId=request.reqId)
+        if txn:
+            txn.update(self.ledger.merkleInfo(txn.get(F.seqNo.name)))
+            return Reply(txn)
 
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NEW_NODE:

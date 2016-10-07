@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import cpDelay, checkNodesConnected, \
     sendReqsToNodesAndVerifySuffReplies
@@ -54,7 +54,7 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     nodeX.stop()
     nodeY.stop()
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, client, 50)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 50)
     logger.debug("Starting the 2 stopped nodes, {} and {}".format(nodeX.name,
                                                                   nodeY.name))
     nodeX.start(looper.loop)

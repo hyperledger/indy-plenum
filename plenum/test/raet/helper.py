@@ -39,3 +39,7 @@ def sendMsgs(frm, to, toRemote):
     rx = frm.rxMsgs.popleft()
     print("{0}\n".format(rx))
     print("Finished Message {} to {}\n".format(to.name, frm.name))
+
+
+def getRemote(stack, name):
+    return next(r for r in stack.remotes.values() if r.name == name)

@@ -8,7 +8,9 @@ from raet.nacling import Signer as NaclSigner
 from raet.nacling import SigningKey
 
 from plenum.common.signing import serializeForSig
+
 from plenum.common.util import hexToCryptonym
+from plenum.common.types import Identifier
 
 
 class Signer:
@@ -16,7 +18,7 @@ class Signer:
     Interface that defines a sign method.
     """
     @abstractproperty
-    def identifier(self) -> str:
+    def identifier(self) -> Identifier:
         raise NotImplementedError
 
     @abstractmethod
@@ -32,16 +34,18 @@ class SimpleSigner(Signer):
     """
     A simple implementation of Signer.
 
-    This signer creates a public key and a private key using the seed value provided in the constructor.
-    It internally uses the NaclSigner to generate the signature and keys.
+    This signer creates a public key and a private key using the seed value
+    provided in the constructor. It internally uses the NaclSigner to generate
+    the signature and keys.
     """
 
+    # TODO: Do we need both alias and identifier?
     def __init__(self, identifier=None, seed=None, alias=None):
-
         """
         Initialize the signer with an identifier and a seed.
 
-        :param identifier: some identifier that directly or indirectly references this client
+        :param identifier: some identifier that directly or indirectly
+        references this client
         :param seed: the seed used to generate a signing key.
         """
 

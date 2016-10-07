@@ -5,6 +5,7 @@ import pytest
 from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
+from plenum.common.log import getlogger
 from plenum.test.helper import TestReplica
 from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
     ppDelay, checkViewChangeInitiatedForNode, icDelay, \
@@ -12,9 +13,12 @@ from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
 
 nodeCount = 7
 
+logger = getlogger()
+
 
 # noinspection PyIncorrectDocstring
-def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
+def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
+                                  wallet1, client1):
     """
     Test if every node queues 3 Phase requests(PRE-PREPARE, PREPARE and COMMIT)
     that come from a view which is greater than the current view
@@ -33,7 +37,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelayer)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, client1, 4,
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4,
                                         timeoutPerReq=5 * nodeCount)
 
     # Every node except Node A should have a view change
@@ -60,7 +64,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
         node.nodeIbStasher.nodelay(ppDelayer)
 
     # Send one more request
-    sendRandomRequest(client1)
+    sendRandomRequest(wallet1, client1)
 
     def checkPending3PhaseReqs():
         # Get all replicas that have their primary status decided
@@ -68,7 +72,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up, client1):
         # Atleast one replica should have its primary status decided
         assert len(reps) > 0
         for r in reps:  # type: TestReplica
-            logging.debug("primary status for replica {} is {}"
+            logger.debug("primary status for replica {} is {}"
                           .format(r, r.primaryNames))
             assert len(r.threePhaseMsgsForLaterView) > 0
 

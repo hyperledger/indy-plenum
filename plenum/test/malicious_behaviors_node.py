@@ -8,7 +8,8 @@ from plenum.common.types import Propagate, Request, \
     PrePrepare, Prepare, ReqDigest, ThreePhaseMsg, Commit, Reply
 
 from plenum.common import util
-from plenum.common.util import getlogger, updateNamedTuple
+from plenum.common.util import updateNamedTuple
+from plenum.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestNode, TestReplica
 from plenum.test.helper import ppDelay

@@ -25,9 +25,9 @@ nodeDataDir = "data/nodes"
 
 clientDataDir = "data/clients"
 
-domainTransactionsFile = "transactions"
+domainTransactionsFile = "transactions_sandbox"
 
-poolTransactionsFile = "pool_transactions"
+poolTransactionsFile = "pool_transactions_sandbox"
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
@@ -43,9 +43,7 @@ OrientDB = {
     "user": "root",
     "password": "password",
     "host": "127.0.0.1",
-    "port": 2424,
-    "startScript": "/opt/orientdb/bin/server.sh",
-    "shutdownScript": "/opt/orientdb/bin/shutdown.sh"
+    "port": 2424
 }
 
 DefaultPluginPath = {
@@ -76,6 +74,10 @@ STATS_SERVER_PORT = 50000
 
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
+RAETLogFilePath = None
+RAETLogFilePathCli = None
+RAETMessageTimeout = 60
+
 
 ViewChangeWindowSize = 60
 
@@ -85,3 +87,10 @@ ConsistencyProofsTimeout = 5
 
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
+
+# Log configuration
+logRotationWhen = 'D'
+logRotationInterval = 1
+logRotationBackupCount = 10
+logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
+logFormatStyle='{'

@@ -4,6 +4,7 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.text_file_store import TextFileStore
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.util import updateFieldsWithSeqNo
 
 
 class ClientTxnLog(HasFileStorage):
@@ -25,7 +26,8 @@ class ClientTxnLog(HasFileStorage):
 
     @property
     def txnFieldOrdering(self):
-        return getTxnOrderedFields()
+        fields = getTxnOrderedFields()
+        return updateFieldsWithSeqNo(fields)
 
     def append(self, reqId, txn):
         self.transactionLog.put(key=str(reqId), value=self.serializer.serialize(txn,

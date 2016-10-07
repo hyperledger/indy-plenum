@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from plenum.test.helper import TestNode

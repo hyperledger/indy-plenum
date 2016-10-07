@@ -4,6 +4,7 @@ import os
 from setuptools import setup, find_packages, __version__
 from pip.req import parse_requirements
 import data
+from plenum.common.util import changeOwnerAndGrpToLoggedInUser
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -32,10 +33,9 @@ METADATA = os.path.join(SETUP_DIRNAME, 'plenum', '__metadata__.py')
 # Load the metadata using exec() so we don't trigger an import of ioflo.__init__
 exec(compile(open(METADATA).read(), METADATA, 'exec'))
 
-
 BASE_DIR = os.path.join(os.path.expanduser("~"), ".plenum")
 CONFIG_FILE = os.path.join(BASE_DIR, "plenum_config.py")
-POOL_TXN_FILE = os.path.join(BASE_DIR, "pool_transactions")
+POOL_TXN_FILE = os.path.join(BASE_DIR, "pool_transactions_sandbox")
 
 if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
@@ -51,35 +51,43 @@ setup(
     author=__author__,
     author_email='dev@evernym.us',
     license=__license__,
-    keywords='Byzantine plenum',
+    keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
         'data', ],
     package_data={
-        '':       ['*.txt',  '*.md', '*.rst', '*.json', '*.conf', '*.html',
-                   '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
+        '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
+             '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
     data_files=[(
-        (BASE_DIR, ['data/pool_transactions', ])
+        (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4',
-                      'base58'],
-    extras_require= {
+                      'semver', 'base58'],
+    extras_require = {
         'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
-    tests_require=['pytest', 'pytest-xdist'],
+    tests_require=['pytest==3.0.2', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
-             'scripts/start_plenum_node', 'scripts/generate_plenum_pool_transactions',
-            'scripts/gen_steward_key', 'scripts/gen_node', 'scripts/export-gen-txns']
+             'scripts/start_plenum_node',
+             'scripts/generate_plenum_pool_transactions',
+             'scripts/gen_steward_key', 'scripts/gen_node',
+             'scripts/export-gen-txns', 'scripts/get_keys',
+             'scripts/udp_sender', 'scripts/udp_receiver']
 )
 
 if not os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, 'w') as f:
-        msg = "# Here you can create config entries according to your needs.\n " \
+        msg = "# Here you can create config entries according to your " \
+              "needs.\n " \
               "# For help, refer config.py in the sovrin package.\n " \
-              "# Any entry you add here would override that from config example\n"
+              "# Any entry you add here would override that from config " \
+              "example\n"
         f.write(msg)
 
 DATA_DIR = os.path.dirname(data.__file__)
-shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions"), POOL_TXN_FILE)
+shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
+                POOL_TXN_FILE)
+changeOwnerAndGrpToLoggedInUser(BASE_DIR)
+

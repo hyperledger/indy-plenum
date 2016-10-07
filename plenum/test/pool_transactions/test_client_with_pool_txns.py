@@ -15,7 +15,8 @@ def testClientUsingPoolTxns(looper, txnPoolNodeSet, poolTxnClient):
     Client should not be using node registry but pool transaction file
     :return:
     """
-    looper.add(poolTxnClient)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, poolTxnClient,
+    client, wallet = poolTxnClient
+    looper.add(client)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet)
 

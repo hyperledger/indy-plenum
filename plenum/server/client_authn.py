@@ -5,6 +5,7 @@ import base58
 from abc import abstractmethod
 from typing import Dict
 
+from plenum.common.log import getlogger
 from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
@@ -12,6 +13,9 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
 from plenum.common.signing import serializeForSig
 from plenum.common.types import f
+
+
+logger = getlogger()
 
 
 class ClientAuthNr:
@@ -70,16 +74,18 @@ class NaclAuthNr(ClientAuthNr):
                 try:
                     signature = msg[f.SIG.nm]
                     if not signature:
-                        raise EmptySignature(identifier, msg.get(f.REQ_ID.nm))
+                        raise EmptySignature(msg.get(f.IDENTIFIER.nm),
+                                             msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingSignature
+                    raise MissingSignature(msg.get(f.IDENTIFIER.nm),
+                                           msg.get(f.REQ_ID.nm))
             if not identifier:
                 try:
                     identifier = msg[f.IDENTIFIER.nm]
                     if not identifier:
-                        raise EmptyIdentifier
+                        raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
                 except KeyError:
-                    raise MissingIdentifier
+                    raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
             sig = base58.b58decode(signature)
             ser = self.serializeForSig(msg)
             try:
@@ -121,7 +127,8 @@ class SimpleAuthNr(NaclAuthNr):
 
     def addClient(self, identifier, verkey, role=None):
         if identifier in self.clients:
-            raise RuntimeError("client already added")
+            # raise RuntimeError("client already added")
+            logger.error("client already added")
         self.clients[identifier] = {
             "verkey": verkey,
             "role": role

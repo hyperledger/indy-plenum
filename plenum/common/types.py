@@ -131,10 +131,12 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 
 OPERATION = 'operation'
 
+Identifier = str
+
 
 class Request:
     def __init__(self,
-                 identifier: str=None,
+                 identifier: Identifier=None,
                  reqId: int=None,
                  operation: Mapping=None,
                  signature: str=None):
@@ -162,6 +164,9 @@ class Request:
         return ReqDigest(self.identifier, self.reqId, self.digest)
 
     def __getstate__(self):
+        return self.__dict__
+
+    def getSigningState(self):
         return self.__dict__
 
     def __setstate__(self, state):
@@ -293,10 +298,12 @@ def loadRegistry():
 
 loadRegistry()
 
-ThreePhaseMsg = TypeVar("3PhaseMsg",
-                        PrePrepare,
-                        Prepare,
-                        Commit)
+ThreePhaseType = (PrePrepare, Prepare, Commit)
+ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
+
+
+ElectionType = (Nomination, Primary, Reelection)
+ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
 
 ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,

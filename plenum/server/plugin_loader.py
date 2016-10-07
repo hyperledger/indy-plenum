@@ -8,7 +8,8 @@ from os.path import isfile, join
 from typing import Any, Set, Dict
 
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getlogger
+
+from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -53,7 +54,8 @@ class PluginLoader:
     def __init__(self, path):
         assert path, "path is required"
         self.path = path
-        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PLUGIN_TYPE_STATS_CONSUMER]
+        self._validTypes = [PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING,
+                            PLUGIN_TYPE_STATS_CONSUMER]
         self._pluginTypeAttrName = 'pluginType'
         self.plugins = self._load()
 
@@ -72,7 +74,7 @@ class PluginLoader:
         for m in mods:
             if m in sys.modules:
                 logger.debug("skipping plugin {} because it is already "
-                               "loaded".format(m))
+                             "loaded".format(m))
         return mods
 
     def _load(self) -> Dict[str, Set[Any]]:
@@ -87,8 +89,9 @@ class PluginLoader:
                            if inspect.isclass(cls)]
                 for c in classes:
                     if not hasattr(c, self._pluginTypeAttrName):
-                        logger.debug("skipping plugin {}[class: {}] because it does not "
-                                       "have a '{}' attribute".
+                        logger.debug("skipping plugin {}[class: {}] "
+                                     "because it does not have a '{}' "
+                                     "attribute".
                                        format(mod, c, self._pluginTypeAttrName))
                     else:
                         typ = c.pluginType
@@ -101,21 +104,23 @@ class PluginLoader:
                                                   self._validTypes))
                         else:
                             inst = c()
-                            importSuccessful = False
                             if isinstance(inst, HasDynamicallyImportedModules):
                                 importSuccessful = inst.isModuleImportedSuccessfully()
                             else:
                                 importSuccessful = True
 
                             if importSuccessful:
-                                logger.info("plugin {} successfully loaded from module {}".
-                                            format(c.__name__, mod))
+                                logger.info("plugin {} successfully loaded "
+                                             "from module {}".
+                                            format(c.__name__, mod),
+                                            extra={"cli": False})
                                 if typ in plugins:
                                     plugins[typ].add(inst)
                                 else:
                                     plugins[typ] = {inst}
                             else:
-                                logger.info("** ERROR occurred while loading {} plugin from module {}".
+                                logger.info("** ERROR occurred while loading "
+                                            "{} plugin from module {}".
                                             format(c.__name__, mod))
 
             sys.path.pop(0)

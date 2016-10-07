@@ -5,7 +5,9 @@ from plenum.common.looper import Looper
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, genHa
+from plenum.test.helper import TestClient
+from plenum.common.port_dispenser import genHa
+from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 
 
 @pytest.fixture(scope="module")
@@ -33,25 +35,22 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
 
 def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
     with Looper(debug=True) as looper:
-        name, sigseed = poolTxnStewardData
-        stewardSigner = SimpleSigner(seed=sigseed)
-        client = TestClient(name=name,
-                            nodeReg=None,
-                            ha=genHa(),
-                            signer=stewardSigner,
-                            basedirpath=tdirWithPoolTxns)
+        client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                                  tdirWithPoolTxns)
         looper.add(client)
         looper.run(client.ensureConnectedToNodes())
         sigseed = b'55555555555555555555555555555555'
         newSigner = SimpleSigner(sigseed)
-        client.submit({
+        op = {
             TXN_TYPE: NYM,
             ROLE: STEWARD,
             TARGET_NYM: newSigner.verstr,
             ALIAS: "Robert",
-        })
+        }
+        req = wallet.signOp(op)
+        client.submitReqs(req)
 
         def chk():
-            assert client.getReply(client.lastReqId) == (None, "NOT_FOUND")
+            assert client.getReply(req.reqId) == (None, "NOT_FOUND")
 
         looper.run(eventually(chk, retryWait=1, timeout=5))

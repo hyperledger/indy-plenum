@@ -7,8 +7,10 @@ from asyncio import Task
 from asyncio.coroutines import CoroWrapper
 from typing import List
 
+# import uvloop
+
 from plenum.common.startable import Status
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -77,6 +79,9 @@ class Looper:
         self.prodables = list(prodables) if prodables is not None \
             else []  # type: List[Prodable]
 
+        # if sys.platform == 'linux':
+        #     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         if loop:
             self.loop = loop
         else:
@@ -90,20 +95,43 @@ class Looper:
             except Exception as ex:
                 logger.warning("Looper could not get default event loop; "
                                "creating a new one: {}".format(ex))
+                # Trying out uvloop for linux
                 l = asyncio.new_event_loop()
-                asyncio.set_event_loop(l)
+            asyncio.set_event_loop(l)
             self.loop = l
 
         self.runFut = self.loop.create_task(self.runForever())  # type: Task
         self.running = True  # type: bool
         self.loop.set_debug(debug)
-        if sys.platform == 'win32':
-            signal.signal(signal.SIGINT, self.onSigInt)
-        else:
-            self.loop.add_signal_handler(signal.SIGINT, self.onSigInt)
+
+        # TODO: uncomment this when python bug fixed (not just closed, but solved!)
+        # https://bugs.python.org/issue23548
+        #
+        # signals = [item for item in dir(signal)
+        #             if item.startswith("SIG") and item[3] != "_"]
+
+        signals = ["SIGINT"]
+
+        setSignal = \
+            signal.signal if sys.platform == 'win32' \
+            else self.loop.add_signal_handler
+
+        for sigName in signals:
+            try:
+                logger.debug("Setting handler for {}".format(sigName))
+                sigNum = getattr(signal, sigName)
+                setSignal(sigNum, self.handleSignal)
+            except RuntimeError as e:
+                logger.debug("Cannot set handler for {} because {}".format(sigName, e))
+
         self.autoStart = autoStart  # type: bool
         if self.autoStart:
             self.startall()
+
+    # @staticmethod
+    # def new_event_loop():
+    #     eventLib = asyncio if sys.platform == 'win32' else uvloop
+    #     return eventLib.new_event_loop()
 
     async def prodAllOnce(self):
         """
@@ -148,6 +176,8 @@ class Looper:
             else:
                 logger.warn("Trying to remove a prodable {} which is not present"
                             .format(prodable))
+        else:
+            logger.error("Provide a prodable object or a prodable name")
 
     async def runOnceNicely(self):
         """
@@ -209,8 +239,10 @@ class Looper:
             what = self.runFut
         return self.loop.run_until_complete(what)
 
-    def onSigInt(self):
-        logger.info("SIGINT received, stopping looper...")
+    def handleSignal(self, sig=None):
+        # Allowing sig to be optional since asyncio not passing the signal or
+        # KeyboardInterrupt (Ctrl+C)
+        logger.info("Signal {} received, stopping looper...".format(sig))
         self.running = False
 
     async def shutdown(self):

@@ -5,6 +5,8 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, TestClient
 
 
+# TODO: This should just take an arbitrary number of nodes and check for their
+#  ledgers to be equal
 def checkNodeLedgersForEquality(node: TestNode,
                                 *otherNodes: Iterable[TestNode]):
     for n in otherNodes:

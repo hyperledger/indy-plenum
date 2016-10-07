@@ -6,7 +6,8 @@ from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, NEW_NODE, ALIAS, DATA, CHANGE_HA, \
     CHANGE_KEYS
 from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f
-from plenum.common.util import getMaxFailures, getlogger
+from plenum.common.util import getMaxFailures
+from plenum.common.log import getlogger
 
 logger = getlogger()
 t = f.TXN.nm
@@ -15,6 +16,8 @@ t = f.TXN.nm
 class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     def __init__(self):
+        self._ledgerFile = None
+        self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
         _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
@@ -78,12 +81,16 @@ class HasPoolManager(TxnStackManager):
     # noinspection PyUnresolvedReferences
     @property
     def ledgerLocation(self):
-        return self.dataLocation
+        if not self._ledgerLocation:
+            self._ledgerLocation = self.dataLocation
+        return self._ledgerLocation
 
     # noinspection PyUnresolvedReferences
     @property
     def ledgerFile(self):
-        return self.config.poolTransactionsFile
+        if not self._ledgerFile:
+            self._ledgerFile = self.config.poolTransactionsFile
+        return self._ledgerFile
 
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))

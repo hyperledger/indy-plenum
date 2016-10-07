@@ -5,7 +5,6 @@ and receives result of the request execution from nodes.
 """
 import base64
 import copy
-import logging
 import os
 import time
 from collections import deque, OrderedDict
@@ -27,7 +26,7 @@ from plenum.client.signer import Signer, SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getLocalEstateData
+from plenum.common.raet import getLocalEstateData, getHaFromLocalEstate
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
@@ -37,26 +36,28 @@ from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
     REQACK, REQNACK
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
-from plenum.common.util import getMaxFailures, getlogger, hexToCryptonym, \
+from plenum.common.util import getMaxFailures, error, hexToCryptonym, \
     MessageProcessor, checkIfMoreThanFSameItems
+
+from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.persistence.wallet_storage_file import WalletStorageFile
+# DEPR
+# from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig
 
 logger = getlogger()
-config = getConfig()
 
 
-class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
+class Client(Motor,
+             MessageProcessor,
+             HasFileStorage,
+             HasPoolManager):
     def __init__(self,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
-                 lastReqId: int = 0,
-                 signer: Signer=None,
-                 signers: Dict[str, Signer]=None,
                  basedirpath: str=None,
-                 wallet: Wallet=None):
+                 config=None):
         """
         Creates a new client.
 
@@ -64,29 +65,30 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :param nodeReg: names and host addresses of all nodes in the pool
         :param ha: tuple of host and port
         :param lastReqId: Request Id of the last request sent by client
-        :param signer: Signer; mutually exclusive of signers
-        :param signers: Dict of identifier -> Signer; useful for clients that
-            need to support multiple signers
         """
         self.config = config or getConfig()
-        basedirpath = os.path.expanduser(self.config.baseDir
-                                         if not basedirpath else basedirpath)
+        basedirpath = self.config.baseDir if not basedirpath else basedirpath
         self.basedirpath = basedirpath
 
         cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
             logger.debug("Client {} ignoring given ha".format(ha))
-            clientEstate = getLocalEstateData(name, basedirpath)
-            if clientEstate:
-                cha = HA(*clientEstate["ha"])
+            cha = getHaFromLocalEstate(name, basedirpath)
+            if cha:
+                cha = HA(*cha)
+            # clientEstate = getLocalEstateData(name, basedirpath)
+            # if clientEstate:
+            #     cha = HA(*clientEstate["ha"])
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
+
 
         self.name = name
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
-        self.lastReqId = lastReqId or self.reqRepStore.lastReqId
+        # DEPR
+        # self.lastReqId = lastReqId or self.reqRepStore.lastReqId
 
         self.dataDir = self.config.clientDataDir or "data/clients"
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
@@ -122,7 +124,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
                                              self.handleOneNodeMsg,
                                              self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
-        self.nodestack.sign = self.sign
 
         logger.info("Client {} initialized with the following node registry:"
                     .format(name))
@@ -138,31 +139,11 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
 
         self.inBox = deque()
 
-        if signer and signers:
-            raise ValueError("only one of 'signer' or 'signers' can be used")
-
-        self.setupWallet(wallet)
-        signers = None  # type: Dict[str, Signer]
-        self.defaultIdentifier = None
-        if not self.wallet.signers:
-            if signer:
-                signers = {signer.identifier: signer}
-                self.defaultIdentifier = signer.identifier
-            elif signers:
-                signers = signers
-            else:
-                signers = self.setupDefaultSigner()
-
-            for s in signers.values():
-                self.wallet.addSigner(signer=s)
-        else:
-            if len(self.wallet.signers) == 1:
-                self.defaultIdentifier = list(self.wallet.signers.values())[
-                    0].identifier
-
         self.nodestack.connectNicelyUntil = 0  # don't need to connect
         # nicely as a client
 
+        # TODO: Need to have couple of tests around `reqsPendingConnection`
+        # where we check with and without pool ledger
         # Stores the requests that need to be sent to the nodes when the client
         # has made sufficient connections to the nodes.
         self.reqsPendingConnection = deque()
@@ -181,6 +162,10 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
 
     def postPoolLedgerCaughtUp(self):
         self.mode = Mode.discovered
+        # For the scenario where client has already connected to nodes reading
+        #  the genesis pool transactions and that is enough
+        if self.hasSufficientConnections:
+            self.flushMsgsPendingConnection()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType != 0:
@@ -196,13 +181,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
 
-    def setupWallet(self, wallet=None):
-        if wallet:
-            self.wallet = wallet
-        else:
-            storage = WalletStorageFile.fromName(self.name, self.basedirpath)
-            self.wallet = Wallet(self.name, storage)
-
     @staticmethod
     def exists(name, basedirpath):
         return os.path.exists(basedirpath) and \
@@ -211,21 +189,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
     @property
     def nodeStackClass(self) -> NodeStack:
         return NodeStack
-
-    @property
-    def signers(self):
-        return self.wallet.signers
-
-    def setupDefaultSigner(self):
-        """
-        Create one SimpleSigner and add it to signers
-        against the client's name.
-        """
-        signer = SimpleSigner(self.name)
-        signers = {self.name: signer}
-        self.defaultIdentifier = self.name
-        self.wallet.aliases[self.defaultIdentifier] = signer
-        return signers
 
     def start(self, loop):
         oldstatus = self.status
@@ -266,59 +229,25 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
         :return: New client request
         """
 
-        request = Request(identifier or self.defaultIdentifier,
-                          self.lastReqId + 1,
-                          operation)
-        self.lastReqId += 1
+        request = Request(identifier=identifier or self.defaultIdentifier,
+                          operation=operation)
+        # DEPR
+        # self.setReqId(request)
         return request
 
-    def submit(self, *operations: Mapping, identifier: str = None) -> List[
-        Request]:
-        """
-        Sends an operation to the consensus pool
-
-        :param operations: a sequence of operations
-        :param identifier: an optional identifier to use for signing
-        :return: A list of client requests to be sent to the nodes in the system
-        """
-        identifier = identifier if identifier else self.defaultIdentifier
+    def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
-        for op in operations:
-            request = self.createRequest(op, identifier)
-            signer = self.getSigner(identifier)
+        for request in reqs:
+            # DEPR
+            # self.setReqId(request)
             if self.mode == Mode.discovered and self.hasSufficientConnections:
-                self.nodestack.send(request, signer=signer)
+                self.nodestack.send(request)
             else:
-                self.pendReqsTillConnection(request, signer)
+                self.pendReqsTillConnection(request)
             requests.append(request)
         for r in requests:
             self.reqRepStore.addRequest(r)
         return requests
-
-    def getSigner(self, identifier: str = None):
-        """
-        Look up and return a signer corresponding to the identifier specified.
-        Return None if not found.
-        """
-        try:
-            return self.signers[identifier or self.defaultIdentifier]
-        except KeyError:
-            return None
-
-    def sign(self, msg: Dict, signer: Signer) -> Dict:
-        """
-        Signs the message if a signer is configured
-
-        :param msg: Message to be signed
-        :return: message
-        """
-        if f.SIG.nm not in msg or not msg[f.SIG.nm]:
-            if signer:
-                msg[f.SIG.nm] = signer.sign(msg)
-            else:
-                logger.warning("{} signer not configured so not signing {}".
-                               format(self, msg))
-        return msg
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         """
@@ -435,7 +364,7 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             if all(result == resultsList[0] for result in resultsList):
                 return resultsList[0]  # CONFIRMED
             else:
-                logging.error(
+                logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
 
@@ -512,65 +441,6 @@ class Client(Motor, MessageProcessor, HasFileStorage, HasPoolManager):
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
                 self.nodestack.send(req, signer=signer)
-
-    def submitNewClient(self, role, name: str, verkey: str):
-        assert role in (STEWARD, USER), "Invalid type {}".format(role)
-        verstr = hexToCryptonym(verkey)
-        req, = self.submit({
-            TXN_TYPE: NYM,
-            ROLE: role,
-            TARGET_NYM: verstr,
-            ALIAS: name
-        })
-        return req
-
-    def submitNewSteward(self, name: str, verkey: str):
-        return self.submitNewClient(STEWARD, name, verkey)
-
-    def submitNewNode(self, name: str, verkey: str,
-                      nodeStackHa: HA, clientStackHa: HA):
-        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        verstr = hexToCryptonym(verkey)
-        req, = self.submit({
-            TXN_TYPE: NEW_NODE,
-            TARGET_NYM: verstr,
-            DATA: {
-                NODE_IP: nodeIp,
-                NODE_PORT: nodePort,
-                CLIENT_IP: clientIp,
-                CLIENT_PORT: clientPort,
-                ALIAS: name
-            }
-        })
-        return req
-
-    # TODO: Shouldn't the nym be fetched from the ledger
-    def submitNodeIpChange(self, name: str, nym: str, nodeStackHa: HA,
-                           clientStackHa: HA):
-        (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
-        req, = self.submit({
-            TXN_TYPE: CHANGE_HA,
-            TARGET_NYM: nym,
-            DATA: {
-                NODE_IP: nodeIp,
-                NODE_PORT: nodePort,
-                CLIENT_IP: clientIp,
-                CLIENT_PORT: clientPort,
-                ALIAS: name
-            }
-        })
-        return req
-
-    def submitNodeKeysChange(self, name: str, nym: str, verkey: str):
-        req, = self.submit({
-            TXN_TYPE: CHANGE_KEYS,
-            TARGET_NYM: nym,
-            DATA: {
-                VERKEY: verkey,
-                ALIAS: name
-            }
-        })
-        return req
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)

@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, checkPoolReady, checkProtocolInstanceSetup, \
     delayerMsgTuple
@@ -10,6 +11,8 @@ from plenum.test.primary_election.helpers import checkNomination
 
 
 nodeCount = 4
+
+logger = getlogger()
 
 
 @pytest.fixture()
@@ -51,7 +54,7 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
 
     checkPoolReady(looper, nodeSet)
 
-    logging.debug("Check nomination")
+    logger.debug("Check nomination")
     # Checking whether Node A nominated itself
     looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
 

@@ -19,7 +19,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
     CatchupReq, ConsProofRequest
-from plenum.common.util import getlogger, getMaxFailures, getConfig
+from plenum.common.util import getMaxFailures, getConfig
+from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()
@@ -153,6 +154,16 @@ class LedgerManager(HasActionQueue):
                 # the same nodes. This is done to avoid scenario where a node
                 # does not reply at all.
                 # TODO: Need some way to detect nodes that are not responding.
+
+                # TODO: What id all nodes are blacklisted so `eligibleNodes`
+                # is empty? It will lead to divide by 0. This should not happen
+                #  but its happening.
+                # https://www.pivotaltracker.com/story/show/130602115
+                if not eligibleNodes:
+                    logger.error("{} could not find any node to request "
+                                 "transactions from. Catchup process cannot "
+                                 "move ahead.".format(self))
+                    return
                 shuffle(eligibleNodes)
                 batchSize = math.ceil(totalMissing/len(eligibleNodes))
                 cReqs = []
@@ -243,7 +254,7 @@ class LedgerManager(HasActionQueue):
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence "
                                               "number from {}".format(frm),
-                               logMethod=logger.info)
+                               logMethod=logger.warn)
         if not status:
             logger.debug("{} found ledger status to be null from {}".
                          format(self, frm))
@@ -268,8 +279,7 @@ class LedgerManager(HasActionQueue):
                     self.sendTo(ledgerStatus, frm)
 
         # If a ledger is yet to sync and cannot sync right now,
-        # then stash the
-        # ledger status to be processed later
+        # then stash the ledger status to be processed later
         if self.ledgers[ledgerType]["state"] != LedgerState.synced and \
                 not self.ledgers[ledgerType]["canSync"]:
             self.stashLedgerStatus(ledgerType, status, frm)
@@ -357,6 +367,11 @@ class LedgerManager(HasActionQueue):
 
         # TODO: This is very inefficient for long ledgers
         txns = ledger.getAllTxn(start, end)
+
+
+        logger.debug("node {} requested catchup for {} from {} to {}"
+                     .format(frm, end - start, start, end))
+
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, ledger.size))
         consProof = [b64encode(p).decode() for p in
@@ -365,10 +380,14 @@ class LedgerManager(HasActionQueue):
                                    consProof), to=frm)
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
-        logger.debug("{} received catchup reply: {} from {}".
-                     format(self, rep, frm))
+        logger.debug("{} received catchup reply from {}: {}".
+                     format(self, frm, rep))
+
         ledgerType = getattr(rep, f.LEDGER_TYPE.nm)
         txns = self.canProcessCatchupReply(rep)
+        txnsNum = len(txns) if txns else 0
+        logger.debug("{} found {} transactions in the catchup from {}"
+                     .format(self, txnsNum, frm))
         if txns:
             ledger = self.getLedgerForMsg(rep)
             if frm not in self.recvdCatchupRepliesFrm[ledgerType]:
@@ -377,8 +396,14 @@ class LedgerManager(HasActionQueue):
             catchUpReplies = self.receivedCatchUpReplies[ledgerType]
             # Creating a list of txns sorted on the basis of sequence
             # numbers
+            logger.debug("{} merging all received catchups".format(self))
             catchUpReplies = list(heapq.merge(catchUpReplies, txns,
                                               key=operator.itemgetter(0)))
+            logger.debug(
+                "{} merged catchups, there are {} of them now, from {} to {}"
+                .format(self, len(catchUpReplies), catchUpReplies[0][0],
+                        catchUpReplies[-1][0]))
+
             numProcessed = self._processCatchupReplies(ledgerType, ledger,
                                                        catchUpReplies)
             logger.debug(
@@ -421,7 +446,7 @@ class LedgerManager(HasActionQueue):
                     if self.ownedByNode:
                         self.owner.blacklistNode(nodeName,
                                                  reason="Sent transactions "
-                                                        "that could not be"
+                                                        "that could not be "
                                                         "verified")
                         self._removePrcdCatchupReply(ledgerType, nodeName,
                                                      seqNo)
@@ -465,11 +490,10 @@ class LedgerManager(HasActionQueue):
         finalSize = getattr(cp, f.SEQ_NO_END.nm)
         finalMTH = getattr(cp, f.NEW_MERKLE_ROOT.nm)
         try:
-            # logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
-            #              format(self, tempTree.tree_size, finalSize,
-            #                     tempTree.root_hash, b64decode(finalMTH),
-            #                     [b64decode(p) for p in proof]))
-
+            logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
+                         format(self, tempTree.tree_size, finalSize,
+                                tempTree.root_hash, b64decode(finalMTH),
+                                [b64decode(p) for p in proof]))
             verified = verifier.verify_tree_consistency(tempTree.tree_size,
                                                         finalSize,
                                                         tempTree.root_hash,
@@ -500,7 +524,10 @@ class LedgerManager(HasActionQueue):
         seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
         consistencyProof = self._buildConsistencyProof(ledgerType, seqNoStart,
                                                        seqNoEnd)
-        self.sendTo(consistencyProof, frm)
+        # TODO: Build a test for this scenario where a node cannot service a
+        # consistency proof request
+        if consistencyProof:
+            self.sendTo(consistencyProof, frm)
 
     def canProcessCatchupReply(self, catchupReply: CatchupRep) -> List[Tuple]:
         ledgerType = getattr(catchupReply, f.LEDGER_TYPE.nm)
@@ -511,7 +538,9 @@ class LedgerManager(HasActionQueue):
                            getattr(catchupReply, f.TXNS.nm).items()],
                           key=operator.itemgetter(0))
             anyNew = any([s > ledger.size for s, _ in txns])
-            noGapsOrDups = len(txns) == (txns[-1][0] - txns[0][0] + 1)
+            # The transactions should be contiguous in terms of sequence numbers
+            noGapsOrDups = len(txns) == 0 or \
+                    (len(txns) == (txns[-1][0] - txns[0][0] + 1))
             if not anyNew:
                 self.discard(catchupReply,
                              reason="ledger has size {} and it already contains"
@@ -802,7 +831,7 @@ class LedgerManager(HasActionQueue):
         # If the message is being sent by a client
         else:
             rid = self.nodestack.getRemote(to).uid
-            signer = self.owner.getSigner(self.owner.defaultIdentifier)
+            signer = self.owner.fetchSigner(self.owner.defaultIdentifier)
             self.nodestack.send(msg, rid, signer=signer)
 
     @property

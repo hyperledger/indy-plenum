@@ -8,7 +8,7 @@ from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 
 
-def testOrderingCase1(looper, nodeSet, up, client1):
+def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     """
     Scenario -> PRE-PREPARE not received by the replica, Request not received
     for ordering by the replica, but received enough commits to start ordering.
@@ -32,6 +32,6 @@ def testOrderingCase1(looper, nodeSet, up, client1):
     def chk(n):
         replica.spylog.count(replica.doOrder.__name__) == n
 
-    sendRandomRequest(client1)
+    sendRandomRequest(wallet1, client1)
     looper.run(eventually(chk, 0, retryWait=1, timeout=5))
     looper.run(eventually(chk, 1, retryWait=1, timeout=15))

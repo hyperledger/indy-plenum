@@ -1,7 +1,9 @@
 import pytest
+from plenum.test.cli.helper import assertCliTokens
 from prompt_toolkit.contrib.regular_languages.compiler import compile
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, getAllGrams
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE, \
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE,\
     NYM, ROLE, STEWARD
 
 
@@ -14,16 +16,38 @@ def grammar():
     return compile("".join(grams))
 
 
-@pytest.fixture("module")
 def getMatchedVariables(grammar, cmd):
     m = grammar.match(cmd)
     assert m
     return m.variables()
 
 
-def assertCliTokens(matchedVars, tokens):
-    for key, value in tokens.items():
-        assert matchedVars.get(key) == value
+def testUseKeyringRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "use keyring abc")
+    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc"})
+    matchedVars = getMatchedVariables(grammar, "use keyring abc ")
+    assertCliTokens(matchedVars, {"use_kr": "use keyring", "keyring": "abc"})
+
+
+def testPromptCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "prompt Alice")
+    assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
+    matchedVars = getMatchedVariables(grammar, "prompt Alice ")
+    assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
+
+
+def testNewKeyRingCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1")
+    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1 ")
+    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+
+
+def testRenameKeyRingCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "rename keyring MyKey1 to MyKey2")
+    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": "MyKey1", "to": "MyKey2"})
+    matchedVars = getMatchedVariables(grammar, "rename keyring to MyKey2")
+    assertCliTokens(matchedVars, {"rename_keyring": "rename keyring", "from": None, "to": "MyKey2"})
 
 
 def testNewKeypairCommandRegEx(grammar):

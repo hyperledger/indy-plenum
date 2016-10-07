@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import random
 import shutil
@@ -18,6 +17,8 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
+
+from libnacl.encode import base64_decode
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.ratchet import Ratchet
 from raet.raeting import AutoMode
@@ -26,7 +27,8 @@ from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
+    InvalidIdentifier
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
@@ -44,9 +46,12 @@ from plenum.common.types import Request, Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest
-from plenum.common.util import getMaxFailures, MessageProcessor, getlogger, \
-    getConfig, cryptonymToHex
+    ConsProofRequest, ElectionType, ThreePhaseType
+
+from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx, \
+    cryptonymToHex
+from plenum.common.log import getlogger
+
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -221,9 +226,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                ConsistencyProof, CatchupReq, CatchupRep,
                                ConsProofRequest)
 
-        # Map of request identifier to client name. Used for
+        # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        self.clientIdentifiers = {}     # Dict[str, str]
+        # TODO: This should be persisted in
+        # case the node crashes before sending the reply to the client
+        self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         self.hashStore = self.getHashStore(self.name)
         self.initDomainLedger()
@@ -265,9 +272,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # and received replies while catching up.
         self.reqsFromCatchupReplies = set()
 
-        self.addReplicas()
-
+        # Any messages that are intended for protocol instances not created.
+        # Helps in cases where a new protocol instance have been added by a
+        # majority of nodes due to joining of a new node, but some slow nodes
+        # are not aware of it. Key is instance id and value is a deque
+        # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
+
+        self.addReplicas()
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
@@ -303,7 +315,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return LedgerStatus(1, self.domainLedger.size,
-                            self.primaryStorage.root_hash)
+                            self.domainLedger.root_hash)
 
     @property
     def isParticipating(self):
@@ -478,7 +490,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.isGoing():
             await self.nodestack.serviceLifecycle()
-            newClients = self.clientstack.serviceClientStack()
+            self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceNodeMsgs(limit)
@@ -567,13 +579,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # otherwise too?
             if isinstance(self.elector, PrimaryElector) and joined:
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
-                logger.debug("{} has msgs {} for new nodes {}".format(self, msgs,
-                                                                     joined))
+                logger.debug("{} has msgs {} for new nodes {}".
+                             format(self, msgs, joined))
                 for n in joined:
                     self.sendElectionMsgsToLaggingNode(n, msgs)
                     # Communicate current view number if any view change
                     # happened to the connected node
                     if self.viewNo > 0:
+                        # TODO: This is little cryptic since we send the
+                        # InstanceChange with the viewNo 1 less than what we
+                        # want the other node to switch to. The way to fix it is
+                        # to send the InstanceChange with the viewNo as exactly
+                        # what we want the other node to switch to.
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, n))
                         rid = self.nodestack.getRemote(n).uid
@@ -649,7 +666,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.addReplica()
             newReplicas += 1
+            self.processStashedMsgsForReplica(len(self.replicas)-1)
         return newReplicas
+
+    def processStashedMsgsForReplica(self, instId: int):
+        if instId not in self.msgsForFutureReplicas:
+            return
+        i = 0
+        while self.msgsForFutureReplicas[instId]:
+            msg, frm = self.msgsForFutureReplicas[instId].popleft()
+            if isinstance(msg, ElectionType):
+                self.sendToElector(msg, frm)
+            elif isinstance(msg, ThreePhaseType):
+                self.sendToReplica(msg, frm)
+            else:
+                self.discard(msg, reason="Unknown message type for replica id"
+                             .format(instId), logMethod=logger.warn)
+        logger.debug("{} processed {} stashed msgs for replica {}".
+                     format(self, i, instId))
 
     def decidePrimaries(self):
         """
@@ -813,7 +847,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return idx
         return None
 
-    def msgHasAcceptableInstId(self, msg) -> bool:
+    def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
         replica.
@@ -822,10 +856,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         instId = getattr(msg, "instId", None)
+        if instId is None or not isinstance(instId, int) or instId < 0:
+            return False
         if instId >= len(self.msgsToReplicas):
-            # TODO: Should probably queue messages for new instances
-            self.discard(msg, "non-existent protocol instance {}"
-                         .format(instId), logMethod=logging.debug)
+            if instId not in self.msgsForFutureReplicas:
+                self.msgsForFutureReplicas[instId] = deque()
+            self.msgsForFutureReplicas[instId].append((msg, frm))
+            logger.debug("{} queueing message {} for future protocol "
+                         "instance {}".format(self, msg, instId))
             return False
         return True
 
@@ -839,23 +877,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         viewNo = getattr(msg, "viewNo", None)
+        if viewNo is None or not isinstance(viewNo, int) or viewNo < 0:
+            return False
         corrects = []
         for r in self.replicas:
-            if not r.primaryNames.keys():
-                # Replica has not seen any primary
+            if not r.primaryNames:
+                # The replica and thus this node does not know any viewNos
                 corrects.append(True)
-            elif viewNo in r.primaryNames.keys():
+                continue
+            if viewNo in r.primaryNames.keys():
                 # Replica has seen primary with this view no
                 corrects.append(True)
             elif viewNo > max(r.primaryNames.keys()):
                 # msg for a future view no
                 corrects.append(True)
             else:
+                # Replica has not seen any primary for this `viewNo` and its
+                # less than the current `viewNo`
                 corrects.append(False)
         r = all(corrects)
         if not r:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logging.debug)
+                         .format(viewNo), logMethod=logger.debug)
         return r
 
     def sendToReplica(self, msg, frm):
@@ -865,7 +908,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(msg):
+        if self.msgHasAcceptableInstId(msg, frm) and \
+                self.msgHasAcceptableViewNo(msg):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -875,8 +919,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg) and self.msgHasAcceptableViewNo(
-                msg):
+        if self.msgHasAcceptableInstId(msg, frm) and \
+                self.msgHasAcceptableViewNo(msg):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -891,6 +935,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
+                logger.info("{} msg validated {}".format(self, wrappedMsg))
                 self.unpackNodeMsg(*vmsg)
             else:
                 logger.info("{} non validated msg {}".format(self, wrappedMsg))
@@ -980,21 +1025,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
-        except SuspiciousClient as ex:
+        except Exception as ex:
             msg, frm = wrappedMsg
-            exc = ex.__cause__ if ex.__cause__ else ex
-            self.reportSuspiciousClient(frm, exc)
-            self.handleInvalidClientMsg(exc, wrappedMsg)
-        except InvalidClientMessageException as ex:
+            friendly = friendlyEx(ex)
+            if isinstance(ex, SuspiciousClient):
+                self.reportSuspiciousClient(frm, friendly)
+
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
         _, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
-        reason = "client request invalid: {} {}".\
-            format(exc.__class__.__name__, exc)
-        self.transmitToClient(RequestNack(ex.reqId, reason), frm)
-        self.discard(wrappedMsg, ex, logger.warning, cliOutput=True)
+        friendly = friendlyEx(ex)
+        reason = "client request invalid: {}".format(friendly)
+        reqId = getattr(exc, f.REQ_ID.nm, None)
+        if not reqId:
+            reqId = getattr(ex, f.REQ_ID.nm, None)
+        self.transmitToClient(RequestNack(reqId, reason), frm)
+        self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1023,15 +1071,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if cls not in (Batch, LedgerStatus, CatchupReq):
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:
-            raise InvalidClientRequest
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm))
         try:
             cMsg = cls(**msg)
         except Exception as ex:
             raise InvalidClientRequest from ex
-        try:
-            self.verifySignature(cMsg)
-        except Exception as ex:
-            raise SuspiciousClient from ex
+
+        if self.isSignatureVerificationNeeded(msg):
+            try:
+                self.verifySignature(cMsg)
+            except InvalidIdentifier as ex:
+                raise
+            except Exception as ex:
+                raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm
@@ -1134,18 +1187,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} received client request: {} from {}".
                      format(self.name, request, frm))
 
-        # If request is already processed(there is a reply for the request in
-        # the node's transaction store then return the reply from the
-        # transaction store)
-        if request.identifier not in self.clientIdentifiers:
-            self.clientIdentifiers[request.identifier] = frm
-
         # TODO: What if client sends requests with same request id quickly so
         # before reply for one is generated, the other comes. In that
         # case we need to keep track of what requests ids node has seen
         # in-memory and once request with a particular request id is processed,
         # it should be removed from that in-memory DS.
-        reply = self.getReplyFor(request)
+
+        # If request is already processed(there is a reply for the
+        # request in
+        # the node's transaction store then return the reply from the
+        # transaction store)
+        # TODO: What if the reply was a REQNACK? Its not gonna be found in the
+        # replies.
+
+        typ = request.operation.get(TXN_TYPE)
+        if typ in POOL_TXN_TYPES:
+            reply = self.poolManager.getReplyFor(request)
+        else:
+            reply = self.getReplyFor(request)
+
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -1153,6 +1213,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.checkRequestAuthorized(request)
             self.transmitToClient(RequestAck(request.reqId), frm)
+            self.requestSender[request.key] = frm
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
@@ -1176,9 +1237,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if request.identifier not in self.clientIdentifiers:
-            self.clientIdentifiers[request.identifier] = clientName
-
+        if request.key not in self.requestSender:
+            self.requestSender[request.key] = clientName
         self.requests.addPropagate(request, frm)
 
         # # Only propagate if the node is participating in the consensus process
@@ -1250,7 +1310,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: add sender to blacklist?
         if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".format(type(instChg.viewNo)))
+            self.discard(instChg, "field viewNo has incorrect type: {}".
+                         format(type(instChg.viewNo)))
         elif instChg.viewNo < self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
@@ -1391,6 +1452,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
+    def isSignatureVerificationNeeded(self, msg: Any):
+        return True
+
     def checkValidOperation(self, clientId, reqId, msg):
         if self.opVerifiers:
             try:
@@ -1429,7 +1493,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reply = self.generateReply(ppTime, req)
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
         reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.clientIdentifiers[req.identifier])
+        self.transmitToClient(reply, self.requestSender[req.key])
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
 
@@ -1679,6 +1743,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientstack.transmitToClient(msg, remoteName)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
+        if rids:
+            remoteNames = [self.nodestack.remotes[rid].name for rid in rids]
+            recipientsNum = len(remoteNames)
+        else:
+            # so it is broadcast
+            remoteNames = [remote.name for remote in
+                           self.nodestack.remotes.values()]
+            recipientsNum = 'all'
+
+        logger.debug("{} sending message {} to {} recipients: {}"
+                     .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
     def __enter__(self):

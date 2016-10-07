@@ -1,4 +1,3 @@
-import logging
 import math
 import random
 import time
@@ -6,15 +5,25 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any, Union, List
 
-from plenum.common.types import Nomination, Reelection, Primary, \
-    f, BlacklistMsg
-from plenum.common.util import mostCommonElement, getQuorum, getlogger
+from plenum.common.types import Nomination, Reelection, Primary, f
+from plenum.common.util import mostCommonElement, getQuorum
+from plenum.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.router import Router
-from plenum.server.suspicion_codes import Suspicions
+
 
 logger = getlogger()
+
+
+# The elector should not blacklist nodes if it receives multiple nominations
+# or primary or re-election messages, until there are roo many (over 50 maybe)
+# duplicate messages. Consider a case where a node say Alpha, took part in
+# election and election completed and soon after that Alpha crashed. Now Alpha
+#  comes back up and receives Nominations and Primary. Now Alpha will react to
+#  that and send Nominations or Primary, which will lead to it being
+# blacklisted. Maybe Alpha should not react to Nomination or Primary it gets
+# for elections it was not part of. Elections need to have round numbers.
 
 
 class PrimaryElector(PrimaryDecider):
@@ -117,13 +126,13 @@ class PrimaryElector(PrimaryDecider):
                     filtered.append(wrappedMsg)
                 elif reqViewNo > self.viewNo:
                     logger.debug(
-                        "{}'s elector queueing {} since it is for a later view".format(
-                            self.name, wrappedMsg))
+                        "{}'s elector queueing {} since it is for a later view"
+                            .format(self.name, wrappedMsg))
                     self.pendMsgForLaterView((msg, sender), reqViewNo)
                 else:
                     self.discard(wrappedMsg,
                                  "its view no {} is less than the elector's {}"
-                                 .format(wrappedMsg, reqViewNo, self.viewNo),
+                                 .format(reqViewNo, self.viewNo),
                                  logger.debug)
             else:
                 filtered.append(wrappedMsg)
@@ -208,7 +217,8 @@ class PrimaryElector(PrimaryDecider):
         aren't yet completed) as primary.
         """
         if not self.node.isParticipating:
-            logger.debug("Cannot nominate a replica yet since catching up")
+            logger.debug("{} cannot nominate a replica yet since catching up"
+                         .format(self))
             return
 
         undecideds = [i for i, r in enumerate(self.replicas)
@@ -288,14 +298,15 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(nom,
                          "already got nomination from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
             key = (Nomination.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
+
             # If got more than one duplicate message then blacklist
-            if self.duplicateMsgs[key] > 1:
-                self.send(BlacklistMsg(Suspicions.DUPLICATE_NOM_SENT.code, sender))
+            # if self.duplicateMsgs[key] > 1:
+            #     self.send(BlacklistMsg(Suspicions.DUPLICATE_NOM_SENT.code, sender))
 
     def processPrimary(self, prim: Primary, sender: str) -> None:
         """
@@ -372,15 +383,15 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(prim,
                          "already got primary declaration from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
             key = (Primary.typename, instId, sndrRep)
             self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
             # If got more than one duplicate message then blacklist
-            if self.duplicateMsgs[key] > 1:
-                self.send(BlacklistMsg(
-                    Suspicions.DUPLICATE_PRI_SENT.code, sender))
+            # if self.duplicateMsgs[key] > 1:
+            #     self.send(BlacklistMsg(
+            #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
 
     def processReelection(self, reelection: Reelection, sender: str):
         """
@@ -450,7 +461,7 @@ class PrimaryElector(PrimaryDecider):
         else:
             self.discard(reelection,
                          "already got re-election proposal from {}".
-                         format(replica, sndrRep),
+                         format(sndrRep),
                          logger.warning)
 
     def hasReelectionQuorum(self, instId: int) -> bool:
@@ -644,7 +655,7 @@ class PrimaryElector(PrimaryDecider):
         """
         replica = self.replicas[instId]
         if not self.scheduledPrimaryDecisions[instId]:
-            logging.debug("{} scheduling primary decision".format(replica))
+            logger.debug("{} scheduling primary decision".format(replica))
             self.scheduledPrimaryDecisions[instId] = time.perf_counter()
             self._schedule(partial(self.decidePrimary, instId),
                            (1 * self.nodeCount))
@@ -652,7 +663,7 @@ class PrimaryElector(PrimaryDecider):
             logger.debug(
                 "{} already scheduled primary decision".format(replica))
             if self.hasPrimaryDecisionTimerExpired(instId):
-                logging.debug(
+                logger.debug(
                     "{} executing already scheduled primary decision "
                     "since timer expired"
                     .format(replica))

@@ -3,7 +3,7 @@ from base64 import b64encode
 
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequests, checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
@@ -19,7 +19,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     the node. Ii thus cannot complete the process till the timeout and then
     requests the missing transactions.
     """
-    looper, newNode, client, _ = nodeCreatedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
 
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
@@ -51,7 +51,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
 
-    sendRandomRequests(client, 10)
+    sendRandomRequests(wallet, client, 10)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=60))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,

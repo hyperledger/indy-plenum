@@ -1,5 +1,5 @@
-import json
 import logging
+import json
 import os
 from functools import partial
 from typing import Dict, Any
@@ -17,7 +17,9 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER, f
-from plenum.common.util import getNoInstances, TestingHandler, getConfig
+from plenum.common.util import getNoInstances, getConfig
+from plenum.common.port_dispenser import genHa
+from plenum.common.log import getlogger, TestingHandler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
@@ -28,6 +30,8 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+
+logger = getlogger()
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -42,11 +46,11 @@ def getValueFromModule(request, name: str, default: Any = None):
     """
     if hasattr(request.module, name):
         value = getattr(request.module, name)
-        logging.info("found {} in the module: {}".
+        logger.info("found {} in the module: {}".
                      format(name, value))
     else:
         value = default if default is not None else None
-        logging.info("no {} found in the module, using the default: {}".
+        logger.info("no {} found in the module, using the default: {}".
                      format(name, value))
     return value
 
@@ -92,6 +96,8 @@ def logcapture(request, whitelist):
                              'Executing %s took %.3f seconds',
                              'is already stopped',
                              'Error while running coroutine',
+                             # TODO: This is too specific, move it to the
+                             # particular test
                              "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
                              ] + whitelist
 
@@ -106,7 +112,7 @@ def logcapture(request, whitelist):
     logging.getLogger().addHandler(ch)
 
     request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
-    config = getConfig()
+    config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
     return whiteListedExceptions
@@ -130,7 +136,7 @@ def counter():
 def tdir(tmpdir_factory, counter):
     tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
                            str(next(counter)))
-    logging.debug("module-level temporary directory: {}".format(tempdir))
+    logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
 
@@ -193,21 +199,34 @@ def delayedPerf(nodeSet):
 
 
 @pytest.fixture(scope="module")
-def client1(looper, nodeSet, tdir, up):
-    client = genTestClient(nodeSet, tmpdir=tdir)
+def clientAndWallet1(looper, nodeSet, tdir, up):
+    return genTestClient(nodeSet, tmpdir=tdir)
+
+
+@pytest.fixture(scope="module")
+def client1(clientAndWallet1, looper):
+    client, _ = clientAndWallet1
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     return client
 
 
 @pytest.fixture(scope="module")
-def request1():
-    return randomOperation()
+def wallet1(clientAndWallet1):
+    _, wallet = clientAndWallet1
+    return wallet
+
+
+@pytest.fixture(scope="module")
+def request1(wallet1):
+    op = randomOperation()
+    req = wallet1.signOp(op)
+    return req
 
 
 @pytest.fixture(scope="module")
 def sent1(client1, request1):
-    return client1.submit(request1)[0]
+    return client1.submitReqs(request1)[0]
 
 
 @pytest.fixture(scope="module")
@@ -273,13 +292,13 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, nodeSet, client1, committed1):
+def replied1(looper, nodeSet, client1, committed1, wallet1):
     for instId in range(getNoInstances(len(nodeSet))):
         getPrimaryReplica(nodeSet, instId)
 
         looper.run(*[eventually(checkRequestReturnedToNode,
                                 node,
-                                client1.defaultIdentifier,
+                                wallet1.defaultId,
                                 committed1.reqId,
                                 committed1.digest,
                                 instId,
@@ -318,10 +337,12 @@ def poolTxnStewardNames():
 
 
 @pytest.fixture(scope="module")
-def conf():
-    return getConfig()
+def conf(tdir):
+    return getConfig(tdir)
 
 
+# TODO: This fixture is probably not needed now, as getConfig takes the
+# `baseDir`. Confirm and remove
 @pytest.fixture(scope="module")
 def tconf(conf, tdir):
     conf.baseDir = tdir
@@ -335,7 +356,7 @@ def dirName():
 
 @pytest.fixture(scope="module")
 def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.json")
+    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
     data = json.loads(open(filePath).read().strip())
     for txn in data["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
@@ -356,11 +377,15 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
 
 
 @pytest.fixture(scope="module")
-def tdirWithDomainTxns(poolTxnData, tdir, tconf):
-    fields = getTxnOrderedFields()
+def domainTxnOrderedFields():
+    return getTxnOrderedFields()
+
+
+@pytest.fixture(scope="module")
+def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
-                    serializer=CompactSerializer(fields=fields),
+                    serializer=CompactSerializer(fields=domainTxnOrderedFields),
                     fileName=tconf.domainTransactionsFile)
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
@@ -395,13 +420,18 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
                          usePoolLedger=True)
 
 
+@pytest.fixture(scope="module")
+def testNodeClass():
+    return TestNode
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath, tdirWithNodeKeepInited):
+                   allPluginsPath, tdirWithNodeKeepInited, testNodeClass):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
-            node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+            node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
                             config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)

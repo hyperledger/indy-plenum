@@ -122,3 +122,9 @@ def getLocalEstateData(name, baseDir):
                                                  "estate.json"))
     if os.path.isfile(estatePath):
         return json.loads(open(estatePath).read())
+
+
+def getHaFromLocalEstate(name, basedirpath):
+    localEstate = getLocalEstateData(name, basedirpath)
+    if localEstate:
+        return localEstate.get("ha")

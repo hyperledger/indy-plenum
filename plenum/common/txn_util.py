@@ -21,13 +21,14 @@ def getTxnOrderedFields():
     ])
 
 
-def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering):
+def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
+                         reset=True):
     ledger = Ledger(CompactMerkleTree(), dataDir=targetDir,
                     serializer=CompactSerializer(fields=fieldOrdering),
                     fileName=fileName)
 
-    # Truncate file if present
-    ledger.reset()
+    if reset:
+        ledger.reset()
 
     reqIds = {}
     for txn in genesisTxns:

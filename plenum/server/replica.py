@@ -1,4 +1,3 @@
-import logging
 import time
 from collections import deque, OrderedDict
 from enum import IntEnum
@@ -12,7 +11,8 @@ import plenum.server.node
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.types import ReqDigest, PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
-from plenum.common.util import MessageProcessor, getlogger
+from plenum.common.util import MessageProcessor
+from plenum.common.log import getlogger
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
@@ -552,11 +552,13 @@ class Replica(MessageProcessor):
         """
         Try to order if the Commit message is ready to be ordered.
         """
-        if self.canOrder(commit):
-            logging.debug("{} returning request to node".format(self))
+        canOrder, reason = self.canOrder(commit)
+        if canOrder:
+            logger.debug("{} returning request to node".format(self))
             self.tryOrdering(commit)
         else:
-            logger.trace("{} cannot return request to node".format(self))
+            logger.trace("{} cannot return request to node: {}".
+                         format(self, reason))
 
     def doPrePrepare(self, reqDigest: ReqDigest) -> None:
         """
@@ -568,16 +570,18 @@ class Replica(MessageProcessor):
             logger.error("Non participating node is attempting PRE-PREPARE. "
                         "This should not happen.")
             return
-        logger.debug("{} Sending PRE-PREPARE at {}".
-                     format(self, time.perf_counter()))
         self.prePrepareSeqNo += 1
         tm = time.time()*1000
+        logger.debug("{} Sending PRE-PREPARE {} at {}".
+                     format(self, (self.viewNo, self.prePrepareSeqNo),
+                            time.perf_counter()))
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
                                    self.prePrepareSeqNo,
                                    *reqDigest,
                                    tm)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest, tm)
+        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest,
+                                                                   tm)
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
@@ -786,7 +790,7 @@ class Replica(MessageProcessor):
     def hasOrdered(self, request) -> bool:
         return (request.viewNo, request.ppSeqNo) in self.ordered
 
-    def canOrder(self, commit: Commit) -> bool:
+    def canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
         """
         Return whether the specified commitRequest can be returned to the node.
 
@@ -800,8 +804,12 @@ class Replica(MessageProcessor):
 
         :param commit: the COMMIT
         """
-        return self.commits.hasQuorum(commit, self.f) and \
-               not self.hasOrdered(commit)
+        if not self.commits.hasQuorum(commit, self.f):
+            return False, "no quorum: {} commits where f is {}".\
+                          format(commit, self.f)
+        if self.hasOrdered(commit):
+            return False, "already ordered"
+        return True, None
 
     def tryOrdering(self, commit: Commit) -> None:
         """
@@ -867,7 +875,7 @@ class Replica(MessageProcessor):
         self.ordered.add((viewNo, ppSeqNo))
 
     def enqueuePrepare(self, request: Prepare, sender: str):
-        logging.debug("Queueing prepares due to unavailability of "
+        logger.debug("Queueing prepares due to unavailability of "
                       "pre-prepare. request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
@@ -884,8 +892,8 @@ class Replica(MessageProcessor):
                     key].popleft()
                 self.processPrepare(prepare, sender)
                 i += 1
-            logging.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                          " view no {} and seq no {}".format(self, i, viewNo,
+            logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
+                         " view no {} and seq no {}".format(self, i, viewNo,
                                         ppSeqNo))
 
     def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:

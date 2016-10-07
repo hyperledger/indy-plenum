@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
-    checkClientConnected
+    checkClientConnected, checkActiveIdrPrinted
 from plenum.test.eventually import eventually
 
 
@@ -33,7 +33,7 @@ def testStatusAtCliStart(cli):
     assert nodeStatus['msg'] == "No nodes are running. Try typing " \
                                 "'new node <name>'."
     assert clientStatus['msg'] == "Clients: No clients are running. Try " \
-                                    "typing 'new client <name>'."
+                                  "typing 'new client <name>'."
 
 
 def testStatusAfterOneNodeCreated(cli, validNodeNames):
@@ -58,10 +58,10 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     msgs = list(reversed(cli.printeds[:11]))
     node = cli.nodes[nodeName]
     assert "Name: {}".format(node.name) in msgs[0]['msg']
-    assert "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                         node.nodestack.ha[1]) in msgs[1]['msg']
-    assert "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                           node.clientstack.ha[1]) in msgs[2]['msg']
+    assert "Node listener: 0.0.0.0:{}".format(node.nodestack.ha[1]) in \
+           msgs[1]['msg']
+    assert "Client listener: 0.0.0.0:{}".format(node.clientstack.ha[1]) \
+           in msgs[2]['msg']
     assert "Status:" in msgs[3]['msg']
     assert "Connections:" in msgs[4]['msg']
     assert not msgs[4]['newline']
@@ -85,7 +85,7 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
                                   "typing " \
                                   "'new client <name>'."
     assert fValue == "f-value (number of possible faulty nodes): {}".format(
-            getMaxFailures(len(validNodeNames)))
+        getMaxFailures(len(validNodeNames)))
 
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
@@ -111,7 +111,10 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     cli.enterCmd("new client {}".format(clientName))
     cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
                               clientName, retryWait=1, timeout=3))
-
+    cli.enterCmd("new key")
+    cli.enterCmd("status client {}".format(clientName))
+    cli.looper.run(eventually(checkActiveIdrPrinted, cli, retryWait=1,
+                              timeout=3))
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
         # the node status here after the client is connected
@@ -155,10 +158,9 @@ def checkNonPrimaryLogs(node, msgs):
 
 def checkCommonLogs(node, msgs):
     shouldBePresent = ["Name: {}".format(node.name),
-                       "Node listener: {}:{}".format(node.nodestack.ha[0],
-                                                     node.nodestack.ha[1]),
-                       "Client listener: {}:{}".format(node.clientstack.ha[0],
-                                                       node.clientstack.ha[1]),
+                       "Node listener: 0.0.0.0:{}".format(node.nodestack.ha[1]),
+                       "Client listener: 0.0.0.0:{}".format(
+                           node.clientstack.ha[1]),
                        "Status:",
                        "Connections:"
                        ]

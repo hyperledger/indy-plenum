@@ -9,8 +9,7 @@ from plenum.test.helper import checkSufficientRepliesRecvd
 
 def testLogFiltering(cli, validNodeNames, createAllNodes):
     msg = '{"Hello": "There"}'
-    checkRequest(cli, msg)
-    client = next(iter(cli.clients.values()))
+    client, wallet = checkRequest(cli, msg)
 
     x = client.handleOneNodeMsg
 
@@ -24,7 +23,7 @@ def testLogFiltering(cli, validNodeNames, createAllNodes):
     cli.looper.run(eventually(
         checkSufficientRepliesRecvd,
         client.inBox,
-        client.lastReqId,
+        wallet._getIdData().lastReqId,
         getMaxFailures(len(cli.nodes)),
         retryWait=2,
         timeout=10))

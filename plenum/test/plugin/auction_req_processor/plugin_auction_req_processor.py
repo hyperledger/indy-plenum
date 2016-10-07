@@ -4,7 +4,7 @@ from typing import Dict
 from plenum.cli.constants import getPipedRegEx
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.types import PLUGIN_TYPE_PROCESSING
-from plenum.common.util import getlogger
+from plenum.common.log import getlogger
 from plenum.test.plugin.has_cli_commands import HasCliCommands
 
 logger = getlogger()
@@ -156,10 +156,10 @@ class AuctionReqProcessorPlugin(HasCliCommands):
                 if not self.cli.clientExists(frm):
                     self.cli.printMsgForUnknownClient()
                 else:
-                    frmClient = self.cli.clients.get(frm, None)
+                    wallet = self.cli.wallets.get(frm, None)
                     txn = {
                         TXN_TYPE: GET_BAL,
-                        TARGET_NYM: frmClient.defaultIdentifier
+                        TARGET_NYM: wallet.defaultId
                     }
                     self.cli.sendMsg(frm, txn)
                 return True
