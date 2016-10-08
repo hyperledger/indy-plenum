@@ -16,8 +16,9 @@ class RequestIdStore:
 
 
     @staticmethod
-    def getRandomId():
+    def getTimeBasedId():
         return int(time.time()*1000000)
+
 
 class FileRequestIdStore(RequestIdStore):
     def __init__(self, filePath, valueSeparator='|'):
@@ -70,7 +71,7 @@ class FileRequestIdStore(RequestIdStore):
     def nextId(self, signerId) -> int:
 
         # TODO: Temporarily using random id as next id, need to come back to it.
-        nextId = RequestIdStore.getRandomId()
+        nextId = RequestIdStore.getTimeBasedId()
         self._storage[signerId] = nextId
         self.flush()
         return nextId
@@ -90,7 +91,7 @@ class MemoryRequestIdStore(RequestIdStore):
     def nextId(self, signerId) -> int:
         # TODO: Temporarily using random id as next id, need to come back to it.
 
-        rid = RequestIdStore.getRandomId()
+        rid = RequestIdStore.getTimeBasedId()
         self.ids[signerId] = rid
         return rid
 
