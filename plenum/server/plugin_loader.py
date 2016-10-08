@@ -104,7 +104,6 @@ class PluginLoader:
                                                   self._validTypes))
                         else:
                             inst = c()
-                            importSuccessful = False
                             if isinstance(inst, HasDynamicallyImportedModules):
                                 importSuccessful = inst.isModuleImportedSuccessfully()
                             else:

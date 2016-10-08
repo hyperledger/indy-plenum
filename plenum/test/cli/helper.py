@@ -231,14 +231,14 @@ def newKeyPair(cli: TestCli, alias: str=None):
     cmd = "new key {}".format(alias) if alias else "new key"
     idrs = set()
     if cli.activeWallet:
-        idrs = set(cli.activeWallet.ids.keys())
+        idrs = set(cli.activeWallet.idsToSigners.keys())
     checkCmdValid(cli, cmd)
-    assert len(cli.activeWallet.ids.keys()) == len(idrs) + 1
-    pubKey = set(cli.activeWallet.ids.keys()).difference(idrs).pop()
+    assert len(cli.activeWallet.idsToSigners.keys()) == len(idrs) + 1
+    pubKey = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
     expected = ['Key created in keyring Default']
     if alias:
         expected.append('Identifier for key is {}'.
-                        format(cli.activeWallet.aliases.get(alias)))
+                        format(cli.activeWallet.aliasesToIds.get(alias)))
         expected.append('Alias for identifier is {}'.format(alias))
     else:
         expected.append('Identifier for key is {}'.format(pubKey))

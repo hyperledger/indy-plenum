@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import getpass
 import importlib.util
 import itertools
 import json
@@ -10,22 +9,18 @@ import os
 import random
 import socket
 import string
-import sys
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from importlib import import_module
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple
 
 import libnacl.secret
-import semver
+from ledger.util import F
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
-
-from ledger.util import F
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -475,41 +470,6 @@ def checkIfMoreThanFSameItems(items, maxF):
         return False
 
 
-def getPackageMeta(pkg):
-    try:
-        meta = import_module('{}.__metadata__'.format(pkg))
-    except ImportError:
-        print("A dependency named {} is not installed. Installation cannot "
-              "proceed without it.".format(pkg))
-        sys.exit(1)
-    return meta
-
-
-def check_deps(dependencies, parent=""):
-    if isinstance(dependencies, dict):
-        for pkg_name, exp_ver in dependencies.items():
-            if parent:
-                full_name = "{} ({})".format(pkg_name, parent)
-            else:
-                full_name = pkg_name
-            meta = getPackageMeta(pkg_name)
-            ver = meta.__version__
-            if not semver.match(ver, exp_ver):
-                raise RuntimeError("Incompatible '{}' package version. "
-                                   "Expected: {} "
-                                   "Found: {}".
-                                   format(pkg_name, exp_ver, ver))
-            if hasattr(meta, "__dependencies__"):
-                deps = meta.__dependencies__
-                check_deps(deps, full_name)
-    else:
-        pkg = dependencies if isinstance(dependencies, str) else \
-            dependencies.__name__
-        meta = getPackageMeta(pkg)
-        deps = meta.__dependencies__
-        check_deps(deps)
-
-
 def friendlyEx(ex: Exception) -> str:
     curEx = ex
     friendly = ""
@@ -531,11 +491,51 @@ def updateFieldsWithSeqNo(fields):
     return r
 
 
-def getLoggedInUser():
-    return getpass.getuser()
-
-
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
         n.clientAuthNr.addClient(identifier, verkey)
+
+
+def prettyDate(time=False):
+    """
+    Get a datetime object or a int() Epoch timestamp and return a
+    pretty string like 'an hour ago', 'Yesterday', '3 months ago',
+    'just now', etc
+    """
+    from datetime import datetime
+    now = datetime.now()
+    if time is None:
+        return None
+
+    if not isinstance(time, (int, datetime)):
+        raise RuntimeError("Cannot parse time")
+    if isinstance(time,int):
+        diff = now - datetime.fromtimestamp(time)
+    elif isinstance(time, datetime):
+        diff = now - time
+    else:
+        diff = now - now
+    second_diff = diff.seconds
+    day_diff = diff.days
+
+    if day_diff < 0:
+        return ''
+
+    if day_diff == 0:
+        if second_diff < 10:
+            return "just now"
+        if second_diff < 60:
+            return str(second_diff) + " seconds ago"
+        if second_diff < 120:
+            return "a minute ago"
+        if second_diff < 3600:
+            return str(int(second_diff / 60)) + " minutes ago"
+        if second_diff < 7200:
+            return "an hour ago"
+        if second_diff < 86400:
+            return str(int(second_diff / 3600)) + " hours ago"
+    if day_diff == 1:
+        return "Yesterday"
+    if day_diff < 7:
+        return str(day_diff) + " days ago"
