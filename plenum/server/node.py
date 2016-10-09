@@ -456,10 +456,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Stop the txn store
         self.primaryStorage.stop()
 
-        if self.nodestack.opened:
-            self.nodestack.close()
-        if self.clientstack.opened:
-            self.clientstack.close()
+        self.nodestack.stop()
+        self.clientstack.stop()
 
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
@@ -763,10 +761,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     # request ordering might have started when the node was not
                     # participating but by the time ordering finished, node
                     # might have started participating
-                    if self.isParticipating and not self.gotInCatchupReplies(msg):
+                    recvd = self.gotInCatchupReplies(msg)
+                    if self.isParticipating and not recvd:
                         self.processOrdered(msg)
                     else:
-                        logger.debug("{} stashing {}".format(self, msg))
+                        logger.debug("{} stashing {} since mode is {} and {}".
+                                     format(self, msg, self.mode,
+                                            recvd))
                         self.stashedOrderedReqs.append(msg)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)

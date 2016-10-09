@@ -874,8 +874,9 @@ def assertLength(collection: Sequence[Any], expectedLength: int):
         format(len(collection), expectedLength)
 
 
-def assertNonEmpty(elem: Any):
-    assert elem is None
+def assertEquality(observed: Any, expected: Any):
+    assert observed == expected, "Observed value was {} but expected value " \
+                                 "was {}".format(observed, expected)
 
 
 def checkNodesReadyForRequest(looper: Looper, nodes: Sequence[TestNode],
