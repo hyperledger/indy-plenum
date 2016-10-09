@@ -1615,10 +1615,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
 
             # remove any unjoined remotes
-            for r in self.nodestack.nameRemotes.values():
+            for name, r in self.nodestack.nameRemotes.items():
                 if not r.joined:
                     logger.debug("{} removing unjoined remote {}"
-                                 .format(self, r))
+                                 .format(self, r.name))
+                    # This is a bug in RAET where the `removeRemote`
+                    # of `raet/stacking.py` does not consider the fact that
+                    # renaming of remote might not have happened. Fixed here
+                    # https://github.com/RaetProtocol/raet/pull/9
                     self.nodestack.removeRemote(r)
 
             # if just starting, then bootstrap
