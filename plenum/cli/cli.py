@@ -66,7 +66,7 @@ from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig, hexToCryptonym
-
+from plenum.client.request_id_store import FileRequestIdStore
 
 class CustomOutput(Vt100_Output):
     """
@@ -1162,8 +1162,20 @@ class Cli:
             self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
-    def _buildWalletClass(self, nm):
-        return Wallet(nm)
+    def _buildWalletClass(self, nm, walletFilePath=None):
+        if not walletFilePath:
+            walletDirPath = \
+                os.path.join(self.basedirpath, self.config.walletDir)
+            if not os.path.exists(walletDirPath):
+                os.makedirs(walletDirPath)
+            walletFilePath = os.path.join(walletDirPath, nm)
+        requestIdStore = FileRequestIdStore(walletFilePath)
+        requestIdStore.open() # TODO: find the best place for closing
+        return self.walletClass(nm, requestIdStore)
+
+    @property
+    def walletClass(self):
+        return Wallet
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
@@ -1196,7 +1208,7 @@ class Cli:
 
         for wk, wv in self.wallets.items():
             if checkInAliases:
-                allAliases.extend(list(wv.aliases.keys()))
+                allAliases.extend(list(wv.aliasesToIds.keys()))
             if checkInSigners:
                 allSigners.extend(list(wv.listIds()))
             if checkInWallets:
@@ -1240,16 +1252,16 @@ class Cli:
     def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            if idrOrAlias not in wallet.aliases and idrOrAlias not in wallet.ids:
+            if idrOrAlias not in wallet.aliasesToIds and idrOrAlias not in wallet.idsToSigners:
                 return False
-            idrFromAlias = wallet.aliases.get(idrOrAlias)
+            idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
             if idrFromAlias:
                 self.activeIdentifier = idrFromAlias
                 self.activeAlias = idrOrAlias
             else:
                 alias = [k for k, v
-                         in wallet.aliases.items()
+                         in wallet.aliasesToIds.items()
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
                 self.activeIdentifier = idrOrAlias

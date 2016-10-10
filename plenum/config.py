@@ -29,6 +29,8 @@ domainTransactionsFile = "transactions_sandbox"
 
 poolTransactionsFile = "pool_transactions_sandbox"
 
+walletDir = "wallet"
+
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
 hashStore = {

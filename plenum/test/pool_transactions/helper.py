@@ -11,13 +11,13 @@ from plenum.common.port_dispenser import genHa
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient, genTestClient
-
+from plenum.test.helper import TestRequestIdStore
 
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
-    wallet = Wallet(name)
+    wallet = Wallet(name, requestIdStore=TestRequestIdStore())
     wallet.addSigner()
-    verstr = wallet._getIdData().signer.verstr
+    verstr = wallet.defaultSigner.verstr
 
     op = {
         TXN_TYPE: NYM,
