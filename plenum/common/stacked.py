@@ -613,51 +613,11 @@ class KITStack(SimpleStack):
 
         :return: the missing remotes
         """
-        matches = set()  # good matches found in nodestack remotes
-        legacy = set()  # old remotes that are no longer in registry
-        conflicts = set()  # matches found, but the ha conflicts
-        logger.debug("{} nodereg is {}".
-                      format(self, self.registry.items()))
-        logger.debug("{} nodestack is {}".
-                      format(self, self.remotes.values()))
-        for r in self.remotes.values():
-            if r.name in self.registry:
-                if self.sameAddr(r.ha, self.registry[r.name]):
-                    matches.add(r.name)
-                    logger.debug("{} matched remote is {} {}".
-                                  format(self, r.uid, r.ha))
-                else:
-                    conflicts.add((r.name, r.ha))
-                    # error("{} ha for {} doesn't match. ha of remote is {} but "
-                    #       "should be {}".
-                    #       format(self, r.name, r.ha, self.registry[r.name]))
-                    logger.error("{} ha for {} doesn't match. ha of remote is {} but "
-                          "should be {}".
-                          format(self, r.name, r.ha, self.registry[r.name]))
-            else:
-                regName = self.findInNodeRegByHA(r.ha)
-
-                # This change fixes test
-                # `testNodeConnectionAfterKeysharingRestarted` in
-                # `test_node_connection`
-                # regName = [nm for nm, ha in self.nodeReg.items() if ha ==
-                #            r.ha and (r.joined or r.joinInProcess())]
-                logger.debug("{} unmatched remote is {} {}".
-                              format(self, r.uid, r.ha))
-                if regName:
-                    logger.debug("{} forgiving name mismatch for {} with same "
-                                 "ha {} using another name {}".
-                                 format(self, regName, r.ha, r.name))
-                    matches.add(regName)
-                else:
-                    logger.debug("{} found a legacy remote {} "
-                                 "without a matching ha {}".
-                                 format(self, r.name, r.ha))
-                    logger.info(str(self.registry))
-                    legacy.add(r)
-
-        # missing from remotes... need to connect
-        missing = set(self.registry.keys()) - matches
+        info = self.remotesInfo()
+        matches = info['matches']  # good matches found in nodestack remotes
+        legacy = info['legacy']  # old remotes that are no longer in registry
+        conflicts = info['conflicts']  # matches found, but the ha conflicts
+        missing = info['missing'] # missing from remotes... need to connect
 
         if len(missing) + len(matches) + len(conflicts) != len(self.registry):
             logger.error("Error reconciling nodeReg with remotes")
@@ -677,6 +637,60 @@ class KITStack(SimpleStack):
                              format(self, l.name, l.ha))
                 self.removeRemote(l)
         return missing
+
+    def remotesInfo(self):
+        matches = set()  # good matches found in nodestack remotes
+        legacy = set()  # old remotes that are no longer in registry
+        conflicts = set()  # matches found, but the ha conflicts
+        logger.debug("{} nodereg is {}".
+                     format(self, self.registry.items()))
+        logger.debug("{} nodestack is {}".
+                     format(self, self.remotes.values()))
+        for r in self.remotes.values():
+            if r.name in self.registry:
+                if self.sameAddr(r.ha, self.registry[r.name]):
+                    matches.add(r.name)
+                    logger.debug("{} matched remote is {} {}".
+                                 format(self, r.uid, r.ha))
+                else:
+                    conflicts.add((r.name, r.ha))
+                    # error("{} ha for {} doesn't match. ha of remote is {} but "
+                    #       "should be {}".
+                    #       format(self, r.name, r.ha, self.registry[r.name]))
+                    logger.error("{} ha for {} doesn't match. ha of remote is {} but "
+                                 "should be {}".
+                                 format(self, r.name, r.ha, self.registry[r.name]))
+            else:
+                regName = self.findInNodeRegByHA(r.ha)
+
+                # This change fixes test
+                # `testNodeConnectionAfterKeysharingRestarted` in
+                # `test_node_connection`
+                # regName = [nm for nm, ha in self.nodeReg.items() if ha ==
+                #            r.ha and (r.joined or r.joinInProcess())]
+                logger.debug("{} unmatched remote is {} {}".
+                             format(self, r.uid, r.ha))
+                if regName:
+                    logger.debug("{} forgiving name mismatch for {} with same "
+                                 "ha {} using another name {}".
+                                 format(self, regName, r.ha, r.name))
+                    matches.add(regName)
+                else:
+                    logger.debug("{} found a legacy remote {} "
+                                 "without a matching ha {}".
+                                 format(self, r.name, r.ha))
+                    logger.info(str(self.registry))
+                    legacy.add(r)
+
+        # missing from remotes... need to connect
+        missing = set(self.registry.keys()) - matches
+
+        return {
+            'missing': missing,
+            'matches': matches,
+            'legacy': legacy,
+            'conflicts': conflicts
+        }
 
     def remotesByConnected(self):
         """

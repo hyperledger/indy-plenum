@@ -182,6 +182,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                Lambda=self.config.LAMBDA,
                                Omega=self.config.OMEGA,
                                instances=self.instances,
+                               nodestack=self.nodestack,
                                pluginPaths=pluginPaths)
 
         # Requests that are to be given to the replicas by the node. Each
@@ -426,6 +427,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.mode = Mode.starting
             self.ledgerManager.setLedgerCanSync(0, True)
 
+        self.logNodeInfo()
+
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
         return sorted(allNames).index(name)
@@ -616,15 +619,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendPoolInfoToClients(self, txn):
         logger.debug("{} sending new node info {} to all clients".format(self,
                                                                          txn))
-        self.logNodestackData()
         msg = PoolLedgerTxns(txn)
         self.clientstack.transmitToClients(msg,
                                            list(self.clientstack.connectedClients))
-
-    def logNodestackData(self):
-        logNodeInfoFile = open(os.path.join(self.config.baseDir, 'nodestack'), 'w')
-        logNodeInfoFile.write(self.nodestack)
-        logNodeInfoFile.close()
 
     @property
     def clientStackName(self):

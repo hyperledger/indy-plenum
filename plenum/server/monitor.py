@@ -8,6 +8,7 @@ from typing import Tuple
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
+from plenum.common.stacked import NodeStack
 from plenum.common.util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -28,9 +29,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, pluginPaths: Iterable[str]=None):
+                 instances: Instances, nodestack: NodeStack, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
+        self.nodestack = nodestack
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -353,6 +355,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendPeriodicStats(self):
         self.sendThroughput()
         self.sendLatencies()
+        self.sendNodestack()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     @property
@@ -422,6 +425,20 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         )
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
+
+    def sendNodestack(self):
+        logger.debug("{} sending nodestack".format(self))
+
+        nodeInfo = self.nodestack.remotesInfo()
+
+        nodes = dict(
+            missing=nodeInfo['missing'],
+            matches=nodeInfo['matches'],
+            legacy=nodeInfo['legacy'],
+            conflicts=nodeInfo['conflicts']
+        )
+
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, nodes)
 
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()

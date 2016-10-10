@@ -5,7 +5,7 @@ import jsonpickle
 
 from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
     EVENT_NODE_STARTED, EVENT_REQ_ORDERED, EVENT_PERIODIC_STATS_LATENCIES, \
-    PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE
+    PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_NODES
 from plenum.common.log import getlogger
 from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher, \
@@ -27,7 +27,8 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
             EVENT_NODE_STARTED: self._sendStatsOnNodeStart,
             EVENT_PERIODIC_STATS_THROUGHPUT: self._periodicStatsThroughput,
             EVENT_VIEW_CHANGE: self._viewChange,
-            EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies
+            EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies,
+            EVENT_PERIODIC_STATS_NODES: self._sendNodestack
         }
 
     @abstractmethod
@@ -76,3 +77,7 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
     def _sendLatencies(self, latencies: Dict[str, object]):
         latencies["eventName"] = str(Topic.PublishLatenciesStats)
         self._send(latencies)
+
+    def _sendNodestack(self, nodes: Dict[str, object]):
+        nodes["eventName"] = str(Topic.PublishNodestackStats)
+        self._send(nodes)
