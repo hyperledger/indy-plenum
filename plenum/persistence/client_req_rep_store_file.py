@@ -31,7 +31,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def addRequest(self, req: Request):
         reqId = req.reqId
-        self.reqStore.put(str(reqId), "0:{}".format(self.serializeReq(req)))
+        self.reqStore.put(str(reqId), "0:{}\n".format(self.serializeReq(req)))
 
     def addAck(self, msg: Any, sender: str):
         reqId = msg[f.REQ_ID.nm]
