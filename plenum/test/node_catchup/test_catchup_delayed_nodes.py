@@ -25,7 +25,7 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     not receive any catchup requests
     :return:
     """
-    looper, _, _, client = nodeSetWithNodeAddedAfterSomeTxns
+    looper, _, _, _, client, wallet = nodeSetWithNodeAddedAfterSomeTxns
     stewardXName = "testClientStewardX"
     nodeXName = "Zeta"
     stewardYName = "testClientStewardY"

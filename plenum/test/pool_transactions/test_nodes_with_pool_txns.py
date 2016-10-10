@@ -7,9 +7,7 @@ from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import USER
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
-from plenum.common.util import getMaxFailures, \
-    randomString
-from plenum.common.port_dispenser import genHa
+from plenum.common.util import getMaxFailures, randomString
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, genHa, \

@@ -110,13 +110,14 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            # Only propagate if the node is participating in the consensus process
+            # Only propagate if the node is participating in the consensus
+            #  process
             # which happens when the node has completed the catchup process
             if self.isParticipating:
                 propagate = self.createPropagate(request, clientName)
                 logger.display("{} propagating {} request {} from client {}".
-                             format(self, request.identifier, request.reqId, clientName),
-                             extra={"cli": True})
+                               format(self, request.identifier, request.reqId,
+                                      clientName), extra={"cli": True})
                 self.send(propagate)
 
     @staticmethod

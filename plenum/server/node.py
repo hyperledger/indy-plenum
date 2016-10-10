@@ -459,10 +459,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Stop the txn store
         self.primaryStorage.stop()
 
-        if self.nodestack.opened:
-            self.nodestack.close()
-        if self.clientstack.opened:
-            self.clientstack.close()
+        self.nodestack.stop()
+        self.clientstack.stop()
 
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
@@ -772,10 +770,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     # request ordering might have started when the node was not
                     # participating but by the time ordering finished, node
                     # might have started participating
-                    if self.isParticipating and not self.gotInCatchupReplies(msg):
+                    recvd = self.gotInCatchupReplies(msg)
+                    if self.isParticipating and not recvd:
                         self.processOrdered(msg)
                     else:
-                        logger.debug("{} stashing {}".format(self, msg))
+                        logger.debug("{} stashing {} since mode is {} and {}".
+                                     format(self, msg, self.mode,
+                                            recvd))
                         self.stashedOrderedReqs.append(msg)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
@@ -1624,10 +1625,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
 
             # remove any unjoined remotes
-            for r in self.nodestack.nameRemotes.values():
+            for name, r in self.nodestack.nameRemotes.items():
                 if not r.joined:
                     logger.debug("{} removing unjoined remote {}"
-                                 .format(self, r))
+                                 .format(self, r.name))
+                    # This is a bug in RAET where the `removeRemote`
+                    # of `raet/stacking.py` does not consider the fact that
+                    # renaming of remote might not have happened. Fixed here
+                    # https://github.com/RaetProtocol/raet/pull/9
                     self.nodestack.removeRemote(r)
 
             # if just starting, then bootstrap

@@ -14,6 +14,7 @@ from plenum.common.types import HA, NodeDetail
 from plenum.common.util import randomString
 from plenum.server.node import Node
 from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
+from plenum.client.request_id_store import MemoryRequestIdStore
 
 console = getConsole()
 console.reinit(verbosity=console.Wordage.terse)
@@ -111,7 +112,7 @@ with TemporaryDirectory() as tmpdir:
         Create a wallet to the keys that the client will use to have a
         secure communication with the nodes.
         """
-        wallet = Wallet("my_wallet")
+        wallet = Wallet("my_wallet", requestIdStore=MemoryRequestIdStore())
 
         """
         Now the wallet needs to have one keypair, so lets add it.
@@ -138,7 +139,7 @@ with TemporaryDirectory() as tmpdir:
         A client signs its requests. By default, a simple yet secure signing
         mechanism is created for a client.
         """
-        idAndKey = wallet.defaultId, wallet.getVerKey(wallet.defaultId)
+        idAndKey = wallet.defaultId, wallet.defaultSigner.verkey
 
         """
         A client's signature verification key must be bootstrapped out of band
