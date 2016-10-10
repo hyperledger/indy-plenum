@@ -4,6 +4,7 @@ from statistics import mean
 from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
+import json
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
@@ -432,11 +433,20 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         nodeInfo = self.nodestack.remotesInfo()
 
         nodes = dict(
-            missing=nodeInfo['missing'],
-            matches=nodeInfo['matches'],
-            legacy=nodeInfo['legacy'],
-            conflicts=nodeInfo['conflicts']
+            missing=[],
+            matches=[],
+            legacy=[],
+            conflicts=[]
         )
+
+        for node in nodeInfo['missing']:
+            nodes['missing'].append(json.dumps(node))
+        for node in nodeInfo['matches']:
+            nodes['matches'].append(json.dumps(node))
+        for node in nodeInfo['legacy']:
+            nodes['legacy'].append(json.dumps(node))
+        for node in nodeInfo['conflicts']:
+            nodes['conflicts'].append(json.dumps(node))
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
 

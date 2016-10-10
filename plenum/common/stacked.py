@@ -613,32 +613,6 @@ class KITStack(SimpleStack):
 
         :return: the missing remotes
         """
-        info = self.remotesInfo()
-        matches = info['matches']  # good matches found in nodestack remotes
-        legacy = info['legacy']  # old remotes that are no longer in registry
-        conflicts = info['conflicts']  # matches found, but the ha conflicts
-        missing = info['missing'] # missing from remotes... need to connect
-
-        if len(missing) + len(matches) + len(conflicts) != len(self.registry):
-            logger.error("Error reconciling nodeReg with remotes")
-            logger.error("missing: {}".format(missing))
-            logger.error("matches: {}".format(matches))
-            logger.error("conflicts: {}".format(conflicts))
-            logger.error("nodeReg: {}".format(self.registry.keys()))
-            logger.error("Error reconciling nodeReg with remotes; see logs")
-
-        if conflicts:
-            logger.error("found conflicting address information {} in registry"
-                         .format(conflicts))
-        if legacy:
-            for l in legacy:
-                logger.error("{} found legacy entry [{}, {}] in remotes, "
-                             "that were not in registry".
-                             format(self, l.name, l.ha))
-                self.removeRemote(l)
-        return missing
-
-    def remotesInfo(self):
         matches = set()  # good matches found in nodestack remotes
         legacy = set()  # old remotes that are no longer in registry
         conflicts = set()  # matches found, but the ha conflicts
@@ -685,11 +659,69 @@ class KITStack(SimpleStack):
         # missing from remotes... need to connect
         missing = set(self.registry.keys()) - matches
 
+        if len(missing) + len(matches) + len(conflicts) != len(self.registry):
+            logger.error("Error reconciling nodeReg with remotes")
+            logger.error("missing: {}".format(missing))
+            logger.error("matches: {}".format(matches))
+            logger.error("conflicts: {}".format(conflicts))
+            logger.error("nodeReg: {}".format(self.registry.keys()))
+            logger.error("Error reconciling nodeReg with remotes; see logs")
+
+        if conflicts:
+            logger.error("found conflicting address information {} in registry"
+                         .format(conflicts))
+        if legacy:
+            for l in legacy:
+                logger.error("{} found legacy entry [{}, {}] in remotes, "
+                             "that were not in registry".
+                             format(self, l.name, l.ha))
+                self.removeRemote(l)
+        return missing
+
+    def remotesInfo(self):
+        res = {
+            'matches': [],
+            'legacy': [],
+            'conflicts': [],
+            'missing': []
+        }
+        for r in self.remotes.values():
+            if r.name in self.registry:
+                if self.sameAddr(r.ha, self.registry[r.name]):
+                    res['matches'].append(self.pickRemoteEstateFields(r))
+                else:
+                    res['conflicts'].append(self.pickRemoteEstateFields(r))
+            else:
+                regName = self.findInNodeRegByHA(r.ha)
+                if regName:
+                    res['matches'].append(self.pickRemoteEstateFields(r, regName))
+                else:
+                    res['legacy'].append(self.pickRemoteEstateFields(r, regName))
+
+        registry = []
+        for key in self.registry.keys():
+            registry.append(key)
+
+        for node in res['matches']:
+            if registry.count(node['name']):
+                registry.remove(node['name'])
+
+        for key in registry:
+            res['missing'].append({
+                'name': key,
+                'host': self.registry[key].host,
+                'port': self.registry[key].port
+            })
+
+        return res
+
+    def pickRemoteEstateFields(self, estate, customName=None):
+        host, port = estate.ha
         return {
-            'missing': missing,
-            'matches': matches,
-            'legacy': legacy,
-            'conflicts': conflicts
+            'name': customName or estate.name,
+            'host': host,
+            'port': port,
+            'nat': estate.natted
         }
 
     def remotesByConnected(self):
