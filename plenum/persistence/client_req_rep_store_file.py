@@ -31,7 +31,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def addRequest(self, req: Request):
         reqId = req.reqId
-        self.reqStore.put(str(reqId), "0:{}\n".format(self.serializeReq(req)))
+        self.reqStore.appendToValue(str(reqId), "0:{}".
+                                    format(self.serializeReq(req)))
 
     def addAck(self, msg: Any, sender: str):
         reqId = msg[f.REQ_ID.nm]
@@ -40,8 +41,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
     def addNack(self, msg: Any, sender: str):
         reqId = msg[f.REQ_ID.nm]
         reason = msg[f.REASON.nm]
-        self.reqStore.appendToValue(str(reqId), "N:{}:{}".format(sender,
-                                                                 reason))
+        self.reqStore.appendToValue(str(reqId), "N:{}:{}".
+                                    format(sender, reason))
 
     def addReply(self, reqId: int, sender: str, result: Any) -> Sequence[str]:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
