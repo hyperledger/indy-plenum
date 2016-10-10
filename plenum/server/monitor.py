@@ -7,7 +7,7 @@ from typing import Tuple
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
-    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES
 from plenum.common.stacked import NodeStack
 from plenum.common.util import getConfig
 from plenum.common.log import getlogger
@@ -438,7 +438,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             conflicts=nodeInfo['conflicts']
         )
 
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, nodes)
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
 
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()
