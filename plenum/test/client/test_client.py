@@ -146,7 +146,7 @@ def testClientConnectsToAllNodes(client1):
 
 
 @CLI_REQ("A client sends a request to all the nodes")
-def testRequestFullRoundTrip(replied1):
+def testRequestFullRoundTrip(replied1, client1):
     pass
 
 
