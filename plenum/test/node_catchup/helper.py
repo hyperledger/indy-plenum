@@ -2,7 +2,8 @@ from typing import Iterable
 
 from plenum.common.types import HA
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestNode, TestClient
+from plenum.test.helper import TestNode, TestClient, assertLength, \
+    assertEquality
 
 
 # TODO: This should just take an arbitrary number of nodes and check for their
@@ -10,10 +11,10 @@ from plenum.test.helper import TestNode, TestClient
 def checkNodeLedgersForEquality(node: TestNode,
                                 *otherNodes: Iterable[TestNode]):
     for n in otherNodes:
-        assert node.domainLedger.size == n.domainLedger.size
-        assert node.poolLedger.size == n.poolLedger.size
-        assert node.domainLedger.root_hash == n.domainLedger.root_hash
-        assert node.poolLedger.root_hash == n.poolLedger.root_hash
+        assertLength(node.domainLedger, n.domainLedger.size)
+        assertLength(node.poolLedger, n.poolLedger.size)
+        assertEquality(node.domainLedger.root_hash, n.domainLedger.root_hash)
+        assertEquality(node.poolLedger.root_hash, n.poolLedger.root_hash)
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
@@ -25,8 +26,10 @@ def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
 def checkClientPoolLedgerSameAsNodes(client: TestClient,
                                      *nodes: Iterable[TestNode]):
     for n in nodes:
-        assert client.ledger.size == n.poolLedger.size
-        assert client.ledger.root_hash == n.poolLedger.root_hash
+        assertLength(client.ledger, n.poolLedger.size)
+        assertEquality(client.ledger.root_hash, n.poolLedger.root_hash)
+        # assert client.ledger.size == n.poolLedger.size
+        # assert client.ledger.root_hash == n.poolLedger.root_hash
 
 
 def ensureClientConnectedToNodesAndPoolLedgerSame(looper, client: TestClient,

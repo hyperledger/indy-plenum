@@ -1,24 +1,15 @@
-from typing import Iterable
+import pytest
 
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, TestNode, \
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkNodesConnected, TestLedgerManager
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 
 logger = getlogger()
 
 txnCount = 5
-
-
-def checkNodeDisconnectedFrom(needle: str, haystack: Iterable[TestNode]):
-    """
-    Check if the node name given by `needle` is disconnected from nodes in `haystack`
-    :param needle: Node name which should be disconnected from nodes from `haystack`
-    :param haystack: nodes who should be disconnected from `needle`
-    :return:
-    """
-    assert all([needle not in node.nodestack.connecteds for node in haystack])
 
 
 def testNewNodeCatchup(newNodeCaughtUp):
@@ -57,6 +48,17 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
            startTimes[1] < completionTimes[1]
 
 
+@pytest.mark.skipif(True, reason="Test implementation pending, "
+                                 "although bug fixed")
+def testDelayedLedgerStatusNotChangingState():
+    """
+    Scenario: When a domain `LedgerStatus` arrives when the node is in
+    `participating` mode, the mode should not change to `discovered` if found
+    the arriving `LedgerStatus` to be ok.
+    """
+    pass
+
+
 # TODO: This test passes but it is observed that PREPAREs are not received at
 # newly added node. If the stop and start steps are omitted then PREPAREs are
 # received. Conclusion is that due to node restart, RAET is losing messages
@@ -73,8 +75,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
 
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
-                 format(newNode.name, newNode.poolManager.txnSeqNo))
-    newNode.stop()
+                 format(newNode, newNode.poolManager.txnSeqNo))
+    ensureNodeDisconnectedFromPool(looper, txnPoolNodeSet, newNode)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -84,11 +86,10 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    logger.debug("Starting the stopped node, {}".format(newNode.name))
+    logger.debug("Starting the stopped node, {}".format(newNode))
     newNode.start(looper.loop)
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
                           timeout=5))
-    logger.debug("{}".format(newNode.poolManager.txnSeqNo))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:4], retryWait=1, timeout=15))
 

@@ -136,6 +136,8 @@ def testNodeConnection(allPluginsPath, tdirAndLooper):
     looper.run(checkNodesConnected([A, B]))
 
 
+# This test can fail due to the bug fixed here
+# https://github.com/RaetProtocol/raet/pull/9
 def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
@@ -190,7 +192,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
     C.stop()
 
     def chk():
-        assert not C.name in B.nodestack.nameRemotes
-        assert not C.name in A.nodestack.nameRemotes
+        assert C.name not in B.nodestack.nameRemotes
+        assert C.name not in A.nodestack.nameRemotes
 
     looper.run(eventually(chk, retryWait=2, timeout=5))

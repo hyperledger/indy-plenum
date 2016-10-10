@@ -4,7 +4,6 @@ import types
 from random import randint
 
 from plenum.common.types import LedgerStatus
-from plenum.common.util import runWithLoop
 from plenum.test.eventually import eventually
 from plenum.test.helper import lsDelay, ppgDelay, sendRandomRequests, \
     checkNodesConnected, cDelay, pDelay, ppDelay, TestLedgerManager
