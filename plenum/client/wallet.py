@@ -53,6 +53,9 @@ class Wallet:
     def name(self, newName):
         self._name = newName
 
+    def __repr__(self):
+        return self.name
+
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':
         decryped = crypto_secretbox_open(ec.raw, ec.nonce, key)
