@@ -396,11 +396,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def start(self, loop):
         oldstatus = self.status
-        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            super().start(loop)
             self.primaryStorage.start(loop)
             self.nodestack.start()
             self.clientstack.start()
