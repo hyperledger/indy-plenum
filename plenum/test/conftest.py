@@ -426,8 +426,13 @@ def testNodeClass():
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath, tdirWithNodeKeepInited, testNodeClass):
+def txnPoolNodeSet(tdirWithPoolTxns,
+                   tdirWithDomainTxns,
+                   tconf,
+                   poolTxnNodeNames,
+                   allPluginsPath,
+                   tdirWithNodeKeepInited,
+                   testNodeClass):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:

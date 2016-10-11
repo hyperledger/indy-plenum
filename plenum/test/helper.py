@@ -1463,3 +1463,11 @@ def delayNonPrimaries(nodeSet, instId, delay):
     nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
+
+
+def assertExp(condition):
+    assert condition
+
+
+def assertFunc(func):
+    assert func()

@@ -97,9 +97,8 @@ class Wallet:
 
     def _requiredIdr(self,
                      idr: Identifier=None,
-                     alias: str=None,
-                     other: Identifier=None):
-        '''
+                     alias: str=None):
+        """
         Checks whether signer identifier specified, or can it be
         inferred from alias or can be default used instead
 
@@ -108,9 +107,14 @@ class Wallet:
         :param other:
 
         :return: signer identifier
-        '''
+        """
 
-        idr = idr or other or (self.aliasesToIds[alias] if alias else self.defaultId)
+        # TODO Need to create a new Identifier type that supports DIDs and CIDs
+        if idr:
+            if ':' in idr:
+                idr = idr.split(':')[1]
+        else:
+            idr = self.aliasesToIds[alias] if alias else self.defaultId
         if not idr:
             raise RuntimeError('identifier required, but none found')
         return idr
@@ -119,16 +123,16 @@ class Wallet:
                 msg: Dict,
                 identifier: Identifier=None,
                 otherIdentifier: Identifier=None):
-        '''
+        """
         Creates signature for message using specified signer
 
         :param msg: message to sign
         :param identifier: signer identifier
         :param otherIdentifier:
         :return: signature that then can be assigned to request
-        '''
+        """
 
-        idr = self._requiredIdr(idr=identifier, other=otherIdentifier)
+        idr = self._requiredIdr(idr=identifier or otherIdentifier)
         signer = self._signerById(idr)
         signature = signer.sign(msg)
         return signature
@@ -145,7 +149,7 @@ class Wallet:
         :return: signed request
         """
 
-        idr = self._requiredIdr(idr=identifier, other=req.identifier)
+        idr = self._requiredIdr(idr=identifier or req.identifier)
         req.identifier = idr
         req.reqId = self._requestIdStore.nextId(signerId=idr)
         req.signature = self.signMsg(msg=req.getSigningState(),
