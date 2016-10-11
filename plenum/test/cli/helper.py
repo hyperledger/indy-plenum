@@ -258,7 +258,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     return pubKey
 
 
-replyPat = re.compile("C: ({.+$)")
+
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
 
@@ -287,27 +287,32 @@ def assertNoClient(cli):
                                 "more details"
 
 
+replyPat = re.compile("C: odict\((.+)\)$")
+
+
 def checkReply(cli, count, clbk):
     done = 0
     for out in cli.printeds:
         msg = out['msg']
         m = replyPat.search(msg)
         if m:
-            result = ast.literal_eval(m.groups(0)[0].strip())
-            if clbk(result):
+            if clbk(m.groups(0)[0].strip()):
                 done += 1
     assert done == count
 
 
 def checkSuccess(data):
-    result = data.get('result')
-    return result and result.get('success') == True
+    return data and "('success', True)" in data
+
+
+balancePat = re.compile("\('balance', (\d+)\)")
 
 
 def checkBalance(balance, data):
     if checkSuccess(data):
-        result = data.get('result')
-        return result.get('balance') == balance
+        searched = balancePat.search(data)
+        if searched:
+            return int(searched.group(1)) == balance
 
 
 def loadPlugin(cli, pluginPkgName):
