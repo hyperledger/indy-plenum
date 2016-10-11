@@ -1,7 +1,6 @@
 import asyncio
 import base58
 import base64
-import getpass
 import importlib.util
 import itertools
 import json
@@ -11,23 +10,18 @@ import os
 import random
 import socket
 import string
-import sys
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from importlib import import_module
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple
 
 import libnacl.secret
-import semver
-import shutil
+from ledger.util import F
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
-
-from ledger.util import F
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -473,41 +467,6 @@ def checkIfMoreThanFSameItems(items, maxF):
         return False
 
 
-def getPackageMeta(pkg):
-    try:
-        meta = import_module('{}.__metadata__'.format(pkg))
-    except ImportError:
-        print("A dependency named {} is not installed. Installation cannot "
-              "proceed without it.".format(pkg))
-        sys.exit(1)
-    return meta
-
-
-def check_deps(dependencies, parent=""):
-    if isinstance(dependencies, dict):
-        for pkg_name, exp_ver in dependencies.items():
-            if parent:
-                full_name = "{} ({})".format(pkg_name, parent)
-            else:
-                full_name = pkg_name
-            meta = getPackageMeta(pkg_name)
-            ver = meta.__version__
-            if not semver.match(ver, exp_ver):
-                raise RuntimeError("Incompatible '{}' package version. "
-                                   "Expected: {} "
-                                   "Found: {}".
-                                   format(pkg_name, exp_ver, ver))
-            if hasattr(meta, "__dependencies__"):
-                deps = meta.__dependencies__
-                check_deps(deps, full_name)
-    else:
-        pkg = dependencies if isinstance(dependencies, str) else \
-            dependencies.__name__
-        meta = getPackageMeta(pkg)
-        deps = meta.__dependencies__
-        check_deps(deps)
-
-
 def friendlyEx(ex: Exception) -> str:
     curEx = ex
     friendly = ""
@@ -527,17 +486,6 @@ def updateFieldsWithSeqNo(fields):
     r[F.seqNo.name] = (str, int)
     r.update(fields)
     return r
-
-
-def getLoggedInUser():
-    if sys.platform == 'wind32':
-        return getpass.getuser()
-    else:
-        if 'SUDO_USER' in os.environ:
-            return os.environ['SUDO_USER']
-        else:
-            return os.environ['USER']
-    # return getpass.getuser()
 
 
 def bootstrapClientKeys(identifier, verkey, nodes):
@@ -588,14 +536,3 @@ def prettyDate(time=False):
         return "Yesterday"
     if day_diff < 7:
         return str(day_diff) + " days ago"
-
-
-def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
-    loggedInUser = getLoggedInUser()
-    try:
-        shutil.chown(directory, loggedInUser, loggedInUser)
-    except Exception as e:
-        if raiseEx:
-            raise e
-        else:
-            pass

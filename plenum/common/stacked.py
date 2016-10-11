@@ -59,10 +59,6 @@ class Stack(RoadStack):
             error("the stack port number has changed, likely due to "
                   "information in the keep")
         self.created = time.perf_counter()
-        self.coro = self._raetcoro()
-        logger.info("stack {} starting at {} in {} mode"
-                        .format(self.name, self.ha, self.keep.auto.name),
-                        extra={"cli": False})
         config = getConfig()
         try:
             self.messageTimeout = config.RAETMessageTimeout
@@ -70,11 +66,19 @@ class Stack(RoadStack):
             # if no timeout is set then message will never timeout
             self.messageTimeout = 0
 
-    # def start(self):
-    #     self.coro = self._raetcoro()
-    #     logger.info("stack {} starting at {} in {} mode"
-    #                 .format(self.name, self.ha, self.keep.auto.name),
-    #                 extra={"cli": False})
+    def start(self):
+        if not self.opened:
+            self.open()
+        logger.info("stack {} starting at {} in {} mode"
+                    .format(self.name, self.ha, self.keep.auto.name),
+                    extra={"cli": False})
+        self.coro = self._raetcoro()
+
+    def stop(self):
+        if self.opened:
+            self.close()
+        self.coro = None
+        logger.info("stack {} stopped".format(self.name), extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """
@@ -145,6 +149,12 @@ class Stack(RoadStack):
     @property
     def opened(self):
         return self.server.opened
+
+    def open(self):
+        """
+        Open the UDP socket of this stack's server.
+        """
+        self.server.open()  # close the UDP socket
 
     def close(self):
         """
@@ -247,7 +257,7 @@ class SimpleStack(Stack):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
         self._conns = set()  # type: Set[str]
-        # super().__init__(**stackParams, msgHandler=self.msgHandler)
+        super().__init__(**stackParams, msgHandler=self.msgHandler)
 
     def __repr__(self):
         return self.name
@@ -322,8 +332,8 @@ class SimpleStack(Stack):
         pass
 
     def start(self):
-        # super().start()
-        super().__init__(**self.stackParams, msgHandler=self.msgHandler)
+        super().start()
+        # super().__init__(**self.stackParams, msgHandler=self.msgHandler)
 
     def sign(self, msg: Dict, signer: Signer) -> Dict:
         """

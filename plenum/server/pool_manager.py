@@ -265,6 +265,9 @@ class RegistryPoolManager(PoolManager):
             sha = me.ha
             nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
         else:
+
+
+
             sha = me if isinstance(me, HA) else HA(*me[0])
             nodeReg = {k: v if isinstance(v, HA) else HA(*v[0])
                        for k, v in nodeRegistry.items()}

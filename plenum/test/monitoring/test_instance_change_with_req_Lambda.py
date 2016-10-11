@@ -32,10 +32,14 @@ def setup(looper, startedNodes, up, wallet1, client1):
     for node in startedNodes:
         node.monitor.Delta = .001
 
+    slowRequest = None
+
     # make P (primary replica on master) faulty, i.e., slow to send
     # PRE-PREPARE for a specific client request only
     def by65SpecificPrePrepare(msg):
-        if isinstance(msg, PrePrepare) and getattr(msg, f.REQ_ID.nm) == 2:
+        nonlocal slowRequest
+        if isinstance(msg, PrePrepare) and slowRequest is None:
+            slowRequest = getattr(msg, f.REQ_ID.nm)
             return 65
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)

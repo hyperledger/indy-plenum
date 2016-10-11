@@ -179,7 +179,7 @@ with TemporaryDirectory() as tmpdir:
         Let's get the reply.
         """
         reply, status = client.getReply(request.reqId)
-
+        
         """
         Check the reply and see if consensus has been reached.
         """

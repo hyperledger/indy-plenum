@@ -1,6 +1,7 @@
 from typing import Optional, Dict, NamedTuple
 
 import jsonpickle
+import time
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
@@ -51,6 +52,9 @@ class Wallet:
     @name.setter
     def name(self, newName):
         self._name = newName
+
+    def __repr__(self):
+        return self.name
 
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':

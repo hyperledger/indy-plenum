@@ -1,6 +1,8 @@
 from pathlib import Path
 from abc import abstractmethod
 
+import time
+
 
 class RequestIdStore:
 
@@ -11,6 +13,11 @@ class RequestIdStore:
     @abstractmethod
     def currentId(self, signerId) -> int:
         pass
+
+
+    @staticmethod
+    def getTimeBasedId():
+        return int(time.time()*1000000)
 
 
 class FileRequestIdStore(RequestIdStore):
@@ -62,8 +69,9 @@ class FileRequestIdStore(RequestIdStore):
                 file.write(line + "\n")
 
     def nextId(self, signerId) -> int:
-        lastRequestId = self._storage.get(signerId) or 0
-        nextId = lastRequestId + 1
+
+        # TODO: Temporarily using random id as next id, need to come back to it.
+        nextId = RequestIdStore.getTimeBasedId()
         self._storage[signerId] = nextId
         self.flush()
         return nextId
@@ -81,10 +89,11 @@ class MemoryRequestIdStore(RequestIdStore):
         self.ids = {}
 
     def nextId(self, signerId) -> int:
-        id = (self.ids.get(signerId) or 0)
-        next = id + 1
-        self.ids[signerId] = next
-        return next
+        # TODO: Temporarily using random id as next id, need to come back to it.
+
+        rid = RequestIdStore.getTimeBasedId()
+        self.ids[signerId] = rid
+        return rid
 
     def currentId(self, signerId) -> int:
         return self.ids.get(signerId)
