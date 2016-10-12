@@ -435,7 +435,7 @@ def isHexKey(key):
 
 def getCryptonym(identifier):
     isHex = isHexKey(identifier)
-    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
         else identifier
 
 
