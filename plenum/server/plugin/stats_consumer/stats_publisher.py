@@ -59,6 +59,7 @@ class Topic(Enum):
     PublishAllStats = 10
     IncomingEvent = 11,
     PublishNodestackStats = 12
+    PublishTotalRequestsStats = 13
 
     def __str__(self):
         return self.name

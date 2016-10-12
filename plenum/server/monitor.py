@@ -8,8 +8,9 @@ import json
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
-    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
 from plenum.common.stacked import NodeStack
+from plenum.server.blacklister import SimpleBlacklister
 from plenum.common.util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -30,10 +31,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, nodestack: NodeStack, pluginPaths: Iterable[str]=None):
+                 instances: Instances, nodestack: NodeStack, blacklister: SimpleBlacklister,
+                 pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
+        self.blacklister = blacklister
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -357,6 +360,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendThroughput()
         self.sendLatencies()
         self.sendNodestack()
+        self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     @property
@@ -440,15 +444,28 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         )
 
         for node in nodeInfo['missing']:
+            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['missing'].append(json.dumps(node))
         for node in nodeInfo['matches']:
+            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['matches'].append(json.dumps(node))
         for node in nodeInfo['legacy']:
+            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['legacy'].append(json.dumps(node))
         for node in nodeInfo['conflicts']:
+            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['conflicts'].append(json.dumps(node))
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
+
+    def sendTotalRequests(self):
+        logger.debug("{} sending total requests".format(self))
+
+        totalRequests = dict(
+            totalRequests=self.totalRequests
+        )
+
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
 
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()

@@ -177,14 +177,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.instances = Instances()
 
-        self.monitor = Monitor(self.name,
-                               Delta=self.config.DELTA,
-                               Lambda=self.config.LAMBDA,
-                               Omega=self.config.OMEGA,
-                               instances=self.instances,
-                               nodestack=self.nodestack,
-                               pluginPaths=pluginPaths)
-
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
         # its index in the list and each element of the deque is a named tuple
@@ -213,6 +205,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.nodeBlacklister = SimpleBlacklister(
             self.name + NODE_BLACKLISTER_SUFFIX)  # type: Blacklister
+
+        self.monitor = Monitor(self.name,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
+                               instances=self.instances,
+                               nodestack=self.nodestack,
+                               blacklister=self.nodeBlacklister,
+                               pluginPaths=pluginPaths)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
