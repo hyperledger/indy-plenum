@@ -405,9 +405,11 @@ class TestNode(TestNodeCore, Node):
 class TestRequestIdStore(MemoryRequestIdStore):
     pass
 
+
 def randomSeed():
     chars = "0123456789abcdef"
     return str.encode("".join(random.choice(chars) for _ in range(32)))
+
 
 def getTestableStack(stack: Stack):
     """
