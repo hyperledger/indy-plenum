@@ -4,30 +4,13 @@ from binascii import hexlify
 from typing import Dict
 
 from libnacl import randombytes
-from raet.nacling import Signer as NaclSigner
 from raet.nacling import SigningKey
+from raet.nacling import Signer as NaclSigner
 
+from plenum.common.signer import Signer
 from plenum.common.signing import serializeForSig
 
 from plenum.common.util import hexToCryptonym
-from plenum.common.types import Identifier
-
-
-class Signer:
-    """
-    Interface that defines a sign method.
-    """
-    @abstractproperty
-    def identifier(self) -> Identifier:
-        raise NotImplementedError
-
-    @abstractmethod
-    def sign(self, msg: Dict) -> Dict:
-        raise NotImplementedError
-
-    @abstractproperty
-    def alias(self) -> str:
-        raise NotImplementedError
 
 
 class SimpleSigner(Signer):

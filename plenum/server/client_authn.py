@@ -10,7 +10,8 @@ from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
-    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
+    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException, \
+    InvalidSignatureFormat
 from plenum.common.signing import serializeForSig
 from plenum.common.types import f
 
@@ -86,7 +87,10 @@ class NaclAuthNr(ClientAuthNr):
                         raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
                 except KeyError:
                     raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
-            sig = base58.b58decode(signature)
+            try:
+                sig = base58.b58decode(signature)
+            except Exception as ex:
+                raise InvalidSignatureFormat from ex
             ser = self.serializeForSig(msg)
             try:
                 verkey = self.getVerkey(identifier)

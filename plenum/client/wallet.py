@@ -1,15 +1,14 @@
 from typing import Optional, Dict, NamedTuple
 
 import jsonpickle
-import time
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
-from plenum.client.signer import Signer
 from plenum.client.request_id_store import *
-from plenum.client.signer import SimpleSigner
+from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.log import getlogger
-from plenum.common.types import f, Identifier, Request
+from plenum.common.signer import Signer
+from plenum.common.types import Identifier, Request
 
 logger = getlogger()
 
@@ -34,8 +33,8 @@ IdData = HA = NamedTuple("IdData", [
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore=None
-                 ):
+                 requestIdStore: RequestIdStore=None,
+                 supportedDidMethods: DidMethods=None):
         # If a requestIdStore is not passed, it will use a MemoryRequestIdStore
         #  which does not persist request ids over restart
         self._name = name
@@ -44,6 +43,7 @@ class Wallet:
         self.defaultId = None
         self._requestIdStore = requestIdStore if requestIdStore else \
             MemoryRequestIdStore()
+        self.didMethods = supportedDidMethods or DefaultDidMethods
 
     @property
     def name(self):
@@ -71,21 +71,27 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
+    def addIdentifier(self, didMethodName=None):
+        return self.addSigner(didMethodName).identifier
+
     def addSigner(self,
                   identifier=None,
                   seed=None,
-                  signer=None):
-        '''
+                  signer=None,
+                  didMethodName=None):
+        """
         Adds signer to the wallet.
         Requires complete signer, identifier or seed.
 
         :param identifier: signer identifier or None to use random one
         :param seed: signer key seed or None to use random one
         :param signer: signer to add
+        :param didMethodName: name of DID Method if not the default
         :return:
-        '''
+        """
 
-        signer = signer or SimpleSigner(identifier=identifier, seed=seed)
+        dm = self.didMethods.get(didMethodName)
+        signer = signer or dm.newSigner(identifier=identifier, seed=seed)
         self.idsToSigners[signer.identifier] = signer
         if self.defaultId is None:
             # setting this signer as default signer to let use sign* methods

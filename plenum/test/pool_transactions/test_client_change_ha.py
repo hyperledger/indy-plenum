@@ -2,12 +2,10 @@ import os
 import shutil
 
 import pytest
-from plenum.client.signer import SimpleSigner
-
-from plenum.test.helper import genTestClient
-from plenum.common.port_dispenser import genHa
 
 from plenum.common.looper import Looper
+from plenum.common.port_dispenser import genHa
+from plenum.test.helper import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet

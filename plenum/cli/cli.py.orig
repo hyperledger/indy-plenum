@@ -3,6 +3,11 @@ from __future__ import unicode_literals
 # noinspection PyUnresolvedReferences
 import random
 from hashlib import sha256
+<<<<<<< 0ff8b03db8796ff8ddbdd47b6e35d6111c6556ae
+from typing import Set, Dict
+=======
+from binascii import unhexlify
+>>>>>>> signer reorganize
 import shutil
 
 from jsonpickle import json

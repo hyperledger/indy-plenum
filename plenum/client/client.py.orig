@@ -32,12 +32,18 @@ from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
+<<<<<<< 0ff8b03db8796ff8ddbdd47b6e35d6111c6556ae
+from plenum.common.util import getMaxFailures, error, hexToCryptonym, \
+    MessageProcessor, checkIfMoreThanFSameItems
+
+from plenum.common.log import getlogger
+from plenum.common.txn_util import getTxnOrderedFields
+=======
 from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 
-from plenum.common.log import getlogger
-from plenum.common.txn_util import getTxnOrderedFields
+>>>>>>> signer reorganize
 # DEPR
 # from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.util import getConfig

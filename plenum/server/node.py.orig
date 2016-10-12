@@ -10,6 +10,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set
 
 import pyorient
+from libnacl.encode import base64_decode
 from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -18,6 +19,16 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
+<<<<<<< 0ff8b03db8796ff8ddbdd47b6e35d6111c6556ae
+
+from libnacl.encode import base64_decode
+from plenum.common.ledger_manager import LedgerManager
+from plenum.common.ratchet import Ratchet
+from raet.raeting import AutoMode
+
+from plenum.client.signer import Signer
+=======
+>>>>>>> signer reorganize
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
@@ -47,16 +58,22 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import MessageProcessor, friendlyEx, cryptonymToHex, \
-    getMaxFailures, getConfig
+<<<<<<< 0ff8b03db8796ff8ddbdd47b6e35d6111c6556ae
 
+from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx, \
+    cryptonymToHex
+from plenum.common.log import getlogger
+
+from plenum.common.txn_util import getTxnOrderedFields
+=======
+from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx
+>>>>>>> signer reorganize
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
-from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
 from plenum.server.has_action_queue import HasActionQueue
