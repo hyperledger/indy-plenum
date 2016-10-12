@@ -112,8 +112,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
-        self.created = time.perf_counter()
-        self.createdEpoch = time.time()
+        self.created = time.time()
         self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
@@ -1635,7 +1634,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.nodestack.removeRemote(r)
 
             # if just starting, then bootstrap
-            force = time.perf_counter() - self.created > 5
+            force = time.time() - self.created > 5
             self.nodestack.maintainConnections(force=force)
 
     def stopKeySharing(self, timedOut=False):
@@ -1789,7 +1788,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         l("client inbox size       : {}".
                     format(len(self.clientInBox)))
         l("age (seconds)           : {}".
-                    format(time.perf_counter() - self.created))
+                    format(time.time() - self.created))
         l("next check for reconnect: {}".
                     format(time.perf_counter() - self.nodestack.nextCheck))
         l("node connections        : {}".format(self.nodestack.conns))
@@ -1817,7 +1816,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'name': self.name,
             'rank': self.rank,
             'view': self.viewNo,
-            'creationDate': self.createdEpoch,
+            'creationDate': self.created,
             'baseDir': self.basedirpath
         }
 

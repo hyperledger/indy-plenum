@@ -434,27 +434,19 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
 
-        nodeInfo = remotesInfo(self.nodestack)
+        nodesInfo = remotesInfo(self.nodestack)
 
         nodes = dict(
-            missing=[],
-            matches=[],
-            legacy=[],
-            conflicts=[]
+            connected=[],
+            disconnected=[]
         )
 
-        for node in nodeInfo['missing']:
+        for node in nodesInfo['connected']:
             node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
-            nodes['missing'].append(json.dumps(node))
-        for node in nodeInfo['matches']:
+            nodes['connected'].append(json.dumps(node))
+        for node in nodesInfo['disconnected']:
             node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
-            nodes['matches'].append(json.dumps(node))
-        for node in nodeInfo['legacy']:
-            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
-            nodes['legacy'].append(json.dumps(node))
-        for node in nodeInfo['conflicts']:
-            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
-            nodes['conflicts'].append(json.dumps(node))
+            nodes['disconnected'].append(json.dumps(node))
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
 
@@ -512,47 +504,27 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
 def remotesInfo(nodestack):
     res = {
-        'matches': [],
-        'legacy': [],
-        'conflicts': [],
-        'missing': []
+        'connected': [],
+        'disconnected': []
     }
-    for r in nodestack.remotes.values():
-        if r.name in nodestack.registry:
-            if nodestack.sameAddr(r.ha, nodestack.registry[r.name]):
-                res['matches'].append(pickRemoteEstateFields(r))
-            else:
-                res['conflicts'].append(pickRemoteEstateFields(r))
-        else:
-            regName = nodestack.findInNodeRegByHA(r.ha)
-            if regName:
-                res['matches'].append(pickRemoteEstateFields(r, regName))
-            else:
-                res['legacy'].append(pickRemoteEstateFields(r, regName))
 
-    registry = []
-    for key in nodestack.registry.keys():
-        registry.append(key)
+    conns, disconns = nodestack.remotesByConnected()
 
-    for node in res['matches']:
-        if registry.count(node['name']):
-            registry.remove(node['name'])
-
-    for key in registry:
-        res['missing'].append({
-            'name': key,
-            'host': nodestack.registry[key].host,
-            'port': nodestack.registry[key].port
-        })
+    for r in conns:
+        regName = nodestack.findInNodeRegByHA(r.ha)
+        res['connected'].append(pickRemoteEstateFields(r, regName))
+    for r in disconns:
+        regName = nodestack.findInNodeRegByHA(r.ha)
+        res['disconnected'].append(pickRemoteEstateFields(r, regName))
 
     return res
 
 
-def pickRemoteEstateFields(estate, customName=None):
+def pickRemoteEstateFields(estate, customName = None):
     host, port = estate.ha
     return {
         'name': customName or estate.name,
         'host': host,
         'port': port,
-        'nat': estate.natted
+        'nat': getattr(estate, 'natted', False)
     }
