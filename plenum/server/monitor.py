@@ -496,28 +496,27 @@ def remotesInfo(nodestack, blacklister):
     conns, disconns = nodestack.remotesByConnected()
 
     for r in conns:
-        regName = nodestack.findInNodeRegByHA(r.ha)
-        append_data = pickRemoteEstateFields(r, regName)
-        append_data['blacklisted'] = blacklister.isBlacklisted(r.name)
-        if not append_data['blacklisted'] and regName:
-            append_data['blacklisted'] = blacklister.isBlacklisted(regName)
-        res['connected'].append(append_data)
+        res['connected'].append(remoteInfo(r, nodestack, blacklister))
     for r in disconns:
-        regName = nodestack.findInNodeRegByHA(r.ha)
-        append_data = pickRemoteEstateFields(r, regName)
-        append_data['blacklisted'] = blacklister.isBlacklisted(r.name)
-        if not append_data['blacklisted'] and regName:
-            append_data['blacklisted'] = blacklister.isBlacklisted(regName)
-        res['disconnected'].append(append_data)
+        res['disconnected'].append(remoteInfo(r, nodestack, blacklister))
 
     return res
 
 
-def pickRemoteEstateFields(estate, customName = None):
-    host, port = estate.ha
+def remoteInfo(remote, nodestack, blacklister):
+    regName = nodestack.findInNodeRegByHA(remote.ha)
+    res = pickRemoteEstateFields(remote, regName)
+    res['blacklisted'] = blacklister.isBlacklisted(remote.name)
+    if not res['blacklisted'] and regName:
+        res['blacklisted'] = blacklister.isBlacklisted(regName)
+    return res
+
+
+def pickRemoteEstateFields(remote, customName = None):
+    host, port = remote.ha
     return {
-        'name': customName or estate.name,
+        'name': customName or remote.name,
         'host': host,
         'port': port,
-        'nat': getattr(estate, 'natted', False)
+        'nat': getattr(remote, 'natted', False)
     }
