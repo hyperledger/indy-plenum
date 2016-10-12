@@ -196,8 +196,10 @@ def checkRequest(cli, operation):
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
-    txnTimePattern = "'txnTime', \d+\.*\d*"
-    txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
+    # txnTimePattern = "'txnTime', \d+\.*\d*"
+    # txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
+    txnTimePattern = "\'txnTime\': \d+\.*\d*"
+    txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
     assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)
