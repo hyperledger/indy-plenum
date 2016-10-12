@@ -44,10 +44,10 @@ class TestCliCore:
         printeds = [x['msg'] for x in reversed(self.printeds[:
             (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
-                         reversed(self.printedTokens[:
-                         (len(self.printedTokens) - self.lastPrintedTokenIndex)])
+                         reversed(self.printedTokens[:(len(self.printedTokens) - self.lastPrintedTokenIndex)])
                          for token in tokens.get('tokens', []) if len(token) > 1]
-        return ''.join(printeds + [' '] + printedTokens).strip()
+        pt = ''.join(printedTokens)
+        return '\n'.join(printeds + [pt]).strip()
 
     # noinspection PyAttributeOutsideInit
     @property
@@ -248,7 +248,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # Using `in` rather than `=` so as to take care of the fact that this might
     # be the first time wallet is accessed so wallet would be created and some
     # output corresponding to that would be printed.
-    assert "".join(expected) in cli.lastCmdOutput
+    assert "\n".join(expected) in cli.lastCmdOutput
 
     # the public key and alias are listed
     cli.enterCmd("list ids")

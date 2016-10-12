@@ -192,11 +192,11 @@ class Client(Motor,
 
     def start(self, loop):
         oldstatus = self.status
-        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            super().start(loop)
             self.nodestack.start()
             self.nodestack.maintainConnections()
             if self._ledger:

@@ -405,9 +405,11 @@ class TestNode(TestNodeCore, Node):
 class TestRequestIdStore(MemoryRequestIdStore):
     pass
 
+
 def randomSeed():
     chars = "0123456789abcdef"
     return str.encode("".join(random.choice(chars) for _ in range(32)))
+
 
 def getTestableStack(stack: Stack):
     """
@@ -1463,3 +1465,11 @@ def delayNonPrimaries(nodeSet, instId, delay):
     nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
+
+
+def assertExp(condition):
+    assert condition
+
+
+def assertFunc(func):
+    assert func()
