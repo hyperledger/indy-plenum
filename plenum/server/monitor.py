@@ -433,20 +433,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
-
-        nodesInfo = remotesInfo(self.nodestack, self.blacklister)
-
-        nodes = dict(
-            connected=[],
-            disconnected=[]
-        )
-
-        for node in nodesInfo['connected']:
-            nodes['connected'].append(json.dumps(node))
-        for node in nodesInfo['disconnected']:
-            nodes['disconnected'].append(json.dumps(node))
-
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
 
     def sendTotalRequests(self):
         logger.debug("{} sending total requests".format(self))
