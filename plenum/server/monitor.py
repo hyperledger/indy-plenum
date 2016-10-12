@@ -359,7 +359,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendPeriodicStats(self):
         self.sendThroughput()
         self.sendLatencies()
-        self.sendNodestack()
+        self.sendKnownNodesInfo()
         self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
@@ -431,10 +431,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
 
-    def sendNodestack(self):
+    def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
 
-        nodeInfo = self.nodestack.remotesInfo()
+        nodeInfo = remotesInfo(self.nodestack)
 
         nodes = dict(
             missing=[],
@@ -508,3 +508,51 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     @staticmethod
     def mean(data):
         return 0 if len(data) == 0 else mean(data)
+
+
+def remotesInfo(nodestack):
+    res = {
+        'matches': [],
+        'legacy': [],
+        'conflicts': [],
+        'missing': []
+    }
+    for r in nodestack.remotes.values():
+        if r.name in nodestack.registry:
+            if nodestack.sameAddr(r.ha, nodestack.registry[r.name]):
+                res['matches'].append(pickRemoteEstateFields(r))
+            else:
+                res['conflicts'].append(pickRemoteEstateFields(r))
+        else:
+            regName = nodestack.findInNodeRegByHA(r.ha)
+            if regName:
+                res['matches'].append(pickRemoteEstateFields(r, regName))
+            else:
+                res['legacy'].append(pickRemoteEstateFields(r, regName))
+
+    registry = []
+    for key in nodestack.registry.keys():
+        registry.append(key)
+
+    for node in res['matches']:
+        if registry.count(node['name']):
+            registry.remove(node['name'])
+
+    for key in registry:
+        res['missing'].append({
+            'name': key,
+            'host': nodestack.registry[key].host,
+            'port': nodestack.registry[key].port
+        })
+
+    return res
+
+
+def pickRemoteEstateFields(estate, customName=None):
+    host, port = estate.ha
+    return {
+        'name': customName or estate.name,
+        'host': host,
+        'port': port,
+        'nat': estate.natted
+    }

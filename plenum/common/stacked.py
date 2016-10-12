@@ -678,52 +678,6 @@ class KITStack(SimpleStack):
                 self.removeRemote(l)
         return missing
 
-    def remotesInfo(self):
-        res = {
-            'matches': [],
-            'legacy': [],
-            'conflicts': [],
-            'missing': []
-        }
-        for r in self.remotes.values():
-            if r.name in self.registry:
-                if self.sameAddr(r.ha, self.registry[r.name]):
-                    res['matches'].append(self.pickRemoteEstateFields(r))
-                else:
-                    res['conflicts'].append(self.pickRemoteEstateFields(r))
-            else:
-                regName = self.findInNodeRegByHA(r.ha)
-                if regName:
-                    res['matches'].append(self.pickRemoteEstateFields(r, regName))
-                else:
-                    res['legacy'].append(self.pickRemoteEstateFields(r, regName))
-
-        registry = []
-        for key in self.registry.keys():
-            registry.append(key)
-
-        for node in res['matches']:
-            if registry.count(node['name']):
-                registry.remove(node['name'])
-
-        for key in registry:
-            res['missing'].append({
-                'name': key,
-                'host': self.registry[key].host,
-                'port': self.registry[key].port
-            })
-
-        return res
-
-    def pickRemoteEstateFields(self, estate, customName=None):
-        host, port = estate.ha
-        return {
-            'name': customName or estate.name,
-            'host': host,
-            'port': port,
-            'nat': estate.natted
-        }
-
     def remotesByConnected(self):
         """
         Partitions the remotes into connected and disconnected

@@ -11,6 +11,7 @@ from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set
 from typing import Tuple
+from contextlib import closing
 
 import pyorient
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -1820,7 +1821,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'baseDir': self.basedirpath
         }
 
-        logNodeInfoFile = open(os.path.join(self.config.baseDir, 'node_info'), 'w')
-        logNodeInfoFile.write(json.dumps(info))
-        logNodeInfoFile.close()
+        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
+            logNodeInfoFile.write(json.dumps(info))
 

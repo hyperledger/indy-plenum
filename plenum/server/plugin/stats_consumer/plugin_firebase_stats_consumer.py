@@ -28,7 +28,7 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
             EVENT_PERIODIC_STATS_THROUGHPUT: self._periodicStatsThroughput,
             EVENT_VIEW_CHANGE: self._viewChange,
             EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies,
-            EVENT_PERIODIC_STATS_NODES: self._sendNodestack,
+            EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
             EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests
         }
 
@@ -79,7 +79,7 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
         latencies["eventName"] = str(Topic.PublishLatenciesStats)
         self._send(latencies)
 
-    def _sendNodestack(self, nodes: Dict[str, object]):
+    def _sendKnownNodesInfo(self, nodes: Dict[str, object]):
         nodes["eventName"] = str(Topic.PublishNodestackStats)
         self._send(nodes)
 
