@@ -1,5 +1,4 @@
 import base58
-from abc import abstractproperty, abstractmethod
 from binascii import hexlify
 from typing import Dict
 
