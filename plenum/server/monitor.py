@@ -434,7 +434,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
 
-        nodesInfo = remotesInfo(self.nodestack)
+        nodesInfo = remotesInfo(self.nodestack, self.blacklister)
 
         nodes = dict(
             connected=[],
@@ -442,10 +442,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         )
 
         for node in nodesInfo['connected']:
-            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['connected'].append(json.dumps(node))
         for node in nodesInfo['disconnected']:
-            node['blacklisted'] = self.blacklister.isBlacklisted(node['name'])
             nodes['disconnected'].append(json.dumps(node))
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, nodes)
@@ -502,7 +500,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return 0 if len(data) == 0 else mean(data)
 
 
-def remotesInfo(nodestack):
+def remotesInfo(nodestack, blacklister):
     res = {
         'connected': [],
         'disconnected': []
@@ -512,10 +510,18 @@ def remotesInfo(nodestack):
 
     for r in conns:
         regName = nodestack.findInNodeRegByHA(r.ha)
-        res['connected'].append(pickRemoteEstateFields(r, regName))
+        append_data = pickRemoteEstateFields(r, regName)
+        append_data['blacklisted'] = blacklister.isBlacklisted(r.name)
+        if not append_data['blacklisted'] and regName:
+            append_data['blacklisted'] = blacklister.isBlacklisted(regName)
+        res['connected'].append(append_data)
     for r in disconns:
         regName = nodestack.findInNodeRegByHA(r.ha)
-        res['disconnected'].append(pickRemoteEstateFields(r, regName))
+        append_data = pickRemoteEstateFields(r, regName)
+        append_data['blacklisted'] = blacklister.isBlacklisted(r.name)
+        if not append_data['blacklisted'] and regName:
+            append_data['blacklisted'] = blacklister.isBlacklisted(regName)
+        res['disconnected'].append(append_data)
 
     return res
 
