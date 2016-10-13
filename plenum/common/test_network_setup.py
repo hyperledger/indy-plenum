@@ -14,7 +14,7 @@ from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     STEWARD, \
     ROLE
 from plenum.common.types import f
-from plenum.common.util import hexToCryptonym
+from plenum.common.util import hexToFriendly
 
 
 class TestNetworkSetup:
@@ -35,7 +35,7 @@ class TestNetworkSetup:
 
     @staticmethod
     def getNymFromVerkey(verkey: bytes):
-        return hexToCryptonym(verkey)
+        return hexToFriendly(verkey)
 
     @staticmethod
     def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,

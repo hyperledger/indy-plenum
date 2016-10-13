@@ -1,7 +1,6 @@
 import asyncio
 import base58
-import base64
-import importlib.util
+import importlib
 import itertools
 import json
 import logging
@@ -439,10 +438,15 @@ def getCryptonym(identifier):
         else identifier
 
 
-def hexToCryptonym(hex):
-    if isinstance(hex, str):
-        hex = hex.encode()
-    return base58.b58encode(unhexlify(hex))
+def hexToFriendly(hx):
+    if isinstance(hx, str):
+        hx = hx.encode()
+    raw = unhexlify(hx)
+    return rawToFriendly(raw)
+
+
+def rawToFriendly(raw):
+    return base58.b58encode(raw)
 
 
 def cryptonymToHex(cryptonym: str) -> bytes:
@@ -494,25 +498,30 @@ def bootstrapClientKeys(identifier, verkey, nodes):
         n.clientAuthNr.addClient(identifier, verkey)
 
 
-def prettyDate(time=False):
+def prettyDateDifference(startTime, finishTime=None):
     """
     Get a datetime object or a int() Epoch timestamp and return a
     pretty string like 'an hour ago', 'Yesterday', '3 months ago',
     'just now', etc
     """
     from datetime import datetime
-    now = datetime.now()
-    if time is None:
+
+    if startTime is None:
         return None
 
-    if not isinstance(time, (int, datetime)):
+    if not isinstance(startTime, (int, datetime)):
         raise RuntimeError("Cannot parse time")
-    if isinstance(time,int):
-        diff = now - datetime.fromtimestamp(time)
-    elif isinstance(time, datetime):
-        diff = now - time
+
+
+    endTime = finishTime or datetime.now()
+
+    if isinstance(startTime, int):
+        diff = endTime - datetime.fromtimestamp(startTime)
+    elif isinstance(startTime, datetime):
+        diff = endTime - startTime
     else:
-        diff = now - now
+        diff = endTime - endTime
+
     second_diff = diff.seconds
     day_diff = diff.days
 

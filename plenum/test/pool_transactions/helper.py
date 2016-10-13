@@ -7,22 +7,23 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT, CHANGE_HA, \
     CHANGE_KEYS, VERKEY
-from plenum.common.util import randomString, hexToCryptonym
+from plenum.common.util import randomString, hexToFriendly
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestRequestIdStore
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient, genTestClient
 
+
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
     wallet = Wallet(name, requestIdStore=TestRequestIdStore())
     wallet.addSigner()
-    verstr = wallet.defaultSigner.verstr
+    idr = wallet.defaultSigner.identifier
 
     op = {
         TXN_TYPE: NYM,
         ROLE: role,
-        TARGET_NYM: verstr,
+        TARGET_NYM: idr,
         ALIAS: name
     }
 
@@ -45,7 +46,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
 
     op = {
         TXN_TYPE: NEW_NODE,
-        TARGET_NYM: nodeSigner.verstr,
+        TARGET_NYM: nodeSigner.identifier,
         DATA: {
             NODE_IP: nodeIp,
             NODE_PORT: nodePort,
@@ -90,7 +91,7 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
 
 def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
-    nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
+    nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
         TXN_TYPE: CHANGE_HA,
@@ -116,7 +117,7 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
-    nodeNym = hexToCryptonym(node.nodestack.local.signer.verhex)
+    nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
 
     op = {
         TXN_TYPE: CHANGE_KEYS,

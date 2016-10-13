@@ -9,7 +9,7 @@ from raet.nacling import Signer as NaclSigner
 from plenum.common.signer import Signer
 from plenum.common.signing import serializeForSig
 
-from plenum.common.util import hexToCryptonym
+from plenum.common.util import hexToFriendly, rawToFriendly
 
 
 class DidSigner(Signer):
@@ -40,13 +40,16 @@ class DidSigner(Signer):
         # helper for signing
         self.naclSigner = NaclSigner(self.sk)
 
-        # this is the public key used to verify signatures (securely shared
-        # before-hand with recipient)
-        self.verkey = self.naclSigner.verhex
+        verraw = self.naclSigner.verraw
 
-        self.verstr = hexToCryptonym(hexlify(self.naclSigner.verraw))
-
-        self._identifier = identifier or self.verstr
+        if identifier:
+            self._identifier = identifier
+            self._verkey = rawToFriendly(verraw)
+            self.abbreviated = False
+        else:
+            self._identifier = rawToFriendly(verraw[:16])
+            self._verkey = rawToFriendly(verraw[16:])
+            self.abbreviated = True
 
         self._alias = alias
 
@@ -57,6 +60,13 @@ class DidSigner(Signer):
     @property
     def identifier(self) -> str:
         return self._identifier
+
+    @property
+    def verkey(self) -> str:
+        if self.abbreviated:
+            return '~' + self._verkey
+        else:
+            return self._verkey
 
     @property
     def seedHex(self) -> bytes:
