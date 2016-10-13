@@ -1813,7 +1813,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'rank': self.rank,
             'view': self.viewNo,
             'creationDate': self.created,
-            'baseDir': self.basedirpath
+            'baseDir': self.basedirpath,
+            'portN': self.nodestack.ha[1],
+            'portC': self.clientstack.ha[1]
         }
 
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
