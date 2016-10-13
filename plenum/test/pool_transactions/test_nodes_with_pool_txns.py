@@ -231,7 +231,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNode.stop()
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
-    verkey = SimpleSigner(seed=sigseed).verkey
+    verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
     initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
     initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, sigseed)
