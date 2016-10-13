@@ -4,41 +4,41 @@ import os
 import random
 import shutil
 import time
-from binascii import hexlify
 from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
-    Sequence, Set
-from typing import Tuple
+    Sequence, Set, Tuple
 from contextlib import closing
 
 import pyorient
+from raet.raeting import AutoMode
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
-from libnacl.encode import base64_decode
-from plenum.common.ledger_manager import LedgerManager
-from plenum.common.ratchet import Ratchet
-from raet.raeting import AutoMode
-
-from plenum.client.signer import Signer
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, \
     InvalidIdentifier
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.ledger_manager import LedgerManager
+from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.ratchet import Ratchet
+from plenum.common.signer import Signer
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
+from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, USER, NYM
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -49,10 +49,9 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import getMaxFailures, MessageProcessor, getConfig, friendlyEx
+from plenum.common.util import MessageProcessor, friendlyEx, cryptonymToHex, \
+    getMaxFailures, getConfig
 
-from plenum.common.log import getlogger
-from plenum.common.txn_util import getTxnOrderedFields
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -74,7 +73,6 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.common.throttler import Throttler
 
 logger = getlogger()
 
@@ -401,11 +399,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def start(self, loop):
         oldstatus = self.status
-        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            super().start(loop)
             self.primaryStorage.start(loop)
             self.nodestack.start()
             self.clientstack.start()
@@ -1545,11 +1543,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     logger.error("Role {} must be either STEWARD, USER"
                                  .format(role))
                     return
-
-                verkey = hexlify(base64_decode(txn[TARGET_NYM].encode())).decode()
-                self.clientAuthNr.addClient(identifier,
-                                                 verkey=verkey,
-                                                 role=role)
+                verkey = cryptonymToHex(txn[TARGET_NYM]).decode()
+                self.clientAuthNr.addClient(identifier, verkey=verkey,
+                                            role=role)
 
     def initDomainLedger(self):
         # If the domain ledger file is not present initialize it by copying

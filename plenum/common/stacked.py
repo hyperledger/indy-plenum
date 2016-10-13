@@ -6,21 +6,21 @@ from typing import Any, Set, Optional, List, Iterable
 from typing import Dict
 from typing import Tuple
 
-from plenum.common.crypto import getEd25519AndCurve25519Keys, \
-    ed25519SkToCurve25519
 from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower, Messenger
 
-from plenum.client.signer import Signer
+from plenum.common.crypto import getEd25519AndCurve25519Keys, \
+    ed25519SkToCurve25519
 from plenum.common.exceptions import RemoteNotFound
+from plenum.common.log import getlogger
 from plenum.common.ratchet import Ratchet
+from plenum.common.signer import Signer
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
     MessageProcessor, checkPortAvailable, getConfig
-from plenum.common.log import getlogger
 
 logger = getlogger()
 

@@ -58,6 +58,14 @@ class EmptySignature(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class InvalidSignatureFormat(SigningException, ReqInfo):
+    code = 123
+    reason = 'invalid signature format'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
 class InvalidSignature(SigningException, ReqInfo):
     code = 125
     reason = 'invalid signature'
@@ -173,4 +181,8 @@ class DBConfigNotFound(StorageException):
 
 
 class UnsupportedOperation(Exception):
+    pass
+
+
+class DidMethodNotFound(Exception):
     pass

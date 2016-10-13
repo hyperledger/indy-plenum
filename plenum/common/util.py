@@ -1,4 +1,5 @@
 import asyncio
+import base58
 import base64
 import importlib.util
 import itertools
@@ -434,22 +435,18 @@ def isHexKey(key):
 
 def getCryptonym(identifier):
     isHex = isHexKey(identifier)
-    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
         else identifier
 
 
 def hexToCryptonym(hex):
-    # TODO: Use base58 instead of base64
     if isinstance(hex, str):
         hex = hex.encode()
-    return base64.b64encode(unhexlify(hex)).decode()
+    return base58.b58encode(unhexlify(hex))
 
 
-def cryptonymToHex(cryptonym):
-    # TODO: Use base58 instead of base64
-    if isinstance(cryptonym, str):
-        cryptonym = cryptonym.encode()
-    return hexlify(base64.b64decode(cryptonym)).decode()
+def cryptonymToHex(cryptonym: str) -> bytes:
+    return hexlify(base58.b58decode(cryptonym.encode()))
 
 
 def runWithLoop(loop, callback, *args, **kwargs):

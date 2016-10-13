@@ -1,11 +1,8 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
-import base64
 import random
 from hashlib import sha256
-from binascii import unhexlify
-from typing import Set, Dict
 import shutil
 
 from jsonpickle import json
@@ -19,7 +16,7 @@ from ledger.ledger import Ledger
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
-from plenum.client.signer import SimpleSigner
+from plenum.common.signer_simple import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
@@ -67,7 +64,7 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import getConfig
+from plenum.common.util import getConfig, hexToCryptonym
 from plenum.client.request_id_store import FileRequestIdStore
 
 class CustomOutput(Vt100_Output):
@@ -442,8 +439,7 @@ class Cli:
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
-        destId = base64.b64encode(
-            unhexlify(matchedVars.get(TARGET_NYM).encode())).decode()
+        destId = hexToCryptonym(matchedVars.get(TARGET_NYM))
         typ = matchedVars.get(TXN_TYPE)
         txn = {
             TXN_TYPE: typ,
@@ -451,8 +447,7 @@ class Cli:
             TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = base64.b64encode(
-                unhexlify(matchedVars.get(IDENTIFIER).encode())).decode()
+            txn[IDENTIFIER] = hexToCryptonym(matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
@@ -776,7 +771,6 @@ class Cli:
                                   else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths)
-            from time import sleep
             # sleep(60)
             self.nodes[name] = node
             self.looper.add(node)

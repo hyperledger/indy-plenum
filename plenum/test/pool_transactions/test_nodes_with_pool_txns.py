@@ -2,13 +2,13 @@ from copy import copy
 
 import pytest
 
-from plenum.client.signer import SimpleSigner
+from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import USER
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getMaxFailures, randomString
-from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, genHa, \
     checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \

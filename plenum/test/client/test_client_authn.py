@@ -1,7 +1,7 @@
 import pytest
 
-from plenum.client.signer import SimpleSigner
-from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
+from plenum.common.exceptions import InvalidSignature
+from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
 

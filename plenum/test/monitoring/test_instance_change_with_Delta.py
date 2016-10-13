@@ -111,6 +111,7 @@ def step3(step2):
     return step2
 
 
+# This test fails when the whole package is run.
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
