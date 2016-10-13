@@ -35,7 +35,7 @@ from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, USER, NYM
+    TARGET_NYM, ROLE, STEWARD, USER, NYM, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Request, Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
@@ -49,6 +49,7 @@ from plenum.common.types import Request, Propagate, \
     ConsProofRequest, ElectionType, ThreePhaseType
 from plenum.common.util import MessageProcessor, friendlyEx, cryptonymToHex, \
     getMaxFailures, getConfig
+from plenum.common.verifier import DidVerifier
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -1533,14 +1534,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #  For a custom authenticator, handle appropriately
         if isinstance(self.clientAuthNr, SimpleAuthNr):
             identifier = txn[TARGET_NYM]
+            verkey = txn.get(VERKEY)
+            v = DidVerifier(verkey, identifier=identifier)
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE) or USER
                 if role not in (STEWARD, USER):
                     logger.error("Role {} must be either STEWARD, USER"
                                  .format(role))
                     return
-                verkey = cryptonymToHex(txn[TARGET_NYM]).decode()
-                self.clientAuthNr.addClient(identifier, verkey=verkey,
+                # verkey = cryptonymToHex(txn[TARGET_NYM]).decode()
+                self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)
 
     def initDomainLedger(self):
