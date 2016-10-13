@@ -14,12 +14,13 @@ class DidVerifier(Verifier):
     def __init__(self, verkey, identifier=None):
         self._verkey = None
         self._vr = None
-        raw = b58decode(identifier)
-        if len(raw) == 32 and not verkey:  # assume cryptonym
-            verkey = identifier
-        if verkey[0] == '~':  # abbreviated
-            verkey = b58encode(b58decode(identifier) +
-                               b58decode(verkey[1:]))
+        if identifier:
+            rawIdr = b58decode(identifier)
+            if len(rawIdr) == 32 and not verkey:  # assume cryptonym
+                verkey = identifier
+            if verkey[0] == '~':  # abbreviated
+                verkey = b58encode(b58decode(identifier) +
+                                   b58decode(verkey[1:]))
         self.verkey = verkey
 
     @property
