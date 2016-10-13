@@ -518,5 +518,5 @@ def pickRemoteEstateFields(remote, customName = None):
         'name': customName or remote.name,
         'host': host,
         'port': port,
-        'nat': getattr(remote, 'natted', False)
+        'nat': getattr(remote, 'natted', False) or False
     }
