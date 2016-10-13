@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    InvalidIdentifier
+    InvalidIdentifier, UnknownIdentifier
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -1031,13 +1031,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.handleInvalidClientMsg(ex, wrappedMsg)
 
     def handleInvalidClientMsg(self, ex, wrappedMsg):
-        _, frm = wrappedMsg
+        msg, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
         reason = "client request invalid: {}".format(friendly)
-        reqId = getattr(exc, f.REQ_ID.nm, None)
+        reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
-            reqId = getattr(ex, f.REQ_ID.nm, None)
+            reqId = getattr(exc, f.REQ_ID.nm, None)
+            if not reqId:
+                reqId = getattr(ex, f.REQ_ID.nm, None)
         self.transmitToClient(RequestNack(reqId, reason), frm)
         self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
 
@@ -1078,7 +1080,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isSignatureVerificationNeeded(msg):
             try:
                 self.verifySignature(cMsg)
-            except InvalidIdentifier as ex:
+            except UnknownIdentifier as ex:
                 raise
             except Exception as ex:
                 raise SuspiciousClient from ex

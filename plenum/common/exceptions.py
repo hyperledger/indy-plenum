@@ -86,7 +86,7 @@ class EmptyIdentifier(SigningException):
 
 class UnknownIdentifier(SigningException, ReqInfo):
     code = 133
-    reason = 'invalid identifier'
+    reason = 'unknown identifier'
 
     def __init__(self, *args, **kwargs):
         ReqInfo.__init__(self, *args, **kwargs)
