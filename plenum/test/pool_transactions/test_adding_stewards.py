@@ -42,7 +42,7 @@ def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
         op = {
             TXN_TYPE: NYM,
             ROLE: STEWARD,
-            TARGET_NYM: newSigner.verstr,
+            TARGET_NYM: newSigner.verkey,
             ALIAS: "Robert",
         }
         req = wallet.signOp(op)
