@@ -828,7 +828,7 @@ class Cli:
                 self.print("    Identifier: {}".format(wallet.defaultId))
                 self.print(
                     "    Verification key: {}".
-                        format(wallet.getVerKey(wallet.defaultId)))
+                        format(wallet.getVerkey(wallet.defaultId)))
                 self.print("    Submissions: {}".
                            format(client.reqRepStore.lastReqId))
 
@@ -907,7 +907,7 @@ class Cli:
         identifier = identifier or wallet.defaultId
         # TODO: Should not raise an error but should be able to choose a signer
         assert identifier, "Client has multiple signers, cannot choose one"
-        node.clientAuthNr.addClient(identifier, wallet.getVerKey(identifier))
+        node.clientAuthNr.addClient(identifier, wallet.getVerkey(identifier))
 
     def clientExists(self, clientName):
         return clientName in self.clients
