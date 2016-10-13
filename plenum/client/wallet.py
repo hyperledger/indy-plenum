@@ -4,11 +4,11 @@ import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
-from plenum.client.request_id_store import *
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.log import getlogger
 from plenum.common.signer import Signer
 from plenum.common.types import Identifier, Request
+from plenum.common.util import getTimeBasedId
 
 logger = getlogger()
 
@@ -33,16 +33,11 @@ IdData = HA = NamedTuple("IdData", [
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore=None,
                  supportedDidMethods: DidMethods=None):
-        # If a requestIdStore is not passed, it will use a MemoryRequestIdStore
-        #  which does not persist request ids over restart
         self._name = name
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        self._requestIdStore = requestIdStore if requestIdStore else \
-            MemoryRequestIdStore()
         self.didMethods = supportedDidMethods or DefaultDidMethods
 
     @property
@@ -157,7 +152,7 @@ class Wallet:
 
         idr = self._requiredIdr(idr=identifier or req.identifier)
         req.identifier = idr
-        req.reqId = self._requestIdStore.nextId(signerId=idr)
+        req.reqId = getTimeBasedId()
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
@@ -233,5 +228,4 @@ class Wallet:
                    alias: Alias = None) -> IdData:
         idr = self._requiredIdr(idr, alias)
         signer = self.idsToSigners.get(idr)
-        lastReqId = self._requestIdStore.currentId(idr)
-        return IdData(signer, lastReqId)
+        return IdData(signer, None)

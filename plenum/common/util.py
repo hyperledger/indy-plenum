@@ -545,3 +545,7 @@ def prettyDateDifference(startTime, finishTime=None):
         return "Yesterday"
     if day_diff < 7:
         return str(day_diff) + " days ago"
+
+
+def getTimeBasedId():
+    return int(time.time() * 1000000)

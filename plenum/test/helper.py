@@ -41,7 +41,6 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.client.request_id_store import MemoryRequestIdStore
 
 # checkDblImp()
 
@@ -400,10 +399,6 @@ class TestNode(TestNodeCore, Node):
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True)
-
-
-class TestRequestIdStore(MemoryRequestIdStore):
-    pass
 
 
 def randomSeed():
@@ -921,10 +916,7 @@ def setupClients(count: int,
     clients = {}
     for i in range(count):
         name = "test-wallet-{}".format(i)
-        # DEPR
-        # storage = WalletStorageFile.fromName(name, tmpdir)
-        # wallet = Wallet(name, storage)
-        wallet = Wallet(name, requestIdStore=TestRequestIdStore())
+        wallet = Wallet(name)
         wallet.addSigner()
         idr = wallet.defaultId
         verkey = wallet.getVerKey(idr)
@@ -1027,7 +1019,7 @@ def genTestClient(nodes: TestNodeSet = None,
     if bootstrapKeys and nodes:
         if not identifier or not verkey:
             # no identifier or verkey were provided, so creating a wallet
-            w = Wallet("test", requestIdStore=TestRequestIdStore())
+            w = Wallet("test")
             w.addSigner()
             identifier = w.defaultId
             verkey = w.getVerKey()
