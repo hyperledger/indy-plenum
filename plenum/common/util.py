@@ -439,10 +439,15 @@ def getCryptonym(identifier):
         else identifier
 
 
-def hexToCryptonym(hex):
-    if isinstance(hex, str):
-        hex = hex.encode()
-    return base58.b58encode(unhexlify(hex))
+def hexToFriendly(hx):
+    if isinstance(hx, str):
+        hx = hx.encode()
+    raw = unhexlify(hx)
+    return rawToFriendly(raw)
+
+
+def rawToFriendly(raw):
+    return base58.b58encode(raw)
 
 
 def cryptonymToHex(cryptonym: str) -> bytes:

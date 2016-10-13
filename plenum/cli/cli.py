@@ -64,7 +64,7 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import getConfig, hexToCryptonym
+from plenum.common.util import getConfig, hexToFriendly
 from plenum.client.request_id_store import FileRequestIdStore
 
 class CustomOutput(Vt100_Output):
@@ -439,7 +439,7 @@ class Cli:
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
-        destId = hexToCryptonym(matchedVars.get(TARGET_NYM))
+        destId = hexToFriendly(matchedVars.get(TARGET_NYM))
         typ = matchedVars.get(TXN_TYPE)
         txn = {
             TXN_TYPE: typ,
@@ -447,7 +447,7 @@ class Cli:
             TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = hexToCryptonym(matchedVars.get(IDENTIFIER))
+            txn[IDENTIFIER] = hexToFriendly(matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
