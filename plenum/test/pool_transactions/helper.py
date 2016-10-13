@@ -24,7 +24,8 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
         TXN_TYPE: NYM,
         ROLE: role,
         TARGET_NYM: idr,
-        ALIAS: name
+        ALIAS: name,
+        VERKEY: wallet.getVerkey(idr)
     }
 
     req = creatorWallet.signOp(op)
@@ -147,7 +148,7 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     clientClass = clientClass or TestClient
     name, sigseed = clientData
     w = walletClass(name)
-    w.addSigner(seed=sigseed)
+    w.addSigner(signer=SimpleSigner(seed=sigseed))
     client, _ = genTestClient(name=name, identifier=w.defaultId,
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)
