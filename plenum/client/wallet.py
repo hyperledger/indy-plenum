@@ -6,6 +6,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
 
 from plenum.client.request_id_store import *
 from plenum.common.did_method import DidMethods, DefaultDidMethods
+from plenum.common.exceptions import EmptyIdentifier
 from plenum.common.log import getlogger
 from plenum.common.signer import Signer
 from plenum.common.types import Identifier, Request
@@ -122,7 +123,7 @@ class Wallet:
         else:
             idr = self.aliasesToIds[alias] if alias else self.defaultId
         if not idr:
-            raise RuntimeError('identifier required, but none found')
+            raise EmptyIdentifier
         return idr
 
     def signMsg(self,

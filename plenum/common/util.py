@@ -449,6 +449,10 @@ def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
+def friendlyToRaw(s):
+    return base58.b58decode(s)
+
+
 def cryptonymToHex(cryptonym: str) -> bytes:
     return hexlify(base58.b58decode(cryptonym.encode()))
 
