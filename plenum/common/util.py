@@ -1,7 +1,6 @@
 import asyncio
 import base58
-import base64
-import importlib.util
+import importlib
 import itertools
 import json
 import logging
