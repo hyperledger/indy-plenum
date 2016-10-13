@@ -9,7 +9,7 @@ from raet.nacling import Signer as NaclSigner
 from plenum.common.signer import Signer
 from plenum.common.signing import serializeForSig
 
-from plenum.common.util import hexToCryptonym
+from plenum.common.util import hexToFriendly
 
 
 class SimpleSigner(Signer):
@@ -44,7 +44,7 @@ class SimpleSigner(Signer):
         # before-hand with recipient)
         self.verkey = self.naclSigner.verhex
 
-        self.verstr = hexToCryptonym(hexlify(self.naclSigner.verraw))
+        self.verstr = hexToFriendly(hexlify(self.naclSigner.verraw))
 
         self._identifier = identifier or self.verstr
 

@@ -6,7 +6,7 @@ from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
 from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
-from plenum.common.util import hasKeys, hexToCryptonym
+from plenum.common.util import hasKeys, hexToFriendly
 
 
 def initLocalKeep(name, baseDir, sigseed, override=False):
@@ -114,7 +114,7 @@ def getLocalPubKey(roleName, baseDir=None):
 
 def getEncodedLocalVerKey(name, baseDir=None):
     verKey = getLocalVerKey(name, baseDir)
-    return hexToCryptonym(verKey)
+    return hexToFriendly(verKey)
 
 
 def getLocalEstateData(name, baseDir):
