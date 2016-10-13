@@ -35,6 +35,7 @@ class Wallet:
                  name: str,
                  supportedDidMethods: DidMethods=None):
         self._name = name
+        self.ids = {}           # type: Dict[Identifier, IdData]
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
@@ -151,11 +152,14 @@ class Wallet:
         """
 
         idr = self._requiredIdr(idr=identifier or req.identifier)
+        idData = self._getIdData(idr)
         req.identifier = idr
         req.reqId = getTimeBasedId()
+        self.ids[idr] = IdData(idData.signer, req.reqId)
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
+
         return req
 
     def signOp(self,
@@ -228,4 +232,5 @@ class Wallet:
                    alias: Alias = None) -> IdData:
         idr = self._requiredIdr(idr, alias)
         signer = self.idsToSigners.get(idr)
-        return IdData(signer, None)
+        idData = self.ids.get(idr)
+        return IdData(signer, idData.lastReqId if idData else None)
