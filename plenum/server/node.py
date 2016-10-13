@@ -412,14 +412,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.nodestack.maintainConnections()
 
-        if isinstance(self.poolManager, RegistryPoolManager):
-            # Node not using pool ledger so start syncing domain ledger
-            self.mode = Mode.discovered
-            self.ledgerManager.setLedgerCanSync(1, True)
-        else:
-            # Node using pool ledger so first sync pool ledger
-            self.mode = Mode.starting
-            self.ledgerManager.setLedgerCanSync(0, True)
+            if isinstance(self.poolManager, RegistryPoolManager):
+                # Node not using pool ledger so start syncing domain ledger
+                self.mode = Mode.discovered
+                self.ledgerManager.setLedgerCanSync(1, True)
+            else:
+                # Node using pool ledger so first sync pool ledger
+                self.mode = Mode.starting
+                self.ledgerManager.setLedgerCanSync(0, True)
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -1035,6 +1035,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
         reason = "client request invalid: {}".format(friendly)
+        if isinstance(msg, Request):
+            msg = msg.__getstate__()
         reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
