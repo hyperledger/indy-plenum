@@ -9,14 +9,13 @@ from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     CHANGE_KEYS, VERKEY
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestRequestIdStore
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient, genTestClient
 
 
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
-    wallet = Wallet(name, requestIdStore=TestRequestIdStore())
+    wallet = Wallet(name)
     wallet.addSigner()
     idr = wallet.defaultSigner.identifier
 

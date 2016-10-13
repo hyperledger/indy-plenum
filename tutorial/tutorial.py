@@ -14,7 +14,6 @@ from plenum.common.types import HA, NodeDetail
 from plenum.common.util import randomString
 from plenum.server.node import Node
 from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty
-from plenum.client.request_id_store import MemoryRequestIdStore
 
 console = getConsole()
 console.reinit(verbosity=console.Wordage.terse)
@@ -112,7 +111,7 @@ with TemporaryDirectory() as tmpdir:
         Create a wallet to the keys that the client will use to have a
         secure communication with the nodes.
         """
-        wallet = Wallet("my_wallet", requestIdStore=MemoryRequestIdStore())
+        wallet = Wallet("my_wallet")
 
         """
         Now the wallet needs to have one keypair, so lets add it.
