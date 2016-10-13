@@ -919,7 +919,7 @@ def setupClients(count: int,
         wallet = Wallet(name)
         wallet.addSigner()
         idr = wallet.defaultId
-        verkey = wallet.getVerKey(idr)
+        verkey = wallet.getVerkey(idr)
         client, _ = setupClient(looper,
                              nodes,
                              nodeReg,
@@ -1022,7 +1022,7 @@ def genTestClient(nodes: TestNodeSet = None,
             w = Wallet("test")
             w.addSigner()
             identifier = w.defaultId
-            verkey = w.getVerKey()
+            verkey = w.getVerkey()
         bootstrapClientKeys(identifier, verkey, nodes)
     return tc, w
 

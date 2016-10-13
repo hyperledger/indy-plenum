@@ -191,7 +191,7 @@ class Wallet:
             raise RuntimeError("No signer with alias '{}'".format(alias))
         return self._signerById(id)
 
-    def getVerKey(self, idr: Identifier=None) -> str:
+    def getVerkey(self, idr: Identifier=None) -> str:
         return self._signerById(idr or self.defaultId).verkey
 
     def getAlias(self, idr: Identifier):

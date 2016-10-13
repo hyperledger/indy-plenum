@@ -12,16 +12,17 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
     TestClient, genTestClient
 
+
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
     wallet = Wallet(name)
     wallet.addSigner()
-    verstr = wallet.defaultSigner.verstr
+    idr = wallet.defaultSigner.identifier
 
     op = {
         TXN_TYPE: NYM,
         ROLE: role,
-        TARGET_NYM: verstr,
+        TARGET_NYM: idr,
         ALIAS: name
     }
 
@@ -44,7 +45,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
 
     op = {
         TXN_TYPE: NEW_NODE,
-        TARGET_NYM: nodeSigner.verstr,
+        TARGET_NYM: nodeSigner.identifier,
         DATA: {
             NODE_IP: nodeIp,
             NODE_PORT: nodePort,
