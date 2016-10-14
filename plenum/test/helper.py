@@ -20,7 +20,9 @@ from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.log import getlogger
 from plenum.common.looper import Looper
+from plenum.common.port_dispenser import genHa
 from plenum.common.stacked import Stack, NodeStack, ClientStack
 from plenum.common.startable import Status
 from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
@@ -29,9 +31,7 @@ from plenum.common.types import Request, TaggedTuple, OP_FIELD_NAME, \
     CLIENT_STACK_SUFFIX, NodeDetail, HA, ConsistencyProof, LedgerStatus, \
     Propagate, Prepare, Commit, CatchupReq, Identifier
 from plenum.common.util import randomString, error, getMaxFailures, \
-    Seconds, adict, checkIfMoreThanFSameItems, bootstrapClientKeys
-from plenum.common.port_dispenser import genHa
-from plenum.common.log import getlogger
+    Seconds, adict, checkIfMoreThanFSameItems, bootstrapClientKeys, getConfig
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -41,7 +41,6 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.greek import genNodeNames
 from plenum.test.testable import Spyable, SpyableMethod
-from plenum.client.request_id_store import MemoryRequestIdStore
 
 # checkDblImp()
 
@@ -402,15 +401,6 @@ class TestNode(TestNodeCore, Node):
         return TestLedgerManager(self, ownedByNode=True)
 
 
-class TestRequestIdStore(MemoryRequestIdStore):
-    pass
-
-
-def randomSeed():
-    chars = "0123456789abcdef"
-    return str.encode("".join(random.choice(chars) for _ in range(32)))
-
-
 def getTestableStack(stack: Stack):
     """
     Dynamically modify a class that extends from `Stack` and introduce
@@ -661,7 +651,8 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 def expectedWaitDirect(count):
-    return count * 1.1 + 1
+    conf = getConfig()
+    return count * conf.ExpectedConnectTime + 1
 
 
 def expectedWait(nodeCount):
@@ -921,10 +912,7 @@ def setupClients(count: int,
     clients = {}
     for i in range(count):
         name = "test-wallet-{}".format(i)
-        # DEPR
-        # storage = WalletStorageFile.fromName(name, tmpdir)
-        # wallet = Wallet(name, storage)
-        wallet = Wallet(name, requestIdStore=TestRequestIdStore())
+        wallet = Wallet(name)
         wallet.addSigner()
         idr = wallet.defaultId
         verkey = wallet.getVerkey(idr)
@@ -953,19 +941,6 @@ async def aSetupClient(looper: Looper,
     looper.add(client1)
     await client1.ensureConnectedToNodes()
     return client1
-
-
-def setupNodesAndClientAndSendRandomReq(looper: Looper,
-                                        nodes: Sequence[TestNode], nodeReg=None,
-                                        tmpdir=None):
-    _client = setupNodesAndClient(looper, nodes, nodeReg, tmpdir)
-    request = sendRandomRequest(_client)
-    timeout = 3 * len(nodes)
-    looper.run(eventually(checkSufficientRepliesRecvd,
-                          _client.inBox,
-                          request.reqId, 1,
-                          retryWait=1, timeout=timeout))
-    return _client, request
 
 
 def getPrimaryReplica(nodes: Sequence[TestNode],
@@ -1027,7 +1002,7 @@ def genTestClient(nodes: TestNodeSet = None,
     if bootstrapKeys and nodes:
         if not identifier or not verkey:
             # no identifier or verkey were provided, so creating a wallet
-            w = Wallet("test", requestIdStore=TestRequestIdStore())
+            w = Wallet("test")
             w.addSigner()
             identifier = w.defaultId
             verkey = w.getVerkey()

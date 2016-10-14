@@ -39,6 +39,7 @@ def randomString(size: int = 20,
     :param chars: the set of characters to use to generate the random string. Uses alphanumerics by default.
     :return: the random string generated
     """
+    assert size < len(chars), 'size should be less than the number of characters'
     return ''.join(random.sample(chars, size))
 
 
@@ -449,6 +450,10 @@ def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
+def friendlyToRaw(f):
+    return base58.b58decode(f)
+
+
 def cryptonymToHex(cryptonym: str) -> bytes:
     return hexlify(base58.b58decode(cryptonym.encode()))
 
@@ -512,7 +517,6 @@ def prettyDateDifference(startTime, finishTime=None):
     if not isinstance(startTime, (int, datetime)):
         raise RuntimeError("Cannot parse time")
 
-
     endTime = finishTime or datetime.now()
 
     if isinstance(startTime, int):
@@ -545,3 +549,11 @@ def prettyDateDifference(startTime, finishTime=None):
         return "Yesterday"
     if day_diff < 7:
         return str(day_diff) + " days ago"
+
+
+def getTimeBasedId():
+    return int(time.time() * 1000000)
+
+
+def randomSeed(size=32):
+    return ''.join(random.choice(string.hexdigits) for _ in range(size)).encode()

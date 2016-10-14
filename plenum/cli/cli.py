@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import random
 from hashlib import sha256
 import shutil
+from typing import Dict
 
 from jsonpickle import json
 
@@ -65,7 +66,7 @@ from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import getConfig, hexToFriendly
-from plenum.client.request_id_store import FileRequestIdStore
+
 
 class CustomOutput(Vt100_Output):
     """
@@ -829,8 +830,6 @@ class Cli:
                 self.print(
                     "    Verification key: {}".
                         format(wallet.getVerkey(wallet.defaultId)))
-                self.print("    Submissions: {}".
-                           format(client.reqRepStore.lastReqId))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
@@ -1160,16 +1159,8 @@ class Cli:
             self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 
-    def _buildWalletClass(self, nm, walletFilePath=None):
-        if not walletFilePath:
-            walletDirPath = \
-                os.path.join(self.basedirpath, self.config.walletDir)
-            if not os.path.exists(walletDirPath):
-                os.makedirs(walletDirPath)
-            walletFilePath = os.path.join(walletDirPath, nm)
-        requestIdStore = FileRequestIdStore(walletFilePath)
-        requestIdStore.open() # TODO: find the best place for closing
-        return self.walletClass(nm, requestIdStore)
+    def _buildWalletClass(self, nm):
+        return self.walletClass(nm)
 
     @property
     def walletClass(self):

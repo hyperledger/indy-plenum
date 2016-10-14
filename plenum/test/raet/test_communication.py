@@ -41,8 +41,8 @@ def testRaetPreSharedKeysPromiscous(tdir):
     alphaSigner = SimpleSigner()
     betaSigner = SimpleSigner()
 
-    logger.debug("Alpha's verkey {}".format(alphaSigner.verkey))
-    logger.debug("Beta's verkey {}".format(betaSigner.verkey))
+    logger.debug("Alpha's verkey {}".format(alphaSigner.naclSigner.verhex))
+    logger.debug("Beta's verkey {}".format(betaSigner.naclSigner.verhex))
 
     alpha = RoadStack(name='alpha',
                       ha=genHa(),
@@ -60,7 +60,7 @@ def testRaetPreSharedKeysPromiscous(tdir):
     try:
 
         betaRemote = RemoteEstate(stack=alpha, ha=beta.ha,
-                                  verkey=betaSigner.verkey)
+                                  verkey=betaSigner.naclSigner.verhex)
 
         alpha.addRemote(betaRemote)
 
@@ -81,8 +81,8 @@ def testRaetPreSharedKeysNonPromiscous(tdir):
     alphaPrivateer = Privateer()
     betaPrivateer = Privateer()
 
-    logger.debug("Alpha's verkey {}".format(alphaSigner.verkey))
-    logger.debug("Beta's verkey {}".format(betaSigner.verkey))
+    logger.debug("Alpha's verkey {}".format(alphaSigner.naclSigner.verhex))
+    logger.debug("Beta's verkey {}".format(betaSigner.naclSigner.verhex))
 
     alpha = RoadStack(name='alpha',
                       ha=genHa(),
@@ -101,13 +101,13 @@ def testRaetPreSharedKeysNonPromiscous(tdir):
 
     alpha.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,
-        "verhex": betaSigner.verkey,
+        "verhex": betaSigner.naclSigner.verhex,
         "pubhex": betaPrivateer.pubhex
     }, "beta")
 
     beta.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,
-        "verhex": alphaSigner.verkey,
+        "verhex": alphaSigner.naclSigner.verhex,
         "pubhex": alphaPrivateer.pubhex
     }, "alpha")
 
@@ -136,8 +136,8 @@ def testConnectionWithHaChanged(tdir):
     alphaPrivateer = Privateer()
     betaPrivateer = Privateer()
 
-    logger.debug("Alpha's verkey {}".format(alphaSigner.verkey))
-    logger.debug("Beta's verkey {}".format(betaSigner.verkey))
+    logger.debug("Alpha's verkey {}".format(alphaSigner.naclSigner.verhex))
+    logger.debug("Beta's verkey {}".format(betaSigner.naclSigner.verhex))
 
     alpha = None
 
@@ -152,7 +152,7 @@ def testConnectionWithHaChanged(tdir):
 
         alpha.keep.dumpRemoteRoleData({
             "acceptance": Acceptance.accepted.value,
-            "verhex": betaSigner.verkey,
+            "verhex": betaSigner.naclSigner.verhex,
             "pubhex": betaPrivateer.pubhex
         }, "beta")
 
@@ -169,7 +169,7 @@ def testConnectionWithHaChanged(tdir):
 
     beta.keep.dumpRemoteRoleData({
         "acceptance": Acceptance.accepted.value,
-        "verhex": alphaSigner.verkey,
+        "verhex": alphaSigner.naclSigner.verhex,
         "pubhex": alphaPrivateer.pubhex
     }, "alpha")
 

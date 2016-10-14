@@ -50,8 +50,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
     print("sending 10 requests")
     sendRandomRequests(wallet, client, 10)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
 
     # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
     # 60 sec.

@@ -52,8 +52,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=45))
 

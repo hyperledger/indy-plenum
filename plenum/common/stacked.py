@@ -59,6 +59,7 @@ class Stack(RoadStack):
             error("the stack port number has changed, likely due to "
                   "information in the keep")
         self.created = time.perf_counter()
+        self.coro = None
         config = getConfig()
         try:
             self.messageTimeout = config.RAETMessageTimeout
@@ -766,7 +767,7 @@ class Batched(MessageProcessor):
                 if len(msgs) == 1:
                     msg = msgs.popleft()
                     # Setting timeout to never expire
-                    self.transmit(msg, rid, timeout=0)
+                    self.transmit(msg, rid, timeout=self.messageTimeout)
                     logger.trace("{} sending msg {} to {}".format(self, msg, dest))
                 else:
                     logger.debug("{} batching {} msgs to {} into one transmission".
@@ -782,7 +783,7 @@ class Batched(MessageProcessor):
                                                                        dest,
                                                                        payload))
                     # Setting timeout to never expire
-                    self.transmit(payload, rid, timeout=0)
+                    self.transmit(payload, rid, timeout=self.messageTimeout)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
                            extra={"cli": False})
