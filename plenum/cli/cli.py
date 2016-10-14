@@ -1121,7 +1121,7 @@ class Cli:
                                 showMsg: bool=False):
         if not wallet:
             wallet = self._newWallet()
-        wallet.addSigner(signer=signer)
+        wallet.addIdentifier(signer=signer)
         if showMsg:
             self.print("Key created in keyring " + wallet.name)
 

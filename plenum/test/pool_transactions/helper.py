@@ -16,8 +16,8 @@ from plenum.test.helper import checkSufficientRepliesRecvd, genHa, TestNode, \
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
                  name: str):
     wallet = Wallet(name)
-    wallet.addSigner()
-    idr = wallet.defaultSigner.identifier
+    wallet.addIdentifier()
+    idr = wallet.defaultId
 
     op = {
         TXN_TYPE: NYM,
@@ -147,7 +147,7 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     clientClass = clientClass or TestClient
     name, sigseed = clientData
     w = walletClass(name)
-    w.addSigner(signer=SimpleSigner(seed=sigseed))
+    w.addIdentifier(seed=sigseed)
     client, _ = genTestClient(name=name, identifier=w.defaultId,
                               tmpdir=tempDir, usePoolLedger=True,
                               testClientClass=clientClass)

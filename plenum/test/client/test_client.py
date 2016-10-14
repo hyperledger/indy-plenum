@@ -48,7 +48,7 @@ def testGeneratedRequestSequencing(tdir_for_func):
     """
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         w = Wallet("test")
-        w.addSigner()
+        w.addIdentifier()
 
         operation = randomOperation()
 
@@ -61,9 +61,9 @@ def testGeneratedRequestSequencing(tdir_for_func):
         request = w.signOp(randomOperation())
         assert request.reqId == 3
 
-        s2 = w.addSigner()
+        idr, _ = w.addIdentifier()
 
-        request = w.signOp(randomOperation(), s2.identifier)
+        request = w.signOp(randomOperation(), idr)
         assert request.reqId == 1
 
         request = w.signOp(randomOperation())

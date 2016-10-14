@@ -57,6 +57,10 @@ class DidSigner(Signer):
     def alias(self) -> str:
         return self._alias
 
+    @alias.setter
+    def alias(self, value):
+        self._alias = value
+
     @property
     def identifier(self) -> str:
         return self._identifier

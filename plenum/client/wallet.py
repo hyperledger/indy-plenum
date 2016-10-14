@@ -67,14 +67,15 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    def addIdentifier(self, didMethodName=None):
-        return self.addSigner(didMethodName).identifier
-
-    def addSigner(self,
-                  identifier=None,
-                  seed=None,
-                  signer=None,
-                  didMethodName=None):
+    # def addIdentifier(self, didMethodName=None):
+    #     return self.addSigner(didMethodName).identifier
+    #
+    def addIdentifier(self,
+                      identifier=None,
+                      seed=None,
+                      signer=None,
+                      alias=None,
+                      didMethodName=None):
         """
         Adds signer to the wallet.
         Requires complete signer, identifier or seed.
@@ -93,9 +94,11 @@ class Wallet:
             # setting this signer as default signer to let use sign* methods
             # without explicit specification of signer
             self.defaultId = signer.identifier
+        if alias:
+            signer.alias = alias
         if signer.alias:
             self.aliasesToIds[signer.alias] = signer.identifier
-        return signer
+        return signer.identifier, signer
 
     def _requiredIdr(self,
                      idr: Identifier=None,
@@ -222,10 +225,10 @@ class Wallet:
             lst.remove(x)
         return lst
 
-    @property
-    def defaultSigner(self) -> Signer:
-        if self.defaultId is not None:
-            return self.idsToSigners[self.defaultId]
+    # @property
+    # def defaultSigner(self) -> Signer:
+    #     if self.defaultId is not None:
+    #         return self.idsToSigners[self.defaultId]
 
     def _getIdData(self,
                    idr: Identifier = None,

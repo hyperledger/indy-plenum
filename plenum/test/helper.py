@@ -913,15 +913,14 @@ def setupClients(count: int,
     for i in range(count):
         name = "test-wallet-{}".format(i)
         wallet = Wallet(name)
-        wallet.addSigner()
-        idr = wallet.defaultId
+        idr, _ = wallet.addIdentifier()
         verkey = wallet.getVerkey(idr)
         client, _ = setupClient(looper,
-                             nodes,
-                             nodeReg,
-                             tmpdir,
-                             identifier=idr,
-                             verkey=verkey)
+                                nodes,
+                                nodeReg,
+                                tmpdir,
+                                identifier=idr,
+                                verkey=verkey)
         clients[client.name] = client
         wallets[client.name] = wallet
     return clients, wallets
@@ -1003,7 +1002,7 @@ def genTestClient(nodes: TestNodeSet = None,
         if not identifier or not verkey:
             # no identifier or verkey were provided, so creating a wallet
             w = Wallet("test")
-            w.addSigner()
+            w.addIdentifier()
             identifier = w.defaultId
             verkey = w.getVerkey()
         bootstrapClientKeys(identifier, verkey, nodes)

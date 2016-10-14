@@ -10,9 +10,9 @@ def add_and_sign(signersNum = 10):
     for i in range(signersNum):
         identifier = "signer_{}".format(i)
         idrs.append(identifier)
-        wallet.addSigner(identifier, seed=randomSeed())
+        wallet.addIdentifier(identifier)
     for idr in idrs:
-        signed = wallet.signOp(op = {}, identifier=idr)
+        signed = wallet.signOp(op={}, identifier=idr)
         afterSignTimeBasedId = getTimeBasedId()
         assert beforeSignTimeBasedId < signed.reqId < afterSignTimeBasedId
 

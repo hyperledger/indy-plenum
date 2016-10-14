@@ -116,7 +116,7 @@ with TemporaryDirectory() as tmpdir:
         """
         Now the wallet needs to have one keypair, so lets add it.
         """
-        wallet.addSigner()
+        wallet.addIdentifier()
 
         """
         A bi-directional connection is made from the client. This is the ip
@@ -138,7 +138,7 @@ with TemporaryDirectory() as tmpdir:
         A client signs its requests. By default, a simple yet secure signing
         mechanism is created for a client.
         """
-        idAndKey = wallet.defaultId, wallet.defaultSigner.verkey
+        idAndKey = wallet.defaultId, wallet.getVerkey()
 
         """
         A client's signature verification key must be bootstrapped out of band
