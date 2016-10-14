@@ -1821,6 +1821,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             data = txn['data']
             if data['alias'] == self.name:
                 nodeAddress = data['node_ip']
+                break
 
         info = {
             'name': self.name,
