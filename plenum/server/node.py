@@ -1817,11 +1817,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Print the node's info to log for the REST backend to read.
         """
         nodeAddress = None
-        txns = self.poolLedger.getAllTxn()
-        for key, txn in txns.items():
-            data = txn[DATA]
-            if data[ALIAS] == self.name:
-                nodeAddress = data[NODE_IP]
+
+        if self.poolLedger:
+            txns = self.poolLedger.getAllTxn()
+            for key, txn in txns.items():
+                data = txn[DATA]
+                if data[ALIAS] == self.name:
+                    nodeAddress = data[NODE_IP]
 
         info = {
             'name': self.name,
