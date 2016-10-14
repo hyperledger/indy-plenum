@@ -52,6 +52,7 @@ from plenum.common.types import Request, Propagate, \
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
     getConfig
 from plenum.common.verifier import DidVerifier
+from plenum.common.txn import DATA, ALIAS, NODE_IP
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -1818,10 +1819,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         nodeAddress = None
         txns = self.poolLedger.getAllTxn()
         for key, txn in txns.items():
-            data = txn['data']
-            if data['alias'] == self.name:
-                nodeAddress = data['node_ip']
-                break
+            data = txn[DATA]
+            if data[ALIAS] == self.name:
+                nodeAddress = data[NODE_IP]
 
         info = {
             'name': self.name,
