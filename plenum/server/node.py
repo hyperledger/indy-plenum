@@ -1812,6 +1812,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Print the node's info to log for the REST backend to read.
         """
+        nodeAddress = None
+        txns = self.poolLedger.getAllTxn()
+        for key, txn in txns.items():
+            data = txn['data']
+            if data['alias'] == self.name:
+                nodeAddress = data['node_ip']
+
         info = {
             'name': self.name,
             'rank': self.rank,
@@ -1819,7 +1826,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'creationDate': self.created,
             'baseDir': self.basedirpath,
             'portN': self.nodestack.ha[1],
-            'portC': self.clientstack.ha[1]
+            'portC': self.clientstack.ha[1],
+            'address': nodeAddress
         }
 
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
