@@ -4,13 +4,10 @@ from statistics import mean
 from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
-import json
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
-    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
-from plenum.common.stacked import NodeStack
-from plenum.server.blacklister import SimpleBlacklister
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
 from plenum.common.util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -31,12 +28,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, nodestack: NodeStack, blacklister: SimpleBlacklister,
-                 pluginPaths: Iterable[str]=None):
+                 instances: Instances, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
-        self.nodestack = nodestack
-        self.blacklister = blacklister
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -359,8 +353,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendPeriodicStats(self):
         self.sendThroughput()
         self.sendLatencies()
-        self.sendKnownNodesInfo()
-        self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     @property
@@ -431,19 +423,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_LATENCIES, latencies)
 
-    def sendKnownNodesInfo(self):
-        logger.debug("{} sending nodestack".format(self))
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
-
-    def sendTotalRequests(self):
-        logger.debug("{} sending total requests".format(self))
-
-        totalRequests = dict(
-            totalRequests=self.totalRequests
-        )
-
-        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
-
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()
         # Multiply by 1000 to make it compatible to JavaScript Date()
@@ -485,38 +464,3 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     @staticmethod
     def mean(data):
         return 0 if len(data) == 0 else mean(data)
-
-
-def remotesInfo(nodestack, blacklister):
-    res = {
-        'connected': [],
-        'disconnected': []
-    }
-
-    conns, disconns = nodestack.remotesByConnected()
-
-    for r in conns:
-        res['connected'].append(remoteInfo(r, nodestack, blacklister))
-    for r in disconns:
-        res['disconnected'].append(remoteInfo(r, nodestack, blacklister))
-
-    return res
-
-
-def remoteInfo(remote, nodestack, blacklister):
-    regName = nodestack.findInNodeRegByHA(remote.ha)
-    res = pickRemoteEstateFields(remote, regName)
-    res['blacklisted'] = blacklister.isBlacklisted(remote.name)
-    if not res['blacklisted'] and regName:
-        res['blacklisted'] = blacklister.isBlacklisted(regName)
-    return res
-
-
-def pickRemoteEstateFields(remote, customName = None):
-    host, port = remote.ha
-    return {
-        'name': customName or remote.name,
-        'host': host,
-        'port': port,
-        'nat': getattr(remote, 'natted', False) or False
-    }

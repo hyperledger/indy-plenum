@@ -618,23 +618,23 @@ class KITStack(SimpleStack):
         legacy = set()  # old remotes that are no longer in registry
         conflicts = set()  # matches found, but the ha conflicts
         logger.debug("{} nodereg is {}".
-                     format(self, self.registry.items()))
+                      format(self, self.registry.items()))
         logger.debug("{} nodestack is {}".
-                     format(self, self.remotes.values()))
+                      format(self, self.remotes.values()))
         for r in self.remotes.values():
             if r.name in self.registry:
                 if self.sameAddr(r.ha, self.registry[r.name]):
                     matches.add(r.name)
                     logger.debug("{} matched remote is {} {}".
-                                 format(self, r.uid, r.ha))
+                                  format(self, r.uid, r.ha))
                 else:
                     conflicts.add((r.name, r.ha))
                     # error("{} ha for {} doesn't match. ha of remote is {} but "
                     #       "should be {}".
                     #       format(self, r.name, r.ha, self.registry[r.name]))
                     logger.error("{} ha for {} doesn't match. ha of remote is {} but "
-                                 "should be {}".
-                                 format(self, r.name, r.ha, self.registry[r.name]))
+                          "should be {}".
+                          format(self, r.name, r.ha, self.registry[r.name]))
             else:
                 regName = self.findInNodeRegByHA(r.ha)
 
@@ -644,7 +644,7 @@ class KITStack(SimpleStack):
                 # regName = [nm for nm, ha in self.nodeReg.items() if ha ==
                 #            r.ha and (r.joined or r.joinInProcess())]
                 logger.debug("{} unmatched remote is {} {}".
-                             format(self, r.uid, r.ha))
+                              format(self, r.uid, r.ha))
                 if regName:
                     logger.debug("{} forgiving name mismatch for {} with same "
                                  "ha {} using another name {}".

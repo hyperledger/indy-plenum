@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import random
 import shutil
@@ -8,8 +7,7 @@ from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
-    Sequence, Set, Tuple
-from contextlib import closing
+    Sequence, Set
 
 import pyorient
 from raet.raeting import AutoMode
@@ -52,7 +50,6 @@ from plenum.common.types import Request, Propagate, \
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
     getConfig
 from plenum.common.verifier import DidVerifier
-from plenum.common.txn import DATA, ALIAS, NODE_IP
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -112,7 +109,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param primaryDecider: the mechanism to be used to decide the primary
         of a protocol instance
         """
-        self.created = time.time()
+        self.created = time.perf_counter()
         self.name = name
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
@@ -177,6 +174,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.instances = Instances()
 
+        self.monitor = Monitor(self.name,
+                               Delta=self.config.DELTA,
+                               Lambda=self.config.LAMBDA,
+                               Omega=self.config.OMEGA,
+                               instances=self.instances,
+                               pluginPaths=pluginPaths)
+
         # Requests that are to be given to the replicas by the node. Each
         # element of the list is a deque for the replica with number equal to
         # its index in the list and each element of the deque is a named tuple
@@ -205,15 +209,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.nodeBlacklister = SimpleBlacklister(
             self.name + NODE_BLACKLISTER_SUFFIX)  # type: Blacklister
-
-        self.monitor = Monitor(self.name,
-                               Delta=self.config.DELTA,
-                               Lambda=self.config.LAMBDA,
-                               Omega=self.config.OMEGA,
-                               instances=self.instances,
-                               nodestack=self.nodestack,
-                               blacklister=self.nodeBlacklister,
-                               pluginPaths=pluginPaths)
 
         # BE CAREFUL HERE
         # This controls which message types are excluded from signature
@@ -285,7 +280,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
-        self.logNodeInfo()
 
     def __repr__(self):
         return self.name
@@ -427,8 +421,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
                 self.ledgerManager.setLedgerCanSync(0, True)
-
-        self.logNodeInfo()
 
     @staticmethod
     def getRank(name: str, allNames: Sequence[str]):
@@ -1436,7 +1428,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
         self.initInsChngThrottling()
-        self.logNodeInfo()
 
     def verifySignature(self, msg):
         """
@@ -1638,7 +1629,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     self.nodestack.removeRemote(r)
 
             # if just starting, then bootstrap
-            force = time.time() - self.created > 5
+            force = time.perf_counter() - self.created > 5
             self.nodestack.maintainConnections(force=force)
 
     def stopKeySharing(self, timedOut=False):
@@ -1792,7 +1783,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         l("client inbox size       : {}".
                     format(len(self.clientInBox)))
         l("age (seconds)           : {}".
-                    format(time.time() - self.created))
+                    format(time.perf_counter() - self.created))
         l("next check for reconnect: {}".
                     format(time.perf_counter() - self.nodestack.nextCheck))
         l("node connections        : {}".format(self.nodestack.conns))
@@ -1811,29 +1802,3 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(len(self.aqStash), id(self.aqStash)))
 
         logger.info("\n".join(lines), extra={"cli": False})
-
-    def logNodeInfo(self):
-        """
-        Print the node's info to log for the REST backend to read.
-        """
-        nodeAddress = None
-        txns = self.poolLedger.getAllTxn()
-        for key, txn in txns.items():
-            data = txn[DATA]
-            if data[ALIAS] == self.name:
-                nodeAddress = data[NODE_IP]
-
-        info = {
-            'name': self.name,
-            'rank': self.rank,
-            'view': self.viewNo,
-            'creationDate': self.created,
-            'baseDir': self.basedirpath,
-            'portN': self.nodestack.ha[1],
-            'portC': self.clientstack.ha[1],
-            'address': nodeAddress
-        }
-
-        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
-            logNodeInfoFile.write(json.dumps(info))
-
