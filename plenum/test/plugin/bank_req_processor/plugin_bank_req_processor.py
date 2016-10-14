@@ -90,7 +90,6 @@ class BankReqProcessorPlugin(HasCliCommands):
             if client_action == "credit":
                 frm = client_name
                 to = matchedVars.get('second_client_name')
-                toClient = self.cli.clients.get(to, None)
                 toWallet = self.cli.wallets.get(to, None)
                 if not self.cli.clientExists(frm) or not self.cli.clientExists(to):
                     self.cli.printMsgForUnknownClient()

@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import random
 from hashlib import sha256
 import shutil
+from typing import Dict
 
 from jsonpickle import json
 

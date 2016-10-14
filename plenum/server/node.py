@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    InvalidIdentifier, UnknownIdentifier
+    UnknownIdentifier
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -47,8 +47,8 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import MessageProcessor, friendlyEx, cryptonymToHex, \
-    getMaxFailures, getConfig
+from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
+    getConfig
 from plenum.common.verifier import DidVerifier
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore

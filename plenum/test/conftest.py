@@ -16,7 +16,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
-    PLUGIN_TYPE_STATS_CONSUMER, f
+    PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getConfig
 from plenum.common.port_dispenser import genHa
 from plenum.common.log import getlogger, TestingHandler
@@ -26,7 +26,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, genHa
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -441,8 +441,7 @@ def txnPoolNodeSet(tdirWithPoolTxns,
             looper.add(node)
             nodes.append(node)
 
-        looper.run(eventually(checkNodesConnected, nodes, retryWait=1,
-                              timeout=5))
+        looper.run(checkNodesConnected(nodes))
         yield nodes
 
 

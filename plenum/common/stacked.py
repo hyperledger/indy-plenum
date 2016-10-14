@@ -59,6 +59,7 @@ class Stack(RoadStack):
             error("the stack port number has changed, likely due to "
                   "information in the keep")
         self.created = time.perf_counter()
+        self.coro = None
         config = getConfig()
         try:
             self.messageTimeout = config.RAETMessageTimeout

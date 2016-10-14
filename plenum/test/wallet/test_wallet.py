@@ -1,7 +1,6 @@
 import pytest
 from plenum.client.wallet import Wallet
-from plenum.common.util import getTimeBasedId
-from plenum.test.helper import randomSeed
+from plenum.common.util import getTimeBasedId, randomSeed
 
 
 def add_and_sign(signersNum = 10):
@@ -17,8 +16,10 @@ def add_and_sign(signersNum = 10):
         afterSignTimeBasedId = getTimeBasedId()
         assert beforeSignTimeBasedId < signed.reqId < afterSignTimeBasedId
 
+
 def test_wallet_uses_store():
     add_and_sign(signersNum=1)
+
 
 def test_wallet_used_with_multiple_signers():
     add_and_sign(signersNum=10)
