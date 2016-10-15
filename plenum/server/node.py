@@ -1678,10 +1678,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.warning("{} suspicion raised on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
-        if code == InvalidSignature.code:
-            self.blacklistNode(nodeName,
-                               reason=InvalidSignature.reason,
-                               code=InvalidSignature.code)
+
+        # TODO: Should not blacklist client on a single InvalidSignature.
+        # Should track if a lot of requests with incorrect signatures have been
+        # made in a short amount of time, only then blacklist client.
+        # if code == InvalidSignature.code:
+        #     self.blacklistNode(nodeName,
+        #                        reason=InvalidSignature.reason,
+        #                        code=InvalidSignature.code)
 
         if code in self.suspicions:
             self.blacklistNode(nodeName,
