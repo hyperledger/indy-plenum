@@ -1,3 +1,4 @@
+import inspect
 import logging
 import json
 import os
@@ -96,14 +97,15 @@ def whitelist(request):
 
 @pytest.fixture(scope="function", autouse=True)
 def logcapture(request, whitelist):
-    whiteListedExceptions = ['seconds to run once nicely',
-                             'Executing %s took %.3f seconds',
-                             'is already stopped',
-                             'Error while running coroutine',
-                             # TODO: This is too specific, move it to the
-                             # particular test
-                             "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
-                             ] + whitelist
+    baseWhitelist = ['seconds to run once nicely',
+                     'Executing %s took %.3f seconds',
+                     'is already stopped',
+                     'Error while running coroutine',
+                     # TODO: This is too specific, move it to the particular test
+                     "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
+                     "because field viewNo has incorrect type: <class 'str'>"
+                     ]
+    wlfunc = inspect.isfunction(whitelist)
 
     def tester(record):
         isBenign = record.levelno not in [#logging.WARNING,
@@ -111,7 +113,15 @@ def logcapture(request, whitelist):
                                           logging.CRITICAL]
         # TODO is this sufficient to test if a log is from test or not?
         isTest = os.path.sep + 'test' in record.pathname
-        isWhiteListed = bool([w for w in whiteListedExceptions if w in record.msg])
+
+        if wlfunc:
+            wl = whitelist()
+        else:
+            wl = whitelist
+
+        whiteListedExceptions = baseWhitelist + wl
+        isWhiteListed = bool([w for w in whiteListedExceptions
+                              if w in record.msg])
         if not (isBenign or isTest or isWhiteListed):
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
@@ -122,7 +132,6 @@ def logcapture(request, whitelist):
     config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
-    return whiteListedExceptions
 
 
 @pytest.yield_fixture(scope="module")
