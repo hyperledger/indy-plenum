@@ -194,3 +194,11 @@ class UnsupportedOperation(Exception):
 
 class DidMethodNotFound(Exception):
     pass
+
+
+class BlowUp(BaseException):
+    """
+    An exception designed to blow through fault barriers. Useful during testing.
+    Derives from BaseException so asyncio will let it through.
+    """
+    pass

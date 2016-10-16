@@ -1,6 +1,8 @@
 import asyncio
+
 import base58
-import importlib
+from importlib.util import spec_from_file_location, module_from_spec
+from importlib import import_module
 import itertools
 import json
 import logging
@@ -286,6 +288,8 @@ class MessageProcessor:
         :param msg: the message to discard
         :param reason: the reason why this message is being discarded
         :param logMethod: the logging function to be used
+        :param cliOutput: if truthy, informs a CLI that the logged msg should
+        be printed
         """
         reason = "" if not reason else " because {}".format(reason)
         logMethod("{} discarding message {}{}".format(self, msg, reason),
@@ -328,9 +332,9 @@ def getInstalledConfig(installDir, configFile):
     """
     configPath = os.path.join(installDir, configFile)
     if os.path.exists(configPath):
-        spec = importlib.util.spec_from_file_location(configFile,
+        spec = spec_from_file_location(configFile,
                                                       configPath)
-        config = importlib.util.module_from_spec(spec)
+        config = module_from_spec(spec)
         spec.loader.exec_module(config)
         return config
     else:
@@ -346,7 +350,7 @@ def getConfig(homeDir=None):
     """
     global CONFIG
     if not CONFIG:
-        refConfig = importlib.import_module("plenum.config")
+        refConfig = import_module("plenum.config")
         try:
             homeDir = os.path.expanduser(homeDir or "~")
 

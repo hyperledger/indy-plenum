@@ -1,15 +1,19 @@
 import logging
 import json
 import os
+import traceback
 from functools import partial
 from typing import Dict, Any
 import itertools
 
 
 import pytest
+import sys
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
+from plenum.common.exceptions import BlowUp
 
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
@@ -102,11 +106,14 @@ def logcapture(request, whitelist):
                              ] + whitelist
 
     def tester(record):
-        isBenign = record.levelno not in [logging.ERROR, logging.CRITICAL]
+        isBenign = record.levelno not in [#logging.WARNING,
+                                          logging.ERROR,
+                                          logging.CRITICAL]
         # TODO is this sufficient to test if a log is from test or not?
         isTest = os.path.sep + 'test' in record.pathname
         isWhiteListed = bool([w for w in whiteListedExceptions if w in record.msg])
-        assert isBenign or isTest or isWhiteListed
+        if not (isBenign or isTest or isWhiteListed):
+            raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)

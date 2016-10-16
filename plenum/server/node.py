@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    UnknownIdentifier
+    UnknownIdentifier, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -1023,6 +1023,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
+        except BlowUp:
+            raise
         except Exception as ex:
             msg, frm = wrappedMsg
             friendly = friendlyEx(ex)
