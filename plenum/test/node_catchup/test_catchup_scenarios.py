@@ -13,15 +13,14 @@ txnCount = 10
 
 @pytest.fixture("module")
 def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
-    looper, newNode, client, _ = nodeCreatedAfterSomeTxns
+    looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(crDelay(5))
     txnPoolNodeSet.append(newNode)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet[:-1])
-    sendRandomRequests(client, 10)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=15))
+    sendRandomRequests(wallet, client, 10)
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=15))
 
     def stashing():
         assert newNode.mode != Mode.participating

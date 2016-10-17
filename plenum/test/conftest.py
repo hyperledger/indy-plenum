@@ -1,22 +1,27 @@
+import inspect
 import logging
 import json
 import os
+import traceback
 from functools import partial
 from typing import Dict, Any
 import itertools
 
 
 import pytest
+import sys
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
+from plenum.common.exceptions import BlowUp
 
 from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
-    PLUGIN_TYPE_STATS_CONSUMER, f
+    PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getConfig
 from plenum.common.port_dispenser import genHa
 from plenum.common.log import getlogger, TestingHandler
@@ -26,7 +31,7 @@ from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode, genHa
+    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -92,21 +97,33 @@ def whitelist(request):
 
 @pytest.fixture(scope="function", autouse=True)
 def logcapture(request, whitelist):
-    whiteListedExceptions = ['seconds to run once nicely',
-                             'Executing %s took %.3f seconds',
-                             'is already stopped',
-                             'Error while running coroutine',
-                             # TODO: This is too specific, move it to the
-                             # particular test
-                             "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') because field viewNo has incorrect type: <class 'str'>"
-                             ] + whitelist
+    baseWhitelist = ['seconds to run once nicely',
+                     'Executing %s took %.3f seconds',
+                     'is already stopped',
+                     'Error while running coroutine',
+                     # TODO: This is too specific, move it to the particular test
+                     "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
+                     "because field viewNo has incorrect type: <class 'str'>"
+                     ]
+    wlfunc = inspect.isfunction(whitelist)
 
     def tester(record):
-        isBenign = record.levelno not in [logging.ERROR, logging.CRITICAL]
+        isBenign = record.levelno not in [#logging.WARNING,
+                                          logging.ERROR,
+                                          logging.CRITICAL]
         # TODO is this sufficient to test if a log is from test or not?
         isTest = os.path.sep + 'test' in record.pathname
-        isWhiteListed = bool([w for w in whiteListedExceptions if w in record.msg])
-        assert isBenign or isTest or isWhiteListed
+
+        if wlfunc:
+            wl = whitelist()
+        else:
+            wl = whitelist
+
+        whiteListedExceptions = baseWhitelist + wl
+        isWhiteListed = bool([w for w in whiteListedExceptions
+                              if w in record.msg])
+        if not (isBenign or isTest or isWhiteListed):
+            raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
@@ -115,7 +132,6 @@ def logcapture(request, whitelist):
     config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
-    return whiteListedExceptions
 
 
 @pytest.yield_fixture(scope="module")
@@ -426,8 +442,13 @@ def testNodeClass():
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames,
-                   allPluginsPath, tdirWithNodeKeepInited, testNodeClass):
+def txnPoolNodeSet(tdirWithPoolTxns,
+                   tdirWithDomainTxns,
+                   tconf,
+                   poolTxnNodeNames,
+                   allPluginsPath,
+                   tdirWithNodeKeepInited,
+                   testNodeClass):
     with Looper(debug=True) as looper:
         nodes = []
         for nm in poolTxnNodeNames:
@@ -436,8 +457,7 @@ def txnPoolNodeSet(tdirWithPoolTxns, tdirWithDomainTxns, tconf, poolTxnNodeNames
             looper.add(node)
             nodes.append(node)
 
-        looper.run(eventually(checkNodesConnected, nodes, retryWait=1,
-                              timeout=5))
+        looper.run(checkNodesConnected(nodes))
         yield nodes
 
 

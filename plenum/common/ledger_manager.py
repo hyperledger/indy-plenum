@@ -302,7 +302,8 @@ class LedgerManager(HasActionQueue):
                              "is latest".
                              format(self, self.ledgerStatusOk[ledgerType],
                                     ledgerType))
-                self.catchupCompleted(ledgerType)
+                if self.ledgers[ledgerType]["state"] != LedgerState.synced:
+                    self.catchupCompleted(ledgerType)
 
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
         logger.debug("{} received consistency proof: {} from {}".
@@ -325,21 +326,21 @@ class LedgerManager(HasActionQueue):
             ledgerSize = self.ledgers[ledgerType]["ledger"].size
             if start > ledgerSize:
                 self.discard(proof, reason="Start {} is greater than "
-                                                 "ledger size {}".
-                                   format(start, ledgerSize),
-                                   logMethod=logger.warn)
+                                           "ledger size {}".
+                             format(start, ledgerSize),
+                             logMethod=logger.warn)
                 return False
             elif end <= start:
                 self.discard(proof, reason="End {} is not greater than "
-                                                 "start {}".format(end, start),
-                                   logMethod=logger.warn)
+                                           "start {}".format(end, start),
+                             logMethod=logger.warn)
                 return False
             else:
                 return True
         else:
             logger.debug("{} cannot process consistency proof since in state {}"
-                         " and canSync is {}".format(
-                self, self.ledgers[ledgerType]["state"],
+                         " and canSync is {}".
+                format(self, self.ledgers[ledgerType]["state"],
                 self.ledgers[ledgerType]["canSync"]))
             return False
 
@@ -367,7 +368,6 @@ class LedgerManager(HasActionQueue):
 
         # TODO: This is very inefficient for long ledgers
         txns = ledger.getAllTxn(start, end)
-
 
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start, start, end))

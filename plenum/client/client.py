@@ -11,33 +11,31 @@ from collections import deque, OrderedDict
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set, Any, \
     Iterable
 
+from raet.raeting import AutoMode
+
+from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.exceptions import MissingNodeOp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
-from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
-from plenum.persistence.client_txn_log import ClientTxnLog
-from raet.raeting import AutoMode
-from ledger.merkle_verifier import MerkleVerifier
-from ledger.util import F, STH
-
-from plenum.client.signer import Signer, SimpleSigner
-from plenum.client.wallet import Wallet
+from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getLocalEstateData, getHaFromLocalEstate
+from plenum.common.raet import getHaFromLocalEstate
+from plenum.common.signer import Signer
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
-from plenum.common.txn import REPLY, TXN_TYPE, TARGET_NYM, \
-    DATA, ALIAS, NEW_NODE, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, CHANGE_HA, CHANGE_KEYS, VERKEY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, USER, STEWARD, NYM, ROLE, \
-    REQACK, REQNACK
+from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
-from plenum.common.util import getMaxFailures, error, hexToCryptonym, \
-    MessageProcessor, checkIfMoreThanFSameItems
+from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems
+from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
+from plenum.persistence.client_txn_log import ClientTxnLog
+
 from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 # DEPR
@@ -191,11 +189,11 @@ class Client(Motor,
 
     def start(self, loop):
         oldstatus = self.status
-        super().start(loop)
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
                         format(self, self.status.name))
         else:
+            super().start(loop)
             self.nodestack.start()
             self.nodestack.maintainConnections()
             if self._ledger:

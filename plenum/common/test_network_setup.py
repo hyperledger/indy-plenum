@@ -14,7 +14,7 @@ from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     STEWARD, \
     ROLE
 from plenum.common.types import f
-from plenum.common.util import hexToCryptonym
+from plenum.common.util import hexToFriendly
 
 
 class TestNetworkSetup:
@@ -35,42 +35,15 @@ class TestNetworkSetup:
 
     @staticmethod
     def getNymFromVerkey(verkey: bytes):
-        return hexToCryptonym(verkey)
+        return hexToFriendly(verkey)
 
     @staticmethod
-    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
-                           domainTransactionsFile, domainTxnFieldOrder):
-        if not os.path.exists(baseDir):
-            os.makedirs(baseDir, exist_ok=True)
-
-        parser = argparse.ArgumentParser(
-            description="Generate pool transactions for testing")
-
-        parser.add_argument('--nodes', required=True, type=int,
-                            help='node count, '
-                                 'should be less than 20')
-        parser.add_argument('--clients', required=True, type=int,
-                            help='client count')
-        parser.add_argument('--nodeNum', required=True, type=int,
-                            help='the number '
-                                 'of the node that will run on this machine')
-        parser.add_argument('--ips',
-                            help='IPs of the nodes, provide comma separated'
-                                 ' IPs, if no of IPs provided are less than '
-                                 'number of nodes then the '
-                                 'remaining nodes are assigned the loopback '
-                                 'IP, i.e 127.0.0.1',
-                            type=str)
-
-        args = parser.parse_args()
-        nodeCount = min(args.nodes, 20)
-        clientCount = args.clients
-        nodeNum = args.nodeNum
-        ips = args.ips
-
-        assert nodeNum <= nodeCount, "nodeNum should be less than equal to " \
-                                     "nodeCount"
-
+    def bootstrapTestNodesCore(baseDir,
+                           poolTransactionsFile,
+                           domainTransactionsFile,
+                           domainTxnFieldOrder,
+                           ips, nodeCount, clientCount,
+                           nodeNum, startingPort):
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
         else:
@@ -156,3 +129,45 @@ class TestNetworkSetup:
 
         poolLedger.stop()
         domainLedger.stop()
+
+    @staticmethod
+    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
+                           domainTransactionsFile, domainTxnFieldOrder):
+        if not os.path.exists(baseDir):
+            os.makedirs(baseDir, exist_ok=True)
+
+        parser = argparse.ArgumentParser(
+            description="Generate pool transactions for testing")
+
+        parser.add_argument('--nodes', required=True, type=int,
+                            help='node count, '
+                                 'should be less than 20')
+        parser.add_argument('--clients', required=True, type=int,
+                            help='client count')
+        parser.add_argument('--nodeNum', required=True, type=int,
+                            help='the number '
+                                 'of the node that will run on this machine')
+        parser.add_argument('--ips',
+                            help='IPs of the nodes, provide comma separated'
+                                 ' IPs, if no of IPs provided are less than '
+                                 'number of nodes then the '
+                                 'remaining nodes are assigned the loopback '
+                                 'IP, i.e 127.0.0.1',
+                            type=str)
+
+        args = parser.parse_args()
+        nodeCount = min(args.nodes, 20)
+        clientCount = args.clients
+        nodeNum = args.nodeNum
+        ips = args.ips
+
+        assert nodeNum <= nodeCount, "nodeNum should be less than equal to " \
+                                     "nodeCount"
+
+        TestNetworkSetup.bootstrapTestNodesCore(baseDir,
+                               poolTransactionsFile,
+                               domainTransactionsFile,
+                               domainTxnFieldOrder,
+                               ips, nodeCount, clientCount,
+                               nodeNum, startingPort)
+

@@ -1,19 +1,19 @@
-from binascii import hexlify
-from copy import deepcopy
 from typing import Dict, Tuple
 
+from copy import deepcopy
 from ledger.util import F
-from libnacl.encode import base64_decode
-from plenum.common.stack_manager import TxnStackManager
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
+from plenum.common.stack_manager import TxnStackManager
+
 from plenum.common.types import HA, f, Reply
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
     CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
 from plenum.common.log import getlogger
+
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 
 
@@ -265,6 +265,9 @@ class RegistryPoolManager(PoolManager):
             sha = me.ha
             nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
         else:
+
+
+
             sha = me if isinstance(me, HA) else HA(*me[0])
             nodeReg = {k: v if isinstance(v, HA) else HA(*v[0])
                        for k, v in nodeRegistry.items()}

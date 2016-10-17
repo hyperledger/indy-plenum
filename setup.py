@@ -63,7 +63,7 @@ setup(
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
-                      'ioflo==1.5.4', 'semver'],
+                      'ioflo==1.5.4', 'semver', 'base58'],
     extras_require={
         'stats': ['python-firebase']
     },
@@ -89,7 +89,7 @@ if not os.path.exists(CONFIG_FILE):
 DATA_DIR = os.path.dirname(data.__file__)
 shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
                 POOL_TXN_FILE)
-# from plenum.common.sys_util import changeOwnerAndGrpToLoggedInUser
+
 
 # TODO: This code should not be copied here.
 import getpass
@@ -105,7 +105,7 @@ def getLoggedInUser():
         if 'SUDO_USER' in os.environ:
             return os.environ['SUDO_USER']
         else:
-            return os.environ['USER']
+            return getpass.getuser()
 
 
 def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):

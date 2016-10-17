@@ -61,11 +61,10 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker',
-                      'prompt_toolkit==0.57',
+    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4',
-                      'semver'],
-    extras_require={
+                      'semver', 'base58'],
+    extras_require = {
         'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
@@ -105,7 +104,7 @@ def getLoggedInUser():
         if 'SUDO_USER' in os.environ:
             return os.environ['SUDO_USER']
         else:
-            return os.environ['USER']
+            return getpass.getuser()
 
 
 def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
@@ -120,3 +119,4 @@ def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):
 
 
 changeOwnerAndGrpToLoggedInUser(BASE_DIR)
+

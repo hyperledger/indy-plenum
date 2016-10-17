@@ -1,19 +1,19 @@
 """
 Clients are authenticated with a digital signature.
 """
+import base58
 from abc import abstractmethod
-from base64 import b64decode
 from typing import Dict
 
 from plenum.common.log import getlogger
-from raet.nacling import Verifier
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
-    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, SigningException
+    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, \
+    SigningException, InvalidSignatureFormat, UnknownIdentifier
 from plenum.common.signing import serializeForSig
 from plenum.common.types import f
-
+from plenum.common.verifier import DidVerifier
 
 logger = getlogger()
 
@@ -33,7 +33,7 @@ class ClientAuthNr:
 
         :param identifier: some unique identifier; if None, then try to use
         msg['identifier'] as identifier
-        :param signature: a utf-8 and base64 encoded signature
+        :param signature: a utf-8 and base58 encoded signature
         :param msg: the message to authenticate
         :return: the identifier; an exception of type SigningException is
             raised if the signature is not valid
@@ -86,15 +86,13 @@ class NaclAuthNr(ClientAuthNr):
                         raise EmptyIdentifier(None, msg.get(f.REQ_ID.nm))
                 except KeyError:
                     raise MissingIdentifier(identifier, msg.get(f.REQ_ID.nm))
-            b64sig = signature.encode('utf-8')
-            sig = b64decode(b64sig)
-            ser = self.serializeForSig(msg)
             try:
-                verkey = self.getVerkey(identifier)
-            except KeyError:
-                # TODO: Should probably be called UnknownIdentifier
-                raise InvalidIdentifier(identifier, msg.get(f.REQ_ID.nm))
-            vr = Verifier(verkey)
+                sig = base58.b58decode(signature)
+            except Exception as ex:
+                raise InvalidSignatureFormat from ex
+            ser = self.serializeForSig(msg)
+            verkey = self.getVerkey(identifier)
+            vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
             if not isVerified:
                 raise InvalidSignature
@@ -136,4 +134,7 @@ class SimpleAuthNr(NaclAuthNr):
         }
 
     def getVerkey(self, identifier):
-        return self.clients[identifier]["verkey"]
+        nym = self.clients.get(identifier)
+        if not nym:
+            raise UnknownIdentifier(identifier)
+        return nym.get("verkey")

@@ -25,9 +25,17 @@ class StatsPublisher:
                 self.reader, self.writer = await asyncio.streams\
                     .open_connection(self.ip, self.port, loop=loop)
             self.writer.write((message + '\n').encode('utf-8'))
-        except ConnectionRefusedError as ex:
+            await self.writer.drain()
+        except (ConnectionRefusedError, ConnectionResetError) as ex:
             logger.debug("connection refused for {}:{} while sending message".
                          format(self.ip, self.port))
+            self.writer = None
+        except AssertionError as ex:
+            # TODO: THis is temporary for getting around `self.writer.drain`,
+            # the root cause needs to be found out. Here is the bug,
+            # https://www.pivotaltracker.com/story/show/132555801
+            logger.warn("Error while sending message: {}".format(ex))
+            self.writer = None
 
     def send(self, message):
         async def run():

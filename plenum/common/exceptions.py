@@ -58,6 +58,14 @@ class EmptySignature(SigningException, ReqInfo):
         ReqInfo.__init__(self, *args, **kwargs)
 
 
+class InvalidSignatureFormat(SigningException, ReqInfo):
+    code = 123
+    reason = 'invalid signature format'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
+
+
 class InvalidSignature(SigningException, ReqInfo):
     code = 125
     reason = 'invalid signature'
@@ -74,6 +82,14 @@ class MissingIdentifier(SigningException):
 class EmptyIdentifier(SigningException):
     code = 131
     reason = 'empty identifier'
+
+
+class UnknownIdentifier(SigningException, ReqInfo):
+    code = 133
+    reason = 'unknown identifier'
+
+    def __init__(self, *args, **kwargs):
+        ReqInfo.__init__(self, *args, **kwargs)
 
 
 class InvalidIdentifier(SigningException, ReqInfo):
@@ -173,4 +189,16 @@ class DBConfigNotFound(StorageException):
 
 
 class UnsupportedOperation(Exception):
+    pass
+
+
+class DidMethodNotFound(Exception):
+    pass
+
+
+class BlowUp(BaseException):
+    """
+    An exception designed to blow through fault barriers. Useful during testing.
+    Derives from BaseException so asyncio will let it through.
+    """
     pass

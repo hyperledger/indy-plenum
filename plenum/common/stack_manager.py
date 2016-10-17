@@ -1,17 +1,16 @@
 import os
 import shutil
 from abc import abstractproperty
-from binascii import hexlify
 from collections import OrderedDict
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
-from libnacl.encode import base64_decode
 from plenum.common.raet import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NEW_NODE, CHANGE_KEYS, CHANGE_HA
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
+from plenum.common.util import cryptonymToHex
 from plenum.common.log import getlogger
 
 logger = getlogger()
@@ -71,13 +70,13 @@ class TxnStackManager:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
                     cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
-                verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
+                verkey = cryptonymToHex(txn[TARGET_NYM])
                 nodeKeys[nodeName] = verkey
 
         return nodeReg, cliNodeReg, nodeKeys
 
     def addNewRemoteAndConnect(self, txn, remoteName, nodeOrClientObj):
-        verkey = hexlify(base64_decode(txn[TARGET_NYM].encode()))
+        verkey = cryptonymToHex(txn[TARGET_NYM])
 
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])

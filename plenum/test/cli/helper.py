@@ -44,10 +44,10 @@ class TestCliCore:
         printeds = [x['msg'] for x in reversed(self.printeds[:
             (len(self.printeds) - self.lastPrintIndex)])]
         printedTokens = [token[1] for tokens in
-                         reversed(self.printedTokens[:
-                         (len(self.printedTokens) - self.lastPrintedTokenIndex)])
+                         reversed(self.printedTokens[:(len(self.printedTokens) - self.lastPrintedTokenIndex)])
                          for token in tokens.get('tokens', []) if len(token) > 1]
-        return ''.join(printeds + [' '] + printedTokens).strip()
+        pt = ''.join(printedTokens)
+        return '\n'.join(printeds + [pt]).strip()
 
     # noinspection PyAttributeOutsideInit
     @property
@@ -196,6 +196,8 @@ def checkRequest(cli, operation):
     printeds = cli.printeds
     printedReply = printeds[1]
     printedStatus = printeds[0]
+    # txnTimePattern = "'txnTime', \d+\.*\d*"
+    # txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
     txnTimePattern = "\'txnTime\': \d+\.*\d*"
     txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
     assert re.search(txnIdPattern, printedReply['msg'])
@@ -248,7 +250,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # Using `in` rather than `=` so as to take care of the fact that this might
     # be the first time wallet is accessed so wallet would be created and some
     # output corresponding to that would be printed.
-    assert "".join(expected) in cli.lastCmdOutput
+    assert "\n".join(expected) in cli.lastCmdOutput
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
@@ -258,7 +260,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     return pubKey
 
 
-replyPat = re.compile("C: ({.+$)")
+
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
 
@@ -286,6 +288,36 @@ def assertNoClient(cli):
     assert cli.lastCmdOutput == "No such client. See: 'help new' for " \
                                 "more details"
 
+
+# replyPat = re.compile("C: odict\((.+)\)$")
+replyPat = re.compile("C: ({.+$)")
+
+
+# def checkReply(cli, count, clbk):
+#     done = 0
+#     for out in cli.printeds:
+#         msg = out['msg']
+#         m = replyPat.search(msg)
+#         if m:
+#             if clbk(m.groups(0)[0].strip()):
+#             # result = ast.literal_eval(m.groups(0)[0].strip())
+#             # if clbk(result):
+#                 done += 1
+#     assert done == count
+#
+#
+# def checkSuccess(data):
+#     return data and "('success', True)" in data
+#
+#
+# balancePat = re.compile("\('balance', (\d+)\)")
+#
+#
+# def checkBalance(balance, data):
+#     if checkSuccess(data):
+#         searched = balancePat.search(data)
+#         if searched:
+#             return int(searched.group(1)) == balance
 
 def checkReply(cli, count, clbk):
     done = 0

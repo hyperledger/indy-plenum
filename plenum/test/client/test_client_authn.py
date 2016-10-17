@@ -1,13 +1,16 @@
 import pytest
 
-from plenum.client.signer import SimpleSigner
-from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
+from plenum.common.exceptions import InvalidSignature
+from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
+
+
+idr = '5G72199XZB7wREviUbQma7'
 
 
 @pytest.fixture(scope="module")
 def cli():
-    return SimpleSigner(424242)
+    return SimpleSigner(idr)
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +31,7 @@ def sig(cli, msg):
 
 
 def testClientAuthentication(sa, cli, msg, sig):
-    sa.authenticate(msg, 424242, sig)
+    sa.authenticate(msg, idr, sig)
 
 
 def testMessageModified(sa, cli, msg, sig):
@@ -38,16 +41,16 @@ def testMessageModified(sa, cli, msg, sig):
     msg2['myMsg'] = msg2['myMsg'][:-1] + '!'
 
     with pytest.raises(InvalidSignature):
-        sa.authenticate(msg2, 424242, sig)
+        sa.authenticate(msg2, idr, sig)
 
 
 def testAnotherAuthenticatorCanAuthenticate(sa, cli, msg, sig):
     sa2 = SimpleAuthNr()
     sa2.addClient(cli.identifier, cli.verkey)
-    sa.authenticate(msg, 424242, sig)
+    sa.authenticate(msg, idr, sig)
 
 
 def testReconstitutedClientCreatesTheSameSig(cli, sig, msg):
-    cli2 = SimpleSigner(424242, seed=cli.seed)
+    cli2 = SimpleSigner(idr, seed=cli.seed)
     sig2 = cli2.sign(msg)
     assert sig == sig2

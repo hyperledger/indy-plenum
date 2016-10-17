@@ -1,31 +1,15 @@
-from abc import abstractproperty, abstractmethod
+import base58
 from binascii import hexlify
 from typing import Dict
 
 from libnacl import randombytes
-from libnacl.encode import base64_encode
-from raet.nacling import Signer as NaclSigner
 from raet.nacling import SigningKey
+from raet.nacling import Signer as NaclSigner
 
+from plenum.common.signer import Signer
 from plenum.common.signing import serializeForSig
-from plenum.common.types import Identifier
 
-
-class Signer:
-    """
-    Interface that defines a sign method.
-    """
-    @abstractproperty
-    def identifier(self) -> Identifier:
-        raise NotImplementedError
-
-    @abstractmethod
-    def sign(self, msg: Dict) -> Dict:
-        raise NotImplementedError
-
-    @abstractproperty
-    def alias(self) -> str:
-        raise NotImplementedError
+from plenum.common.util import hexToFriendly
 
 
 class SimpleSigner(Signer):
@@ -58,11 +42,10 @@ class SimpleSigner(Signer):
 
         # this is the public key used to verify signatures (securely shared
         # before-hand with recipient)
-        self.verkey = self.naclSigner.verhex
 
-        self.verstr = base64_encode(self.naclSigner.verraw).decode('utf-8')
+        self.verkey = hexToFriendly(hexlify(self.naclSigner.verraw))
 
-        self._identifier = identifier or self.verstr
+        self._identifier = identifier or self.verkey
 
         self._alias = alias
 
@@ -84,6 +67,5 @@ class SimpleSigner(Signer):
         """
         ser = serializeForSig(msg)
         bsig = self.naclSigner.signature(ser)
-        b64sig = base64_encode(bsig)
-        sig = b64sig.decode('utf-8')
+        sig = base58.b58encode(bsig)
         return sig

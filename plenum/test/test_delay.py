@@ -1,20 +1,14 @@
 import pytest
 
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
-
 from plenum.common.looper import Looper
 from plenum.server.node import Node
+from plenum.test.eventually import eventually
 from plenum.test.helper import TestNodeSet, checkNodesConnected, prepareNodeSet, \
     randomMsg, sendMsgAndCheck, addNodeBack, ensureElectionsDone, \
-    delayerMsgTuple
-
+    delayerMsgTuple, assertExp
 
 logger = getlogger()
-
-
-def assertExp(condition):
-    assert condition
 
 
 def testTestNodeDelay(tdir_for_func):

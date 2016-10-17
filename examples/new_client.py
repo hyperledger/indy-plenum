@@ -10,12 +10,9 @@ TODO: demonstrate client verification key bootstrapping
 
 #TODO Remove this file, just for now
 
-import os
-from collections import OrderedDict
-
 from plenum.client.client import Client
-from plenum.client.signer import SimpleSigner
 from plenum.common.looper import Looper
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getConfig
 
 

@@ -45,8 +45,7 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=10))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=10))
     looper.run(newStewardClient.ensureConnectedToNodes())
     looper.run(client.ensureConnectedToNodes())
     return looper, newNode, client, wallet, newStewardClient, newStewardWallet

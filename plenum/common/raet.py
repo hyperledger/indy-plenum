@@ -1,15 +1,12 @@
-from binascii import unhexlify
-
-import base64
 import json
+
 import os
 from collections import OrderedDict
-
-from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
-from plenum.common.util import hasKeys
+from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
+from plenum.common.util import hasKeys, hexToFriendly
 
 
 def initLocalKeep(name, baseDir, sigseed, override=False):
@@ -117,7 +114,7 @@ def getLocalPubKey(roleName, baseDir=None):
 
 def getEncodedLocalVerKey(name, baseDir=None):
     verKey = getLocalVerKey(name, baseDir)
-    return base64.b64encode(unhexlify(verKey)).decode("utf-8")
+    return hexToFriendly(verKey)
 
 
 def getLocalEstateData(name, baseDir):

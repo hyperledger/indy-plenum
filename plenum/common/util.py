@@ -1,6 +1,8 @@
 import asyncio
-import base64
-import importlib.util
+
+import base58
+from importlib.util import spec_from_file_location, module_from_spec
+from importlib import import_module
 import itertools
 import json
 import logging
@@ -39,6 +41,7 @@ def randomString(size: int = 20,
     :param chars: the set of characters to use to generate the random string. Uses alphanumerics by default.
     :return: the random string generated
     """
+    assert size < len(chars), 'size should be less than the number of characters'
     return ''.join(random.sample(chars, size))
 
 
@@ -285,6 +288,8 @@ class MessageProcessor:
         :param msg: the message to discard
         :param reason: the reason why this message is being discarded
         :param logMethod: the logging function to be used
+        :param cliOutput: if truthy, informs a CLI that the logged msg should
+        be printed
         """
         reason = "" if not reason else " because {}".format(reason)
         logMethod("{} discarding message {}{}".format(self, msg, reason),
@@ -327,9 +332,9 @@ def getInstalledConfig(installDir, configFile):
     """
     configPath = os.path.join(installDir, configFile)
     if os.path.exists(configPath):
-        spec = importlib.util.spec_from_file_location(configFile,
+        spec = spec_from_file_location(configFile,
                                                       configPath)
-        config = importlib.util.module_from_spec(spec)
+        config = module_from_spec(spec)
         spec.loader.exec_module(config)
         return config
     else:
@@ -345,7 +350,7 @@ def getConfig(homeDir=None):
     """
     global CONFIG
     if not CONFIG:
-        refConfig = importlib.import_module("plenum.config")
+        refConfig = import_module("plenum.config")
         try:
             homeDir = os.path.expanduser(homeDir or "~")
 
@@ -434,22 +439,27 @@ def isHexKey(key):
 
 def getCryptonym(identifier):
     isHex = isHexKey(identifier)
-    return base64.b64encode(unhexlify(identifier.encode())).decode() if isHex \
+    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
         else identifier
 
 
-def hexToCryptonym(hex):
-    # TODO: Use base58 instead of base64
-    if isinstance(hex, str):
-        hex = hex.encode()
-    return base64.b64encode(unhexlify(hex)).decode()
+def hexToFriendly(hx):
+    if isinstance(hx, str):
+        hx = hx.encode()
+    raw = unhexlify(hx)
+    return rawToFriendly(raw)
 
 
-def cryptonymToHex(cryptonym):
-    # TODO: Use base58 instead of base64
-    if isinstance(cryptonym, str):
-        cryptonym = cryptonym.encode()
-    return hexlify(base64.b64decode(cryptonym)).decode()
+def rawToFriendly(raw):
+    return base58.b58encode(raw)
+
+
+def friendlyToRaw(f):
+    return base58.b58decode(f)
+
+
+def cryptonymToHex(cryptonym: str) -> bytes:
+    return hexlify(base58.b58decode(cryptonym.encode()))
 
 
 def runWithLoop(loop, callback, *args, **kwargs):
@@ -497,25 +507,29 @@ def bootstrapClientKeys(identifier, verkey, nodes):
         n.clientAuthNr.addClient(identifier, verkey)
 
 
-def prettyDate(time=False):
+def prettyDateDifference(startTime, finishTime=None):
     """
     Get a datetime object or a int() Epoch timestamp and return a
     pretty string like 'an hour ago', 'Yesterday', '3 months ago',
     'just now', etc
     """
     from datetime import datetime
-    now = datetime.now()
-    if time is None:
+
+    if startTime is None:
         return None
 
-    if not isinstance(time, (int, datetime)):
+    if not isinstance(startTime, (int, datetime)):
         raise RuntimeError("Cannot parse time")
-    if isinstance(time,int):
-        diff = now - datetime.fromtimestamp(time)
-    elif isinstance(time, datetime):
-        diff = now - time
+
+    endTime = finishTime or datetime.now()
+
+    if isinstance(startTime, int):
+        diff = endTime - datetime.fromtimestamp(startTime)
+    elif isinstance(startTime, datetime):
+        diff = endTime - startTime
     else:
-        diff = now - now
+        diff = endTime - endTime
+
     second_diff = diff.seconds
     day_diff = diff.days
 
@@ -539,3 +553,11 @@ def prettyDate(time=False):
         return "Yesterday"
     if day_diff < 7:
         return str(day_diff) + " days ago"
+
+
+def getTimeBasedId():
+    return int(time.time() * 1000000)
+
+
+def randomSeed(size=32):
+    return ''.join(random.choice(string.hexdigits) for _ in range(size)).encode()

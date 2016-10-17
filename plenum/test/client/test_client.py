@@ -3,8 +3,6 @@ from raet.raeting import AutoMode
 from plenum.test.conftest import clientAndWallet1
 from plenum.test.helper import *
 from plenum.common.types import f, OP_FIELD_NAME, Request
-# DEPR
-# from plenum.persistence.wallet_storage_memory import WalletStorageMemory
 from plenum.test.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
@@ -27,13 +25,18 @@ whitelist = ['signer not configured so not signing',
              'found legacy entry']  # warnings
 
 
-def checkResponseRecvdFromNodes(client, expectedCount: int):
+def checkResponseRecvdFromNodes(client, expectedCount: int, expectedReqId: int):
     respCount = 0
-    sign = randomSeed()
     for (resp, nodeNm) in client.inBox:
-        if resp.get(OP_FIELD_NAME) in (REQACK, REPLY):
+        op = resp.get(OP_FIELD_NAME)
+        if op == REPLY:
+            reqId = resp.get(f.RESULT.nm, {}).get(f.REQ_ID.nm)
+        elif op == REQACK:
+            reqId = resp.get(f.REQ_ID.nm)
+        else:
+            continue
+        if reqId == expectedReqId:
             respCount += 1
-            print(client, resp)
     assert respCount == expectedCount
 
 
@@ -44,8 +47,8 @@ def testGeneratedRequestSequencing(tdir_for_func):
     Request ids must be generated in an increasing order
     """
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet("test", requestIdStore=TestRequestIdStore())
-        w.addSigner()
+        w = Wallet("test")
+        w.addIdentifier()
 
         operation = randomOperation()
 
@@ -58,9 +61,9 @@ def testGeneratedRequestSequencing(tdir_for_func):
         request = w.signOp(randomOperation())
         assert request.reqId == 3
 
-        s2 = w.addSigner()
+        idr, _ = w.addIdentifier()
 
-        request = w.signOp(randomOperation(), s2.identifier)
+        request = w.signOp(randomOperation(), idr)
         assert request.reqId == 1
 
         request = w.signOp(randomOperation())
@@ -141,7 +144,7 @@ def testClientConnectsToAllNodes(client1):
 
 
 @CLI_REQ("A client sends a request to all the nodes")
-def testRequestFullRoundTrip(replied1):
+def testRequestFullRoundTrip(replied1, client1):
     pass
 
 
@@ -170,8 +173,8 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount,
-                       retryWait=.25, timeout=15))
+                       2 * nodeCount, request.reqId,
+                       retryWait=1, timeout=20))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
@@ -189,8 +192,8 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # have a different operations
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount,
-                       retryWait=.25, timeout=15))
+                       2 * nodeCount, request.reqId,
+                       retryWait=1, timeout=20))
 
     replies = (msg for msg, frm in client1.inBox
                if msg[OP_FIELD_NAME] == REPLY and
@@ -234,6 +237,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
             chk,
             retryWait=1,
             timeout=20))
+
 
 # noinspection PyIncorrectDocstring
 def testReplyMatchesRequest(looper, nodeSet, tdir, up):
@@ -279,10 +283,12 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
                                   2 * nodeCount * i,
-                                  retryWait=.25,
-                                  timeout=20))
+                                  reqId,
+                                  retryWait=1,
+                                  timeout=25))
 
-            print("Expected amount for request {} is {}".format(reqId, sentAmount))
+            print("Expected amount for request {} is {}".
+                  format(reqId, sentAmount))
 
             replies = [r[0]['result']['amount']
                        for r in client.inBox
@@ -291,6 +297,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
 
             assert all(replies[0] == r for r in replies)
             assert replies[0] == sentAmount
+
 
 def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
                                                 client1, wallet1):

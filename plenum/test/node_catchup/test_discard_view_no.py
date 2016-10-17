@@ -42,8 +42,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                                tdirWithPoolTxns, tconf,
                                                allPluginsPath)
     txnPoolNodeSet.append(nodeTheta)
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet, retryWait=1,
-                          timeout=5))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())
     looper.run(eventually(checkNodeLedgersForEquality, nodeTheta,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=5))

@@ -1,15 +1,14 @@
 from typing import Optional, Dict, NamedTuple
 
 import jsonpickle
-import time
 from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
-from plenum.client.signer import Signer
-from plenum.client.request_id_store import *
-from plenum.client.signer import SimpleSigner
+from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.log import getlogger
-from plenum.common.types import f, Identifier, Request
+from plenum.common.signer import Signer
+from plenum.common.types import Identifier, Request
+from plenum.common.util import getTimeBasedId
 
 logger = getlogger()
 
@@ -34,16 +33,13 @@ IdData = HA = NamedTuple("IdData", [
 class Wallet:
     def __init__(self,
                  name: str,
-                 requestIdStore: RequestIdStore=None
-                 ):
-        # If a requestIdStore is not passed, it will use a MemoryRequestIdStore
-        #  which does not persist request ids over restart
+                 supportedDidMethods: DidMethods=None):
         self._name = name
+        self.ids = {}           # type: Dict[Identifier, IdData]
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
         self.defaultId = None
-        self._requestIdStore = requestIdStore if requestIdStore else \
-            MemoryRequestIdStore()
+        self.didMethods = supportedDidMethods or DefaultDidMethods
 
     @property
     def name(self):
@@ -52,6 +48,9 @@ class Wallet:
     @name.setter
     def name(self, newName):
         self._name = newName
+
+    def __repr__(self):
+        return self.name
 
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':
@@ -68,35 +67,43 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    def addSigner(self,
-                  identifier=None,
-                  seed=None,
-                  signer=None):
-        '''
+    # def addIdentifier(self, didMethodName=None):
+    #     return self.addSigner(didMethodName).identifier
+    #
+    def addIdentifier(self,
+                      identifier=None,
+                      seed=None,
+                      signer=None,
+                      alias=None,
+                      didMethodName=None):
+        """
         Adds signer to the wallet.
         Requires complete signer, identifier or seed.
 
         :param identifier: signer identifier or None to use random one
         :param seed: signer key seed or None to use random one
         :param signer: signer to add
+        :param didMethodName: name of DID Method if not the default
         :return:
-        '''
+        """
 
-        signer = signer or SimpleSigner(identifier=identifier, seed=seed)
+        dm = self.didMethods.get(didMethodName)
+        signer = signer or dm.newSigner(identifier=identifier, seed=seed)
         self.idsToSigners[signer.identifier] = signer
         if self.defaultId is None:
             # setting this signer as default signer to let use sign* methods
             # without explicit specification of signer
             self.defaultId = signer.identifier
+        if alias:
+            signer.alias = alias
         if signer.alias:
             self.aliasesToIds[signer.alias] = signer.identifier
-        return signer
+        return signer.identifier, signer
 
     def _requiredIdr(self,
                      idr: Identifier=None,
-                     alias: str=None,
-                     other: Identifier=None):
-        '''
+                     alias: str=None):
+        """
         Checks whether signer identifier specified, or can it be
         inferred from alias or can be default used instead
 
@@ -105,9 +112,14 @@ class Wallet:
         :param other:
 
         :return: signer identifier
-        '''
+        """
 
-        idr = idr or other or (self.aliasesToIds[alias] if alias else self.defaultId)
+        # TODO Need to create a new Identifier type that supports DIDs and CIDs
+        if idr:
+            if ':' in idr:
+                idr = idr.split(':')[1]
+        else:
+            idr = self.aliasesToIds[alias] if alias else self.defaultId
         if not idr:
             raise RuntimeError('identifier required, but none found')
         return idr
@@ -116,16 +128,16 @@ class Wallet:
                 msg: Dict,
                 identifier: Identifier=None,
                 otherIdentifier: Identifier=None):
-        '''
+        """
         Creates signature for message using specified signer
 
         :param msg: message to sign
         :param identifier: signer identifier
         :param otherIdentifier:
         :return: signature that then can be assigned to request
-        '''
+        """
 
-        idr = self._requiredIdr(idr=identifier, other=otherIdentifier)
+        idr = self._requiredIdr(idr=identifier or otherIdentifier)
         signer = self._signerById(idr)
         signature = signer.sign(msg)
         return signature
@@ -142,12 +154,15 @@ class Wallet:
         :return: signed request
         """
 
-        idr = self._requiredIdr(idr=identifier, other=req.identifier)
+        idr = self._requiredIdr(idr=identifier or req.identifier)
+        idData = self._getIdData(idr)
         req.identifier = idr
-        req.reqId = self._requestIdStore.nextId(signerId=idr)
+        req.reqId = getTimeBasedId()
+        self.ids[idr] = IdData(idData.signer, req.reqId)
         req.signature = self.signMsg(msg=req.getSigningState(),
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
+
         return req
 
     def signOp(self,
@@ -179,7 +194,7 @@ class Wallet:
             raise RuntimeError("No signer with alias '{}'".format(alias))
         return self._signerById(id)
 
-    def getVerKey(self, idr: Identifier=None) -> str:
+    def getVerkey(self, idr: Identifier=None) -> str:
         return self._signerById(idr or self.defaultId).verkey
 
     def getAlias(self, idr: Identifier):
@@ -210,15 +225,15 @@ class Wallet:
             lst.remove(x)
         return lst
 
-    @property
-    def defaultSigner(self) -> Signer:
-        if self.defaultId is not None:
-            return self.idsToSigners[self.defaultId]
+    # @property
+    # def defaultSigner(self) -> Signer:
+    #     if self.defaultId is not None:
+    #         return self.idsToSigners[self.defaultId]
 
     def _getIdData(self,
                    idr: Identifier = None,
                    alias: Alias = None) -> IdData:
         idr = self._requiredIdr(idr, alias)
         signer = self.idsToSigners.get(idr)
-        lastReqId = self._requestIdStore.currentId(idr)
-        return IdData(signer, lastReqId)
+        idData = self.ids.get(idr)
+        return IdData(signer, idData.lastReqId if idData else None)

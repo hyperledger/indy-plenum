@@ -6,21 +6,21 @@ from typing import Any, Set, Optional, List, Iterable
 from typing import Dict
 from typing import Tuple
 
-from plenum.common.crypto import getEd25519AndCurve25519Keys, \
-    ed25519SkToCurve25519
 from raet.raeting import AutoMode
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
 from raet.road.transacting import Joiner, Allower, Messenger
 
-from plenum.client.signer import Signer
+from plenum.common.crypto import getEd25519AndCurve25519Keys, \
+    ed25519SkToCurve25519
 from plenum.common.exceptions import RemoteNotFound
+from plenum.common.log import getlogger
 from plenum.common.ratchet import Ratchet
+from plenum.common.signer import Signer
 from plenum.common.types import Request, Batch, TaggedTupleBase, HA
 from plenum.common.util import error, distributedConnectionMap, \
     MessageProcessor, checkPortAvailable, getConfig
-from plenum.common.log import getlogger
 
 logger = getlogger()
 
@@ -59,10 +59,7 @@ class Stack(RoadStack):
             error("the stack port number has changed, likely due to "
                   "information in the keep")
         self.created = time.perf_counter()
-        self.coro = self._raetcoro()
-        logger.info("stack {} starting at {} in {} mode"
-                        .format(self.name, self.ha, self.keep.auto.name),
-                        extra={"cli": False})
+        self.coro = None
         config = getConfig()
         try:
             self.messageTimeout = config.RAETMessageTimeout
@@ -70,11 +67,19 @@ class Stack(RoadStack):
             # if no timeout is set then message will never timeout
             self.messageTimeout = 0
 
-    # def start(self):
-    #     self.coro = self._raetcoro()
-    #     logger.info("stack {} starting at {} in {} mode"
-    #                 .format(self.name, self.ha, self.keep.auto.name),
-    #                 extra={"cli": False})
+    def start(self):
+        if not self.opened:
+            self.open()
+        logger.info("stack {} starting at {} in {} mode"
+                    .format(self.name, self.ha, self.keep.auto.name),
+                    extra={"cli": False})
+        self.coro = self._raetcoro()
+
+    def stop(self):
+        if self.opened:
+            self.close()
+        self.coro = None
+        logger.info("stack {} stopped".format(self.name), extra={"cli": False})
 
     async def service(self, limit=None) -> int:
         """
@@ -145,6 +150,12 @@ class Stack(RoadStack):
     @property
     def opened(self):
         return self.server.opened
+
+    def open(self):
+        """
+        Open the UDP socket of this stack's server.
+        """
+        self.server.open()  # close the UDP socket
 
     def close(self):
         """
@@ -247,7 +258,7 @@ class SimpleStack(Stack):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
         self._conns = set()  # type: Set[str]
-        # super().__init__(**stackParams, msgHandler=self.msgHandler)
+        super().__init__(**stackParams, msgHandler=self.msgHandler)
 
     def __repr__(self):
         return self.name
@@ -322,8 +333,8 @@ class SimpleStack(Stack):
         pass
 
     def start(self):
-        # super().start()
-        super().__init__(**self.stackParams, msgHandler=self.msgHandler)
+        super().start()
+        # super().__init__(**self.stackParams, msgHandler=self.msgHandler)
 
     def sign(self, msg: Dict, signer: Signer) -> Dict:
         """
@@ -756,7 +767,7 @@ class Batched(MessageProcessor):
                 if len(msgs) == 1:
                     msg = msgs.popleft()
                     # Setting timeout to never expire
-                    self.transmit(msg, rid, timeout=0)
+                    self.transmit(msg, rid, timeout=self.messageTimeout)
                     logger.trace("{} sending msg {} to {}".format(self, msg, dest))
                 else:
                     logger.debug("{} batching {} msgs to {} into one transmission".
@@ -772,7 +783,7 @@ class Batched(MessageProcessor):
                                                                        dest,
                                                                        payload))
                     # Setting timeout to never expire
-                    self.transmit(payload, rid, timeout=0)
+                    self.transmit(payload, rid, timeout=self.messageTimeout)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
                            extra={"cli": False})

@@ -96,3 +96,9 @@ logRotationInterval = 1
 logRotationBackupCount = 10
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
+
+
+# OPTIONS RELATED TO TESTS
+
+# Expected time for one stack to get connected to another
+ExpectedConnectTime = 1.1

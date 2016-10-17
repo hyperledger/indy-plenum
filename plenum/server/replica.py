@@ -763,7 +763,8 @@ class Replica(MessageProcessor):
         key = (commit.viewNo, commit.ppSeqNo)
         if (key not in self.prepares and
                 key not in self.preparesWaitingForPrePrepare):
-            logger.debug("{} rejecting commit {} due to lack of prepares".format(self, key))
+            logger.debug("{} rejecting commit {} due to lack of prepares".
+                         format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
             return False
         elif self.commits.hasCommitFrom(commit, sender):

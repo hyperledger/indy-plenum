@@ -81,7 +81,7 @@ def Spyable(name: str = None, methods: SpyableMethods = None):
                 r = func(self, *args, **kwargs)
             except Exception as ex:
                 r = ex
-                raise ex
+                raise
             finally:
                 params = {}
                 if kwargs:
