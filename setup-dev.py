@@ -104,7 +104,7 @@ def getLoggedInUser():
         if 'SUDO_USER' in os.environ:
             return os.environ['SUDO_USER']
         else:
-            return os.environ['USER']
+            return getpass.getuser()
 
 
 def changeOwnerAndGrpToLoggedInUser(directory, raiseEx=False):

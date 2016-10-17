@@ -24,7 +24,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    UnknownIdentifier
+    UnknownIdentifier, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -1031,6 +1031,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
+        except BlowUp:
+            raise
         except Exception as ex:
             msg, frm = wrappedMsg
             friendly = friendlyEx(ex)
@@ -1687,10 +1689,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.warning("{} suspicion raised on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
-        if code == InvalidSignature.code:
-            self.blacklistNode(nodeName,
-                               reason=InvalidSignature.reason,
-                               code=InvalidSignature.code)
+
+        # TODO: Should not blacklist client on a single InvalidSignature.
+        # Should track if a lot of requests with incorrect signatures have been
+        # made in a short amount of time, only then blacklist client.
+        # if code == InvalidSignature.code:
+        #     self.blacklistNode(nodeName,
+        #                        reason=InvalidSignature.reason,
+        #                        code=InvalidSignature.code)
 
         if code in self.suspicions:
             self.blacklistNode(nodeName,

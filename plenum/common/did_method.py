@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Sequence
 
 from plenum.common.exceptions import DidMethodNotFound
 from plenum.common.signer_did import DidSigner
@@ -25,7 +25,7 @@ PlenumDidMethod = DidMethod('plenum', 'did:plenum:')
 
 
 class DidMethods:
-    def __init__(self, *didMethods: DidMethod):
+    def __init__(self, *didMethods: Sequence[DidMethod]):
         self.d = {}
         for dm in didMethods:
             self.d[dm.name] = dm
