@@ -6,6 +6,9 @@ from functools import partial
 from typing import Dict, Any
 import itertools
 
+import re
+
+import functools
 import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -124,8 +127,9 @@ def logcapture(request, whitelist, concerningLogLevels):
             wl = whitelist
 
         whiteListedExceptions = baseWhitelist + wl
+
         isWhiteListed = bool([w for w in whiteListedExceptions
-                              if w in record.msg])
+                              if re.search(w, record.msg)])
         if not (isBenign or isTest or isWhiteListed):
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 

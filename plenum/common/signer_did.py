@@ -40,7 +40,7 @@ class DidIdentity:
             return self._verkey
 
 
-class DidSigner(Signer, DidIdentity):
+class DidSigner(DidIdentity, Signer):
     """
     A simple implementation of Signer for DIDs (Distributed Identifiers).
 
@@ -48,10 +48,6 @@ class DidSigner(Signer, DidIdentity):
     provided in the constructor. It internally uses the NaclSigner to generate
     the signature and keys.
     """
-
-    @abstractproperty
-    def identifier(self) -> Identifier:
-        pass
 
     # TODO: Do we need both alias and identifier?
     def __init__(self, identifier=None, seed=None, alias=None):

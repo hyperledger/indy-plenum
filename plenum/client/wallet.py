@@ -101,9 +101,9 @@ class Wallet:
             self.aliasesToIds[signer.alias] = signer.identifier
         return signer.identifier, signer
 
-    def _requiredIdr(self,
-                     idr: Identifier=None,
-                     alias: str=None):
+    def requiredIdr(self,
+                    idr: Identifier=None,
+                    alias: str=None):
         """
         Checks whether signer identifier specified, or can it be
         inferred from alias or can be default used instead
@@ -138,7 +138,7 @@ class Wallet:
         :return: signature that then can be assigned to request
         """
 
-        idr = self._requiredIdr(idr=identifier or otherIdentifier)
+        idr = self.requiredIdr(idr=identifier or otherIdentifier)
         signer = self._signerById(idr)
         signature = signer.sign(msg)
         return signature
@@ -155,7 +155,7 @@ class Wallet:
         :return: signed request
         """
 
-        idr = self._requiredIdr(idr=identifier or req.identifier)
+        idr = self.requiredIdr(idr=identifier or req.identifier)
         idData = self._getIdData(idr)
         req.identifier = idr
         req.reqId = getTimeBasedId()
@@ -234,7 +234,7 @@ class Wallet:
     def _getIdData(self,
                    idr: Identifier = None,
                    alias: Alias = None) -> IdData:
-        idr = self._requiredIdr(idr, alias)
+        idr = self.requiredIdr(idr, alias)
         signer = self.idsToSigners.get(idr)
         idData = self.ids.get(idr)
         return IdData(signer, idData.lastReqId if idData else None)
