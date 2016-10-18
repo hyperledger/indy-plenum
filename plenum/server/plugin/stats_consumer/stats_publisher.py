@@ -63,7 +63,9 @@ class Topic(Enum):
     PublishViewChange = 8
     PublishTotalTransactions = 9
     PublishAllStats = 10
-    IncomingEvent = 11
+    IncomingEvent = 11,
+    PublishNodestackStats = 12
+    PublishTotalRequestsStats = 13
 
     def __str__(self):
         return self.name
