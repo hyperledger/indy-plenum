@@ -1,5 +1,7 @@
 import pytest
 from raet.raeting import AutoMode
+
+from plenum.common.exceptions import EmptySignature
 from plenum.test.conftest import clientAndWallet1
 from plenum.test.helper import *
 from plenum.common.types import f, OP_FIELD_NAME, Request
@@ -116,20 +118,17 @@ def testSendRequestWithoutSignatureFails(pool):
                         retryWait=1, timeout=10)
 
         for n in ctx.nodeset:
-            params = n.spylog.getLastParams(Node.reportSuspiciousClient)
-            frm = params['clientName']
-            reason = params['reason']
-
+            params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
+            ex = params['ex']
+            _, frm = params['wrappedMsg']
+            assert isinstance(ex, EmptySignature)
             assert frm == client1.name
-            assert "SuspiciousClient" in reason
-            assert "EmptySignature" in reason
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
             assert msg == request.__dict__
             assert frm == client1.name
-            assert "SuspiciousClient" in reason
             assert "EmptySignature" in reason
 
     pool.run(go)
