@@ -30,6 +30,12 @@ class StatsPublisher:
             logger.debug("connection refused for {}:{} while sending message".
                          format(self.ip, self.port))
             self.writer = None
+        except AssertionError as ex:
+            # TODO: THis is temporary for getting around `self.writer.drain`,
+            # the root cause needs to be found out. Here is the bug,
+            # https://www.pivotaltracker.com/story/show/132555801
+            logger.warn("Error while sending message: {}".format(ex))
+            self.writer = None
 
     def send(self, message):
         async def run():

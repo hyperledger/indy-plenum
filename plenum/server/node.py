@@ -1091,12 +1091,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise InvalidClientRequest from ex
 
         if self.isSignatureVerificationNeeded(msg):
-            try:
-                self.verifySignature(cMsg)
-            except UnknownIdentifier as ex:
-                raise
-            except Exception as ex:
-                raise SuspiciousClient from ex
+            self.verifySignature(cMsg)
+            # Suspicions should only be raised when lot of sig failures are
+            # observed
+            # try:
+            #     self.verifySignature(cMsg)
+            # except UnknownIdentifier as ex:
+            #     raise
+            # except Exception as ex:
+            #     raise SuspiciousClient from ex
         logger.trace("{} received CLIENT message: {}".
                      format(self.clientstack.name, cMsg))
         return cMsg, frm

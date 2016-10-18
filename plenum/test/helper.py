@@ -367,6 +367,7 @@ class TestNodeCore(StackedTester):
 
 # noinspection PyShadowingNames
 @Spyable(methods=[Node.handleOneNodeMsg,
+                  Node.handleInvalidClientMsg,
                   Node.processRequest,
                   Node.processOrdered,
                   Node.postToClientInBox,
