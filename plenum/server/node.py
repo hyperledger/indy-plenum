@@ -1150,6 +1150,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Node has discovered other nodes now sync up domain ledger
         for nm in self.nodestack.connecteds:
             self.sendDomainLedgerStatus(nm)
+        self.ledgerManager.processStashedLedgerStatuses(1)
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
 
