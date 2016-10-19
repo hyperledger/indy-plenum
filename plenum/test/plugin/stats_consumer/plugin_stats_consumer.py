@@ -1,5 +1,6 @@
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, EVENT_PERIODIC_STATS_THROUGHPUT, \
-    PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES
+    PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES, \
+    EVENT_PERIODIC_STATS_TOTAL_REQUESTS
 from typing import Dict, Any
 
 from plenum.server.stats_consumer import StatsConsumer
@@ -14,13 +15,16 @@ class TestStatsConsumer(StatsConsumer):
             EVENT_NODE_STARTED: self._sendStatsOnNodeStart,
             EVENT_PERIODIC_STATS_THROUGHPUT: self._periodicStatsThroughput,
             EVENT_VIEW_CHANGE: self._viewChange,
-            EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies
+            EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies,
+            EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
+            EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests
         }
 
     def sendStats(self, event: str, stats: Dict[str, Any]):
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED,
                          EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_VIEW_CHANGE,
-                         EVENT_PERIODIC_STATS_LATENCIES}
+                         EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES,
+                         EVENT_PERIODIC_STATS_TOTAL_REQUESTS}
         self._eventToFunc[event](stats)
 
     def _periodicStatsThroughput(self, stats: Dict[str, object]):
@@ -41,3 +45,10 @@ class TestStatsConsumer(StatsConsumer):
     def _sendLatencies(self, latencies: Dict[str, object]):
         assert "masterLatency" in latencies
         assert "averageBackupLatency" in latencies
+
+    def _sendKnownNodesInfo(self, nodes: Dict[str, object]):
+        assert "connected" in nodes
+        assert "disconnected" in nodes
+
+    def _sendTotalRequests(self, totalRequests: Dict[str, object]):
+        assert "totalRequests" in totalRequests

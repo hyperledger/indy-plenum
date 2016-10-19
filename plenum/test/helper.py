@@ -188,6 +188,16 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
 
 
+class MockedNodeStack:
+    def remotesByConnected(self):
+        return ([], [])
+
+
+class MockedBlacklister:
+    def isBlacklisted(self, remote):
+        return True
+
+
 @Spyable(methods=[LedgerManager.startCatchUpProcess,
                   LedgerManager.catchupCompleted,
                   LedgerManager.processConsistencyProofReq])
@@ -258,7 +268,7 @@ class TestNodeCore(StackedTester):
         self.instances = Instances()
 
         pluginPaths = kwargs.get('pluginPaths', [])
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances, MockedNodeStack(), MockedBlacklister(),
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()

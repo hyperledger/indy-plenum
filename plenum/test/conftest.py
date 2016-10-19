@@ -2,14 +2,11 @@ import inspect
 import logging
 import json
 import os
-import traceback
 from functools import partial
 from typing import Dict, Any
 import itertools
 
-
 import pytest
-import sys
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -95,8 +92,17 @@ def whitelist(request):
     return getValueFromModule(request, "whitelist", [])
 
 
+@pytest.fixture(scope="module")
+def concerningLogLevels(request):
+    # TODO need to enable WARNING for all tests
+    default = [#logging.WARNING,
+               logging.ERROR,
+               logging.CRITICAL]
+    return getValueFromModule(request, "concerningLogLevels", default)
+
+
 @pytest.fixture(scope="function", autouse=True)
-def logcapture(request, whitelist):
+def logcapture(request, whitelist, concerningLogLevels):
     baseWhitelist = ['seconds to run once nicely',
                      'Executing %s took %.3f seconds',
                      'is already stopped',
@@ -108,9 +114,7 @@ def logcapture(request, whitelist):
     wlfunc = inspect.isfunction(whitelist)
 
     def tester(record):
-        isBenign = record.levelno not in [#logging.WARNING,
-                                          logging.ERROR,
-                                          logging.CRITICAL]
+        isBenign = record.levelno not in concerningLogLevels
         # TODO is this sufficient to test if a log is from test or not?
         isTest = os.path.sep + 'test' in record.pathname
 
