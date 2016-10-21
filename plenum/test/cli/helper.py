@@ -2,6 +2,7 @@ import ast
 import json
 import os
 import re
+from shutil import copyfile
 
 from pygments.token import Token
 
@@ -353,3 +354,14 @@ def loadPlugin(cli, pluginPkgName):
 def assertCliTokens(matchedVars, tokens):
     for key, value in tokens.items():
         assert matchedVars.get(key) == value
+
+
+def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
+                           tdirWithDomainTxns=None):
+    os.makedirs(dirName, exist_ok=True)
+    if tdirWithPoolTxns:
+        copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
+                 os.path.join(dirName, tconf.poolTransactionsFile))
+    if tdirWithDomainTxns:
+        copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
+                 os.path.join(dirName, tconf.domainTransactionsFile))
