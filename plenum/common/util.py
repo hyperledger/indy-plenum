@@ -557,7 +557,7 @@ def prettyDateDifference(startTime, finishTime=None):
 
 
 def getTimeBasedId():
-    return int(time.time() * 1000000)
+    return int(time.time() * 10000000000000000000)
 
 
 def randomSeed(size=32):
