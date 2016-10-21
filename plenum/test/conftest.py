@@ -464,7 +464,6 @@ def txnPoolNodeSet(tdirWithPoolTxns,
                             config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)
-
         looper.run(checkNodesConnected(nodes))
         yield nodes
 

@@ -74,18 +74,12 @@ class Client(Motor,
             cha = getHaFromLocalEstate(name, basedirpath)
             if cha:
                 cha = HA(*cha)
-            # clientEstate = getLocalEstateData(name, basedirpath)
-            # if clientEstate:
-            #     cha = HA(*clientEstate["ha"])
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
-
 
         self.name = name
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
-        # DEPR
-        # self.lastReqId = lastReqId or self.reqRepStore.lastReqId
 
         self.dataDir = self.config.clientDataDir or "data/clients"
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
@@ -98,8 +92,8 @@ class Client(Motor,
             HasPoolManager.__init__(self)
             self.ledgerManager = LedgerManager(self, ownedByNode=False)
             self.ledgerManager.addLedger(0, self.ledger,
-                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
-                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
+                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
             cliNodeReg = OrderedDict()
             for nm, (ip, port) in nodeReg.items():
@@ -207,8 +201,9 @@ class Client(Motor,
         :param limit: The number of messages to be processed
         :return: The number of events up to a prescribed `limit`
         """
-        s = await self.nodestack.service(limit)
+        s = 0
         if self.isGoing():
+            s = await self.nodestack.service(limit)
             await self.nodestack.serviceLifecycle()
         self.nodestack.flushOutBoxes()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
@@ -303,8 +298,7 @@ class Client(Motor,
 
     def onStopping(self, *args, **kwargs):
         self.nodestack.nextCheck = 0
-        if self.nodestack.opened:
-            self.nodestack.close()
+        self.nodestack.stop()
         if self._ledger:
             self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
             self.mode = None
