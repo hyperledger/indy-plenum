@@ -1125,10 +1125,6 @@ class Cli:
         if showMsg:
             self.print("Key created in keyring " + wallet.name)
 
-    # def _addSignerToWallet(self, signer, wallet=None):
-    #     self._addSignerToGivenWallet(signer, wallet)
-    #     self.print("Key created in keyring " + wallet.name)
-
     def _newSigner(self,
                    wallet=None,
                    identifier=None,
@@ -1143,9 +1139,8 @@ class Cli:
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
-        self.bootstrapClientKeys(signer.identifier,
-                            signer.verkey,
-                            self.nodes.values())
+        self.bootstrapClientKeys(signer.identifier, signer.verkey,
+                                 self.nodes.values())
         return signer
 
     @staticmethod
@@ -1241,7 +1236,8 @@ class Cli:
     def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            if idrOrAlias not in wallet.aliasesToIds and idrOrAlias not in wallet.idsToSigners:
+            if idrOrAlias not in wallet.aliasesToIds and \
+                            idrOrAlias not in wallet.idsToSigners:
                 return False
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found
