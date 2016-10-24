@@ -556,8 +556,21 @@ def prettyDateDifference(startTime, finishTime=None):
         return str(day_diff) + " days ago"
 
 
+TIME_BASED_REQ_ID_PRECISION = 1000000
+
+
 def getTimeBasedId():
-    return int(time.time() * 1000000)
+    return int(time.time() * TIME_BASED_REQ_ID_PRECISION)
+
+
+def convertTimeBasedReqIdToMillis(reqId):
+    return (reqId / TIME_BASED_REQ_ID_PRECISION) * 1000
+
+
+def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
+    curTimeRounded = round(time.time() * 1000)
+    startTimeRounded = round(startTime * 1000)
+    return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
 def randomSeed(size=32):
@@ -583,3 +596,4 @@ def get_size(obj, seen=None):
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
+
