@@ -75,7 +75,7 @@ def serlize(obj, level=0, objname=None):
         return str(obj)
 
 
-def serializeForSig(msg: Mapping):
+def serializeMsg(msg: Mapping):
     """
     Serialize a message for signing.
 
@@ -83,5 +83,5 @@ def serializeForSig(msg: Mapping):
     :return: a uft-8 encoded version of `msg`
     """
     ser = serlize(msg)
-    logger.trace("serialized for signing {} into {}".format(msg, ser))
+    logger.trace("serialized msg {} into {}".format(msg, ser))
     return ser.encode('utf-8')
