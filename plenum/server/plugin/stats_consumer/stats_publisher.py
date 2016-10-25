@@ -28,9 +28,6 @@ class StatsPublisher:
             self.reader, self.writer = await asyncio.streams.open_connection(self.ip, self.port, loop=self.loop)
 
     async def sendMessagesFromBuffer(self):
-        if len(self.messageBuffer) == 0:
-            return
-
         while len(self.messageBuffer) > 0:
             message = self.messageBuffer.pop()
             await self.sendMessage(message)
