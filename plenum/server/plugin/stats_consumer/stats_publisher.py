@@ -4,6 +4,7 @@ from enum import Enum, unique
 
 from plenum.common.log import getlogger
 from plenum.common.util import getConfig
+from collections import deque
 
 logger = getlogger()
 config= getConfig()
@@ -19,8 +20,7 @@ class StatsPublisher:
         self.port = port
         self.reader = None
         self.writer = None
-        self.messageBuffer = []
-        self.sending = False
+        self.messageBuffer = deque()
         self.loop = asyncio.get_event_loop()
 
     async def checkConectionAndConnect(self):
@@ -28,14 +28,12 @@ class StatsPublisher:
             self.reader, self.writer = await asyncio.streams.open_connection(self.ip, self.port, loop=self.loop)
 
     async def sendMessagesFromBuffer(self):
-        if self.sending:
+        if len(self.messageBuffer) == 0:
             return
 
-        self.sending = True
         while len(self.messageBuffer) > 0:
             message = self.messageBuffer.pop()
             await self.sendMessage(message)
-        self.sending = False
 
     async def sendMessage(self, message):
         try:
@@ -52,12 +50,11 @@ class StatsPublisher:
             logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
             return
 
-        self.messageBuffer.insert(0, message)
+        self.messageBuffer.appendleft(message)
+        asyncio.ensure_future(self.sendMessagesFromBuffer())
 
-        if self.loop.is_running():
-            self.loop.call_soon(asyncio.async, self.sendMessagesFromBuffer())
-        else:
-            self.loop.run_until_complete(self.sendMessagesFromBuffer())
+        if not self.loop.is_running():
+            self.loop.run_forever()
 
 
 @unique
