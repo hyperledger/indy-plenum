@@ -116,15 +116,19 @@ class Client(Motor,
                                              self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
-        logger.info("Client {} initialized with the following node registry:"
-                    .format(name))
-        lengths = [max(x) for x in zip(*[
-            (len(name), len(host), len(str(port)))
-            for name, (host, port) in self.nodeReg.items()])]
-        fmt = "    {{:<{}}} listens at {{:<{}}} on port {{:>{}}}".format(
-            *lengths)
-        for name, (host, port) in self.nodeReg.items():
-            logger.info(fmt.format(name, host, port))
+        if self.nodeReg:
+            logger.info("Client {} initialized with the following node registry:"
+                        .format(name))
+            lengths = [max(x) for x in zip(*[
+                (len(name), len(host), len(str(port)))
+                for name, (host, port) in self.nodeReg.items()])]
+            fmt = "    {{:<{}}} listens at {{:<{}}} on port {{:>{}}}".format(
+                *lengths)
+            for name, (host, port) in self.nodeReg.items():
+                logger.info(fmt.format(name, host, port))
+        else:
+            logger.info(
+                "Client {} found an empty node registry:".format(name))
 
         Motor.__init__(self)
 
@@ -135,6 +139,7 @@ class Client(Motor,
 
         # TODO: Need to have couple of tests around `reqsPendingConnection`
         # where we check with and without pool ledger
+
         # Stores the requests that need to be sent to the nodes when the client
         # has made sufficient connections to the nodes.
         self.reqsPendingConnection = deque()
@@ -223,8 +228,6 @@ class Client(Motor,
 
         request = Request(identifier=identifier or self.defaultIdentifier,
                           operation=operation)
-        # DEPR
-        # self.setReqId(request)
         return request
 
     def submitReqs(self, *reqs: Request) -> List[Request]:

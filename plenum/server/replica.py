@@ -431,11 +431,9 @@ class Replica(MessageProcessor):
             self.doPrePrepare(rd)
         if rd.digest in self.commitsPendedForOrdering:
             viewNo, ppSeqNo, ppTime = self.commitsPendedForOrdering[rd.digest]
-            self.doOrder(viewNo, ppSeqNo, rd.identifier, rd.reqId, rd.digest,
-                         ppTime)
-            self.commitsPendedForOrdering.pop((viewNo, ppSeqNo), None)
-            self.commitsPendedForOrdering.pop(rd.digest, None)
-        
+            self.orderPendingCommit(viewNo, ppSeqNo, rd.identifier, rd.reqId,
+                                    rd.digest, ppTime)
+
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
@@ -468,7 +466,7 @@ class Replica(MessageProcessor):
         :param sender: name of the node that sent this message
         """
         key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug("{} Receiving PRE-PREPARE {} at {} from {}".
+        logger.debug("{} Receiving PRE-PREPARE{} at {} from {}".
                      format(self, key, time.perf_counter(), sender))
         if self.canProcessPrePrepare(pp, sender):
             if not self.node.isParticipating:
@@ -476,16 +474,15 @@ class Replica(MessageProcessor):
             self.addToPrePrepares(pp)
             if key in self.commitsPendedForOrdering or pp.digest in \
                     self.commitsPendedForOrdering:
-                self.doOrder(*key, pp.identifier, pp.reqId, pp.digest, pp.ppTime)
-                self.commitsPendedForOrdering.pop(key, None)
-                self.commitsPendedForOrdering.pop(pp.digest, None)
+                self.orderPendingCommit(*key, pp.identifier,
+                                        pp.reqId, pp.digest, pp.ppTime)
             # elif pp.digest in self.commitsPendedForOrdering:
             #     self.doOrder(*key, pp.identifier, pp.reqId, pp.digest)
             #     self.commitsPendedForOrdering.pop(pp.digest)
             #     self.commitsPendedForOrdering.pop(key, None)
 
-            logger.info("{} processed incoming PRE-PREPARE {}".
-                           format(self, key))
+            logger.info("{} processed incoming PRE-PREPARE{}".
+                        format(self, key))
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -506,14 +503,14 @@ class Replica(MessageProcessor):
         :param sender: name of the node that sent the PREPARE
         """
         # TODO move this try/except up higher
-        logger.debug("{} received PREPARE {} from {}".
-                     format(self, prepare, sender))
+        logger.debug("{} received PREPARE{} from {}".
+                     format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
         try:
             if self.isValidPrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
                 self.stats.inc(TPCStat.PrepareRcvd)
                 logger.debug("{} processed incoming PREPARE {}".
-                               format(self, (prepare.viewNo, prepare.ppSeqNo)))
+                             format(self, (prepare.viewNo, prepare.ppSeqNo)))
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
@@ -535,8 +532,8 @@ class Replica(MessageProcessor):
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
-            logger.debug("{} processed incoming COMMIT {}".
-                           format(self, (commit.viewNo, commit.ppSeqNo)))
+            logger.debug("{} processed incoming COMMIT{}".
+                         format(self, (commit.viewNo, commit.ppSeqNo)))
 
     def tryCommit(self, prepare: Prepare):
         """
@@ -568,7 +565,7 @@ class Replica(MessageProcessor):
         """
         if not self.node.isParticipating:
             logger.error("Non participating node is attempting PRE-PREPARE. "
-                        "This should not happen.")
+                         "This should not happen.")
             return
         self.prePrepareSeqNo += 1
         tm = time.time()*1000
@@ -601,7 +598,7 @@ class Replica(MessageProcessor):
         commit phase
         :param p: the prepare message
         """
-        logger.debug("{} Sending COMMIT {} at {}".
+        logger.debug("{} Sending COMMIT{} at {}".
                      format(self, (p.viewNo, p.ppSeqNo), time.perf_counter()))
         commit = Commit(self.instId,
                         p.viewNo,
@@ -641,7 +638,7 @@ class Replica(MessageProcessor):
 
         # A PRE-PREPARE is sent that does not match request digest
         if (key in self.reqsPendingPrePrepare and
-                    self.reqsPendingPrePrepare[key] != pp.digest):
+                self.reqsPendingPrePrepare[key] != pp.digest):
             raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
 
         return True
@@ -748,8 +745,8 @@ class Replica(MessageProcessor):
         :param prepare: the PREPARE
         """
         return self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo) and \
-               self.prepares.hasQuorum(prepare, self.f) and \
-               not self.hasCommitted(prepare)
+            self.prepares.hasQuorum(prepare, self.f) and \
+            not self.hasCommitted(prepare)
 
     def isValidCommit(self, commit: Commit, sender: str) -> bool:
         """
@@ -763,7 +760,7 @@ class Replica(MessageProcessor):
         key = (commit.viewNo, commit.ppSeqNo)
         if (key not in self.prepares and
                 key not in self.preparesWaitingForPrePrepare):
-            logger.debug("{} rejecting commit {} due to lack of prepares".
+            logger.debug("{} rejecting COMMIT{} due to lack of prepares".
                          format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)
             return False
@@ -788,8 +785,8 @@ class Replica(MessageProcessor):
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
 
-    def hasOrdered(self, request) -> bool:
-        return (request.viewNo, request.ppSeqNo) in self.ordered
+    def hasOrdered(self, viewNo, ppSeqNo) -> bool:
+        return (viewNo, ppSeqNo) in self.ordered
 
     def canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
         """
@@ -808,7 +805,7 @@ class Replica(MessageProcessor):
         if not self.commits.hasQuorum(commit, self.f):
             return False, "no quorum: {} commits where f is {}".\
                           format(commit, self.f)
-        if self.hasOrdered(commit):
+        if self.hasOrdered(commit.viewNo, commit.ppSeqNo):
             return False, "already ordered"
         return True, None
 
@@ -820,7 +817,7 @@ class Replica(MessageProcessor):
         :param commit: the COMMIT message
         """
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.debug("{} ordering commit {}".format(self, key))
+        logger.debug("{} ordering COMMIT{}".format(self, key))
         primaryStatus = self.isPrimaryForMsg(commit)
 
         if primaryStatus is True:
@@ -845,9 +842,6 @@ class Replica(MessageProcessor):
                         self.commitsPendedForOrdering[key] = commit.ppTime
                         return
                 else:
-                    logger.info("{} cannot find digest {} in "
-                                "received PREPAREs for viewNo {} and "
-                                "ppSeqNo {}".format(self, digest, *key))
                     self.commitsPendedForOrdering[key] = commit.ppTime
                     return
         else:
@@ -871,13 +865,26 @@ class Replica(MessageProcessor):
         self.send(ordered, TPCStat.OrderSent)
         if key in self.stashingWhileCatchingUp:
             self.stashingWhileCatchingUp.remove(key)
+        logger.debug("{} ordered request {}".format(self, (viewNo, ppSeqNo)))
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
 
+    def orderPendingCommit(self, viewNo, ppSeqNo, identifier, reqId, digest,
+                           ppTime):
+        cmKey = (viewNo, ppSeqNo)
+        if self.hasOrdered(*cmKey):
+            logger.debug("{} already ordered {}".format(self, cmKey))
+        else:
+            logger.debug("{} ordering pending {}".format(self, cmKey))
+            self.doOrder(*cmKey, identifier, reqId, digest, ppTime)
+            self.commitsPendedForOrdering.pop(cmKey, None)
+            self.commitsPendedForOrdering.pop(digest, None)
+            return True
+
     def enqueuePrepare(self, request: Prepare, sender: str):
-        logger.debug("Queueing prepares due to unavailability of "
-                      "pre-prepare. request {} from {}".format(request, sender))
+        logger.debug("Queueing prepares due to unavailability of PRE-PREPARE. "
+                     "Request {} from {}".format(request, sender))
         key = (request.viewNo, request.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
@@ -891,11 +898,12 @@ class Replica(MessageProcessor):
             while self.preparesWaitingForPrePrepare[key]:
                 prepare, sender = self.preparesWaitingForPrePrepare[
                     key].popleft()
+                logger.debug("{} popping stashed PREPARE{}".format(self, key))
                 self.processPrepare(prepare, sender)
                 i += 1
             logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
-                         " view no {} and seq no {}".format(self, i, viewNo,
-                                        ppSeqNo))
+                         " view no {} and seq no {}".
+                         format(self, i, viewNo, ppSeqNo))
 
     def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:
         key = (viewNo, ppSeqNo)
@@ -905,7 +913,7 @@ class Replica(MessageProcessor):
             prepare, _ = self.preparesWaitingForPrePrepare[key][0]
             return prepare.digest
         else:
-            logger.debug("{} could not find digest for PRE-PREPARE {}"
+            logger.debug("{} could not find digest in received PREPAREs for {}"
                          .format(self, key))
             return None
 

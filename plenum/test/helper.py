@@ -231,7 +231,8 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
                   replica.Replica.doPrepare,
-                  replica.Replica.doOrder])
+                  replica.Replica.doOrder,
+                  replica.Replica.orderPendingCommit])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1041,9 +1042,7 @@ def randomOperation():
 
 
 def sendRandomRequest(wallet: Wallet, client: Client):
-    op = randomOperation()
-    req = wallet.signOp(op)
-    return client.submitReqs(req)[0]
+    return sendRandomRequests(wallet, client, 1)[0]
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
