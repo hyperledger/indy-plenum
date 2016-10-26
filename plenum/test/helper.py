@@ -596,9 +596,12 @@ class TestNodeSet(ExitStack):
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
-    logger.debug("received replies {}".format(receivedReplies))
+    logger.debug("received replies for reqId {}: {}".
+                 format(reqId, receivedReplies))
     logger.info(str(receivedMsgs))
-    assert len(receivedReplies) > fValue
+    assert len(receivedReplies) > fValue, "Received {} replies but expected " \
+                                          "at-least {} for reqId {}".\
+        format(len(receivedReplies), fValue+1, reqId)
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
     assert result

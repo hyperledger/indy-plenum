@@ -476,11 +476,6 @@ class Replica(MessageProcessor):
                     self.commitsPendedForOrdering:
                 self.orderPendingCommit(*key, pp.identifier,
                                         pp.reqId, pp.digest, pp.ppTime)
-            # elif pp.digest in self.commitsPendedForOrdering:
-            #     self.doOrder(*key, pp.identifier, pp.reqId, pp.digest)
-            #     self.commitsPendedForOrdering.pop(pp.digest)
-            #     self.commitsPendedForOrdering.pop(key, None)
-
             logger.info("{} processed incoming PRE-PREPARE{}".
                         format(self, key))
 

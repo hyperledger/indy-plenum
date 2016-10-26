@@ -163,7 +163,7 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         logger.debug("{} forwarding client request {} to its replicas".
-                      format(self.name, request.key))
+                     format(self, request.key))
         for repQueue in self.msgsToReplicas:
             repQueue.append(request.reqDigest)
         self.monitor.requestUnOrdered(*request.key)
@@ -180,7 +180,6 @@ class Propagator:
         self.requests.add(request)
         # # Only propagate if the node is participating in the consensus process
         # # which happens when the node has completed the catchup process
-        # if self.isParticipating:
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
