@@ -3,8 +3,7 @@ import pytest
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.util import get_size
-from plenum.test.helper import genTestClient, sendRandomRequests, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
@@ -35,10 +34,17 @@ def testRequestsSize(looper, txnPoolNodeSet, poolTxnClientNames,
                                                       *txnPoolNodeSet)
         clients.append((client, wallet))
 
-    n = 50
+    n = 250
+    timeOutPerReq = 10
     for (client, wallet) in clients:
         logger.debug("{} sending {} requests".format(client, n))
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, n, 1, 5)
+        chunkSize = n // 5
+        for i in range(5):
+            sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
+                                                chunkSize, 1, timeOutPerReq)
+            logger.debug("{} sent {} requests".format(client, chunkSize))
+        # sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, n, 1, 10)
+        logger.debug("{} sent {} requests".format(client, n))
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".
                      format(node, len(node.requests), get_size(node.requests)))
