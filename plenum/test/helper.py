@@ -144,7 +144,7 @@ class NotFullyConnected(Exception):
 
 # noinspection PyUnresolvedReferences
 class StackedTester:
-    def checkIfConnectedToAll(self):
+    def checkIfConnectedTo(self, count=None):
         connected = 0
         # TODO refactor to not use values
         for address in self.nodeReg.values():
@@ -153,21 +153,25 @@ class StackedTester:
                     if Stack.isRemoteConnected(remote):
                         connected += 1
                         break
-        totalNodes = len(self.nodeReg)
-        if connected == 0:
+        totalNodes = len(self.nodeReg) if count is None else count
+        if count is None and connected == 0:
             raise NotConnectedToAny()
         elif connected < totalNodes:
             raise NotFullyConnected()
         else:
             assert connected == totalNodes
 
-    async def ensureConnectedToNodes(self):
-        wait = expectedWait(len(self.nodeReg))
+    async def ensureConnectedToNodes(self, timeout=None):
+        wait = timeout or expectedWait(len(self.nodeReg))
         logger.debug(
-                "waiting for {} seconds to check client connections to nodes...".format(
-                        wait))
-        await eventuallyAll(self.checkIfConnectedToAll, retryWait=.5,
+                "waiting for {} seconds to check client connections to "
+                "nodes...".format(wait))
+        await eventuallyAll(self.checkIfConnectedTo, retryWait=.5,
                             totalTimeout=wait)
+
+    async def ensureDisconnectedToNodes(self, timeout):
+        await eventually(self.checkIfConnectedTo, 0, retryWait=.5,
+                         timeout=timeout)
 
 
 @Spyable(methods=[Client.handleOneNodeMsg])

@@ -183,7 +183,8 @@ class Stack(RoadStack):
 
     def isConnectedTo(self, name: str=None, ha: Tuple=None):
         assert (name, ha).count(None) == 1, "One and only one of name or ha " \
-                                            "should be passed"
+                                            "should be passed. Passed " \
+                                            "name: {}, ha: {}".format(name, ha)
         try:
             remote = self.getRemote(name, ha)
         except RemoteNotFound:
@@ -199,7 +200,8 @@ class Stack(RoadStack):
         :raises: RemoteNotFound
         """
         assert (name, ha).count(None) == 1, "One and only one of name or ha " \
-                                            "should be passed"
+                                            "should be passed. Passed " \
+                                            "name: {}, ha: {}".format(name, ha)
         remote = self.findInRemotesByName(name) if name else \
             self.findInRemotesByHA(ha)
         if not remote:
@@ -209,7 +211,8 @@ class Stack(RoadStack):
     def findInRemotesByHA(self, remoteHa):
         remotes = [r for r in self.remotes.values()
                    if r.ha == remoteHa]
-        assert len(remotes) <= 1
+        assert len(remotes) <= 1, "Found remotes {}: {}".\
+            format(len(remotes), [(r.name, r.ha) for r in remotes])
         if remotes:
             return remotes[0]
         return None
@@ -577,6 +580,7 @@ class KITStack(SimpleStack):
         elif disconn.joined:
             self.updateStamp()
             self.allow(uid=disconn.uid, cascade=True, timeout=20)
+            # self.alive(uid=disconn.uid, cascade=True, timeout=20)
             logger.debug("{} disconnected node is joined".format(
                 self), extra={"cli": "STATUS"})
         else:

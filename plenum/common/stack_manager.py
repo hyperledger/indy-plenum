@@ -147,8 +147,10 @@ class TxnStackManager:
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                initRemoteKeep(self.name, remoteName, self.basedirpath, key,
-                               override=True)
+                # Do it only for Nodes, not for Clients!
+                if self.isNode:
+                    initRemoteKeep(self.name, remoteName, self.basedirpath, key,
+                                   override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))

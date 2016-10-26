@@ -11,7 +11,7 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
-from plenum.common.signing import serializeForSig
+from plenum.common.signing import serializeMsg
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
 
@@ -111,7 +111,7 @@ class NaclAuthNr(ClientAuthNr):
         pass
 
     def serializeForSig(self, msg):
-        return serializeForSig(msg)
+        return serializeMsg(msg)
 
 
 class SimpleAuthNr(NaclAuthNr):

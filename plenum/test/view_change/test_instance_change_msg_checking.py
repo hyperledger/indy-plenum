@@ -1,12 +1,26 @@
 import pytest
 import types
 from plenum.common.types import InstanceChange
+from plenum.test.eventually import eventually
+from plenum.test.helper import TestNode
 
-def test_instance_change_msg_type_checking(nodeSet, looper, up):
+DISCARD_REASON = 'viewNo has incorrect type'
+
+whitelist = [DISCARD_REASON,]
+
+
+def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
     nodeA = nodeSet.Alpha
     nodeB = nodeSet.Beta
     
-    ridBetta = nodeA.nodestack.getRemote(nodeB.name).uid
+    ridBeta = nodeA.nodestack.getRemote(nodeB.name).uid
     badViewNo = "BAD"
-    nodeA.send(InstanceChange(badViewNo), ridBetta)
-    looper.runFor(.2)
+    nodeA.send(InstanceChange(badViewNo), ridBeta)
+    looper.runFor(0.2)
+    params = nodeB.spylog.getLastParams(TestNode.discard)
+
+    def chk():
+        assert isinstance(params['msg'], InstanceChange)
+        assert DISCARD_REASON in params['reason']
+
+    looper.run(eventually(chk, timeout=5))
