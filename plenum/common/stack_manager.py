@@ -108,13 +108,6 @@ class TxnStackManager:
     def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
-        # try:
-        #     rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
-        #     logger.debug(
-        #         "{} removed remote {}".format(nodeOrClientObj, remoteName))
-        # except RemoteNotFound as ex:
-        #     logger.info(ex)
-        #     rid = None
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
@@ -130,12 +123,6 @@ class TxnStackManager:
         logger.debug(
             "{} removing remote {}".format(nodeOrClientObj, remoteName))
         # Removing remote so that the nodestack will attempt to connect
-        # try:
-        #     rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
-        #     logger.debug(
-        #         "{} removed remote {}".format(nodeOrClientObj, remoteName))
-        # except RemoteNotFound as ex:
-        #     logger.info(ex)
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
         verkey = txn[DATA][VERKEY]
@@ -155,7 +142,7 @@ class TxnStackManager:
             logger.debug(
                 "{} removed remote {}".format(stack, remoteName))
         except RemoteNotFound as ex:
-            logger.info(ex)
+            logger.debug(str(ex))
             rid = None
 
         return rid
