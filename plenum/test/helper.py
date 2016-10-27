@@ -598,7 +598,6 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
     logger.debug("received replies for reqId {}: {}".
                  format(reqId, receivedReplies))
-    logger.info(str(receivedMsgs))
     assert len(receivedReplies) > fValue, "Received {} replies but expected " \
                                           "at-least {} for reqId {}".\
         format(len(receivedReplies), fValue+1, reqId)
@@ -636,7 +635,6 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
             getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
-    # for (rid, tid, oprType, oprAmt) in msgs:
     for tpl in msgs:
         groupedMsgs[tpl] = groupedMsgs.get(tpl, 0) + 1
     assert max(groupedMsgs.values()) >= fValue + 1
@@ -1041,7 +1039,10 @@ def totalConnections(nodeCount: int) -> int:
 
 
 def randomOperation():
-    return {"type": "buy", "amount": random.randint(10, 100)}
+    return {
+        "type": "buy",
+        "amount": random.randint(10, 100)
+    }
 
 
 def sendRandomRequest(wallet: Wallet, client: Client):

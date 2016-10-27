@@ -3,7 +3,6 @@ from copy import copy
 import pytest
 
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import USER
@@ -25,12 +24,6 @@ whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
              "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
 
 
-@pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
-
-
 @pytest.fixture(scope="module")
 def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
     return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
@@ -44,50 +37,6 @@ def client1(clientAndWallet1):
 @pytest.fixture(scope="module")
 def wallet1(clientAndWallet1):
     return clientAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
-                      tdirWithPoolTxns):
-    return buildPoolClientAndWallet(poolTxnStewardData, tdirWithPoolTxns)
-
-
-@pytest.fixture(scope="module")
-def steward1(looper, txnPoolNodeSet, stewardAndWallet1):
-    steward, wallet = stewardAndWallet1
-    looper.add(steward)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward,
-                                                  *txnPoolNodeSet)
-    return steward
-
-
-@pytest.fixture(scope="module")
-def stewardWallet(stewardAndWallet1):
-    return stewardAndWallet1[1]
-
-
-@pytest.fixture("module")
-def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
-                   stewardWallet, allPluginsPath):
-    newStewardName = "testClientSteward" + randomString(3)
-    newNodeName = "Theta"
-    newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-                                               steward1, stewardWallet,
-                                               newStewardName, newNodeName,
-                                               tdirWithPoolTxns, tconf,
-                                               allPluginsPath)
-    txnPoolNodeSet.append(newNode)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
-                                                  *txnPoolNodeSet)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
-                                                  *txnPoolNodeSet)
-    return newSteward, newStewardWallet, newNode
-
-
-@pytest.fixture("module")
-def newHa():
-    return genHa(2)
 
 
 def getNodeWithName(txnPoolNodeSet, name: str):
@@ -186,13 +135,13 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
 
 
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                        tconf, steward1, stewardWallet, nodeThetaAdded, newHa):
+                        tconf, steward1, stewardWallet, nodeThetaAdded):
     """
     An running node's port is changed
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     newNode.stop()
-    nodeNewHa, clientNewHa = newHa
+    nodeNewHa, clientNewHa = genHa(2)
     logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
                                                    clientNewHa))
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,

@@ -119,4 +119,4 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     # verify all nodes have undergone an instance change
-    looper.run(eventually(checkViewNoForNodes, step3.nodes, 1))
+    looper.run(eventually(checkViewNoForNodes, step3.nodes, 1, timeout=10))

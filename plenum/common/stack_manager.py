@@ -53,11 +53,12 @@ class TxnStackManager:
                 fileName=self.ledgerFile)
         return self._ledger
 
-    def parseLedgerForHaAndKeys(self):
+    @staticmethod
+    def parseLedgerForHaAndKeys(ledger):
         nodeReg = OrderedDict()
         cliNodeReg = OrderedDict()
         nodeKeys = {}
-        for _, txn in self.ledger.getAllTxn().items():
+        for _, txn in ledger.getAllTxn().items():
             if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS, CHANGE_HA):
                 nodeName = txn[DATA][ALIAS]
                 nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \

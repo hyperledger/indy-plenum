@@ -429,7 +429,7 @@ def cleanSeed(seed=None):
 
 def isHexKey(key):
     try:
-        if len(key) == 64 and int(key, 16):
+        if len(key) == 64 and isHex(key):
             return True
     except ValueError as ex:
         return False
@@ -439,9 +439,8 @@ def isHexKey(key):
 
 
 def getCryptonym(identifier):
-    isHex = isHexKey(identifier)
-    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
-        else identifier
+    return base58.b58encode(unhexlify(identifier.encode())).decode() \
+        if isHexKey(identifier) else identifier
 
 
 def hexToFriendly(hx):
@@ -574,7 +573,8 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
 
 
 def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits) for _ in range(size)).encode()
+    return ''.join(random.choice(string.hexdigits)
+                   for _ in range(size)).encode()
 
 
 def get_size(obj, seen=None):

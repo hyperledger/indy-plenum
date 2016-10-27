@@ -34,12 +34,13 @@ def testRequestsSize(looper, txnPoolNodeSet, poolTxnClientNames,
                                                       *txnPoolNodeSet)
         clients.append((client, wallet))
 
-    n = 250
-    timeOutPerReq = 10
+    n = 500
+    timeOutPerReq = 20
     for (client, wallet) in clients:
         logger.debug("{} sending {} requests".format(client, n))
-        chunkSize = n // 5
-        for i in range(5):
+        chunks = 10
+        chunkSize = n // chunks
+        for i in range(chunks):
             sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
                                                 chunkSize, 1, timeOutPerReq)
             logger.debug("{} sent {} requests".format(client, chunkSize))
