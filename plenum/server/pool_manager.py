@@ -78,7 +78,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
-        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
+        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
 
         self.addRemoteKeysFromLedger(nodeKeys)
 
@@ -245,7 +245,7 @@ class RegistryPoolManager(PoolManager):
         nstack, nodeReg, cliNodeReg = self.getNodeStackParams(name,
                                                               nodeRegistry,
                                                               ha,
-                                                              basedirpath=basedirpath)
+                                                              basedirpath)
 
         cstack = self.getClientStackParams(name, nodeRegistry,
                                            cliname=cliname, cliha=cliha,
@@ -265,9 +265,6 @@ class RegistryPoolManager(PoolManager):
             sha = me.ha
             nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
         else:
-
-
-
             sha = me if isinstance(me, HA) else HA(*me[0])
             nodeReg = {k: v if isinstance(v, HA) else HA(*v[0])
                        for k, v in nodeRegistry.items()}

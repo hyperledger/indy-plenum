@@ -3,8 +3,11 @@ import asyncio
 from enum import Enum, unique
 
 from plenum.common.log import getlogger
+from plenum.common.util import getConfig
+from collections import deque
 
 logger = getlogger()
+config= getConfig()
 
 
 class StatsPublisher:
@@ -17,38 +20,39 @@ class StatsPublisher:
         self.port = port
         self.reader = None
         self.writer = None
+        self.messageBuffer = deque()
+        self.loop = asyncio.get_event_loop()
+
+    async def checkConectionAndConnect(self):
+        if self.writer is None:
+            self.reader, self.writer = await asyncio.streams.open_connection(
+                self.ip, self.port, loop=self.loop)
+
+    async def sendMessagesFromBuffer(self):
+        while len(self.messageBuffer) > 0:
+            message = self.messageBuffer.pop()
+            await self.sendMessage(message)
 
     async def sendMessage(self, message):
-        loop = asyncio.get_event_loop()
         try:
-            if self.writer is None:
-                self.reader, self.writer = await asyncio.streams\
-                    .open_connection(self.ip, self.port, loop=loop)
+            await self.checkConectionAndConnect()
             self.writer.write((message + '\n').encode('utf-8'))
             await self.writer.drain()
         except (ConnectionRefusedError, ConnectionResetError) as ex:
-            logger.debug("connection refused for {}:{} while sending message".
+            logger.debug("Connection refused for {}:{} while sending message".
                          format(self.ip, self.port))
-            self.writer = None
-        except AssertionError as ex:
-            # TODO: THis is temporary for getting around `self.writer.drain`,
-            # the root cause needs to be found out. Here is the bug,
-            # https://www.pivotaltracker.com/story/show/132555801
-            logger.warn("Error while sending message: {}".format(ex))
             self.writer = None
 
     def send(self, message):
-        async def run():
-            await self.sendMessage(message=message)
-            # TODO: Can this sleep be removed?
-            await asyncio.sleep(0.01)
+        if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+            logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
+            return
 
-        loop = asyncio.get_event_loop()
+        self.messageBuffer.appendleft(message)
+        asyncio.ensure_future(self.sendMessagesFromBuffer())
 
-        if loop.is_running():
-            loop.call_soon(asyncio.async, run())
-        else:
-            loop.run_until_complete(run())
+        if not self.loop.is_running():
+            self.loop.run_forever()
 
 
 @unique

@@ -496,8 +496,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
-            c += await self.serviceNodeMsgs(limit)
             c += await self.serviceReplicas(limit)
+            c += await self.serviceNodeMsgs(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
             c += self.ledgerManager._serviceActions()
@@ -1557,7 +1557,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     logger.error("Role {} must be either STEWARD, USER"
                                  .format(role))
                     return
-                # verkey = cryptonymToHex(txn[TARGET_NYM]).decode()
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)
 

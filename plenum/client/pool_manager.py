@@ -20,7 +20,7 @@ class HasPoolManager(TxnStackManager):
         self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
-        _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
+        _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg
         self.addRemoteKeysFromLedger(nodeKeys)
         # Temporary place for keeping node transactions while this client is

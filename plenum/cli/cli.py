@@ -22,6 +22,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
 
@@ -105,29 +106,17 @@ class Cli:
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig(self.basedirpath)
-        if not (useNodeReg and
-                    nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
+        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
+                and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
-            nodeReg = {}
-            cliNodeReg = {}
             dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
                 fileName=self.config.poolTransactionsFile)
-            for _, txn in ledger.getAllTxn().items():
-                if txn[TXN_TYPE] == NEW_NODE:
-                    nodeName = txn[DATA][ALIAS]
-                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                        else None
-                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                        else None
-                    if nHa:
-                        nodeReg[nodeName] = HA(*nHa)
-                    if cHa:
-                        cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
+            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+                ledger)
+
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
