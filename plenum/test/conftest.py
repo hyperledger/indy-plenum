@@ -125,7 +125,7 @@ def logcapture(request, whitelist, concerningLogLevels):
 
         whiteListedExceptions = baseWhitelist + wl
         isWhiteListed = bool([w for w in whiteListedExceptions
-                              if w in record.msg])
+                              if w in str(record.msg)])
         if not (isBenign or isTest or isWhiteListed):
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
