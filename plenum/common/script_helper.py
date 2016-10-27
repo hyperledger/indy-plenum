@@ -250,8 +250,8 @@ def changeHA(basedirpath):
     parser.add_argument('--name', required=True, type=str,
                         help='node name')
 
-    parser.add_argument('--nodeseed', required=True, type=str,
-                        help="node's seed")
+    parser.add_argument('--nodeverkey', required=True, type=str,
+                        help="node's ver key")
 
     parser.add_argument('--stewardseed', required=True, type=str,
                         help="stewards's seed")
@@ -273,8 +273,7 @@ def changeHA(basedirpath):
     if not clientStackNewHA:
         clientStackNewHA = (nodesNewIp, str(int(nodesNewPort)+1))
 
-    nodesSeed = bytes(args.nodeseed, 'utf-8')
-    nodeSigner = SimpleSigner(seed=nodesSeed)
+    nodeVerKey = args.nodeverkey
 
     stewardsSeed = bytes(args.stewardseed, 'utf-8')
     stewardSigner = SimpleSigner(seed=stewardsSeed)
@@ -284,31 +283,22 @@ def changeHA(basedirpath):
 
     client_address = ('0.0.0.0', 9761)
 
-    poolTransactionsFile = ENVS[env].poolLedger
-    poolTransFile = open(os.path.join(basedirpath, poolTransactionsFile), 'r')
-    nodeReg = {}
-    for line in poolTransFile:
-        txn = json.loads(line)
-        data = txn[DATA]
-        if txn[TXN_TYPE] == NEW_NODE:
-            nodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
-                                                             data[CLIENT_PORT])
-
-    client = Client("steward1",
+    config=getConfig()
+    config.poolTransactionsFile = ENVS[env].poolLedger
+    config.domainTransactionsFile = ENVS[env].domainLedger
+    client = Client("changehasteward",
                     ha=client_address,
-                    nodeReg=nodeReg,
+                    config=config,
                     basedirpath=basedirpath)
 
+    f = getMaxFailures(len(client.nodeReg))
+
     looper = Looper(debug=True)
-
     looper.add(client)
-
     looper.runFor(3)
-
-    req = submitNodeIpChange(client, stewardWallet, nodeName, nodeSigner.verkey,
+    req = submitNodeIpChange(client, stewardWallet, nodeName, nodeVerKey,
                        nodeStackNewHA, clientStackNewHA)
 
-    f = getMaxFailures(len(nodeReg))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId
-                          , f, retryWait=1, timeout=15))
-    looper.runFor(15)
+                          , f, retryWait=1, timeout=8))
+    looper.runFor(10)
