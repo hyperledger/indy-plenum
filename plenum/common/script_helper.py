@@ -268,22 +268,26 @@ def changeHA(basedirpath):
     nodeName = args.name
     nodeStackNewHA = args.nodestacknewha
     clientStackNewHA = args.clientstacknewha
+    nodeVerKey = args.nodeverkey
+    stewardsSeed = bytes(args.stewardseed, 'utf-8')
+    looper = Looper(debug=True)
+    config = getConfig()
+    changeHACore(looper, basedirpath, config, env, nodeName, nodeVerKey,
+                 stewardsSeed, nodeStackNewHA, clientStackNewHA)
+
+
+def changeHACore(looper, basedirpath, config, env, nodeName, nodeVerKey,
+                 stewardsSeed, nodeStackNewHA, clientStackNewHA=None):
+
     nodesNewIp, nodesNewPort = tuple(nodeStackNewHA.split(':'))
     nodeStackNewHA = (nodesNewIp, nodesNewPort)
     if not clientStackNewHA:
-        clientStackNewHA = (nodesNewIp, str(int(nodesNewPort)+1))
-
-    nodeVerKey = args.nodeverkey
-
-    stewardsSeed = bytes(args.stewardseed, 'utf-8')
+        clientStackNewHA = (nodesNewIp, str(int(nodesNewPort) + 1))
     stewardSigner = SimpleSigner(seed=stewardsSeed)
-
     stewardWallet = Wallet("StewardWallet")
     stewardWallet.addIdentifier(signer=stewardSigner)
-
     client_address = ('0.0.0.0', 9761)
 
-    config=getConfig()
     config.poolTransactionsFile = ENVS[env].poolLedger
     config.domainTransactionsFile = ENVS[env].domainLedger
     client = Client("changehasteward",
@@ -291,14 +295,9 @@ def changeHA(basedirpath):
                     config=config,
                     basedirpath=basedirpath)
 
-    f = getMaxFailures(len(client.nodeReg))
 
-    looper = Looper(debug=True)
     looper.add(client)
-    looper.runFor(3)
+    looper.runFor(20)
     req = submitNodeIpChange(client, stewardWallet, nodeName, nodeVerKey,
-                       nodeStackNewHA, clientStackNewHA)
-
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId
-                          , f, retryWait=1, timeout=8))
-    looper.runFor(10)
+                             nodeStackNewHA, clientStackNewHA)
+    return client, req
