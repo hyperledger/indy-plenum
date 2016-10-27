@@ -6,6 +6,7 @@ from collections import OrderedDict
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
+from plenum.common.exceptions import RemoteNotFound
 from plenum.common.raet import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NEW_NODE, CHANGE_KEYS, CHANGE_HA
@@ -107,16 +108,18 @@ class TxnStackManager:
     def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
+        # try:
+        #     rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
+        #     logger.debug(
+        #         "{} removed remote {}".format(nodeOrClientObj, remoteName))
+        # except RemoteNotFound as ex:
+        #     logger.info(ex)
+        #     rid = None
+        rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
         if self.isNode:
-            rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
-            logger.debug(
-                "{} removing remote {}".format(nodeOrClientObj, remoteName))
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
             nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
         else:
-            logger.debug(
-                "{} removing remote {}".format(nodeOrClientObj, remoteName))
-            rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
         return rid
 
@@ -127,7 +130,13 @@ class TxnStackManager:
         logger.debug(
             "{} removing remote {}".format(nodeOrClientObj, remoteName))
         # Removing remote so that the nodestack will attempt to connect
-        nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
+        # try:
+        #     rid = nodeOrClientObj.nodestack.removeRemoteByName(remoteName)
+        #     logger.debug(
+        #         "{} removed remote {}".format(nodeOrClientObj, remoteName))
+        # except RemoteNotFound as ex:
+        #     logger.info(ex)
+        rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
         verkey = txn[DATA][VERKEY]
         try:
@@ -137,6 +146,19 @@ class TxnStackManager:
         except Exception as ex:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))
+        return rid
+
+    @staticmethod
+    def removeRemote(stack, remoteName):
+        try:
+            rid = stack.removeRemoteByName(remoteName)
+            logger.debug(
+                "{} removed remote {}".format(stack, remoteName))
+        except RemoteNotFound as ex:
+            logger.info(ex)
+            rid = None
+
+        return rid
 
     def addRemoteKeysFromLedger(self, keys):
         for remoteName, key in keys.items():

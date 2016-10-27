@@ -165,7 +165,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.node.clientstack.keep.clearLocalData()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
-            self.node.nodestack.outBoxes.pop(rid, None)
+            if rid:
+                self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
 
     def nodeKeysChanged(self, txn):
@@ -176,7 +177,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                          format(self.name))
             return
         else:
-            self.stackKeysChanged(txn, nodeName, self.node)
+            rid = self.stackKeysChanged(txn, nodeName, self.node)
+            if rid:
+                self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
 
     def getNodeName(self, nym):
