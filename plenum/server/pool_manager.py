@@ -201,6 +201,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
+        operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
@@ -209,22 +210,24 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
                         format(origin, txn[DATA][ALIAS])
-                if txn[DATA] == request.operation[DATA]:
+                if txn[DATA] == operation.get(DATA):
                     return "transaction data {} has conflicts with " \
-                           "request data {}". \
-                        format(txn[DATA], request.operation[DATA])
+                           "request data {}".format(txn[DATA],
+                                                    operation.get(DATA))
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
+        operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
-                    request.operation[TARGET_NYM] and txn[f.IDENTIFIER.nm] == origin:
+            if txn[TXN_TYPE] == NEW_NODE and \
+                            txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
+                            txn[f.IDENTIFIER.nm] == origin:
                 return
         return "{} is not a steward of node {}".\
-            format(origin, request.data[TARGET_NYM])
+            format(origin, operation.get(TARGET_NYM))
 
     @property
     def merkleRootHash(self):
