@@ -61,7 +61,6 @@ class Client(Motor,
         :param name: unique identifier for the client
         :param nodeReg: names and host addresses of all nodes in the pool
         :param ha: tuple of host and port
-        :param lastReqId: Request Id of the last request sent by client
         """
         self.config = config or getConfig()
         basedirpath = self.config.baseDir if not basedirpath else basedirpath
