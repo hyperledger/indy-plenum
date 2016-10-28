@@ -1,28 +1,26 @@
 import asyncio
-
-import base58
-from importlib.util import spec_from_file_location, module_from_spec
-from importlib import import_module
-import itertools
 import json
 import logging
+import socket
+import string
+from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
+    Tuple, Union, List, NamedTuple
+
+import base58
+import itertools
+import libnacl.secret
 import math
 import os
 import random
-import socket
-import string
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from math import floor
-from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple
-
-import libnacl.secret
-import sys
+from importlib import import_module
+from importlib.util import spec_from_file_location, module_from_spec
 from ledger.util import F
 from libnacl import crypto_hash_sha256
+from math import floor
 from six import iteritems, string_types
 
 T = TypeVar('T')
@@ -575,25 +573,3 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
 def randomSeed(size=32):
     return ''.join(random.choice(string.hexdigits)
                    for _ in range(size)).encode()
-
-
-def get_size(obj, seen=None):
-    """Recursively finds size of objects"""
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
-    return size
-

@@ -70,10 +70,11 @@ class Client(Motor,
         cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
-            logger.debug("Client {} ignoring given ha".format(ha))
             cha = getHaFromLocalEstate(name, basedirpath)
             if cha:
                 cha = HA(*cha)
+                logger.debug("Client {} ignoring given ha {} and using {}".
+                             format(name, ha, cha))
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 

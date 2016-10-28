@@ -142,13 +142,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # noinspection PyCallingNonCallable
         self.nodestack = self.nodeStackClass(self.poolManager.nstack,
-                                   self.handleOneNodeMsg,
-                                   self.nodeReg)
+                                             self.handleOneNodeMsg,
+                                             self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         # noinspection PyCallingNonCallable
         self.clientstack = self.clientStackClass(self.poolManager.cstack,
-                                       self.handleOneClientMsg)
+                                                 self.handleOneClientMsg)
 
         self.cliNodeReg = self.poolManager.cliNodeReg
 

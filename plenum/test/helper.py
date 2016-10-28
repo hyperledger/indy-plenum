@@ -14,6 +14,7 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence, Iterator
 from typing import Union, Callable
 
+from plenum.common.perf_util import timeit
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
@@ -619,10 +620,15 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
     timeoutPerReq = timeoutPerReq or 5 * nodeCount
 
     requests = sendRandomRequests(wallet, client, numReqs)
+    coros = []
     for request in requests:
-        looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
-                              request.reqId, fVal,
-                              retryWait=1, timeout=timeoutPerReq))
+        # looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+        #                       request.reqId, fVal,
+        #                       retryWait=1, timeout=timeoutPerReq))
+        coros.append(partial(checkSufficientRepliesRecvd, client.inBox,
+                             request.reqId, fVal))
+    looper.run(eventuallyAll(*coros, retryWait=1,
+                             totalTimeout=timeoutPerReq*len(requests)))
     return requests
 
 
@@ -1465,3 +1471,36 @@ def assertExp(condition):
 
 def assertFunc(func):
     assert func()
+
+
+@timeit
+def getAcksFromInbox(client, reqId, maxm=None):
+    acks = set()
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REQACK and msg[f.REQ_ID.nm] == reqId:
+            acks.add(sender)
+            if maxm and len(acks) == maxm:
+                break
+    return acks
+
+
+@timeit
+def getNacksFromInbox(client, reqId, maxm=None):
+    nacks = {}
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REQNACK and msg[f.REQ_ID.nm] == reqId:
+            nacks[sender] = msg[f.REASON.nm]
+            if maxm and len(nacks) == maxm:
+                break
+    return nacks
+
+
+@timeit
+def getRepliesFromInbox(client, reqId, maxm=None) -> list:
+    replies = {}
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+            replies[sender] = msg
+            if maxm and len(replies) == maxm:
+                break
+    return replies
