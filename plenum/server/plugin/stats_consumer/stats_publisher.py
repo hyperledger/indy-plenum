@@ -40,7 +40,7 @@ class StatsPublisher:
             await self.writer.drain()
         except (ConnectionRefusedError, ConnectionResetError) as ex:
             logger.debug("Connection refused for {}:{} while sending message: {}".
-                        format(self.ip, self.port), ex)
+                        format(self.ip, self.port, ex))
             self.writer = None
         except Exception as ex1:
             logger.debug("Can not publish stats message: {}".format(ex1))
