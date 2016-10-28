@@ -39,9 +39,13 @@ class StatsPublisher:
             self.writer.write((message + '\n').encode('utf-8'))
             await self.writer.drain()
         except (ConnectionRefusedError, ConnectionResetError) as ex:
-            logger.debug("Connection refused for {}:{} while sending message".
-                         format(self.ip, self.port))
+            logger.debug("Connection refused for {}:{} while sending message: {}".
+                        format(self.ip, self.port), ex)
             self.writer = None
+        except Exception as ex1:
+            logger.debug("Can not publish stats message: {}".format(ex1))
+            self.writer = None
+
 
     def send(self, message):
         if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
