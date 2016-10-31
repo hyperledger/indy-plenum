@@ -27,7 +27,49 @@ class StatsPublisher:
         self.unexpectedConnectionFail = 0
         self._connectionSem = asyncio.Lock()
 
-    async def checkConectionAndConnect(self):
+    def addMsgToBuffer(self, message):
+        if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+            logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
+            return False
+
+        self.messageBuffer.appendleft(message)
+        return True
+
+    def send(self, message):
+        if not config.SendMonitorStats:
+            return
+
+        if not self.addMsgToBuffer(message):
+            return
+
+        if self.loop.is_running():
+            self.loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
+        else:
+            self.loop.run_until_complete(self.sendMessagesFromBuffer())
+
+    async def sendMessagesFromBuffer(self):
+        while len(self.messageBuffer) > 0:
+            message = self.messageBuffer.pop()
+            await self.sendMessage(message)
+
+    async def sendMessage(self, message):
+        try:
+            await self.checkConnectionAndConnect()
+            await self.doSendMessage(message)
+            self.unexpectedConnectionFail = 0
+        except (ConnectionRefusedError, ConnectionResetError) as ex:
+            self.connectionRefused(message, ex)
+        except Exception as ex1:
+            # this is a workaround for a problem when an input port used to establish a connection is the same as the
+            # target one. An assertion error is thrown in this case and it may lead to a memory leak.
+            #
+            # As a workaround, we catch this exception and try to re-connect.
+            #
+            # Actually currently it's no needed as long as we use a port 30000
+            # (which is less than default range of ports used to establish connection on Linux)
+            self.connectionFailedUnexpectedly(message, ex1)
+
+    async def checkConnectionAndConnect(self):
         if self.writer is None:
             await self._connectionSem.acquire()
             try:
@@ -37,52 +79,24 @@ class StatsPublisher:
             finally:
                 self._connectionSem.release()
 
-
-    async def sendMessagesFromBuffer(self):
-        while len(self.messageBuffer) > 0:
-            message = self.messageBuffer.pop()
-            await self.sendMessage(message)
-
-    async def sendMessage(self, message):
-        try:
-            await self.checkConectionAndConnect()
-            await self.doSendMessage(message)
-            self.unexpectedConnectionFail = 0
-        except (ConnectionRefusedError, ConnectionResetError) as ex:
-            logger.debug("Connection refused for {}:{} while sending message: {}".
-                         format(self.ip, self.port, ex))
-            self.writer = None
-            self.unexpectedConnectionFail = 0
-        except Exception as ex1:
-            # this is a workaround for an extreme memory leak
-            # sometimes the drain() method above is called, that is checkConectionAndConnect() doesn't throw
-            # any exceptions, although no one listens on the port, so exception must be thrown and drain must not be called.
-            # It leads to an AssertionException.
-            # As a workaround, we catch this exception and try to re-connect (usually it helps).
-            # TODO: find out what is the exact reason of such behaviour: a race condition in asyncio and streams, or incorrect usage of API?
-            # we try to re-connect as a workaround
-            logger.debug("Can not publish stats message: {}".format(ex1))
-            self.writer = None
-            self.unexpectedConnectionFail += 1
-            # disable sending statistics at all, if the issue described above is reproduced multiple times in a row.
-            if self.unexpectedConnectionFail > MAX_UNEXPECTED_CONNECTION_FAIL:
-                config.SendMonitorStats = False
-                self.unexpectedConnectionFail = 0
-
     async def doSendMessage(self, message):
         self.writer.write((message + '\n').encode('utf-8'))
         await self.writer.drain()
 
-    def send(self, message):
-        if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
-            logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
-            return
+    def connectionRefused(self, message, ex):
+        logger.debug("Connection refused for {}:{} while sending message: {}".
+                     format(self.ip, self.port, ex))
+        self.writer = None
+        self.unexpectedConnectionFail = 0
 
-        self.messageBuffer.appendleft(message)
-        asyncio.ensure_future(self.sendMessagesFromBuffer())
-
-        if not self.loop.is_running():
-            self.loop.run_forever()
+    def connectionFailedUnexpectedly(self, message, ex):
+        logger.debug("Can not publish stats message: {}".format(ex))
+        self.writer = None
+        self.unexpectedConnectionFail += 1
+        # disable sending statistics at all, if the issue described above is reproduced multiple times in a row.
+        if self.unexpectedConnectionFail > MAX_UNEXPECTED_CONNECTION_FAIL:
+            config.SendMonitorStats = False
+            self.unexpectedConnectionFail = 0
 
 
 @unique
