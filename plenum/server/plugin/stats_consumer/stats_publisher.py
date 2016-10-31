@@ -39,7 +39,7 @@ class StatsPublisher:
     async def sendMessage(self, message):
         try:
             await self.checkConectionAndConnect()
-            await self.doSendMessage()
+            await self.doSendMessage(message)
             self.unexpectedConnectionFail = 0
         except (ConnectionRefusedError, ConnectionResetError) as ex:
             logger.debug("Connection refused for {}:{} while sending message: {}".
