@@ -25,11 +25,18 @@ class StatsPublisher:
         self.messageBuffer = deque()
         self.loop = asyncio.get_event_loop()
         self.unexpectedConnectionFail = 0
+        self._connectionSem = asyncio.Lock()
 
     async def checkConectionAndConnect(self):
         if self.writer is None:
-            self.reader, self.writer = await asyncio.streams.open_connection(
-                self.ip, self.port, loop=self.loop)
+            await self._connectionSem.acquire()
+            try:
+                if self.writer is None:
+                    self.reader, self.writer = \
+                        await asyncio.streams.open_connection(self.ip, self.port, loop=self.loop)
+            finally:
+                self._connectionSem.release()
+
 
     async def sendMessagesFromBuffer(self):
         while len(self.messageBuffer) > 0:
