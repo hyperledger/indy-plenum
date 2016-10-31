@@ -1,13 +1,15 @@
 import asyncio
-
+from collections import deque
 from enum import Enum, unique
 
 from plenum.common.log import getlogger
 from plenum.common.util import getConfig
-from collections import deque
 
 logger = getlogger()
-config= getConfig()
+config = getConfig()
+
+# MAX number of re-tries of workaround the issue with AssertionError (see below).
+MAX_UNEXPECTED_CONNECTION_FAIL = 5
 
 
 class StatsPublisher:
@@ -22,6 +24,7 @@ class StatsPublisher:
         self.writer = None
         self.messageBuffer = deque()
         self.loop = asyncio.get_event_loop()
+        self.unexpectedConnectionFail = 0
 
     async def checkConectionAndConnect(self):
         if self.writer is None:
@@ -36,16 +39,32 @@ class StatsPublisher:
     async def sendMessage(self, message):
         try:
             await self.checkConectionAndConnect()
-            self.writer.write((message + '\n').encode('utf-8'))
-            await self.writer.drain()
+            await self.doSendMessage()
+            self.unexpectedConnectionFail = 0
         except (ConnectionRefusedError, ConnectionResetError) as ex:
             logger.debug("Connection refused for {}:{} while sending message: {}".
-                        format(self.ip, self.port, ex))
+                         format(self.ip, self.port, ex))
             self.writer = None
+            self.unexpectedConnectionFail = 0
         except Exception as ex1:
+            # this is a workaround for an extreme memory leak
+            # sometimes the drain() method above is called, that is checkConectionAndConnect() doesn't throw
+            # any exceptions, although no one listens on the port, so exception must be thrown and drain must not be called.
+            # It leads to an AssertionException.
+            # As a workaround, we catch this exception and try to re-connect (usually it helps).
+            # TODO: find out what is the exact reason of such behaviour: a race condition in asyncio and streams, or incorrect usage of API?
+            # we try to re-connect as a workaround
             logger.debug("Can not publish stats message: {}".format(ex1))
             self.writer = None
+            self.unexpectedConnectionFail += 1
+            # disable sending statistics at all, if the issue described above is reproduced multiple times in a row.
+            if self.unexpectedConnectionFail > MAX_UNEXPECTED_CONNECTION_FAIL:
+                config.SendMonitorStats = False
+                self.unexpectedConnectionFail = 0
 
+    async def doSendMessage(self, message):
+        self.writer.write((message + '\n').encode('utf-8'))
+        await self.writer.drain()
 
     def send(self, message):
         if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
