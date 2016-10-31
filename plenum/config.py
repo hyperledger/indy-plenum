@@ -72,7 +72,7 @@ LatencyGraphDuration = 240
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
-STATS_SERVER_PORT = 50000
+STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 RAETLogLevel = "terse"
