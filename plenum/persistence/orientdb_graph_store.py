@@ -82,3 +82,13 @@ class OrientDbGraphStore(GraphStore):
         result = self.client.command("select count(*) from {} where {}".
                                      format(entityClassName, attrStr))
         return result[0].oRecordData['count']
+
+    def updateEntityWithUniqueId(self, entityClassName, uniqueIdKey,
+                                 uniqueIdVal, **kwargs):
+        if len(kwargs) > 0:
+            cmd = "update {} set {} where {}".format(
+                entityClassName,
+                self.store.getPlaceHolderQueryStringFromDict(kwargs),
+                self.store.getPlaceHolderQueryStringFromDict({
+                    uniqueIdKey: uniqueIdVal}))
+            self.client.command(cmd)
