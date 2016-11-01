@@ -8,96 +8,81 @@ from plenum.common.util import getConfig
 logger = getlogger()
 config = getConfig()
 
-# MAX number of re-tries of workaround the issue with AssertionError (see below).
-MAX_UNEXPECTED_CONNECTION_FAIL = 5
-
 
 class StatsPublisher:
     """
     Class to send data to TCP port which runs stats collecting service
     """
 
-    def __init__(self, ip, port):
-        self.ip = ip
-        self.port = port
-        self.reader = None
-        self.writer = None
-        self.messageBuffer = deque()
-        self.loop = asyncio.get_event_loop()
-        self.unexpectedConnectionFail = 0
+    def __init__(self, destIp, destPort):
+        self.ip = destIp
+        self.port = destPort
+        self._reader = None
+        self._writer = None
+        self._messageBuffer = deque()
+        self._loop = asyncio.get_event_loop()
         self._connectionSem = asyncio.Lock()
 
     def addMsgToBuffer(self, message):
-        if len(self.messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+        if len(self._messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
             logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
             return False
 
-        self.messageBuffer.appendleft(message)
+        self._messageBuffer.appendleft(message)
         return True
 
     def send(self, message):
-        if not config.SendMonitorStats:
-            return
-
         if not self.addMsgToBuffer(message):
             return
 
-        if self.loop.is_running():
-            self.loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
+        if self._loop.is_running():
+            self._loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
         else:
-            self.loop.run_until_complete(self.sendMessagesFromBuffer())
+            self._loop.run_until_complete(self.sendMessagesFromBuffer())
 
     async def sendMessagesFromBuffer(self):
-        while len(self.messageBuffer) > 0:
-            message = self.messageBuffer.pop()
+        while len(self._messageBuffer) > 0:
+            message = self._messageBuffer.pop()
             await self.sendMessage(message)
 
     async def sendMessage(self, message):
         try:
-            await self.checkConnectionAndConnect()
-            await self.doSendMessage(message)
-            self.unexpectedConnectionFail = 0
+            await self._checkConnectionAndConnect()
+            await self._doSendMessage(message)
         except (ConnectionRefusedError, ConnectionResetError) as ex:
-            self.connectionRefused(message, ex)
+            self._connectionRefused(message, ex)
         except Exception as ex1:
-            # this is a workaround for a problem when an input port used to establish a connection is the same as the
-            # target one. An assertion error is thrown in this case and it may lead to a memory leak.
-            #
-            # As a workaround, we catch this exception and try to re-connect.
-            #
-            # Actually currently it's no needed as long as we use a port 30000
-            # (which is less than default range of ports used to establish connection on Linux)
-            self.connectionFailedUnexpectedly(message, ex1)
+            self._connectionFailedUnexpectedly(message, ex1)
 
-    async def checkConnectionAndConnect(self):
-        if self.writer is None:
+    async def _checkConnectionAndConnect(self):
+        if self._writer is None:
             await self._connectionSem.acquire()
             try:
-                if self.writer is None:
-                    self.reader, self.writer = \
-                        await asyncio.streams.open_connection(self.ip, self.port, loop=self.loop)
+                if self._writer is None:
+                    self._reader, self._writer = \
+                        await asyncio.streams.open_connection(host=self.ip, port=self.port, loop=self._loop)
             finally:
                 self._connectionSem.release()
 
-    async def doSendMessage(self, message):
-        self.writer.write((message + '\n').encode('utf-8'))
-        await self.writer.drain()
+    async def _doSendMessage(self, message):
+        self._writer.write((message + '\n').encode('utf-8'))
+        await self._writer.drain()
 
-    def connectionRefused(self, message, ex):
+    def _connectionRefused(self, message, ex):
         logger.debug("Connection refused for {}:{} while sending message: {}".
                      format(self.ip, self.port, ex))
-        self.writer = None
-        self.unexpectedConnectionFail = 0
+        self._writer = None
 
-    def connectionFailedUnexpectedly(self, message, ex):
+    def _connectionFailedUnexpectedly(self, message, ex):
+        # this is a workaround for a problem when an input port used to establish a connection is the same as the
+        # target one. An assertion error is thrown in this case and it may lead to a memory leak.
+        #
+        # As a workaround, we catch this exception and try to re-connect.
+        #
+        # Actually currently it's no needed as long as we use a port 30000 as destination and specified port != 30000 as source
+        # (which is less than default range of ports used to establish connection on Linux)
         logger.debug("Can not publish stats message: {}".format(ex))
-        self.writer = None
-        self.unexpectedConnectionFail += 1
-        # disable sending statistics at all, if the issue described above is reproduced multiple times in a row.
-        if self.unexpectedConnectionFail > MAX_UNEXPECTED_CONNECTION_FAIL:
-            config.SendMonitorStats = False
-            self.unexpectedConnectionFail = 0
-
+        self._writer = None
 
 @unique
 class Topic(Enum):
