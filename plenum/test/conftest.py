@@ -1,28 +1,27 @@
 import inspect
-import logging
+import itertools
 import json
+import logging
 import os
 from functools import partial
 from typing import Dict, Any
-import itertools
 
 import pytest
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.exceptions import BlowUp
 
+from plenum.common.exceptions import BlowUp
+from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getConfig
-from plenum.common.port_dispenser import genHa
-from plenum.common.log import getlogger, TestingHandler
-from plenum.common.txn_util import getTxnOrderedFields
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
     ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
@@ -49,11 +48,11 @@ def getValueFromModule(request, name: str, default: Any = None):
     if hasattr(request.module, name):
         value = getattr(request.module, name)
         logger.info("found {} in the module: {}".
-                     format(name, value))
+                    format(name, value))
     else:
         value = default if default is not None else None
         logger.info("no {} found in the module, using the default: {}".
-                     format(name, value))
+                    format(name, value))
     return value
 
 
@@ -95,9 +94,9 @@ def whitelist(request):
 @pytest.fixture(scope="module")
 def concerningLogLevels(request):
     # TODO need to enable WARNING for all tests
-    default = [#logging.WARNING,
-               logging.ERROR,
-               logging.CRITICAL]
+    default = [  # logging.WARNING,
+        logging.ERROR,
+        logging.CRITICAL]
     return getValueFromModule(request, "concerningLogLevels", default)
 
 
@@ -326,12 +325,12 @@ def replied1(looper, nodeSet, client1, committed1, wallet1):
                      for node in nodeSet])
 
         looper.run(eventually(
-                checkSufficientRepliesRecvd,
-                client1.inBox,
-                committed1.reqId,
-                2,
-                retryWait=2,
-                timeout=30))
+            checkSufficientRepliesRecvd,
+            client1.inBox,
+            committed1.reqId,
+            2,
+            retryWait=2,
+            timeout=30))
     return committed1
 
 
@@ -457,7 +456,7 @@ def txnPoolNodeSet(tdirWithPoolTxns,
         nodes = []
         for nm in poolTxnNodeNames:
             node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                            config=tconf, pluginPaths=allPluginsPath)
+                                 config=tconf, pluginPaths=allPluginsPath)
             looper.add(node)
             nodes.append(node)
         looper.run(checkNodesConnected(nodes))
@@ -470,8 +469,8 @@ def txnPoolCliNodeReg(poolTxnData):
     for txn in poolTxnData["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
             data = txn[DATA]
-            cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
-                                                             data[CLIENT_PORT])
+            cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
+                                                               data[CLIENT_PORT])
     return cliNodeReg
 
 
@@ -480,7 +479,7 @@ def postingStatsEnabled(request):
     config = getConfig()
     config.SendMonitorStats = True
 
-    def reset():
-        config.SendMonitorStats = False
+    # def reset():
+    #    config.SendMonitorStats = False
 
-    request.addfinalizer(reset)
+    # request.addfinalizer(reset)
