@@ -16,14 +16,20 @@ def looper():
         yield l
 
 
+whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
+             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
+
+
 def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                      tdir, poolTxnData, poolTxnStewardData, tconf):
     subjectedNode = txnPoolNodeSet[0]
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
     stewardName, stewardsSeed = poolTxnStewardData
-    ip, port = genHa()
-    nodeStackNewHA = HA(ip, port)
-    clientStackNewHA = HA(ip, port + 1)
+    # ip, port = genHa()
+    # nodeStackNewHA = HA(ip, port)
+    # clientStackNewHA = HA(ip, port + 1)
+
+    nodeStackNewHA, clientStackNewHA = genHa(2)
 
     # stop node which HA will be changed
     subjectedNode.stop()
@@ -33,6 +39,10 @@ def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     f = getMaxFailures(len(client.nodeReg))
     looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
                           f, retryWait=1, timeout=8))
+    subjectedNode.nodestack.clearLocalKeep()
+    subjectedNode.nodestack.clearRemoteKeeps()
+    subjectedNode.clientstack.clearLocalKeep()
+    subjectedNode.clientstack.clearRemoteKeeps()
     # start node with new HA
     restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
