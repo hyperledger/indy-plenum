@@ -3,8 +3,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from plenum.common.util import getConfig
 from plenum.config import STATS_SERVER_PORT, STATS_SERVER_IP
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher
+
+config = getConfig()
 
 
 @pytest.fixture(scope="function")
@@ -56,6 +59,24 @@ def testSendMultipleMessagesSomeoneListens(postingStatsEnabled, listener):
     statsPublisher.assertMessages(N, 0, 0)
 
 
+def testReconnectEachTime(postingStatsEnabled, listener):
+    # send when no one listens (send to port 30001)
+    NOT_SENT_COUNT = 50
+    statsPublisher = TestStatsPublisher()
+    statsPublisher.port = statsPublisher.port + 1
+    for i in range(NOT_SENT_COUNT):
+        statsPublisher.send(message="testMessage1{}".format(i))
+
+    # send when listens (send to port 30000)
+    SENT_COUNT = 30
+    statsPublisher.port = STATS_SERVER_PORT
+    for i in range(SENT_COUNT):
+        statsPublisher.send(message="testMessage2{}".format(i))
+
+    # check
+    statsPublisher.assertMessages(SENT_COUNT, NOT_SENT_COUNT, 0)
+
+
 def testSendAllFromBuffer(postingStatsEnabled):
     N = 100
     statsPublisher = TestStatsPublisher()
@@ -65,6 +86,17 @@ def testSendAllFromBuffer(postingStatsEnabled):
     statsPublisher.send(message="testMessage{}".format(N))
 
     statsPublisher.assertMessages(0, N + 1, 0)
+
+
+def testSendEvenIfBufferFull(postingStatsEnabled):
+    N = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE + 100
+    statsPublisher = TestStatsPublisher()
+    for i in range(N):
+        statsPublisher.addMsgToBuffer("testMessage{}".format(i))
+
+    statsPublisher.send(message="testMessage{}".format(N))
+
+    statsPublisher.assertMessages(0, config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE, 0)
 
 
 def testUnexpectedConnectionError(postingStatsEnabled):
@@ -86,12 +118,10 @@ def testSendManyNoExceptions(postingStatsEnabled):
     assert N == len(statsPublisher.refused)
 
 
-
 def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
     N = 50000
     # use a port that may lead to assertion error (this port may be used as an input port to establish connection)
     statsPublisher = TestStatsPublisher(port=50000)
-    statsPublisher.localPort = None
     for i in range(N):
         statsPublisher.send(message="testMessage{}".format(i))
 

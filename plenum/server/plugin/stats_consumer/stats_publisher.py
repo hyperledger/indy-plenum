@@ -24,16 +24,15 @@ class StatsPublisher:
         self._connectionSem = asyncio.Lock()
 
     def addMsgToBuffer(self, message):
-        if len(self._messageBuffer) > config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
-            logger.error("Message buffer is too large. Refuse to add a new message {}".format(message))
+        if len(self._messageBuffer) >= config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+            logger.warning("Message buffer is too large. Refuse to add a new message {}".format(message))
             return False
 
         self._messageBuffer.appendleft(message)
         return True
 
     def send(self, message):
-        if not self.addMsgToBuffer(message):
-            return
+        self.addMsgToBuffer(message)
 
         if self._loop.is_running():
             self._loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
@@ -41,7 +40,7 @@ class StatsPublisher:
             self._loop.run_until_complete(self.sendMessagesFromBuffer())
 
     async def sendMessagesFromBuffer(self):
-        while len(self._messageBuffer) > 0:
+        while self._messageBuffer:
             message = self._messageBuffer.pop()
             await self.sendMessage(message)
 
@@ -83,6 +82,7 @@ class StatsPublisher:
         # (which is less than default range of ports used to establish connection on Linux)
         logger.debug("Can not publish stats message: {}".format(ex))
         self._writer = None
+
 
 @unique
 class Topic(Enum):
