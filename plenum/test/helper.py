@@ -14,6 +14,7 @@ from typing import TypeVar, Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence, Iterator
 from typing import Union, Callable
 
+from plenum.common.perf_util import timeit
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client, ClientProvider
@@ -231,7 +232,8 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processPrepare,
                   replica.Replica.processCommit,
                   replica.Replica.doPrepare,
-                  replica.Replica.doOrder])
+                  replica.Replica.doOrder,
+                  replica.Replica.orderPendingCommit])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -595,9 +597,11 @@ class TestNodeSet(ExitStack):
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
-    logger.debug("received replies {}".format(receivedReplies))
-    logger.info(str(receivedMsgs))
-    assert len(receivedReplies) > fValue
+    logger.debug("received replies for reqId {}: {}".
+                 format(reqId, receivedReplies))
+    assert len(receivedReplies) > fValue, "Received {} replies but expected " \
+                                          "at-least {} for reqId {}".\
+        format(len(receivedReplies), fValue+1, reqId)
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
     assert result
@@ -616,10 +620,15 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
     timeoutPerReq = timeoutPerReq or 5 * nodeCount
 
     requests = sendRandomRequests(wallet, client, numReqs)
+    coros = []
     for request in requests:
-        looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
-                              request.reqId, fVal,
-                              retryWait=1, timeout=timeoutPerReq))
+        # looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
+        #                       request.reqId, fVal,
+        #                       retryWait=1, timeout=timeoutPerReq))
+        coros.append(partial(checkSufficientRepliesRecvd, client.inBox,
+                             request.reqId, fVal))
+    looper.run(eventuallyAll(*coros, retryWait=1,
+                             totalTimeout=timeoutPerReq*len(requests)))
     return requests
 
 
@@ -632,7 +641,6 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
             getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
-    # for (rid, tid, oprType, oprAmt) in msgs:
     for tpl in msgs:
         groupedMsgs[tpl] = groupedMsgs.get(tpl, 0) + 1
     assert max(groupedMsgs.values()) >= fValue + 1
@@ -1037,13 +1045,14 @@ def totalConnections(nodeCount: int) -> int:
 
 
 def randomOperation():
-    return {"type": "buy", "amount": random.randint(10, 100)}
+    return {
+        "type": "buy",
+        "amount": random.randint(10, 100)
+    }
 
 
 def sendRandomRequest(wallet: Wallet, client: Client):
-    op = randomOperation()
-    req = wallet.signOp(op)
-    return client.submitReqs(req)[0]
+    return sendRandomRequests(wallet, client, 1)[0]
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
@@ -1293,6 +1302,16 @@ def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
     assert client.inBox.count(expected) == 1
 
 
+def checkReqNackWithReason(client, reason: str, sender: str):
+    found = False
+    for msg, sdr in client.inBox:
+        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "")\
+                and sdr == sender:
+            found = True
+            break
+    assert found
+
+
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no
@@ -1462,3 +1481,33 @@ def assertExp(condition):
 
 def assertFunc(func):
     assert func()
+
+
+def getAcksFromInbox(client, reqId, maxm=None):
+    acks = set()
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REQACK and msg[f.REQ_ID.nm] == reqId:
+            acks.add(sender)
+            if maxm and len(acks) == maxm:
+                break
+    return acks
+
+
+def getNacksFromInbox(client, reqId, maxm=None):
+    nacks = {}
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REQNACK and msg[f.REQ_ID.nm] == reqId:
+            nacks[sender] = msg[f.REASON.nm]
+            if maxm and len(nacks) == maxm:
+                break
+    return nacks
+
+
+def getRepliesFromInbox(client, reqId, maxm=None) -> list:
+    replies = {}
+    for msg, sender in client.inBox:
+        if msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+            replies[sender] = msg
+            if maxm and len(replies) == maxm:
+                break
+    return replies

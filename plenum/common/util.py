@@ -1,27 +1,26 @@
 import asyncio
-
-import base58
-from importlib.util import spec_from_file_location, module_from_spec
-from importlib import import_module
-import itertools
 import json
 import logging
+import socket
+import string
+from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
+    Tuple, Union, List, NamedTuple
+
+import base58
+import itertools
+import libnacl.secret
 import math
 import os
 import random
-import socket
-import string
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from math import floor
-from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple
-
-import libnacl.secret
+from importlib import import_module
+from importlib.util import spec_from_file_location, module_from_spec
 from ledger.util import F
 from libnacl import crypto_hash_sha256
+from math import floor
 from six import iteritems, string_types
 
 T = TypeVar('T')
@@ -428,7 +427,7 @@ def cleanSeed(seed=None):
 
 def isHexKey(key):
     try:
-        if len(key) == 64 and int(key, 16):
+        if len(key) == 64 and isHex(key):
             return True
     except ValueError as ex:
         return False
@@ -438,9 +437,8 @@ def isHexKey(key):
 
 
 def getCryptonym(identifier):
-    isHex = isHexKey(identifier)
-    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
-        else identifier
+    return base58.b58encode(unhexlify(identifier.encode())).decode() \
+        if isHexKey(identifier) else identifier
 
 
 def hexToFriendly(hx):
@@ -555,9 +553,23 @@ def prettyDateDifference(startTime, finishTime=None):
         return str(day_diff) + " days ago"
 
 
+TIME_BASED_REQ_ID_PRECISION = 1000000
+
+
 def getTimeBasedId():
-    return int(time.time() * 1000000)
+    return int(time.time() * TIME_BASED_REQ_ID_PRECISION)
+
+
+def convertTimeBasedReqIdToMillis(reqId):
+    return (reqId / TIME_BASED_REQ_ID_PRECISION) * 1000
+
+
+def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
+    curTimeRounded = round(time.time() * 1000)
+    startTimeRounded = round(startTime * 1000)
+    return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
 def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits) for _ in range(size)).encode()
+    return ''.join(random.choice(string.hexdigits)
+                   for _ in range(size)).encode()

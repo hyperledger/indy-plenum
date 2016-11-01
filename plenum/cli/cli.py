@@ -22,6 +22,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
 
@@ -105,29 +106,17 @@ class Cli:
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig(self.basedirpath)
-        if not (useNodeReg and
-                    nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
+        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
+                and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
-            nodeReg = {}
-            cliNodeReg = {}
             dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
                 fileName=self.config.poolTransactionsFile)
-            for _, txn in ledger.getAllTxn().items():
-                if txn[TXN_TYPE] == NEW_NODE:
-                    nodeName = txn[DATA][ALIAS]
-                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                        else None
-                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                        else None
-                    if nHa:
-                        nodeReg[nodeName] = HA(*nHa)
-                    if cHa:
-                        cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
+            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+                ledger)
+
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -826,10 +815,10 @@ class Cli:
                 self.printVoid()
             if self.activeWallet and self.activeWallet.defaultId:
                 wallet = self.activeWallet
-                self.print("    Identifier: {}".format(wallet.defaultId))
+                idr = wallet.defaultId
+                self.print("    Identifier: {}".format(idr))
                 self.print(
-                    "    Verification key: {}".
-                        format(wallet.getVerkey(wallet.defaultId)))
+                    "    Verification key: {}".format(wallet.getVerkey(idr)))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
@@ -1125,10 +1114,6 @@ class Cli:
         if showMsg:
             self.print("Key created in keyring " + wallet.name)
 
-    # def _addSignerToWallet(self, signer, wallet=None):
-    #     self._addSignerToGivenWallet(signer, wallet)
-    #     self.print("Key created in keyring " + wallet.name)
-
     def _newSigner(self,
                    wallet=None,
                    identifier=None,
@@ -1143,9 +1128,8 @@ class Cli:
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
-        self.bootstrapClientKeys(signer.identifier,
-                            signer.verkey,
-                            self.nodes.values())
+        self.bootstrapClientKeys(signer.identifier, signer.verkey,
+                                 self.nodes.values())
         return signer
 
     @staticmethod
@@ -1241,7 +1225,8 @@ class Cli:
     def _setActiveIdentifier(self, idrOrAlias):
         if self.activeWallet:
             wallet = self.activeWallet
-            if idrOrAlias not in wallet.aliasesToIds and idrOrAlias not in wallet.idsToSigners:
+            if idrOrAlias not in wallet.aliasesToIds and \
+                            idrOrAlias not in wallet.idsToSigners:
                 return False
             idrFromAlias = wallet.aliasesToIds.get(idrOrAlias)
             # If alias found

@@ -1,19 +1,8 @@
 import os
-from shutil import copyfile
 
 import pytest
-from plenum.test.cli.helper import createClientAndConnect, newCLI, newKeyPair
 
-
-def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
-                           tdirWithDomainTxns=None):
-    os.makedirs(dirName)
-    if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
-                 os.path.join(dirName, tconf.poolTransactionsFile))
-    if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
-                 os.path.join(dirName, tconf.domainTransactionsFile))
+from plenum.test.cli.helper import newCLI, newKeyPair, initDirWithGenesisTxns
 
 
 @pytest.fixture(scope="module")

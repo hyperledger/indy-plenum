@@ -78,7 +78,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
-        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
+        nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
 
         self.addRemoteKeysFromLedger(nodeKeys)
 
@@ -165,7 +165,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.node.clientstack.keep.clearLocalData()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
-            self.node.nodestack.outBoxes.pop(rid, None)
+            if rid:
+                self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
 
     def nodeKeysChanged(self, txn):
@@ -176,7 +177,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                          format(self.name))
             return
         else:
-            self.stackKeysChanged(txn, nodeName, self.node)
+            rid = self.stackKeysChanged(txn, nodeName, self.node)
+            if rid:
+                self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
 
     def getNodeName(self, nym):
@@ -198,6 +201,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
+        operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
@@ -206,22 +210,24 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
                         format(origin, txn[DATA][ALIAS])
-                if txn[DATA] == request.operation[DATA]:
+                if txn[DATA] == operation.get(DATA):
                     return "transaction data {} has conflicts with " \
-                           "request data {}". \
-                        format(txn[DATA], request.operation[DATA])
+                           "request data {}".format(txn[DATA],
+                                                    operation.get(DATA))
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
+        operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == \
-                    request.operation[TARGET_NYM] and txn[f.IDENTIFIER.nm] == origin:
+            if txn[TXN_TYPE] == NEW_NODE and \
+                            txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
+                            txn[f.IDENTIFIER.nm] == origin:
                 return
         return "{} is not a steward of node {}".\
-            format(origin, request.data[TARGET_NYM])
+            format(origin, operation.get(TARGET_NYM))
 
     @property
     def merkleRootHash(self):
@@ -245,7 +251,7 @@ class RegistryPoolManager(PoolManager):
         nstack, nodeReg, cliNodeReg = self.getNodeStackParams(name,
                                                               nodeRegistry,
                                                               ha,
-                                                              basedirpath=basedirpath)
+                                                              basedirpath)
 
         cstack = self.getClientStackParams(name, nodeRegistry,
                                            cliname=cliname, cliha=cliha,
@@ -265,9 +271,6 @@ class RegistryPoolManager(PoolManager):
             sha = me.ha
             nodeReg = {k: v.ha for k, v in nodeRegistry.items()}
         else:
-
-
-
             sha = me if isinstance(me, HA) else HA(*me[0])
             nodeReg = {k: v if isinstance(v, HA) else HA(*v[0])
                        for k, v in nodeRegistry.items()}

@@ -1,7 +1,4 @@
-import pytest
-
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
 from plenum.common.util import randomString
 from plenum.test.helper import genTestClient
 from plenum.test.node_catchup.helper import \
@@ -9,12 +6,6 @@ from plenum.test.node_catchup.helper import \
 
 
 logger = getlogger()
-
-
-@pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
 
 
 def testClientUsingPoolTxns(looper, txnPoolNodeSet, poolTxnClient):
