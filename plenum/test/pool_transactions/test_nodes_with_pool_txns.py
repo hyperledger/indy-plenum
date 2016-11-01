@@ -11,7 +11,7 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test.eventually import eventually
 from plenum.test.helper import TestNode, genHa, \
     checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \
-    checkProtocolInstanceSetup
+    checkProtocolInstanceSetup, checkReqNackWithReason
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
@@ -39,6 +39,13 @@ def wallet1(clientAndWallet1):
     return clientAndWallet1[1]
 
 
+@pytest.fixture(scope="module")
+def client1Connected(looper, client1):
+    looper.add(client1)
+    looper.run(client1.ensureConnectedToNodes())
+    return client1
+
+
 def getNodeWithName(txnPoolNodeSet, name: str):
     return next(node for node in txnPoolNodeSet if node.name == name)
 
@@ -47,16 +54,15 @@ def testNodesConnect(txnPoolNodeSet):
     pass
 
 
-def testNodesReceiveClientMsgs(looper, wallet1, client1, txnPoolNodeSet):
-    looper.add(client1)
+def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
+                               client1Connected):
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
                                                   *txnPoolNodeSet)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
 
 
 def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
-    wallet = addNewClient(USER, looper, steward1, stewardWallet,
-                             randomString())
+    wallet = addNewClient(USER, looper, steward1, stewardWallet, randomString())
 
     def chk():
         for node in txnPoolNodeSet:
@@ -72,6 +78,19 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
     with pytest.raises(AssertionError):
         addNewNode(looper, steward1, stewardWallet, newNodeName,
                    tdirWithPoolTxns, tconf, allPluginsPath)
+
+
+def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
+                                wallet1, client1Connected, tdirWithPoolTxns,
+                                tconf, allPluginsPath):
+    newNodeName = "Epsilon"
+    with pytest.raises(AssertionError):
+        addNewNode(looper, client1, wallet1, newNodeName,
+                   tdirWithPoolTxns, tconf, allPluginsPath)
+
+    for node in txnPoolNodeSet:
+        checkReqNackWithReason(client1, 'is not a steward so cannot add a '
+                                        'new node', node.clientstack.name)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -132,6 +151,23 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     looper.run(eventually(checkFValue, retryWait=1, timeout=5))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
                                timeout=5)
+
+
+def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
+                                                tdirWithPoolTxns, tconf,
+                                                steward1, stewardWallet,
+                                                nodeThetaAdded):
+    _, _, newNode = nodeThetaAdded
+    nodeNewHa, clientNewHa = genHa(2)
+    logger.debug('{} changing HAs to {} {}'.format(newNode, nodeNewHa,
+                                                   clientNewHa))
+    with pytest.raises(AssertionError):
+        changeNodeHa(looper, steward1, stewardWallet, newNode,
+                     nodeHa=nodeNewHa, clientHa=clientNewHa)
+
+    for node in txnPoolNodeSet:
+        checkReqNackWithReason(steward1, 'is not a steward of node',
+                               node.clientstack.name)
 
 
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,

@@ -1302,6 +1302,16 @@ def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
     assert client.inBox.count(expected) == 1
 
 
+def checkReqNackWithReason(client, reason: str, sender: str):
+    found = False
+    for msg, sdr in client.inBox:
+        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "")\
+                and sdr == sender:
+            found = True
+            break
+    assert found
+
+
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no
@@ -1473,7 +1483,6 @@ def assertFunc(func):
     assert func()
 
 
-@timeit
 def getAcksFromInbox(client, reqId, maxm=None):
     acks = set()
     for msg, sender in client.inBox:
@@ -1484,7 +1493,6 @@ def getAcksFromInbox(client, reqId, maxm=None):
     return acks
 
 
-@timeit
 def getNacksFromInbox(client, reqId, maxm=None):
     nacks = {}
     for msg, sender in client.inBox:
@@ -1495,7 +1503,6 @@ def getNacksFromInbox(client, reqId, maxm=None):
     return nacks
 
 
-@timeit
 def getRepliesFromInbox(client, reqId, maxm=None) -> list:
     replies = {}
     for msg, sender in client.inBox:
