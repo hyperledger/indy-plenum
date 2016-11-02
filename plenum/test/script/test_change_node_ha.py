@@ -20,18 +20,30 @@ whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
              "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
 
 
-def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                     tdir, poolTxnData, poolTxnStewardData, tconf):
+def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
 
     # prepare new ha for node and client stack
     subjectedNode = None
-    for n in txnPoolNodeSet:
-        if n.primaryReplicaNo == 0:
-            subjectedNode = n
-            break
+    stewardName = None
+    stewardsSeed = None
 
+    i = 0
+    for n in txnPoolNodeSet:
+        # TODO: Following condition is not correct to
+        # identify primary (as primaryReplicaNo is None),
+        # need to add proper condition accordingly
+        if (shouldBePrimary and n.primaryReplicaNo == 0) or not shouldBePrimary:
+            subjectedNode = n
+            stewardName = poolTxnStewardNames[i]
+            stewardsSeed = poolTxnData["seeds"][stewardName].encode()
+            break
+        i += 1
+
+    print("change HA for node: {}".format(subjectedNode.name))
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
-    stewardName, stewardsSeed = poolTxnStewardData
+
+    # stewardName, stewardsSeed = poolTxnStewardData
     nodeStackNewHA, clientStackNewHA = genHa(2)
 
     # stop node for which HA will be changed
@@ -45,35 +57,26 @@ def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                           f, retryWait=1, timeout=15))
 
     # keep needs to be cleared if ip is changed for same machine
-    # subjectedNode.nodestack.clearLocalKeep()
-    # subjectedNode.nodestack.clearRemoteKeeps()
-    # subjectedNode.clientstack.clearLocalKeep()
-    # subjectedNode.clientstack.clearRemoteKeeps()
+    subjectedNode.nodestack.clearLocalKeep()
+    subjectedNode.nodestack.clearRemoteKeeps()
+    subjectedNode.clientstack.clearLocalKeep()
+    subjectedNode.clientstack.clearRemoteKeeps()
 
     # start node with new HA
-    # restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
-    #                          config=tconf, ha=nodeStackNewHA,
-    #                          cliha=clientStackNewHA)
+    restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
+                             config=tconf, ha=nodeStackNewHA,
+                             cliha=clientStackNewHA)
     # txnPoolNodeSet[0] = restartedNode
-    # looper.add(restartedNode)
-    # looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.add(restartedNode)
+    looper.run(eventually(checkNodesConnected, txnPoolNodeSet))
 
-    # # start client and check the node HA
-    # anotherClient, _ = genTestClient(tmpdir=tdir, usePoolLedger=True)
-    # looper.add(anotherClient)
-    # looper.run(eventually(anotherClient.ensureConnectedToNodes()))
-
-    pass
-    # TODO: Once it is sure, that node ha is changed, following is pending
-    # 1. Restart nodes with new node ha
-    # 2. Start a new client (should have different tdir)
-    # with pool txn files created there, and have it connect to those nodes
-    # 3. Check that client's master pool txn file
-    # gets updated (corresponding code needs to be written)
-    # 4. Any other tests we can think of to thoroughly test it
+    # start client and check the node HA
+    anotherClient, _ = genTestClient(tmpdir=tdir, usePoolLedger=True)
+    looper.add(anotherClient)
+    looper.run(eventually(anotherClient.ensureConnectedToNodes))
 
 
-# TODO: Needs to be uncommented
+# TODO: This is failing as of now, fix it
 # def testStopScriptIfNodeIsRunning(looper, txnPoolNodeSet, poolTxnData,
 #                                   poolTxnStewardData, tconf):
 #     nodeName = txnPoolNodeSet[0].name
@@ -89,3 +92,19 @@ def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
 #                                           "before".format(nodeName)):
 #         changeHA(looper, tconf, nodeName, nodeSeed, nodeStackNewHA,
 #                  stewardName, stewardsSeed)
+
+
+# TODO: Following needs to be tested yet
+# def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
+#                      tdir, poolTxnData, poolTxnStewardNames, tconf):
+#     changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+#                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
+#
+
+
+def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                     tdir, poolTxnData, poolTxnStewardNames, tconf):
+    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=False)
+
+
