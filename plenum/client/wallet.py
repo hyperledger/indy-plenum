@@ -101,6 +101,32 @@ class Wallet:
             self.aliasesToIds[signer.alias] = signer.identifier
         return signer.identifier, signer
 
+    def updateSigner(self, identifier, signer):
+        """
+        Update signer for an already present identifier. The passed signer
+        should have the same identifier as `identifier` or an error is raised.
+        Also if the existing identifier has an alias in the wallet then the
+        passed signer is given the same alias
+        :param identifier: existing identifier in the wallet
+        :param signer: new signer to update too
+        :return:
+        """
+        if identifier != signer.identifier:
+            raise ValueError("Passed signer has identifier {} but it should"
+                             " have been {}".format(signer.identifier,
+                                                    identifier))
+        if identifier not in self.idsToSigners:
+            raise KeyError("Identifier {} not present in wallet".
+                           format(identifier))
+
+        oldSigner = self.idsToSigners[identifier]
+        if oldSigner.alias and oldSigner.alias in self.aliasesToIds:
+            logger.debug('Changing alias of passed signer to {}'.
+                         format(oldSigner.alias))
+            signer.alias = oldSigner.alias
+
+        self.idsToSigners[identifier] = signer
+
     def requiredIdr(self,
                     idr: Identifier=None,
                     alias: str=None):
