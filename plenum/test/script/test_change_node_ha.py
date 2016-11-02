@@ -24,7 +24,12 @@ def testChangeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                      tdir, poolTxnData, poolTxnStewardData, tconf):
 
     # prepare new ha for node and client stack
-    subjectedNode = txnPoolNodeSet[0]
+    subjectedNode = None
+    for n in txnPoolNodeSet:
+        if n.primaryReplicaNo == 0:
+            subjectedNode = n
+            break
+
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
     stewardName, stewardsSeed = poolTxnStewardData
     nodeStackNewHA, clientStackNewHA = genHa(2)

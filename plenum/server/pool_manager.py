@@ -153,7 +153,23 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.addNewRemoteAndConnect(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
+    # TODO: Abstract the functionality where it is decided if election needs
+    # to be triggered in case of change of HA or keys. Also the method should
+    # trigger election.
+
+    def doElectionIfNeeded(self, nodeGoingDown):
+        for instId, replica in enumerate(self.node.replicas):
+            if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
+                replica.primaryName = None
+                self.node.decidePrimaries()
+                return
+
     def nodeHaChanged(self, txn):
+        # TODO: if the node whose HA is being changed is primary for any
+        # protocol instance, then we should trigger an election for that
+        # protocol instance. For doing that, for every replica of that
+        # protocol instance, `_primaryName` as None, and then the node should
+        # call its `decidePrimaries`.
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         if nodeName == self.name:
@@ -168,8 +184,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
+        self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):
+        # TODO: if the node whose keys are being changed is primary for any
+        # protocol instance, then we should trigger an election for that
+        # protocol instance. For doing that, for every replica of that
+        # protocol instance, `_primaryName` as None, and then the node should
+        # call its `decidePrimaries`.
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         if nodeName == self.name:
@@ -181,6 +203,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
+        self.doElectionIfNeeded(nodeName)
 
     def getNodeName(self, nym):
         for txn in self.ledger.getAllTxn().values():

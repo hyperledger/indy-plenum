@@ -145,8 +145,8 @@ class PrimaryElector(PrimaryDecider):
 
         :param instId: the instance id (used to identify the replica on this node)
         """
-        return instId in self.nominations and self.replicas[instId].name in \
-                                              self.nominations[instId]
+        return instId in self.nominations and \
+            self.replicas[instId].name in self.nominations[instId]
 
     def didReplicaDeclarePrimary(self, instId: int):
         """
