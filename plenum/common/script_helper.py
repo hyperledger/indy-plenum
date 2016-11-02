@@ -244,21 +244,21 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     if not newClientHA:
         newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
 
-    # prepare Steward
+    # prepare steward wallet
     stewardSigner = SimpleSigner(seed=stewardsSeed)
     stewardWallet = Wallet(stewardsName)
     stewardWallet.addIdentifier(signer=stewardSigner)
+
+    # prepare client to submit change ha request to sovrin
     randomClientPort = random.randint(9700, 9799)
     client = Client(stewardsName,
                     ha=('0.0.0.0', randomClientPort), config=config)
     looper.add(client)
     looper.run(eventually(__checkClientConnected, client,
                           retryWait=1, timeout=5))
-    # looper.runFor(3)
-    # if nodeName + 'C' in client.nodestack.conns:
-    #     raise Exception("Node '{}' must be stopped "
-    #                     "before".format(nodeName))
+
     nodeVerKey = SimpleSigner(seed=nodeSeed).verkey
+
     # send request
     req = submitNodeIpChange(client, stewardWallet, nodeName, nodeVerKey,
                              newNodeHA, newClientHA)
