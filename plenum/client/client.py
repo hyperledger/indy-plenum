@@ -61,7 +61,6 @@ class Client(Motor,
         :param name: unique identifier for the client
         :param nodeReg: names and host addresses of all nodes in the pool
         :param ha: tuple of host and port
-        :param lastReqId: Request Id of the last request sent by client
         """
         self.config = config or getConfig()
         basedirpath = self.config.baseDir if not basedirpath else basedirpath
@@ -70,10 +69,11 @@ class Client(Motor,
         cha = None
         # If client information already exists is RAET then use that
         if self.exists(name, basedirpath):
-            logger.debug("Client {} ignoring given ha".format(ha))
             cha = getHaFromLocalEstate(name, basedirpath)
             if cha:
                 cha = HA(*cha)
+                logger.debug("Client {} ignoring given ha {} and using {}".
+                             format(name, ha, cha))
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 

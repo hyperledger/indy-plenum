@@ -815,10 +815,10 @@ class Cli:
                 self.printVoid()
             if self.activeWallet and self.activeWallet.defaultId:
                 wallet = self.activeWallet
-                self.print("    Identifier: {}".format(wallet.defaultId))
+                idr = wallet.defaultId
+                self.print("    Identifier: {}".format(idr))
                 self.print(
-                    "    Verification key: {}".
-                        format(wallet.getVerkey(wallet.defaultId)))
+                    "    Verification key: {}".format(wallet.getVerkey(idr)))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
