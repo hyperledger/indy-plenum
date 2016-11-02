@@ -624,7 +624,7 @@ class KITStack(SimpleStack):
         logger.debug("{} nodereg is {}".
                      format(self, self.registry.items()))
         logger.debug("{} nodestack is {}".
-                     format(self, self.remotes.values()))
+                     format(self, [r.name for r in self.remotes.values()]))
         for r in self.remotes.values():
             if r.name in self.registry:
                 if self.sameAddr(r.ha, self.registry[r.name]):
