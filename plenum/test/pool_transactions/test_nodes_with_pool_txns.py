@@ -176,12 +176,12 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     An running node's port is changed
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
-    newNode.stop()
     nodeNewHa, clientNewHa = genHa(2)
     logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
                                                    clientNewHa))
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,
                  nodeHa=nodeNewHa, clientHa=clientNewHa)
+    newNode.stop()
     looper.removeProdable(name=newNode.name)
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeNewHa,
                                                      clientNewHa))
