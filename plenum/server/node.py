@@ -1533,7 +1533,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             f.IDENTIFIER.nm: req.identifier,
             f.REQ_ID.nm: req.reqId,
             TXN_ID: txnId,
-            TXN_TIME: ppTime
+            TXN_TIME: int(ppTime)
         }
         result.update(req.operation)
         for processor in self.reqProcessors:

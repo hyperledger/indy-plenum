@@ -460,6 +460,7 @@ def txnPoolNodeSet(tdirWithPoolTxns,
             looper.add(node)
             nodes.append(node)
         looper.run(checkNodesConnected(nodes))
+        ensureElectionsDone(looper=looper, nodes=nodes, retryWait=1, timeout=10)
         yield nodes
 
 

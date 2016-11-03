@@ -502,7 +502,7 @@ class LedgerManager(HasActionQueue):
                                                          proof])
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
-                         format(self, catchupReply, ex))
+                        format(self, catchupReply, ex))
             verified = False
         return bool(verified), nodeName, len(txns)
 
