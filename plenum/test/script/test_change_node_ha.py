@@ -5,13 +5,12 @@ from plenum.common.constants import ENVS
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.script_helper import changeHA
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import HA
 
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
-from plenum.test.helper import checkSufficientRepliesRecvd, TestNode, checkNodesConnected, genTestClient, \
-    ensureElectionsDone
+from plenum.test.helper import checkSufficientRepliesRecvd, TestNode, \
+    checkNodesConnected, genTestClient, ensureElectionsDone
 
 
 @pytest.yield_fixture(scope="module")
@@ -33,9 +32,6 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
     stewardsSeed = None
 
     for nodeIndex, n in enumerate(txnPoolNodeSet):
-        # TODO: Following condition is not correct to
-        # identify primary (as primaryReplicaNo is None),
-        # need to add proper condition accordingly
         if (shouldBePrimary and n.primaryReplicaNo == 0) or \
                 (not shouldBePrimary and n.primaryReplicaNo != 0):
             subjectedNode = n
@@ -86,7 +82,6 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
             if os.path.exists(poolLedgerPath):
                 with open(poolLedgerPath) as f:
                     poolLedgerContent = f.read()
-                    print("#### pool ledger content: \n{}".format(poolLedgerContent))
                     assert nodeStackNewHA.host in poolLedgerContent
                     assert str(nodeStackNewHA.port) in poolLedgerContent
                     assert clientStackNewHA.host in poolLedgerContent
@@ -111,17 +106,18 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
 #                  stewardName, stewardsSeed)
 
 
-# TODO: Following needs to be tested yet
-# def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
-#                      tdir, poolTxnData, poolTxnStewardNames, tconf):
-#     changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
-#                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
-#
+def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                               tdir, poolTxnData, poolTxnStewardNames, tconf):
+    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
 
 
 def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                  tdir, poolTxnData, poolTxnStewardNames, tconf):
+                                  tdir, poolTxnData, poolTxnStewardNames,
+                                  tconf):
     changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
-                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
+                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=False)
+
+
 
 

@@ -607,7 +607,7 @@ def updateMasterPoolTxnFile(baseDir, txn):
                             poolTxnData['client_port'] = int(clientPort)
                             poolTxnData['node_ip'] = nodeIp
                             poolTxnData['node_port'] = int(nodePort)
-                        tmpFile.write(json.dumps(poolTxn))
+                        tmpFile.write(json.dumps(poolTxn) + "\n")
 
                 shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
                 os.remove(poolLedgerTmpPath)
