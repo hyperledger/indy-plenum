@@ -46,29 +46,30 @@ def genDoesntSendRequestToSomeNodes(*nodeName: str,
 
 
 # This can be used to test blacklisting a client or throttling of requests.
-def repeatsRequest(client: Client, count: int) -> Client:
-    """
-    Client sends count number of requests for each operation.
-    Different requestIds will be generated for the same operation.
-
-    :param client: the client to make faulty
-    :param count: the number of requests to send for each operation.
-    :return: the faulty client
-    """
-
-    def evilSubmit(self, *operations: Mapping) -> List[Request]:
-        requests = []
-        logger.debug(
-            "EVIL: client creates {} requests for each operation".format(count))
-        for op in operations:
-            for _ in range(count):
-                request = self.createRequest(op)
-                self.nodestack.send(request)
-                requests.append(request)
-        return requests
-
-    client.submit_DEPRECATED = types.MethodType(evilSubmit, client)
-    return client
+# DEPR
+# def repeatsRequest(client: Client, count: int) -> Client:
+#     """
+#     Client sends count number of requests for each operation.
+#     Different requestIds will be generated for the same operation.
+#
+#     :param client: the client to make faulty
+#     :param count: the number of requests to send for each operation.
+#     :return: the faulty client
+#     """
+#
+#     def evilSubmit(self, *operations: Mapping) -> List[Request]:
+#         requests = []
+#         logger.debug(
+#             "EVIL: client creates {} requests for each operation".format(count))
+#         for op in operations:
+#             for _ in range(count):
+#                 request = self.createRequest(op)
+#                 self.nodestack.send(request)
+#                 requests.append(request)
+#         return requests
+#
+#     client.submit_DEPRECATED = types.MethodType(evilSubmit, client)
+#     return client
 
 
 def sendsUnsignedRequest(client) -> Client:

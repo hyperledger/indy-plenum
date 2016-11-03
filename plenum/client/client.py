@@ -217,27 +217,15 @@ class Client(Motor,
             s += self.ledgerManager._serviceActions()
         return s
 
-    def createRequest(self, operation: Mapping,
-                      identifier: str = None) -> Request:
-        """
-        Client creates request which include requested operation and request Id
-
-        :param operation: requested operation
-        :return: New client request
-        """
-
-        request = Request(identifier=identifier or self.defaultIdentifier,
-                          operation=operation)
-        return request
-
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         for request in reqs:
-            # DEPR
-            # self.setReqId(request)
             if self.mode == Mode.discovered and self.hasSufficientConnections:
                 self.nodestack.send(request)
             else:
+                logger.debug("{} pending request since in mode {} and "
+                             "connected to {} nodes".
+                             format(self, self.mode, self.nodestack.connecteds))
                 self.pendReqsTillConnection(request)
             requests.append(request)
         for r in requests:
