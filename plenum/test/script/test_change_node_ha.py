@@ -64,7 +64,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
     looper.add(restartedNode)
     txnPoolNodeSet[nodeIndex] = restartedNode
     looper.run(eventually(checkNodesConnected, txnPoolNodeSet))
-    ensureElectionsDone(looper, txnPoolNodeSet)
+    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=10)
 
     # start client and check the node HA
     anotherClient, _ = genTestClient(tmpdir=tdir, usePoolLedger=True)
