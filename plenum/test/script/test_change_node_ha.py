@@ -1,4 +1,7 @@
+import os
+
 import pytest
+from plenum.common.constants import ENVS
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.script_helper import changeHA
@@ -33,7 +36,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
         # TODO: Following condition is not correct to
         # identify primary (as primaryReplicaNo is None),
         # need to add proper condition accordingly
-        if (shouldBePrimary and n.primaryReplicaNo == 0) or not shouldBePrimary:
+        if i == 1:
+        # if (shouldBePrimary and n.primaryReplicaNo == 0) or not shouldBePrimary:
             subjectedNode = n
             stewardName = poolTxnStewardNames[i]
             stewardsSeed = poolTxnData["seeds"][stewardName].encode()
@@ -74,6 +78,24 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
     anotherClient, _ = genTestClient(tmpdir=tdir, usePoolLedger=True)
     looper.add(anotherClient)
     looper.run(eventually(anotherClient.ensureConnectedToNodes))
+
+    baseDirs = set()
+    for n in txnPoolNodeSet:
+        baseDirs.add(n.config.baseDir)
+    baseDirs.add(client.config.baseDir)
+    baseDirs.add(anotherClient.config.baseDir)
+
+    for baseDir in baseDirs:
+        for name, env in ENVS.items():
+            poolLedgerPath = os.path.join(baseDir, env.poolLedger)
+            if os.path.exists(poolLedgerPath):
+                with open(poolLedgerPath) as f:
+                    poolLedgerContent = f.read()
+                    print("#### pool ledger content: \n{}".format(poolLedgerContent))
+                    assert nodeStackNewHA.host in poolLedgerContent
+                    assert str(nodeStackNewHA.port) in poolLedgerContent
+                    assert clientStackNewHA.host in poolLedgerContent
+                    assert str(clientStackNewHA.port) in poolLedgerContent
 
 
 # TODO: This is failing as of now, fix it

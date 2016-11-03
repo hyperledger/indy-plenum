@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import shutil
 import socket
 import string
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -21,6 +22,9 @@ from importlib.util import spec_from_file_location, module_from_spec
 from ledger.util import F
 from libnacl import crypto_hash_sha256
 from math import floor
+
+from plenum.common.constants import ENVS
+from plenum.common.txn import TYPE, CHANGE_HA, TARGET_NYM, IDENTIFIER, DATA
 from six import iteritems, string_types
 
 T = TypeVar('T')
@@ -573,3 +577,37 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
 def randomSeed(size=32):
     return ''.join(random.choice(string.hexdigits)
                    for _ in range(size)).encode()
+
+
+def updateMasterPoolTxnFile(baseDir, txn):
+    if txn[TYPE] != CHANGE_HA:
+        return
+
+    dest = txn[TARGET_NYM]
+    idr = txn[IDENTIFIER]
+    data = txn[DATA]
+    clientIp = data['client_ip']
+    clientPort = data['client_port']
+    nodeIp = data['node_ip']
+    nodePort = data['node_port']
+    for name, env in ENVS.items():
+        poolLedgerPath = os.path.join(baseDir, env.poolLedger)
+        if os.path.exists(poolLedgerPath):
+            with open(poolLedgerPath) as f:
+                poolLedgerTmpPath = os.path.join(
+                    baseDir, env.poolLedger + randomString(6))
+                with open(poolLedgerTmpPath, 'w') as tmpFile:
+                    for line in f:
+                        poolTxn = json.loads(line)
+                        poolTxnDest = poolTxn[TARGET_NYM]
+                        poolTxnIdentifier = poolTxn[IDENTIFIER]
+                        if poolTxnDest == dest and poolTxnIdentifier == idr:
+                            poolTxnData = poolTxn[DATA]
+                            poolTxnData['client_ip'] = clientIp
+                            poolTxnData['client_port'] = int(clientPort)
+                            poolTxnData['node_ip'] = nodeIp
+                            poolTxnData['node_port'] = int(nodePort)
+                        tmpFile.write(json.dumps(poolTxn))
+
+                shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
+                os.remove(poolLedgerTmpPath)
