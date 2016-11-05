@@ -6,7 +6,7 @@ from sys import argv
 
 from plenum.common.script_helper import buildKeepDirIfNotExists, initKeep, \
     generateStewardGenesisTxn
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 

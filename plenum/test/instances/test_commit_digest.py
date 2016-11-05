@@ -8,8 +8,8 @@ from plenum.common.util import adict
 
 from plenum.common.types import Commit
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
-    getNodeSuspicions
+from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas
 
 whitelist = [Suspicions.CM_DIGEST_WRONG.reason,
              'cannot process incoming COMMIT']

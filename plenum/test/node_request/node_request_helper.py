@@ -8,8 +8,10 @@ from plenum.test.eventually import eventuallyAll
 
 from plenum.common.util import getMaxFailures
 from plenum.server.replica import Replica
-from plenum.test.helper import TestNode, getAllArgs, getAllReplicas, \
-    getPrimaryReplica, getNonPrimaryReplicas
+from plenum.test.helper import getPrimaryReplica
+from plenum.test.spy_helpers import getAllArgs
+from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
+    getAllReplicas
 
 
 def checkPropagated(looper, nodeSet, request, faultyNodes=0):

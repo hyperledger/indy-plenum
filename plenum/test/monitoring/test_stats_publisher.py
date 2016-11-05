@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.config import STATS_SERVER_PORT, STATS_SERVER_IP
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher
 

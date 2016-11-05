@@ -1,6 +1,7 @@
 import pytest
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestNodeSet, checkPoolReady, checkProtocolInstanceSetup
+from plenum.test.test_node import TestNodeSet, checkPoolReady, \
+    checkProtocolInstanceSetup
 
 from plenum.test.primary_election.helpers import checkNomination
 

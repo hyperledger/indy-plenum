@@ -6,10 +6,11 @@ from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
 from plenum.common.log import getlogger
-from plenum.test.helper import TestReplica
-from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
-    ppDelay, checkViewChangeInitiatedForNode, icDelay, \
+from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
+    checkViewChangeInitiatedForNode
+from plenum.test.helper import sendRandomRequest, \
     sendReqsToNodesAndVerifySuffReplies
+from plenum.test.delayers import ppDelay, icDelay
 
 nodeCount = 7
 

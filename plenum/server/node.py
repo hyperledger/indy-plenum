@@ -39,7 +39,7 @@ from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, USER, NYM, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Request, Propagate, \
+from plenum.common.types import Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
@@ -49,8 +49,9 @@ from plenum.common.types import Request, Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
-    getConfig
+from plenum.common.request import Request
+from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
+from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
 from plenum.common.txn import DATA, ALIAS, NODE_IP
 

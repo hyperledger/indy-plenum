@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from plenum.test.helper import genNodeReg
+from plenum.test.test_node import genNodeReg
 
 
 class TestNodeReg(TestCase):

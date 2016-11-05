@@ -1,10 +1,9 @@
 import types
 
-import pytest
-
-from plenum.common.types import ReqDigest
+from plenum.common.request import ReqDigest
 from plenum.test.eventually import eventually
-from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest
+from plenum.test.helper import sendRandomRequest
+from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 
 

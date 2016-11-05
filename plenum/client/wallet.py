@@ -7,7 +7,8 @@ from libnacl import crypto_secretbox_open, randombytes, \
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.log import getlogger
 from plenum.common.signer import Signer
-from plenum.common.types import Identifier, Request
+from plenum.common.types import Identifier
+from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 
 logger = getlogger()

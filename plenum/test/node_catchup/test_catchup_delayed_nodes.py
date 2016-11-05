@@ -1,8 +1,9 @@
 import pytest
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import cpDelay, checkNodesConnected, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import checkNodesConnected
+from plenum.test.delayers import cpDelay
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 

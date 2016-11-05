@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.looper import Looper
 from plenum.common.util import randomString
-from plenum.test.helper import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
@@ -10,9 +10,8 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
 
 
 @pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
+def looper(txnPoolNodesLooper):
+    yield txnPoolNodesLooper
 
 
 @pytest.fixture(scope="module")

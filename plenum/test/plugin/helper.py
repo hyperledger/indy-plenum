@@ -1,6 +1,6 @@
 import os
 
-from plenum.test.helper import TestClient
+from plenum.test.test_client import TestClient
 
 from plenum.client.wallet import Wallet
 

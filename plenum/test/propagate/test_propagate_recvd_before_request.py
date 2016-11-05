@@ -1,6 +1,7 @@
 import pytest
 from plenum.test.eventually import eventually
-from plenum.test.helper import delay, assertLength
+from plenum.test.helper import assertLength
+from plenum.test.delayers import delay
 
 from plenum.common.types import Propagate
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, sentPropagate, \

@@ -7,8 +7,9 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
 
 from plenum.common.types import Commit
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getNonPrimaryReplicas, getPrimaryReplica, \
+from plenum.test.helper import getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
+from plenum.test.test_node import getNonPrimaryReplicas
 
 from plenum.common.util import adict
 

@@ -3,10 +3,11 @@ import types
 import pytest as pytest
 import time
 
-from plenum.common.types import PrePrepare, ReqDigest
+from plenum.common.types import PrePrepare
+from plenum.common.request import ReqDigest
 from plenum.test.eventually import eventually
-from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, \
-    getNodeSuspicions
+from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas
 
 from plenum.common.log import getlogger
 from plenum.server.suspicion_codes import Suspicions

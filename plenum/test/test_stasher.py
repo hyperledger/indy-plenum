@@ -3,7 +3,7 @@ from collections import deque
 
 import pytest
 
-from plenum.test.helper import Stasher
+from plenum.test.stasher import Stasher
 
 
 def test_delay():

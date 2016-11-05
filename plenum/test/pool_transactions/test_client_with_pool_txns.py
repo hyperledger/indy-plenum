@@ -1,6 +1,6 @@
 from plenum.common.log import getlogger
 from plenum.common.util import randomString
-from plenum.test.helper import genTestClient
+from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 

@@ -1,12 +1,11 @@
 import sys
 from collections import namedtuple
-from hashlib import sha256
 from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
-from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
+from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
     BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
-    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, TXN_LIST_REQUEST
+    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -132,60 +131,6 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 OPERATION = 'operation'
 
 Identifier = str
-
-
-class Request:
-    def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None):
-        self.identifier = identifier
-        self.reqId = reqId
-        self.operation = operation
-        self.signature = signature
-
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-    def __repr__(self):
-        return "{}: {}".format(self.__class__.__name__, self.__dict__)
-
-    @property
-    def key(self):
-        return self.identifier, self.reqId
-
-    @property
-    def digest(self):
-        return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
-
-    @property
-    def reqDigest(self):
-        return ReqDigest(self.identifier, self.reqId, self.digest)
-
-    def __getstate__(self):
-        return self.__dict__
-
-    def getSigningState(self):
-        return self.__dict__
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        return self
-
-    @classmethod
-    def fromState(cls, state):
-        obj = cls.__new__(cls)
-        cls.__setstate__(obj, state)
-        return obj
-
-
-class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
-                                       f.REQ_ID,
-                                       f.DIGEST])):
-    def key(self):
-        return self.identifier, self.reqId
-
 
 RequestAck = TaggedTuple(REQACK, [
     f.REQ_ID])

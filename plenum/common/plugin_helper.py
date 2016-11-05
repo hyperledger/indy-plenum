@@ -2,7 +2,7 @@ import importlib
 
 import os
 
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.common.log import getlogger
 
 pluginsLoaded = {}  # Dict(baseDir, List[plugin names])

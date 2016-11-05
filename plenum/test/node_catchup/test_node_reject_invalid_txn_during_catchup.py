@@ -5,7 +5,8 @@ from plenum.common.txn import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import sendRandomRequests, checkNodesConnected
+from plenum.test.helper import sendRandomRequests
+from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 
 logger = getlogger()

@@ -12,13 +12,7 @@ from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 logger = getlogger()
 
 
-@pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
-
-
-def testRequestsSize(looper, txnPoolNodeSet, poolTxnClientNames,
+def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
                      tdirWithPoolTxns, poolTxnData):
     """
     Client should not be using node registry but pool transaction file
@@ -29,8 +23,8 @@ def testRequestsSize(looper, txnPoolNodeSet, poolTxnClientNames,
         seed = poolTxnData["seeds"][name].encode()
         client, wallet = buildPoolClientAndWallet((name, seed),
                                                   tdirWithPoolTxns)
-        looper.add(client)
-        ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
+        txnPoolNodesLooper.add(client)
+        ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper, client,
                                                       *txnPoolNodeSet)
         clients.append((client, wallet))
 
@@ -38,8 +32,8 @@ def testRequestsSize(looper, txnPoolNodeSet, poolTxnClientNames,
     timeOutPerReq = 3
     for (client, wallet) in clients:
         logger.debug("{} sending {} requests".format(client, n))
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, n, 1,
-                                            timeOutPerReq)
+        sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
+                                            n, 1, timeOutPerReq)
         logger.debug("{} sent {} requests".format(client, n))
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".

@@ -4,9 +4,11 @@ from functools import partial
 from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.test.eventually import eventually
-from plenum.test.helper import delayNonPrimaries, \
-    sendReqsToNodesAndVerifySuffReplies, checkViewNoForNodes, \
-    checkNodesConnected, checkDiscardMsg, checkProtocolInstanceSetup
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, checkViewNoForNodes, \
+    checkDiscardMsg
+from plenum.test.test_node import checkNodesConnected, \
+    checkProtocolInstanceSetup
+from plenum.test.delayers import delayNonPrimaries
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 
@@ -36,11 +38,11 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"
     _, _, nodeTheta = addNewStewardAndNode(looper, client,
-                                               wallet,
-                                               newStewardName,
-                                               nodeName,
-                                               tdirWithPoolTxns, tconf,
-                                               allPluginsPath)
+                                           wallet,
+                                           newStewardName,
+                                           nodeName,
+                                           tdirWithPoolTxns, tconf,
+                                           allPluginsPath)
     txnPoolNodeSet.append(nodeTheta)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())

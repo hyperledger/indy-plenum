@@ -4,15 +4,18 @@ from functools import partial
 
 import time
 
-from plenum.common.types import Propagate, Request, \
-    PrePrepare, Prepare, ReqDigest, ThreePhaseMsg, Commit, Reply
+import plenum.common.error
+from plenum.common.types import Propagate, PrePrepare, Prepare, ThreePhaseMsg, \
+    Commit, Reply
+from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
 from plenum.common.util import updateNamedTuple
 from plenum.common.log import getlogger
 from plenum.server.replica import TPCStat
-from plenum.test.helper import TestNode, TestReplica
-from plenum.test.helper import ppDelay
+from plenum.test.helper import TestReplica
+from plenum.test.test_node import TestNode, TestReplica
+from plenum.test.delayers import ppDelay
 
 logger = getlogger()
 
@@ -102,7 +105,7 @@ def malign3PhaseSendingMethod(replica: TestReplica, msgType: ThreePhaseMsg,
     elif msgType == Commit:
         replica.doCommit = evilMethod
     else:
-        util.error("Not a 3 phase message")
+        plenum.common.error.error("Not a 3 phase message")
 
 
 def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
