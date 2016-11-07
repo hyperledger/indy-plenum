@@ -1,3 +1,4 @@
+import os
 import asyncio
 import inspect
 import itertools
@@ -556,10 +557,12 @@ def updateMasterPoolTxnFile(baseDir, txn):
                 shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
                 os.remove(poolLedgerTmpPath)
 
+
 def lxor(a, b):
     # Logical xor of 2 items, return true when one of them is truthy and
     # one of them falsy
     return bool(a) != bool(b)
+
 
 def getCallableName(callable: Callable):
     # If it is a function or method then access its `__name__`

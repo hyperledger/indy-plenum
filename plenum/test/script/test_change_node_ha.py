@@ -11,10 +11,10 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkNodesConnected, ensureElectionsDone, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNode, checkNodesConnected, \
-    ensureElectionsDone
+from plenum.test.test_node import TestNode
 from plenum.common.log import getlogger
 
 
@@ -90,7 +90,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(restartedNode)
 
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=20))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=70))
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=10)
 
     # start client and check the node HA
@@ -102,8 +102,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 5)
     looper.removeProdable(stewardClient)
-    # checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
-    #                                 txnPoolNodeSet, stewardClient, anotherClient)
+    checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
+                                    txnPoolNodeSet, stewardClient, anotherClient)
 
 
 # TODO: This is failing as of now, fix it

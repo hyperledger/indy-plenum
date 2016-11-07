@@ -106,7 +106,7 @@ def recordSuccess(fname, timeout, param, remain):
 async def eventually(coroFunc: FlexFunc,
                      *args,
                      retryWait: float=0.1,
-                     timeout: float=15,
+                     timeout: float=5,
                      ratchetSteps: Optional[int]=None,
                      acceptableExceptions=None,
                      verbose=True) -> T:
