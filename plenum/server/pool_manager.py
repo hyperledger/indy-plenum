@@ -161,9 +161,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def doElectionIfNeeded(self, nodeGoingDown):
         for instId, replica in enumerate(self.node.replicas):
             if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
-                self.node.elector.setElectionDefaults(instId)
-                replica.primaryName = None
-                self.node.decidePrimaries()
+                # self.node.elector.setElectionDefaults(instId)
+                # replica.primaryName = None
+                # self.node.decidePrimaries()
+                self.node.startViewChange(self.node.viewNo)
                 return
 
     def nodeHaChanged(self, txn):

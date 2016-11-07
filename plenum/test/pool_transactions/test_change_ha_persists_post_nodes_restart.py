@@ -1,13 +1,18 @@
 from plenum.common.log import getlogger
 from plenum.common.port_dispenser import genHa
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestNode, checkNodesConnected
+from plenum.test.helper import checkNodesConnected
+from plenum.test.test_node import TestNode, checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import changeNodeHa, \
     buildPoolClientAndWallet
 
 logger = getlogger()
+
+
+whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
+             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
 
 
 def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
@@ -26,7 +31,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     # Stopping existing nodes
     for node in txnPoolNodeSet:
         node.stop()
-    looper.removeProdable(newNode)
+        looper.removeProdable(node)
 
     # Starting nodes again by creating `Node` objects since that simulates
     # what happens when starting the node with script
@@ -54,4 +59,4 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
                                               tdirWithPoolTxns)
     looper.add(client)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
-                                                  *txnPoolNodeSet)
+                                                  *restartedNodes)

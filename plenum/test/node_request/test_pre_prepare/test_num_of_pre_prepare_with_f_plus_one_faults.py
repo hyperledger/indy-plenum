@@ -7,7 +7,7 @@ from plenum.test.malicious_behaviors_node import makeNodeFaulty, delaysPrePrepar
 from plenum.common.util import adict
 from plenum.common.log import getlogger
 
-from plenum.test.helper import TestNodeSet
+from plenum.test.test_node import TestNodeSet
 
 nodeCount = 7
 # f + 1 faults, i.e, num of faults greater than system can tolerate

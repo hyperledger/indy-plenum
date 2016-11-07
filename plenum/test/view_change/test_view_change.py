@@ -5,7 +5,8 @@ import pytest
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies, getPrimaryReplica, delayNonPrimaries
+    sendReqsToNodesAndVerifySuffReplies, getPrimaryReplica
+from plenum.test.delayers import delayNonPrimaries
 
 nodeCount = 7
 

@@ -1,29 +1,56 @@
 import os
 
 import pytest
+
+from plenum.client.wallet import Wallet
 from plenum.common.constants import ENVS
-from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.script_helper import changeHA
-from plenum.common.types import HA
+from plenum.common.signer_simple import SimpleSigner
 
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
-from plenum.test.helper import checkSufficientRepliesRecvd, TestNode, \
-    checkNodesConnected, genTestClient, ensureElectionsDone
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNode, checkNodesConnected, \
+    ensureElectionsDone
+from plenum.common.log import getlogger
+
+
+logger = getlogger()
 
 
 @pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
+def looper(txnPoolNodesLooper):
+    yield txnPoolNodesLooper
 
 
-whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
-             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
+whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
+             'missing', 'conflicts', 'matches', 'nodeReg',
+             'conflicting address', 'unable to send message']
 
 
-def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+def checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
+                                    txnPoolNodeSet, *clients):
+    baseDirs = set()
+    for n in txnPoolNodeSet:
+        baseDirs.add(n.config.baseDir)
+    for c in clients:
+        baseDirs.add(c.config.baseDir)
+
+    for baseDir in baseDirs:
+        for name, env in ENVS.items():
+            poolLedgerPath = os.path.join(baseDir, env.poolLedger)
+            if os.path.exists(poolLedgerPath):
+                with open(poolLedgerPath) as f:
+                    poolLedgerContent = f.read()
+                    assert nodeStackNewHA.host in poolLedgerContent
+                    assert str(nodeStackNewHA.port) in poolLedgerContent
+                    assert clientStackNewHA.host in poolLedgerContent
+                    assert str(clientStackNewHA.port) in poolLedgerContent
+
+def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
 
     # prepare new ha for node and client stack
@@ -39,53 +66,44 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
             stewardsSeed = poolTxnData["seeds"][stewardName].encode()
             break
 
-    print("change HA for node: {}".format(subjectedNode.name))
+    nodeStackNewHA, clientStackNewHA = genHa(2)
+    logger.debug("change HA for node: {} to {}".
+                 format(subjectedNode.name, (nodeStackNewHA, clientStackNewHA)))
+
     nodeSeed = poolTxnData["seeds"][subjectedNode.name].encode()
 
-    # stewardName, stewardsSeed = poolTxnStewardData
-    nodeStackNewHA, clientStackNewHA = genHa(2)
-
     # change HA
-    client, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
-                           nodeStackNewHA, stewardName, stewardsSeed)
-    f = getMaxFailures(len(client.nodeReg))
-    looper.run(eventually(checkSufficientRepliesRecvd, client.inBox, req.reqId,
-                          f, retryWait=1, timeout=15))
+    stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
+                                  nodeStackNewHA, stewardName, stewardsSeed)
+    f = getMaxFailures(len(stewardClient.nodeReg))
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
+                          req.reqId, f, retryWait=1, timeout=15))
 
     # stop node for which HA will be changed
     subjectedNode.stop()
+    looper.removeProdable(subjectedNode)
 
     # start node with new HA
     restartedNode = TestNode(subjectedNode.name, basedirpath=tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
-    # txnPoolNodeSet[0] = restartedNode
     looper.add(restartedNode)
+
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(eventually(checkNodesConnected, txnPoolNodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=20))
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=10)
 
     # start client and check the node HA
-    anotherClient, _ = genTestClient(tmpdir=tdir, usePoolLedger=True)
+    anotherClient, _ = genTestClient(tmpdir=tdirWithPoolTxns,
+                                     usePoolLedger=True)
     looper.add(anotherClient)
     looper.run(eventually(anotherClient.ensureConnectedToNodes))
-
-    baseDirs = set()
-    for n in txnPoolNodeSet:
-        baseDirs.add(n.config.baseDir)
-    baseDirs.add(client.config.baseDir)
-    baseDirs.add(anotherClient.config.baseDir)
-
-    for baseDir in baseDirs:
-        for name, env in ENVS.items():
-            poolLedgerPath = os.path.join(baseDir, env.poolLedger)
-            if os.path.exists(poolLedgerPath):
-                with open(poolLedgerPath) as f:
-                    poolLedgerContent = f.read()
-                    assert nodeStackNewHA.host in poolLedgerContent
-                    assert str(nodeStackNewHA.port) in poolLedgerContent
-                    assert clientStackNewHA.host in poolLedgerContent
-                    assert str(clientStackNewHA.port) in poolLedgerContent
+    stewardWallet = Wallet(stewardName)
+    stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 5)
+    looper.removeProdable(stewardClient)
+    # checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
+    #                                 txnPoolNodeSet, stewardClient, anotherClient)
 
 
 # TODO: This is failing as of now, fix it
@@ -107,17 +125,14 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
 
 
 def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                               tdir, poolTxnData, poolTxnStewardNames, tconf):
-    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+                               poolTxnData, poolTxnStewardNames, tconf):
+    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
 
 
 def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                  tdir, poolTxnData, poolTxnStewardNames,
-                                  tconf):
-    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns, tdir,
+                                  poolTxnData, poolTxnStewardNames, tconf):
+    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=False)
-
-
 
 

@@ -13,8 +13,11 @@ from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
-    TestNode, checkPoolReady, TestClient
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkPoolReady
+from plenum.test.spy_helpers import getAllArgs
+from plenum.test.test_client import TestClient
+from plenum.test.test_node import TestNode, checkPoolReady
 
 
 class TestCliCore:

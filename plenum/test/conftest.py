@@ -21,13 +21,16 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances, getConfig
+from plenum.common.util import getNoInstances
+from plenum.common.config_util import getConfig
 from plenum.test.eventually import eventually, eventuallyAll
-from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
-    ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
+from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+    checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -445,23 +448,30 @@ def testNodeClass():
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns,
+def txnPoolNodesLooper():
+    with Looper(debug=True) as l:
+        yield l
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSet(txnPoolNodesLooper,
+                   tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tconf,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass):
-    with Looper(debug=True) as looper:
-        nodes = []
-        for nm in poolTxnNodeNames:
-            node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                                 config=tconf, pluginPaths=allPluginsPath)
-            looper.add(node)
-            nodes.append(node)
-        looper.run(checkNodesConnected(nodes))
-        ensureElectionsDone(looper=looper, nodes=nodes, retryWait=1, timeout=10)
-        yield nodes
+    nodes = []
+    for nm in poolTxnNodeNames:
+        node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
+                             config=tconf, pluginPaths=allPluginsPath)
+        txnPoolNodesLooper.add(node)
+        nodes.append(node)
+    txnPoolNodesLooper.run(checkNodesConnected(nodes))
+    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
+                        timeout=10)
+    return nodes
 
 
 @pytest.fixture(scope="module")

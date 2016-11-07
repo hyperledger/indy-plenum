@@ -18,9 +18,12 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.common.ratchet import Ratchet
 from plenum.common.signer import Signer
-from plenum.common.types import Request, Batch, TaggedTupleBase, HA
-from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, checkPortAvailable, getConfig
+from plenum.common.types import Batch, TaggedTupleBase, HA
+from plenum.common.request import Request
+from plenum.common.util import distributedConnectionMap, \
+    MessageProcessor, checkPortAvailable
+from plenum.common.config_util import getConfig
+from plenum.common.error import error
 
 logger = getlogger()
 
@@ -57,7 +60,8 @@ class Stack(RoadStack):
         super().__init__(*args, **kwargs)
         if self.ha[1] != kwargs['ha'].port:
             error("the stack port number has changed, likely due to "
-                  "information in the keep")
+                  "information in the keep. {} passed {}, actual {}".
+                  format(kwargs['name'], kwargs['ha'].port, self.ha[1]))
         self.created = time.perf_counter()
         self.coro = None
         config = getConfig()
@@ -289,9 +293,9 @@ class SimpleStack(Stack):
             self._conns = value
             ins = value - old
             outs = old - value
-            logger.debug("{}'s connection changed from {} to {}".format(self,
-                                                                        old,
-                                                                        value))
+            logger.debug("{}'s connections changed from {} to {}".format(self,
+                                                                         old,
+                                                                         value))
             self._connsChanged(ins, outs)
 
     def checkConns(self):
@@ -827,6 +831,10 @@ class ClientStack(SimpleStack):
         try:
             self.send(payload, remoteName)
         except Exception as ex:
+            # TODO: This should not be an error since the client might not have
+            # sent the request to all nodes but only some nodes and other
+            # nodes might have got this request through PROPAGATE and thus
+            # might not have connection with the client.
             logger.error("{} unable to send message {} to client {}; Exception: {}"
                          .format(self.name, msg, remoteName, ex.__repr__()))
 

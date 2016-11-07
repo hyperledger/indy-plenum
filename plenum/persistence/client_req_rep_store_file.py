@@ -7,7 +7,8 @@ from ledger.stores.directory_store import DirectoryStore
 from ledger.util import F
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Request, f
+from plenum.common.types import f
+from plenum.common.request import Request
 from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
 

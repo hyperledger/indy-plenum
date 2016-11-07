@@ -2,7 +2,7 @@ from abc import abstractmethod, abstractproperty
 from typing import Any, Sequence
 
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.types import Request
+from plenum.common.request import Request
 
 
 class ClientReqRepStore:

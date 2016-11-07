@@ -1,35 +1,33 @@
 import asyncio
+import inspect
+import itertools
 import json
 import logging
 import shutil
+import math
+import random
 import socket
 import string
-from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple
-
-import base58
-import itertools
-import libnacl.secret
-import math
-import os
-import random
 import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from importlib import import_module
-from importlib.util import spec_from_file_location, module_from_spec
-from ledger.util import F
-from libnacl import crypto_hash_sha256
 from math import floor
+from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
+    Tuple, Union, List, NamedTuple, Callable
+
+import base58
+import libnacl.secret
+from libnacl import crypto_hash_sha256
+from six import iteritems, string_types
 
 from plenum.common.constants import ENVS
 from plenum.common.txn import TYPE, CHANGE_HA, TARGET_NYM, IDENTIFIER, DATA
-from six import iteritems, string_types
+from ledger.util import F
+from plenum.common.error import error
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
-CONFIG = None
 
 
 def randomString(size: int = 20,
@@ -98,16 +96,6 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             if not mutated:
                 objSearchReplace(o, toFrom, checked, logMsg)
     checked.remove(id(obj))
-
-
-def error(msg: str) -> Exception:
-    """
-    Wrapper to get around Python's distinction between statements and expressions
-    Can be used in lambdas and expressions such as: a if b else error(c)
-
-    :param msg: error message
-    """
-    raise Exception(msg)
 
 
 def getRandomPortNumber() -> int:
@@ -322,50 +310,6 @@ class adict(dict):
 
     __setattr__ = __setitem__
     __getattr__ = __getitem__
-
-
-def getInstalledConfig(installDir, configFile):
-    """
-    Reads config from the installation directory of Plenum.
-
-    :param installDir: installation directory of Plenum
-    :param configFile: name of the confiuration file
-    :raises: FileNotFoundError
-    :return: the configuration as a python object
-    """
-    configPath = os.path.join(installDir, configFile)
-    if os.path.exists(configPath):
-        spec = spec_from_file_location(configFile,
-                                                      configPath)
-        config = module_from_spec(spec)
-        spec.loader.exec_module(config)
-        return config
-    else:
-        raise FileNotFoundError("No file found at location {}".format(configPath))
-
-
-def getConfig(homeDir=None):
-    """
-    Reads a file called config.py in the project directory
-
-    :raises: FileNotFoundError
-    :return: the configuration as a python object
-    """
-    global CONFIG
-    if not CONFIG:
-        refConfig = import_module("plenum.config")
-        try:
-            homeDir = os.path.expanduser(homeDir or "~")
-
-            configDir = os.path.join(homeDir, ".plenum")
-            config = getInstalledConfig(configDir, "plenum_config.py")
-
-            refConfig.__dict__.update(config.__dict__)
-        except FileNotFoundError:
-            pass
-        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
-        CONFIG = refConfig
-    return CONFIG
 
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
@@ -611,3 +555,21 @@ def updateMasterPoolTxnFile(baseDir, txn):
 
                 shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
                 os.remove(poolLedgerTmpPath)
+
+def lxor(a, b):
+    # Logical xor of 2 items, return true when one of them is truthy and
+    # one of them falsy
+    return bool(a) != bool(b)
+
+def getCallableName(callable: Callable):
+    # If it is a function or method then access its `__name__`
+    if inspect.isfunction(callable) or inspect.ismethod(callable):
+        if hasattr(callable, "__name__"):
+            return callable.__name__
+        # If it is a partial then access its `func`'s `__name__`
+        elif hasattr(callable, "func"):
+            return callable.func.__name__
+        else:
+            RuntimeError("Do not know how to get name of this callable")
+    else:
+        TypeError("This is not a callable")

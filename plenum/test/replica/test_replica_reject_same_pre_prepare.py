@@ -12,7 +12,8 @@ from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
-    getPrimaryReplica, getNonPrimaryReplicas
+    getPrimaryReplica
+from plenum.test.test_node import getNonPrimaryReplicas
 
 whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',

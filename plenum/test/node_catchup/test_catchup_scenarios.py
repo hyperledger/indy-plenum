@@ -2,7 +2,9 @@ import pytest
 from plenum.common.startable import Mode
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import checkNodesConnected, sendRandomRequests, crDelay
+from plenum.test.helper import sendRandomRequests
+from plenum.test.test_node import checkNodesConnected
+from plenum.test.delayers import crDelay
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 

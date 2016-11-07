@@ -11,7 +11,7 @@ from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
 from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances

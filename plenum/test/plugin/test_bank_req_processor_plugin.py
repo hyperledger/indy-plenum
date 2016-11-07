@@ -3,8 +3,10 @@ import pytest
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
-    checkReqNack, TestNodeSet, setupClients
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkReqNack, setupClients
+from plenum.test.test_client import TestClient
+from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, App

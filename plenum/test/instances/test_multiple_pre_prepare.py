@@ -3,8 +3,8 @@ from functools import partial
 import pytest
 
 from plenum.test.eventually import eventually
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions, \
-    getNonPrimaryReplicas
+from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, sendDuplicate3PhaseMsg
 from plenum.common.util import adict
 

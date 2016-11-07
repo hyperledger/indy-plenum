@@ -1,11 +1,13 @@
 import pytest
 import time
 
-from plenum.common.types import ReqDigest, PrePrepare
+from plenum.common.types import PrePrepare
+from plenum.common.request import ReqDigest
 from plenum.server.replica import TPCStat
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually
-from plenum.test.helper import getPrimaryReplica, getNonPrimaryReplicas, getNodeSuspicions
+from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas
 
 instId = 0
 

@@ -239,19 +239,19 @@ def __checkClientConnected(cli, ):
 
 
 def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
-                 stewardsName, stewardsSeed, newClientHA=None):
+             stewardName, stewardsSeed, newClientHA=None):
 
     if not newClientHA:
         newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
 
     # prepare steward wallet
     stewardSigner = SimpleSigner(seed=stewardsSeed)
-    stewardWallet = Wallet(stewardsName)
+    stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=stewardSigner)
 
     # prepare client to submit change ha request to sovrin
     randomClientPort = random.randint(9700, 9799)
-    client = Client(stewardsName,
+    client = Client(stewardName,
                     ha=('0.0.0.0', randomClientPort), config=config)
     looper.add(client)
     looper.run(eventually(__checkClientConnected, client,

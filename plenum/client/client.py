@@ -30,8 +30,9 @@ from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Request, Reply, OP_FIELD_NAME, f, HA, \
+from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
+from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
@@ -40,7 +41,7 @@ from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
 # DEPR
 # from plenum.persistence.wallet_storage_file import WalletStorageFile
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 logger = getlogger()
 

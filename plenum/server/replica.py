@@ -7,12 +7,15 @@ from typing import Optional, Any
 from typing import Set
 from typing import Tuple
 
+from orderedset import OrderedSet
 import plenum.server.node
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.types import ReqDigest, PrePrepare, \
+from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
+from plenum.common.request import ReqDigest
 from plenum.common.util import MessageProcessor
 from plenum.common.log import getlogger
+from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
@@ -48,7 +51,7 @@ class Stats:
                            for k, v in self.stats.items())
 
 
-class Replica(MessageProcessor):
+class Replica(HasActionQueue, MessageProcessor):
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
         """
@@ -151,7 +154,7 @@ class Replica(MessageProcessor):
         self.commits = Commits()
 
         # Set of tuples to keep track of ordered requests
-        self.ordered = set()        # type: Set[Tuple[int, int]]
+        self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
 
         # Requests with sufficient commits so they can be ordered but have not
         # received request digest from node and neither PRE-PREPARE or PREPARE.
@@ -170,6 +173,14 @@ class Replica(MessageProcessor):
         # Holds tuple of view no and prepare seq no of 3-phase messages it
         # received while it was not participating
         self.stashingWhileCatchingUp = set()       # type: Set[Tuple]
+
+        # Commits which are not being ordered since commits with lower view
+        # numbers and sequence numbers have not been ordered yet. Key is the
+        # viewNo and value a map of pre-prepare sequence number to commit
+        self.stashedCommitsForOrdering = {}         # type: Dict[int,
+        # Dict[int, Commit]]
+
+        self._schedule(self.orderStashedCommits, 2)
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int):
         # Replica should only participating in the consensus process and the
@@ -362,7 +373,9 @@ class Replica(MessageProcessor):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        return self.inBoxRouter.handleAllSync(self.inBox, limit)
+        r = self.inBoxRouter.handleAllSync(self.inBox, limit)
+        r += self._serviceActions()
+        return r
         # Messages that can be processed right now needs to be added back to the
         # queue. They might be able to be processed later
 
@@ -800,9 +813,81 @@ class Replica(MessageProcessor):
         if not self.commits.hasQuorum(commit, self.f):
             return False, "no quorum: {} commits where f is {}".\
                           format(commit, self.f)
+
         if self.hasOrdered(commit.viewNo, commit.ppSeqNo):
             return False, "already ordered"
+
+        if not self.isNextInOrdering(commit):
+            viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
+            if viewNo not in self.stashedCommitsForOrdering:
+                self.stashedCommitsForOrdering[viewNo] = {}
+            self.stashedCommitsForOrdering[viewNo][ppSeqNo] = commit
+            return False, "stashing {} since out of order".\
+                format(commit)
+
         return True, None
+
+    def isNextInOrdering(self, commit: Commit):
+        viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
+        if self.ordered and self.ordered[-1] == (viewNo, ppSeqNo-1):
+            return True
+        for (v, p) in self.commits:
+            if v < viewNo:
+                # Have commits from previous view that are unordered.
+                # TODO: Question: would commits be always ordered, what if
+                # some are never ordered and its fine, go to PBFT.
+                return False
+            if v == viewNo and p < ppSeqNo and (v, p) not in self.ordered:
+                # If unordered commits are found with lower ppSeqNo then this
+                # cannot be ordered.
+                return False
+
+        # TODO: Revisit PBFT paper, how to make sure that last request of the
+        # last view has been ordered? Need change in `VIEW CHANGE` mechanism.
+        # Somehow view change needs to communicate what the last request was.
+        # Also what if some COMMITs were completely missed in the same view
+        return True
+
+    def orderStashedCommits(self):
+        # TODO: What if the first few commits were out of order and stashed? `self.ordered` would be empty
+        if self.ordered:
+            lastOrdered = self.ordered[-1]
+            vToRemove = set()
+            for v in self.stashedCommitsForOrdering:
+                if v < lastOrdered[0] and self.stashedCommitsForOrdering[v]:
+                    raise RuntimeError("Found commits from previous view {} that "
+                                       "were not ordered but last ordered is {}".
+                                       format(v, lastOrdered))
+                pToRemove = set()
+                for p, commit in self.stashedCommitsForOrdering[v].items():
+                    if (v == lastOrdered[0] and lastOrdered == (v, p - 1)) or \
+                            (v > lastOrdered[0] and
+                                self.isLowestCommitInView(commit)):
+                        logger.debug("{} ordering stashed commit {}".
+                                     format(self, commit))
+                        if self.tryOrdering(commit):
+                            lastOrdered = (v, p)
+                            pToRemove.add(p)
+
+                for p in pToRemove:
+                    del self.stashedCommitsForOrdering[v][p]
+                if not self.stashedCommitsForOrdering[v]:
+                    vToRemove.add(v)
+
+            for v in vToRemove:
+                del self.stashedCommitsForOrdering[v]
+
+        self._schedule(self.orderStashedCommits, 2)
+
+    def isLowestCommitInView(self, commit):
+        # TODO: Assumption: This assumes that at least one commit that was sent
+        #  for any request by any node has been received in the view of this
+        # commit
+        ppSeqNos = []
+        for v, p in self.commits:
+            if v == commit.viewNo:
+                ppSeqNos.append(p)
+        return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
 
     def tryOrdering(self, commit: Commit) -> None:
         """
@@ -812,7 +897,7 @@ class Replica(MessageProcessor):
         :param commit: the COMMIT message
         """
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.debug("{} ordering COMMIT{}".format(self, key))
+        logger.debug("{} trying to order COMMIT{}".format(self, key))
         primaryStatus = self.isPrimaryForMsg(commit)
 
         if primaryStatus is True:
@@ -847,6 +932,7 @@ class Replica(MessageProcessor):
             return
 
         self.doOrder(*key, identifier, reqId, digest, commit.ppTime)
+        return True
 
     def doOrder(self, viewNo, ppSeqNo, identifier, reqId, digest, ppTime):
         key = (viewNo, ppSeqNo)

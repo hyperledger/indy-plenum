@@ -3,9 +3,9 @@ from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from plenum.common.looper import Looper
-from plenum.test.helper import genNodeReg, checkNodesConnected, TestNodeSet, \
-    RemoteState, msgAll
-
+from plenum.test.helper import msgAll
+from plenum.test.test_stack import RemoteState
+from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
 

@@ -3,7 +3,7 @@ from collections import deque
 from enum import Enum, unique
 
 from plenum.common.log import getlogger
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 logger = getlogger()
 config = getConfig()

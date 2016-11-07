@@ -3,7 +3,8 @@ from plenum.test.eventually import eventually
 
 from plenum.common.types import Commit
 from plenum.server.replica import Replica
-from plenum.test.helper import delayerMsgTuple, TestNode
+from plenum.test.test_node import TestNode
+from plenum.test.delayers import delayerMsgTuple
 
 nodeCount = 4
 

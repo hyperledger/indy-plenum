@@ -8,8 +8,10 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.test.eventually import eventuallyAll, eventually
-from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
+from plenum.test.helper import setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, submitOp, makeReason
