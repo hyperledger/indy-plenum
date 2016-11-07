@@ -2,10 +2,8 @@ from functools import partial
 
 import pytest
 
-from plenum.common.txn import REQNACK
-from plenum.common.types import OP_FIELD_NAME
 from plenum.test.eventually import eventuallyAll
-from plenum.test.helper import checkReqAck, checkReqNack
+from plenum.test.helper import checkReqNack
 
 whitelist = ['discarding message']
 

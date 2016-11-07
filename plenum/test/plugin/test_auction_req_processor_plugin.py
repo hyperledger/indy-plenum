@@ -2,12 +2,9 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.client.wallet import Wallet
 from plenum.common.txn import TXN_TYPE, DATA, TARGET_NYM
-from plenum.common.request import Request
 from plenum.test.eventually import eventually
 from plenum.test.helper import setupClients, checkSufficientRepliesRecvd
-from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor import \
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT

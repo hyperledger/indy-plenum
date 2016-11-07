@@ -9,7 +9,7 @@ from plenum.test.helper import randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, assertLength
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClientSendMessageAndRemove, clientSendMessageAndRemove
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
 from plenum.common.crypto import Signer

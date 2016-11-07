@@ -10,8 +10,8 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.test.eventually import eventuallyAll
 from plenum.test.helper import checkReqNack
 from plenum.test.test_node import TestNodeSet
-from plenum.test.plugin.auction_req_validation.plugin_auction_req_validation import AMOUNT, \
-    PLACE_BID, AUCTION_START, ID, AUCTION_END
+from plenum.test.plugin.auction_req_validation.plugin_auction_req_validation \
+    import AMOUNT, PLACE_BID, AUCTION_START, ID, AUCTION_END
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, submitOp, makeReason
 
