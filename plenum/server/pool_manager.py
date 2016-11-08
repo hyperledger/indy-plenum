@@ -2,6 +2,7 @@ from typing import Dict, Tuple
 
 from copy import deepcopy
 from ledger.util import F
+from plenum.common.util import updateMasterPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
@@ -11,7 +12,7 @@ from plenum.common.stack_manager import TxnStackManager
 
 from plenum.common.types import HA, f, Reply
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
 from plenum.common.log import getlogger
 
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
@@ -186,6 +187,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
+        updateMasterPoolTxnFile(self.config.baseDir, txn)
         self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):

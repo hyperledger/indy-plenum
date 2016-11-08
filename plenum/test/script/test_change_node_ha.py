@@ -1,20 +1,20 @@
+import os
+
 import pytest
 
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import ProdableAlreadyAdded
-from plenum.common.looper import Looper
+from plenum.common.constants import ENVS
 from plenum.common.port_dispenser import genHa
 from plenum.common.script_helper import changeHA
 from plenum.common.signer_simple import SimpleSigner
 
 from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
-from plenum.test.helper import checkSufficientRepliesRecvd, checkNodesConnected, \
-    ensureElectionsDone, sendRandomRequests, \
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkNodesConnected, ensureElectionsDone, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNode, checkNodesConnected, \
-    ensureElectionsDone
+from plenum.test.test_node import TestNode
 from plenum.common.log import getlogger
 
 
@@ -30,6 +30,25 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'missing', 'conflicts', 'matches', 'nodeReg',
              'conflicting address', 'unable to send message']
 
+
+def checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
+                                    txnPoolNodeSet, *clients):
+    baseDirs = set()
+    for n in txnPoolNodeSet:
+        baseDirs.add(n.config.baseDir)
+    for c in clients:
+        baseDirs.add(c.config.baseDir)
+
+    for baseDir in baseDirs:
+        for name, env in ENVS.items():
+            poolLedgerPath = os.path.join(baseDir, env.poolLedger)
+            if os.path.exists(poolLedgerPath):
+                with open(poolLedgerPath) as f:
+                    poolLedgerContent = f.read()
+                    assert nodeStackNewHA.host in poolLedgerContent
+                    assert str(nodeStackNewHA.port) in poolLedgerContent
+                    assert clientStackNewHA.host in poolLedgerContent
+                    assert str(clientStackNewHA.port) in poolLedgerContent
 
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
@@ -71,7 +90,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(restartedNode)
 
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=20))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=70))
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=10)
 
     # start client and check the node HA
@@ -83,6 +102,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 5)
     looper.removeProdable(stewardClient)
+    checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
+                                    txnPoolNodeSet, stewardClient, anotherClient)
 
 
 # TODO: This is failing as of now, fix it
