@@ -278,7 +278,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug("{} found difference between master's and "
                              "backups's avg latency to be higher than the "
                              "threshold".format(self))
-                logger.debug(
+                logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
                     format(self, avgLatM, avgLatB))
