@@ -2,7 +2,8 @@ import inspect
 import logging
 import os
 import sys
-from logging.handlers import TimedRotatingFileHandler
+from plenum.common.logging.TimeAndSizeRotatingFileHandler \
+    import TimeAndSizeRotatingFileHandler
 
 from ioflo.base.consoling import getConsole, Console
 
@@ -100,11 +101,13 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        fileHandler = TimedRotatingFileHandler(filename,
-                                               when=config.logRotationWhen,
-                                               interval=config.logRotationInterval,
-                                               backupCount=config.logRotationBackupCount,
-                                               utc=True)
+        fileHandler = TimeAndSizeRotatingFileHandler(
+            filename,
+            when=config.logRotationWhen,
+            interval=config.logRotationInterval,
+            backupCount=config.logRotationBackupCount,
+            utc=True,
+            maxBytes=config.logRotationMaxBytes)
         logHandlers.append(fileHandler)
     else:
         logHandlers.append(logging.StreamHandler(sys.stdout))

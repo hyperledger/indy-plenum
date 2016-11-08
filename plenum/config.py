@@ -1,10 +1,10 @@
 from collections import OrderedDict
-
-# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
+import os
 
+
+# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
 nodeReg = OrderedDict([
     ('Alpha', ('127.0.0.1', 9701)),
     ('Beta', ('127.0.0.1', 9703)),
@@ -77,7 +77,7 @@ STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
-RAETLogFilePath = None
+RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
@@ -95,6 +95,7 @@ CatchupTransactionsTimeout = 5
 logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
+logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
 
