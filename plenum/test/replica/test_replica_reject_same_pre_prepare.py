@@ -44,7 +44,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     logger.debug(
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
-    primaryRepl.prePrepareSeqNo -= 1
+    primaryRepl.lastPrePrepareSeqNo -= 1
     request2 = sendRandomRequest(wallet1, client1)
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=10))
@@ -54,7 +54,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         primaryRepl.viewNo,
-        primaryRepl.prePrepareSeqNo,
+        primaryRepl.lastPrePrepareSeqNo,
         wallet1.defaultId,
         request2.reqId,
         request2.digest,

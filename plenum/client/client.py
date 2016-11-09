@@ -422,8 +422,8 @@ class Client(Motor,
         :return:
         """
         self.reqsPendingConnection.append((request, signer))
-        logger.debug("Enqueuing request since not enough connections "
-                     "with nodes: {}".format(request))
+        logger.debug("{} enqueuing request since not enough connections "
+                     "with nodes: {}".format(self, request))
 
     def flushMsgsPendingConnection(self):
         queueSize = len(self.reqsPendingConnection)

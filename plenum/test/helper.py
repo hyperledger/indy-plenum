@@ -394,12 +394,12 @@ def getNodeSuspicions(node: TestNode, code: int = None):
     return params
 
 
-def checkDiscardMsg(nodeSet, discardedMsg,
+def checkDiscardMsg(processors, discardedMsg,
                     reasonRegexp, *exclude):
     if not exclude:
         exclude = []
-    for n in filterNodeSet(nodeSet, exclude):
-        last = n.spylog.getLastParams(Node.discard, required=False)
+    for p in filterNodeSet(processors, exclude):
+        last = p.spylog.getLastParams(p.discard, required=False)
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']

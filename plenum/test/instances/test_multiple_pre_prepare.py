@@ -21,6 +21,7 @@ whitelist = [Suspicions.DUPLICATE_PPR_SENT.reason,
              Suspicions.UNKNOWN_CM_SENT.reason,
              'cannot process incoming COMMIT']
 
+
 @pytest.fixture("module")
 def setup(nodeSet, up):
     primaryRep, nonPrimaryReps = getPrimaryReplica(nodeSet, 0), \

@@ -242,6 +242,7 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processCommit,
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
+                  replica.Replica.discard,
                   replica.Replica.orderPendingCommit])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):

@@ -3,9 +3,10 @@ from collections import namedtuple
 from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
-    ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
-    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST
+    ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
+    INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
+    CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
+    CHECKPOINT_STATE, THREE_PC_STATE
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -29,12 +30,16 @@ class f:  # provides a namespace for reusable field constants
     ROUND = Field("round", int)
     IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
+    DIGESTS = Field('digests', List[str])
+    RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
+    SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
     INST_ID = Field('instId', int)
+    IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
     SIG = Field('signature', Optional[str])
     SUSP_CODE = Field('suspicionCode', int)
@@ -185,7 +190,27 @@ Commit = TaggedTuple(COMMIT, [
     f.DIGEST,
     f.PP_TIME])
 
-# TODO Refactor this. Reply should simply a wrapper over a dict, or just a dict?
+Checkpoint = TaggedTuple(CHECKPOINT, [
+    f.INST_ID,
+    f.VIEW_NO,
+    f.SEQ_NO,
+    f.DIGEST])
+
+CheckpointState = NamedTuple(CHECKPOINT_STATE, [
+    f.SEQ_NO,
+    f.DIGESTS,  # Digest of all the requests in the checkpoint
+    f.DIGEST,   # Final digest of the checkpoint, after all requests in its
+    # range have been ordered
+    f.RECEIVED_DIGESTS,
+    f.IS_STABLE
+    ])
+
+
+ThreePCState = TaggedTuple(THREE_PC_STATE, [
+    f.INST_ID,
+    f.MSGS])
+
+
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [

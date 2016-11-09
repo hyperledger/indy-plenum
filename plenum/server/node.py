@@ -22,9 +22,8 @@ from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    UnknownIdentifier, BlowUp
+    InvalidClientOp, InvalidClientRequest, BaseExc, \
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -48,7 +47,7 @@ from plenum.common.types import Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
 from plenum.common.request import Request
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
 from plenum.common.config_util import getConfig
@@ -193,7 +192,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           [Nomination, Primary, Reelection])
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit])
+                          [PrePrepare, Prepare, Commit, Checkpoint,
+                           ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
 
@@ -227,7 +227,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                PrePrepare, Prepare,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ConsProofRequest)
+                               ConsProofRequest, Checkpoint, ThreePCState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -762,7 +762,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 msg = replica.outBox.popleft()
                 if isinstance(msg, (PrePrepare,
                                     Prepare,
-                                    Commit)):
+                                    Commit,
+                                    Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
                     # Checking for request in received catchup replies as a
@@ -780,7 +781,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
-                    logger.error("Received msg {} and don't know how to handle"
+                    logger.error("Received msg {} and don't know how to handle "
                                  "it".format(msg))
         return msgCount
 
@@ -1138,8 +1139,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             m = self.clientInBox.popleft()
             req, frm = m
             logger.display("{} processing {} request {}".
-                         format(self.clientstack.name, frm, req),
-                         extra={"cli": True})
+                           format(self.clientstack.name, frm, req),
+                           extra={"cli": True})
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
@@ -1163,6 +1164,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.processStashedOrderedReqs()
         self.mode = Mode.participating
+        # self.sync3PhaseState()
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
@@ -1615,6 +1617,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def gotInCatchupReplies(self, msg):
         key = (getattr(msg, f.IDENTIFIER.nm), getattr(msg, f.REQ_ID.nm))
         return key in self.reqsFromCatchupReplies
+
+    def sync3PhaseState(self):
+        for replica in self.replicas:
+            self.send(replica.threePhaseState)
 
     def startKeySharing(self, timeout=60):
         """

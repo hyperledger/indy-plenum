@@ -38,3 +38,10 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".
                      format(node, len(node.requests), get_size(node.requests)))
+        for replica in node.replicas:
+            logger.debug("{} has prepares {} with size {}".
+                         format(replica, len(replica.prepares),
+                                get_size(replica.prepares)))
+            logger.debug("{} has commits {} with size {}".
+                         format(replica, len(replica.commits),
+                                get_size(replica.commits)))

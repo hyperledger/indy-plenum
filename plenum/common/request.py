@@ -1,6 +1,7 @@
 from hashlib import sha256
 from typing import Mapping, NamedTuple
 
+from plenum.common.signing import serializeMsg
 from plenum.common.txn import REQDIGEST
 from plenum.common.types import Identifier, f
 
@@ -28,8 +29,13 @@ class Request:
 
     @property
     def digest(self):
-        return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
-        # return sha256(serializeMsg(self.__dict__)).hexdigest()
+        # The digest needs to be of the whole request. If only client id and
+        # request id are used to construct digest, then a malicious client might
+        # send different operations to different nodes and the nodes will not
+        # realize an have different ledgers.
+        return sha256(serializeMsg(self.__dict__)).hexdigest()
+        # DEPR
+        # return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
 
     @property
     def reqDigest(self):

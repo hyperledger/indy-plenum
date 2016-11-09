@@ -8,12 +8,17 @@ from typing import Set
 from typing import Tuple
 
 from orderedset import OrderedSet
+from sortedcontainers import SortedDict
+
 import plenum.server.node
+from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode
+from plenum.common.signing import serialize
 from plenum.common.types import PrePrepare, \
-    Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
+    Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
+    CheckpointState, Checkpoint
 from plenum.common.request import ReqDigest
-from plenum.common.util import MessageProcessor
+from plenum.common.util import MessageProcessor, updateNamedTuple
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -64,10 +69,16 @@ class Replica(HasActionQueue, MessageProcessor):
         super().__init__()
         self.stats = Stats(TPCStat)
 
+        self.config = getConfig()
+
         routerArgs = [(ReqDigest, self._preProcessReqDigest)]
 
         for r in [PrePrepare, Prepare, Commit]:
             routerArgs.append((r, self.processThreePhaseMsg))
+
+        routerArgs.append((Checkpoint, self.processCheckpoint))
+        routerArgs.append((ThreePCState, self.process3PhaseState))
+
         self.inBoxRouter = Router(*routerArgs)
 
         self.threePhaseRouter = Router(
@@ -141,8 +152,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.prePrepares = {}
         # type: Dict[Tuple[int, int], Tuple[ReqDigest, float]]
 
-        self.prePrepareSeqNo = 0  # type: int
-
         # Dictionary of received Prepare requests. Key of dictionary is a 2
         # element tuple with elements viewNo, seqNo and value is a 2 element
         # tuple containing request digest and set of sender node names(sender
@@ -181,6 +190,27 @@ class Replica(HasActionQueue, MessageProcessor):
         # Dict[int, Commit]]
 
         self._schedule(self.orderStashedCommits, 2)
+
+        self.checkpoints = SortedDict(lambda k: k[0])
+
+        self.stashingWhileOutsideWaterMarks = deque()
+
+        # Low water mark
+        self._h = 0              # type: int
+
+        # High water mark
+        self.H = self._h + self.config.LOG_SIZE   # type: int
+
+        self.lastPrePrepareSeqNo = self.h  # type: int
+
+    @property
+    def h(self) -> int:
+        return self._h
+
+    @h.setter
+    def h(self, n):
+        self._h = n
+        self.H = self._h + self.config.LOG_SIZE
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int):
         # Replica should only participating in the consensus process and the
@@ -423,10 +453,19 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
-        try:
-            self.threePhaseRouter.handleSync((msg, senderRep))
-        except SuspiciousNode as ex:
-            self.node.reportSuspiciousNodeEx(ex)
+        if self.isPpSeqNoAcceptable(msg.ppSeqNo):
+            try:
+                self.threePhaseRouter.handleSync((msg, senderRep))
+            except SuspiciousNode as ex:
+                self.node.reportSuspiciousNodeEx(ex)
+        else:
+            logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is "
+                         "not between {} and {}".
+                         format(self, msg, msg.ppSeqNo, self.h, self.H))
+            self.stashingWhileOutsideWaterMarks.append((msg, sender))
+            # self.discard(msg, reason="since ppSeqNo {} is not between {} and "
+            #                          "{}".format(msg.ppSeqNo, self.h, self.H),
+            #              logMethod=logger.info)
 
     def processReqDigest(self, rd: ReqDigest):
         """
@@ -446,6 +485,40 @@ class Replica(HasActionQueue, MessageProcessor):
             viewNo, ppSeqNo, ppTime = self.commitsPendedForOrdering[rd.digest]
             self.orderPendingCommit(viewNo, ppSeqNo, rd.identifier, rd.reqId,
                                     rd.digest, ppTime)
+
+    def process3PhaseState(self, msg: ThreePCState, sender: str):
+        pass
+
+    def processCheckpoint(self, msg: Checkpoint, sender: str):
+        if self.checkpoints:
+            seqNo = msg.seqNo
+            _, firstChk = self.firstCheckPoint
+            if firstChk.isStable:
+                if firstChk.seqNo == seqNo:
+                    self.discard(msg, reason="Checkpoint already stable",
+                                 logMethod=logger.debug)
+                    return
+                if firstChk.seqNo > seqNo:
+                    self.discard(msg, reason="Higher stable checkpoint present",
+                                 logMethod=logger.debug)
+                    return
+            for state in self.checkpoints.values():
+                if state.seqNo == seqNo:
+                    if state.digest == msg.digest:
+                        state.receivedDigests[sender] = msg.digest
+                        break
+                    else:
+                        logger.error("{} received an incorrect digest {} for "
+                                     "checkpoint {} from {}".format(self,
+                                                                    msg.digest,
+                                                                    seqNo,
+                                                                    sender))
+                        return
+            if len(state.receivedDigests) == 2*self.f:
+                self.markCheckPointStable(msg.seqNo)
+        else:
+            self.discard(msg, reason="No checkpoints present to tally",
+                         logMethod=logger.warn)
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
@@ -575,18 +648,26 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.error("Non participating node is attempting PRE-PREPARE. "
                          "This should not happen.")
             return
-        self.prePrepareSeqNo += 1
+
+        if self.lastPrePrepareSeqNo == self.H:
+            logger.debug("{} stashing PRE-PREPARE {} since outside greater "
+                         "than high water mark {}".
+                         format(self, (self.viewNo, self.lastPrePrepareSeqNo+1),
+                                self.H))
+            self.stashingWhileOutsideWaterMarks.append(reqDigest)
+            return
+        self.lastPrePrepareSeqNo += 1
         tm = time.time()*1000
         logger.debug("{} Sending PRE-PREPARE {} at {}".
-                     format(self, (self.viewNo, self.prePrepareSeqNo),
+                     format(self, (self.viewNo, self.lastPrePrepareSeqNo),
                             time.perf_counter()))
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
-                                   self.prePrepareSeqNo,
+                                   self.lastPrePrepareSeqNo,
                                    *reqDigest,
                                    tm)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest,
-                                                                   tm)
+        self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = (reqDigest,
+                                                                       tm)
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
@@ -855,9 +936,9 @@ class Replica(HasActionQueue, MessageProcessor):
             vToRemove = set()
             for v in self.stashedCommitsForOrdering:
                 if v < lastOrdered[0] and self.stashedCommitsForOrdering[v]:
-                    raise RuntimeError("Found commits from previous view {} that "
-                                       "were not ordered but last ordered is {}".
-                                       format(v, lastOrdered))
+                    raise RuntimeError("{} found commits from previous view {}"
+                                       " that were not ordered but last ordered"
+                                       " is {}".format(self, v, lastOrdered))
                 pToRemove = set()
                 for p, commit in self.stashedCommitsForOrdering[v].items():
                     if (v == lastOrdered[0] and lastOrdered == (v, p - 1)) or \
@@ -943,10 +1024,95 @@ class Replica(HasActionQueue, MessageProcessor):
                           reqId,
                           digest,
                           ppTime)
+        # TODO: Should not order or add to checkpoint while syncing 3 phase state.
         self.send(ordered, TPCStat.OrderSent)
         if key in self.stashingWhileCatchingUp:
             self.stashingWhileCatchingUp.remove(key)
         logger.debug("{} ordered request {}".format(self, (viewNo, ppSeqNo)))
+        self.addToCheckpoint(ppSeqNo, digest)
+
+    def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
+        s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
+        logger.debug("{} adding new checkpoint state for {}".
+                     format(self, (s, e)))
+        state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
+        self.checkpoints[s, e] = state
+        return state
+
+    def addToCheckpoint(self, ppSeqNo, digest):
+        #
+        # if not self.checkpoints:
+        #     state = self._newCheckpointState(ppSeqNo, digest)
+        # else:
+        for (s, e) in self.checkpoints.keys():
+            if s <= ppSeqNo <= e:
+                state = self.checkpoints[s, e]  # type: CheckpointState
+                state.digests.append(digest)
+                state = updateNamedTuple(state, seqNo=ppSeqNo)
+                self.checkpoints[s, e] = state
+                break
+        else:
+            state = self._newCheckpointState(ppSeqNo, digest)
+            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ
+
+        if len(state.digests) == self.config.CHK_FREQ:
+            state = updateNamedTuple(state, digest=serialize(state.digests),
+                                     digests=[])
+            self.checkpoints[s, e] = state
+            self.send(Checkpoint(self.instId, self.viewNo, ppSeqNo,
+                                 state.digest))
+
+    def markCheckPointStable(self, seqNo):
+        previousCheckpoints = []
+        for (s, e), state in self.checkpoints.items():
+            if e == seqNo:
+                state = updateNamedTuple(state, isStable=True)
+                self.checkpoints[s, e] = state
+                break
+            else:
+                previousCheckpoints.append((s, e))
+        else:
+            logger.error("{} could not find {} in checkpoints".
+                         format(self, seqNo))
+            return
+        self.h = seqNo
+        for k in previousCheckpoints:
+            logger.debug("{} removing previous checkpoint {}".format(self, k))
+            self.checkpoints.pop(k)
+        logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
+        self.processStashedMsgsForNewWaterMarks()
+
+    def processStashedMsgsForNewWaterMarks(self):
+        while self.stashingWhileOutsideWaterMarks:
+            item = self.stashingWhileOutsideWaterMarks.pop()
+            logger.debug("{} processing stashed item {} after new stable "
+                         "checkpoint".format(self, item))
+
+            if isinstance(item, ReqDigest):
+                self.doPrePrepare(item)
+            elif isinstance(item, tuple) and len(tuple) == 2:
+                self.dispatchThreePhaseMsg(*item)
+            else:
+                logger.error("{} cannot process {} "
+                             "from stashingWhileOutsideWaterMarks".
+                             format(self, item))
+
+    @property
+    def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints.peekitem(0)
+
+    @property
+    def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints.peekitem(-1)
+
+    def isPpSeqNoAcceptable(self, ppSeqNo: int):
+        return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
@@ -998,14 +1164,26 @@ class Replica(HasActionQueue, MessageProcessor):
                          .format(self, key))
             return None
 
-    def send(self, msg, stat) -> None:
+    @property
+    def threePhaseState(self):
+        # TODO: This method is incomplete
+        # Gets the current stable and unstable checkpoints and creates digest
+        # of unstable checkpoints
+        if self.checkpoints:
+            pass
+        else:
+            state = []
+        return ThreePCState(self.instId, state)
+
+    def send(self, msg, stat=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
         :param msg: the message to send
         """
         logger.display("{} sending {}".format(self, msg.__class__.__name__),
-                     extra={"cli": True})
+                       extra={"cli": True})
         logger.trace("{} sending {}".format(self, msg))
-        self.stats.inc(stat)
+        if stat:
+            self.stats.inc(stat)
         self.outBox.append(msg)

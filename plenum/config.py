@@ -104,3 +104,9 @@ logFormatStyle='{'
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 1.1
+
+# After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
+CHK_FREQ = 100
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3*CHK_FREQ
