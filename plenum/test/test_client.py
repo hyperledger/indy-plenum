@@ -52,7 +52,6 @@ def genTestClient(nodes = None,
         nReg = None
 
     ha = genHa() if not ha else ha
-    name = name or "testClient{}".format(ha.port)
 
     tc = testClientClass(name,
                          nodeReg=nReg,
