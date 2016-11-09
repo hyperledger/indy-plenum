@@ -49,7 +49,7 @@ class Stack(RoadStack):
         kwargs['keep'] = keep
         localRoleData = keep.loadLocalRoleData()
 
-        sighex = localRoleData['sighex']
+        sighex = kwargs.get('sighex') or localRoleData['sighex']
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
