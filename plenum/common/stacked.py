@@ -850,7 +850,7 @@ class NodeStack(Batched, KITStack):
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
-        KITStack.__init__(self, stackParams, msgHandler, registry, sighex: str=None)
+        KITStack.__init__(self, stackParams, msgHandler, registry, sighex)
 
     def start(self):
         KITStack.start(self)
