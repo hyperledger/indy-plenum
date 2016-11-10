@@ -307,7 +307,13 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     assert len(newClient.inBox) > newClientInboxSize
 
 
-def testClientCanSendMessagesIfAnotherClientSendsMessageAndNamesGeneratedFromKeys(looper, nodeSet, tdir, another_tdir, wallet1):
-    client1 = createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet1, 'TestClient1')
-    client2 = createClientSendMessageAndRemove(looper, nodeSet, another_tdir, wallet1, 'TestClient1')
+def testClientCanSendMessagesIfAnotherClientSendsMessage(looper, nodeSet,
+                                                         tdir, another_tdir,
+                                                         wallet1):
+    assert tdir != another_tdir
+    client1 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               tdir, wallet1, 'TestClient1')
+    client2 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               another_tdir, wallet1,
+                                               'TestClient1')
     clientSendMessageAndRemove(client1, looper, wallet1)
