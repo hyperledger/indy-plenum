@@ -70,10 +70,10 @@ class Client(Motor,
         self.basedirpath = basedirpath
 
         if not sighex:
-            (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
+            (sighex, verkey), (prihex, pubkey) = getEd25519AndCurve25519Keys()
 
         self.name = name
-        self.stackName = rawToFriendly(sighex)
+        self.stackName = rawToFriendly(verkey)
 
         cha = None
         # If client information already exists is RAET then use that
