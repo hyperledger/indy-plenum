@@ -52,7 +52,7 @@ class Client(Motor,
              HasFileStorage,
              HasPoolManager):
     def __init__(self,
-                 name: str=None,
+                 name: str,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
                  basedirpath: str=None,
@@ -72,12 +72,13 @@ class Client(Motor,
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
 
-        self.name = name or rawToFriendly(sighex)
+        self.name = name
+        self.stackName = rawToFriendly(sighex)
 
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(self.name, basedirpath):
-            cha = getHaFromLocalEstate(self.name, basedirpath)
+        if self.exists(self.stackName, basedirpath):
+            cha = getHaFromLocalEstate(self.stackName, basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
@@ -110,7 +111,7 @@ class Client(Motor,
 
         self.setF()
 
-        stackargs = dict(name=self.name,
+        stackargs = dict(name=self.stackName,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auto=AutoMode.always)

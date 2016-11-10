@@ -1,7 +1,7 @@
 import pytest
 from raet.raeting import AutoMode
 
-from plenum.common.exceptions import EmptySignature
+from plenum.common.exceptions import EmptySignature, BlowUp
 from plenum.test.exceptions import NotConnectedToAny
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
@@ -12,6 +12,7 @@ from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, a
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClientSendMessageAndRemove, clientSendMessageAndRemove
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
+from plenum.common.crypto import getEd25519AndCurve25519Keys
 
 nodeCount = 7
 
@@ -306,17 +307,7 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     assert len(newClient.inBox) > newClientInboxSize
 
 
-def testClientCantSendMessagesIfAnotherClientWithSameNameSendsMessage(looper, nodeSet, tdir, another_tdir, wallet1):
+def testClientCanSendMessagesIfAnotherClientSendsMessageAndNamesGeneratedFromKeys(looper, nodeSet, tdir, another_tdir, wallet1):
     client1 = createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet1, 'TestClient1')
     client2 = createClientSendMessageAndRemove(looper, nodeSet, another_tdir, wallet1, 'TestClient1')
-
-    try:
-        clientSendMessageAndRemove(client1, looper, wallet1, 1)
-    except AssertionError:
-        pass
-
-
-def testClientCanSendMessagesIfAnotherClientSendsMessageAndNamesGeneratedFromKeys(looper, nodeSet, tdir, another_tdir, wallet1):
-    client1 = createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet1)
-    client2 = createClientSendMessageAndRemove(looper, nodeSet, another_tdir, wallet1)
     clientSendMessageAndRemove(client1, looper, wallet1)

@@ -446,8 +446,8 @@ def checkAllLedgersEqual(*ledgers):
         checkLedgerEquality(l1, l2)
 
 
-def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None, tries=None):
-    client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name)
+def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None, tries=None, sighex=None):
+    client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name, sighex=sighex)
     clientSendMessageAndRemove(client, looper, wallet, tries)
     return client
 
