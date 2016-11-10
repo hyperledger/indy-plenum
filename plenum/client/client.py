@@ -33,9 +33,10 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.request import Request
-from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems
+from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
+from plenum.common.crypto import getEd25519AndCurve25519Keys
 
 from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
@@ -55,7 +56,8 @@ class Client(Motor,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
                  basedirpath: str=None,
-                 config=None):
+                 config=None,
+                 sighex: str=None):
         """
         Creates a new client.
 
@@ -67,18 +69,23 @@ class Client(Motor,
         basedirpath = self.config.baseDir if not basedirpath else basedirpath
         self.basedirpath = basedirpath
 
+        if not sighex:
+            (sighex, verkey), (prihex, pubkey) = getEd25519AndCurve25519Keys()
+
+        self.name = name
+        self.stackName = rawToFriendly(verkey)
+
         cha = None
         # If client information already exists is RAET then use that
-        if self.exists(name, basedirpath):
-            cha = getHaFromLocalEstate(name, basedirpath)
+        if self.exists(self.stackName, basedirpath):
+            cha = getHaFromLocalEstate(self.stackName, basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".
-                             format(name, ha, cha))
+                             format(self.name, ha, cha))
         if not cha:
             cha = ha if isinstance(ha, HA) else HA(*ha)
 
-        self.name = name
         self.reqRepStore = self.getReqRepStore()
         self.txnLog = self.getTxnLogStore()
 
@@ -104,7 +111,7 @@ class Client(Motor,
 
         self.setF()
 
-        stackargs = dict(name=name,
+        stackargs = dict(name=self.stackName,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
                          auto=AutoMode.always)
@@ -114,12 +121,13 @@ class Client(Motor,
         # noinspection PyCallingNonCallable
         self.nodestack = self.nodeStackClass(stackargs,
                                              self.handleOneNodeMsg,
-                                             self.nodeReg)
+                                             self.nodeReg,
+                                             sighex)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         if self.nodeReg:
             logger.info("Client {} initialized with the following node registry:"
-                        .format(name))
+                        .format(self.name))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
                 for name, (host, port) in self.nodeReg.items()])]
@@ -129,7 +137,7 @@ class Client(Motor,
                 logger.info(fmt.format(name, host, port))
         else:
             logger.info(
-                "Client {} found an empty node registry:".format(name))
+                "Client {} found an empty node registry:".format(self.name))
 
         Motor.__init__(self)
 

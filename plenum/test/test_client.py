@@ -35,7 +35,8 @@ def genTestClient(nodes = None,
                   bootstrapKeys=True,
                   ha=None,
                   usePoolLedger=False,
-                  name=None) -> TestClient:
+                  name=None,
+                  sighex=None) -> TestClient:
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:
@@ -57,7 +58,8 @@ def genTestClient(nodes = None,
     tc = testClientClass(name,
                          nodeReg=nReg,
                          ha=ha,
-                         basedirpath=tmpdir)
+                         basedirpath=tmpdir,
+                         sighex=sighex)
     w = None  # type: Wallet
     if bootstrapKeys and nodes:
         if not identifier or not verkey:

@@ -49,7 +49,7 @@ class Stack(RoadStack):
         kwargs['keep'] = keep
         localRoleData = keep.loadLocalRoleData()
 
-        sighex = localRoleData['sighex']
+        sighex = kwargs.pop('sighex', None) or localRoleData['sighex']
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
@@ -261,11 +261,11 @@ class Stack(RoadStack):
 class SimpleStack(Stack):
     localips = ['127.0.0.1', '0.0.0.0']
 
-    def __init__(self, stackParams: Dict, msgHandler: Callable):
+    def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
         self._conns = set()  # type: Set[str]
-        super().__init__(**stackParams, msgHandler=self.msgHandler)
+        super().__init__(**stackParams, msgHandler=self.msgHandler, sighex=sighex)
 
     def __repr__(self):
         return self.name
@@ -391,8 +391,8 @@ class KITStack(SimpleStack):
     # Keep In Touch Stack. Stack which maintains connections mentioned in
     # its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA]):
-        super().__init__(stackParams, msgHandler)
+                 registry: Dict[str, HA], sighex: str=None):
+        super().__init__(stackParams, msgHandler, sighex)
         self.registry = registry
         # self.bootstrapped = False
 
@@ -845,12 +845,12 @@ class ClientStack(SimpleStack):
 
 class NodeStack(Batched, KITStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA]):
+                 registry: Dict[str, HA], sighex: str=None):
         Batched.__init__(self)
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
-        KITStack.__init__(self, stackParams, msgHandler, registry)
+        KITStack.__init__(self, stackParams, msgHandler, registry, sighex)
 
     def start(self):
         KITStack.start(self)
