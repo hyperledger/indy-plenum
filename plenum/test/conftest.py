@@ -161,6 +161,8 @@ def tdir(tmpdir_factory, counter):
     logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
 
+another_tdir = tdir
+
 
 @pytest.fixture(scope='function')
 def tdir_for_func(tmpdir_factory, counter):

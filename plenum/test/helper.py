@@ -444,3 +444,18 @@ def checkLedgerEquality(ledger1, ledger2):
 def checkAllLedgersEqual(*ledgers):
     for l1, l2 in permutations(ledgers, 2):
         checkLedgerEquality(l1, l2)
+
+
+def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None, tries=None):
+    client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name)
+    clientSendMessageAndRemove(client, looper, wallet, tries)
+    return client
+
+
+def clientSendMessageAndRemove(client, looper, wallet, tries=None):
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    clientInboxSize = len(client.inBox)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1, tries)
+    assert len(client.inBox) > clientInboxSize
+    looper.removeProdable(client)

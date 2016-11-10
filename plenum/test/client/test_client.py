@@ -9,7 +9,7 @@ from plenum.test.helper import randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, assertLength
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClientSendMessageAndRemove, clientSendMessageAndRemove
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
 
@@ -306,51 +306,17 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     assert len(newClient.inBox) > newClientInboxSize
 
 
-def testClientCantSendMessagesIfAnotherClientWithSameNameSendsMessage(looper, nodeSet, tdir, wallet1):
-    client1, _ = genTestClient(nodeSet, tmpdir=tdir, name='TestClient1')
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    client1InboxSize = len(client1.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-    assert len(client1.inBox) > client1InboxSize
-    looper.removeProdable(client1)
-
-    client2, _ = genTestClient(nodeSet, tmpdir=tdir, name='TestClient1')
-    looper.add(client2)
-    looper.run(client2.ensureConnectedToNodes())
-    client2InboxSize = len(client2.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client2, 1)
-    assert len(client2.inBox) > client2InboxSize
-    looper.removeProdable(client2)
-
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
+def testClientCantSendMessagesIfAnotherClientWithSameNameSendsMessage(looper, nodeSet, tdir, another_tdir, wallet1):
+    client1 = createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet1, 'TestClient1')
+    client2 = createClientSendMessageAndRemove(looper, nodeSet, another_tdir, wallet1, 'TestClient1')
 
     try:
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1, 1)
+        clientSendMessageAndRemove(client1, looper, wallet1, 1)
     except AssertionError:
         pass
 
 
-def testClientCanSendMessagesIfAnotherClientSendsMessageAndNamesGeneratedFromKeys(looper, nodeSet, tdir, wallet1):
-    client1, _ = genTestClient(nodeSet, tmpdir=tdir)
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    client1InboxSize = len(client1.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-    assert len(client1.inBox) > client1InboxSize
-    looper.removeProdable(client1)
-
-    client2, _ = genTestClient(nodeSet, tmpdir=tdir)
-    looper.add(client2)
-    looper.run(client2.ensureConnectedToNodes())
-    client2InboxSize = len(client2.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client2, 1)
-    assert len(client2.inBox) > client2InboxSize
-    looper.removeProdable(client2)
-
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    client1InboxSize = len(client1.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-    assert len(client1.inBox) > client1InboxSize
+def testClientCanSendMessagesIfAnotherClientSendsMessageAndNamesGeneratedFromKeys(looper, nodeSet, tdir, another_tdir, wallet1):
+    client1 = createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet1)
+    client2 = createClientSendMessageAndRemove(looper, nodeSet, another_tdir, wallet1)
+    clientSendMessageAndRemove(client1, looper, wallet1)
