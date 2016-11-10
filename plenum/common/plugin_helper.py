@@ -1,5 +1,4 @@
-import importlib
-
+from importlib.util import module_from_spec, spec_from_file_location
 import os
 
 from plenum.common.config_util import getConfig
@@ -39,10 +38,10 @@ def loadPlugins(baseDir):
                     pluginPath = os.path.expanduser(os.path.join(pluginsDirPath,
                                               pluginName + ".py"))
                     if os.path.exists(pluginPath):
-                        spec = importlib.util.spec_from_file_location(
+                        spec = spec_from_file_location(
                             pluginName,
                             pluginPath)
-                        plugin = importlib.util.module_from_spec(spec)
+                        plugin = module_from_spec(spec)
                         spec.loader.exec_module(plugin)
                         if baseDir in pluginsLoaded:
                             pluginsLoaded[baseDir].add(pluginName)
