@@ -36,7 +36,7 @@ from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
-from raet.nacling import SigningKey, Signer
+from raet.nacling import Signer
 
 from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields

@@ -13,7 +13,6 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClient
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
 from plenum.common.crypto import Signer
-from plenum.common.util import rawToFriendly
 
 nodeCount = 7
 
