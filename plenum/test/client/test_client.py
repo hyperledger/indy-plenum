@@ -12,7 +12,8 @@ from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, a
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClientSendMessageAndRemove, clientSendMessageAndRemove
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
-from plenum.common.crypto import getEd25519AndCurve25519Keys
+from plenum.common.crypto import Signer
+from plenum.common.util import rawToFriendly
 
 nodeCount = 7
 
@@ -316,4 +317,23 @@ def testClientCanSendMessagesIfAnotherClientSendsMessage(looper, nodeSet,
     client2 = createClientSendMessageAndRemove(looper, nodeSet,
                                                another_tdir, wallet1,
                                                'TestClient1')
+    clientSendMessageAndRemove(client1, looper, wallet1)
+
+
+def testClientCanSendMessagesIfInitWithSighex(looper, nodeSet,
+                                                         tdir, another_tdir,
+                                                         wallet1):
+    assert tdir != another_tdir
+    signer1 = Signer()
+    sighex1 = signer1.keyhex
+    client1 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               tdir, wallet1,
+                                               'TestClient1', sighex=sighex1)
+
+    signer2 = Signer()
+    sighex2 = signer2.keyhex
+    assert sighex2 != sighex1
+    client2 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               another_tdir, wallet1,
+                                               'TestClient1', sighex=sighex2)
     clientSendMessageAndRemove(client1, looper, wallet1)
