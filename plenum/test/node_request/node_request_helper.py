@@ -294,8 +294,7 @@ def checkCommited(looper, nodeSet, prepared1, instIds, faultyNodes=0):
             for r in allReplicas:
                 if key in r.commits:
                     rcvdCommitRqst = r.commits[key]
-                    assert rcvdCommitRqst[0] == prepared1.digest
-                    actualMsgsReceived = len(rcvdCommitRqst[1])
+                    actualMsgsReceived = len(rcvdCommitRqst.voters)
 
                     passes += int(msgCountOK(nodeCount,
                                              faultyNodes,

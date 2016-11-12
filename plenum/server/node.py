@@ -197,6 +197,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.perfCheckFreq = self.config.PerfCheckFreq
 
+        # TODO: Create a RecurringCaller that takes a method to call after
+        # every `n` seconds, also support start and stop methods
         self._schedule(self.checkPerformance, self.perfCheckFreq)
 
         self.initInsChngThrottling()
@@ -590,15 +592,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     # Communicate current view number if any view change
                     # happened to the connected node
                     if self.viewNo > 0:
-                        # TODO: This is little cryptic since we send the
-                        # InstanceChange with the viewNo 1 less than what we
-                        # want the other node to switch to. The way to fix it is
-                        # to send the InstanceChange with the viewNo as exactly
-                        # what we want the other node to switch to.
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, n))
                         rid = self.nodestack.getRemote(n).uid
-                        self.send(InstanceChange(self.viewNo-1), rid)
+                        self.send(InstanceChange(self.viewNo), rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:
@@ -1278,7 +1275,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, identifier, reqId, digest, ppTime = tuple(ordered)
+        instId, viewNo, identifier, reqId, ppTime = tuple(ordered)
 
         self.monitor.requestOrdered(identifier,
                                     reqId,
@@ -1373,7 +1370,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.instances.masterId is not None:
             if self.monitor.isMasterDegraded():
-                self.sendInstanceChange(self.viewNo)
+                self.sendInstanceChange(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}s master has higher performance than backups".
@@ -1428,7 +1425,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         number and its view is less than or equal to the proposed view
         """
         return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
-               self.viewNo <= proposedViewNo
+            self.viewNo < proposedViewNo
 
     def startViewChange(self, proposedViewNo: int):
         """
@@ -1436,7 +1433,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param proposedViewNo: the new view number after view change.
         """
-        self.viewNo = proposedViewNo + 1
+        self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
@@ -1852,6 +1849,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'address': nodeAddress
         }
 
-        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
+        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
+                as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(info))
 

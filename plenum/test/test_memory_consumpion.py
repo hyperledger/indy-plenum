@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
 from plenum.common.perf_util import get_size
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import \

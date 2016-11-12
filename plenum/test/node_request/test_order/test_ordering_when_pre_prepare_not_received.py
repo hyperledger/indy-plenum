@@ -17,7 +17,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     slowRep = nonPrimReps[0]
     slowNode = slowRep.node
     slowNode.nodeIbStasher.delay(ppDelay(10, 0))
-    req = sendRandomRequest(wallet1, client1)
+    sendRandomRequest(wallet1, client1)
 
     stash = []
     origMethod = slowRep.processReqDigest
@@ -29,7 +29,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     slowRep.processReqDigest = patchedMethod
 
     def chk1():
-        assert len(slowRep.commitsPendedForOrdering) > 0
+        assert len(slowRep.commitsWaitingForPrepare) > 0
 
     looper.run(eventually(chk1, timeout=4))
 
@@ -37,8 +37,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
         origMethod(item)
 
     def chk2():
-        assert len(slowRep.commitsPendedForOrdering) == 0
-        assert slowRep.spylog.count(slowRep.orderPendingCommit.__name__) > 0
+        assert len(slowRep.commitsWaitingForPrepare) == 0
         assert slowRep.spylog.count(slowRep.doOrder.__name__) == 1
 
     looper.run(eventually(chk2, timeout=12))

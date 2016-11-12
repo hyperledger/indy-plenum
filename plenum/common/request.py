@@ -61,5 +61,6 @@ class Request:
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
                                        f.REQ_ID,
                                        f.DIGEST])):
+    @property
     def key(self):
         return self.identifier, self.reqId

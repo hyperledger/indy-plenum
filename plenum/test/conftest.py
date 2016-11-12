@@ -21,13 +21,13 @@ from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances
+from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.common.config_util import getConfig
 from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes
+    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
@@ -316,26 +316,22 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, nodeSet, client1, committed1, wallet1):
-    for instId in range(getNoInstances(len(nodeSet))):
-        getPrimaryReplica(nodeSet, instId)
+def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
+    def checkOrderedCount():
+        instances = getNoInstances(len(nodeSet))
+        resp = [requestReturnedToNode(node, wallet1.defaultId,
+                                      committed1.reqId, instId) for
+                node in nodeSet for instId in range(instances)]
+        assert resp.count(True) >= (len(nodeSet) - faultyNodes)*instances
 
-        looper.run(*[eventually(checkRequestReturnedToNode,
-                                node,
-                                wallet1.defaultId,
-                                committed1.reqId,
-                                committed1.digest,
-                                instId,
-                                retryWait=1, timeout=30)
-                     for node in nodeSet])
-
-        looper.run(eventually(
-            checkSufficientRepliesRecvd,
-            client1.inBox,
-            committed1.reqId,
-            2,
-            retryWait=2,
-            timeout=30))
+    looper.run(eventually(checkOrderedCount, retryWait=1, timeout=30))
+    looper.run(eventually(
+        checkSufficientRepliesRecvd,
+        client1.inBox,
+        committed1.reqId,
+        getMaxFailures(len(nodeSet)),
+        retryWait=2,
+        timeout=30))
     return committed1
 
 

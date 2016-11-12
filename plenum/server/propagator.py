@@ -3,6 +3,7 @@ from typing import Dict, Tuple, Union
 from plenum.common.types import Propagate
 from plenum.common.request import Request
 from plenum.common.log import getlogger
+from plenum.common.util import checkIfMoreThanFSameItems
 
 logger = getlogger()
 
@@ -14,7 +15,16 @@ class ReqState:
     def __init__(self, request: Request):
         self.request = request
         self.forwarded = False
-        self.propagates = set()
+        self.propagates = {}
+        self.finalised = None
+
+    def isFinalised(self, f):
+        if self.finalised is None:
+            req = checkIfMoreThanFSameItems([v.__getstate__() for v in
+                                             self.propagates.values()], f)
+            if req:
+                self.finalised = Request.fromState(req)
+        return self.finalised
 
 
 class Requests(Dict[Tuple[str, int], ReqState]):
@@ -56,9 +66,9 @@ class Requests(Dict[Tuple[str, int], ReqState]):
         :param sender: the name of the node sending the msg
         """
         data = self.add(req)
-        data.propagates.add(sender)
+        data.propagates[sender] = req
 
-    def votes(self, req):
+    def votes(self, req) -> int:
         """
         Get the number of propagates for a given reqId and identifier.
         """
@@ -68,32 +78,28 @@ class Requests(Dict[Tuple[str, int], ReqState]):
             votes = 0
         return votes
 
-    def canForward(self, req: Request, requiredVotes: int):
+    def canForward(self, req: Request, requiredVotes: int) -> bool:
         """
         Check whether the request specified is eligible to be forwarded to the
         protocol instances.
         """
-        return self.votes(req) == requiredVotes and not self[req.key].forwarded
+        state = self[req.key]
+        return not state.forwarded and state.isFinalised(requiredVotes)
 
-    def hasPropagated(self, req: Request, sender: str):
+    def hasPropagated(self, req: Request, sender: str) -> bool:
         """
         Check whether the request specified has already been propagated.
         """
         return req.key in self and sender in self[req.key].propagates
 
-    def canPrepare(self, req: Request, requiredVotes: int):
-        """
-        Check whether the request is eligible to progress on to the Prepare
-        phase.
-        :param req: the request to check for
-        :param requiredVotes: number of votes required to progress to Prepare
-          phase
-        :return: whether the request has enough votes to progress to the Prepare
-        phase
-        """
-        if requiredVotes is None:
-            return False
-        return self.votes(req) >= requiredVotes
+    def isFinalised(self, reqKey: Tuple[str, int]) -> bool:
+        return reqKey in self and self[reqKey].finalised
+
+    def digest(self, reqKey: Tuple) -> str:
+        if reqKey in self and self[reqKey].finalised:
+            return self[reqKey].finalised.digest
+        else:
+            return None
 
 
 class Propagator:
@@ -163,11 +169,12 @@ class Propagator:
 
         :param request: the REQUEST to propagate
         """
+        key = request.key
         logger.debug("{} forwarding client request {} to its replicas".
-                     format(self, request.key))
+                     format(self, key))
         for repQueue in self.msgsToReplicas:
-            repQueue.append(request.reqDigest)
-        self.monitor.requestUnOrdered(*request.key)
+            repQueue.append(self.requests[key].finalised.reqDigest)
+        self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request)
 
     # noinspection PyUnresolvedReferences

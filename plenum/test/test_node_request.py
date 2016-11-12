@@ -1,5 +1,7 @@
 from pprint import pprint
 
+import pytest
+
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
 from plenum.common.log import getlogger
@@ -48,6 +50,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skipif(True, reason="Implementation changed")
 def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
     """Test no T-3"""
     nodeNames = genNodeNames(7)
@@ -81,7 +84,6 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
             for node in nodeSet:
                 looper.run(eventually(checkRequestReturnedToNode, node,
                                       wallet1.defaultId, req.reqId,
-                                      req.digest,
                                       instNo, retryWait=1, timeout=30))
 
             # Node B should not have received the PRE-PREPARE request yet

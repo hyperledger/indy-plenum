@@ -38,6 +38,8 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
 
     looper.run(eventually(y, retryWait=.5, timeout=6))
 
-    # A should have forwarded the request
-    looper.run(eventually(assertLength, forwardedRequest(A), 1,
-                          retryWait=.5, timeout=3))
+    def chk():
+        # A should have forwarded the request
+        assertLength(forwardedRequest(A), 1)
+
+    looper.run(eventually(chk, retryWait=1, timeout=15))

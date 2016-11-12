@@ -288,13 +288,18 @@ def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     assert len(node.requests[key].propagates) >= node.f + 1
 
 
-def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
-                               digest: str, instId: int):
+def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
-    expected = (instId, identifier, reqId, digest)
-    assert expected in recvdOrderedReqs
+    expected = (instId, identifier, reqId)
+    return expected in recvdOrderedReqs
+
+
+def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
+    assert requestReturnedToNode(node, identifier, reqId, instId)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):

@@ -153,7 +153,6 @@ Ordered = NamedTuple(ORDERED, [
     f.VIEW_NO,
     f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST,
     f.PP_TIME])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
@@ -214,7 +213,7 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO
+    f.VIEW_NO,
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [
