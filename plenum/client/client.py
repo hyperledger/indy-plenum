@@ -36,7 +36,7 @@ from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
-from plenum.common.crypto import getEd25519AndCurve25519Keys
+from raet.nacling import Signer
 
 from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
@@ -69,11 +69,12 @@ class Client(Motor,
         basedirpath = self.config.baseDir if not basedirpath else basedirpath
         self.basedirpath = basedirpath
 
-        if not sighex:
-            (sighex, verkey), (prihex, pubkey) = getEd25519AndCurve25519Keys()
+        signer = Signer(sighex)
+        sighex = signer.keyhex
+        verkey = rawToFriendly(signer.verraw)
 
         self.name = name
-        self.stackName = rawToFriendly(verkey)
+        self.stackName = verkey
 
         cha = None
         # If client information already exists is RAET then use that
