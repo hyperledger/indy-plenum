@@ -71,10 +71,10 @@ class Client(Motor,
 
         signer = Signer(sighex)
         sighex = signer.keyhex
-        verkey = signer.key.verify_key.__bytes__()
+        verkey = rawToFriendly(signer.verraw)
 
         self.name = name
-        self.stackName = rawToFriendly(verkey)
+        self.stackName = verkey
 
         cha = None
         # If client information already exists is RAET then use that
