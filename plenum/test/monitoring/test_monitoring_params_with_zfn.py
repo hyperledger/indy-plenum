@@ -19,8 +19,8 @@ def testReqLatencyThreshold(nodeSet, requests):
     for node in nodeSet:
         for rq in requests:
             key = rq.identifier, rq.reqId
-            assert key in node.monitor.masterReqLatencies
-            assert node.monitor.masterReqLatencies[key] <= node.monitor.Lambda
+            assert key in node.monitor.masterReqLatenciesTest
+            assert node.monitor.masterReqLatenciesTest[key] <= node.monitor.Lambda
 
 
 def testClientLatencyThreshold(nodeSet: Sequence[Node], requests):

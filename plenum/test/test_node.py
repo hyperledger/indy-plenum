@@ -381,6 +381,22 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 class TestMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.requestOrderedSuper = self.requestOrdered
+        self.resetSuper = self.reset
+        self.masterReqLatenciesTest = {}
+
+    def requestOrdered(self, identifier: str, reqId: int, instId: int,
+                       byMaster: bool = False):
+        now = time.perf_counter()
+        duration = now - self.requestOrderingStarted[
+            (identifier, reqId)]
+        if byMaster:
+            self.masterReqLatenciesTest[(identifier, reqId)] = duration
+        self.requestOrderedSuper(identifier, reqId, instId, byMaster)
+
+    def reset(self):
+        self.resetSuper()
+        self.masterReqLatenciesTest = {}
 
 
 class Pool:
