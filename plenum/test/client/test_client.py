@@ -100,13 +100,12 @@ def testSendRequestWithoutSignatureFails(pool):
 
         # remove the client's ability to sign
         assert wallet.defaultId
-        wallet.defaultId = None
-        assert not wallet.defaultId
 
         ctx.looper.add(client1)
         await client1.ensureConnectedToNodes()
 
-        request = Request(randomOperation())
+        request = wallet.signOp(op=randomOperation())
+        request.signature = None
         request = client1.submitReqs(request)[0]
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:

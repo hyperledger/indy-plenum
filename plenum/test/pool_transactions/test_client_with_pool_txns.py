@@ -1,7 +1,10 @@
+import pytest
+
 from plenum.common.log import getlogger
-from plenum.common.util import randomString
+from plenum.common.util import randomString, bootstrapClientKeys
 from plenum.test.eventually import eventually
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    sendRandomRequest, checkSufficientRepliesForRequests
 from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
@@ -51,10 +54,10 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
     looper.run(newClient.ensureConnectedToNodes())
 
 
-def testClientConnectToReStartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                    poolTxnClientNames, poolTxnData, tconf,
-                   poolTxnNodeNames,
-                   allPluginsPath):
+def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                                      poolTxnClientNames, poolTxnData, tconf,
+                                      poolTxnNodeNames,
+                                      allPluginsPath):
     name = poolTxnClientNames[-1]
     seed = poolTxnData["seeds"][name]
     newClient, w = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
@@ -84,10 +87,12 @@ def testClientConnectToReStartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     looper.run(eventually(chk, retryWait=1, timeout=10))
 
+    bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
+
+    req = sendRandomRequest(w, newClient)
+    checkSufficientRepliesForRequests(looper, newClient, [req, ],
+                                      timeoutPerReq=10)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 
     sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 1, 1)
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
-                                                  *txnPoolNodeSet)
-

@@ -16,7 +16,7 @@ from plenum.test.testable import Spyable
 logger = getlogger()
 
 
-@Spyable(methods=[Client.handleOneNodeMsg])
+@Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
 class TestClient(Client, StackedTester):
     @property
     def nodeStackClass(self) -> NodeStack:

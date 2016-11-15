@@ -75,8 +75,8 @@ class AccountApp(App):
         else:
             for node in nodes:
                 self.looper.run(eventually(checkReqNack, self.client, node,
-                                      req.reqId, None,
-                                      retryWait=1, timeout=5))
+                                           req.identifier, req.reqId, None,
+                                           retryWait=1, timeout=5))
         return req
 
     def getBalance(self) -> int:

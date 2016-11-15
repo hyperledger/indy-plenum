@@ -5,6 +5,7 @@ import pytest
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
 from plenum.common.log import getlogger
+from plenum.common.util import getMaxFailures
 from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import setupNodesAndClient, \
@@ -193,6 +194,20 @@ def testMultipleRequests(tdir_for_func):
                 pprint(diff)
 
             profile_this(x)
+
+
+def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
+                                                            up, wallet1,
+                                                            client1):
+    size = len(client1.inBox)
+    req = sendRandomRequest(wallet1, client1)
+    client1.submitReqs(req)
+    f = getMaxFailures(len(nodeSet))
+    looper.run(eventually(
+        checkSufficientRepliesRecvd, client1.inBox,
+        req.reqId, f, retryWait=1, timeout=3 * len(nodeSet)))
+    # Only REQACK will be sent twice by the node but not REPLY
+    assert len(client1.inBox) == size + 12
 
 
 def snapshotStats(*nodes):

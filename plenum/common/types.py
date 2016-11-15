@@ -138,9 +138,11 @@ OPERATION = 'operation'
 Identifier = str
 
 RequestAck = TaggedTuple(REQACK, [
+    f.IDENTIFIER,
     f.REQ_ID])
 
 RequestNack = TaggedTuple(REQNACK, [
+    f.IDENTIFIER,
     f.REQ_ID,
     f.REASON])
 

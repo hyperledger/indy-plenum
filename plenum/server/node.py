@@ -199,7 +199,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # TODO: Create a RecurringCaller that takes a method to call after
         # every `n` seconds, also support start and stop methods
-        self._schedule(self.checkPerformance, self.perfCheckFreq)
+        # self._schedule(self.checkPerformance, self.perfCheckFreq)
+        self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.initInsChngThrottling()
 
@@ -1047,12 +1048,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reason = "client request invalid: {}".format(friendly)
         if isinstance(msg, Request):
             msg = msg.__getstate__()
+        identifier = msg.get(f.IDENTIFIER.nm)
         reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
-        self.transmitToClient(RequestNack(reqId, reason), frm)
+        self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
         self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
@@ -1228,11 +1230,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, frm)
         else:
             self.checkRequestAuthorized(request)
-            self.transmitToClient(RequestAck(request.reqId), frm)
-            self.requestSender[request.key] = frm
+            if not self.isProcessingReq(*request.key):
+                self.startedProcessingReq(*request.key, frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
+            self.transmitToClient(RequestAck(*request.key), frm)
 
     # noinspection PyUnusedLocal
     async def processPropagate(self, msg: Propagate, frm):
@@ -1253,14 +1256,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if request.key not in self.requestSender:
-            self.requestSender[request.key] = clientName
+        if not self.isProcessingReq(*request.key):
+            self.startedProcessingReq(*request.key, clientName)
         self.requests.addPropagate(request, frm)
 
         # # Only propagate if the node is participating in the consensus process
         # # which happens when the node has completed the catchup process
         self.propagate(request, clientName)
         self.tryForwarding(request)
+
+    def startedProcessingReq(self, identifier, reqId, frm):
+        self.requestSender[identifier, reqId] = frm
+
+    def isProcessingReq(self, identifier, reqId) -> bool:
+        return (identifier, reqId) in self.requestSender
+
+    def doneProcessingReq(self, identifier, reqId):
+        self.requestSender.pop((identifier, reqId))
 
     def processOrdered(self, ordered: Ordered, retryNo: int = 0):
         """
@@ -1510,9 +1522,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reply = self.generateReply(ppTime, req)
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
         reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.requestSender[req.key])
+        self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
+
+    def sendReplyToClient(self, reply, reqKey):
+        if self.isProcessingReq(*reqKey):
+            self.transmitToClient(reply, self.requestSender[reqKey])
+            self.doneProcessingReq(*reqKey)
 
     @staticmethod
     def genTxnId(identifier, reqId):

@@ -110,3 +110,9 @@ CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3*CHK_FREQ
+
+
+CLIENT_REQACK_TIMEOUT = 5
+CLIENT_REPLY_TIMEOUT = 10
+CLIENT_MAX_RETRY_ACK = 5
+CLIENT_MAX_RETRY_REPLY = 5

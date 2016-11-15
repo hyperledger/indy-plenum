@@ -34,5 +34,5 @@ def afterElection(setup, up):
             assert not r.isPrimary
 
 
-def testNumOfPrepareWithFPlusOneFaults(afterElection, prepared1):
+def testNumOfPrepareWithFPlusOneFaults(afterElection, noRetryReq, prepared1):
     pass

@@ -37,6 +37,7 @@ def testRequestFullRoundTrip(restrictiveVerifier,
     update = {'reason': 'client request invalid: InvalidClientRequest() '
                         '[caused by amount too high\nassert 999 <= 100]'}
 
-    coros2 = [partial(checkReqNack, client1, node, sent1.reqId, update)
+    coros2 = [partial(checkReqNack, client1, node, sent1.identifier,
+                      sent1.reqId, update)
               for node in nodeSet]
     looper.run(eventuallyAll(*coros2, totalTimeout=5))

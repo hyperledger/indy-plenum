@@ -40,8 +40,9 @@ def afterElection(setup, up):
 
 
 def testNumOfPrePrepareWithFPlusOneFaults(afterElection,
+                                          noRetryReq,
                                           preprepared1,
-                                          nodeSet: TestNodeSet):
+                                          nodeSet):
     for n in nodeSet:
         for r in n.replicas:
             if r.isPrimary:

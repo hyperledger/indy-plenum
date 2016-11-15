@@ -261,13 +261,29 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
                              totalTimeout=10,
                              acceptableFails=faultyNodes))
 
-    coros2 = [partial(checkReqAck, client1, node, sent1.reqId)
+    coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
     looper.run(eventuallyAll(*coros2,
                              totalTimeout=5,
                              acceptableFails=faultyNodes))
 
     return sent1
+
+
+@pytest.fixture(scope="module")
+def noRetryReq(conf, tdir, request):
+    oldRetryAck = conf.CLIENT_MAX_RETRY_ACK
+    oldRetryReply = conf.CLIENT_MAX_RETRY_REPLY
+    conf.baseDir = tdir
+    conf.CLIENT_MAX_RETRY_ACK = 0
+    conf.CLIENT_MAX_RETRY_REPLY = 0
+
+    def reset():
+        conf.CLIENT_MAX_RETRY_ACK = oldRetryAck
+        conf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
+
+    request.addfinalizer(reset)
+    return conf
 
 
 @pytest.fixture(scope="module")

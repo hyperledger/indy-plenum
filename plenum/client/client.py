@@ -8,6 +8,7 @@ import copy
 import os
 import time
 from collections import deque, OrderedDict
+from functools import partial
 from typing import List, Union, Dict, Optional, Mapping, Tuple, Set, Any, \
     Iterable
 
@@ -17,7 +18,7 @@ from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
-from plenum.common.exceptions import MissingNodeOp
+from plenum.common.exceptions import MissingNodeOp, RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -43,6 +44,7 @@ from plenum.common.txn_util import getTxnOrderedFields
 # DEPR
 # from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.config_util import getConfig
+from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()
 
@@ -50,7 +52,8 @@ logger = getlogger()
 class Client(Motor,
              MessageProcessor,
              HasFileStorage,
-             HasPoolManager):
+             HasPoolManager,
+             HasActionQueue):
     def __init__(self,
                  name: str,
                  nodeReg: Dict[str, HA]=None,
@@ -110,6 +113,8 @@ class Client(Motor,
             self.nodeReg = cliNodeReg
             self.mode = Mode.discovered
 
+        HasActionQueue.__init__(self)
+
         self.setF()
 
         stackargs = dict(name=self.stackName,
@@ -153,6 +158,14 @@ class Client(Motor,
         # Stores the requests that need to be sent to the nodes when the client
         # has made sufficient connections to the nodes.
         self.reqsPendingConnection = deque()
+
+        # Tuple of identifier and reqId as key and value as tuple of set of
+        # nodes which are expected to send REQACK
+        self.expectingAcksFor = {}
+
+        # Tuple of identifier and reqId as key and value as tuple of set of
+        # nodes which are expected to send REPLY
+        self.expectingRepliesFor = {}
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in client: {}".format(tp))
@@ -221,6 +234,7 @@ class Client(Motor,
             s = await self.nodestack.service(limit)
             await self.nodestack.serviceLifecycle()
         self.nodestack.flushOutBoxes()
+        s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
         # be reset ever so in `__init__` the `prod` method should be patched.
         if self._ledger:
@@ -232,6 +246,7 @@ class Client(Motor,
         for request in reqs:
             if self.mode == Mode.discovered and self.hasSufficientConnections:
                 self.nodestack.send(request)
+                self.expectingFor(request)
             else:
                 logger.debug("{} pending request since in mode {} and "
                              "connected to {} nodes".
@@ -250,15 +265,15 @@ class Client(Motor,
         self.inBox.append(wrappedMsg)
         msg, frm = wrappedMsg
         # Do not print result of transaction type `POOL_LEDGER_TXNS` on the CLI
-        txnTypes = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF,
-                    CATCHUP_REP)
+        ledgerTxnTypes = (POOL_LEDGER_TXNS, LEDGER_STATUS, CONSISTENCY_PROOF,
+                          CATCHUP_REP)
         printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not \
-                                            in txnTypes
+                                            in ledgerTxnTypes
         logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
-            if msg[OP_FIELD_NAME] in txnTypes and self._ledger:
+            if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
                 op = msg.get(OP_FIELD_NAME, None)
                 if not op:
                     raise MissingNodeOp
@@ -277,20 +292,25 @@ class Client(Motor,
                     self.ledgerManager.processCatchupRep(cMsg, frm)
             elif msg[OP_FIELD_NAME] == REQACK:
                 self.reqRepStore.addAck(msg, frm)
+                self.gotExpected(msg, frm)
             elif msg[OP_FIELD_NAME] == REQNACK:
                 self.reqRepStore.addNack(msg, frm)
+                self.gotExpected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
+                identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
                 reqId = msg[f.RESULT.nm][f.REQ_ID.nm]
-                numReplies = self.reqRepStore.addReply(reqId, frm, result)
-                self.postReplyRecvd(reqId, frm, result, numReplies)
+                numReplies = self.reqRepStore.addReply(identifier, reqId, frm,
+                                                       result)
+                self.gotExpected(msg, frm)
+                self.postReplyRecvd(identifier, reqId, frm, result, numReplies)
 
-    def postReplyRecvd(self, reqId, frm, result, numReplies):
-        if not self.txnLog.hasTxnWithReqId(reqId) and numReplies > self.f:
-            replies = self.reqRepStore.getReplies(reqId).values()
+    def postReplyRecvd(self, identifier, reqId, frm, result, numReplies):
+        if not self.txnLog.hasTxn(identifier, reqId) and numReplies > self.f:
+            replies = self.reqRepStore.getReplies(identifier, reqId).values()
             reply = checkIfMoreThanFSameItems(replies, self.f)
             if reply:
-                self.txnLog.append(reqId, reply)
+                self.txnLog.append(identifier, reqId, reply)
                 return reply
 
     def _statusChanged(self, old, new):
@@ -390,8 +410,8 @@ class Client(Motor,
             for n in joined:
                 self.sendLedgerStatus(n)
 
-    def replyIfConsensus(self, reqId: int):
-        replies, errors = self.reqRepStore.getAllReplies(reqId)
+    def replyIfConsensus(self, identifier, reqId: int):
+        replies, errors = self.reqRepStore.getAllReplies(identifier, reqId)
         r = list(replies.values())[0] if len(replies) > self.f else None
         e = list(errors.values())[0] if len(errors) > self.f else None
         return r, e
@@ -400,12 +420,12 @@ class Client(Motor,
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
 
-    def hasMadeRequest(self, reqId: int):
-        return self.reqRepStore.hasRequest(reqId)
+    def hasMadeRequest(self, identifier, reqId: int):
+        return self.reqRepStore.hasRequest(identifier, reqId)
 
-    def isRequestSuccessful(self, reqId):
-        acks = self.reqRepStore.getAcks(reqId)
-        nacks = self.reqRepStore.getNacks(reqId)
+    def isRequestSuccessful(self, identifier, reqId):
+        acks = self.reqRepStore.getAcks(identifier, reqId)
+        nacks = self.reqRepStore.getNacks(identifier, reqId)
         f = getMaxFailures(len(self.nodeReg))
         if len(acks) > f:
             return True, "Done"
@@ -434,6 +454,105 @@ class Client(Motor,
                 req, signer = self.reqsPendingConnection.popleft()
                 self.nodestack.send(req, signer=signer)
 
+    def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
+        nodes = nodes or {r.name for r in self.nodestack.remotes.values()
+                          if self.nodestack.isRemoteConnected(r)}
+        now = time.perf_counter()
+        self.expectingAcksFor[request.key] = (nodes, now, 0)
+        self.expectingRepliesFor[request.key] = (copy.copy(nodes), now, 0)
+        self.startRepeating(self.retryForExpected,
+                            self.config.CLIENT_REQACK_TIMEOUT)
+
+    def gotExpected(self, msg, frm):
+        if msg[OP_FIELD_NAME] == REQACK:
+            container = msg
+            colls = (self.expectingAcksFor, )
+        elif msg[OP_FIELD_NAME] == REPLY:
+            container = msg[f.RESULT.nm]
+            # If an REQACK sent by node was lost, the request when sent again
+            # would fetch the reply or the client might just lose REQACK and not
+            # REPLY so when REPLY received, request does not need to be resent
+            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+        elif msg[OP_FIELD_NAME] == REQNACK:
+            container = msg
+            colls = (self.expectingAcksFor, self.expectingRepliesFor)
+        else:
+            raise RuntimeError("{} cannot retry {}".format(self, msg))
+
+        idr = container.get(f.IDENTIFIER.nm)
+        reqId = container.get(f.REQ_ID.nm)
+        key = (idr, reqId)
+        for coll in colls:
+            if key in coll:
+                if frm in coll[key][0]:
+                    coll[key][0].remove(frm)
+                if not coll[key][0]:
+                    coll.pop(key)
+
+        if not (self.expectingAcksFor or self.expectingRepliesFor):
+            self.stopRepeating(self.retryForExpected, strict=False)
+
+    def retryForExpected(self):
+        now = time.perf_counter()
+        keys = {}
+        nodesNotSendingAck = set()
+
+        # Collect nodes which did not send REQACK
+        for (idr, reqId), (expectedFrom, lastTried, retries) in \
+                self.expectingAcksFor.items():
+            if retries < self.config.CLIENT_MAX_RETRY_ACK and \
+                    now > (lastTried + self.config.CLIENT_REQACK_TIMEOUT):
+                if (idr, reqId) not in keys:
+                    keys[(idr, reqId)] = set()
+                keys[(idr, reqId)].update(expectedFrom)
+                nodesNotSendingAck.update(expectedFrom)
+
+        # Collect nodes which did not send REPLY
+        for (idr, reqId), (expectedFrom, lastTried, retries) in \
+                self.expectingRepliesFor.items():
+            if retries < self.config.CLIENT_MAX_RETRY_REPLY and \
+                    now > (lastTried + self.config.CLIENT_REPLY_TIMEOUT):
+                if (idr, reqId) not in keys:
+                    keys[(idr, reqId)] = set()
+                keys[(idr, reqId)].update(expectedFrom)
+
+        for nm in nodesNotSendingAck:
+            try:
+                remote = self.nodestack.getRemote(nm)
+            except RemoteNotFound:
+                logger.warn('{} could not find remote {}'.format(self, nm))
+                continue
+            logger.debug('Remote {} of {} being joined since REQACK for not '
+                         'received for request'.format(remote, self))
+            self.nodestack.join(remote.uid, cascade=True)
+
+        if keys:
+            # Need a delay in case connection has to be established with some
+            # nodes, a better way is not to assume the delay value but only
+            # send requests once the connection is established. Also it is
+            # assumed that connection is not established if a node not sending
+            # REQACK/REQNACK/REPLY, but a little better way is to compare the
+            # value in stats of the stack and look for changes in count of
+            # `message_reject_rx` but that is not very helpful either since
+            # it does not record which node rejected
+            delay = 3 if nodesNotSendingAck else 0
+            self._schedule(partial(self.resendRequests, keys), delay)
+
+    def resendRequests(self, keys):
+        for key, nodes in keys.items():
+            if nodes:
+                request = self.reqRepStore.getRequest(*key)
+                logger.debug('{} resending request {} to {}'.
+                             format(self, request, nodes))
+                self.sendToNodes(request, nodes)
+                now = time.perf_counter()
+                if key in self.expectingAcksFor:
+                    _, _, c = self.expectingAcksFor[key]
+                    self.expectingAcksFor[key] = (nodes, now, c + 1)
+                if key in self.expectingRepliesFor:
+                    _, _, c = self.expectingRepliesFor[key]
+                    self.expectingRepliesFor[key] = (nodes, now, c + 1)
+
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
@@ -441,6 +560,10 @@ class Client(Motor,
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
         self.nodestack.send(msg, *rids, signer=signer)
+
+    def sendToNodes(self, msg: Any, names: Iterable[str]):
+        rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
+        self.nodestack.send(msg, *rids)
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:

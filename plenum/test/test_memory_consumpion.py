@@ -12,7 +12,7 @@ logger = getlogger()
 
 
 def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
-                     tdirWithPoolTxns, poolTxnData):
+                     tdirWithPoolTxns, poolTxnData, noRetryReq):
     """
     Client should not be using node registry but pool transaction file
     :return:

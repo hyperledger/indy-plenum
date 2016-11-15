@@ -479,41 +479,6 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             self.doPrePrepare(rd)
 
-    def process3PhaseState(self, msg: ThreePCState, sender: str):
-        # TODO: This is not complete
-        pass
-
-    def processCheckpoint(self, msg: Checkpoint, sender: str):
-        if self.checkpoints:
-            seqNo = msg.seqNo
-            _, firstChk = self.firstCheckPoint
-            if firstChk.isStable:
-                if firstChk.seqNo == seqNo:
-                    self.discard(msg, reason="Checkpoint already stable",
-                                 logMethod=logger.debug)
-                    return
-                if firstChk.seqNo > seqNo:
-                    self.discard(msg, reason="Higher stable checkpoint present",
-                                 logMethod=logger.debug)
-                    return
-            for state in self.checkpoints.values():
-                if state.seqNo == seqNo:
-                    if state.digest == msg.digest:
-                        state.receivedDigests[sender] = msg.digest
-                        break
-                    else:
-                        logger.error("{} received an incorrect digest {} for "
-                                     "checkpoint {} from {}".format(self,
-                                                                    msg.digest,
-                                                                    seqNo,
-                                                                    sender))
-                        return
-            if len(state.receivedDigests) == 2*self.f:
-                self.markCheckPointStable(msg.seqNo)
-        else:
-            self.discard(msg, reason="No checkpoints present to tally",
-                         logMethod=logger.warn)
-
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
         Process a 3-phase (pre-prepare, prepare and commit) request.
@@ -901,7 +866,8 @@ class Replica(HasActionQueue, MessageProcessor):
             if viewNo not in self.stashedCommitsForOrdering:
                 self.stashedCommitsForOrdering[viewNo] = {}
             self.stashedCommitsForOrdering[viewNo][ppSeqNo] = commit
-            self._schedule(self.orderStashedCommits, 2)
+            # self._schedule(self.orderStashedCommits, 2)
+            self.startRepeating(self.orderStashedCommits, 2)
             return False, "stashing {} since out of order".\
                 format(commit)
 
@@ -958,8 +924,10 @@ class Replica(HasActionQueue, MessageProcessor):
             for v in vToRemove:
                 del self.stashedCommitsForOrdering[v]
 
-            if self.stashedCommitsForOrdering:
-                self._schedule(self.orderStashedCommits, 2)
+            # if self.stashedCommitsForOrdering:
+            #     self._schedule(self.orderStashedCommits, 2)
+            if not self.stashedCommitsForOrdering:
+                self.stopRepeating(self.orderStashedCommits)
 
     def isLowestCommitInView(self, commit):
         # TODO: Assumption: This assumes that at least one commit that was sent
@@ -1004,6 +972,37 @@ class Replica(HasActionQueue, MessageProcessor):
             self.stashingWhileCatchingUp.remove(key)
         logger.debug("{} ordered request {}".format(self, (viewNo, ppSeqNo)))
         self.addToCheckpoint(ppSeqNo, digest)
+
+    def processCheckpoint(self, msg: Checkpoint, sender: str):
+        if self.checkpoints:
+            seqNo = msg.seqNo
+            _, firstChk = self.firstCheckPoint
+            if firstChk.isStable:
+                if firstChk.seqNo == seqNo:
+                    self.discard(msg, reason="Checkpoint already stable",
+                                 logMethod=logger.debug)
+                    return
+                if firstChk.seqNo > seqNo:
+                    self.discard(msg, reason="Higher stable checkpoint present",
+                                 logMethod=logger.debug)
+                    return
+            for state in self.checkpoints.values():
+                if state.seqNo == seqNo:
+                    if state.digest == msg.digest:
+                        state.receivedDigests[sender] = msg.digest
+                        break
+                    else:
+                        logger.error("{} received an incorrect digest {} for "
+                                     "checkpoint {} from {}".format(self,
+                                                                    msg.digest,
+                                                                    seqNo,
+                                                                    sender))
+                        return
+            if len(state.receivedDigests) == 2*self.f:
+                self.markCheckPointStable(msg.seqNo)
+        else:
+            self.discard(msg, reason="No checkpoints present to tally",
+                         logMethod=logger.warn)
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1223,6 +1222,10 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             state = []
         return ThreePCState(self.instId, state)
+
+    def process3PhaseState(self, msg: ThreePCState, sender: str):
+        # TODO: This is not complete
+        pass
 
     def send(self, msg, stat=None) -> None:
         """

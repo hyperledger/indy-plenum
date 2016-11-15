@@ -63,8 +63,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                           "type, must be one of {}"
                              .format(validTypes))}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -75,8 +75,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                              "{} attribute is missing or not in proper format"
                              .format(DATA))}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -87,8 +87,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                              "{} attribute is missing or not in proper format"
                              .format(DATA))}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -100,8 +100,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                              "{} attribute is missing or not in proper format"
                              .format(DATA))}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: PLACE_BID,
@@ -112,8 +112,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -123,8 +123,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     op = {
         TXN_TYPE: AUCTION_END,
@@ -134,8 +134,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
     update = {
         'reason': makeReason(commonError, "No id provided for auction")}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     auctionId = str(uuid4())
 
@@ -152,8 +152,8 @@ def testAuctionReqValidationPlugin(looper, nodeSet, wallet1, client1, tdir,
                                           "a number greater than 0"
                              .format(AMOUNT))}
 
-    allCoros += [partial(checkReqNack, client1, node, req.reqId, update)
-                 for node in nodeSet]
+    allCoros += [partial(checkReqNack, client1, node, req.identifier,
+                         req.reqId, update) for node in nodeSet]
 
     looper.run(eventuallyAll(*allCoros, totalTimeout=5))
 
