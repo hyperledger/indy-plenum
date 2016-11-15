@@ -60,6 +60,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # the time the master instance took for ordering it
         self.masterReqLatencies = {}  # type: Dict[Tuple[str, int], float]
 
+        # Indicates that request latency in previous snapshot of master req
+        # latencies was too high
+        self.masterReqLatencyTooHigh = False
+
         # Request latency(time taken to be ordered) for the client. The value
         # at index `i` in the list is the dictionary where the key of the
         # dictionary is the client id and the value is a tuple of number of
@@ -145,6 +149,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
+        self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
         self.totalViewChanges += 1
 
@@ -248,7 +253,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the request latency of the master instance is greater
         than the acceptable threshold
         """
-        r = any([lat > self.Lambda for lat
+        r = self.masterReqLatencyTooHigh or any([lat > self.Lambda for lat
                  in self.masterReqLatencies.values()])
         if r:
             logger.debug("{} found master's latency to be higher than the "
@@ -465,6 +470,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         reqOrderedEventDict["time"] = jsTime
         reqOrderedEventDict["hasMasterPrimary"] = "Y" if self.hasMasterPrimary else "N"
         self._sendStatsDataIfRequired(EVENT_REQ_ORDERED, reqOrderedEventDict)
+        self._clearSnapshot()
 
     def postOnNodeStarted(self, startedAt):
         throughputData = {
@@ -478,6 +484,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             "throughputConfig": throughputData
         }
         self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
+
+    def _clearSnapshot(self):
+        self.masterReqLatencies = {}
 
     def _sendStatsDataIfRequired(self, event, stats):
         if config.SendMonitorStats:
