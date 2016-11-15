@@ -377,12 +377,12 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput])
+                  Monitor.sendThroughput,
+                  Monitor.requestOrdered,
+                  Monitor.reset])
 class TestMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.requestOrderedSuper = self.requestOrdered
-        self.resetSuper = self.reset
         self.masterReqLatenciesTest = {}
 
     def requestOrdered(self, identifier: str, reqId: int, instId: int,
@@ -392,10 +392,10 @@ class TestMonitor(Monitor):
             (identifier, reqId)]
         if byMaster:
             self.masterReqLatenciesTest[(identifier, reqId)] = duration
-        self.requestOrderedSuper(identifier, reqId, instId, byMaster)
+        super().requestOrdered(identifier, reqId, instId, byMaster)
 
     def reset(self):
-        self.resetSuper()
+        super().reset()
         self.masterReqLatenciesTest = {}
 
 
