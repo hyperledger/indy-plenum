@@ -71,11 +71,14 @@ class Stack(RoadStack):
             # if no timeout is set then message will never timeout
             self.messageTimeout = 0
 
+    def __repr__(self):
+        return self.name
+
     def start(self):
         if not self.opened:
             self.open()
         logger.info("stack {} starting at {} in {} mode"
-                    .format(self.name, self.ha, self.keep.auto.name),
+                    .format(self, self.ha, self.keep.auto.name),
                     extra={"cli": False})
         self.coro = self._raetcoro()
 
@@ -267,9 +270,6 @@ class SimpleStack(Stack):
         self._conns = set()  # type: Set[str]
         super().__init__(**stackParams, msgHandler=self.msgHandler, sighex=sighex)
 
-    def __repr__(self):
-        return self.name
-
     @property
     def isKeySharing(self):
         return self.keep.auto != AutoMode.never
@@ -456,7 +456,7 @@ class KITStack(SimpleStack):
         self.updateStamp()
         self.join(uid=remote.uid, cascade=True, timeout=30)
         logger.info("{} looking for {} at {}:{}".
-                    format(self.name, name or remote.name, *remote.ha),
+                    format(self, name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN"})
         return remote.uid
 
@@ -532,6 +532,8 @@ class KITStack(SimpleStack):
         #                  format(self, disconn.uid))
         #     return
 
+        logger.trace("{} handling disconnected remote {}".format(self, disconn))
+
         if disconn.joinInProcess():
             logger.trace("{} join already in process, so "
                          "waiting to check for reconnects".
@@ -574,7 +576,7 @@ class KITStack(SimpleStack):
         #                                         round(secsToWaitNext, 2)))
 
         logger.debug("{} retrying to connect with {}".
-                     format(self.name, dname))
+                     format(self, dname))
         self.lastcheck[disconn.uid] = count + 1, cur
         # self.nextCheck = min(self.nextCheck,
         #                      cur + secsToWaitNext)
@@ -584,7 +586,6 @@ class KITStack(SimpleStack):
         elif disconn.joined:
             self.updateStamp()
             self.allow(uid=disconn.uid, cascade=True, timeout=20)
-            # self.alive(uid=disconn.uid, cascade=True, timeout=20)
             logger.debug("{} disconnected node is joined".format(
                 self), extra={"cli": "STATUS"})
         else:
@@ -627,8 +628,9 @@ class KITStack(SimpleStack):
         conflicts = set()  # matches found, but the ha conflicts
         logger.debug("{} nodereg is {}".
                      format(self, self.registry.items()))
-        logger.debug("{} nodestack is {}".
+        logger.debug("{} remotes are {}".
                      format(self, [r.name for r in self.remotes.values()]))
+
         for r in self.remotes.values():
             if r.name in self.registry:
                 if self.sameAddr(r.ha, self.registry[r.name]):
@@ -836,7 +838,7 @@ class ClientStack(SimpleStack):
             # nodes might have got this request through PROPAGATE and thus
             # might not have connection with the client.
             logger.error("{} unable to send message {} to client {}; Exception: {}"
-                         .format(self.name, msg, remoteName, ex.__repr__()))
+                         .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         for nm in remoteNames:

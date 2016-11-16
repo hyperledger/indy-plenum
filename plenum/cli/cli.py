@@ -914,18 +914,18 @@ class Cli:
             if wallet:
                 req = wallet.signOp(msg)
                 request, = client.submitReqs(req)
-                self.requests[str(request.reqId)] = request.reqId
+                self.requests[request.key] = request
             else:
                 self._newWallet(clientName)
                 self.printNoKeyMsg()
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, reqId):
+    def getReply(self, clientName, identifier, reqId):
+        reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        requestID = self.requests.get(reqId, None)
-        if client and requestID:
-            reply, status = client.getReply(requestID)
+        if client and (identifier, reqId) in self.requests:
+            reply, status = client.getReply(identifier, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -933,11 +933,10 @@ class Cli:
         else:
             self.print("No such request. See: 'help new' for more details")
 
-    def showDetails(self, clientName, reqId):
+    def showDetails(self, clientName, identifier, reqId):
         client = self.clients.get(clientName, None)
-        requestID = self.requests.get(reqId, None)
-        if client and requestID:
-            client.showReplyDetails(requestID)
+        if client and (identifier, reqId) in self.requests:
+            client.showReplyDetails(identifier, reqId)
         else:
             self.printMsgForUnknownClient()
 
@@ -1047,7 +1046,8 @@ class Cli:
                 return True
             elif client_action == 'show':
                 req_id = matchedVars.get('req_id')
-                self.getReply(client_name, req_id)
+                wallet = self.wallets[client_name]
+                self.getReply(client_name, wallet.defaultId, req_id)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):

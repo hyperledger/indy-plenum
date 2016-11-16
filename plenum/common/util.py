@@ -421,7 +421,7 @@ def checkIfMoreThanFSameItems(items, maxF):
     counts = {}
     for jItem in jsonifiedItems:
         counts[jItem] = counts.get(jItem, 0) + 1
-    if counts[max(counts, key=counts.get)] > maxF:
+    if counts and counts[max(counts, key=counts.get)] > maxF:
         return json.loads(max(counts, key=counts.get))
     else:
         return False

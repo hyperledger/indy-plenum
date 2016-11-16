@@ -12,12 +12,12 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
-from plenum.test.test_node import TestNode, checkNodesConnected, \
-    checkProtocolInstanceSetup
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, buildPoolClientAndWallet
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys
+from plenum.test.test_node import TestNode, checkNodesConnected, \
+    checkProtocolInstanceSetup
 
 logger = getlogger()
 
@@ -25,28 +25,6 @@ logger = getlogger()
 whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'missing', 'conflicts', 'matches', 'nodeReg',
              'conflicting address', 'unable to send message']
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
-    return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
-
-
-@pytest.fixture(scope="module")
-def client1(clientAndWallet1):
-    return clientAndWallet1[0]
-
-
-@pytest.fixture(scope="module")
-def wallet1(clientAndWallet1):
-    return clientAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def client1Connected(looper, client1):
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    return client1
 
 
 def getNodeWithName(txnPoolNodeSet, name: str):

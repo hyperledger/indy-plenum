@@ -8,12 +8,17 @@ from typing import Set
 from typing import Tuple
 
 from orderedset import OrderedSet
+from sortedcontainers import SortedDict
+
 import plenum.server.node
+from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode
+from plenum.common.signing import serialize
 from plenum.common.types import PrePrepare, \
-    Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey
+    Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
+    CheckpointState, Checkpoint
 from plenum.common.request import ReqDigest
-from plenum.common.util import MessageProcessor
+from plenum.common.util import MessageProcessor, updateNamedTuple
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -64,10 +69,16 @@ class Replica(HasActionQueue, MessageProcessor):
         super().__init__()
         self.stats = Stats(TPCStat)
 
+        self.config = getConfig()
+
         routerArgs = [(ReqDigest, self._preProcessReqDigest)]
 
         for r in [PrePrepare, Prepare, Commit]:
             routerArgs.append((r, self.processThreePhaseMsg))
+
+        routerArgs.append((Checkpoint, self.processCheckpoint))
+        routerArgs.append((ThreePCState, self.process3PhaseState))
+
         self.inBoxRouter = Router(*routerArgs)
 
         self.threePhaseRouter = Router(
@@ -110,17 +121,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # whether it is primary or not
         self.postElectionMsgs = deque()
 
-        # Requests that are stored by non primary replica for which it is
-        # expecting corresponding pre prepare requests Dictionary that stores
-        # a tuple of client id and request id(sequence no) as key and digest as
-        # value. Not creating a set of Tuple3(identifier, reqId, digest) as such a
-        # big hashable element is not good. Also this way we can look for the
-        # request on the basis of (identifier, reqId) and compare the digest with
-        # the received PrePrepare request's digest.
-        self.reqsPendingPrePrepare = {}
-        # type: Dict[Tuple[str, int], str]
+        # PRE-PREPAREs that are waiting to be processed but do not have the
+        # corresponding request digest. Happens when replica has not been
+        # forwarded the request by the node but is getting 3 phase messages.
+        # The value is a list since a malicious entry might send PRE-PREPARE
+        # with a different digest and since we dont have the request finalised,
+        # we store all PRE-PPREPARES
+        self.prePreparesPendingReqDigest = {}   # type: Dict[Tuple[str, int], List]
 
-        # PREPARE that are stored by non primary replica for which it has not
+        # PREPAREs that are stored by non primary replica for which it has not
         #  got any PRE-PREPARE. Dictionary that stores a tuple of view no and
         #  prepare sequence number as key and a deque of PREPAREs as value.
         # This deque is attempted to be flushed on receiving every
@@ -128,38 +137,38 @@ class Replica(HasActionQueue, MessageProcessor):
         self.preparesWaitingForPrePrepare = {}
         # type: Dict[Tuple[int, int], deque]
 
+        # COMMITs that are stored for which there are no PRE-PREPARE or PREPARE
+        # received
+        self.commitsWaitingForPrepare = {}
+        # type: Dict[Tuple[int, int], deque]
+
         # Dictionary of sent PRE-PREPARE that are stored by primary replica
         # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
-        # pre-prepare seqNo and value is a Request Digest
+        # pre-prepare seqNo and value is a tuple of Request Digest and time
         self.sentPrePrepares = {}
-        # type: Dict[Tuple[int, int], Tuple[ReqDigest, float]]
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], float]]
 
         # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value is
-        # a Request Digest
+        # a tuple of Request Digest and time
         self.prePrepares = {}
-        # type: Dict[Tuple[int, int], Tuple[ReqDigest, float]]
-
-        self.prePrepareSeqNo = 0  # type: int
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], float]]
 
         # Dictionary of received Prepare requests. Key of dictionary is a 2
         # element tuple with elements viewNo, seqNo and value is a 2 element
         # tuple containing request digest and set of sender node names(sender
         # replica names in case of multiple protocol instances)
-        # (viewNo, seqNo) -> (digest, {senders})
+        # (viewNo, seqNo) -> ((identifier, reqId), {senders})
         self.prepares = Prepares()
-        # type: Dict[Tuple[int, int], Tuple[str, Set[str]]]
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
-        self.commits = Commits()
+        self.commits = Commits()    # type: Dict[Tuple[int, int],
+        # Tuple[Tuple[str, int], Set[str]]]
 
-        # Set of tuples to keep track of ordered requests
+        # Set of tuples to keep track of ordered requests. Each tuple is
+        # (viewNo, ppSeqNo)
         self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
-
-        # Requests with sufficient commits so they can be ordered but have not
-        # received request digest from node and neither PRE-PREPARE or PREPARE.
-        # Key can be a digest to a tuple of viewNo and ppSeqNo
-        self.commitsPendedForOrdering = {}
 
         # Dictionary to keep track of the which replica was primary during each
         # view. Key is the view no and value is the name of the primary
@@ -180,7 +189,30 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stashedCommitsForOrdering = {}         # type: Dict[int,
         # Dict[int, Commit]]
 
-        self._schedule(self.orderStashedCommits, 2)
+        self.checkpoints = SortedDict(lambda k: k[0])
+
+        self.stashingWhileOutsideWaterMarks = deque()
+
+        # Low water mark
+        self._h = 0              # type: int
+
+        # High water mark
+        self.H = self._h + self.config.LOG_SIZE   # type: int
+
+        self.lastPrePrepareSeqNo = self.h  # type: int
+
+    @property
+    def h(self) -> int:
+        return self._h
+
+    @h.setter
+    def h(self, n):
+        self._h = n
+        self.H = self._h + self.config.LOG_SIZE
+
+    @property
+    def requests(self):
+        return self.node.requests
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int):
         # Replica should only participating in the consensus process and the
@@ -423,10 +455,16 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
-        try:
-            self.threePhaseRouter.handleSync((msg, senderRep))
-        except SuspiciousNode as ex:
-            self.node.reportSuspiciousNodeEx(ex)
+        if self.isPpSeqNoAcceptable(msg.ppSeqNo):
+            try:
+                self.threePhaseRouter.handleSync((msg, senderRep))
+            except SuspiciousNode as ex:
+                self.node.reportSuspiciousNodeEx(ex)
+        else:
+            logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is "
+                         "not between {} and {}".
+                         format(self, msg, msg.ppSeqNo, self.h, self.H))
+            self.stashingWhileOutsideWaterMarks.append((msg, sender))
 
     def processReqDigest(self, rd: ReqDigest):
         """
@@ -437,15 +475,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         self.stats.inc(TPCStat.ReqDigestRcvd)
         if self.isPrimary is False:
-            logger.debug("Non primary replica {} pended request for Pre "
-                         "Prepare {}".format(self, (rd.identifier, rd.reqId)))
-            self.reqsPendingPrePrepare[(rd.identifier, rd.reqId)] = rd.digest
+            self.dequeuePrePrepare(rd.identifier, rd.reqId)
         else:
             self.doPrePrepare(rd)
-        if rd.digest in self.commitsPendedForOrdering:
-            viewNo, ppSeqNo, ppTime = self.commitsPendedForOrdering[rd.digest]
-            self.orderPendingCommit(viewNo, ppSeqNo, rd.identifier, rd.reqId,
-                                    rd.digest, ppTime)
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
@@ -485,10 +517,6 @@ class Replica(HasActionQueue, MessageProcessor):
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
-            if key in self.commitsPendedForOrdering or pp.digest in \
-                    self.commitsPendedForOrdering:
-                self.orderPendingCommit(*key, pp.identifier,
-                                        pp.reqId, pp.digest, pp.ppTime)
             logger.info("{} processed incoming PRE-PREPARE{}".
                         format(self, key))
 
@@ -575,18 +603,26 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.error("Non participating node is attempting PRE-PREPARE. "
                          "This should not happen.")
             return
-        self.prePrepareSeqNo += 1
+
+        if self.lastPrePrepareSeqNo == self.H:
+            logger.debug("{} stashing PRE-PREPARE {} since outside greater "
+                         "than high water mark {}".
+                         format(self, (self.viewNo, self.lastPrePrepareSeqNo+1),
+                                self.H))
+            self.stashingWhileOutsideWaterMarks.append(reqDigest)
+            return
+        self.lastPrePrepareSeqNo += 1
         tm = time.time()*1000
         logger.debug("{} Sending PRE-PREPARE {} at {}".
-                     format(self, (self.viewNo, self.prePrepareSeqNo),
+                     format(self, (self.viewNo, self.lastPrePrepareSeqNo),
                             time.perf_counter()))
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
-                                   self.prePrepareSeqNo,
+                                   self.lastPrePrepareSeqNo,
                                    *reqDigest,
                                    tm)
-        self.sentPrePrepares[self.viewNo, self.prePrepareSeqNo] = (reqDigest,
-                                                                   tm)
+        self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = (reqDigest.key,
+                                                                       tm)
         self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
@@ -643,10 +679,12 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         key = (pp.identifier, pp.reqId)
+        if not self.requests.isFinalised(key):
+            self.enqueuePrePrepare(pp, sender)
+            return False
 
         # A PRE-PREPARE is sent that does not match request digest
-        if (key in self.reqsPendingPrePrepare and
-                self.reqsPendingPrePrepare[key] != pp.digest):
+        if self.requests.digest(key) != pp.digest:
             raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
 
         return True
@@ -658,9 +696,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param pp: the PRE-PREPARE to add to the list
         """
-        self.prePrepares[(pp.viewNo, pp.ppSeqNo)] = \
-            ((pp.identifier, pp.reqId, pp.digest), pp.ppTime)
-        self.dequeuePrepares(pp.viewNo, pp.ppSeqNo)
+        key = (pp.viewNo, pp.ppSeqNo)
+        self.prePrepares[key] = \
+            ((pp.identifier, pp.reqId), pp.ppTime)
+        self.dequeuePrepares(*key)
+        self.dequeueCommits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
@@ -674,9 +714,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param request: any object with identifier and requestId attributes
         """
-        return self.shouldParticipate(request.viewNo, request.ppSeqNo) and \
-               self.node.requests.canPrepare(request, self.f + 1) and \
-               not self.hasPrepared(request)
+        return self.shouldParticipate(request.viewNo, request.ppSeqNo) \
+            and not self.hasPrepared(request) \
+            and self.requests.isFinalised((request.identifier,
+                                           request.reqId))
 
     def isValidPrepare(self, prepare: Prepare, sender: str) -> bool:
         """
@@ -706,7 +747,7 @@ class Replica(HasActionQueue, MessageProcessor):
             if key not in ppReqs:
                 self.enqueuePrepare(prepare, sender)
                 return False
-            elif prepare.digest != ppReqs[key][0][2]:
+            elif prepare.digest != self.requests.digest(ppReqs[key][0]):
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
             elif prepare.ppTime != ppReqs[key][1]:
                 raise SuspiciousNode(sender, Suspicions.PR_TIME_WRONG,
@@ -721,7 +762,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # malicious behavior
             elif key not in ppReqs:
                 raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
-            elif prepare.digest != ppReqs[key][0][2]:
+            elif prepare.digest != self.requests.digest(ppReqs[key][0]):
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
             elif prepare.ppTime != ppReqs[key][1]:
                 raise SuspiciousNode(sender, Suspicions.PR_TIME_WRONG,
@@ -735,8 +776,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def hasCommitted(self, request) -> bool:
         return self.commits.hasCommitFrom(ThreePhaseKey(
-            request.viewNo, request.ppSeqNo),
-            self.name)
+            request.viewNo, request.ppSeqNo), self.name)
 
     def canCommit(self, prepare: Prepare) -> bool:
         """
@@ -766,6 +806,10 @@ class Replica(HasActionQueue, MessageProcessor):
         primaryStatus = self.isPrimaryForMsg(commit)
         ppReqs = self.sentPrePrepares if primaryStatus else self.prePrepares
         key = (commit.viewNo, commit.ppSeqNo)
+        if key not in ppReqs:
+            self.enqueueCommit(commit, sender)
+            return False
+
         if (key not in self.prepares and
                 key not in self.preparesWaitingForPrePrepare):
             logger.debug("{} rejecting COMMIT{} due to lack of prepares".
@@ -774,7 +818,7 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
         elif self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
-        elif commit.digest != self.getDigestFromPrepare(*key):
+        elif commit.digest != self.getDigestFor3PhaseKey(ThreePhaseKey(*key)):
             raise SuspiciousNode(sender, Suspicions.CM_DIGEST_WRONG, commit)
         elif key in ppReqs and commit.ppTime != ppReqs[key][1]:
             raise SuspiciousNode(sender, Suspicions.CM_TIME_WRONG,
@@ -822,6 +866,8 @@ class Replica(HasActionQueue, MessageProcessor):
             if viewNo not in self.stashedCommitsForOrdering:
                 self.stashedCommitsForOrdering[viewNo] = {}
             self.stashedCommitsForOrdering[viewNo][ppSeqNo] = commit
+            # self._schedule(self.orderStashedCommits, 2)
+            self.startRepeating(self.orderStashedCommits, 2)
             return False, "stashing {} since out of order".\
                 format(commit)
 
@@ -849,15 +895,16 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def orderStashedCommits(self):
-        # TODO: What if the first few commits were out of order and stashed? `self.ordered` would be empty
+        # TODO: What if the first few commits were out of order and stashed?
+        # `self.ordered` would be empty
         if self.ordered:
             lastOrdered = self.ordered[-1]
             vToRemove = set()
             for v in self.stashedCommitsForOrdering:
                 if v < lastOrdered[0] and self.stashedCommitsForOrdering[v]:
-                    raise RuntimeError("Found commits from previous view {} that "
-                                       "were not ordered but last ordered is {}".
-                                       format(v, lastOrdered))
+                    raise RuntimeError("{} found commits from previous view {}"
+                                       " that were not ordered but last ordered"
+                                       " is {}".format(self, v, lastOrdered))
                 pToRemove = set()
                 for p, commit in self.stashedCommitsForOrdering[v].items():
                     if (v == lastOrdered[0] and lastOrdered == (v, p - 1)) or \
@@ -877,7 +924,10 @@ class Replica(HasActionQueue, MessageProcessor):
             for v in vToRemove:
                 del self.stashedCommitsForOrdering[v]
 
-        self._schedule(self.orderStashedCommits, 2)
+            # if self.stashedCommitsForOrdering:
+            #     self._schedule(self.orderStashedCommits, 2)
+            if not self.stashedCommitsForOrdering:
+                self.stopRepeating(self.orderStashedCommits)
 
     def isLowestCommitInView(self, commit):
         # TODO: Assumption: This assumes that at least one commit that was sent
@@ -898,40 +948,13 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         key = (commit.viewNo, commit.ppSeqNo)
         logger.debug("{} trying to order COMMIT{}".format(self, key))
-        primaryStatus = self.isPrimaryForMsg(commit)
-
-        if primaryStatus is True:
-            (identifier, reqId, digest), tm = self.sentPrePrepares[key]
-        elif primaryStatus is False:
-            # When the node received PREPARE requests and PRE-PREPARE request
-            if key in self.prePrepares:
-                (identifier, reqId, digest), tm = self.prePrepares[key]
-            else:
-                digest = self.getDigestFromPrepare(*key)
-                if digest:
-                    for (cid, rid), dgst in self.reqsPendingPrePrepare.items():
-                        if digest == dgst:
-                            identifier, reqId = cid, rid
-                            break
-                    else:
-                        logger.info("{} cannot find digest {} in "
-                                    "reqsPendingPrePrepare for viewNo {} and "
-                                    "ppSeqNo {}".format(self, digest, *key))
-                        self.commitsPendedForOrdering[digest] = (*key,
-                                                                 commit.ppTime)
-                        self.commitsPendedForOrdering[key] = commit.ppTime
-                        return
-                else:
-                    self.commitsPendedForOrdering[key] = commit.ppTime
-                    return
-        else:
-            self.discard(commit,
-                         "{}'s primary status found None while returning "
-                         "request {} to node".format(self, commit),
-                         logger.warning)
+        reqKey = self.getReqKeyFrom3PhaseKey(key)   # type: Tuple
+        digest = self.getDigestFor3PhaseKey(key)
+        if not digest:
+            logger.error("{} did not find digest for {}, request key {}".
+                         format(self, key, reqKey))
             return
-
-        self.doOrder(*key, identifier, reqId, digest, commit.ppTime)
+        self.doOrder(*key, *reqKey, digest, commit.ppTime)
         return True
 
     def doOrder(self, viewNo, ppSeqNo, identifier, reqId, digest, ppTime):
@@ -941,27 +964,181 @@ class Replica(HasActionQueue, MessageProcessor):
                           viewNo,
                           identifier,
                           reqId,
-                          digest,
                           ppTime)
+        # TODO: Should not order or add to checkpoint while syncing
+        # 3 phase state.
         self.send(ordered, TPCStat.OrderSent)
         if key in self.stashingWhileCatchingUp:
             self.stashingWhileCatchingUp.remove(key)
         logger.debug("{} ordered request {}".format(self, (viewNo, ppSeqNo)))
+        self.addToCheckpoint(ppSeqNo, digest)
+
+    def processCheckpoint(self, msg: Checkpoint, sender: str):
+        if self.checkpoints:
+            seqNo = msg.seqNo
+            _, firstChk = self.firstCheckPoint
+            if firstChk.isStable:
+                if firstChk.seqNo == seqNo:
+                    self.discard(msg, reason="Checkpoint already stable",
+                                 logMethod=logger.debug)
+                    return
+                if firstChk.seqNo > seqNo:
+                    self.discard(msg, reason="Higher stable checkpoint present",
+                                 logMethod=logger.debug)
+                    return
+            for state in self.checkpoints.values():
+                if state.seqNo == seqNo:
+                    if state.digest == msg.digest:
+                        state.receivedDigests[sender] = msg.digest
+                        break
+                    else:
+                        logger.error("{} received an incorrect digest {} for "
+                                     "checkpoint {} from {}".format(self,
+                                                                    msg.digest,
+                                                                    seqNo,
+                                                                    sender))
+                        return
+            if len(state.receivedDigests) == 2*self.f:
+                self.markCheckPointStable(msg.seqNo)
+        else:
+            self.discard(msg, reason="No checkpoints present to tally",
+                         logMethod=logger.warn)
+
+    def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
+        s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
+        logger.debug("{} adding new checkpoint state for {}".
+                     format(self, (s, e)))
+        state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
+        self.checkpoints[s, e] = state
+        return state
+
+    def addToCheckpoint(self, ppSeqNo, digest):
+        for (s, e) in self.checkpoints.keys():
+            if s <= ppSeqNo <= e:
+                state = self.checkpoints[s, e]  # type: CheckpointState
+                state.digests.append(digest)
+                state = updateNamedTuple(state, seqNo=ppSeqNo)
+                self.checkpoints[s, e] = state
+                break
+        else:
+            state = self._newCheckpointState(ppSeqNo, digest)
+            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ
+
+        if len(state.digests) == self.config.CHK_FREQ:
+            state = updateNamedTuple(state, digest=serialize(state.digests),
+                                     digests=[])
+            self.checkpoints[s, e] = state
+            self.send(Checkpoint(self.instId, self.viewNo, ppSeqNo,
+                                 state.digest))
+
+    def markCheckPointStable(self, seqNo):
+        previousCheckpoints = []
+        for (s, e), state in self.checkpoints.items():
+            if e == seqNo:
+                state = updateNamedTuple(state, isStable=True)
+                self.checkpoints[s, e] = state
+                break
+            else:
+                previousCheckpoints.append((s, e))
+        else:
+            logger.error("{} could not find {} in checkpoints".
+                         format(self, seqNo))
+            return
+        self.h = seqNo
+        for k in previousCheckpoints:
+            logger.debug("{} removing previous checkpoint {}".format(self, k))
+            self.checkpoints.pop(k)
+        self.gc(seqNo)
+        logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
+        self.processStashedMsgsForNewWaterMarks()
+
+    def gc(self, tillSeqNo):
+        logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
+        tpcKeys = set()
+        reqKeys = set()
+        for (v, p), (reqKey, _) in self.sentPrePrepares.items():
+            if p <= tillSeqNo:
+                tpcKeys.add((v, p))
+                reqKeys.add(reqKey)
+        for (v, p), (reqKey, _) in self.prePrepares.items():
+            if p <= tillSeqNo:
+                tpcKeys.add((v, p))
+                reqKeys.add(reqKey)
+
+        logger.debug("{} found {} 3 phase keys to clean".
+                     format(self, len(tpcKeys)))
+        logger.debug("{} found {} request keys to clean".
+                     format(self, len(reqKeys)))
+
+        for k in tpcKeys:
+            self.sentPrePrepares.pop(k, None)
+            self.prePrepares.pop(k, None)
+            self.prepares.pop(k, None)
+            self.commits.pop(k, None)
+            if k in self.ordered:
+                self.ordered.remove(k)
+
+        for k in reqKeys:
+            self.requests.pop(k, None)
+
+    def processStashedMsgsForNewWaterMarks(self):
+        while self.stashingWhileOutsideWaterMarks:
+            item = self.stashingWhileOutsideWaterMarks.pop()
+            logger.debug("{} processing stashed item {} after new stable "
+                         "checkpoint".format(self, item))
+
+            if isinstance(item, ReqDigest):
+                self.doPrePrepare(item)
+            elif isinstance(item, tuple) and len(tuple) == 2:
+                self.dispatchThreePhaseMsg(*item)
+            else:
+                logger.error("{} cannot process {} "
+                             "from stashingWhileOutsideWaterMarks".
+                             format(self, item))
+
+    @property
+    def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints.peekitem(0)
+
+    @property
+    def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+        if not self.checkpoints:
+            return None
+        else:
+            return self.checkpoints.peekitem(-1)
+
+    def isPpSeqNoAcceptable(self, ppSeqNo: int):
+        return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
 
-    def orderPendingCommit(self, viewNo, ppSeqNo, identifier, reqId, digest,
-                           ppTime):
-        cmKey = (viewNo, ppSeqNo)
-        if self.hasOrdered(*cmKey):
-            logger.debug("{} already ordered {}".format(self, cmKey))
-        else:
-            logger.debug("{} ordering pending {}".format(self, cmKey))
-            self.doOrder(*cmKey, identifier, reqId, digest, ppTime)
-            self.commitsPendedForOrdering.pop(cmKey, None)
-            self.commitsPendedForOrdering.pop(digest, None)
-            return True
+    def enqueuePrePrepare(self, request: PrePrepare, sender: str):
+        logger.debug("Queueing pre-prepares due to unavailability of finalised "
+                     "Request. Request {} from {}".format(request, sender))
+        key = (request.identifier, request.reqId)
+        if key not in self.prePreparesPendingReqDigest:
+            self.prePreparesPendingReqDigest[key] = []
+        self.prePreparesPendingReqDigest[key].append((request, sender))
+
+    def dequeuePrePrepare(self, identifier: int, reqId: int):
+        key = (identifier, reqId)
+        if key in self.prePreparesPendingReqDigest:
+            pps = self.prePreparesPendingReqDigest[key]
+            for (pp, sender) in pps:
+                logger.debug("{} popping stashed PRE-PREPARE{}".
+                             format(self, key))
+                if pp.digest == self.requests.digest(key):
+                    self.prePreparesPendingReqDigest.pop(key)
+                    self.processPrePrepare(pp, sender)
+                    logger.debug(
+                        "{} processed {} PRE-PREPAREs waiting for finalised "
+                        "request for identifier {} and reqId {}".
+                        format(self, pp, identifier, reqId))
+                    break
 
     def enqueuePrepare(self, request: Prepare, sender: str):
         logger.debug("Queueing prepares due to unavailability of PRE-PREPARE. "
@@ -982,30 +1159,83 @@ class Replica(HasActionQueue, MessageProcessor):
                 logger.debug("{} popping stashed PREPARE{}".format(self, key))
                 self.processPrepare(prepare, sender)
                 i += 1
+            self.preparesWaitingForPrePrepare.pop(key)
             logger.debug("{} processed {} PREPAREs waiting for PRE-PREPARE for"
                          " view no {} and seq no {}".
                          format(self, i, viewNo, ppSeqNo))
 
-    def getDigestFromPrepare(self, viewNo: int, ppSeqNo: int) -> Optional[str]:
-        key = (viewNo, ppSeqNo)
-        if key in self.prepares:
-            return self.prepares[key].digest
-        elif key in self.preparesWaitingForPrePrepare:
-            prepare, _ = self.preparesWaitingForPrePrepare[key][0]
-            return prepare.digest
-        else:
-            logger.debug("{} could not find digest in received PREPAREs for {}"
-                         .format(self, key))
-            return None
+    def enqueueCommit(self, request: Commit, sender: str):
+        logger.debug("Queueing commit due to unavailability of PREPARE. "
+                     "Request {} from {}".format(request, sender))
+        key = (request.viewNo, request.ppSeqNo)
+        if key not in self.commitsWaitingForPrepare:
+            self.commitsWaitingForPrepare[key] = deque()
+        self.commitsWaitingForPrepare[key].append((request, sender))
 
-    def send(self, msg, stat) -> None:
+    def dequeueCommits(self, viewNo: int, ppSeqNo: int):
+        key = (viewNo, ppSeqNo)
+        if key in self.commitsWaitingForPrepare:
+            i = 0
+            # Keys of pending prepares that will be processed below
+            while self.commitsWaitingForPrepare[key]:
+                commit, sender = self.commitsWaitingForPrepare[
+                    key].popleft()
+                logger.debug("{} popping stashed COMMIT{}".format(self, key))
+                self.processCommit(commit, sender)
+                i += 1
+            self.commitsWaitingForPrepare.pop(key)
+            logger.debug("{} processed {} COMMITs waiting for PREPARE for"
+                         " view no {} and seq no {}".
+                         format(self, i, viewNo, ppSeqNo))
+
+    def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
+        reqKey = self.getReqKeyFrom3PhaseKey(key)
+        digest = self.requests.digest(reqKey)
+        if not digest:
+            logger.debug("{} could not find digest in sent or received "
+                         "PRE-PREPAREs or PREPAREs for 3 phase key {} and req "
+                         "key {}".format(self, key, reqKey))
+            return None
+        else:
+            return digest
+
+    def getReqKeyFrom3PhaseKey(self, key: ThreePhaseKey):
+        reqKey = None
+        if key in self.sentPrePrepares:
+            reqKey = self.sentPrePrepares[key][0]
+        elif key in self.prePrepares:
+            reqKey = self.prePrepares[key][0]
+        elif key in self.prepares:
+            reqKey = self.prepares[key][0]
+        else:
+            logger.debug("Could not find request key for 3 phase key {}".
+                         format(key))
+        return reqKey
+
+    @property
+    def threePhaseState(self):
+        # TODO: This method is incomplete
+        # Gets the current stable and unstable checkpoints and creates digest
+        # of unstable checkpoints
+        if self.checkpoints:
+            pass
+        else:
+            state = []
+        return ThreePCState(self.instId, state)
+
+    def process3PhaseState(self, msg: ThreePCState, sender: str):
+        # TODO: This is not complete
+        pass
+
+    def send(self, msg, stat=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
         :param msg: the message to send
         """
         logger.display("{} sending {}".format(self, msg.__class__.__name__),
-                     extra={"cli": True})
+                       extra={"cli": True})
         logger.trace("{} sending {}".format(self, msg))
-        self.stats.inc(stat)
+        if stat:
+            self.stats.inc(stat)
         self.outBox.append(msg)

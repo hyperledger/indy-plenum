@@ -42,7 +42,8 @@ def testPrepareDigest(setup, looper, sent1):
     """
 
     primaryRep, nonPrimaryReps, faultyRep = setup.primaryRep, \
-                                            setup.nonPrimaryReps, setup.faultyRep
+                                            setup.nonPrimaryReps, \
+                                            setup.faultyRep
 
     def chkSusp():
         for r in (primaryRep, *nonPrimaryReps):

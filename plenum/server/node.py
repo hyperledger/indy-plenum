@@ -22,9 +22,8 @@ from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, InvalidSignature, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, \
-    UnknownIdentifier, BlowUp
+    InvalidClientOp, InvalidClientRequest, BaseExc, \
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -48,7 +47,7 @@ from plenum.common.types import Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
 from plenum.common.request import Request
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
 from plenum.common.config_util import getConfig
@@ -193,11 +192,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           [Nomination, Primary, Reelection])
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit])
+                          [PrePrepare, Prepare, Commit, Checkpoint,
+                           ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
 
-        self._schedule(self.checkPerformance, self.perfCheckFreq)
+        # TODO: Create a RecurringCaller that takes a method to call after
+        # every `n` seconds, also support start and stop methods
+        # self._schedule(self.checkPerformance, self.perfCheckFreq)
+        self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.initInsChngThrottling()
 
@@ -227,7 +230,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                PrePrepare, Prepare,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ConsProofRequest)
+                               ConsProofRequest, Checkpoint, ThreePCState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -590,15 +593,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     # Communicate current view number if any view change
                     # happened to the connected node
                     if self.viewNo > 0:
-                        # TODO: This is little cryptic since we send the
-                        # InstanceChange with the viewNo 1 less than what we
-                        # want the other node to switch to. The way to fix it is
-                        # to send the InstanceChange with the viewNo as exactly
-                        # what we want the other node to switch to.
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, n))
                         rid = self.nodestack.getRemote(n).uid
-                        self.send(InstanceChange(self.viewNo-1), rid)
+                        self.send(InstanceChange(self.viewNo), rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:
@@ -762,7 +760,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 msg = replica.outBox.popleft()
                 if isinstance(msg, (PrePrepare,
                                     Prepare,
-                                    Commit)):
+                                    Commit,
+                                    Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
                     # Checking for request in received catchup replies as a
@@ -780,7 +779,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
-                    logger.error("Received msg {} and don't know how to handle"
+                    logger.error("Received msg {} and don't know how to handle "
                                  "it".format(msg))
         return msgCount
 
@@ -1049,12 +1048,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reason = "client request invalid: {}".format(friendly)
         if isinstance(msg, Request):
             msg = msg.__getstate__()
+        identifier = msg.get(f.IDENTIFIER.nm)
         reqId = msg.get(f.REQ_ID.nm)
         if not reqId:
             reqId = getattr(exc, f.REQ_ID.nm, None)
             if not reqId:
                 reqId = getattr(ex, f.REQ_ID.nm, None)
-        self.transmitToClient(RequestNack(reqId, reason), frm)
+        self.transmitToClient(RequestNack(identifier, reqId, reason), frm)
         self.discard(wrappedMsg, friendly, logger.warning, cliOutput=True)
 
     def validateClientMsg(self, wrappedMsg):
@@ -1138,8 +1138,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             m = self.clientInBox.popleft()
             req, frm = m
             logger.display("{} processing {} request {}".
-                         format(self.clientstack.name, frm, req),
-                         extra={"cli": True})
+                           format(self.clientstack.name, frm, req),
+                           extra={"cli": True})
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
@@ -1163,6 +1163,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.processStashedOrderedReqs()
         self.mode = Mode.participating
+        # self.sync3PhaseState()
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
@@ -1229,11 +1230,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, frm)
         else:
             self.checkRequestAuthorized(request)
-            self.transmitToClient(RequestAck(request.reqId), frm)
-            self.requestSender[request.key] = frm
+            if not self.isProcessingReq(*request.key):
+                self.startedProcessingReq(*request.key, frm)
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
+            self.transmitToClient(RequestAck(*request.key), frm)
 
     # noinspection PyUnusedLocal
     async def processPropagate(self, msg: Propagate, frm):
@@ -1254,14 +1256,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         clientName = msg.senderClient
 
-        if request.key not in self.requestSender:
-            self.requestSender[request.key] = clientName
+        if not self.isProcessingReq(*request.key):
+            self.startedProcessingReq(*request.key, clientName)
         self.requests.addPropagate(request, frm)
 
         # # Only propagate if the node is participating in the consensus process
         # # which happens when the node has completed the catchup process
         self.propagate(request, clientName)
         self.tryForwarding(request)
+
+    def startedProcessingReq(self, identifier, reqId, frm):
+        self.requestSender[identifier, reqId] = frm
+
+    def isProcessingReq(self, identifier, reqId) -> bool:
+        return (identifier, reqId) in self.requestSender
+
+    def doneProcessingReq(self, identifier, reqId):
+        self.requestSender.pop((identifier, reqId))
 
     def processOrdered(self, ordered: Ordered, retryNo: int = 0):
         """
@@ -1276,7 +1287,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, identifier, reqId, digest, ppTime = tuple(ordered)
+        instId, viewNo, identifier, reqId, ppTime = tuple(ordered)
 
         self.monitor.requestOrdered(identifier,
                                     reqId,
@@ -1371,7 +1382,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if self.instances.masterId is not None:
             if self.monitor.isMasterDegraded():
-                self.sendInstanceChange(self.viewNo)
+                self.sendInstanceChange(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}s master has higher performance than backups".
@@ -1426,7 +1437,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         number and its view is less than or equal to the proposed view
         """
         return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
-               self.viewNo <= proposedViewNo
+            self.viewNo < proposedViewNo
 
     def startViewChange(self, proposedViewNo: int):
         """
@@ -1434,7 +1445,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param proposedViewNo: the new view number after view change.
         """
-        self.viewNo = proposedViewNo + 1
+        self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
@@ -1511,9 +1522,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         reply = self.generateReply(ppTime, req)
         merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
         reply.result.update(merkleProof)
-        self.transmitToClient(reply, self.requestSender[req.key])
+        self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
+
+    def sendReplyToClient(self, reply, reqKey):
+        if self.isProcessingReq(*reqKey):
+            self.transmitToClient(reply, self.requestSender[reqKey])
+            self.doneProcessingReq(*reqKey)
 
     @staticmethod
     def genTxnId(identifier, reqId):
@@ -1615,6 +1631,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def gotInCatchupReplies(self, msg):
         key = (getattr(msg, f.IDENTIFIER.nm), getattr(msg, f.REQ_ID.nm))
         return key in self.reqsFromCatchupReplies
+
+    def sync3PhaseState(self):
+        for replica in self.replicas:
+            self.send(replica.threePhaseState)
 
     def startKeySharing(self, timeout=60):
         """
@@ -1846,6 +1866,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'address': nodeAddress
         }
 
-        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) as logNodeInfoFile:
+        with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
+                as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(info))
 

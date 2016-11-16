@@ -242,7 +242,9 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.processCommit,
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
-                  replica.Replica.orderPendingCommit])
+                  replica.Replica.discard,
+                  # replica.Replica.orderPendingCommit
+                  ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -637,19 +639,19 @@ def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
         nodeSet.removeNode(n, shouldClean=False)
 
 
-def checkViewChangeInitiatedForNode(node: TestNode, oldViewNo: int):
+def checkViewChangeInitiatedForNode(node: TestNode, proposedViewNo: int):
     """
     Check if view change initiated for a given node
     :param node: The node to check for
-    :param oldViewNo: The view no on which the nodes were before the view change
+    :param proposedViewNo: The view no which is proposed
     :return:
     """
     params = [args for args in getAllArgs(node, TestNode.startViewChange)]
     assert len(params) > 0
     args = params[-1]
-    assert args["proposedViewNo"] == oldViewNo
-    assert node.viewNo == oldViewNo + 1
-    assert node.elector.viewNo == oldViewNo + 1
+    assert args["proposedViewNo"] == proposedViewNo
+    assert node.viewNo == proposedViewNo
+    assert node.elector.viewNo == proposedViewNo
 
 
 def timeThis(func, *args, **kwargs):

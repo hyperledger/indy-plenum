@@ -46,7 +46,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
         return PrePrepare(
                 replica.instId,
                 firstNpr.viewNo,
-                firstNpr.prePrepareSeqNo,
+                firstNpr.lastPrePrepareSeqNo,
                 propagated1.identifier,
                 propagated1.reqId,
                 propagated1.digest,

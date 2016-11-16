@@ -45,14 +45,14 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     for node in nodeSet:
         if node.name != nodeA.name:
             looper.run(eventually(
-                partial(checkViewChangeInitiatedForNode, node, 0),
+                partial(checkViewChangeInitiatedForNode, node, 1),
                 retryWait=1,
                 timeout=20))
 
     # Node A's view should not have changed yet
     with pytest.raises(AssertionError):
         looper.run(eventually(partial(
-            checkViewChangeInitiatedForNode, nodeA, 0),
+            checkViewChangeInitiatedForNode, nodeA, 1),
             retryWait=1,
             timeout=20))
 

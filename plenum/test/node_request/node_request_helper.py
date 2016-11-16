@@ -78,7 +78,7 @@ def checkPrePrepared(looper,
             expectedPrePrepareRequest = PrePrepare(
                     instId,
                     primary.viewNo,
-                    primary.prePrepareSeqNo,
+                    primary.lastPrePrepareSeqNo,
                     propagated1.identifier,
                     propagated1.reqId,
                     propagated1.digest,
@@ -195,7 +195,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0):
             numOfMsgsWithFaults = 2 * f
 
             for replica in allReplicas:
-                key = primary.viewNo, primary.prePrepareSeqNo
+                key = primary.viewNo, primary.lastPrePrepareSeqNo
                 if key in replica.prepares:
                     actualMsgs = len(replica.prepares[key].voters)
 
@@ -219,7 +219,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0):
                                   param['prepare'].viewNo,
                                   param['prepare'].ppSeqNo) == (primary.instId,
                                                         primary.viewNo,
-                                                        primary.prePrepareSeqNo) and
+                                                        primary.lastPrePrepareSeqNo) and
                               param['sender'] != primary.name])
 
             numOfMsgsWithZFN = nodeCount - 1
@@ -250,7 +250,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0):
                                       param['prepare'].viewNo,
                                       param['prepare'].ppSeqNo) == (primary.instId,
                                                             primary.viewNo,
-                                                            primary.prePrepareSeqNo)
+                                                            primary.lastPrePrepareSeqNo)
                                   ])
 
                 passes += int(msgCountOK(nodeCount,
@@ -290,12 +290,11 @@ def checkCommited(looper, nodeSet, prepared1, instIds, faultyNodes=0):
             numOfMsgsWithZFN = nodeCount
             numOfMsgsWithFault = (2 * f) + 1
 
-            key = (primaryReplica.viewNo, primaryReplica.prePrepareSeqNo)
+            key = (primaryReplica.viewNo, primaryReplica.lastPrePrepareSeqNo)
             for r in allReplicas:
                 if key in r.commits:
                     rcvdCommitRqst = r.commits[key]
-                    assert rcvdCommitRqst[0] == prepared1.digest
-                    actualMsgsReceived = len(rcvdCommitRqst[1])
+                    actualMsgsReceived = len(rcvdCommitRqst.voters)
 
                     passes += int(msgCountOK(nodeCount,
                                              faultyNodes,
@@ -327,7 +326,7 @@ def checkCommited(looper, nodeSet, prepared1, instIds, faultyNodes=0):
 
                 for arg in args:
                     assert arg['commit'].viewNo == primaryReplica.viewNo and \
-                           arg['commit'].ppSeqNo == primaryReplica.prePrepareSeqNo and \
+                           arg['commit'].ppSeqNo == primaryReplica.lastPrePrepareSeqNo and \
                            arg['commit'].digest == prepared1.digest
                     assert r.name != arg['sender']
 

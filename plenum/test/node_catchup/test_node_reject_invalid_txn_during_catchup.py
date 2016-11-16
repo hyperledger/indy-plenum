@@ -34,7 +34,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                         " for catchup request {} from {}".
                         format(self, req, frm))
             start, end = getattr(req, f.SEQ_NO_START.nm), \
-                         getattr(req, f.SEQ_NO_END.nm)
+                getattr(req, f.SEQ_NO_END.nm)
             ledger = self.getLedgerForMsg(req)
             txns = ledger.getAllTxn(start, end)
             for seqNo in txns.keys():

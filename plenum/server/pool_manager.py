@@ -124,8 +124,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         txn[F.seqNo.name] = merkleProof[F.seqNo.name]
         self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
-        self.node.transmitToClient(reply,
-                                   self.node.requestSender[req.key])
+        self.node.sendReplyToClient(reply, req.key)
 
     def getReplyFor(self, request):
         txn = self.ledger.get(identifier=request.identifier,
@@ -154,25 +153,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.addNewRemoteAndConnect(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
-    # TODO: Abstract the functionality where it is decided if election needs
-    # to be triggered in case of change of HA or keys. Also the method should
-    # trigger election.
-
     def doElectionIfNeeded(self, nodeGoingDown):
         for instId, replica in enumerate(self.node.replicas):
             if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
-                # self.node.elector.setElectionDefaults(instId)
-                # replica.primaryName = None
-                # self.node.decidePrimaries()
-                self.node.startViewChange(self.node.viewNo)
+                self.node.startViewChange(self.node.viewNo+1)
                 return
 
     def nodeHaChanged(self, txn):
-        # TODO: if the node whose HA is being changed is primary for any
-        # protocol instance, then we should trigger an election for that
-        # protocol instance. For doing that, for every replica of that
-        # protocol instance, `_primaryName` as None, and then the node should
-        # call its `decidePrimaries`.
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         if nodeName == self.name:

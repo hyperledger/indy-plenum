@@ -9,7 +9,7 @@ from plenum.test.helper import randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, assertLength
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, createClientSendMessageAndRemove, clientSendMessageAndRemove
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
 from plenum.common.crypto import Signer
@@ -100,13 +100,12 @@ def testSendRequestWithoutSignatureFails(pool):
 
         # remove the client's ability to sign
         assert wallet.defaultId
-        wallet.defaultId = None
-        assert not wallet.defaultId
 
         ctx.looper.add(client1)
         await client1.ensureConnectedToNodes()
 
-        request = Request(randomOperation())
+        request = wallet.signOp(op=randomOperation())
+        request.signature = None
         request = client1.submitReqs(request)[0]
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
@@ -119,13 +118,13 @@ def testSendRequestWithoutSignatureFails(pool):
             ex = params['ex']
             _, frm = params['wrappedMsg']
             assert isinstance(ex, EmptySignature)
-            assert frm == client1.name
+            assert frm == client1.stackName
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
             assert msg == request.__dict__
-            assert frm == client1.name
+            assert frm == client1.stackName
             assert "EmptySignature" in reason
 
     pool.run(go)

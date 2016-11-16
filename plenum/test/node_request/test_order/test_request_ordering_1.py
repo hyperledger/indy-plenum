@@ -29,7 +29,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     replica.processReqDigest = patchedMethod
 
     def chk(n):
-        replica.spylog.count(replica.doOrder.__name__) == n
+        assert replica.spylog.count(replica.doOrder.__name__) == n
 
     sendRandomRequest(wallet1, client1)
     looper.run(eventually(chk, 0, retryWait=1, timeout=5))

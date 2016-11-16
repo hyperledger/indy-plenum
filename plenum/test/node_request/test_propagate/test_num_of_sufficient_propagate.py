@@ -56,5 +56,5 @@ def afterElection(setup, up):
             assert not r.isPrimary
 
 
-def testNumOfSufficientPropagate(afterElection, propagated1):
+def testNumOfSufficientPropagate(afterElection, noRetryReq, propagated1):
     pass

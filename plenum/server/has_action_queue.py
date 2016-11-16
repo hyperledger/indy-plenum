@@ -1,5 +1,6 @@
 import time
 from collections import deque
+from functools import partial
 from typing import Callable
 
 from plenum.common.log import getlogger
@@ -13,6 +14,7 @@ class HasActionQueue:
         self.aqStash = deque()
         self.aqNextCheck = float('inf')  # next time to check
         self.aid = 0  # action id
+        self.repeatingActions = set()
 
     def _schedule(self, action: Callable, seconds: int=0) -> None:
         """
@@ -27,11 +29,11 @@ class HasActionQueue:
             if nxt < self.aqNextCheck:
                 self.aqNextCheck = nxt
             logger.debug("{} scheduling action {} with id {} to run in {} "
-                          "seconds".format(self, action, self.aid, seconds))
+                         "seconds".format(self, action, self.aid, seconds))
             self.aqStash.append((nxt, (action, self.aid)))
         else:
             logger.debug("{} scheduling action {} with id {} to run now".
-                          format(self, action, self.aid))
+                         format(self, action, self.aid))
             self.actionQueue.append((action, self.aid))
         return self.aid
 
@@ -60,3 +62,28 @@ class HasActionQueue:
                          format(self, action, aid))
             action()
         return count
+
+    def startRepeating(self, action: Callable, seconds: int):
+        def wrapper():
+            if action in self.repeatingActions:
+                action()
+                self._schedule(wrapper, seconds)
+
+        if action not in self.repeatingActions:
+            logger.debug('{} will be repeating every {} seconds'.
+                         format(action, seconds))
+            self.repeatingActions.add(action)
+            self._schedule(wrapper, seconds)
+        else:
+            logger.debug('{} is already repeating'.format(action))
+
+    def stopRepeating(self, action: Callable, strict=True):
+        try:
+            self.repeatingActions.remove(action)
+            logger.debug('{} will not be repeating'.format(action))
+        except KeyError:
+            msg = '{} not found in repeating actions'.format(action)
+            if strict:
+                raise KeyError(msg)
+            else:
+                logger.debug(msg)

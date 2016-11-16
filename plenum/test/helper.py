@@ -125,7 +125,7 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
             isinstance(item[0], requestType)]
 
 
-def assertLength(collection: Sequence[Any], expectedLength: int):
+def assertLength(collection: Iterable[Any], expectedLength: int):
     assert len(
             collection) == expectedLength, "Observed length was {} but " \
                                            "expected length was {}".\
@@ -288,13 +288,18 @@ def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     assert len(node.requests[key].propagates) >= node.f + 1
 
 
-def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
-                               digest: str, instId: int):
+def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
-    expected = (instId, identifier, reqId, digest)
-    assert expected in recvdOrderedReqs
+    expected = (instId, identifier, reqId)
+    return expected in recvdOrderedReqs
+
+
+def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
+    assert requestReturnedToNode(node, identifier, reqId, instId)
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
@@ -338,24 +343,36 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         assert received > minimum
 
 
-def checkReqAck(client, node, reqId, update: Dict[str, str]=None):
-    rec = {OP_FIELD_NAME: REQACK, 'reqId': reqId}
+def checkReqAck(client, node, idr, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
     if update:
         rec.update(update)
     expected = (rec, node.clientstack.name)
-    # one and only one matching message should be in the client's inBox
-    # assert sum(1 for x in client.inBox if x == expected) == 1
-    assert client.inBox.count(expected) == 1
+    # More than one matching message could be present in the client's inBox
+    # since client on not receiving request under timeout might have retried
+    # the request
+    assert client.inBox.count(expected) > 0
 
 
-def checkReqNack(client, node, reqId, update: Dict[str, str]=None):
-    rec = {OP_FIELD_NAME: REQNACK, 'reqId': reqId}
+def checkReqNack(client, node, idr, reqId, update: Dict[str, str]=None):
+    rec = {OP_FIELD_NAME: REQNACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
     if update:
         rec.update(update)
     expected = (rec, node.clientstack.name)
-    # one and only one matching message should be in the client's inBox
-    # assert sum(1 for x in client.inBox if x == expected) == 1
-    assert client.inBox.count(expected) == 1
+    # More than one matching message could be present in the client's inBox
+    # since client on not receiving request under timeout might have retried
+    # the request
+    assert client.inBox.count(expected) > 0
+
+
+def checkReplyCount(client, idr, reqId, count):
+    senders = set()
+    for msg, sdr in client.inBox:
+        if msg[OP_FIELD_NAME] == REPLY and \
+                        msg[f.RESULT.nm][f.IDENTIFIER.nm] == idr and \
+                        msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:
+            senders.add(sdr)
+    assertLength(senders, count)
 
 
 def checkReqNackWithReason(client, reason: str, sender: str):
@@ -394,12 +411,12 @@ def getNodeSuspicions(node: TestNode, code: int = None):
     return params
 
 
-def checkDiscardMsg(nodeSet, discardedMsg,
+def checkDiscardMsg(processors, discardedMsg,
                     reasonRegexp, *exclude):
     if not exclude:
         exclude = []
-    for n in filterNodeSet(nodeSet, exclude):
-        last = n.spylog.getLastParams(Node.discard, required=False)
+    for p in filterNodeSet(processors, exclude):
+        last = p.spylog.getLastParams(p.discard, required=False)
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']

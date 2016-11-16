@@ -8,7 +8,6 @@ from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequests
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.delayers import ppgDelay, ppDelay, pDelay, cDelay, lsDelay
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 
 
