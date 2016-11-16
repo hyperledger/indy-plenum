@@ -60,7 +60,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return len(self._getSerializedReplies(identifier, reqId))
 
     def hasRequest(self, identifier: str, reqId: int) -> bool:
-        return self.reqStore.exists(str(reqId))
+        key = '{}{}'.format(identifier, reqId)
+        return self.reqStore.exists(key)
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
         for r in self._getLinesWithPrefix(identifier, reqId, "0:"):

@@ -118,13 +118,13 @@ def testSendRequestWithoutSignatureFails(pool):
             ex = params['ex']
             _, frm = params['wrappedMsg']
             assert isinstance(ex, EmptySignature)
-            assert frm == client1.name
+            assert frm == client1.stackName
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
             assert msg == request.__dict__
-            assert frm == client1.name
+            assert frm == client1.stackName
             assert "EmptySignature" in reason
 
     pool.run(go)

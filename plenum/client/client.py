@@ -324,10 +324,11 @@ class Client(Motor,
             self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
             self.mode = None
 
-    def getReply(self, reqId: int) -> Optional[Reply]:
+    def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
         Accepts reply message from node if the reply is matching
 
+        :param identifier: identifier of the entity making the request
         :param reqId: Request Id
         :return: Reply message only when valid and matching
         (None, NOT_FOUND)
@@ -335,35 +336,38 @@ class Client(Motor,
         (reply, CONFIRMED) f+1 reached
         """
         try:
-            cons = self.hasConsensus(reqId)
+            cons = self.hasConsensus(identifier, reqId)
         except KeyError:
             return None, "NOT_FOUND"
         if cons:
             return cons, "CONFIRMED"
         return None, "UNCONFIRMED"
 
-    def getRepliesFromAllNodes(self, reqId: int):
+    def getRepliesFromAllNodes(self, identifier: str, reqId: int):
         """
         Accepts a request ID and return a list of results from all the nodes
         for that request
 
+        :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         :return: list of request results from all nodes
         """
         return {frm: msg for msg, frm in self.inBox
                 if msg[OP_FIELD_NAME] == REPLY and
-                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId}
+                msg[f.RESULT.nm][f.REQ_ID.nm] == reqId and
+                msg[f.RESULT.nm][f.IDENTIFIER.nm] == identifier}
 
-    def hasConsensus(self, reqId: int) -> Optional[str]:
+    def hasConsensus(self, identifier: str, reqId: int) -> Optional[str]:
         """
         Accepts a request ID and returns True if consensus was reached
         for the request or else False
 
+        :param identifier: identifier of the entity making the request
         :param reqId: Request ID
         """
-        replies = self.getRepliesFromAllNodes(reqId)
+        replies = self.getRepliesFromAllNodes(identifier, reqId)
         if not replies:
-            raise KeyError(reqId)  # NOT_FOUND
+            raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
         if self.f + 1 > len(replies):
             return False  # UNCONFIRMED
@@ -380,13 +384,13 @@ class Client(Motor,
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
 
-    def showReplyDetails(self, reqId: int):
+    def showReplyDetails(self, identifier: str, reqId: int):
         """
         Accepts a request ID and prints the reply details
 
         :param reqId: Request ID
         """
-        replies = self.getRepliesFromAllNodes(reqId)
+        replies = self.getRepliesFromAllNodes(identifier, reqId)
         replyInfo = "Node {} replied with result {}"
         if replies:
             for frm, reply in replies.items():

@@ -49,6 +49,6 @@ def checkStewardAdded(looper, poolTxnStewardData, tdirWithPoolTxns):
     client.submitReqs(req)
 
     def chk():
-        assert client.getReply(req.reqId) == (None, "NOT_FOUND")
+        assert client.getReply(*req.key) == (None, "NOT_FOUND")
 
     looper.run(eventually(chk, retryWait=1, timeout=5))
