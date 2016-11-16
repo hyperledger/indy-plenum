@@ -485,6 +485,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
 
     def _clearSnapshot(self):
+        self.masterReqLatencyTooHigh = self.isMasterReqLatencyTooHigh()
         self.masterReqLatencies = {}
 
     def _sendStatsDataIfRequired(self, event, stats):
