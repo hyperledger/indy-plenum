@@ -388,6 +388,7 @@ class Client(Motor,
         """
         Accepts a request ID and prints the reply details
 
+        :param identifier: Client's identifier
         :param reqId: Request ID
         """
         replies = self.getRepliesFromAllNodes(identifier, reqId)
@@ -502,23 +503,33 @@ class Client(Motor,
         nodesNotSendingAck = set()
 
         # Collect nodes which did not send REQACK
-        for (idr, reqId), (expectedFrom, lastTried, retries) in \
+        clearKeys = []
+        for reqKey, (expectedFrom, lastTried, retries) in \
                 self.expectingAcksFor.items():
-            if retries < self.config.CLIENT_MAX_RETRY_ACK and \
-                    now > (lastTried + self.config.CLIENT_REQACK_TIMEOUT):
-                if (idr, reqId) not in keys:
-                    keys[(idr, reqId)] = set()
-                keys[(idr, reqId)].update(expectedFrom)
-                nodesNotSendingAck.update(expectedFrom)
+            if now > (lastTried + self.config.CLIENT_REQACK_TIMEOUT):
+                if retries < self.config.CLIENT_MAX_RETRY_ACK:
+                    if reqKey not in keys:
+                        keys[reqKey] = set()
+                    keys[reqKey].update(expectedFrom)
+                    nodesNotSendingAck.update(expectedFrom)
+                else:
+                    clearKeys.append(reqKey)
+        for k in clearKeys:
+            self.expectingAcksFor.pop(k)
 
         # Collect nodes which did not send REPLY
-        for (idr, reqId), (expectedFrom, lastTried, retries) in \
+        clearKeys = []
+        for reqKey, (expectedFrom, lastTried, retries) in \
                 self.expectingRepliesFor.items():
-            if retries < self.config.CLIENT_MAX_RETRY_REPLY and \
-                    now > (lastTried + self.config.CLIENT_REPLY_TIMEOUT):
-                if (idr, reqId) not in keys:
-                    keys[(idr, reqId)] = set()
-                keys[(idr, reqId)].update(expectedFrom)
+            if now > (lastTried + self.config.CLIENT_REPLY_TIMEOUT):
+                if retries < self.config.CLIENT_MAX_RETRY_REPLY:
+                    if reqKey not in keys:
+                        keys[reqKey] = set()
+                    keys[reqKey].update(expectedFrom)
+                else:
+                    clearKeys.append(reqKey)
+        for k in clearKeys:
+            self.expectingRepliesFor.pop(k)
 
         for nm in nodesNotSendingAck:
             try:

@@ -90,8 +90,10 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
+    # Wait till ACK timeout
     looper.runFor(tconf.CLIENT_REQACK_TIMEOUT+1)
     assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+    # Wait till REPLY timeout
     looper.runFor(tconf.CLIENT_REPLY_TIMEOUT - tconf.CLIENT_REQACK_TIMEOUT + 1)
     assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
     looper.run(eventually(checkReplyCount, client1, *req.key, 3, retryWait=1,
@@ -119,10 +121,12 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper, nodeSet, client1,
 
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
+    # Wait for more than REPLY timeout
     looper.runFor((tconf.CLIENT_MAX_RETRY_REPLY+2)*tconf.CLIENT_REPLY_TIMEOUT+2)
     looper.run(eventually(checkReplyCount, client1, *req.key, 3, retryWait=1,
                           timeout=3))
     assert client1.spylog.count(client1.resendRequests.__name__) == \
         (totalResends + tconf.CLIENT_MAX_RETRY_REPLY)
-
+    assert req.key not in client1.expectingAcksFor
+    assert req.key not in client1.expectingRepliesFor
     alpha.processRequest = origTrans
