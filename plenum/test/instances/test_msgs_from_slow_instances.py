@@ -3,7 +3,8 @@ from plenum.test.eventually import eventually
 
 from plenum.common.types import Commit
 from plenum.server.replica import Replica
-from plenum.test.helper import delayerMsgTuple, TestNode
+from plenum.test.test_node import TestNode
+from plenum.test.delayers import delayerMsgTuple
 
 nodeCount = 4
 
@@ -33,9 +34,9 @@ def testMsgFromInstanceDelay(configNodeSet, looper, prepared1):
         for node in [C, D]:
             commReqs = getCommits(node, 0)
             assert len(commReqs) > 0
-            assert Replica.generateName(A.name, 0) not in commReqs[0][1]
+            assert Replica.generateName(A.name, 0) not in commReqs[0][0]
             commReqs = getCommits(node, 1)
             assert len(commReqs) > 0
-            assert Replica.generateName(A.name, 1) in commReqs[0][1]
+            assert Replica.generateName(A.name, 1) in commReqs[0][0]
 
     looper.run(eventually(checkPresence, retryWait=.5, timeout=10))

@@ -5,8 +5,9 @@ import sys
 
 from plenum.common.looper import Looper
 from plenum.common.types import HA
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.server.node import Node
+from plenum.common.log import setupLogging, TRACE_LOG_LEVEL
 
 config = getConfig()
 keepDir = config.baseDir
@@ -21,6 +22,12 @@ if __name__ == "__main__":
         selfName = sys.argv[1]
         ha = HA("0.0.0.0", int(sys.argv[2]))
         cliha = HA("0.0.0.0", int(sys.argv[3]))
+
+        logFileName = os.path.join(config.baseDir, selfName + ".log")
+
+        setupLogging(TRACE_LOG_LEVEL, filename=logFileName)
+        print("You can find logs in {}".format(logFileName))
+
         with Looper(debug=True) as looper:
             node = Node(selfName, nodeRegistry=None, basedirpath=keepDir, ha=ha,
                         cliha=cliha)

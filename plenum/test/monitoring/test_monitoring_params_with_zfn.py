@@ -9,7 +9,8 @@ nodeCount = 7
 
 def testThroughtputThreshold(nodeSet, requests):
     for node in nodeSet:  # type: Node
-        masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.instances.masterId)
+        masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
+            node.instances.masterId)
         for r in node.replicas:
             print("{} stats: {}".format(r, r.stats.__repr__()))
         assert masterThroughput / avgBackupThroughput >= node.monitor.Delta

@@ -13,7 +13,7 @@ TODO: demonstrate client verification key bootstrapping
 from plenum.client.client import Client
 from plenum.common.looper import Looper
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 
 def run_node():

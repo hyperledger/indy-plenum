@@ -18,9 +18,12 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.common.ratchet import Ratchet
 from plenum.common.signer import Signer
-from plenum.common.types import Request, Batch, TaggedTupleBase, HA
-from plenum.common.util import error, distributedConnectionMap, \
-    MessageProcessor, checkPortAvailable, getConfig
+from plenum.common.types import Batch, TaggedTupleBase, HA
+from plenum.common.request import Request
+from plenum.common.util import distributedConnectionMap, \
+    MessageProcessor, checkPortAvailable
+from plenum.common.config_util import getConfig
+from plenum.common.error import error
 
 logger = getlogger()
 
@@ -46,7 +49,7 @@ class Stack(RoadStack):
         kwargs['keep'] = keep
         localRoleData = keep.loadLocalRoleData()
 
-        sighex = localRoleData['sighex']
+        sighex = kwargs.pop('sighex', None) or localRoleData['sighex']
         if not sighex:
             (sighex, _), (prihex, _) = getEd25519AndCurve25519Keys()
         else:
@@ -57,7 +60,8 @@ class Stack(RoadStack):
         super().__init__(*args, **kwargs)
         if self.ha[1] != kwargs['ha'].port:
             error("the stack port number has changed, likely due to "
-                  "information in the keep")
+                  "information in the keep. {} passed {}, actual {}".
+                  format(kwargs['name'], kwargs['ha'].port, self.ha[1]))
         self.created = time.perf_counter()
         self.coro = None
         config = getConfig()
@@ -67,11 +71,14 @@ class Stack(RoadStack):
             # if no timeout is set then message will never timeout
             self.messageTimeout = 0
 
+    def __repr__(self):
+        return self.name
+
     def start(self):
         if not self.opened:
             self.open()
         logger.info("stack {} starting at {} in {} mode"
-                    .format(self.name, self.ha, self.keep.auto.name),
+                    .format(self, self.ha, self.keep.auto.name),
                     extra={"cli": False})
         self.coro = self._raetcoro()
 
@@ -257,14 +264,11 @@ class Stack(RoadStack):
 class SimpleStack(Stack):
     localips = ['127.0.0.1', '0.0.0.0']
 
-    def __init__(self, stackParams: Dict, msgHandler: Callable):
+    def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
         self._conns = set()  # type: Set[str]
-        super().__init__(**stackParams, msgHandler=self.msgHandler)
-
-    def __repr__(self):
-        return self.name
+        super().__init__(**stackParams, msgHandler=self.msgHandler, sighex=sighex)
 
     @property
     def isKeySharing(self):
@@ -289,9 +293,9 @@ class SimpleStack(Stack):
             self._conns = value
             ins = value - old
             outs = old - value
-            logger.debug("{}'s connection changed from {} to {}".format(self,
-                                                                        old,
-                                                                        value))
+            logger.debug("{}'s connections changed from {} to {}".format(self,
+                                                                         old,
+                                                                         value))
             self._connsChanged(ins, outs)
 
     def checkConns(self):
@@ -387,8 +391,8 @@ class KITStack(SimpleStack):
     # Keep In Touch Stack. Stack which maintains connections mentioned in
     # its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA]):
-        super().__init__(stackParams, msgHandler)
+                 registry: Dict[str, HA], sighex: str=None):
+        super().__init__(stackParams, msgHandler, sighex)
         self.registry = registry
         # self.bootstrapped = False
 
@@ -452,7 +456,7 @@ class KITStack(SimpleStack):
         self.updateStamp()
         self.join(uid=remote.uid, cascade=True, timeout=30)
         logger.info("{} looking for {} at {}:{}".
-                    format(self.name, name or remote.name, *remote.ha),
+                    format(self, name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN"})
         return remote.uid
 
@@ -528,6 +532,8 @@ class KITStack(SimpleStack):
         #                  format(self, disconn.uid))
         #     return
 
+        logger.trace("{} handling disconnected remote {}".format(self, disconn))
+
         if disconn.joinInProcess():
             logger.trace("{} join already in process, so "
                          "waiting to check for reconnects".
@@ -570,7 +576,7 @@ class KITStack(SimpleStack):
         #                                         round(secsToWaitNext, 2)))
 
         logger.debug("{} retrying to connect with {}".
-                     format(self.name, dname))
+                     format(self, dname))
         self.lastcheck[disconn.uid] = count + 1, cur
         # self.nextCheck = min(self.nextCheck,
         #                      cur + secsToWaitNext)
@@ -580,7 +586,6 @@ class KITStack(SimpleStack):
         elif disconn.joined:
             self.updateStamp()
             self.allow(uid=disconn.uid, cascade=True, timeout=20)
-            # self.alive(uid=disconn.uid, cascade=True, timeout=20)
             logger.debug("{} disconnected node is joined".format(
                 self), extra={"cli": "STATUS"})
         else:
@@ -623,8 +628,9 @@ class KITStack(SimpleStack):
         conflicts = set()  # matches found, but the ha conflicts
         logger.debug("{} nodereg is {}".
                      format(self, self.registry.items()))
-        logger.debug("{} nodestack is {}".
-                     format(self, self.remotes.values()))
+        logger.debug("{} remotes are {}".
+                     format(self, [r.name for r in self.remotes.values()]))
+
         for r in self.remotes.values():
             if r.name in self.registry:
                 if self.sameAddr(r.ha, self.registry[r.name]):
@@ -827,8 +833,12 @@ class ClientStack(SimpleStack):
         try:
             self.send(payload, remoteName)
         except Exception as ex:
+            # TODO: This should not be an error since the client might not have
+            # sent the request to all nodes but only some nodes and other
+            # nodes might have got this request through PROPAGATE and thus
+            # might not have connection with the client.
             logger.error("{} unable to send message {} to client {}; Exception: {}"
-                         .format(self.name, msg, remoteName, ex.__repr__()))
+                         .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
         for nm in remoteNames:
@@ -837,12 +847,12 @@ class ClientStack(SimpleStack):
 
 class NodeStack(Batched, KITStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA]):
+                 registry: Dict[str, HA], sighex: str=None):
         Batched.__init__(self)
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
-        KITStack.__init__(self, stackParams, msgHandler, registry)
+        KITStack.__init__(self, stackParams, msgHandler, registry, sighex)
 
     def start(self):
         KITStack.start(self)

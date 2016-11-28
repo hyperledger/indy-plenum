@@ -3,10 +3,9 @@ from time import sleep
 from plenum.common.looper import Looper
 from plenum.server.monitor import Monitor
 from plenum.test.eventually import eventually
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    TestNodeSet
-from plenum.common.util import getConfig
-
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import TestNodeSet
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 

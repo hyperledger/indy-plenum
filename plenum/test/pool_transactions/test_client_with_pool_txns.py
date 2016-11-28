@@ -1,9 +1,15 @@
+import pytest
+
 from plenum.common.log import getlogger
-from plenum.common.util import randomString
-from plenum.test.helper import genTestClient
+from plenum.common.util import randomString, bootstrapClientKeys
+from plenum.test.eventually import eventually
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    sendRandomRequest, checkSufficientRepliesForRequests
+from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
-
+from plenum.test.test_node import checkNodesConnected, TestNode, \
+    ensureElectionsDone
 
 logger = getlogger()
 
@@ -46,3 +52,47 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
         newClient.nodestack.local.signer.keyhex,
         newClient.nodestack.local.signer.verhex))
     looper.run(newClient.ensureConnectedToNodes())
+
+
+def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                                      poolTxnClientNames, poolTxnData, tconf,
+                                      poolTxnNodeNames,
+                                      allPluginsPath):
+    name = poolTxnClientNames[-1]
+    seed = poolTxnData["seeds"][name]
+    newClient, w = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
+                                 name=name, usePoolLedger=True)
+    looper.add(newClient)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
+                                                  *txnPoolNodeSet)
+    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 1, 1)
+    for node in txnPoolNodeSet:
+        node.stop()
+        looper.removeProdable(node)
+
+    # looper.run(newClient.ensureDisconnectedToNodes(timeout=60))
+    txnPoolNodeSet = []
+    for nm in poolTxnNodeNames:
+        node = TestNode(nm, basedirpath=tdirWithPoolTxns,
+                        config=tconf, pluginPaths=allPluginsPath)
+        looper.add(node)
+        txnPoolNodeSet.append(node)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
+                        timeout=10)
+
+    def chk():
+        for node in txnPoolNodeSet:
+            assert node.isParticipating
+
+    looper.run(eventually(chk, retryWait=1, timeout=10))
+
+    bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
+
+    req = sendRandomRequest(w, newClient)
+    checkSufficientRepliesForRequests(looper, newClient, [req, ],
+                                      timeoutPerReq=10)
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
+                                                  *txnPoolNodeSet)
+
+    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 1, 1)

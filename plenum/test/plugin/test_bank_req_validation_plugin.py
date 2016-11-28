@@ -8,9 +8,11 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.test.eventually import eventuallyAll, eventually
-from plenum.test.helper import TestNodeSet, genTestClient, setupClient, \
+from plenum.test.helper import setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
-from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import AMOUNT, CREDIT
+from plenum.test.test_node import TestNodeSet
+from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
+    AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, submitOp, makeReason
 
@@ -61,8 +63,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                                                 "transaction type, must be "
                                                 "one of {}".format(validTypes))}
 
-    coros1 = [partial(checkReqNack, client1, node, req.reqId, update)
-              for node in nodeSet]
+    coros1 = [partial(checkReqNack, client1, node, req.identifier,
+                      req.reqId, update) for node in nodeSet]
 
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
@@ -74,8 +76,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                              "{} attribute is missing or not in proper format"
                              .format(DATA))}
 
-    coros2 = [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+    coros2 = [partial(checkReqNack, client1, node, req.identifier,
+                      req.reqId, update) for node in nodeSet]
 
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
@@ -87,8 +89,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                              "{} attribute is missing or not in proper format"
                              .format(DATA))}
 
-    coros3 = [partial(checkReqNack, client1, node, req.reqId, update)
-             for node in nodeSet]
+    coros3 = [partial(checkReqNack, client1, node, req.identifier,
+                      req.reqId, update) for node in nodeSet]
 
     req = submitOp(wallet1, client1, {
         TXN_TYPE: CREDIT,
@@ -102,8 +104,8 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
                                           "a number greater than 0"
                              .format(AMOUNT))}
 
-    coros4 = [partial(checkReqNack, client1, node, req.reqId, update)
-              for node in nodeSet]
+    coros4 = [partial(checkReqNack, client1, node, req.identifier, req.reqId,
+                      update) for node in nodeSet]
 
     looper.run(eventuallyAll(*(coros1+coros2+coros3+coros4), totalTimeout=5))
 

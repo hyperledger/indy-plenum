@@ -8,8 +8,9 @@ from plenum.common.util import adict
 
 from plenum.common.types import Prepare
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getNonPrimaryReplicas, getPrimaryReplica, \
+from plenum.test.helper import getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
+from plenum.test.test_node import getNonPrimaryReplicas
 
 whitelist = [Suspicions.DUPLICATE_PR_SENT.reason,
              'Invalid prepare message received',

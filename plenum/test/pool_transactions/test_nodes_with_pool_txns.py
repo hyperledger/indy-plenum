@@ -3,47 +3,28 @@ from copy import copy
 import pytest
 
 from plenum.common.log import getlogger
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import USER
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestNode, genHa, \
-    checkNodesConnected, sendReqsToNodesAndVerifySuffReplies, \
-    checkProtocolInstanceSetup, checkReqNackWithReason
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    checkReqNackWithReason
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, buildPoolClientAndWallet
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys
+from plenum.test.test_node import TestNode, checkNodesConnected, \
+    checkProtocolInstanceSetup
 
 logger = getlogger()
 
 # logged errors to ignore
-whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
-             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
-
-
-@pytest.fixture(scope="module")
-def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
-    return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
-
-
-@pytest.fixture(scope="module")
-def client1(clientAndWallet1):
-    return clientAndWallet1[0]
-
-
-@pytest.fixture(scope="module")
-def wallet1(clientAndWallet1):
-    return clientAndWallet1[1]
-
-
-@pytest.fixture(scope="module")
-def client1Connected(looper, client1):
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-    return client1
+whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
+             'missing', 'conflicts', 'matches', 'nodeReg',
+             'conflicting address', 'unable to send message']
 
 
 def getNodeWithName(txnPoolNodeSet, name: str):
@@ -176,12 +157,12 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     An running node's port is changed
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
-    newNode.stop()
     nodeNewHa, clientNewHa = genHa(2)
     logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
                                                    clientNewHa))
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,
                  nodeHa=nodeNewHa, clientHa=clientNewHa)
+    newNode.stop()
     looper.removeProdable(name=newNode.name)
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeNewHa,
                                                      clientNewHa))

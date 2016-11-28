@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.looper import Looper
 from plenum.common.util import randomString
-from plenum.test.helper import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
@@ -10,9 +10,8 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
 
 
 @pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
+def looper(txnPoolNodesLooper):
+    yield txnPoolNodesLooper
 
 
 @pytest.fixture(scope="module")
@@ -55,3 +54,25 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
     return newSteward, newStewardWallet, newNode
+
+
+@pytest.fixture(scope="module")
+def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
+    return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
+
+
+@pytest.fixture(scope="module")
+def client1(clientAndWallet1):
+    return clientAndWallet1[0]
+
+
+@pytest.fixture(scope="module")
+def wallet1(clientAndWallet1):
+    return clientAndWallet1[1]
+
+
+@pytest.fixture(scope="module")
+def client1Connected(looper, client1):
+    looper.add(client1)
+    looper.run(client1.ensureConnectedToNodes())
+    return client1

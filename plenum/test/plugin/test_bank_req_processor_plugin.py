@@ -3,8 +3,9 @@ import pytest
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, checkSufficientRepliesRecvd, \
-    checkReqNack, TestNodeSet, setupClients
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkReqNack, setupClients
+from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, App
@@ -74,8 +75,8 @@ class AccountApp(App):
         else:
             for node in nodes:
                 self.looper.run(eventually(checkReqNack, self.client, node,
-                                      req.reqId, None,
-                                      retryWait=1, timeout=5))
+                                           req.identifier, req.reqId, None,
+                                           retryWait=1, timeout=5))
         return req
 
     def getBalance(self) -> int:
@@ -86,7 +87,7 @@ class AccountApp(App):
         self.looper.run(eventually(checkSufficientRepliesRecvd,
                                    self.client.inBox, req.reqId,
                                    1, retryWait=1, timeout=10))
-        return self.client.hasConsensus(req.reqId)[BALANCE]
+        return self.client.hasConsensus(*req.key)[BALANCE]
 
     def checkTxns(self):
         req = self.submit({

@@ -1,7 +1,7 @@
 import os
 
 from plenum.common.types import PLUGIN_BASE_DIR_PATH
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.server.plugin_loader import PluginLoader
 
 config = getConfig()

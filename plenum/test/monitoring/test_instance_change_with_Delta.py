@@ -9,7 +9,8 @@ from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
-    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies, getAllArgs
+    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.spy_helpers import getAllArgs
 
 nodeCount = 7
 whitelist = ["discarding message"]

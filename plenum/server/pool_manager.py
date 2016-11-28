@@ -2,6 +2,7 @@ from typing import Dict, Tuple
 
 from copy import deepcopy
 from ledger.util import F
+from plenum.common.util import updateMasterPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
@@ -11,7 +12,7 @@ from plenum.common.stack_manager import TxnStackManager
 
 from plenum.common.types import HA, f, Reply
 from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES, NYM
+    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
 from plenum.common.log import getlogger
 
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
@@ -123,8 +124,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         txn[F.seqNo.name] = merkleProof[F.seqNo.name]
         self.onPoolMembershipChange(txn)
         reply.result.update(merkleProof)
-        self.node.transmitToClient(reply,
-                                   self.node.requestSender[req.key])
+        self.node.sendReplyToClient(reply, req.key)
 
     def getReplyFor(self, request):
         txn = self.ledger.get(identifier=request.identifier,
@@ -153,6 +153,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.addNewRemoteAndConnect(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
+    def doElectionIfNeeded(self, nodeGoingDown):
+        for instId, replica in enumerate(self.node.replicas):
+            if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
+                self.node.startViewChange(self.node.viewNo+1)
+                return
+
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
@@ -168,8 +174,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
+        updateMasterPoolTxnFile(self.config.baseDir, txn)
+        self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):
+        # TODO: if the node whose keys are being changed is primary for any
+        # protocol instance, then we should trigger an election for that
+        # protocol instance. For doing that, for every replica of that
+        # protocol instance, `_primaryName` as None, and then the node should
+        # call its `decidePrimaries`.
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         if nodeName == self.name:
@@ -181,6 +194,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
+        self.doElectionIfNeeded(nodeName)
 
     def getNodeName(self, nym):
         for txn in self.ledger.getAllTxn().values():

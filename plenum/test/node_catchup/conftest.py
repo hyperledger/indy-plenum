@@ -4,40 +4,35 @@ from plenum.common.util import randomString
 from plenum.common.port_dispenser import genHa
 from plenum.test.conftest import getValueFromModule
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestClient, genHa, \
-    sendReqsToNodesAndVerifySuffReplies, checkNodesConnected
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_client import TestClient
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(txnPoolNodeSet, tdirWithPoolTxns,
-                             poolTxnStewardData, tconf,
+def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
+                             tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
-    with Looper(debug=True) as looper:
-        client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                                  tdirWithPoolTxns,
-                                                  clientClass=TestClient)
-        looper.add(client)
-        looper.run(client.ensureConnectedToNodes())
-        txnCount = getValueFromModule(request, "txnCount", 5)
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, txnCount,
-                                            timeoutPerReq=25)
+    # with Looper(debug=True) as looper:
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithPoolTxns,
+                                              clientClass=TestClient)
+    txnPoolNodesLooper.add(client)
+    txnPoolNodesLooper.run(client.ensureConnectedToNodes())
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
+                                        txnCount, timeoutPerReq=25)
 
-        newStewardName = randomString()
-        newNodeName = "Epsilon"
-        newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
-            looper, client,
-            wallet,
-            newStewardName,
-            newNodeName,
-            tdirWithPoolTxns,
-            tconf,
-            allPluginsPath=allPluginsPath,
-            autoStart=True)
-        yield looper, newNode, client, wallet, newStewardClient, \
-              newStewardWallet
+    newStewardName = randomString()
+    newNodeName = "Epsilon"
+    newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
+        txnPoolNodesLooper, client, wallet, newStewardName, newNodeName,
+        tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
+    yield txnPoolNodesLooper, newNode, client, wallet, newStewardClient, \
+          newStewardWallet
 
 
 @pytest.fixture("module")

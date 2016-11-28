@@ -1,10 +1,10 @@
 from collections import OrderedDict
-
-# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
-
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
+import os
 
+
+# Each entry in registry is (stack name, ((host, port), verkey, pubkey))
 nodeReg = OrderedDict([
     ('Alpha', ('127.0.0.1', 9701)),
     ('Beta', ('127.0.0.1', 9703)),
@@ -72,12 +72,12 @@ LatencyGraphDuration = 240
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
-STATS_SERVER_PORT = 50000
+STATS_SERVER_PORT = 30000
 STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 1000
 
 RAETLogLevel = "terse"
 RAETLogLevelCli = "mute"
-RAETLogFilePath = None
+RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
@@ -95,6 +95,7 @@ CatchupTransactionsTimeout = 5
 logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
+logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
 
@@ -103,3 +104,15 @@ logFormatStyle='{'
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 1.1
+
+# After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
+CHK_FREQ = 100
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3*CHK_FREQ
+
+
+CLIENT_REQACK_TIMEOUT = 5
+CLIENT_REPLY_TIMEOUT = 10
+CLIENT_MAX_RETRY_ACK = 5
+CLIENT_MAX_RETRY_REPLY = 5

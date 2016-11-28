@@ -6,10 +6,11 @@ from plenum.test.eventually import eventually
 
 from plenum.common.util import getMaxFailures
 from plenum.common.log import getlogger
-from plenum.test.helper import TestReplica
-from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest, \
-    ppDelay, checkViewChangeInitiatedForNode, icDelay, \
+from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
+    checkViewChangeInitiatedForNode
+from plenum.test.helper import sendRandomRequest, \
     sendReqsToNodesAndVerifySuffReplies
+from plenum.test.delayers import ppDelay, icDelay
 
 nodeCount = 7
 
@@ -44,14 +45,14 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     for node in nodeSet:
         if node.name != nodeA.name:
             looper.run(eventually(
-                partial(checkViewChangeInitiatedForNode, node, 0),
+                partial(checkViewChangeInitiatedForNode, node, 1),
                 retryWait=1,
                 timeout=20))
 
     # Node A's view should not have changed yet
     with pytest.raises(AssertionError):
         looper.run(eventually(partial(
-            checkViewChangeInitiatedForNode, nodeA, 0),
+            checkViewChangeInitiatedForNode, nodeA, 1),
             retryWait=1,
             timeout=20))
 

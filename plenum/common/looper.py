@@ -8,9 +8,10 @@ from asyncio.coroutines import CoroWrapper
 from typing import List
 
 # import uvloop
-
+from plenum.common.exceptions import ProdableAlreadyAdded
 from plenum.common.startable import Status
 from plenum.common.log import getlogger
+from plenum.common.util import lxor
 
 logger = getlogger()
 
@@ -152,8 +153,8 @@ class Looper:
         :param prodable: the Prodable object to add
         """
         if prodable.name in [p.name for p in self.prodables]:
-            raise RuntimeError("Prodable {} already added.".
-                               format(prodable.name))
+            raise ProdableAlreadyAdded("Prodable {} already added.".
+                                       format(prodable.name))
         self.prodables.append(prodable)
         if self.autoStart:
             prodable.start(self.loop)
@@ -178,6 +179,16 @@ class Looper:
                             .format(prodable))
         else:
             logger.error("Provide a prodable object or a prodable name")
+
+    def hasProdable(self, prodable: Prodable=None, name: str=None):
+        assert lxor(prodable, name), \
+            "One and only one of prodable or name must be provided"
+
+        for p in self.prodables:
+            if (prodable and p == prodable) or (name and name == p.name):
+                return True
+
+        return False
 
     async def runOnceNicely(self):
         """
