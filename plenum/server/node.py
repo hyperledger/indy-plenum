@@ -210,6 +210,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeBlacklister = SimpleBlacklister(
             self.name + NODE_BLACKLISTER_SUFFIX)  # type: Blacklister
 
+        self.nodeInfo = {
+            'data': {}
+        }
+
         self.monitor = Monitor(self.name,
                                Delta=self.config.DELTA,
                                Lambda=self.config.LAMBDA,
@@ -217,6 +221,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                instances=self.instances,
                                nodestack=self.nodestack,
                                blacklister=self.nodeBlacklister,
+                               nodeInfo=self.nodeInfo,
                                pluginPaths=pluginPaths)
 
         # BE CAREFUL HERE
@@ -1842,12 +1847,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.info("\n".join(lines), extra={"cli": False})
 
-    def logNodeInfo(self):
-        """
-        Print the node's info to log for the REST backend to read.
-        """
+    def collectNodeInfo(self):
         nodeAddress = None
-
         if self.poolLedger:
             txns = self.poolLedger.getAllTxn()
             for key, txn in txns.items():
@@ -1865,8 +1866,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
         }
+        return info
+
+    def logNodeInfo(self):
+        """
+        Print the node's info to log for the REST backend to read.
+        """
+        self.nodeInfo['data'] = self.collectNodeInfo()
 
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
-            logNodeInfoFile.write(json.dumps(info))
+            logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
 

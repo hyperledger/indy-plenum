@@ -6,7 +6,7 @@ import jsonpickle
 from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
     EVENT_NODE_STARTED, EVENT_REQ_ORDERED, EVENT_PERIODIC_STATS_LATENCIES, \
     PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_NODES, \
-    EVENT_PERIODIC_STATS_TOTAL_REQUESTS
+    EVENT_PERIODIC_STATS_TOTAL_REQUESTS, EVENT_PERIODIC_STATS_NODE_INFO
 from plenum.common.log import getlogger
 from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher,\
@@ -30,7 +30,8 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
             EVENT_VIEW_CHANGE: self._viewChange,
             EVENT_PERIODIC_STATS_LATENCIES: self._sendLatencies,
             EVENT_PERIODIC_STATS_NODES: self._sendKnownNodesInfo,
-            EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests
+            EVENT_PERIODIC_STATS_TOTAL_REQUESTS: self._sendTotalRequests,
+            EVENT_PERIODIC_STATS_NODE_INFO: self._sendNodeInfo
         }
 
     @abstractmethod
@@ -83,6 +84,10 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
     def _sendKnownNodesInfo(self, nodes: Dict[str, object]):
         nodes["eventName"] = str(Topic.PublishNodestackStats)
         self._send(nodes)
+
+    def _sendNodeInfo(self, nodeInfo: Dict[str, object]):
+        nodes["eventName"] = str(Topic.PublishNodeStats)
+        self._send(nodeInfo)
 
     def _sendTotalRequests(self, totalRequests: Dict[str, object]):
         totalRequests["eventName"] = str(Topic.PublishTotalRequestsStats)

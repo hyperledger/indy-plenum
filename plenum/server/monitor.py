@@ -8,7 +8,8 @@ from typing import Tuple
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
-    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
+    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
+    EVENT_PERIODIC_STATS_NODE_INFO
 from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
 from plenum.common.config_util import getConfig
@@ -32,11 +33,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack: NodeStack,
-                 blacklister: Blacklister, pluginPaths: Iterable[str]=None):
+                 blacklister: Blacklister, nodeInfo: Dict, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
+        self.nodeInfo = nodeInfo
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -362,6 +364,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendThroughput()
         self.sendLatencies()
         self.sendKnownNodesInfo()
+        self.sendNodeInfo()
         self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
@@ -436,6 +439,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def sendKnownNodesInfo(self):
         logger.debug("{} sending nodestack".format(self))
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
+
+    def sendNodeInfo(self):
+        logger.debug("{} sending node info".format(self))
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODE_INFO, self.nodeInfo['data'])
 
     def sendTotalRequests(self):
         logger.debug("{} sending total requests".format(self))
