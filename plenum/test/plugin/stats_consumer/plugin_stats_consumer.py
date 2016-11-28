@@ -25,9 +25,11 @@ class TestStatsConsumer(StatsConsumer):
     def sendStats(self, event: str, stats: Dict[str, Any]):
         assert event in {EVENT_REQ_ORDERED, EVENT_NODE_STARTED,
                          EVENT_PERIODIC_STATS_THROUGHPUT, EVENT_VIEW_CHANGE,
-                         EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES,
+                         EVENT_PERIODIC_STATS_LATENCIES,
+                         EVENT_PERIODIC_STATS_NODES,
                          EVENT_PERIODIC_STATS_TOTAL_REQUESTS,
-                         EVENT_PERIODIC_STATS_NODE_INFO}
+                         EVENT_PERIODIC_STATS_NODE_INFO,
+                         EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO}
         self._eventToFunc[event](stats)
 
     def _periodicStatsThroughput(self, stats: Dict[str, object]):
