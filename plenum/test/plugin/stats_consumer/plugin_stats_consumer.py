@@ -68,7 +68,7 @@ class TestStatsConsumer(StatsConsumer):
     def _sendSystemPerformanceInfo(self, performanceInfo: Dict[str, object]):
         assert 'cpu' in performanceInfo
         assert 'ram' in performanceInfo
-        assert 'performance' in performanceInfo
+        assert 'traffic' in performanceInfo
 
     def _sendTotalRequests(self, totalRequests: Dict[str, object]):
         assert "totalRequests" in totalRequests
