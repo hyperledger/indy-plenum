@@ -13,8 +13,11 @@ from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.eventually import eventually
 from plenum.test.testable import Spyable
-from plenum.test.helper import getAllArgs, checkSufficientRepliesRecvd, \
-    TestNode, checkPoolReady, TestClient
+from plenum.test.helper import checkSufficientRepliesRecvd, \
+    checkPoolReady
+from plenum.test.spy_helpers import getAllArgs
+from plenum.test.test_client import TestClient
+from plenum.test.test_node import TestNode, checkPoolReady
 
 
 class TestCliCore:
@@ -140,11 +143,12 @@ def checkAllNodesUp(cli):
 
 def checkClientConnected(cli, nodeNames, clientName):
     printedMsgs = set()
-    expectedMsgs = {'{} now connected to {}C'.format(clientName, nodeName)
+    stackName = cli.clients[clientName].stackName
+    expectedMsgs = {'{} now connected to {}C'.format(stackName, nodeName)
                     for nodeName in nodeNames}
     for out in cli.printeds:
         msg = out.get('msg')
-        if '{} now connected to'.format(clientName) in msg:
+        if '{} now connected to'.format(stackName) in msg:
             printedMsgs.add(msg)
 
     assert printedMsgs == expectedMsgs
@@ -190,7 +194,7 @@ def checkRequest(cli, operation):
             retryWait=2,
             timeout=10))
 
-    txn, status = client.getReply(lastReqId)
+    txn, status = client.getReply(wallet.defaultId, lastReqId)
 
     # Ensure the cli shows appropriate output
     cli.enterCmd('client {} show {}'.format(cName, lastReqId))

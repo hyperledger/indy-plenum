@@ -4,7 +4,8 @@ import pytest
 from plenum.common.types import PrePrepare, f
 from plenum.test.eventually import eventually
 from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
-    sendReqsToNodesAndVerifySuffReplies, getAllReturnVals
+    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.spy_helpers import getAllReturnVals
 from plenum.common.util import adict
 
 nodeCount = 7

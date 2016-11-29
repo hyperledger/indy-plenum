@@ -5,7 +5,8 @@ from plenum.test.client.conftest import passThroughReqAcked1
 from plenum.test.helper import whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
 
-from plenum.test.malicious_behaviors_client import genDoesntSendRequestToSomeNodes
+from plenum.test.malicious_behaviors_client import \
+    genDoesntSendRequestToSomeNodes
 
 nodeCount = 4
 faultyNodes = 1

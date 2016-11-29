@@ -1,10 +1,12 @@
 import asyncio
-
+from collections import deque
 from enum import Enum, unique
 
 from plenum.common.log import getlogger
+from plenum.common.config_util import getConfig
 
 logger = getlogger()
+config = getConfig()
 
 
 class StatsPublisher:
@@ -12,43 +14,74 @@ class StatsPublisher:
     Class to send data to TCP port which runs stats collecting service
     """
 
-    def __init__(self, ip, port):
-        self.ip = ip
-        self.port = port
-        self.reader = None
-        self.writer = None
+    def __init__(self, destIp, destPort):
+        self.ip = destIp
+        self.port = destPort
+        self._reader = None
+        self._writer = None
+        self._messageBuffer = deque()
+        self._loop = asyncio.get_event_loop()
+        self._connectionSem = asyncio.Lock()
 
-    async def sendMessage(self, message):
-        loop = asyncio.get_event_loop()
-        try:
-            if self.writer is None:
-                self.reader, self.writer = await asyncio.streams\
-                    .open_connection(self.ip, self.port, loop=loop)
-            self.writer.write((message + '\n').encode('utf-8'))
-            await self.writer.drain()
-        except (ConnectionRefusedError, ConnectionResetError) as ex:
-            logger.debug("connection refused for {}:{} while sending message".
-                         format(self.ip, self.port))
-            self.writer = None
-        except AssertionError as ex:
-            # TODO: THis is temporary for getting around `self.writer.drain`,
-            # the root cause needs to be found out. Here is the bug,
-            # https://www.pivotaltracker.com/story/show/132555801
-            logger.warn("Error while sending message: {}".format(ex))
-            self.writer = None
+    def addMsgToBuffer(self, message):
+        if len(self._messageBuffer) >= config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE:
+            logger.warning("Message buffer is too large. Refuse to add a new message {}".format(message))
+            return False
+
+        self._messageBuffer.appendleft(message)
+        return True
 
     def send(self, message):
-        async def run():
-            await self.sendMessage(message=message)
-            # TODO: Can this sleep be removed?
-            await asyncio.sleep(0.01)
+        self.addMsgToBuffer(message)
 
-        loop = asyncio.get_event_loop()
-
-        if loop.is_running():
-            loop.call_soon(asyncio.async, run())
+        if self._loop.is_running():
+            self._loop.call_soon(asyncio.ensure_future, self.sendMessagesFromBuffer())
         else:
-            loop.run_until_complete(run())
+            self._loop.run_until_complete(self.sendMessagesFromBuffer())
+
+    async def sendMessagesFromBuffer(self):
+        while self._messageBuffer:
+            message = self._messageBuffer.pop()
+            await self.sendMessage(message)
+
+    async def sendMessage(self, message):
+        try:
+            await self._checkConnectionAndConnect()
+            await self._doSendMessage(message)
+        except (ConnectionRefusedError, ConnectionResetError) as ex:
+            self._connectionRefused(message, ex)
+        except Exception as ex1:
+            self._connectionFailedUnexpectedly(message, ex1)
+
+    async def _checkConnectionAndConnect(self):
+        if self._writer is None:
+            await self._connectionSem.acquire()
+            try:
+                if self._writer is None:
+                    self._reader, self._writer = \
+                        await asyncio.streams.open_connection(host=self.ip, port=self.port, loop=self._loop)
+            finally:
+                self._connectionSem.release()
+
+    async def _doSendMessage(self, message):
+        self._writer.write((message + '\n').encode('utf-8'))
+        await self._writer.drain()
+
+    def _connectionRefused(self, message, ex):
+        logger.debug("Connection refused for {}:{} while sending message: {}".
+                     format(self.ip, self.port, ex))
+        self._writer = None
+
+    def _connectionFailedUnexpectedly(self, message, ex):
+        # this is a workaround for a problem when an input port used to establish a connection is the same as the
+        # target one. An assertion error is thrown in this case and it may lead to a memory leak.
+        #
+        # As a workaround, we catch this exception and try to re-connect.
+        #
+        # Actually currently it's no needed as long as we use a port 30000 as destination and specified port != 30000 as source
+        # (which is less than default range of ports used to establish connection on Linux)
+        logger.debug("Can not publish stats message: {}".format(ex))
+        self._writer = None
 
 
 @unique

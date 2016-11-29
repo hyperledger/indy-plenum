@@ -4,7 +4,7 @@ import os
 
 from plenum.common.test_network_setup import TestNetworkSetup
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 keepDir = config.baseDir

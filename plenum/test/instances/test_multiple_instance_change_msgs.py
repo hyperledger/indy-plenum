@@ -5,7 +5,8 @@ from plenum.test.eventually import eventually
 
 from plenum.common.exceptions import SuspiciousNode
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getAllArgs, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
+from plenum.test.spy_helpers import getAllArgs
 
 nodeCount = 7
 

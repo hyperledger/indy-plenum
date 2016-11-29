@@ -2,12 +2,10 @@ import inspect
 import logging
 import os
 import sys
-from logging.handlers import TimedRotatingFileHandler
+from plenum.common.logging.TimeAndSizeRotatingFileHandler \
+    import TimeAndSizeRotatingFileHandler
 
 from ioflo.base.consoling import getConsole, Console
-
-import plenum.common.util as util
-
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25
@@ -91,7 +89,10 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
     Setup for logging.
     log level is TRACE by default.
     """
-    config = util.getConfig()
+
+    from plenum.common.config_util import getConfig
+    # TODO: This should take directory
+    config = getConfig()
     addTraceToLogging()
     addDisplayToLogging()
 
@@ -100,11 +101,13 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        fileHandler = TimedRotatingFileHandler(filename,
-                                               when=config.logRotationWhen,
-                                               interval=config.logRotationInterval,
-                                               backupCount=config.logRotationBackupCount,
-                                               utc=True)
+        fileHandler = TimeAndSizeRotatingFileHandler(
+            filename,
+            when=config.logRotationWhen,
+            interval=config.logRotationInterval,
+            backupCount=config.logRotationBackupCount,
+            utc=True,
+            maxBytes=config.logRotationMaxBytes)
         logHandlers.append(fileHandler)
     else:
         logHandlers.append(logging.StreamHandler(sys.stdout))
@@ -119,8 +122,6 @@ def setupLogging(log_level, raet_log_level=None, filename=None,
     logging.root.setLevel(log_level)
 
     console = getConsole()
-    # TODO: This should take directory
-    config = util.getConfig()
 
     defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
                                                  Console.Wordage.terse, config)

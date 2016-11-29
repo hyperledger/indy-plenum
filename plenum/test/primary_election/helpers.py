@@ -1,5 +1,5 @@
 from plenum.server.replica import Replica
-from plenum.test.helper import TestNode
+from plenum.test.test_node import TestNode
 
 
 def checkNomination(node: TestNode, nomineeName: str):

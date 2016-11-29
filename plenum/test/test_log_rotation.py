@@ -1,0 +1,61 @@
+import pytest
+import os
+import logging
+import shutil
+import time
+from plenum.common.logging.TimeAndSizeRotatingFileHandler \
+    import TimeAndSizeRotatingFileHandler
+
+
+def cleanFolder(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def test_time_log_rotation():
+    logDirPath = cleanFolder("/tmp/plenum/test_time_log_rotation")
+    logFile = os.path.join(logDirPath, "log")
+    logger = logging.getLogger('test_time_log_rotation-logger')
+
+    logger.setLevel(logging.DEBUG)
+    handler = TimeAndSizeRotatingFileHandler(logFile, interval=1, when='s')
+    logger.addHandler(handler)
+    for i in range(3):
+        time.sleep(1)
+        logger.debug("line")
+    assert len(os.listdir(logDirPath)) == 4 # initial + 3 new
+
+
+def test_size_log_rotation():
+    logDirPath = cleanFolder("/tmp/plenum/test_size_log_rotation")
+    logFile = os.path.join(logDirPath, "log")
+    logger = logging.getLogger('test_time_log_rotation-logger')
+
+    logger.setLevel(logging.DEBUG)
+    handler = TimeAndSizeRotatingFileHandler(logFile, maxBytes=21)
+    logger.addHandler(handler)
+    for i in range(20):
+        logger.debug("line")
+
+    assert len(os.listdir(logDirPath)) == 5
+
+
+def test_time_and_size_log_rotation():
+    logDirPath = cleanFolder("/tmp/plenum/test_time_and_size_log_rotation")
+    logFile = os.path.join(logDirPath, "log")
+    logger = logging.getLogger('test_time_and_size_log_rotation-logger')
+
+    logger.setLevel(logging.DEBUG)
+    handler = TimeAndSizeRotatingFileHandler(logFile, maxBytes=21, interval=1, when="s")
+    logger.addHandler(handler)
+
+    for i in range(20):
+        logger.debug("line")
+
+    for i in range(3):
+        time.sleep(1)
+        logger.debug("line")
+
+    assert len(os.listdir(logDirPath)) == 8

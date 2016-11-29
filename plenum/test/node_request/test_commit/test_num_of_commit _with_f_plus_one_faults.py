@@ -36,7 +36,7 @@ def afterElection(setup, up):
 
 
 def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
-                                          nodeSet, prepared1):
+                                          nodeSet, prepared1, noRetryReq):
     with pytest.raises(AssertionError):
         checkCommited(looper,
                       nodeSet,

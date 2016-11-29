@@ -1,5 +1,5 @@
 from plenum.persistence.orientdb_store import OrientDbStore
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 

@@ -1,4 +1,4 @@
-from plenum.test.helper import TestNode
+from plenum.test.test_node import TestNode
 
 
 def getProtocolInstanceNums(node: TestNode):

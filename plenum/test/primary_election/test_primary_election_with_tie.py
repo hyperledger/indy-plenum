@@ -3,8 +3,9 @@ import logging
 import pytest
 from plenum.common.log import getlogger
 from plenum.test.eventually import eventually
-from plenum.test.helper import TestNodeSet, checkPoolReady, \
-    checkProtocolInstanceSetup, delay
+from plenum.test.test_node import TestNodeSet, checkPoolReady, \
+    checkProtocolInstanceSetup
+from plenum.test.delayers import delay
 
 from plenum.common.types import Nomination
 from plenum.test.primary_election.helpers import checkNomination

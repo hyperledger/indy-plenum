@@ -3,9 +3,10 @@ from functools import partial
 from plenum.test.eventually import eventually
 
 from plenum.common.looper import Looper
-from plenum.test.helper import TestNodeSet, getNonPrimaryReplicas, ppDelay, \
-    checkProtocolInstanceSetup, checkViewChangeInitiatedForNode, \
-    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import TestNodeSet, getNonPrimaryReplicas, \
+    checkProtocolInstanceSetup, checkViewChangeInitiatedForNode
+from plenum.test.delayers import ppDelay
 
 nodeCount = 7
 
@@ -28,7 +29,7 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper,
 
     # Ensure view change happened for both node and its primary elector
     for node in nodeSet:
-        looper.run(eventually(partial(checkViewChangeInitiatedForNode, node, 0),
+        looper.run(eventually(partial(checkViewChangeInitiatedForNode, node, 1),
                               retryWait=1, timeout=20))
 
     # Ensure elections are done again and pool is setup again with appropriate

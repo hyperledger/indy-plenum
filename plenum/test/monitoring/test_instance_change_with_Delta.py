@@ -9,7 +9,8 @@ from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
-    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies, getAllArgs
+    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies
+from plenum.test.spy_helpers import getAllArgs
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -25,6 +26,35 @@ verify a view change happens
 
 logger = getlogger()
 logger.root.setLevel(logging.DEBUG)
+
+
+def latestPerfChecks(nodes):
+    """
+    Returns spylog entry for most recent checkPerformance executions for a set
+    of nodes.
+    :param nodes: an iterable of Node
+    :return: a dictionary of node names to the most recent checkPerformance call
+    """
+    return {n.name: n.spylog.getLast(Node.checkPerformance) for n in nodes}
+
+
+def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
+    def ensureAnotherPerfCheck():
+        # ensure all nodes have run another performance check
+        cur = latestPerfChecks(nodes)
+        for c in cur:
+            if previousPerfChecks[c] is None:
+                assert cur[c] is not None
+            else:
+                assert cur[c].endtime > previousPerfChecks[c].endtime
+        return cur
+
+    perfCheckFreq = max(n.perfCheckFreq for n in nodes)
+
+    newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
+                                          retryWait=1,
+                                          timeout=perfCheckFreq + 1))
+    return newPerfChecks
 
 
 @pytest.fixture(scope="module")
@@ -69,35 +99,6 @@ def step2(step1, looper):
     return step1
 
 
-def latestPerfChecks(nodes):
-    """
-    Returns spylog entry for most recent checkPerformance executions for a set
-    of nodes.
-    :param nodes: an iterable of Node
-    :return: a dictionary of node names to the most recent checkPerformance call
-    """
-    return {n.name: n.spylog.getLast(Node.checkPerformance) for n in nodes}
-
-
-def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
-    def ensureAnotherPerfCheck():
-        # ensure all nodes have run another performance check
-        cur = latestPerfChecks(nodes)
-        for c in cur:
-            if previousPerfChecks[c] is None:
-                assert cur[c] is not None
-            else:
-                assert cur[c].endtime > previousPerfChecks[c].endtime
-        return cur
-
-    perfCheckFreq = max(n.perfCheckFreq for n in nodes)
-
-    newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
-                                          retryWait=1,
-                                          timeout=perfCheckFreq + 1))
-    return newPerfChecks
-
-
 @pytest.fixture(scope="module")
 def step3(step2):
 
@@ -113,11 +114,10 @@ def step3(step2):
 
 # This test fails when the whole package is run.
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
 
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     # verify all nodes have undergone an instance change
-    checkViewNoForNodes(step3.nodes, 1)
+    looper.run(eventually(checkViewNoForNodes, step3.nodes, 1, timeout=10))

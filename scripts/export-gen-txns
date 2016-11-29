@@ -5,7 +5,7 @@ import argparse
 from sys import argv
 
 from plenum.common.script_helper import isNodeType, exportNodeGenTxn, exportStewardGenTxn, buildKeepDirIfNotExists
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 config = getConfig()
 

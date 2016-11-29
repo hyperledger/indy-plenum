@@ -1,20 +1,11 @@
 import os
 import shutil
 
-import pytest
-
-from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
-from plenum.test.helper import genTestClient
+from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
-
-
-@pytest.yield_fixture(scope="module")
-def looper():
-    with Looper() as l:
-        yield l
 
 
 whitelist = ['client already added']
@@ -29,13 +20,6 @@ def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet,
     :return:
     """
     # TODO: Check for change of IP too
-    # name, seed = poolTxnClientData
-    # signer = SimpleSigner(seed=seed)
-    # name = "testClient96541"
-    # ha = genHa()
-    # client = genTestClient(txnPoolNodeSet, signer=signer, ha=ha,
-    #                        tmpdir=tdirWithPoolTxns, usePoolLedger=True,
-    #                        name=name)
     client, wallet = buildPoolClientAndWallet(poolTxnClientData,
                                               tdirWithPoolTxns)
     looper.add(client)

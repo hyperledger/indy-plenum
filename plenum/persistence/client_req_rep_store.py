@@ -2,7 +2,7 @@ from abc import abstractmethod, abstractproperty
 from typing import Any, Sequence
 
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.types import Request
+from plenum.common.request import Request
 
 
 class ClientReqRepStore:
@@ -27,28 +27,33 @@ class ClientReqRepStore:
         pass
 
     @abstractmethod
-    def addReply(self, reqId: int, sender: str, result: Any) -> Sequence[str]:
+    def addReply(self, identifier: str, reqId: int, sender: str,
+                 result: Any) -> Sequence[str]:
         pass
 
     @abstractmethod
-    def hasRequest(self, reqId: int) -> bool:
+    def hasRequest(self, identifier: str, reqId: int) -> bool:
         pass
 
     @abstractmethod
-    def getReplies(self, reqId: int):
+    def getRequest(self, identifier: str, reqId: int) -> Request:
         pass
 
     @abstractmethod
-    def getAcks(self, reqId: int) -> dict:
+    def getReplies(self, identifier: str, reqId: int):
         pass
 
     @abstractmethod
-    def getNacks(self, reqId: int) -> dict:
+    def getAcks(self, identifier: str, reqId: int) -> dict:
         pass
 
-    def getAllReplies(self, reqId: int):
-        replies = self.getReplies(reqId)
-        errors = self.getNacks(reqId)
+    @abstractmethod
+    def getNacks(self, identifier: str, reqId: int) -> dict:
+        pass
+
+    def getAllReplies(self, identifier: str, reqId: int):
+        replies = self.getReplies(identifier, reqId)
+        errors = self.getNacks(identifier, reqId)
         return replies, errors
 
     @abstractproperty

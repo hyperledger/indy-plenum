@@ -19,7 +19,7 @@ class SecondaryStorage:
 
     def getReply(self, identifier, reqId, **kwargs):
         txn = self._primaryStorage.get(**{f.IDENTIFIER.nm: identifier,
-                                           f.REQ_ID.nm: reqId})
+                                          f.REQ_ID.nm: reqId})
         if txn:
             seqNo = txn.get(F.seqNo.name)
             if seqNo:

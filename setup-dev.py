@@ -63,7 +63,7 @@ setup(
     )],
     install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
                       'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4',
-                      'semver', 'base58'],
+                      'semver', 'base58', 'orderedset', 'sortedcontainers'],
     extras_require = {
         'stats': ['python-firebase']
     },

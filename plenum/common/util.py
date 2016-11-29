@@ -1,13 +1,11 @@
+import os
 import asyncio
-
-import base58
-from importlib.util import spec_from_file_location, module_from_spec
-from importlib import import_module
+import inspect
 import itertools
 import json
 import logging
+import shutil
 import math
-import os
 import random
 import socket
 import string
@@ -17,17 +15,20 @@ from collections import Counter
 from collections import OrderedDict
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple
+    Tuple, Union, List, NamedTuple, Callable
 
+import base58
 import libnacl.secret
-import sys
-from ledger.util import F
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
+from plenum.common.constants import ENVS
+from plenum.common.txn import TYPE, CHANGE_HA, TARGET_NYM, IDENTIFIER, DATA
+from ledger.util import F
+from plenum.common.error import error
+
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
-CONFIG = None
 
 
 def randomString(size: int = 20,
@@ -96,16 +97,6 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
             if not mutated:
                 objSearchReplace(o, toFrom, checked, logMsg)
     checked.remove(id(obj))
-
-
-def error(msg: str) -> Exception:
-    """
-    Wrapper to get around Python's distinction between statements and expressions
-    Can be used in lambdas and expressions such as: a if b else error(c)
-
-    :param msg: error message
-    """
-    raise Exception(msg)
 
 
 def getRandomPortNumber() -> int:
@@ -322,50 +313,6 @@ class adict(dict):
     __getattr__ = __getitem__
 
 
-def getInstalledConfig(installDir, configFile):
-    """
-    Reads config from the installation directory of Plenum.
-
-    :param installDir: installation directory of Plenum
-    :param configFile: name of the confiuration file
-    :raises: FileNotFoundError
-    :return: the configuration as a python object
-    """
-    configPath = os.path.join(installDir, configFile)
-    if os.path.exists(configPath):
-        spec = spec_from_file_location(configFile,
-                                                      configPath)
-        config = module_from_spec(spec)
-        spec.loader.exec_module(config)
-        return config
-    else:
-        raise FileNotFoundError("No file found at location {}".format(configPath))
-
-
-def getConfig(homeDir=None):
-    """
-    Reads a file called config.py in the project directory
-
-    :raises: FileNotFoundError
-    :return: the configuration as a python object
-    """
-    global CONFIG
-    if not CONFIG:
-        refConfig = import_module("plenum.config")
-        try:
-            homeDir = os.path.expanduser(homeDir or "~")
-
-            configDir = os.path.join(homeDir, ".plenum")
-            config = getInstalledConfig(configDir, "plenum_config.py")
-
-            refConfig.__dict__.update(config.__dict__)
-        except FileNotFoundError:
-            pass
-        refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
-        CONFIG = refConfig
-    return CONFIG
-
-
 async def untilTrue(condition, *args, timeout=5) -> bool:
     """
     Keep checking the condition till it is true or a timeout is reached
@@ -429,7 +376,7 @@ def cleanSeed(seed=None):
 
 def isHexKey(key):
     try:
-        if len(key) == 64 and int(key, 16):
+        if len(key) == 64 and isHex(key):
             return True
     except ValueError as ex:
         return False
@@ -439,9 +386,8 @@ def isHexKey(key):
 
 
 def getCryptonym(identifier):
-    isHex = isHexKey(identifier)
-    return base58.b58encode(unhexlify(identifier.encode())).decode() if isHex \
-        else identifier
+    return base58.b58encode(unhexlify(identifier.encode())).decode() \
+        if isHexKey(identifier) else identifier
 
 
 def hexToFriendly(hx):
@@ -475,7 +421,7 @@ def checkIfMoreThanFSameItems(items, maxF):
     counts = {}
     for jItem in jsonifiedItems:
         counts[jItem] = counts.get(jItem, 0) + 1
-    if counts[max(counts, key=counts.get)] > maxF:
+    if counts and counts[max(counts, key=counts.get)] > maxF:
         return json.loads(max(counts, key=counts.get))
     else:
         return False
@@ -574,26 +520,59 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
 
 
 def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits) for _ in range(size)).encode()
+    return ''.join(random.choice(string.hexdigits)
+                   for _ in range(size)).encode()
 
 
-def get_size(obj, seen=None):
-    """Recursively finds size of objects"""
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
-    return size
+def updateMasterPoolTxnFile(baseDir, txn):
+    if txn[TYPE] != CHANGE_HA:
+        return
 
+    dest = txn[TARGET_NYM]
+    idr = txn[IDENTIFIER]
+    data = txn[DATA]
+    clientIp = data['client_ip']
+    clientPort = data['client_port']
+    nodeIp = data['node_ip']
+    nodePort = data['node_port']
+    for name, env in ENVS.items():
+        poolLedgerPath = os.path.join(baseDir, env.poolLedger)
+        if os.path.exists(poolLedgerPath):
+            with open(poolLedgerPath) as f:
+                poolLedgerTmpPath = os.path.join(
+                    baseDir, env.poolLedger + randomString(6))
+                with open(poolLedgerTmpPath, 'w') as tmpFile:
+                    for line in f:
+                        poolTxn = json.loads(line)
+                        poolTxnDest = poolTxn[TARGET_NYM]
+                        poolTxnIdentifier = poolTxn[IDENTIFIER]
+                        if poolTxnDest == dest and poolTxnIdentifier == idr:
+                            poolTxnData = poolTxn[DATA]
+                            poolTxnData['client_ip'] = clientIp
+                            poolTxnData['client_port'] = int(clientPort)
+                            poolTxnData['node_ip'] = nodeIp
+                            poolTxnData['node_port'] = int(nodePort)
+                        tmpFile.write(json.dumps(poolTxn) + "\n")
+
+                shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
+                os.remove(poolLedgerTmpPath)
+
+
+def lxor(a, b):
+    # Logical xor of 2 items, return true when one of them is truthy and
+    # one of them falsy
+    return bool(a) != bool(b)
+
+
+def getCallableName(callable: Callable):
+    # If it is a function or method then access its `__name__`
+    if inspect.isfunction(callable) or inspect.ismethod(callable):
+        if hasattr(callable, "__name__"):
+            return callable.__name__
+        # If it is a partial then access its `func`'s `__name__`
+        elif hasattr(callable, "func"):
+            return callable.func.__name__
+        else:
+            RuntimeError("Do not know how to get name of this callable")
+    else:
+        TypeError("This is not a callable")
