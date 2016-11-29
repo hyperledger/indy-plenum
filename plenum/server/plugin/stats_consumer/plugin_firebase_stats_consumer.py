@@ -88,11 +88,11 @@ class FirebaseStatsConsumer(StatsConsumer, HasDynamicallyImportedModules):
         self._send(nodes)
 
     def _sendNodeInfo(self, nodeInfo: Dict[str, object]):
-        nodes["eventName"] = str(Topic.PublishNodeStats)
+        nodeInfo["eventName"] = str(Topic.PublishNodeStats)
         self._send(nodeInfo)
 
     def _sendSystemPerformanceInfo(self, performanceInfo: Dict[str, object]):
-        nodes["eventName"] = str(Topic.PublishSystemStats)
+        performanceInfo["eventName"] = str(Topic.PublishSystemStats)
         self._send(performanceInfo)
 
     def _sendTotalRequests(self, totalRequests: Dict[str, object]):
