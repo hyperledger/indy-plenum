@@ -2,7 +2,7 @@ import logging
 import sys
 
 from ioflo.base.consoling import getConsole
-from plenum.common.util import error
+from plenum.common.error import error
 from plenum.common.log import getlogger, addTraceToLogging, TRACE_LOG_LEVEL
 
 logger = getlogger()

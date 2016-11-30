@@ -1,12 +1,11 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set
+from typing import NamedTuple, Set, Tuple
 
 from plenum.common.types import Commit, Prepare
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
-    ("digest", str),
     ("voters", Set[str])])
 
 
@@ -52,7 +51,7 @@ class Prepares(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return ThreePhaseVotes(msg.digest, set())
+        return ThreePhaseVotes(set())
 
     def getKey(self, prepare):
         return prepare.viewNo, prepare.ppSeqNo
@@ -89,7 +88,7 @@ class Commits(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return ThreePhaseVotes(msg.digest, set())
+        return ThreePhaseVotes(set())
 
     def getKey(self, commit):
         return commit.viewNo, commit.ppSeqNo

@@ -7,9 +7,10 @@ from plenum.test.eventually import eventually
 from plenum.test.greek import genNodeNames
 
 from plenum.common.startable import Status
-from plenum.test.helper import TestNodeSet, JOINED_NOT_ALLOWED, CONNECTED, \
-    checkNodeRemotes, addNodeBack, ordinal, \
-    checkNodesConnected
+from plenum.test.helper import addNodeBack, ordinal
+from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
+from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+    checkNodeRemotes
 
 whitelist = ['discarding message']
 

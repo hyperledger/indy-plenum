@@ -4,14 +4,14 @@ from statistics import mean
 from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
-import json
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
-    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
+    EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
+    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
 from plenum.common.stacked import NodeStack
-from plenum.server.blacklister import SimpleBlacklister
-from plenum.common.util import getConfig
+from plenum.server.blacklister import Blacklister
+from plenum.common.config_util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
@@ -31,8 +31,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, nodestack: NodeStack, blacklister: SimpleBlacklister,
-                 pluginPaths: Iterable[str]=None):
+                 instances: Instances, nodestack: NodeStack,
+                 blacklister: Blacklister, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
@@ -41,7 +41,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.Delta = Delta
         self.Lambda = Lambda
         self.Omega = Omega
-        self.statsConsumers = self.getPluginsByType(pluginPaths, PLUGIN_TYPE_STATS_CONSUMER)
+        self.statsConsumers = self.getPluginsByType(pluginPaths,
+                                                    PLUGIN_TYPE_STATS_CONSUMER)
 
         # Number of ordered requests by each replica. The value at index `i` in
         # the list is a tuple of the number of ordered requests by replica and
@@ -264,9 +265,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         """
         avgLatM = self.getAvgLatency(self.instances.masterId)
         avgLatB = self.getAvgLatency(*self.instances.backupIds)
-        logger.debug("{}'s master's avg request latency is {} and backup's "
-                     "avg request latency is {} ".
-                     format(self, avgLatM, avgLatB))
 
         # If latency of the master for any client is greater than that of
         # backups by more than the threshold `Omega`, then a view change
@@ -280,6 +278,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.debug("{} found difference between master's and "
                              "backups's avg latency to be higher than the "
                              "threshold".format(self))
+                logger.trace(
+                    "{}'s master's avg request latency is {} and backup's "
+                    "avg request latency is {} ".
+                    format(self, avgLatM, avgLatB))
                 return True
         logger.trace("{} found difference between master and backups "
                      "avg latencies to be acceptable".format(self))

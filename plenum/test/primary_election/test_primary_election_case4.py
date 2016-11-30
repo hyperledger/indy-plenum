@@ -4,7 +4,7 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.eventually import eventually
 
 from plenum.common.types import Primary
-from plenum.test.helper import TestNodeSet, checkNodesConnected, \
+from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 
 nodeCount = 4

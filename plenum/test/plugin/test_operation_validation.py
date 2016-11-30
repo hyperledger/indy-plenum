@@ -3,7 +3,7 @@ import os
 import pytest
 
 from plenum.server.node import Node
-from plenum.test.helper import TestNodeSet
+from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.conftest import OPERATION_VALIDATION_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath
 

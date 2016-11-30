@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 from plenum.cli.cli import Cli
 from plenum.common.looper import Looper
-from plenum.common.util import getConfig
+from plenum.common.config_util import getConfig
 
 
 def main(logfile: str=None, debug=None, cliClass=None):

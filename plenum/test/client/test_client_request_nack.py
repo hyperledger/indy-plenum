@@ -2,10 +2,8 @@ from functools import partial
 
 import pytest
 
-from plenum.common.txn import REQNACK
-from plenum.common.types import OP_FIELD_NAME
 from plenum.test.eventually import eventuallyAll
-from plenum.test.helper import checkReqAck, checkReqNack
+from plenum.test.helper import checkReqNack
 
 whitelist = ['discarding message']
 
@@ -39,6 +37,7 @@ def testRequestFullRoundTrip(restrictiveVerifier,
     update = {'reason': 'client request invalid: InvalidClientRequest() '
                         '[caused by amount too high\nassert 999 <= 100]'}
 
-    coros2 = [partial(checkReqNack, client1, node, sent1.reqId, update)
+    coros2 = [partial(checkReqNack, client1, node, sent1.identifier,
+                      sent1.reqId, update)
               for node in nodeSet]
     looper.run(eventuallyAll(*coros2, totalTimeout=5))

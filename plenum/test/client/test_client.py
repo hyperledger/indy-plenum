@@ -1,21 +1,18 @@
 import pytest
 from raet.raeting import AutoMode
 
-from plenum.common.exceptions import EmptySignature
-from plenum.test.conftest import clientAndWallet1
+from plenum.common.exceptions import EmptySignature, BlowUp
+from plenum.test.exceptions import NotConnectedToAny
 from plenum.test.helper import *
-from plenum.common.types import f, OP_FIELD_NAME, Request
-from plenum.test.eventually import eventually
-from plenum.common.util import getMaxFailures
-from plenum.server.node import Node
-from plenum.test.helper import NotConnectedToAny, \
-    sendReqsToNodesAndVerifySuffReplies
-from plenum.test.helper import TestNodeSet, randomOperation, \
+from plenum.test.helper import checkResponseCorrectnessFromNodes
+from plenum.test.helper import randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
-from plenum.test.helper import checkResponseCorrectnessFromNodes
-from plenum.test.helper import sendRandomRequest, genTestClient, \
-    checkSufficientRepliesRecvd, assertLength
+from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, assertLength
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNodeSet
+from plenum.common.crypto import Signer
 
 nodeCount = 7
 
@@ -103,13 +100,12 @@ def testSendRequestWithoutSignatureFails(pool):
 
         # remove the client's ability to sign
         assert wallet.defaultId
-        wallet.defaultId = None
-        assert not wallet.defaultId
 
         ctx.looper.add(client1)
         await client1.ensureConnectedToNodes()
 
-        request = Request(randomOperation())
+        request = wallet.signOp(op=randomOperation())
+        request.signature = None
         request = client1.submitReqs(request)[0]
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
@@ -122,13 +118,13 @@ def testSendRequestWithoutSignatureFails(pool):
             ex = params['ex']
             _, frm = params['wrappedMsg']
             assert isinstance(ex, EmptySignature)
-            assert frm == client1.name
+            assert frm == client1.stackName
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
             assert msg == request.__dict__
-            assert frm == client1.name
+            assert frm == client1.stackName
             assert "EmptySignature" in reason
 
     pool.run(go)
@@ -308,3 +304,34 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
     assert len(client1.inBox) == client1InboxSize
     assert len(newClient.inBox) > newClientInboxSize
+
+
+def testClientCanSendMessagesIfAnotherClientSendsMessage(looper, nodeSet,
+                                                         tdir, another_tdir,
+                                                         wallet1):
+    assert tdir != another_tdir
+    client1 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               tdir, wallet1, 'TestClient1')
+    client2 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               another_tdir, wallet1,
+                                               'TestClient1')
+    clientSendMessageAndRemove(client1, looper, wallet1)
+
+
+def testClientCanSendMessagesIfInitWithSighex(looper, nodeSet,
+                                                         tdir, another_tdir,
+                                                         wallet1):
+    assert tdir != another_tdir
+    signer1 = Signer()
+    sighex1 = signer1.keyhex
+    client1 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               tdir, wallet1,
+                                               'TestClient1', sighex=sighex1)
+
+    signer2 = Signer()
+    sighex2 = signer2.keyhex
+    assert sighex2 != sighex1
+    client2 = createClientSendMessageAndRemove(looper, nodeSet,
+                                               another_tdir, wallet1,
+                                               'TestClient1', sighex=sighex2)
+    clientSendMessageAndRemove(client1, looper, wallet1)

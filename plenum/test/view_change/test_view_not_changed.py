@@ -3,9 +3,11 @@ from typing import Iterable
 from plenum.common.looper import Looper
 
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import TestNodeSet, getNonPrimaryReplicas, ppDelay, \
-    checkViewNoForNodes, sendReqsToNodesAndVerifySuffReplies
-from plenum.test.helper import TestReplica
+from plenum.test.helper import checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.delayers import ppDelay
+from plenum.test.test_node import TestReplica, TestNodeSet, \
+    getNonPrimaryReplicas
 
 nodeCount = 7
 F = getMaxFailures(nodeCount)

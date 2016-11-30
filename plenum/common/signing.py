@@ -23,9 +23,9 @@ authenticator.
 from collections import Iterable
 from typing import Mapping
 
-from plenum.common.types import f
-from plenum.common.util import error
 from plenum.common.log import getlogger
+from plenum.common.types import f
+from plenum.common.error import error
 
 logger = getlogger()
 
@@ -33,15 +33,15 @@ logger = getlogger()
 acceptableTypes = (str, int, float, list, dict, type(None))
 
 
-def serlize(obj, level=0, objname=None):
+def serialize(obj, level=0, objname=None):
     """
     Create a string representation of the given object.
 
     Examples:
     ::
-    >>> serlize("str")
+    >>> serialize("str")
     'str'
-    >>> serlize([1,2,3,4,5])
+    >>> serialize([1,2,3,4,5])
     '1,2,3,4,5'
     >>> signing.serlize({1:'a', 2:'b'})
     '1:a|2:b'
@@ -62,12 +62,12 @@ def serlize(obj, level=0, objname=None):
         strs = []
         for k in keys:
             onm = ".".join([objname, k]) if objname else k
-            strs.append(str(k) + ":" + serlize(obj[k], level+1, onm))
+            strs.append(str(k) + ":" + serialize(obj[k], level + 1, onm))
         return "|".join(strs)
     if isinstance(obj, Iterable):
         strs = []
         for o in obj:
-            strs.append(serlize(o, level+1, objname))
+            strs.append(serialize(o, level + 1, objname))
         return ",".join(strs)
     if obj is None:
         return ""
@@ -82,6 +82,6 @@ def serializeMsg(msg: Mapping):
     :param msg: the message to sign
     :return: a uft-8 encoded version of `msg`
     """
-    ser = serlize(msg)
+    ser = serialize(msg)
     logger.trace("serialized msg {} into {}".format(msg, ser))
     return ser.encode('utf-8')

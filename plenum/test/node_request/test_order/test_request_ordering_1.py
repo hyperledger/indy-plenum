@@ -1,10 +1,9 @@
 import types
 
-import pytest
-
-from plenum.common.types import ReqDigest
+from plenum.common.request import ReqDigest
 from plenum.test.eventually import eventually
-from plenum.test.helper import getNonPrimaryReplicas, sendRandomRequest
+from plenum.test.helper import sendRandomRequest
+from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 
 
@@ -30,7 +29,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     replica.processReqDigest = patchedMethod
 
     def chk(n):
-        replica.spylog.count(replica.doOrder.__name__) == n
+        assert replica.spylog.count(replica.doOrder.__name__) == n
 
     sendRandomRequest(wallet1, client1)
     looper.run(eventually(chk, 0, retryWait=1, timeout=5))

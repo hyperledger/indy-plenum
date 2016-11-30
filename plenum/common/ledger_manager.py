@@ -19,7 +19,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
     CatchupReq, ConsProofRequest
-from plenum.common.util import getMaxFailures, getConfig
+from plenum.common.util import getMaxFailures
+from plenum.common.config_util import getConfig
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 
@@ -502,7 +503,7 @@ class LedgerManager(HasActionQueue):
                                                          proof])
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
-                         format(self, catchupReply, ex))
+                        format(self, catchupReply, ex))
             verified = False
         return bool(verified), nodeName, len(txns)
 

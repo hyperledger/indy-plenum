@@ -6,8 +6,9 @@ from plenum.common.log import getlogger
 
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import TestNodeSet, checkNodesConnected, \
-    ensureElectionsDone, delayerMsgTuple
+from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+    ensureElectionsDone
+from plenum.test.delayers import delayerMsgTuple
 
 nodeCount = 4
 whitelist = ['because already got primary declaration',

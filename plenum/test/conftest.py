@@ -1,34 +1,36 @@
 import inspect
-import logging
+import itertools
 import json
+import logging
 import os
 from functools import partial
 from typing import Dict, Any
-import itertools
 
 import pytest
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.exceptions import BlowUp
 
+from plenum.common.exceptions import BlowUp
+from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances, getConfig
-from plenum.common.port_dispenser import genHa
-from plenum.common.log import getlogger, TestingHandler
-from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.util import getNoInstances, getMaxFailures
+from plenum.common.config_util import getConfig
 from plenum.test.eventually import eventually, eventuallyAll
-from plenum.test.helper import TestNodeSet, genNodeReg, Pool, \
-    ensureElectionsDone, checkNodesConnected, genTestClient, randomOperation, \
+from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, TestNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+    checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -49,11 +51,11 @@ def getValueFromModule(request, name: str, default: Any = None):
     if hasattr(request.module, name):
         value = getattr(request.module, name)
         logger.info("found {} in the module: {}".
-                     format(name, value))
+                    format(name, value))
     else:
         value = default if default is not None else None
         logger.info("no {} found in the module, using the default: {}".
-                     format(name, value))
+                    format(name, value))
     return value
 
 
@@ -95,9 +97,9 @@ def whitelist(request):
 @pytest.fixture(scope="module")
 def concerningLogLevels(request):
     # TODO need to enable WARNING for all tests
-    default = [#logging.WARNING,
-               logging.ERROR,
-               logging.CRITICAL]
+    default = [  # logging.WARNING,
+        logging.ERROR,
+        logging.CRITICAL]
     return getValueFromModule(request, "concerningLogLevels", default)
 
 
@@ -125,7 +127,7 @@ def logcapture(request, whitelist, concerningLogLevels):
 
         whiteListedExceptions = baseWhitelist + wl
         isWhiteListed = bool([w for w in whiteListedExceptions
-                              if w in record.msg])
+                              if w in str(record.msg)])
         if not (isBenign or isTest or isWhiteListed):
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
@@ -158,6 +160,8 @@ def tdir(tmpdir_factory, counter):
                            str(next(counter)))
     logger.debug("module-level temporary directory: {}".format(tempdir))
     return tempdir
+
+another_tdir = tdir
 
 
 @pytest.fixture(scope='function')
@@ -257,13 +261,29 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
                              totalTimeout=10,
                              acceptableFails=faultyNodes))
 
-    coros2 = [partial(checkReqAck, client1, node, sent1.reqId)
+    coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
     looper.run(eventuallyAll(*coros2,
                              totalTimeout=5,
                              acceptableFails=faultyNodes))
 
     return sent1
+
+
+@pytest.fixture(scope="module")
+def noRetryReq(conf, tdir, request):
+    oldRetryAck = conf.CLIENT_MAX_RETRY_ACK
+    oldRetryReply = conf.CLIENT_MAX_RETRY_REPLY
+    conf.baseDir = tdir
+    conf.CLIENT_MAX_RETRY_ACK = 0
+    conf.CLIENT_MAX_RETRY_REPLY = 0
+
+    def reset():
+        conf.CLIENT_MAX_RETRY_ACK = oldRetryAck
+        conf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
+
+    request.addfinalizer(reset)
+    return conf
 
 
 @pytest.fixture(scope="module")
@@ -312,26 +332,22 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 
 @pytest.fixture(scope="module")
-def replied1(looper, nodeSet, client1, committed1, wallet1):
-    for instId in range(getNoInstances(len(nodeSet))):
-        getPrimaryReplica(nodeSet, instId)
+def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
+    def checkOrderedCount():
+        instances = getNoInstances(len(nodeSet))
+        resp = [requestReturnedToNode(node, wallet1.defaultId,
+                                      committed1.reqId, instId) for
+                node in nodeSet for instId in range(instances)]
+        assert resp.count(True) >= (len(nodeSet) - faultyNodes)*instances
 
-        looper.run(*[eventually(checkRequestReturnedToNode,
-                                node,
-                                wallet1.defaultId,
-                                committed1.reqId,
-                                committed1.digest,
-                                instId,
-                                retryWait=1, timeout=30)
-                     for node in nodeSet])
-
-        looper.run(eventually(
-                checkSufficientRepliesRecvd,
-                client1.inBox,
-                committed1.reqId,
-                2,
-                retryWait=2,
-                timeout=30))
+    looper.run(eventually(checkOrderedCount, retryWait=1, timeout=30))
+    looper.run(eventually(
+        checkSufficientRepliesRecvd,
+        client1.inBox,
+        committed1.reqId,
+        getMaxFailures(len(nodeSet)),
+        retryWait=2,
+        timeout=30))
     return committed1
 
 
@@ -446,22 +462,30 @@ def testNodeClass():
 
 
 @pytest.yield_fixture(scope="module")
-def txnPoolNodeSet(tdirWithPoolTxns,
+def txnPoolNodesLooper():
+    with Looper(debug=True) as l:
+        yield l
+
+
+@pytest.fixture(scope="module")
+def txnPoolNodeSet(txnPoolNodesLooper,
+                   tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tconf,
                    poolTxnNodeNames,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass):
-    with Looper(debug=True) as looper:
-        nodes = []
-        for nm in poolTxnNodeNames:
-            node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                            config=tconf, pluginPaths=allPluginsPath)
-            looper.add(node)
-            nodes.append(node)
-        looper.run(checkNodesConnected(nodes))
-        yield nodes
+    nodes = []
+    for nm in poolTxnNodeNames:
+        node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
+                             config=tconf, pluginPaths=allPluginsPath)
+        txnPoolNodesLooper.add(node)
+        nodes.append(node)
+    txnPoolNodesLooper.run(checkNodesConnected(nodes))
+    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
+                        timeout=10)
+    return nodes
 
 
 @pytest.fixture(scope="module")
@@ -470,8 +494,8 @@ def txnPoolCliNodeReg(poolTxnData):
     for txn in poolTxnData["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
             data = txn[DATA]
-            cliNodeReg[data[ALIAS]+CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
-                                                             data[CLIENT_PORT])
+            cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
+                                                               data[CLIENT_PORT])
     return cliNodeReg
 
 
@@ -480,7 +504,7 @@ def postingStatsEnabled(request):
     config = getConfig()
     config.SendMonitorStats = True
 
-    def reset():
-        config.SendMonitorStats = False
+    # def reset():
+    #    config.SendMonitorStats = False
 
-    request.addfinalizer(reset)
+    # request.addfinalizer(reset)

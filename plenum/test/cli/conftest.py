@@ -8,7 +8,7 @@ from plenum.common.looper import Looper
 from plenum.common.util import adict
 from plenum.common.port_dispenser import genHa
 from plenum.test.eventually import eventually
-from plenum.test.helper import genHa
+
 
 plenum.common.log.loggingConfigured = False
 

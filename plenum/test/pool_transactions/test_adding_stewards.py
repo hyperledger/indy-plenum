@@ -1,6 +1,5 @@
 import pytest
 
-from plenum.common.looper import Looper
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
@@ -21,34 +20,35 @@ def tconf(conf, tdir, request):
     return conf
 
 
-def testOnlyAStewardCanAddAnotherSteward(txnPoolNodeSet,
+def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
                                          tdirWithPoolTxns, poolTxnClientData):
-    return checkStewardAdded(poolTxnClientData, tdirWithPoolTxns)
+    return checkStewardAdded(looper, poolTxnClientData, tdirWithPoolTxns)
 
 
-def testStewardsCanBeAddedOnlyTillAThresholdIsReached(
-        tconf, txnPoolNodeSet, tdirWithPoolTxns, poolTxnStewardData):
-    return checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns)
+def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
+                                                      txnPoolNodeSet,
+                                                      tdirWithPoolTxns,
+                                                      poolTxnStewardData):
+    return checkStewardAdded(looper, poolTxnStewardData, tdirWithPoolTxns)
 
 
-def checkStewardAdded(poolTxnStewardData, tdirWithPoolTxns):
-    with Looper(debug=True) as looper:
-        client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
-                                                  tdirWithPoolTxns)
-        looper.add(client)
-        looper.run(client.ensureConnectedToNodes())
-        sigseed = b'55555555555555555555555555555555'
-        newSigner = SimpleSigner(sigseed)
-        op = {
-            TXN_TYPE: NYM,
-            ROLE: STEWARD,
-            TARGET_NYM: newSigner.verkey,
-            ALIAS: "Robert",
-        }
-        req = wallet.signOp(op)
-        client.submitReqs(req)
+def checkStewardAdded(looper, poolTxnStewardData, tdirWithPoolTxns):
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithPoolTxns)
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    sigseed = b'55555555555555555555555555555555'
+    newSigner = SimpleSigner(sigseed)
+    op = {
+        TXN_TYPE: NYM,
+        ROLE: STEWARD,
+        TARGET_NYM: newSigner.verkey,
+        ALIAS: "Robert",
+    }
+    req = wallet.signOp(op)
+    client.submitReqs(req)
 
-        def chk():
-            assert client.getReply(req.reqId) == (None, "NOT_FOUND")
+    def chk():
+        assert client.getReply(*req.key) == (None, "NOT_FOUND")
 
-        looper.run(eventually(chk, retryWait=1, timeout=5))
+    looper.run(eventually(chk, retryWait=1, timeout=5))

@@ -1,8 +1,8 @@
 import pytest
-from plenum.test.helper import TestNode
+from plenum.test.test_node import TestNode
 
 from plenum.test.eventually import eventually
-from plenum.test.helper import delay
+from plenum.test.delayers import delay
 
 from plenum.common.types import Propagate
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \

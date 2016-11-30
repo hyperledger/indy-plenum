@@ -1,6 +1,6 @@
 from plenum.common.util import randomString
 from plenum.test.cli.helper import isErrorToken, checkNodeStarted
-from plenum.test.helper import checkPoolReady
+from plenum.test.test_node import checkPoolReady
 
 
 def testNodeNames(cli, validNodeNames):

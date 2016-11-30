@@ -6,7 +6,7 @@ from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, NEW_NODE, ALIAS, DATA, CHANGE_HA, \
     CHANGE_KEYS
 from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, updateMasterPoolTxnFile
 from plenum.common.log import getlogger
 
 logger = getlogger()
@@ -20,7 +20,7 @@ class HasPoolManager(TxnStackManager):
         self._ledgerLocation = None
         TxnStackManager.__init__(self, self.name, self.basedirpath,
                                  isNode=False)
-        _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys()
+        _, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)
         self.nodeReg = cliNodeReg
         self.addRemoteKeysFromLedger(nodeKeys)
         # Temporary place for keeping node transactions while this client is
@@ -65,6 +65,7 @@ class HasPoolManager(TxnStackManager):
         elif typ == CHANGE_HA:
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
             self.stackHaChanged(txn, remoteName, self)
+            updateMasterPoolTxnFile(self.config.baseDir, txn)
         elif typ == CHANGE_KEYS:
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
             self.stackKeysChanged(txn, remoteName, self)

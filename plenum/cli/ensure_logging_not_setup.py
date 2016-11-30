@@ -1,5 +1,4 @@
 import plenum.common.log
-from plenum.common import util
 
 # this is to stop logging from being configured when other imported modules are
 # parsed

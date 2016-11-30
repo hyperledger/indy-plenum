@@ -202,3 +202,7 @@ class BlowUp(BaseException):
     Derives from BaseException so asyncio will let it through.
     """
     pass
+
+
+class ProdableAlreadyAdded(Exception):
+    pass

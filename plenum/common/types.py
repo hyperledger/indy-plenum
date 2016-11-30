@@ -1,12 +1,12 @@
 import sys
 from collections import namedtuple
-from hashlib import sha256
 from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
-from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQDIGEST, REQACK,\
-    ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, INSTANCE_CHANGE, \
-    BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REQ, \
-    CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, TXN_LIST_REQUEST
+from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
+    ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
+    INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
+    CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
+    CHECKPOINT_STATE, THREE_PC_STATE
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -30,12 +30,16 @@ class f:  # provides a namespace for reusable field constants
     ROUND = Field("round", int)
     IDENTIFIER = Field('identifier', str)
     DIGEST = Field('digest', str)
+    DIGESTS = Field('digests', List[str])
+    RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
+    SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
     INST_ID = Field('instId', int)
+    IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
     SIG = Field('signature', Optional[str])
     SUSP_CODE = Field('suspicionCode', int)
@@ -133,64 +137,12 @@ OPERATION = 'operation'
 
 Identifier = str
 
-
-class Request:
-    def __init__(self,
-                 identifier: Identifier=None,
-                 reqId: int=None,
-                 operation: Mapping=None,
-                 signature: str=None):
-        self.identifier = identifier
-        self.reqId = reqId
-        self.operation = operation
-        self.signature = signature
-
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-    def __repr__(self):
-        return "{}: {}".format(self.__class__.__name__, self.__dict__)
-
-    @property
-    def key(self):
-        return self.identifier, self.reqId
-
-    @property
-    def digest(self):
-        return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
-
-    @property
-    def reqDigest(self):
-        return ReqDigest(self.identifier, self.reqId, self.digest)
-
-    def __getstate__(self):
-        return self.__dict__
-
-    def getSigningState(self):
-        return self.__dict__
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        return self
-
-    @classmethod
-    def fromState(cls, state):
-        obj = cls.__new__(cls)
-        cls.__setstate__(obj, state)
-        return obj
-
-
-class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
-                                       f.REQ_ID,
-                                       f.DIGEST])):
-    def key(self):
-        return self.identifier, self.reqId
-
-
 RequestAck = TaggedTuple(REQACK, [
+    f.IDENTIFIER,
     f.REQ_ID])
 
 RequestNack = TaggedTuple(REQNACK, [
+    f.IDENTIFIER,
     f.REQ_ID,
     f.REASON])
 
@@ -203,7 +155,6 @@ Ordered = NamedTuple(ORDERED, [
     f.VIEW_NO,
     f.IDENTIFIER,
     f.REQ_ID,
-    f.DIGEST,
     f.PP_TIME])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
@@ -240,11 +191,31 @@ Commit = TaggedTuple(COMMIT, [
     f.DIGEST,
     f.PP_TIME])
 
-# TODO Refactor this. Reply should simply a wrapper over a dict, or just a dict?
+Checkpoint = TaggedTuple(CHECKPOINT, [
+    f.INST_ID,
+    f.VIEW_NO,
+    f.SEQ_NO,
+    f.DIGEST])
+
+CheckpointState = NamedTuple(CHECKPOINT_STATE, [
+    f.SEQ_NO,
+    f.DIGESTS,  # Digest of all the requests in the checkpoint
+    f.DIGEST,   # Final digest of the checkpoint, after all requests in its
+    # range have been ordered
+    f.RECEIVED_DIGESTS,
+    f.IS_STABLE
+    ])
+
+
+ThreePCState = TaggedTuple(THREE_PC_STATE, [
+    f.INST_ID,
+    f.MSGS])
+
+
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO
+    f.VIEW_NO,
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [

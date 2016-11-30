@@ -22,6 +22,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
 
@@ -65,7 +66,8 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import getConfig, hexToFriendly
+from plenum.common.util import hexToFriendly
+from plenum.common.config_util import getConfig
 
 
 class CustomOutput(Vt100_Output):
@@ -105,29 +107,17 @@ class Cli:
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
         self.config = config or getConfig(self.basedirpath)
-        if not (useNodeReg and
-                    nodeReg and len(nodeReg) and cliNodeReg and len(cliNodeReg)):
+        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
+                and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
-            nodeReg = {}
-            cliNodeReg = {}
             dataDir = self.basedirpath
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
                 fileName=self.config.poolTransactionsFile)
-            for _, txn in ledger.getAllTxn().items():
-                if txn[TXN_TYPE] == NEW_NODE:
-                    nodeName = txn[DATA][ALIAS]
-                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                        else None
-                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                        else None
-                    if nHa:
-                        nodeReg[nodeName] = HA(*nHa)
-                    if cHa:
-                        cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
+            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+                ledger)
+
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -826,10 +816,10 @@ class Cli:
                 self.printVoid()
             if self.activeWallet and self.activeWallet.defaultId:
                 wallet = self.activeWallet
-                self.print("    Identifier: {}".format(wallet.defaultId))
+                idr = wallet.defaultId
+                self.print("    Identifier: {}".format(idr))
                 self.print(
-                    "    Verification key: {}".
-                        format(wallet.getVerkey(wallet.defaultId)))
+                    "    Verification key: {}".format(wallet.getVerkey(idr)))
 
     def statusNode(self, nodeName):
         if nodeName == "all":
@@ -924,18 +914,18 @@ class Cli:
             if wallet:
                 req = wallet.signOp(msg)
                 request, = client.submitReqs(req)
-                self.requests[str(request.reqId)] = request.reqId
+                self.requests[request.key] = request
             else:
                 self._newWallet(clientName)
                 self.printNoKeyMsg()
         else:
             self.printMsgForUnknownClient()
 
-    def getReply(self, clientName, reqId):
+    def getReply(self, clientName, identifier, reqId):
+        reqId = int(reqId)
         client = self.clients.get(clientName, None)
-        requestID = self.requests.get(reqId, None)
-        if client and requestID:
-            reply, status = client.getReply(requestID)
+        if client and (identifier, reqId) in self.requests:
+            reply, status = client.getReply(identifier, reqId)
             self.print("Reply for the request: {}".format(reply))
             self.print("Status: {}".format(status))
         elif not client:
@@ -943,11 +933,10 @@ class Cli:
         else:
             self.print("No such request. See: 'help new' for more details")
 
-    def showDetails(self, clientName, reqId):
+    def showDetails(self, clientName, identifier, reqId):
         client = self.clients.get(clientName, None)
-        requestID = self.requests.get(reqId, None)
-        if client and requestID:
-            client.showReplyDetails(requestID)
+        if client and (identifier, reqId) in self.requests:
+            client.showReplyDetails(identifier, reqId)
         else:
             self.printMsgForUnknownClient()
 
@@ -1057,7 +1046,8 @@ class Cli:
                 return True
             elif client_action == 'show':
                 req_id = matchedVars.get('req_id')
-                self.getReply(client_name, req_id)
+                wallet = self.wallets[client_name]
+                self.getReply(client_name, wallet.defaultId, req_id)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):
