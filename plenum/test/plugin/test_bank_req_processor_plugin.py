@@ -110,7 +110,7 @@ def testBankTransactions(nodeSet, up, looper, apps):
     logger.display("Balance for John Best is {}".format(bal1John))
     logger.display("Jason Law transfers 100USD to John Best")
     req = jason.sendMoney(john.wallet.defaultId, 100, nodeSet)
-    assert jason.client.hasConsensus(req.reqId)
+    assert jason.client.hasConsensus(*req.key)
     bal2Jason = jason.getBalance()
     bal2John = john.getBalance()
     assert bal1Jason - bal2Jason == 100

@@ -74,7 +74,7 @@ class AuctionApp(App):
         self.looper.run(eventually(checkSufficientRepliesRecvd,
                                    self.client.inBox, req.reqId,
                                    1, retryWait=1, timeout=10))
-        return self.client.hasConsensus(req.reqId)[BALANCE]
+        return self.client.hasConsensus(*req.key)[BALANCE]
 
     def bid(self, aucId, amount):
         req = self.submit({
