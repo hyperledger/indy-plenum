@@ -120,6 +120,6 @@ def testBankTransactions(nodeSet, up, looper, apps):
     jason.sendMoney(john.wallet.defaultId, 100, nodeSet)
     txnReqJl = jason.checkTxns()
     txnReqJb = john.checkTxns()
-    txnJason = jason.client.hasConsensus(txnReqJl.reqId)[ALL_TXNS]
-    txnJohn = john.client.hasConsensus(txnReqJb.reqId)[ALL_TXNS]
+    txnJason = jason.client.hasConsensus(*txnReqJl.reqKey)[ALL_TXNS]
+    txnJohn = john.client.hasConsensus(*txnReqJb.reqKey)[ALL_TXNS]
     assert txnJason == txnJohn
