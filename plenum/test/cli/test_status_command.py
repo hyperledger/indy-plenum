@@ -121,6 +121,7 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
         cli.enterCmd("status node {}".format(name))
         otherNodeNames = (set(validNodeNames) - {name, })
         node = cli.nodes[name]
+        client = cli.clients[clientName]
         cliLogs = list(cli.printeds)
         if node.hasPrimary:
             checkPrimaryLogs(node, cliLogs)
@@ -128,7 +129,7 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
             checkNonPrimaryLogs(node, cliLogs)
             checkForNamedTokens(cli.printedTokens[3], otherNodeNames)
         if cli.clients:
-            checkForNamedTokens(cli.printedTokens[1], {clientName, })
+            checkForNamedTokens(cli.printedTokens[1], {client.stackName, })
 
 
 def checkPrimaryLogs(node, msgs):
