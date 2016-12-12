@@ -400,6 +400,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._orientDbStore = OrientDbStore(
             user=self.config.OrientDB["user"],
             password=self.config.OrientDB["password"],
+            host=self.config.OrientDB["host"],
+            port=self.config.OrientDB["port"],
             dbName=name,
             dbType=dbType,
             storageType=pyorient.STORAGE_TYPE_PLOCAL)

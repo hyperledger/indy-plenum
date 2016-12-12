@@ -384,10 +384,26 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput])
+                  Monitor.sendThroughput,
+                  Monitor.requestOrdered,
+                  Monitor.reset])
 class TestMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.masterReqLatenciesTest = {}
+
+    def requestOrdered(self, identifier: str, reqId: int, instId: int,
+                       byMaster: bool = False):
+        now = time.perf_counter()
+        duration = now - self.requestOrderingStarted[
+            (identifier, reqId)]
+        if byMaster:
+            self.masterReqLatenciesTest[(identifier, reqId)] = duration
+        super().requestOrdered(identifier, reqId, instId, byMaster)
+
+    def reset(self):
+        super().reset()
+        self.masterReqLatenciesTest = {}
 
 
 class Pool:
