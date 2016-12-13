@@ -100,6 +100,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        psutil.cpu_percent(interval=None)
         self.lastKnownTraffic = self.calculateTraffic()
 
         self.totalViewChanges = 0
@@ -476,7 +477,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     def captureSystemPerformance(self):
         logger.debug("{} capturing system performance".format(self))
         timestamp = time.time()
-        cpu = psutil.cpu_percent(interval=1)
+        cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory()
         curr_network = self.calculateTraffic()
         network = curr_network - self.lastKnownTraffic
