@@ -50,6 +50,7 @@ def checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
                     assert clientStackNewHA.host in poolLedgerContent
                     assert str(clientStackNewHA.port) in poolLedgerContent
 
+
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                  poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary):
 
@@ -77,7 +78,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                   nodeStackNewHA, stewardName, stewardsSeed)
     f = getMaxFailures(len(stewardClient.nodeReg))
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, f, retryWait=1, timeout=15))
+                          req.reqId, f, retryWait=1, timeout=20))
 
     # stop node for which HA will be changed
     subjectedNode.stop()
@@ -100,7 +101,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(anotherClient.ensureConnectedToNodes))
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
     looper.removeProdable(stewardClient)
     checkIfMasterPoolTxnFileUpdated(nodeStackNewHA, clientStackNewHA,
                                     txnPoolNodeSet, stewardClient, anotherClient)

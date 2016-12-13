@@ -50,7 +50,7 @@ def run():
             err = errPat.search(output)
             if not (fai or err):
                 log("Non zero return value from {} run but no failures "
-                      "or errors reported".format(test))
+                    "or errors reported".format(test))
                 log(output)
                 return -1
             failed = int(fai.groups()[0]) if fai else 0
@@ -82,7 +82,7 @@ def run():
             failed = 0
             errors = 0
         log('In {}, {} passed, {} failed, {} errors, {} skipped'.
-              format(test, passed, errors, failed, skipped))
+            format(test, passed, errors, failed, skipped))
         if failed:
             log("Failed tests: {}".format(', '.join(failedNames)))
             for nm in failedNames:
@@ -98,7 +98,7 @@ def run():
         totalSkipped += skipped
 
     log('Total {} passed, {} failed, {} errors, {} skipped'.
-          format(totalPassed, totalFailed, totalErros, totalSkipped))
+        format(totalPassed, totalFailed, totalErros, totalSkipped))
 
     if totalFailed:
         log("Failed tests:")
@@ -112,18 +112,18 @@ def run():
 
     if failureData:
         log("Writing failure data in Test-Report.txt")
-        with open('Test-Report.txt', 'w') as f:
-            sep = os.linesep
-            f.write(sep.join(failureData))
+        with open('../Test-Report.txt', 'w') as f:
+            f.write(''.join(failureData))
 
     if os.path.exists(testRep):
         os.remove(testRep)
 
+    log("Tests run. Returning {}".format(retVal))
     return retVal
 
 
 def log(msg):
-	return print(msg, flush=True)
+    return print(msg, flush=True)
 
 
 if __name__ == "__main__":
