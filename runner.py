@@ -5,19 +5,19 @@ import pytest
 
 
 def run():
-    print("Preparing test suite")
+    log("Preparing test suite")
     testListFile = "test_list.txt"
     os.system('pytest --collect-only > {}'.format(testListFile))
-    print("Reading collected modules file")
+    log("Reading collected modules file")
     collectedData = open(testListFile).read()
     os.remove(testListFile)
-    print("Collecting modules")
+    log("Collecting modules")
     testList = re.findall("<Module '(.+)'>", collectedData)
-    print("Found {} test modules".format(len(testList)))
+    log("Found {} test modules".format(len(testList)))
     if not testList:
         m = re.search("errors during collection", collectedData)
         if m:
-            print(collectedData)
+            log(collectedData)
             return -1
     retVal = 0
     totalPassed = 0
@@ -37,7 +37,7 @@ def run():
 
     for test in testList:
         # testRep = '{}.rep'.format(test.split("/")[-1])
-        print("Going to run {}".format(test))
+        log("Going to run {}".format(test))
         r = os.system('pytest -k {} > {}'.format(test, testRep))
         reportLines = open(testRep).readlines()
         output = ''.join(reportLines)
@@ -49,9 +49,9 @@ def run():
             fai = failPat.search(output)
             err = errPat.search(output)
             if not (fai or err):
-                print("Non zero return value from {} run but no failures "
+                log("Non zero return value from {} run but no failures "
                       "or errors reported".format(test))
-                print(output)
+                log(output)
                 return -1
             failed = int(fai.groups()[0]) if fai else 0
             errors = int(err.groups()[0]) if err else 0
@@ -81,14 +81,14 @@ def run():
         else:
             failed = 0
             errors = 0
-        print('In {}, {} passed, {} failed, {} errors, {} skipped'.
+        log('In {}, {} passed, {} failed, {} errors, {} skipped'.
               format(test, passed, errors, failed, skipped))
         if failed:
-            print("Failed tests: {}".format(', '.join(failedNames)))
+            log("Failed tests: {}".format(', '.join(failedNames)))
             for nm in failedNames:
                 allFailedTests.append((test, nm))
         if errors:
-            print("Error in tests: {}".format(', '.join(errorNames)))
+            log("Error in tests: {}".format(', '.join(errorNames)))
             for nm in errorNames:
                 allErrorTests.append((test, nm))
         retVal += r
@@ -97,21 +97,21 @@ def run():
         totalErros += errors
         totalSkipped += skipped
 
-    print('Total {} passed, {} failed, {} errors, {} skipped'.
+    log('Total {} passed, {} failed, {} errors, {} skipped'.
           format(totalPassed, totalFailed, totalErros, totalSkipped))
 
     if totalFailed:
-        print("Failed tests:")
+        log("Failed tests:")
         for fm, fn in allFailedTests:
-            print('{}:{}'.format(fm, fn))
+            log('{}:{}'.format(fm, fn))
 
     if totalErros:
-        print("Error in tests:")
+        log("Error in tests:")
         for fm, fn in allErrorTests:
-            print('{}:{}'.format(fm, fn))
+            log('{}:{}'.format(fm, fn))
 
     if failureData:
-        print("Writing failure data in Test-Report.txt")
+        log("Writing failure data in Test-Report.txt")
         with open('Test-Report.txt', 'w') as f:
             sep = os.linesep
             f.write(sep.join(failureData))
@@ -121,6 +121,10 @@ def run():
 
     return retVal
 
+
+def log(msg):
+	return print(msg, flush=True)
+	
 
 if __name__ == "__main__":
     run()
