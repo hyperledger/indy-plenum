@@ -18,7 +18,7 @@ def run():
         m = re.search("errors during collection", collectedData)
         if m:
             print(collectedData)
-            exit()
+            return -1
     retVal = 0
     totalPassed = 0
     totalFailed = 0
@@ -48,7 +48,11 @@ def run():
         if r:
             fai = failPat.search(output)
             err = errPat.search(output)
-            assert fai or err, "Non zero return value from test run but no failures or errors reported"
+            if not (fai or err):
+                print("Non zero return value from {} run but no failures "
+                      "or errors reported".format(test))
+                print(output)
+                return -1
             failed = int(fai.groups()[0]) if fai else 0
             errors = int(err.groups()[0]) if err else 0
             failedNames = []
@@ -112,7 +116,7 @@ def run():
             sep = os.linesep
             f.write(sep.join(failureData))
 
-    if os._exists(testRep):
+    if os.path.exists(testRep):
         os.remove(testRep)
 
     return retVal
