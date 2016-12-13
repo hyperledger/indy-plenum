@@ -38,7 +38,7 @@ def run():
     for test in testList:
         # testRep = '{}.rep'.format(test.split("/")[-1])
         log("Going to run {}".format(test))
-        r = os.system('pytest -k {} > {}'.format(test, testRep))
+        r = os.system('pytest -k "{}" > {}'.format(test, testRep))
         reportLines = open(testRep).readlines()
         output = ''.join(reportLines)
         pas = passPat.search(output)
@@ -124,7 +124,7 @@ def run():
 
 def log(msg):
 	return print(msg, flush=True)
-	
+
 
 if __name__ == "__main__":
     run()
