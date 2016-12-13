@@ -5,10 +5,13 @@ from typing import Dict, Iterable
 from typing import List
 from typing import Tuple
 
+import psutil
+
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
-    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
+    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
+    EVENT_PERIODIC_STATS_NODE_INFO, EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
 from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
 from plenum.common.config_util import getConfig
@@ -32,11 +35,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack: NodeStack,
-                 blacklister: Blacklister, pluginPaths: Iterable[str]=None):
+                 blacklister: Blacklister, nodeInfo: Dict, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
+        self.nodeInfo = nodeInfo
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -96,6 +100,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        psutil.cpu_percent(interval=None)
+        self.lastKnownTraffic = self.calculateTraffic()
+
         self.totalViewChanges = 0
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
@@ -140,6 +147,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         rendered = ["{}: {}".format(*m) for m in self.metrics()]
         return "\n            ".join(rendered)
 
+    def calculateTraffic(self):
+        currNetwork = psutil.net_io_counters()
+        currNetwork = currNetwork.bytes_sent + currNetwork.bytes_recv
+        currNetwork /= 1024
+        return currNetwork
+
     def reset(self):
         """
         Reset the monitor. Sets all monitored values to defaults.
@@ -151,6 +164,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
         self.totalViewChanges += 1
+        self.lastKnownTraffic = self.calculateTraffic()
 
     def addInstance(self):
         """
@@ -366,6 +380,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendThroughput()
         self.sendLatencies()
         self.sendKnownNodesInfo()
+        self.sendNodeInfo()
+        self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
@@ -441,6 +457,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         logger.debug("{} sending nodestack".format(self))
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
 
+    def sendSystemPerfomanceInfo(self):
+        logger.debug("{} sending system performance".format(self))
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO, self.captureSystemPerformance())
+
+    def sendNodeInfo(self):
+        logger.debug("{} sending node info".format(self))
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODE_INFO, self.nodeInfo['data'])
+
     def sendTotalRequests(self):
         logger.debug("{} sending total requests".format(self))
 
@@ -449,6 +473,32 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         )
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
+
+    def captureSystemPerformance(self):
+        logger.debug("{} capturing system performance".format(self))
+        timestamp = time.time()
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory()
+        curr_network = self.calculateTraffic()
+        network = curr_network - self.lastKnownTraffic
+        self.lastKnownTraffic = curr_network
+        cpu_data = {
+            'time': timestamp,
+            'value': cpu
+        }
+        ram_data = {
+            'time': timestamp,
+            'value': ram.percent
+        }
+        traffic_data = {
+            'time': timestamp,
+            'value': network
+        }
+        return {
+            'cpu': cpu_data,
+            'ram': ram_data,
+            'traffic': traffic_data
+        }
 
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()
