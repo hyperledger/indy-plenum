@@ -5,10 +5,13 @@ import pytest
 
 
 def run():
+	  print("Preparing test suite")
     testListFile = "test_list.txt"
     os.system('pytest --collect-only > {}'.format(testListFile))
+    print("Reading collected modules file")
     collectedData = open(testListFile).read()
     os.remove(testListFile)
+    print("Collecting modules")
     testList = re.findall("<Module '(.+)'>", collectedData)
     print("Found {} test modules".format(len(testList)))
     if not testList:
