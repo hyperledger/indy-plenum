@@ -5,7 +5,7 @@ import pytest
 
 
 def run():
-	  print("Preparing test suite")
+    print("Preparing test suite")
     testListFile = "test_list.txt"
     os.system('pytest --collect-only > {}'.format(testListFile))
     print("Reading collected modules file")
