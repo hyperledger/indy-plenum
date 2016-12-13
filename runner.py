@@ -1,7 +1,6 @@
 import os
 import re
-import logging
-import pytest
+import sys
 
 
 def run():
@@ -127,4 +126,5 @@ def log(msg):
 
 
 if __name__ == "__main__":
-    run()
+    r = run()
+    sys.exit(r)
