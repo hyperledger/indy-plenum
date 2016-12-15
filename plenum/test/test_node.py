@@ -394,12 +394,9 @@ class TestMonitor(Monitor):
 
     def requestOrdered(self, identifier: str, reqId: int, instId: int,
                        byMaster: bool = False):
-        now = time.perf_counter()
-        duration = now - self.requestOrderingStarted[
-            (identifier, reqId)]
-        if byMaster:
+        duration = super().requestOrdered(identifier, reqId, instId, byMaster)
+        if byMaster and duration is not None:
             self.masterReqLatenciesTest[(identifier, reqId)] = duration
-        super().requestOrdered(identifier, reqId, instId, byMaster)
 
     def reset(self):
         super().reset()

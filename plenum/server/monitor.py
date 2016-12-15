@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 from statistics import mean
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
 
@@ -175,9 +175,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.clientAvgReqLatencies.append({})
 
     def requestOrdered(self, identifier: str, reqId: int, instId: int,
-                       byMaster: bool = False):
+                       byMaster: bool = False) -> Optional[float]:
         """
-        Measure the time taken for ordering of a request
+        Measure the time taken for ordering of a request and return it. Monitor
+        might have been reset due to view change due to which this method
+        returns None
         """
         if (identifier, reqId) not in self.requestOrderingStarted:
             logger.debug("Got ordered request with identifier {} and reqId {} "
@@ -185,8 +187,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                           format(identifier, reqId))
             return
         now = time.perf_counter()
-        duration = now - self.requestOrderingStarted[
-            (identifier, reqId)]
+        duration = now - self.requestOrderingStarted[(identifier, reqId)]
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
@@ -214,6 +215,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.postOnReqOrdered()
             if 0 == reqs:
                 self.postOnNodeStarted(self.started)
+        return duration
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
