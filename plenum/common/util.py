@@ -254,18 +254,16 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
 
 
 def checkPortAvailable(ha) -> bool:
-    """Returns whether the given port is available"""
-    available = True
+    """Checks whether the given port is available"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
-    except:
+    except Exception as ex:
         logging.warning("Checked port availability for opening "
                         "and address was already in use: {}".format(ha))
-        available = False
+        raise ex
     finally:
         sock.close()
-    return available
 
 
 class MessageProcessor:
@@ -401,7 +399,7 @@ def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
-def friendlyToRaw(f):
+def friendlyToRaw(f ):
     return base58.b58decode(f)
 
 

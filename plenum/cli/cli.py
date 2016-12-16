@@ -20,7 +20,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
 from plenum.common.signer_simple import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getLocalEstateData
+from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
@@ -1308,6 +1308,8 @@ class Cli:
         host = "0.0.0.0"
         try:
             checkPortAvailable((host, self.curClientPort))
+            assert not isPortUsed(self.basedirpath, self.curClientPort), \
+                "Port used by a remote"
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "

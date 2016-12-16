@@ -96,8 +96,9 @@ def run():
         totalErros += errors
         totalSkipped += skipped
 
-    log('Total {} passed, {} failed, {} errors, {} skipped'.
-        format(totalPassed, totalFailed, totalErros, totalSkipped))
+    summaryMsg = 'Total {} passed, {} failed, {} errors, {} skipped'.\
+        format(totalPassed, totalFailed, totalErros, totalSkipped)
+    log(summaryMsg)
 
     if totalFailed:
         log("Failed tests:")
@@ -112,6 +113,7 @@ def run():
     if failureData:
         log("Writing failure data in Test-Report.txt")
         with open('../Test-Report.txt', 'w') as f:
+            f.write(summaryMsg)
             f.write(''.join(failureData))
 
     if os.path.exists(testRep):
