@@ -34,6 +34,7 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+from plenum.server.notifier_plugin_manager import PluginManager
 
 logger = getlogger()
 
@@ -508,3 +509,12 @@ def postingStatsEnabled(request):
     #    config.SendMonitorStats = False
 
     # request.addfinalizer(reset)
+
+
+@pytest.fixture
+def pluginManager():
+    pluginManager = PluginManager()
+    assert hasattr(pluginManager, 'prefix')
+    assert hasattr(pluginManager, 'sendMessage')
+    assert hasattr(pluginManager, 'findPlugins')
+    return pluginManager
