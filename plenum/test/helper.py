@@ -4,6 +4,7 @@ from itertools import permutations
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
+import string
 
 from raet.raeting import TrnsKind, PcktKind
 
@@ -476,3 +477,7 @@ def clientSendMessageAndRemove(client, looper, wallet, tries=None):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1, tries)
     assert len(client.inBox) > clientInboxSize
     looper.removeProdable(client)
+
+
+def randomText(size):
+    return ''.join(random.choice(string.ascii_letters) for _ in range(size))
