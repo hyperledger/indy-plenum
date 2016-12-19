@@ -86,3 +86,41 @@ def testPluginManagerSendMessageUponSuspiciousSpike(pluginManagerWithImportedMod
         .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)
     assert sent == 3
 
+
+def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
+    def mockProcessRequest(obj, inc=1):
+        obj.nodeRequestSpikeMonitorData['accum'] += inc
+    testNode.config.notifierEventTriggeringConfig['nodeRequestSpike'] = {
+        'coefficient': 3,
+        'minCnt': 1
+    }
+    mockProcessRequest(testNode)
+    assert testNode.sendNodeRequestSpike() is None
+    mockProcessRequest(testNode, 2)
+    assert testNode.sendNodeRequestSpike() is None
+    mockProcessRequest(testNode, 10)
+    sent, found = testNode.sendNodeRequestSpike()
+    assert sent == 3
+
+
+def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
+                                          testNode, monkeypatch):
+    throughput = 1
+
+    def mockGetThroughput(*args):
+        nonlocal throughput
+        return throughput
+
+    monkeypatch.setattr(testNode.monitor, 'getThroughput', mockGetThroughput)
+    testNode.monitor.notifierEventTriggeringConfig['clusterThroughputSpike'] = {
+        'coefficient': 3,
+        'minCnt': 1
+    }
+    assert testNode.monitor.sendClusterThroughputSpike() is None
+    throughput = 2
+    assert testNode.monitor.sendClusterThroughputSpike() is None
+    throughput = 4.5
+    sent, found = testNode.monitor.sendClusterThroughputSpike()
+    assert sent == 3
+
+

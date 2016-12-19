@@ -7,6 +7,7 @@ from functools import partial
 from typing import Dict, Any
 import importlib
 import pip.utils as utils
+from copy import copy
 
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -542,3 +543,13 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
     yield pluginManager
     monkeypatch.undo()
     pluginManager.importPlugins()
+
+
+@pytest.fixture
+def testNode(tdir):
+    name = randomText(20)
+    nodeReg = genNodeReg(names=[name])
+    ha, cliname, cliha = nodeReg[name]
+    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+                    nodeRegistry=copy(nodeReg), basedirpath=tdir,
+                    primaryDecider=None, pluginPaths=None)

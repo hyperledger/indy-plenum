@@ -44,7 +44,7 @@ class PluginManager:
             val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
         historicalData['cnt'] += 1
 
-        if historicalData['cnt'] < minCnt:
+        if cnt < minCnt:
             logger.debug('Not enough data to detect a {} spike'.format(event))
             return None
 
