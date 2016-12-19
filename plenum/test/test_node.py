@@ -75,8 +75,13 @@ class TestNodeCore(StackedTester):
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
         self.instances = Instances()
 
+        self.nodeInfo = {
+            'data': {}
+        }
+
         pluginPaths = kwargs.get('pluginPaths', [])
         self.monitor = TestMonitor(self.name, d, l, o, self.instances, MockedNodeStack(), MockedBlacklister(),
+                                   nodeInfo = self.nodeInfo,
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
@@ -379,10 +384,23 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput])
+                  Monitor.sendThroughput,
+                  Monitor.requestOrdered,
+                  Monitor.reset])
 class TestMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.masterReqLatenciesTest = {}
+
+    def requestOrdered(self, identifier: str, reqId: int, instId: int,
+                       byMaster: bool = False):
+        duration = super().requestOrdered(identifier, reqId, instId, byMaster)
+        if byMaster and duration is not None:
+            self.masterReqLatenciesTest[(identifier, reqId)] = duration
+
+    def reset(self):
+        super().reset()
+        self.masterReqLatenciesTest = {}
 
 
 class Pool:

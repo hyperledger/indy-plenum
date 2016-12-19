@@ -13,7 +13,7 @@ def svc(stacks):
             stack.store.advanceStamp(0.1)
         if all([not stack.transactions for stack in stacks]):
             break
-        time.sleep(0.1)
+        time.sleep(.1)
 
 
 def cleanup(*stacks):

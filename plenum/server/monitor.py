@@ -1,14 +1,17 @@
 import time
 from datetime import datetime
 from statistics import mean
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 from typing import List
 from typing import Tuple
+
+import psutil
 
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
-    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS
+    EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
+    EVENT_PERIODIC_STATS_NODE_INFO, EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
 from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
 from plenum.common.config_util import getConfig
@@ -32,11 +35,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack: NodeStack,
-                 blacklister: Blacklister, pluginPaths: Iterable[str]=None):
+                 blacklister: Blacklister, nodeInfo: Dict, pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
+        self.nodeInfo = nodeInfo
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -59,6 +63,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # dictionary is a tuple of client id and request id and the value is
         # the time the master instance took for ordering it
         self.masterReqLatencies = {}  # type: Dict[Tuple[str, int], float]
+
+        # Indicates that request latency in previous snapshot of master req
+        # latencies was too high
+        self.masterReqLatencyTooHigh = False
 
         # Request latency(time taken to be ordered) for the client. The value
         # at index `i` in the list is the dictionary where the key of the
@@ -92,6 +100,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        psutil.cpu_percent(interval=None)
+        self.lastKnownTraffic = self.calculateTraffic()
+
         self.totalViewChanges = 0
         self._lastPostedViewChange = 0
         HasActionQueue.__init__(self)
@@ -118,7 +129,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
              {i: r[0] for i, r in enumerate(self.numOrderedRequests)}),
             ("ordered request durations",
              {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
-            ("request ordering started", self.requestOrderingStarted),
             ("master request latencies", self.masterReqLatencies),
             ("client avg request latencies", self.clientAvgReqLatencies),
             ("throughput", {i: self.getThroughput(i)
@@ -137,6 +147,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         rendered = ["{}: {}".format(*m) for m in self.metrics()]
         return "\n            ".join(rendered)
 
+    def calculateTraffic(self):
+        currNetwork = psutil.net_io_counters()
+        currNetwork = currNetwork.bytes_sent + currNetwork.bytes_recv
+        currNetwork /= 1024
+        return currNetwork
+
     def reset(self):
         """
         Reset the monitor. Sets all monitored values to defaults.
@@ -145,8 +161,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
+        self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
         self.totalViewChanges += 1
+        self.lastKnownTraffic = self.calculateTraffic()
 
     def addInstance(self):
         """
@@ -157,9 +175,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.clientAvgReqLatencies.append({})
 
     def requestOrdered(self, identifier: str, reqId: int, instId: int,
-                       byMaster: bool = False):
+                       byMaster: bool = False) -> Optional[float]:
         """
-        Measure the time taken for ordering of a request
+        Measure the time taken for ordering of a request and return it. Monitor
+        might have been reset due to view change due to which this method
+        returns None
         """
         if (identifier, reqId) not in self.requestOrderingStarted:
             logger.debug("Got ordered request with identifier {} and reqId {} "
@@ -167,8 +187,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                           format(identifier, reqId))
             return
         now = time.perf_counter()
-        duration = now - self.requestOrderingStarted[
-            (identifier, reqId)]
+        duration = now - self.requestOrderingStarted[(identifier, reqId)]
         reqs, tm = self.numOrderedRequests[instId]
         self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
         if byMaster:
@@ -196,6 +215,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             self.postOnReqOrdered()
             if 0 == reqs:
                 self.postOnNodeStarted(self.started)
+        return duration
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
@@ -248,7 +268,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the request latency of the master instance is greater
         than the acceptable threshold
         """
-        r = any([lat > self.Lambda for lat
+        r = self.masterReqLatencyTooHigh or any([lat > self.Lambda for lat
                  in self.masterReqLatencies.values()])
         if r:
             logger.debug("{} found master's latency to be higher than the "
@@ -362,6 +382,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendThroughput()
         self.sendLatencies()
         self.sendKnownNodesInfo()
+        self.sendNodeInfo()
+        self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
@@ -437,6 +459,14 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         logger.debug("{} sending nodestack".format(self))
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODES, remotesInfo(self.nodestack, self.blacklister))
 
+    def sendSystemPerfomanceInfo(self):
+        logger.debug("{} sending system performance".format(self))
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO, self.captureSystemPerformance())
+
+    def sendNodeInfo(self):
+        logger.debug("{} sending node info".format(self))
+        self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_NODE_INFO, self.nodeInfo['data'])
+
     def sendTotalRequests(self):
         logger.debug("{} sending total requests".format(self))
 
@@ -445,6 +475,32 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         )
 
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_TOTAL_REQUESTS, totalRequests)
+
+    def captureSystemPerformance(self):
+        logger.debug("{} capturing system performance".format(self))
+        timestamp = time.time()
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory()
+        curr_network = self.calculateTraffic()
+        network = curr_network - self.lastKnownTraffic
+        self.lastKnownTraffic = curr_network
+        cpu_data = {
+            'time': timestamp,
+            'value': cpu
+        }
+        ram_data = {
+            'time': timestamp,
+            'value': ram.percent
+        }
+        traffic_data = {
+            'time': timestamp,
+            'value': network
+        }
+        return {
+            'cpu': cpu_data,
+            'ram': ram_data,
+            'traffic': traffic_data
+        }
 
     def postOnReqOrdered(self):
         utcTime = datetime.utcnow()
@@ -465,6 +521,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         reqOrderedEventDict["time"] = jsTime
         reqOrderedEventDict["hasMasterPrimary"] = "Y" if self.hasMasterPrimary else "N"
         self._sendStatsDataIfRequired(EVENT_REQ_ORDERED, reqOrderedEventDict)
+        self._clearSnapshot()
 
     def postOnNodeStarted(self, startedAt):
         throughputData = {
@@ -478,6 +535,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             "throughputConfig": throughputData
         }
         self._sendStatsDataIfRequired(EVENT_NODE_STARTED, startedEventDict)
+
+    def _clearSnapshot(self):
+        self.masterReqLatencyTooHigh = self.isMasterReqLatencyTooHigh()
+        self.masterReqLatencies = {}
 
     def _sendStatsDataIfRequired(self, event, stats):
         if config.SendMonitorStats:
