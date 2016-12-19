@@ -1,10 +1,8 @@
-import os
 import asyncio
 import inspect
 import itertools
 import json
 import logging
-import shutil
 import math
 import random
 import socket
@@ -22,8 +20,6 @@ import libnacl.secret
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
-from plenum.common.constants import ENVS
-from plenum.common.txn import TYPE, CHANGE_HA, TARGET_NYM, IDENTIFIER, DATA
 from ledger.util import F
 from plenum.common.error import error
 
@@ -253,12 +249,12 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
     return connmap
 
 
-def checkPortAvailable(ha) -> bool:
+def checkPortAvailable(ha):
     """Checks whether the given port is available"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
-    except Exception as ex:
+    except BaseException as ex:
         logging.warning("Checked port availability for opening "
                         "and address was already in use: {}".format(ha))
         raise ex
@@ -520,40 +516,6 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
 def randomSeed(size=32):
     return ''.join(random.choice(string.hexdigits)
                    for _ in range(size)).encode()
-
-
-def updateMasterPoolTxnFile(baseDir, txn):
-    if txn[TYPE] != CHANGE_HA:
-        return
-
-    dest = txn[TARGET_NYM]
-    idr = txn[IDENTIFIER]
-    data = txn[DATA]
-    clientIp = data['client_ip']
-    clientPort = data['client_port']
-    nodeIp = data['node_ip']
-    nodePort = data['node_port']
-    for name, env in ENVS.items():
-        poolLedgerPath = os.path.join(baseDir, env.poolLedger)
-        if os.path.exists(poolLedgerPath):
-            with open(poolLedgerPath) as f:
-                poolLedgerTmpPath = os.path.join(
-                    baseDir, env.poolLedger + randomString(6))
-                with open(poolLedgerTmpPath, 'w') as tmpFile:
-                    for line in f:
-                        poolTxn = json.loads(line)
-                        poolTxnDest = poolTxn[TARGET_NYM]
-                        poolTxnIdentifier = poolTxn[IDENTIFIER]
-                        if poolTxnDest == dest and poolTxnIdentifier == idr:
-                            poolTxnData = poolTxn[DATA]
-                            poolTxnData['client_ip'] = clientIp
-                            poolTxnData['client_port'] = int(clientPort)
-                            poolTxnData['node_ip'] = nodeIp
-                            poolTxnData['node_port'] = int(nodePort)
-                        tmpFile.write(json.dumps(poolTxn) + "\n")
-
-                shutil.copy2(poolLedgerTmpPath, poolLedgerPath)
-                os.remove(poolLedgerTmpPath)
 
 
 def lxor(a, b):

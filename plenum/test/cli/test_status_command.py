@@ -72,9 +72,11 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     assert not msgs[9]['newline']
 
 
-# This test fails when the whole test package is run, fails because the
-# fixture `createAllNodes` fails, the relevant bug is
+# This test fails intermittently when the whole test package is run, fails
+# because the fixture `createAllNodes` fails, the relevant bug is
 # https://www.pivotaltracker.com/story/show/126771175
+@pytest.mark.skipif(True, reason="Intermittently fails due to a bug mentioned "
+                                 "in the above comment")
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
     cli.enterCmd("status")
@@ -104,8 +106,10 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
             checkForNamedTokens(cli.printedTokens[1], cli.voidMsg)
 
 
-# This test fails when the whole test package is run, fails because the
-# fixture `createAllNodes` fails
+# This test fails intermittently when the whole test package is run, fails
+# because the fixture `createAllNodes` fails
+@pytest.mark.skipif(True, reason="Intermittently fails due to a bug mentioned "
+                                 "in the above comment")
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))

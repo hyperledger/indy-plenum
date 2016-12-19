@@ -6,7 +6,8 @@ from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, NEW_NODE, ALIAS, DATA, CHANGE_HA, \
     CHANGE_KEYS
 from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f
-from plenum.common.util import getMaxFailures, updateMasterPoolTxnFile
+from plenum.common.util import getMaxFailures
+from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.log import getlogger
 
 logger = getlogger()
@@ -48,7 +49,15 @@ class HasPoolManager(TxnStackManager):
                              for t in self.tempNodeTxns[seqNo].values()]
                         ).items() if count > f]
                 if len(txns) > 0:
-                    self.addToLedger(json.loads(txns[0]))
+                    txn = json.loads(txns[0])
+                    self.addToLedger(txn)
+                    if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
+                        # Adding sequence number field since needed for safely
+                        # updating genesis file
+                        txn[F.seqNo.name] = len(self.ledger)
+                        updateGenesisPoolTxnFile(self.config.baseDir,
+                                                 self.config.poolTransactionsFile,
+                                                 txn)
                     self.tempNodeTxns.pop(seqNo)
                 else:
                     logger.error("{} has not got enough similar node "
@@ -65,14 +74,13 @@ class HasPoolManager(TxnStackManager):
         elif typ == CHANGE_HA:
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
             self.stackHaChanged(txn, remoteName, self)
-            updateMasterPoolTxnFile(self.config.baseDir, txn)
         elif typ == CHANGE_KEYS:
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
             self.stackKeysChanged(txn, remoteName, self)
         else:
             logger.error("{} received unknown txn type {} in txn {}"
                          .format(self.name, typ, txn))
-            pass
+            return
 
     # noinspection PyUnresolvedReferences
     @property
