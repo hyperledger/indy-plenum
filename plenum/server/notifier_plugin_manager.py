@@ -1,5 +1,7 @@
 import pip
 import importlib
+from typing import Dict
+import time
 
 from plenum.common.log import getlogger
 
@@ -27,25 +29,50 @@ class PluginManager:
         self.plugins = []
         self.importPlugins()
 
+    def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
+                                       newVal: float, minCnt: int):
+        val = historicalData['value']
+        cnt = historicalData['cnt']
+        historicalData['value'] = \
+            val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
+        historicalData['cnt'] += 1
+
+        if historicalData[
+            'cnt'] < minCnt:
+            logger.debug('Not enough data to detect a {} spike'.format(event))
+            return
+
+        return self._sendMessage(
+            event,
+            '{} suspicious spike has been noticed at {}. Usual thoughput: {}. New throughput: {}.'
+                .format(event, time.time(), val, newVal)
+        )
+
     def importPlugins(self):
-        plugins = self.findPlugins()
+        plugins = self._findPlugins()
+        i = 0
         for plugin in plugins:
             try:
                 module = importlib.import_module(plugin)
                 self.plugins.append(module)
+                i += 1
             except Exception as e:
                 logger.error('Importing module {} failed due to {}'
                              .format(plugin, e))
+        return i, len(plugins)
 
-    def sendMessage(self, topic, message):
+    def _sendMessage(self, topic, message):
+        i = 0
         for plugin in self.plugins:
             try:
-                plugin.sendMessage(topic, message)
+                plugin.send_message(topic, message)
+                i += 1
             except Exception as e:
                 logger.error('Sending message failed for plugin {} due to {}'
-                             .format(plugin.name, e))
+                             .format(plugin.__name__, e))
+        return i, len(self.plugins)
 
-    def findPlugins(self):
+    def _findPlugins(self):
         return [pkg.key
                 for pkg in pip.utils.get_installed_distributions()
                 if pkg.key.startswith(PluginManager.prefix)]

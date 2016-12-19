@@ -481,3 +481,18 @@ def clientSendMessageAndRemove(client, looper, wallet, tries=None):
 
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
+
+
+def mockGetInstalledDistributions(packages):
+    ret = []
+    for pkg in packages:
+        obj = type('', (), {})()
+        obj.key = pkg
+        ret.append(obj)
+    return ret
+
+
+def mockImportModule(moduleName):
+    obj = type(moduleName, (), {})()
+    obj.send_message = lambda *args: None
+    return obj

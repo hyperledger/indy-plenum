@@ -5,6 +5,8 @@ import logging
 import os
 from functools import partial
 from typing import Dict, Any
+import importlib
+import pip.utils as utils
 
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -27,7 +29,8 @@ from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode, \
+    randomText, mockGetInstalledDistributions, mockImportModule
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
@@ -515,6 +518,27 @@ def postingStatsEnabled(request):
 def pluginManager():
     pluginManager = PluginManager()
     assert hasattr(pluginManager, 'prefix')
-    assert hasattr(pluginManager, 'sendMessage')
-    assert hasattr(pluginManager, 'findPlugins')
+    assert hasattr(pluginManager, '_sendMessage')
+    assert hasattr(pluginManager, '_findPlugins')
     return pluginManager
+
+
+@pytest.fixture
+def pluginManagerWithImportedModules(pluginManager, monkeypatch):
+    monkeypatch.setattr(utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=[]))
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    imported, found = pluginManager.importPlugins()
+    assert imported == 0
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
+    yield pluginManager
+    monkeypatch.undo()
+    pluginManager.importPlugins()

@@ -75,7 +75,9 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.notifier_plugin_manager import PluginManager, notifierPluginTriggerEvents
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
+
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -200,7 +202,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
             'value': 0,
-            'cnt': 0
+            'cnt': 0,
+            'accum': 0
         }
 
         # TODO: Create a RecurringCaller that takes a method to call after
@@ -1219,6 +1222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug("{} received client request: {} from {}".
                      format(self.name, request, frm))
+        self.nodeRequestSpikeMonitorData['accum'] += 1
 
         # TODO: What if client sends requests with same request id quickly so
         # before reply for one is generated, the other comes. In that
@@ -1406,22 +1410,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return True
 
     def sendNodeRequestSpike(self):
-        requests = 0
-        val = self.nodeRequestSpikeMonitorData['value']
-        cnt = self.nodeRequestSpikeMonitorData['cnt']
-        self.nodeRequestSpikeMonitorData['value'] = \
-            val * (cnt / (cnt + 1)) + requests / (cnt + 1)
-        self.nodeRequestSpikeMonitorData['cnt'] += 1
-
-        if self.nodeRequestSpikeMonitorData['cnt'] < \
-                self.config.notifierEventTriggeringConfig['nodeRequestSpike']['minCnt']:
-            logger.debug('Not enough data to detect a request spike')
-            return
-
-        pluginManager.sendMessage(
+        requests = self.nodeRequestSpikeMonitorData['accum']
+        self.nodeRequestSpikeMonitorData['accum'] = 0
+        return pluginManager.sendMessageUponSuspiciousSpike(
             notifierPluginTriggerEvents['nodeRequestSpike'],
-            'Node request suspicious spike has been noticed at {}. Usual amount of requests: {}. New amount of nodeRequestSpike: {}.'
-            .format(time.time(), val, requests)
+            self.nodeRequestSpikeMonitorData,
+            requests,
+            self.config.notifierEventTriggeringConfig['nodeRequestSpike']['minCnt']
         )
 
     def sendInstanceChange(self, viewNo: int):

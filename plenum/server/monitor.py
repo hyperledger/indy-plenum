@@ -19,7 +19,9 @@ from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
-from plenum.server.notifier_plugin_manager import PluginManager, notifierPluginTriggerEvents
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
+
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -404,21 +406,17 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     def sendClusterThroughputSpike(self):
-        throughput = 0
-        val = self.clusterThroughputSpikeMonitorData['value']
-        cnt = self.clusterThroughputSpikeMonitorData['cnt']
-        self.clusterThroughputSpikeMonitorData['value'] = \
-            val * (cnt / (cnt + 1)) + throughput / (cnt + 1)
-        self.clusterThroughputSpikeMonitorData['cnt'] += 1
-
-        if self.clusterThroughputSpikeMonitorData['cnt'] < self.clusterThroughputSpikeMinCnt:
-            logger.debug('Not enough data to detect a throughput spike')
-            return
-
-        pluginManager.sendMessage(
+        if self.instances.masterId is None:
+            return None
+        throughput = self.getThroughput(self.instances.masterId)
+        if throughput is None:
+            logger.error('Throughput can\'t be measured')
+            return None
+        return pluginManager.sendMessageUponSuspiciousSpike(
             notifierPluginTriggerEvents['clusterThroughputSpike'],
-            'Cluster throughput suspicious spike has been noticed at {}. Usual thoughput: {}. New throughput: {}.'
-            .format(time.time(), val, throughput)
+            self.clusterThroughputSpikeMonitorData,
+            throughput,
+            self.clusterThroughputSpikeMinCnt
         )
 
     @property
