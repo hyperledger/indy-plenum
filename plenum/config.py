@@ -69,6 +69,16 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
+notifierEventTriggeringConfig = {
+    'clusterThroughputSpike': {
+        'coefficient': 3,
+        'minCnt': 100
+    },
+    'nodeRequestSpike': {
+        'coefficient': 3,
+        'minCnt': 100
+    }
+}
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'

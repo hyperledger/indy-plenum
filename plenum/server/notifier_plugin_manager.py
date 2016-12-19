@@ -6,6 +6,14 @@ from plenum.common.log import getlogger
 logger = getlogger()
 
 
+notifierPluginTriggerEvents = {
+    'nodeRequestSpike': 'NodeRequestSuspiciousSpike',
+    'clusterThroughputSpike': 'ClusterThroughputSuspiciousSpike',
+    # TODO: Implement clusterLatencyTooHigh event triggering
+    'clusterLatencyTooHigh': 'ClusterLatencyTooHigh'
+}
+
+
 class PluginManager:
     prefix = 'sovrinnotifier'
     __instance = None

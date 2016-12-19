@@ -75,7 +75,9 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.notifier_plugin_manager import PluginManager, notifierPluginTriggerEvents
 
+pluginManager = PluginManager()
 logger = getlogger()
 
 
@@ -196,6 +198,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
+        self.nodeRequestSpikeMonitorData = {
+            'value': 0,
+            'cnt': 0
+        }
 
         # TODO: Create a RecurringCaller that takes a method to call after
         # every `n` seconds, also support start and stop methods
@@ -222,6 +228,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                nodestack=self.nodestack,
                                blacklister=self.nodeBlacklister,
                                nodeInfo=self.nodeInfo,
+                               notifierEventTriggeringConfig=self.
+                               config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
         # BE CAREFUL HERE
@@ -1388,6 +1396,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         if self.instances.masterId is not None:
+            self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
                 self.sendInstanceChange(self.viewNo+1)
                 return False
@@ -1395,6 +1404,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug("{}s master has higher performance than backups".
                              format(self))
         return True
+
+    def sendNodeRequestSpike(self):
+        requests = 0
+        val = self.nodeRequestSpikeMonitorData['value']
+        cnt = self.nodeRequestSpikeMonitorData['cnt']
+        self.nodeRequestSpikeMonitorData['value'] = \
+            val * (cnt / (cnt + 1)) + requests / (cnt + 1)
+        self.nodeRequestSpikeMonitorData['cnt'] += 1
+
+        if self.nodeRequestSpikeMonitorData['cnt'] < \
+                self.config.notifierEventTriggeringConfig['nodeRequestSpike']['minCnt']:
+            logger.debug('Not enough data to detect a request spike')
+            return
+
+        pluginManager.sendMessage(
+            notifierPluginTriggerEvents['nodeRequestSpike'],
+            'Node request suspicious spike has been noticed at {}. Usual amount of requests: {}. New amount of nodeRequestSpike: {}.'
+            .format(time.time(), val, requests)
+        )
 
     def sendInstanceChange(self, viewNo: int):
         """
