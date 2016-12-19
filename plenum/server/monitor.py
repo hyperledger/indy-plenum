@@ -108,10 +108,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.latenciesByBackupsInLast = {}
 
         # Monitoring suspicious spikes in cluster throughput
-        self.clusterThroughputSpikeCoefficient = \
-            self.notifierEventTriggeringConfig['clusterThroughputSpike']['coefficient']
-        self.clusterThroughputSpikeMinCnt = \
-            self.notifierEventTriggeringConfig['clusterThroughputSpike']['minCnt']
         self.clusterThroughputSpikeMonitorData = {
             'value': 0,
             'cnt': 0
@@ -416,7 +412,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             notifierPluginTriggerEvents['clusterThroughputSpike'],
             self.clusterThroughputSpikeMonitorData,
             throughput,
-            self.clusterThroughputSpikeMinCnt
+            self.notifierEventTriggeringConfig['clusterThroughputSpike']
         )
 
     @property

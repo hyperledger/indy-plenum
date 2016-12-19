@@ -30,23 +30,32 @@ class PluginManager:
         self.importPlugins()
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
-                                       newVal: float, minCnt: int):
+                                       newVal: float, config: Dict):
+        assert 'value' in historicalData
+        assert 'cnt' in historicalData
+        assert 'minCnt' in config
+        assert 'coefficient' in config
+
+        coefficient = config['coefficient']
+        minCnt = config['minCnt']
         val = historicalData['value']
         cnt = historicalData['cnt']
         historicalData['value'] = \
             val * (cnt / (cnt + 1)) + newVal / (cnt + 1)
         historicalData['cnt'] += 1
 
-        if historicalData[
-            'cnt'] < minCnt:
+        if historicalData['cnt'] < minCnt:
             logger.debug('Not enough data to detect a {} spike'.format(event))
-            return
+            return None
 
-        return self._sendMessage(
-            event,
-            '{} suspicious spike has been noticed at {}. Usual thoughput: {}. New throughput: {}.'
-                .format(event, time.time(), val, newVal)
-        )
+        if (val / coefficient) < newVal < (val * coefficient):
+            logger.debug('New value is within bounds')
+            return None
+
+        message = '{} suspicious spike has been noticed at {}. Usual thoughput: {}. New throughput: {}.'\
+            .format(event, time.time(), val, newVal)
+        logger.warning(message)
+        return self._sendMessage(event, message)
 
     def importPlugins(self):
         plugins = self._findPlugins()

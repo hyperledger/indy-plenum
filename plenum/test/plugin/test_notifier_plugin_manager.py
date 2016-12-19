@@ -38,3 +38,51 @@ def testPluginManagerSendsMessage(pluginManagerWithImportedModules):
         ._sendMessage(topic, message)
     assert sent == 3
 
+
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    historicalData = {
+        'value': 0,
+        'cnt': 0
+    }
+    newVal = 10
+    config = {
+        'coefficient': 2,
+        'minCnt': 10
+    }
+    assert pluginManagerWithImportedModules\
+        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)\
+           is None
+
+
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    historicalData = {
+        'value': 10,
+        'cnt': 10
+    }
+    newVal = 15
+    config = {
+        'coefficient': 2,
+        'minCnt': 10
+    }
+    assert pluginManagerWithImportedModules\
+        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)\
+           is None
+
+
+def testPluginManagerSendMessageUponSuspiciousSpike(pluginManagerWithImportedModules):
+    topic = randomText(10)
+    historicalData = {
+        'value': 10,
+        'cnt': 10
+    }
+    newVal = 20
+    config = {
+        'coefficient': 2,
+        'minCnt': 10
+    }
+    sent, found = pluginManagerWithImportedModules\
+        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)
+    assert sent == 3
+
