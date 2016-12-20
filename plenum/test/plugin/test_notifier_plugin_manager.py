@@ -41,6 +41,7 @@ def testPluginManagerSendsMessage(pluginManagerWithImportedModules):
 
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(pluginManagerWithImportedModules):
     topic = randomText(10)
+    name = randomText(10)
     historicalData = {
         'value': 0,
         'cnt': 0
@@ -51,12 +52,13 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(pluginManagerWi
         'minCnt': 10
     }
     assert pluginManagerWithImportedModules\
-        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)\
-           is None
+        .sendMessageUponSuspiciousSpike(topic, historicalData,
+                                        newVal, config, name)is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(pluginManagerWithImportedModules):
     topic = randomText(10)
+    name = randomText(10)
     historicalData = {
         'value': 10,
         'cnt': 10
@@ -67,12 +69,13 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(pluginMana
         'minCnt': 10
     }
     assert pluginManagerWithImportedModules\
-        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)\
-           is None
+        .sendMessageUponSuspiciousSpike(topic, historicalData,
+                                        newVal, config, name) is None
 
 
 def testPluginManagerSendMessageUponSuspiciousSpike(pluginManagerWithImportedModules):
     topic = randomText(10)
+    name = randomText(10)
     historicalData = {
         'value': 10,
         'cnt': 10
@@ -83,7 +86,8 @@ def testPluginManagerSendMessageUponSuspiciousSpike(pluginManagerWithImportedMod
         'minCnt': 10
     }
     sent, found = pluginManagerWithImportedModules\
-        .sendMessageUponSuspiciousSpike(topic, historicalData, newVal, config)
+        .sendMessageUponSuspiciousSpike(topic, historicalData,
+                                        newVal, config, name)
     assert sent == 3
 
 

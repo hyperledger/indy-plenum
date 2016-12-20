@@ -1416,7 +1416,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             notifierPluginTriggerEvents['nodeRequestSpike'],
             self.nodeRequestSpikeMonitorData,
             requests,
-            self.config.notifierEventTriggeringConfig['nodeRequestSpike']
+            self.config.notifierEventTriggeringConfig['nodeRequestSpike'],
+            self.name
         )
 
     def sendInstanceChange(self, viewNo: int):
