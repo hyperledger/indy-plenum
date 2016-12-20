@@ -19,7 +19,11 @@ from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
 
+
+pluginManager = PluginManager()
 logger = getlogger()
 config = getConfig()
 
@@ -35,12 +39,15 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack: NodeStack,
-                 blacklister: Blacklister, nodeInfo: Dict, pluginPaths: Iterable[str]=None):
+                 blacklister: Blacklister, nodeInfo: Dict,
+                 notifierEventTriggeringConfig: Dict,
+                 pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
         self.nodeInfo = nodeInfo
+        self.notifierEventTriggeringConfig = notifierEventTriggeringConfig
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -99,6 +106,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # defined in config. Dictionary where key corresponds to instance id and
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
+
+        # Monitoring suspicious spikes in cluster throughput
+        self.clusterThroughputSpikeMonitorData = {
+            'value': 0,
+            'cnt': 0
+        }
 
         psutil.cpu_percent(interval=None)
         self.lastKnownTraffic = self.calculateTraffic()
@@ -385,7 +398,22 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
+        self.sendClusterThroughputSpike()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    def sendClusterThroughputSpike(self):
+        if self.instances.masterId is None:
+            return None
+        throughput = self.getThroughput(self.instances.masterId)
+        if throughput is None:
+            logger.warning('Throughput can\'t be measured')
+            return None
+        return pluginManager.sendMessageUponSuspiciousSpike(
+            notifierPluginTriggerEvents['clusterThroughputSpike'],
+            self.clusterThroughputSpikeMonitorData,
+            throughput,
+            self.notifierEventTriggeringConfig['clusterThroughputSpike']
+        )
 
     @property
     def highResThroughput(self):

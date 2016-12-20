@@ -73,6 +73,7 @@ class TestNodeCore(StackedTester):
 
         # Reinitialize the monitor
         d, l, o = self.monitor.Delta, self.monitor.Lambda, self.monitor.Omega
+        notifierEventTriggeringConfig = self.monitor.notifierEventTriggeringConfig
         self.instances = Instances()
 
         self.nodeInfo = {
@@ -80,8 +81,10 @@ class TestNodeCore(StackedTester):
         }
 
         pluginPaths = kwargs.get('pluginPaths', [])
-        self.monitor = TestMonitor(self.name, d, l, o, self.instances, MockedNodeStack(), MockedBlacklister(),
-                                   nodeInfo = self.nodeInfo,
+        self.monitor = TestMonitor(self.name, d, l, o, self.instances,
+                                   MockedNodeStack(), MockedBlacklister(),
+                                   nodeInfo=self.nodeInfo,
+                                   notifierEventTriggeringConfig=notifierEventTriggeringConfig,
                                    pluginPaths=pluginPaths)
         for i in range(len(self.replicas)):
             self.monitor.addInstance()
