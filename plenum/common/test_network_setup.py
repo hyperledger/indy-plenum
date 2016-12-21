@@ -39,11 +39,11 @@ class TestNetworkSetup:
 
     @staticmethod
     def bootstrapTestNodesCore(baseDir,
-                           poolTransactionsFile,
-                           domainTransactionsFile,
-                           domainTxnFieldOrder,
-                           ips, nodeCount, clientCount,
-                           nodeNum, startingPort):
+                               poolTransactionsFile,
+                               domainTransactionsFile,
+                               domainTxnFieldOrder,
+                               ips, nodeCount, clientCount,
+                               nodeNum, startingPort):
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
         else:
@@ -52,7 +52,7 @@ class TestNetworkSetup:
                 if len(ips) > nodeCount:
                     ips = ips[:nodeCount]
                 else:
-                    ips = ips + ['127.0.0.1'] * (nodeCount - len(ips))
+                    ips += ['127.0.0.1'] * (nodeCount - len(ips))
 
         poolLedger = Ledger(CompactMerkleTree(),
                             dataDir=baseDir,
@@ -144,9 +144,9 @@ class TestNetworkSetup:
                                  'should be less than 20')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
-        parser.add_argument('--nodeNum', required=True, type=int,
-                            help='the number '
-                                 'of the node that will run on this machine')
+        parser.add_argument('--nodeNum', type=int,
+                            help='the number of the node that will '
+                                 'run on this machine')
         parser.add_argument('--ips',
                             help='IPs of the nodes, provide comma separated'
                                  ' IPs, if no of IPs provided are less than '
@@ -156,18 +156,25 @@ class TestNetworkSetup:
                             type=str)
 
         args = parser.parse_args()
-        nodeCount = min(args.nodes, 20)
+        if args.nodes > 20:
+            print("Cannot run {} nodes for testing purposes as of now. "
+                  "This is not a problem with the protocol but some placeholder"
+                  " rules we put in place which will be replaced by our "
+                  "Governance model. Going to run only 20".format(args.nodes))
+            nodeCount = 20
+        else:
+            nodeCount = args.nodes
         clientCount = args.clients
         nodeNum = args.nodeNum
         ips = args.ips
 
-        assert nodeNum <= nodeCount, "nodeNum should be less than equal to " \
-                                     "nodeCount"
+        if nodeNum:
+            assert nodeNum <= nodeCount, "nodeNum should be less than equal " \
+                                         "to nodeCount"
 
         TestNetworkSetup.bootstrapTestNodesCore(baseDir,
-                               poolTransactionsFile,
-                               domainTransactionsFile,
-                               domainTxnFieldOrder,
-                               ips, nodeCount, clientCount,
-                               nodeNum, startingPort)
-
+                                                poolTransactionsFile,
+                                                domainTransactionsFile,
+                                                domainTxnFieldOrder,
+                                                ips, nodeCount, clientCount,
+                                                nodeNum, startingPort)
