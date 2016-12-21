@@ -30,7 +30,7 @@ class PluginManager:
         self.importPlugins()
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
-                                       newVal: float, config: Dict):
+                                       newVal: float, config: Dict, nodeName: str):
         assert 'value' in historicalData
         assert 'cnt' in historicalData
         assert 'minCnt' in config
@@ -52,8 +52,8 @@ class PluginManager:
             logger.debug('New value is within bounds')
             return None
 
-        message = '{} suspicious spike has been noticed at {}. Usual thoughput: {}. New throughput: {}.'\
-            .format(event, time.time(), val, newVal)
+        message = '{} suspicious spike has been noticed on node {} at {}. Usual thoughput: {}. New throughput: {}.'\
+            .format(event, nodeName, time.time(), val, newVal)
         logger.warning(message)
         return self._sendMessage(event, message)
 

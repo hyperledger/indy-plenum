@@ -412,7 +412,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             notifierPluginTriggerEvents['clusterThroughputSpike'],
             self.clusterThroughputSpikeMonitorData,
             throughput,
-            self.notifierEventTriggeringConfig['clusterThroughputSpike']
+            self.notifierEventTriggeringConfig['clusterThroughputSpike'],
+            self.name
         )
 
     @property
