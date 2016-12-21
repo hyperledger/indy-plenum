@@ -406,7 +406,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             return None
         throughput = self.getThroughput(self.instances.masterId)
         if throughput is None:
-            logger.warning('Throughput can\'t be measured')
+            logger.debug('Throughput can\'t be measured')
             return None
         return pluginManager.sendMessageUponSuspiciousSpike(
             notifierPluginTriggerEvents['clusterThroughputSpike'],

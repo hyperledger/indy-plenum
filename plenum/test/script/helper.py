@@ -99,4 +99,3 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
                           stewardClient, anotherClient, retryWait=1,
                           timeout=10))
-    looper.removeProdable(stewardClient)

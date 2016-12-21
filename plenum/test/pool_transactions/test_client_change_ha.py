@@ -26,6 +26,7 @@ def testClientReconnectUsingDifferentHa(looper, txnPoolNodeSet,
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet)
     basedirpath = client.basedirpath
+    client.stop()
     looper.removeProdable(client)
 
     # Removing RAET keep directory otherwise the client will use the same port
