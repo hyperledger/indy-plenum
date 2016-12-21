@@ -2,7 +2,7 @@ from typing import Dict, Tuple
 
 from copy import deepcopy
 from ledger.util import F
-from plenum.common.util import updateMasterPoolTxnFile
+from plenum.common.txn_util import updateGenesisPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
@@ -136,13 +136,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NEW_NODE:
             self.addNewNodeAndConnect(txn)
-            return
         if txn[TXN_TYPE] == CHANGE_HA:
             self.nodeHaChanged(txn)
-            return
         if txn[TXN_TYPE] == CHANGE_KEYS:
             self.nodeKeysChanged(txn)
-            return
+        if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
+            updateGenesisPoolTxnFile(self.config.baseDir,
+                                     self.config.poolTransactionsFile, txn)
 
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]
@@ -174,7 +174,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             self.node.sendPoolInfoToClients(txn)
-        updateMasterPoolTxnFile(self.config.baseDir, txn)
         self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):

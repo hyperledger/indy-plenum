@@ -75,7 +75,11 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
 
+
+pluginManager = PluginManager()
 logger = getlogger()
 
 
@@ -196,6 +200,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
+        self.nodeRequestSpikeMonitorData = {
+            'value': 0,
+            'cnt': 0,
+            'accum': 0
+        }
 
         # TODO: Create a RecurringCaller that takes a method to call after
         # every `n` seconds, also support start and stop methods
@@ -210,6 +219,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeBlacklister = SimpleBlacklister(
             self.name + NODE_BLACKLISTER_SUFFIX)  # type: Blacklister
 
+        self.nodeInfo = {
+            'data': {}
+        }
+
         self.monitor = Monitor(self.name,
                                Delta=self.config.DELTA,
                                Lambda=self.config.LAMBDA,
@@ -217,6 +230,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                instances=self.instances,
                                nodestack=self.nodestack,
                                blacklister=self.nodeBlacklister,
+                               nodeInfo=self.nodeInfo,
+                               notifierEventTriggeringConfig=self.
+                               config.notifierEventTriggeringConfig,
                                pluginPaths=pluginPaths)
 
         # BE CAREFUL HERE
@@ -1206,6 +1222,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         logger.debug("{} received client request: {} from {}".
                      format(self.name, request, frm))
+        self.nodeRequestSpikeMonitorData['accum'] += 1
 
         # TODO: What if client sends requests with same request id quickly so
         # before reply for one is generated, the other comes. In that
@@ -1383,6 +1400,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return
 
         if self.instances.masterId is not None:
+            self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
                 self.sendInstanceChange(self.viewNo+1)
                 return False
@@ -1390,6 +1408,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug("{}s master has higher performance than backups".
                              format(self))
         return True
+
+    def sendNodeRequestSpike(self):
+        requests = self.nodeRequestSpikeMonitorData['accum']
+        self.nodeRequestSpikeMonitorData['accum'] = 0
+        return pluginManager.sendMessageUponSuspiciousSpike(
+            notifierPluginTriggerEvents['nodeRequestSpike'],
+            self.nodeRequestSpikeMonitorData,
+            requests,
+            self.config.notifierEventTriggeringConfig['nodeRequestSpike']
+        )
 
     def sendInstanceChange(self, viewNo: int):
         """
@@ -1844,12 +1872,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         logger.info("\n".join(lines), extra={"cli": False})
 
-    def logNodeInfo(self):
-        """
-        Print the node's info to log for the REST backend to read.
-        """
+    def collectNodeInfo(self):
         nodeAddress = None
-
         if self.poolLedger:
             txns = self.poolLedger.getAllTxn()
             for key, txn in txns.items():
@@ -1867,8 +1891,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'portC': self.clientstack.ha[1],
             'address': nodeAddress
         }
+        return info
+
+    def logNodeInfo(self):
+        """
+        Print the node's info to log for the REST backend to read.
+        """
+        self.nodeInfo['data'] = self.collectNodeInfo()
 
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
-            logNodeInfoFile.write(json.dumps(info))
+            logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
 

@@ -64,12 +64,12 @@ setup(
     install_requires=['raet', 'jsonpickle', 'portalocker',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers'],
+                      'sortedcontainers', 'psutil'],
     extras_require={
         'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
-    tests_require=['pytest==3.0.2', 'pytest-xdist'],
+    tests_require=['pytest', 'pytest-xdist'],
     scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',

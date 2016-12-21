@@ -5,6 +5,9 @@ import logging
 import os
 from functools import partial
 from typing import Dict, Any
+import importlib
+import pip.utils as utils
+from copy import copy
 
 import re
 
@@ -30,13 +33,15 @@ from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
     checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode
+    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode, \
+    randomText, mockGetInstalledDistributions, mockImportModule
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+from plenum.server.notifier_plugin_manager import PluginManager
 
 logger = getlogger()
 
@@ -69,7 +74,8 @@ overriddenConfigValues = {
     "DefaultPluginPath": {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
-    }
+    },
+    'UPDATE_GENESIS_POOL_TXN_FILE': False
 }
 
 
@@ -516,3 +522,43 @@ def postingStatsEnabled(request):
     #    config.SendMonitorStats = False
 
     # request.addfinalizer(reset)
+
+
+@pytest.fixture
+def pluginManager():
+    pluginManager = PluginManager()
+    assert hasattr(pluginManager, 'prefix')
+    assert hasattr(pluginManager, '_sendMessage')
+    assert hasattr(pluginManager, '_findPlugins')
+    return pluginManager
+
+
+@pytest.fixture
+def pluginManagerWithImportedModules(pluginManager, monkeypatch):
+    monkeypatch.setattr(utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=[]))
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    imported, found = pluginManager.importPlugins()
+    assert imported == 0
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
+    yield pluginManager
+    monkeypatch.undo()
+    pluginManager.importPlugins()
+
+
+@pytest.fixture
+def testNode(tdir):
+    name = randomText(20)
+    nodeReg = genNodeReg(names=[name])
+    ha, cliname, cliha = nodeReg[name]
+    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+                    nodeRegistry=copy(nodeReg), basedirpath=tdir,
+                    primaryDecider=None, pluginPaths=None)

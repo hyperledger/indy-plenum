@@ -69,6 +69,16 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
+notifierEventTriggeringConfig = {
+    'clusterThroughputSpike': {
+        'coefficient': 3,
+        'minCnt': 100
+    },
+    'nodeRequestSpike': {
+        'coefficient': 3,
+        'minCnt': 100
+    }
+}
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
@@ -116,3 +126,6 @@ CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 10
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
+
+
+UPDATE_GENESIS_POOL_TXN_FILE = True

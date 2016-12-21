@@ -4,11 +4,11 @@ from plenum.common.txn_util import getTxnOrderedFields
 portsStart = 9600
 
 
-def testBootstrapTestNode(tdir, conf):
+def testBootstrapTestNode(tdir, tconf):
     # TODO: Need to add some asserts
     TestNetworkSetup.bootstrapTestNodesCore(
-        tdir, conf.poolTransactionsFile,
-        conf.domainTransactionsFile,
+        tdir, tconf.poolTransactionsFile,
+        tconf.domainTransactionsFile,
         getTxnOrderedFields(),
         ips=None, nodeCount=4, clientCount=1,
         nodeNum=1, startingPort=portsStart)
