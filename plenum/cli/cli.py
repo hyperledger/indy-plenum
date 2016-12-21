@@ -707,10 +707,12 @@ class Cli:
             mPrimary = node.replicas[node.instances.masterId].primaryName
             bPrimary = node.replicas[node.instances.backupIds[0]].primaryName
             self.print("Instances: {}".format(f + 1))
-            self.print("   Master (primary is on {})".
-                       format(Replica.getNodeName(mPrimary)))
-            self.print("   Backup (primary is on {})".
-                       format(Replica.getNodeName(bPrimary)))
+            if mPrimary:
+                self.print("   Master (primary is on {})".
+                           format(Replica.getNodeName(mPrimary)))
+            if bPrimary:
+                self.print("   Backup (primary is on {})".
+                           format(Replica.getNodeName(bPrimary)))
         else:
             self.print("Instances: "
                        "Not enough nodes to create protocol instances")
