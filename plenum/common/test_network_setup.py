@@ -1,6 +1,6 @@
 import argparse
 import os
-from _sha256 import sha256
+from hashlib import sha256
 
 from ledger.serializers.compact_serializer import CompactSerializer
 from raet.nacling import Signer
