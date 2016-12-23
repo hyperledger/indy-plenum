@@ -100,7 +100,7 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
-                 useNodeReg=False):
+                 useNodeReg=False, withNode=True):
         self.curClientPort = None
         logging.root.addHandler(CliHandler(self.out))
         self.looper = looper
@@ -118,6 +118,7 @@ class Cli:
             nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
                 ledger)
 
+        self.withNode = withNode
         self.nodeReg = nodeReg
         self.cliNodeReg = cliNodeReg
         self.nodeRegistry = {}
@@ -741,7 +742,24 @@ class Cli:
         else:
             self.print("None", newline=True)
 
+    def isOkToRunNodeDependentCommands(self):
+        if not self.withNode:
+            self.print("This command is only available if you start "
+                       "this cli with command line argument --with-node "
+                       "(and it assumes you have installed sovrin-node "
+                       "dependency)")
+            return False
+        if not self.NodeClass:
+            self.print("This command requires sovrin-node dependency, "
+                       "please install it and then resume.")
+            return False
+
+        return True
+
     def newNode(self, nodeName: str):
+        if not self.isOkToRunNodeDependentCommands():
+            return
+
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
