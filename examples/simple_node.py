@@ -11,9 +11,9 @@ Where <node_name> is one of Alpha, Beta, Gamma, Delta.
 """
 import sys
 from collections import OrderedDict
-from tempfile import TemporaryDirectory
 
 from plenum.common.looper import Looper
+from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.server.node import Node
 
 
@@ -40,7 +40,7 @@ def run_node():
         # Nodes persist keys when bootstrapping to other nodes and reconnecting
         # using an ephemeral temporary directory when proving a concept is a
         # nice way to keep things tidy.
-        with TemporaryDirectory() as tmpdir:
+        with SafeTemporaryDirectory() as tmpdir:
             node = Node(nodeName, nodeReg, basedirpath=tmpdir)
 
             # see simple_client.py

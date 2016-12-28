@@ -2,14 +2,12 @@
 This tutorial illustrates a client request round trip with a simple consensus
 pool.
 """
-from tempfile import TemporaryDirectory
-
 from ioflo.base.consoling import getConsole
-
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
 from plenum.common.script_helper import initKeep
+from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import HA, NodeDetail
 from plenum.common.util import randomString
 from plenum.server.node import Node
@@ -23,7 +21,7 @@ Nodes persist keys when bootstrapping to other nodes and reconnecting using an
 ephemeral temporary directory when proving a concept is a nice way to keep
 things tidy.
 """
-with TemporaryDirectory() as tmpdir:
+with SafeTemporaryDirectory() as tmpdir:
 
     """
     Looper runs an asynchronous message loop that services the nodes and client.

@@ -1,6 +1,4 @@
 import sys
-from collections import OrderedDict
-from tempfile import TemporaryDirectory
 
 from plenum.cli.cli import Cli
 from plenum.common.looper import Looper
