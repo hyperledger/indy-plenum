@@ -51,7 +51,8 @@ class TxnStackManager:
             self._ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
                 dataDir=dataDir)),
                 dataDir=dataDir,
-                fileName=self.ledgerFile)
+                fileName=self.ledgerFile,
+                ensureDurability=self.config.EnsureLedgerDurability)
         return self._ledger
 
     @staticmethod

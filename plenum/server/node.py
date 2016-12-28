@@ -361,7 +361,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.dataLocation,
                           serializer=CompactSerializer(fields=fields),
-                          fileName=self.config.domainTransactionsFile)
+                          fileName=self.config.domainTransactionsFile,
+                          ensureDurability=self.config.EnsureLedgerDurability)
         else:
             return initStorage(self.config.primaryStorage,
                                name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
@@ -428,7 +429,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, self.status.name))
         else:
             super().start(loop)
-            self.primaryStorage.start(loop)
+            self.primaryStorage.start(loop,
+                                      ensureDurability=
+                                      self.config.EnsureLedgerDurability)
             self.nodestack.start()
             self.clientstack.start()
 

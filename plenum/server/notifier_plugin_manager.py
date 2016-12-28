@@ -52,7 +52,8 @@ class PluginManager:
             logger.debug('New value is within bounds')
             return None
 
-        message = '{} suspicious spike has been noticed on node {} at {}. Usual thoughput: {}. New throughput: {}.'\
+        message = '{} suspicious spike has been noticed on node {} at {}. ' \
+                  'Usual thoughput: {}. New throughput: {}.'\
             .format(event, nodeName, time.time(), val, newVal)
         logger.warning(message)
         return self._sendMessage(event, message)

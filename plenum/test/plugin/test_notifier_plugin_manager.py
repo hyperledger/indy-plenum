@@ -34,12 +34,13 @@ def testPluginManagerImportsPlugins(monkeypatch, pluginManager):
 def testPluginManagerSendsMessage(pluginManagerWithImportedModules):
     topic = randomText(10)
     message = randomText(20)
-    sent, pluginCnt = pluginManagerWithImportedModules\
-        ._sendMessage(topic, message)
+    sent, pluginCnt = pluginManagerWithImportedModules._sendMessage(
+        topic, message)
     assert sent == 3
 
 
-def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(pluginManagerWithImportedModules):
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(
+        pluginManagerWithImportedModules):
     topic = randomText(10)
     name = randomText(10)
     historicalData = {
@@ -56,7 +57,8 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnMinCnt(pluginManagerWi
                                         newVal, config, name)is None
 
 
-def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(pluginManagerWithImportedModules):
+def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(
+        pluginManagerWithImportedModules):
     topic = randomText(10)
     name = randomText(10)
     historicalData = {
@@ -73,7 +75,8 @@ def testPluginManagerSendMessageUponSuspiciousSpikeFailsOnCoefficient(pluginMana
                                         newVal, config, name) is None
 
 
-def testPluginManagerSendMessageUponSuspiciousSpike(pluginManagerWithImportedModules):
+def testPluginManagerSendMessageUponSuspiciousSpike(
+        pluginManagerWithImportedModules):
     topic = randomText(10)
     name = randomText(10)
     historicalData = {

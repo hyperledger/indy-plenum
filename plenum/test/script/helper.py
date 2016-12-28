@@ -21,11 +21,11 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
-    oldVal = tconf.UPDATE_GENESIS_POOL_TXN_FILE
-    tconf.UPDATE_GENESIS_POOL_TXN_FILE = True
+    oldVal = tconf.UpdateGenesisPoolTxnFile
+    tconf.UpdateGenesisPoolTxnFile = True
 
     def reset():
-        tconf.UPDATE_GENESIS_POOL_TXN_FILE = oldVal
+        tconf.UpdateGenesisPoolTxnFile = oldVal
 
     request.addfinalizer(reset)
     return tconf

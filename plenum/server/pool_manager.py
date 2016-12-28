@@ -140,7 +140,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.nodeHaChanged(txn)
         if txn[TXN_TYPE] == CHANGE_KEYS:
             self.nodeKeysChanged(txn)
-        if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
+        if self.config.UpdateGenesisPoolTxnFile:
             updateGenesisPoolTxnFile(self.config.baseDir,
                                      self.config.poolTransactionsFile, txn)
 

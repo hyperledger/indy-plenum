@@ -75,7 +75,7 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UPDATE_GENESIS_POOL_TXN_FILE': False
+    'UpdateGenesisPoolTxnFile': False
 }
 
 
@@ -423,6 +423,7 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) in (NEW_NODE, CHANGE_HA, CHANGE_KEYS):
             ledger.add(item)
+    ledger.stop()
     return tdir
 
 
@@ -440,6 +441,7 @@ def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)
+    ledger.stop()
     return tdir
 
 

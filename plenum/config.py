@@ -127,5 +127,16 @@ CLIENT_REPLY_TIMEOUT = 10
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
+# The client when learns of new nodes or any change in configuration of
+# other nodes, updates the genesis pool transaction file if this option is set
+# to True. This option is overwritten by default for tests to keep multiple
+# clients from reading an updated pool transaction file, this helps us
+# emulate clients on different machines.
+UpdateGenesisPoolTxnFile = True
 
-UPDATE_GENESIS_POOL_TXN_FILE = True
+
+# Since the ledger is stored in a flat file, this makes the ledger do
+# an fsync on every write. Making it True can significantly slow
+# down writes as shown in a test `test_file_store_perf.py` in the ledger
+# repository
+EnsureLedgerDurability = True

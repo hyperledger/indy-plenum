@@ -51,7 +51,7 @@ class HasPoolManager(TxnStackManager):
                 if len(txns) > 0:
                     txn = json.loads(txns[0])
                     self.addToLedger(txn)
-                    if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
+                    if self.config.UpdateGenesisPoolTxnFile:
                         # Adding sequence number field since needed for safely
                         # updating genesis file
                         txn[F.seqNo.name] = len(self.ledger)
