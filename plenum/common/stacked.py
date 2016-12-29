@@ -586,8 +586,8 @@ class KITStack(SimpleStack):
         elif disconn.joined:
             self.updateStamp()
             self.allow(uid=disconn.uid, cascade=True, timeout=20)
-            logger.debug("{} disconnected node is joined".format(
-                self), extra={"cli": "STATUS"})
+            logger.debug("{} disconnected node {} is joined".format(
+                self, disconn.name), extra={"cli": "STATUS"})
         else:
             self.connect(dname, disconn.uid)
 
