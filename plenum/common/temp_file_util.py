@@ -7,9 +7,6 @@ class SafeTemporaryDirectory(TemporaryDirectory):
     """TemporaryDirectory that works on Windows 10
     """
 
-    def __init__(self, *args, **kwargs):
-        super(SafeTemporaryDirectory, self).__init__(*args, **kwargs)
-
     @classmethod
     def _cleanup(cls, name, warn_message):
         shutil.rmtree(name, ignore_errors=True)
