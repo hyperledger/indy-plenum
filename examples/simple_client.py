@@ -8,11 +8,11 @@ TODO: create client
 TODO: demonstrate client verification key bootstrapping
 """
 from collections import OrderedDict
-from tempfile import TemporaryDirectory
 
 from plenum.client.client import Client
 from plenum.common.looper import Looper
 from plenum.common.signer_simple import SimpleSigner
+from plenum.common.temp_file_util import SafeTemporaryDirectory
 
 
 def run_node():
@@ -27,7 +27,7 @@ def run_node():
         # Nodes persist keys when bootstrapping to other nodes and reconnecting
         # using an ephemeral temporary directory when proving a concept is a
         # nice way to keep things clean.
-        with TemporaryDirectory() as tmpdir:
+        with SafeTemporaryDirectory() as tmpdir:
             clientName = 'Joe'
 
             # this seed is used by the signer to deterministically generate
