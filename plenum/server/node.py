@@ -1395,7 +1395,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :returns True if master performance is OK, otherwise False
         """
         logger.debug("{} checking its performance".format(self))
-        self._schedule(self.checkPerformance, self.perfCheckFreq)
 
         # Move ahead only if the node has synchronized its state with other
         # nodes
