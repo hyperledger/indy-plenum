@@ -8,6 +8,7 @@ from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
 from plenum.test.helper import getPrimaryReplica
 from plenum.test.test_node import checkProtocolInstanceSetup
+from plenum.test.view_change.conftest import viewNo
 from plenum.test.view_change.test_view_change import viewChangeDone
 
 nodeCount = 7
