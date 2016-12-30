@@ -1,7 +1,7 @@
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Primary
-from plenum.test.eventually import eventually
 
 whitelist = ['got primary declaration',
              'doing nothing for now',

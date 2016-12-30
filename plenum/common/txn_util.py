@@ -71,6 +71,7 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
         # It has only been manaully tested in the python terminal. Add a test
         # for it using multiple processes writing concurrently
         with portalocker.Lock(os.path.join(genesisTxnDir, genesisTxnFile),
+                              truncate=None,
                               flags=portalocker.LOCK_EX | portalocker.LOCK_NB):
             seqNo = txn[F.seqNo.name]
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(

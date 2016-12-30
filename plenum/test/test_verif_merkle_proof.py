@@ -1,9 +1,8 @@
-from plenum.test.test_client import TestClient
-
 from plenum.client.client import Client
-from plenum.test.eventually import eventually
+from plenum.common.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, \
     sendRandomRequest
+from plenum.test.test_client import TestClient
 
 
 def testMerkleProofForFirstLeaf(client1: TestClient, replied1):

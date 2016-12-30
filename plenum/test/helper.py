@@ -1,25 +1,25 @@
 import random
+import string
 from functools import partial
 from itertools import permutations
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
-import string
 
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
+from plenum.common.request import Request
 from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
-from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.server.node import Node
-from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
     getAllReturnVals

@@ -1,12 +1,13 @@
 from functools import partial
+
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.types import PrePrepare, f
-from plenum.test.eventually import eventually
+from plenum.common.util import adict
 from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.spy_helpers import getAllReturnVals
-from plenum.common.util import adict
 
 nodeCount = 7
 whitelist = ["discarding message"]

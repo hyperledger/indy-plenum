@@ -1,19 +1,16 @@
-import logging
-
 import pytest
+
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-
-from plenum.server.suspicion_codes import Suspicions
-from plenum.test.eventually import eventually
-from plenum.test.helper import whitelistNode
-from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
-    ensureElectionsDone
-from plenum.test.delayers import delayerMsgTuple
-
 from plenum.common.types import Nomination
 from plenum.server.replica import Replica
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.delayers import delayerMsgTuple
+from plenum.test.helper import whitelistNode
 from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode
+from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
+    ensureElectionsDone
 
 nodeCount = 4
 whitelist = ['already got nomination',

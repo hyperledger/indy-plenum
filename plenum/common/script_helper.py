@@ -2,16 +2,16 @@ import os
 import random
 
 from jsonpickle import json
-from ledger.stores.text_file_store import TextFileStore
 
+from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
 from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, CHANGE_HA, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
-from plenum.test.eventually import eventually
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"

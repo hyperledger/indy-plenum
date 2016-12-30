@@ -1,9 +1,9 @@
 import types
 
-from plenum.test.eventually import eventually
+from plenum.common.eventually import eventually
+from plenum.test.delayers import ppDelay
 from plenum.test.helper import sendRandomRequest
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.delayers import ppDelay
 
 
 def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,

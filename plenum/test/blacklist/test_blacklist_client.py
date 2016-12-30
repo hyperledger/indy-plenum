@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.eventually import eventually
+from plenum.common.eventually import eventually
 from plenum.test.malicious_behaviors_client import makeClientFaulty, \
     sendsUnsignedRequest
 

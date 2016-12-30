@@ -2,11 +2,12 @@ import types
 from functools import partial
 
 import pytest
+
+from plenum.common.eventually import eventually
 from plenum.server.node import Node
-from plenum.test.eventually import eventually
+from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies, getPrimaryReplica
-from plenum.test.delayers import delayNonPrimaries
 
 nodeCount = 7
 

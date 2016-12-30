@@ -1,9 +1,7 @@
-import logging
-
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.server.node import Node
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest, \
     checkSufficientRepliesRecvd
 from plenum.test.test_node import TestNodeSet

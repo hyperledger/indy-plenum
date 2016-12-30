@@ -1,12 +1,11 @@
 import pytest
-from plenum.test.test_node import TestNode
 
-from plenum.test.eventually import eventually
-from plenum.test.delayers import delay
-
+from plenum.common.eventually import eventually
 from plenum.common.types import Propagate
+from plenum.test.delayers import delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate
+from plenum.test.test_node import TestNode
 
 nodeCount = 4
 

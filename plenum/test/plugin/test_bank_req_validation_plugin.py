@@ -1,20 +1,19 @@
-import os
 from functools import partial
 
 import pytest
 
+from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
-from plenum.test.eventually import eventuallyAll, eventually
 from plenum.test.helper import setupClient, \
     checkReqNack, checkSufficientRepliesRecvd
-from plenum.test.test_node import TestNodeSet
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
     AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, submitOp, makeReason
+from plenum.test.test_node import TestNodeSet
 
 
 @pytest.fixture(scope="module")

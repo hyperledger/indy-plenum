@@ -1,12 +1,12 @@
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import checkNodesConnected
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
+from plenum.test.test_ledger_manager import TestLedgerManager
+from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
 

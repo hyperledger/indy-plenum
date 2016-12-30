@@ -1,14 +1,14 @@
 from functools import partial
 
 import pytest
-from plenum.test.eventually import eventually
-from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
-    send3PhaseMsgWithIncorrectDigest
-from plenum.common.util import adict
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Commit
+from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
+    send3PhaseMsgWithIncorrectDigest
 from plenum.test.test_node import getNonPrimaryReplicas
 
 whitelist = [Suspicions.CM_DIGEST_WRONG.reason,

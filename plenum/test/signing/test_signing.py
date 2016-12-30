@@ -1,13 +1,12 @@
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.exceptions import InvalidSignature
-from plenum.common.util import adict
 from plenum.common.log import getlogger
-
-from plenum.test.test_node import TestNode
+from plenum.common.util import adict
 from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
 from plenum.test.node_request.node_request_helper import checkPropagated
-from plenum.test.eventually import eventually
+from plenum.test.test_node import TestNode
 
 logger = getlogger()
 whitelist = ['doing nothing for now',

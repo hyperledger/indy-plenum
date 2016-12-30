@@ -1,6 +1,6 @@
+from plenum.common.eventually import eventually
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import f
-from plenum.test.eventually import eventually
 
 
 def checkReplyIsPersisted(nodes, lpr, reply1):

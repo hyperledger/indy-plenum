@@ -4,10 +4,10 @@ import pytest
 
 import plenum.common.log
 import plenum.common.util
+from plenum.common.eventually import eventually
 from plenum.common.looper import Looper
-from plenum.common.util import adict
 from plenum.common.port_dispenser import genHa
-from plenum.test.eventually import eventually
+from plenum.common.util import adict
 
 
 plenum.common.log.loggingConfigured = False

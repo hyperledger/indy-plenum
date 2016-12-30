@@ -206,3 +206,7 @@ class BlowUp(BaseException):
 
 class ProdableAlreadyAdded(Exception):
     pass
+
+
+class NoConsensusYet(Exception):
+    pass

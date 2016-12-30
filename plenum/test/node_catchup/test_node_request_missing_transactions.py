@@ -1,11 +1,11 @@
 import types
 
-from plenum.common.types import CatchupReq
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
+from plenum.common.types import CatchupReq
 from plenum.test.helper import sendRandomRequests
-from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
 

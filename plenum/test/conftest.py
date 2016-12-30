@@ -1,22 +1,22 @@
+import importlib
 import inspect
 import itertools
 import json
 import logging
 import os
+import re
+from copy import copy
 from functools import partial
 from typing import Dict, Any
-import importlib
+
 import pip.utils as utils
-from copy import copy
-
-import re
-
-import functools
 import pytest
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-
+from plenum.common.config_util import getConfig
+from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
@@ -28,20 +28,17 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
-from plenum.common.config_util import getConfig
-from plenum.test.eventually import eventually, eventuallyAll
+from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
-    checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode, \
-    randomText, mockGetInstalledDistributions, mockImportModule
-from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
-    checkNodesConnected, ensureElectionsDone, genNodeReg
+    checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
+    checkViewNoForNodes, requestReturnedToNode, randomText, \
+    mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
-from plenum.server.notifier_plugin_manager import PluginManager
+from plenum.test.test_client import genTestClient
+from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+    checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
 
@@ -118,6 +115,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'Executing %s took %.3f seconds',
                      'is already stopped',
                      'Error while running coroutine',
+                     'not trying any more because',
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>"

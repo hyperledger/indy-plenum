@@ -1,12 +1,10 @@
+import time
 from functools import partial
 
-import time
-
+from plenum.common.eventually import eventuallyAll
 from plenum.common.types import PrePrepare, OPERATION, f
-from plenum.server.node import Node
-from plenum.test.eventually import eventuallyAll
-
 from plenum.common.util import getMaxFailures
+from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test.helper import getPrimaryReplica
 from plenum.test.spy_helpers import getAllArgs

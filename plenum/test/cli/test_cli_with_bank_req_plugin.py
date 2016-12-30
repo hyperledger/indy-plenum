@@ -2,10 +2,10 @@ from functools import partial
 
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.test.cli.helper import checkReply, \
     checkSuccess, checkBalance, assertNoClient, loadPlugin, \
     createClientAndConnect
-from plenum.test.eventually import eventually
 
 
 @pytest.fixture("module")

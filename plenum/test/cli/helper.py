@@ -1,5 +1,4 @@
 import ast
-import json
 import os
 import re
 from shutil import copyfile
@@ -8,16 +7,15 @@ from pygments.token import Token
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
-from plenum.test.eventually import eventually
-from plenum.test.testable import Spyable
-from plenum.test.helper import checkSufficientRepliesRecvd, \
-    checkPoolReady
+from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
+from plenum.test.testable import Spyable
 
 
 class TestCliCore:

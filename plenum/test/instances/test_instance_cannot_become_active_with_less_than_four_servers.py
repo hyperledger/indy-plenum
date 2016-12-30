@@ -1,16 +1,14 @@
-import logging
-from typing import Iterable, Optional
+from typing import Iterable
 
-from plenum.common.looper import Looper
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
-from plenum.test.greek import genNodeNames
-
+from plenum.common.looper import Looper
 from plenum.common.startable import Status
+from plenum.test.greek import genNodeNames
 from plenum.test.helper import addNodeBack, ordinal
-from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     checkNodeRemotes
+from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
 
 whitelist = ['discarding message']
 

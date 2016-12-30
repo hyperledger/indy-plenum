@@ -1,13 +1,13 @@
 import types
 from base64 import b64encode
 
+from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
-from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequests
-from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
 

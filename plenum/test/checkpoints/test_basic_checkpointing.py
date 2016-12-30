@@ -1,6 +1,6 @@
+from plenum.common.eventually import eventually
 from plenum.test.checkpoints.conftest import CHK_FREQ
 from plenum.test.checkpoints.helper import chkChkpoints
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
 

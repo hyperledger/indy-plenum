@@ -2,6 +2,7 @@ from typing import Iterable, Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
@@ -9,7 +10,6 @@ from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT, CHANGE_HA, \
     CHANGE_KEYS, VERKEY
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode

@@ -1,13 +1,11 @@
-import logging
-
-import pytest
 import time
 
-from plenum.common.types import PrePrepare
-from plenum.test.eventually import eventually
+import pytest
 
-from plenum.common.util import getMaxFailures
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
+from plenum.common.types import PrePrepare
+from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent

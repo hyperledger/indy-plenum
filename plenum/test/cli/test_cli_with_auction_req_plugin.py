@@ -3,9 +3,9 @@ from uuid import uuid4
 
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.test.cli.helper import loadPlugin, assertNoClient, \
     createClientAndConnect, checkReply, checkSuccess, checkBalance
-from plenum.test.eventually import eventually
 
 
 @pytest.fixture("module")
