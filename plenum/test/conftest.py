@@ -498,7 +498,7 @@ def txnPoolNodeSet(txnPoolNodesLooper,
         nodes.append(node)
     txnPoolNodesLooper.run(checkNodesConnected(nodes))
     ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=10)
+                        timeout=20)
     return nodes
 
 
