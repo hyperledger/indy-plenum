@@ -1,7 +1,9 @@
+import os
 import random
 import string
 from functools import partial
 from itertools import permutations
+from shutil import copyfile
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
@@ -496,3 +498,22 @@ def mockImportModule(moduleName):
     obj = type(moduleName, (), {})()
     obj.send_message = lambda *args: None
     return obj
+
+
+def createTempDir(tmpdir_factory, counter):
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
+                           str(next(counter)))
+    logger.debug("module-level temporary directory: {}".format(tempdir))
+    return tempdir
+
+
+def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
+                           tdirWithDomainTxns=None):
+    os.makedirs(dirName, exist_ok=True)
+    if tdirWithPoolTxns:
+        copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
+                 os.path.join(dirName, tconf.poolTransactionsFile))
+    if tdirWithDomainTxns:
+        copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
+                 os.path.join(dirName, tconf.domainTransactionsFile))
+

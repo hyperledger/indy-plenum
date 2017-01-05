@@ -32,7 +32,7 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
     checkViewNoForNodes, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule
+    mockGetInstalledDistributions, mockImportModule, createTempDir
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -168,10 +168,7 @@ def counter():
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
-    logger.debug("module-level temporary directory: {}".format(tempdir))
-    return tempdir
+    return createTempDir(tmpdir_factory, counter)
 
 another_tdir = tdir
 
@@ -370,8 +367,8 @@ def looperWithoutNodeSet():
 
 
 @pytest.fixture(scope="module")
-def poolTxnNodeNames():
-    return "Alpha", "Beta", "Gamma", "Delta"
+def poolTxnNodeNames(index=""):
+    return [n + index for n in ("Alpha", "Beta", "Gamma", "Delta")]
 
 
 @pytest.fixture(scope="module")
