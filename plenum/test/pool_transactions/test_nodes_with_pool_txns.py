@@ -7,7 +7,6 @@ from plenum.common.log import getlogger
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.txn import USER
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
@@ -43,7 +42,7 @@ def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
 
 
 def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
-    wallet = addNewClient(USER, looper, steward1, stewardWallet, randomString())
+    wallet = addNewClient(None, looper, steward1, stewardWallet, randomString())
 
     def chk():
         for node in txnPoolNodeSet:

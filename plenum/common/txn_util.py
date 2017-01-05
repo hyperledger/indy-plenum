@@ -13,7 +13,7 @@ from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.constants import ENVS
 from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY, TYPE, CHANGE_HA, IDENTIFIER, DATA
+    ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
 from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.common.log import getlogger
@@ -86,6 +86,6 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
                 logger.debug('Already {} genesis pool transactions present so '
                              'transaction with sequence number {} '
                              'not applicable'.format(ledgerSize, seqNo))
-    except (portalocker.exceptions.LockException,
-            portalocker.exceptions.LockException) as ex:
+    except (portalocker.LockException,
+            portalocker.LockException) as ex:
         return

@@ -10,7 +10,7 @@ from ledger.ledger import Ledger
 
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
-    TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
+    TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
     ROLE
 from plenum.common.types import f
@@ -101,7 +101,7 @@ class TestNetworkSetup:
                 verkey = Signer(sigseed).verhex
             txn = {
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
-                TXN_TYPE: NEW_NODE,
+                TXN_TYPE: NODE,
                 f.IDENTIFIER.nm: stewardNym,
                 DATA: {
                     CLIENT_IP: ip,

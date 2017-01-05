@@ -73,7 +73,7 @@ CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "\s+ (for \s+ (?P<dest>[A-Za-z0-9+=/]+))?" \
     "\s? (by\s+(?P<identifier>[A-Za-z0-9+=/]*))?" \
     "\s? (with\s+data\s+(?P<data>\{\s*.*\}))?" \
-    "\s? (role\s*=\s*(?P<role>USER|STEWARD))?" \
+    "\s? (role\s*=\s*(?P<role>STEWARD))?" \
     "\s*) "
 
 

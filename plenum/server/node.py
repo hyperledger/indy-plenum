@@ -23,7 +23,8 @@ from ledger.stores.memory_hash_store import MemoryHashStore
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp, \
+    UnauthorizedClientRequest
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -36,7 +37,7 @@ from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, USER, NYM, VERKEY
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
@@ -136,7 +137,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
-        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        # HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+
         if isinstance(self.poolManager, RegistryPoolManager):
             self.mode = Mode.discovered
         else:
@@ -301,11 +304,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
 
-        self.addReplicas()
+        self.adjustReplicas()
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         self.logNodeInfo()
+
+    def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
+        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
 
     def __repr__(self):
         return self.name
@@ -629,13 +635,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.mode in (Mode.discovered, Mode.participating):
                 self.sendDomainLedgerStatus(n)
 
-    def newNodeJoined(self, txn: str):
+    def newNodeJoined(self, txn):
         self.setF()
-        if self.addReplicas():
+        if self.adjustReplicas() > 0:
             self.decidePrimaries()
         # TODO: Should tell the client after the new node has synced up its
         # ledgers
-        self.sendPoolInfoToClients(txn)
+        # self.sendPoolInfoToClients(txn)
+
+    def nodeLeft(self, txn):
+        self.setF()
+        if self.adjustReplicas():
+            self.decidePrimaries()
+        # TODO: Should tell the client after the new node has synced up its
+        # ledgers
+        # self.sendPoolInfoToClients(txn)
 
     def sendPoolInfoToClients(self, txn):
         logger.debug("{} sending new node info {} to all clients".format(self,
@@ -684,12 +698,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                            self.nodestack.conns))
         self._schedule(self.decidePrimaries)
 
-    def addReplicas(self):
+    def adjustReplicas(self):
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.addReplica()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas)-1)
+
+        while len(self.replicas) > self.requiredNumberOfInstances:
+            self.removeReplica()
+            newReplicas -= 1
+
         return newReplicas
 
     def processStashedMsgsForReplica(self, instId: int):
@@ -747,6 +766,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
                        format(self, replica, instId, instDesc),
+                       extra={"cli": True, "demo": True})
+        return replica
+
+    def removeReplica(self):
+        replica = self.replicas[-1]
+        self.replicas = self.replicas[:-1]
+        self.msgsToReplicas = self.msgsToReplicas[:-1]
+        self.monitor.addInstance()
+        logger.display("{} removed replica {} from instance {}".
+                       format(self, replica, replica.instId),
                        extra={"cli": True, "demo": True})
         return replica
 
@@ -1517,11 +1546,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def checkValidOperation(self, clientId, reqId, msg):
+    def checkValidOperation(self, clientId, reqId, operation):
+        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            if not self.poolManager.checkValidOperation(operation):
+                raise InvalidClientRequest(clientId, reqId)
+
         if self.opVerifiers:
             try:
                 for v in self.opVerifiers:
-                    v.verify(msg)
+                    v.verify(operation)
             except Exception as ex:
                 raise InvalidClientRequest(clientId, reqId) from ex
 
@@ -1537,7 +1570,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.poolManager.checkRequestAuthorized(request)
         if request.operation.get(TXN_TYPE) == NYM:
             origin = request.identifier
-            return self.secondaryStorage.isSteward(origin)
+            error = None
+            if not self.secondaryStorage.isSteward(origin):
+                error = "Only Steward is allowed to do this transactions"
+            if request.operation.get(ROLE) == STEWARD:
+                error = self.authErrorWhileAddingSteward(request)
+            if error:
+                raise UnauthorizedClientRequest(request.identifier,
+                                                request.reqId,
+                                                error)
 
     def executeRequest(self, ppTime: float, req: Request) -> None:
         """
@@ -1602,10 +1643,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             verkey = txn.get(VERKEY)
             v = DidVerifier(verkey, identifier=identifier)
             if identifier not in self.clientAuthNr.clients:
-                role = txn.get(ROLE) or USER
-                if role not in (STEWARD, USER):
-                    logger.error("Role {} must be either STEWARD, USER"
-                                 .format(role))
+                role = txn.get(ROLE)
+                if role not in (STEWARD, None):
+                    logger.error("Role if present must be STEWARD".format(role))
                     return
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)
@@ -1883,6 +1923,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 data = txn[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
+                    break
 
         info = {
             'name': self.name,

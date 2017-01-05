@@ -24,7 +24,7 @@ from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NEW_NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -417,7 +417,7 @@ class Cli:
 
         withData = {ALIAS: nodeName}
 
-        if typ == NEW_NODE:
+        if typ == NODE:
             nodeIp, nodePort = nodeData.get('node_address').split(':')
             clientIp, clientPort = nodeData.get('client_address').split(':')
             withData[NODE_IP] = nodeIp
