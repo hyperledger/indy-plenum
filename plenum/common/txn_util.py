@@ -86,6 +86,6 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
                 logger.debug('Already {} genesis pool transactions present so '
                              'transaction with sequence number {} '
                              'not applicable'.format(ledgerSize, seqNo))
-    except (portalocker.exceptions.LockException,
-            portalocker.exceptions.LockException) as ex:
+    except (portalocker.LockException,
+            portalocker.LockException) as ex:
         return
