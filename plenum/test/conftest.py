@@ -400,9 +400,12 @@ def dirName():
 
 
 @pytest.fixture(scope="module")
-def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
-    data = json.loads(open(filePath).read().strip())
+def nodeAndClientInfoFilePath(dirName):
+    return os.path.join(dirName(__file__), "node_and_client_info.py")
+
+@pytest.fixture(scope="module")
+def poolTxnData(nodeAndClientInfoFilePath):
+    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
     for txn in data["txns"]:
         if txn[TXN_TYPE] == NEW_NODE:
             txn[DATA][NODE_PORT] = genHa()[1]

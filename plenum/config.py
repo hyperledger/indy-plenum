@@ -1,4 +1,6 @@
 from collections import OrderedDict
+
+from plenum.common.constants import Environment
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
 import os
@@ -140,3 +142,8 @@ UpdateGenesisPoolTxnFile = True
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
 # repository
 EnsureLedgerDurability = True
+
+ENVS = {
+    "test": Environment("pool_transactions_sandbox", "transactions_sandbox"),
+    "live": Environment("pool_transactions_live", "transactions_live")
+}

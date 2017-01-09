@@ -6,9 +6,3 @@ Environment = NamedTuple("Environment", [
 ])
 
 
-ENVS = {
-    "test": Environment("pool_transactions_sandbox",
-                        "transactions_sandbox"),
-    "live": Environment("pool_transactions_live",
-                        "transactions_live")
-}
