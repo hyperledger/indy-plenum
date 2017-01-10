@@ -20,13 +20,13 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     sendRandomRequest(wallet1, client1)
 
     stash = []
-    origMethod = slowRep.processReqDigest
+    origMethod = slowRep.processRequest
 
     def patched(self, msg):
         stash.append(msg)
 
     patchedMethod = types.MethodType(patched, slowRep)
-    slowRep.processReqDigest = patchedMethod
+    slowRep.processRequest = patchedMethod
 
     def chk1():
         assert len(slowRep.commitsWaitingForPrepare) > 0

@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
+from hashlib import sha256
 
 from orderedset import OrderedSet
 from sortedcontainers import SortedDict
@@ -17,7 +18,7 @@ from plenum.common.signing import serialize
 from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
     CheckpointState, Checkpoint
-from plenum.common.request import ReqDigest
+from plenum.common.request import ReqDigest, Request
 from plenum.common.util import MessageProcessor, updateNamedTuple
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -71,7 +72,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.config = getConfig()
 
-        routerArgs = [(ReqDigest, self._preProcessReqDigest)]
+        routerArgs = [(Request, self.readyFor3PC)]
 
         for r in [PrePrepare, Prepare, Commit]:
             routerArgs.append((r, self.processThreePhaseMsg))
@@ -125,8 +126,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # corresponding request digest. Happens when replica has not been
         # forwarded the request by the node but is getting 3 phase messages.
         # The value is a list since a malicious entry might send PRE-PREPARE
-        # with a different digest and since we dont have the request finalised,
-        # we store all PRE-PPREPARES
+        # with a different digest and since we dont have the request finalised
+        # yet, we store all PRE-PPREPARES
         self.prePreparesPendingReqDigest = {}   # type: Dict[Tuple[str, int], List]
 
         # PREPAREs that are stored by non primary replica for which it has not
@@ -200,6 +201,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self.H = self._h + self.config.LOG_SIZE   # type: int
 
         self.lastPrePrepareSeqNo = self.h  # type: int
+
+        # Queues used in PRE-PREPARE for each ledger
+        self.requestQueues = {}  # type: Dict[int, deque]
+        if self.node.poolLedger:
+            self.requestQueues[0] = deque()
+        self.requestQueues[1] = deque()
+
+        # TODO: Need to have a timer for each ledger
+        self.lastBatchCreated = time.perf_counter()
 
     @property
     def h(self) -> int:
@@ -277,7 +287,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         self._unstashInBox()
         if self.isPrimary is not None:
-            # TODO handle suspicion exceptions here
             self.process3PhaseReqsQueue()
             # TODO handle suspicion exceptions here
             try:
@@ -298,7 +307,8 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         Append the inBoxStash to the right of the inBox.
         """
-        self.inBox.extend(self.inBoxStash)
+        # The stashed values need to go in "front" of the inBox.
+        self.inBox.extendleft(self.inBoxStash)
         self.inBoxStash.clear()
 
     def __repr__(self):
@@ -382,20 +392,74 @@ class Replica(HasActionQueue, MessageProcessor):
             return self.primaryName == sender if self.isMsgForCurrentView(
                 msg) else self.primaryNames[msg.viewNo] == sender
 
-    def _preProcessReqDigest(self, rd: ReqDigest) -> None:
+    def _preProcessReq(self, req: Request) -> None:
         """
         Process request digest if this replica is not a primary, otherwise stash
         the message into the inBox.
 
-        :param rd: the client Request Digest
+        :param req: the client Request Digest
         """
         if self.isPrimary is not None:
-            self.processReqDigest(rd)
+            self.processRequest(req)
         else:
             logger.debug("{} stashing request digest {} since it does not know "
                          "its primary status".
-                         format(self, (rd.identifier, rd.reqId)))
-            self._stashInBox(rd)
+                         format(self, (req.identifier, req.reqId)))
+            self._stashInBox(req)
+
+    def send3PCBatch(self):
+        if self.lastPrePrepareSeqNo == self.H:
+            logger.debug("{} pre-prepare sequence no {} since outside greater "
+                         "than high water mark {}".
+                         format(self, self.lastPrePrepareSeqNo+1, self.H))
+            return 0
+        if self.node.isParticipating:
+            logger.warn('{} is not participating'.format(self))
+            return 0
+
+        r = 0
+        if self.isPrimary is not None:
+            if self.isPrimary:
+                for lid, q in self.requestQueues.items():
+                    if len(q) >= self.config.Max3PCBatchSize or (
+                                        self.lastBatchCreated +
+                                        self.config.Max3PCBatchTime >
+                                        time.perf_counter() and len(q) > 0):
+                        self.create3PCBatch(lid)
+                        r += 1
+        return r
+
+    def create3PCBatch(self, ledgerId):
+        self.lastPrePrepareSeqNo += 1
+        tm = time.time() * 1000
+        validReqs = []
+        inValidReqs = []
+        while len(validReqs)+len(inValidReqs) < self.config.Max3PCBatchSize \
+                and self.requestQueues[ledgerId]:
+            req = self.requestQueues[ledgerId].popleft()
+            try:
+                if self.isMaster:
+                    self.node.doDynamicValidation(req)
+                validReqs.append(req)
+            except Exception as ex:
+                inValidReqs.append(req)
+                # TODO: collect exceptions to send REJECT
+        reqs = validReqs+inValidReqs
+        digest = sha256(b''.join(reqs))
+        prePrepareReq = PrePrepare(self.instId,
+                                   self.viewNo,
+                                   self.lastPrePrepareSeqNo,
+                                   tm,
+                                   [(req.identifier, req.reqId) for req in reqs],
+                                   len(validReqs),
+                                   digest,
+                                   ledgerId,
+                                   # TODO: State root and txn root
+                                   )
+        return prePrepareReq
+
+    def readyFor3PC(self, request: Request):
+        self.requestQueues[self.node.ledgerForRequest(request)].append(request)
 
     def serviceQueues(self, limit=None):
         """
@@ -406,6 +470,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         # TODO should handle SuspiciousNode here
         r = self.inBoxRouter.handleAllSync(self.inBox, limit)
+        r += self.send3PCBatch()
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
@@ -466,7 +531,7 @@ class Replica(HasActionQueue, MessageProcessor):
                          format(self, msg, msg.ppSeqNo, self.h, self.H))
             self.stashingWhileOutsideWaterMarks.append((msg, sender))
 
-    def processReqDigest(self, rd: ReqDigest):
+    def processRequest(self, rd: ReqDigest):
         """
         Process a request digest. Works only if this replica has decided its
         primary status.

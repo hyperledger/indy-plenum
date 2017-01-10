@@ -140,3 +140,20 @@ UpdateGenesisPoolTxnFile = True
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
 # repository
 EnsureLedgerDurability = True
+
+
+# After `Max3PCBatchSize` requests or `Max3PCBatchTime`, whichever is earlier,
+# a 3 phase batch is sent
+# Max 3 phase batch size.
+Max3PCBatchSize = 10
+# 3 phase batch timeout
+Max3PCBatchTime = 3
+
+
+# After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
+# earlier, a signed state proof is sent
+# Max 3 state proof size
+MaxStateProofSize = 10
+# State proof timeout
+MaxStateProofTime = 3
+

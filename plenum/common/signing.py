@@ -33,7 +33,7 @@ logger = getlogger()
 acceptableTypes = (str, int, float, list, dict, type(None))
 
 
-def serialize(obj, level=0, objname=None):
+def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
     """
     Create a string representation of the given object.
 
@@ -49,7 +49,10 @@ def serialize(obj, level=0, objname=None):
     '1:a|2:b|3:1,2:k'
 
     :param obj: the object to serlize
-    :param level: a parameter used internally for recursion to serialize nested data structures
+    :param level: a parameter used internally for recursion to serialize nested
+     data structures
+     :param topLevelKeysToIgnore: the list of top level keys to ignore for
+     serialization
     :return: a string representation of `obj`
     """
     if not isinstance(obj, acceptableTypes):
@@ -57,7 +60,7 @@ def serialize(obj, level=0, objname=None):
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):
-        keys = [k for k in obj.keys() if level > 0 or k != f.SIG.nm]  # remove signature if top level
+        keys = [k for k in obj.keys() if level > 0 or k not in topLevelKeysToIgnore]  # remove signature if top level
         keys.sort()
         strs = []
         for k in keys:

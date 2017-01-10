@@ -26,7 +26,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
         pass
 
     patchedMethod = types.MethodType(doNotProcessReqDigest, replica)
-    replica.processReqDigest = patchedMethod
+    replica.processRequest = patchedMethod
 
     def chk(n):
         assert replica.spylog.count(replica.doOrder.__name__) == n

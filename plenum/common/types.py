@@ -1,6 +1,7 @@
 import sys
 from collections import namedtuple
-from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
+from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict, \
+    Tuple
 
 from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
@@ -48,6 +49,15 @@ class f:  # provides a namespace for reusable field constants
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
+    REQ_IDR = Field("req_idr", List[Tuple[str, int]])
+    DISCARDED = Field("discarded", int)
+    STATE_ROOT = Field("state_root", str)
+    TXN_ROOT = Field("txn_root", str)
+    CoSi_ANNOUNCEMENT = Field("cosi_announcement", Any)
+    CoSi_COMMITMENT = Field("cosi_commitment", Any)
+    CoSi_CHALLENGE = Field("cosi_challenge", Any)
+    CoSi_RESPONSE = Field("cosi_response", Any)
+    CoSi_MULTISIG = Field("cosi_multisig", Any)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
@@ -92,7 +102,7 @@ class TaggedTupleBase:
 
 
 # noinspection PyProtectedMember
-def TaggedTuple(typename, fields):
+def TaggedTuple(typename, fields) -> NamedTuple:
     cls = NamedTuple(typename, fields)
     if any(field == OP_FIELD_NAME for field in cls._fields):
             raise RuntimeError("field name '{}' is reserved in TaggedTuple"
@@ -146,6 +156,11 @@ RequestNack = TaggedTuple(REQNACK, [
     f.REQ_ID,
     f.REASON])
 
+Reject = TaggedTuple(REQNACK, [
+    f.IDENTIFIER,
+    f.REQ_ID,
+    f.REASON])
+
 PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
     f.TXN
 ])
@@ -171,25 +186,26 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.IDENTIFIER,
-    f.REQ_ID,
+    f.PP_TIME,
+    f.REQ_IDR,
+    f.DISCARDED,
     f.DIGEST,
-    f.PP_TIME
+    f.LEDGER_TYPE,
+    f.STATE_ROOT,
+    f.TXN_ROOT,
     ])
 
 Prepare = TaggedTuple(PREPARE, [
     f.INST_ID,
     f.VIEW_NO,
-    f.PP_SEQ_NO,
-    f.DIGEST,
-    f.PP_TIME])
+    f.PP_SEQ_NO
+    ])
 
 Commit = TaggedTuple(COMMIT, [
     f.INST_ID,
     f.VIEW_NO,
-    f.PP_SEQ_NO,
-    f.DIGEST,
-    f.PP_TIME])
+    f.PP_SEQ_NO
+    ])
 
 Checkpoint = TaggedTuple(CHECKPOINT, [
     f.INST_ID,
@@ -206,11 +222,9 @@ CheckpointState = NamedTuple(CHECKPOINT_STATE, [
     f.IS_STABLE
     ])
 
-
 ThreePCState = TaggedTuple(THREE_PC_STATE, [
     f.INST_ID,
     f.MSGS])
-
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 

@@ -33,9 +33,7 @@ class Request:
         # request id are used to construct digest, then a malicious client might
         # send different operations to different nodes and the nodes will not
         # realize an have different ledgers.
-        return sha256(serializeMsg(self.__dict__)).hexdigest()
-        # DEPR
-        # return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
+        return sha256(self.serialized()).hexdigest()
 
     @property
     def reqDigest(self):
@@ -56,6 +54,9 @@ class Request:
         obj = cls.__new__(cls)
         cls.__setstate__(obj, state)
         return obj
+
+    def serialized(self):
+        return serializeMsg(self.__getstate__())
 
 
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,

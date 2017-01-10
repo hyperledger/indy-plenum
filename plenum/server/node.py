@@ -268,9 +268,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.ledgerManager.addLedger(0, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+
         self.ledgerManager.addLedger(1, self.domainLedger,
-                postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
@@ -308,6 +309,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
+        # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
@@ -427,6 +429,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getLedgerManager(self):
         return LedgerManager(self, ownedByNode=True)
+
+    @staticmethod
+    def ledgerForRequest(request: Request):
+        assert request.operation[TXN_TYPE]
+        typ = request.operation[TXN_TYPE]
+        if typ in POOL_TXN_TYPES:
+            return 0
+        else:
+            return 1
 
     def start(self, loop):
         oldstatus = self.status
@@ -1122,9 +1133,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if all(attr in msg.keys()
                for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
-            self.checkValidOperation(msg[f.IDENTIFIER.nm],
-                                     msg[f.REQ_ID.nm],
-                                     msg[OPERATION])
+            self.doStaticValidation(msg[f.IDENTIFIER.nm],
+                                    msg[f.REQ_ID.nm],
+                                    msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
@@ -1240,6 +1251,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerType, nodeName))
+
+    def doStaticValidation(self, clientId, reqId, operation):
+        if TXN_TYPE not in operation:
+            # return "{} needs to be present in operation {}". \
+            #     format(TXN_TYPE, request)
+            raise InvalidClientRequest(clientId, reqId)
+
+        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            self.poolManager.doStaticValidation(clientId, reqId, operation)
+
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(operation)
+            except Exception as ex:
+                raise InvalidClientRequest(clientId, reqId) from ex
+
+    def doDynamicValidation(self, request: Request):
+        """
+        State based validation
+        """
+        if self.ledgerForRequest(request) == 0:
+            self.poolManager.doDynamicValidation(request)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -1540,23 +1574,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         identifier = self.clientAuthNr.authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
-                     format(self, identifier, typ, req['reqId']),
-                     extra={"cli": True})
+                       format(self, identifier, typ, req['reqId']),
+                       extra={"cli": True})
 
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def checkValidOperation(self, clientId, reqId, operation):
-        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            if not self.poolManager.checkValidOperation(operation):
-                raise InvalidClientRequest(clientId, reqId)
-
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(operation)
-            except Exception as ex:
-                raise InvalidClientRequest(clientId, reqId) from ex
+    # def checkValidOperation(self, clientId, reqId, operation):
+    #     if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+    #         if not self.poolManager.checkValidOperation(operation):
+    #             raise InvalidClientRequest(clientId, reqId)
+    #
+    #     if self.opVerifiers:
+    #         try:
+    #             for v in self.opVerifiers:
+    #                 v.verify(operation)
+    #         except Exception as ex:
+    #             raise InvalidClientRequest(clientId, reqId) from ex
 
     def checkRequestAuthorized(self, request):
         """

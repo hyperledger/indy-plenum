@@ -2,11 +2,12 @@ from typing import Dict, Tuple
 
 from copy import deepcopy
 from ledger.util import F
+from plenum.common.request import Request
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest
+    UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
 
@@ -257,11 +258,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA][ALIAS]
 
-    def checkValidOperation(self, operation):
+    def doStaticValidation(self, clientId, reqId, operation):
         checks = []
         if operation[TXN_TYPE] == NODE:
             checks.append(DATA in operation and isinstance(operation[DATA], dict))
-        return all(checks)
+        if not all(checks):
+            raise InvalidClientRequest(clientId, reqId)
+
+    def doDynamicValidation(self, request: Request):
+        pass
 
     def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
@@ -316,6 +321,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
 
 class RegistryPoolManager(PoolManager):
+    # This is the old way of managing the pool nodes information and
+    # should be deprecated.
     def __init__(self, name, basedirpath, nodeRegistry, ha, cliname, cliha):
 
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
