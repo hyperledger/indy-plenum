@@ -1260,6 +1260,7 @@ class Cli:
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
                 self.activeIdentifier = idrOrAlias
+            wallet.defaultId = self.activeIdentifier
             self.print("Current identifier set to {}".
                        format(self.activeAlias or self.activeIdentifier))
             return True
