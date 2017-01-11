@@ -1260,6 +1260,7 @@ class Cli:
                          if v == idrOrAlias]
                 self.activeAlias = alias[0] if alias else None
                 self.activeIdentifier = idrOrAlias
+            wallet.defaultId = self.activeIdentifier
             self.print("Current identifier set to {}".
                        format(self.activeAlias or self.activeIdentifier))
             return True
@@ -1347,7 +1348,7 @@ class Cli:
 
     def printNoKeyMsg(self):
         self.print("No key present in keyring")
-        self.printUsage(("new key", ))
+        self.printUsage(("new key [with seed <32 byte string>]", ))
 
     def printUsage(self, msgs):
         self.print("\nUsage:")
