@@ -1348,7 +1348,7 @@ class Cli:
 
     def printNoKeyMsg(self):
         self.print("No key present in keyring")
-        self.printUsage(("new key", ))
+        self.printUsage(("new key [with seed <32 byte string>]", ))
 
     def printUsage(self, msgs):
         self.print("\nUsage:")
