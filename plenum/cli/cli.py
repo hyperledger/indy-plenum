@@ -6,7 +6,7 @@ from hashlib import sha256
 import shutil
 from typing import Dict
 
-from jsonpickle import json
+from jsonpickle import json, encode, decode
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
@@ -467,7 +467,30 @@ class Cli:
             if self.wallets:
                 return firstValue(self.wallets)
             else:
-                return self._newWallet()
+                try:
+                    walletFilePath = os.path.join(self.config.baseDir,
+                                                  self._walletNameInStore(
+                                                      self.currPromptText
+                                                  ))
+                    # check if a wallet with current prompt name already exists
+                    with open(walletFilePath) as walletFile:
+                        try:
+                            # if wallet already exists, deserialize it
+                            # and set as active wallet
+                            wallet = decode(walletFile.read())
+                            self._wallets[self.currPromptText] = wallet
+                            self.print("Saved keyring {} restored"
+                                       .format(self.currPromptText))
+                            self.activeWallet = wallet
+                        except (ValueError, AttributeError):
+                            self.logger.info(
+                                "decode error occurred while restoring wallet"
+                            )
+                            return self._newWallet()
+                except IOError:
+                    self.print("No stored keyring found, creating a new one")
+                    # if there is no already saved wallet, create a new one
+                    return self._newWallet()
         return self._activeWallet
 
     @activeWallet.setter
@@ -997,6 +1020,7 @@ class Cli:
             elif cmd == 'license':
                 self.printCmdHelper('license')
             elif cmd in ['exit', 'quit']:
+                self._saveWalletOnExit()
                 raise Exit
             return True
 
@@ -1286,6 +1310,40 @@ class Cli:
         # self.cli.application.layout.children[1].children[0]\
         #     .content.content.get_tokens = getTokens
 
+    def _saveWalletOnExit(self):
+        if self._activeWallet:
+            # We would save wallet only if user already has a wallet
+            # otherwise our access for `activeWallet` property
+            # will create a wallet
+            walletFileName = self._walletNameInStore(self.currPromptText)
+            walletFilePath = os.path.join(self.config.baseDir, walletFileName)
+            encodedWallet = encode(self.activeWallet)
+
+            try:
+                with open(walletFilePath, "w+") as walletFile:
+                    try:
+                        walletFile.write(encodedWallet)
+                    except ValueError as ex:
+                        self.logger.info("ValueError: " +
+                                         "Could not save wallet while exiting\n {}"
+                                         .format(ex))
+                    except IOError:
+                        self.logger.info(
+                            "IOError while writing data to wallet file"
+                        )
+            except IOError as ex:
+                self.logger.info("Error occurred while creating wallet. " +
+                                 "error no.{}, error.{}"
+                                 .format(ex.errno, ex.strerror))
+
+    @staticmethod
+    def _walletNameInStore(walletName):
+        # if wallet name contains @ which comes from prompt name
+        # we will ignore it for now and will create wallets as per environment
+        normalizedWalletName = walletName.split('@', 1)[0]
+        # convert it to lower to match case-insensitive as well
+        return "keyring-{}".format(normalizedWalletName).lower()
+
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
@@ -1334,7 +1392,7 @@ class Cli:
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.".
+                                    "trying another port.\n".
                        format(self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
