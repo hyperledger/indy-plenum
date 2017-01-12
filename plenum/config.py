@@ -1,9 +1,8 @@
+import os
 from collections import OrderedDict
 
-from plenum.common.constants import Environment
 from plenum.common.txn import ClientBootStrategy
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
-import os
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -143,7 +142,3 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
-ENVS = {
-    "test": Environment("pool_transactions_sandbox", "transactions_sandbox"),
-    "live": Environment("pool_transactions_live", "transactions_live")
-}

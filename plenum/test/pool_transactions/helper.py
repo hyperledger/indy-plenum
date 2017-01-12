@@ -64,7 +64,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     nodeCount = len(stewardClient.nodeReg)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=3 * nodeCount))
+                          retryWait=1, timeout=5 * nodeCount))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
     node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
