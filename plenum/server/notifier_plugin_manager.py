@@ -12,7 +12,11 @@ notifierPluginTriggerEvents = {
     'nodeRequestSpike': 'NodeRequestSuspiciousSpike',
     'clusterThroughputSpike': 'ClusterThroughputSuspiciousSpike',
     # TODO: Implement clusterLatencyTooHigh event triggering
-    'clusterLatencyTooHigh': 'ClusterLatencyTooHigh'
+    'clusterLatencyTooHigh': 'ClusterLatencyTooHigh',
+    'nodeUpgradeComplete': 'NodeUpgradeComplete',
+    'nodeUpgradeFail': 'NodeUpgradeFail',
+    'poolUpgradeStart': 'PoolUpgradeStart',
+    'poolUpgradeStop': 'PoolUpgradeStop'
 }
 
 
@@ -27,7 +31,21 @@ class PluginManager:
 
     def __init__(self):
         self.plugins = []
+        self.topics = notifierPluginTriggerEvents
         self.importPlugins()
+
+    def sendMessageUponNodeUpgradeComplete(self, message='Node has successfully upgraded.'):
+        return self._sendMessage(self.topics['nodeUpgradeComplete'], message)
+
+    def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
+        return self._sendMessage(self.topics['nodeUpgradeFail'], message)
+
+    def sendMessageUponPoolUpgradeStart(
+            self, message='Pool upgrade has started. Expect upgrade of your node any time soon.'):
+        return self._sendMessage(self.topics['poolUpgradeStart'], message)
+
+    def sendMessageUponPoolUpgradeStop(self, message='Pool upgrade has been stopped. Please take action.'):
+        return self._sendMessage(self.topics['poolUpgradeStop'], message)
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
                                        newVal: float, config: Dict, nodeName: str):
