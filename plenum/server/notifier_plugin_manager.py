@@ -16,7 +16,6 @@ notifierPluginTriggerEvents = {
     'nodeUpgradeScheduled': 'NodeUpgradeScheduled',
     'nodeUpgradeComplete': 'NodeUpgradeComplete',
     'nodeUpgradeFail': 'NodeUpgradeFail',
-    'poolUpgradeStart': 'PoolUpgradeStart',
     'poolUpgradeStop': 'PoolUpgradeStop'
 }
 
@@ -43,10 +42,6 @@ class PluginManager:
 
     def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
         return self._sendMessage(self.topics['nodeUpgradeFail'], message)
-
-    def sendMessageUponPoolUpgradeStart(
-            self, message='Pool upgrade has started. Expect upgrade of your node any time soon.'):
-        return self._sendMessage(self.topics['poolUpgradeStart'], message)
 
     def sendMessageUponPoolUpgradeStop(self, message='Pool upgrade has been stopped. Please take action.'):
         return self._sendMessage(self.topics['poolUpgradeStop'], message)
