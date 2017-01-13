@@ -36,7 +36,8 @@ def stewardWallet(stewardAndWallet1):
 
 @pytest.fixture("module")
 def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
-                   stewardWallet, allPluginsPath):
+                   stewardWallet, allPluginsPath, testNodeClass,
+                   testClientClass):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Theta"
     newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
@@ -46,7 +47,9 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
                                                                  newNodeName,
                                                                  tdirWithPoolTxns,
                                                                  tconf,
-                                                                 allPluginsPath)
+                                                                 allPluginsPath,
+                                                                 nodeClass=testNodeClass,
+                                                                 clientClass=testClientClass)
     txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,

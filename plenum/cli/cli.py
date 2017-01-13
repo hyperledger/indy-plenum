@@ -1160,7 +1160,15 @@ class Cli:
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
+            if seed:
+                seed = seed.strip()
+                if len(seed) != 32:
+                    self.print('Seed needs to be 32 characters long but is {} '
+                               'characters long'.format(len(seed)), Token.Error)
+                    return True
             alias = matchedVars.get('alias')
+            if alias:
+                alias = alias.strip()
             self._newSigner(seed=seed, alias=alias, wallet=self.activeWallet)
             return True
 

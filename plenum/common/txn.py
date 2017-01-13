@@ -82,8 +82,7 @@ TXNS = "Txns"
 
 BY = "by"
 
-# POOL_TXN_TYPES = {NODE, CHANGE_HA, CHANGE_KEYS}
-POOL_TXN_TYPES = {NODE}
+POOL_TXN_TYPES = {NODE, }
 
 
 class ClientBootStrategy(IntEnum):

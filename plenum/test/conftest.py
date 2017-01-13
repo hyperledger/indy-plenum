@@ -36,7 +36,7 @@ from plenum.test.helper import randomOperation, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import genTestClient
+from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
@@ -473,6 +473,11 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
 @pytest.fixture(scope="module")
 def testNodeClass():
     return TestNode
+
+
+@pytest.fixture(scope="module")
+def testClientClass():
+    return TestClient
 
 
 @pytest.yield_fixture(scope="module")

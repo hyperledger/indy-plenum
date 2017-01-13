@@ -460,6 +460,7 @@ class KITStack(SimpleStack):
                     extra={"cli": "PLAIN"})
         return remote.uid
 
+    @property
     def notConnectedNodes(self) -> Set[str]:
         """
         Returns the names of nodes in the registry this node is NOT connected

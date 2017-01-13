@@ -495,7 +495,10 @@ class Client(Motor,
                     coll.pop(key)
 
         if not (self.expectingAcksFor or self.expectingRepliesFor):
-            self.stopRepeating(self.retryForExpected, strict=False)
+            self.stopRetrying()
+
+    def stopRetrying(self):
+        self.stopRepeating(self.retryForExpected, strict=False)
 
     def retryForExpected(self):
         now = time.perf_counter()

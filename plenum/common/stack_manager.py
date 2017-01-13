@@ -200,6 +200,10 @@ class TxnStackManager:
                 return True
         return False
 
+    @property
+    def nodeIds(self) -> set:
+        return {txn[TARGET_NYM] for txn in self.ledger.getAllTxn().values()}
+
     def getNodeInfoFromLedger(self, nym, excludeLast=True):
         # Returns the info of the node from the ledger with transaction
         # sequence numbers that added or updated the info excluding the last

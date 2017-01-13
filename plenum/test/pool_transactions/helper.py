@@ -42,7 +42,7 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True):
+               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
 
@@ -69,27 +69,29 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                           req.reqId, 1,
                           retryWait=1, timeout=3 * nodeCount))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
-    node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
-                    ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
-                    pluginPaths=allPluginsPath)
+    node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
+                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
+                     pluginPaths=allPluginsPath)
     if autoStart:
         looper.add(node)
     return node
 
 
 def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf,
-                         allPluginsPath=None, autoStart=True):
+                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         autoStart=True, nodeClass=TestNode,
+                         clientClass=TestClient):
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
-    newSteward = TestClient(name=stewardName,
-                            nodeReg=None, ha=genHa(),
-                            basedirpath=tdir)
+    newSteward = clientClass(name=stewardName,
+                             nodeReg=None, ha=genHa(),
+                             basedirpath=tdir)
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
-                         tdir, tconf, allPluginsPath, autoStart=autoStart)
+                         tdir, tconf, allPluginsPath, autoStart=autoStart,
+                         nodeClass=nodeClass)
     return newSteward, newStewardWallet, newNode
 
 
