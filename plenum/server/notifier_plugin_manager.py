@@ -43,7 +43,7 @@ class PluginManager:
     def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
         return self._sendMessage(self.topics['nodeUpgradeFail'], message)
 
-    def sendMessageUponPoolUpgradeStop(self, message='Pool upgrade has been stopped. Please take action.'):
+    def sendMessageUponPoolUpgradeCancel(self, message='Pool upgrade has been cancelled. Please take action.'):
         return self._sendMessage(self.topics['poolUpgradeStop'], message)
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
