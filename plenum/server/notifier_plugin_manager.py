@@ -16,7 +16,7 @@ notifierPluginTriggerEvents = {
     'nodeUpgradeScheduled': 'NodeUpgradeScheduled',
     'nodeUpgradeComplete': 'NodeUpgradeComplete',
     'nodeUpgradeFail': 'NodeUpgradeFail',
-    'poolUpgradeStop': 'PoolUpgradeStop'
+    'poolUpgradeCancel': 'PoolUpgradeCancel'
 }
 
 
@@ -44,7 +44,7 @@ class PluginManager:
         return self._sendMessage(self.topics['nodeUpgradeFail'], message)
 
     def sendMessageUponPoolUpgradeCancel(self, message='Pool upgrade has been cancelled. Please take action.'):
-        return self._sendMessage(self.topics['poolUpgradeStop'], message)
+        return self._sendMessage(self.topics['poolUpgradeCancel'], message)
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
                                        newVal: float, config: Dict, nodeName: str):
