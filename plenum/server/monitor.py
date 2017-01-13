@@ -121,7 +121,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         HasActionQueue.__init__(self)
 
         if config.SendMonitorStats:
-            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)   
+
+        self._schedule(self.checkPerformance,
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def __repr__(self):
         return self.name
@@ -398,8 +401,12 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
-        self.sendClusterThroughputSpike()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    def checkPerformance(self):
+        self.sendClusterThroughputSpike()
+        self._schedule(self.checkPerformance, 
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def sendClusterThroughputSpike(self):
         if self.instances.masterId is None:

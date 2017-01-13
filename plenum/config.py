@@ -73,11 +73,13 @@ LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
-        'minCnt': 100
+        'minCnt': 100,
+        'freq': 60
     },
     'nodeRequestSpike': {
         'coefficient': 3,
-        'minCnt': 100
+        'minCnt': 100,
+        'freq': 60
     }
 }
 
