@@ -478,7 +478,8 @@ class Cli:
             if self.wallets:
                 return firstValue(self.wallets)
             else:
-                return self.restoreWallet()
+                self._activeWallet = self._newWallet()
+                return self._activeWallet
         return self._activeWallet
 
     @activeWallet.setter
@@ -792,7 +793,8 @@ class Cli:
                                   nodeRegistry=None if self.nodeRegLoadedFromFile
                                   else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths)
+                                  pluginPaths=self.pluginPaths,
+                                  config=self.config)
             # sleep(60)
             self.nodes[name] = node
             self.looper.add(node)
@@ -1315,16 +1317,14 @@ class Cli:
                     self._wallets[walletKeyName] = wallet
                     self.print("Saved keyring {} restored"
                                .format(self.currPromptText))
-                    self.activeWallet = wallet
+                    self._activeWallet = wallet
                 except (ValueError, AttributeError):
                     self.logger.info(
                         "decode error occurred while restoring wallet"
                     )
-                    return self._newWallet()
         except IOError:
             self.print("No stored keyring found, creating a new one")
             # if there is no already saved wallet, create a new one
-        return self._newWallet()
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1337,7 +1337,7 @@ class Cli:
 
     @staticmethod
     def _normalizedWalletFileName(walletName):
-        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName).lower()
+        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName)
 
     @staticmethod
     def getPersistentWalletFileName(cliName, currPromptText,
