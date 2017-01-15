@@ -252,13 +252,7 @@ class Cli:
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        # TODO commented out by JAL, DON'T COMMIT
-        # uncommented by JN.
-        # self.ensureDefaultClientCreated()
-        # self.print("Current wallet set to {}".format(self.defaultClient.name))
-        # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
-        # self.print("Current identifier set to {alias} ({cryptonym})".format(
-        #     alias=alias, cryptonym=signer.verstr))
+        self.restoreWallet(withName=self.defaultWalletName)
 
     @property
     def genesisTransactions(self):
@@ -387,6 +381,7 @@ class Cli:
             conflictFound = self._checkIfIdentifierConflicts(
                 name, checkInAliases=False, checkInSigners=False)
             if not conflictFound:
+                self._saveActiveWallet()
                 self._newWallet(name)
             return True
 
@@ -1244,7 +1239,14 @@ class Cli:
         else:
             return False
 
+    def _loadWalletIfExistsAndNotLoaded(self, name):
+        if not self.wallets.get(name):
+            walletFileName = Cli.getPersistentWalletFileName(
+                self.name, self.currPromptText, name)
+            self.restoreWalletByName(walletFileName)
+
     def _searchAndSetWallet(self, name):
+        self._loadWalletIfExistsAndNotLoaded(name)
         wallet = self.wallets.get(name)
         if wallet:
             self.activeWallet = wallet
@@ -1302,29 +1304,35 @@ class Cli:
         # self.cli.application.layout.children[1].children[0]\
         #     .content.content.get_tokens = getTokens
 
-    def restoreWallet(self):
+    def restoreWalletByName(self, walletFileName, loadWithKeyName=None):
         try:
-            walletFileName = self.walletFileName
             walletFilePath = self.getWalletFilePath(
-                self.config.baseDir, walletFileName)
-            # check if a wallet with current prompt name already exists
+                self.getKeyringsBaseDir(), walletFileName)
             with open(walletFilePath) as walletFile:
                 try:
                     # if wallet already exists, deserialize it
                     # and set as active wallet
                     wallet = decode(walletFile.read())
-                    walletKeyName = self.getWalletKeyName(walletFileName)
+                    walletKeyName = loadWithKeyName if loadWithKeyName \
+                        else self.getWalletKeyName(walletFileName)
                     self._wallets[walletKeyName] = wallet
                     self.print("Saved keyring {} restored"
-                               .format(self.currPromptText))
+                               .format(walletKeyName))
                     self._activeWallet = wallet
                 except (ValueError, AttributeError):
                     self.logger.info(
                         "decode error occurred while restoring wallet"
                     )
         except IOError:
-            self.print("No stored keyring found, creating a new one")
-            # if there is no already saved wallet, create a new one
+            pass
+
+    def restoreWallet(self, withName=None):
+        if withName:
+            walletFileName = Cli.getPersistentWalletFileName(
+            self.name, self.currPromptText, withName)
+        else:
+            walletFileName = self.walletFileName
+        self.restoreWalletByName(walletFileName)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1340,9 +1348,7 @@ class Cli:
         return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName)
 
     @staticmethod
-    def getPersistentWalletFileName(cliName, currPromptText,
-                                    activeWalletName=""):
-
+    def getPersistentWalletFileName(cliName, currPromptText, walletName=""):
         if PROMPT_ENV_SEPARATOR not in currPromptText:
             prompt, envName = cliName, ""
         else:
@@ -1353,11 +1359,10 @@ class Cli:
         else:
             targetWalletFileName = prompt
 
-        if activeWalletName != "":
+        if walletName != "":
             targetWalletFileName = "{}{}{}".format(
-                activeWalletName, WALLET_FILE_NAME_ENV_SEPARATOR,
+                walletName, WALLET_FILE_NAME_ENV_SEPARATOR,
                 targetWalletFileName)
-
         return Cli._normalizedWalletFileName(targetWalletFileName)
 
 
@@ -1366,6 +1371,10 @@ class Cli:
         activeWalletName = self._activeWallet.name if self._activeWallet else ""
         return Cli.getPersistentWalletFileName(self.name, self.currPromptText,
                                                activeWalletName)
+
+    def getKeyringsBaseDir(self):
+        return os.path.expanduser(os.path.join(self.config.baseDir,
+                                       self.config.keyringsDir))
 
     @staticmethod
     def getWalletFilePath(basedir, walletFileName):
@@ -1376,12 +1385,15 @@ class Cli:
             # We would save wallet only if user already has a wallet
             # otherwise our access for `activeWallet` property
             # will create a wallet
-
-            encodedWallet = encode(self.activeWallet)
-
+            encodedWallet = encode(self._activeWallet)
             try:
+                keyringsBaseDir = self.getKeyringsBaseDir()
+
+                if not os.path.exists(keyringsBaseDir):
+                    os.makedirs(keyringsBaseDir)
+
                 with open(Cli.getWalletFilePath(
-                        self.config.baseDir, self.walletFileName), "w+") \
+                        keyringsBaseDir, self.walletFileName), "w+") \
                         as walletFile:
                     try:
                         walletFile.write(encodedWallet)

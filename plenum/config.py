@@ -22,6 +22,8 @@ cliNodeReg = OrderedDict([
 
 baseDir = "~/.plenum/"
 
+keyringsDir = "keyrings"
+
 nodeDataDir = "data/nodes"
 
 clientDataDir = "data/clients"
