@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import glob
 import random
 from hashlib import sha256
 import shutil
@@ -71,7 +72,7 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
-
+from plenum.__metadata__ import __version__
 
 class CustomOutput(Vt100_Output):
     """
@@ -248,12 +249,17 @@ class Cli:
 
             self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+        self.print("Running {} {}\n".format(self.properName, self.getCliVersion()))
+
         self._actions = []
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        self.restoreWallet(withName=self.defaultWalletName)
+        self.restoreLastActiveWallet("*")
+
+    def getCliVersion(self):
+        return __version__
 
     @property
     def genesisTransactions(self):
@@ -1264,7 +1270,6 @@ class Cli:
         wallet = self.wallets.get(name)
         if wallet:
             self.activeWallet = wallet
-            self.print("Current keyring set to {}".format(name))
         else:
             if not self._loadFromPath(name):
                 self.print("No such keyring found")
@@ -1352,6 +1357,27 @@ class Cli:
         else:
             walletFileName = self.walletFileName
         self.restoreWalletByName(walletFileName)
+
+    def restoreLastActiveWallet(self, filePattern):
+        try:
+            def getLastModifiedTime(file):
+                return os.stat(file).st_mtime_ns
+
+            keyringPath = self.getKeyringsBaseDir()
+            newest = max(glob.iglob('{}/{}'.format(keyringPath, filePattern)),
+                         key=getLastModifiedTime)
+            baseFileName = basename(newest)
+            walletName = self.getWalletKeyName(baseFileName)
+            self._searchAndSetWallet(walletName)
+        except ValueError as e:
+            if not str(e) == "max() arg is an empty sequence":
+               self.errorDuringRestoringLastActiveWallet(e)
+        except Exception as e:
+            self.errorDuringRestoringLastActiveWallet(e)
+
+    def errorDuringRestoringLastActiveWallet(self, e):
+        self.logger.warning("Error occurred during restoring last "
+                            "active wallet, error: {}".format(e))
 
     @staticmethod
     def getWalletKeyName(walletFileName):
