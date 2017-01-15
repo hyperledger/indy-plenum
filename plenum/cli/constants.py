@@ -69,7 +69,7 @@ CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) " \
                                   "\s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
 
 CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_kr>use\s+keyring) " \
-                                  "\s+ (?P<keyring>[A-Za-z0-9+=/]*) \s*) "
+                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*) "
 
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
