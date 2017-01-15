@@ -994,6 +994,7 @@ class Cli:
                 for c in cmds:
                     self.parse(c)
             except (EOFError, KeyboardInterrupt, Exit):
+                self._saveActiveWallet()
                 break
 
         self.print('Goodbye.')
