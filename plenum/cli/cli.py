@@ -1550,7 +1550,7 @@ class Cli:
     def cleanUp(self):
         dataPath = os.path.join(self.config.baseDir, "data")
         try:
-            shutil.rmtree(dataPath)
+            shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:
             pass
 
