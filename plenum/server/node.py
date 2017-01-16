@@ -210,8 +210,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # every `n` seconds, also support start and stop methods
         # self._schedule(self.checkPerformance, self.perfCheckFreq)
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
-        self.startRepeating(self.checkNodeRequestSpike, 
-          self.config.notifierEventTriggeringConfig['nodeRequestSpike']['freq'])
+        self.startRepeating(self.checkNodeRequestSpike,
+                            self.config
+                            .notifierEventTriggeringConfig[
+                                'nodeRequestSpike']['freq'])
 
         self.initInsChngThrottling()
 

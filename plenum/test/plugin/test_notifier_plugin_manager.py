@@ -99,7 +99,8 @@ def testNodeSendNodeRequestSpike(pluginManagerWithImportedModules, testNode):
         obj.nodeRequestSpikeMonitorData['accum'] += inc
     testNode.config.notifierEventTriggeringConfig['nodeRequestSpike'] = {
         'coefficient': 3,
-        'minCnt': 1
+        'minCnt': 1,
+        'freq': 60
     }
     mockProcessRequest(testNode)
     assert testNode.sendNodeRequestSpike() is None
@@ -121,7 +122,8 @@ def testMonitorSendClusterThroughputSpike(pluginManagerWithImportedModules,
     monkeypatch.setattr(testNode.monitor, 'getThroughput', mockGetThroughput)
     testNode.monitor.notifierEventTriggeringConfig['clusterThroughputSpike'] = {
         'coefficient': 3,
-        'minCnt': 1
+        'minCnt': 1,
+        'freq': 60
     }
     assert testNode.monitor.sendClusterThroughputSpike() is None
     throughput = 2

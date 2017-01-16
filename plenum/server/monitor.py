@@ -416,7 +416,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         accum = 0
         for val in self.clusterThroughputSpikeMonitorData['accum']:
             accum += val
-        accum /= len(self.clusterThroughputSpikeMonitorData['accum'])
+        if len(self.clusterThroughputSpikeMonitorData['accum']):
+            accum /= len(self.clusterThroughputSpikeMonitorData['accum'])
         self.clusterThroughputSpikeMonitorData['accum'] = []
         return pluginManager.sendMessageUponSuspiciousSpike(
             notifierPluginTriggerEvents['clusterThroughputSpike'],
