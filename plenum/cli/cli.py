@@ -256,7 +256,7 @@ class Cli:
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        self.restoreLastActiveWallet("*")
+        self.restoreLastActiveWallet("{}*".format(WALLET_FILE_NAME_PREFIX))
 
     def getCliVersion(self):
         return __version__
@@ -1243,6 +1243,18 @@ class Cli:
                     "{} conflicts with an existing identifier. "
                     "Please choose a new name".format(origName), Token.Warning)
                 return True
+
+            toBeWalletFileName = self.getPersistentWalletFileName(
+                self.name, self.currPromptText, origName)
+            toBeWalletFilePath = Cli.getWalletFilePath(
+                self.getKeyringsBaseDir(), toBeWalletFileName)
+            if os.path.exists(toBeWalletFilePath):
+                self.print(
+                    "{} conflicts with an existing keyring name (stored at: {})"
+                    ". Please choose a new name".format(
+                        origName, toBeWalletFilePath), Token.Warning)
+                return True
+
             return False
         else:
             return False
@@ -1260,18 +1272,25 @@ class Cli:
             while self.wallets.get(walletKeyName):
                 walletKeyName = baseFileName + randomString(5)
             self.restoreWalletByPath(path, walletKeyName)
-            self.print("\nUse rename keyring if you want to "
+            if self._activeWallet:
+                self.print("\nUse rename keyring if you want to "
                        "rename to simpler/smaller name\n")
-            return True
+                return True
         return False
 
     def _searchAndSetWallet(self, name):
-        self._loadWalletIfExistsAndNotLoaded(name)
-        wallet = self.wallets.get(name)
-        if wallet:
-            self.activeWallet = wallet
+        if self._activeWallet:
+            self._saveActiveWallet()
+
+        if os.path.exists(name):
+            self._loadFromPath(name)
         else:
-            if not self._loadFromPath(name):
+            self._loadWalletIfExistsAndNotLoaded(name)
+            wallets = {k.lower(): v for k, v in self.wallets.items()}
+            wallet = wallets.get(name.lower())
+            if wallet:
+                self.activeWallet = wallet
+            else:
                 self.print("No such keyring found")
         return True
 
@@ -1331,14 +1350,15 @@ class Cli:
                     # if wallet already exists, deserialize it
                     # and set as active wallet
                     wallet = decode(walletFile.read())
+                    assert isinstance(wallet, Wallet)
                     self._wallets[walletKeyName] = wallet
                     self.print("Saved keyring {} restored"
                                .format(walletKeyName))
                     self._activeWallet = wallet
-                except (ValueError, AttributeError):
+                except (ValueError, AttributeError) as e:
                     self.logger.info(
-                        "decode error occurred while restoring wallet"
-                    )
+                        "decode error occurred while restoring wallet {}: {}".
+                            format(walletFilePath, e))
         except IOError:
             pass
 
