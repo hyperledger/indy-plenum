@@ -411,6 +411,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def sendClusterThroughputSpike(self):
+        if self.instances.masterId is None:
+            return None
         accum = 0
         for val in self.clusterThroughputSpikeMonitorData['accum']:
             accum += val
