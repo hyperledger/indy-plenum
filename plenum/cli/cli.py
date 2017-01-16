@@ -1,12 +1,14 @@
 from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
+import glob
 import random
 from hashlib import sha256
 import shutil
+from os.path import basename
 from typing import Dict
 
-from jsonpickle import json
+from jsonpickle import json, encode, decode
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
@@ -16,7 +18,9 @@ from ledger.ledger import Ledger
 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
-from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS
+from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
+    PROMPT_ENV_SEPARATOR, WALLET_FILE_NAME_ENV_SEPARATOR, \
+    WALLET_FILE_NAME_PREFIX
 from plenum.common.signer_simple import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
@@ -68,7 +72,7 @@ from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
-
+from plenum.__metadata__ import __version__
 
 class CustomOutput(Vt100_Output):
     """
@@ -106,7 +110,7 @@ class Cli:
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
-        self.config = config or getConfig(self.basedirpath)
+        self._config = config or getConfig(self.basedirpath)
         if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
                 and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
@@ -245,18 +249,17 @@ class Cli:
 
             self.showNodeRegistry()
         self.print("Type 'help' for more information.")
+        self.print("Running {} {}\n".format(self.properName, self.getCliVersion()))
+
         self._actions = []
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        # TODO commented out by JAL, DON'T COMMIT
-        # uncommented by JN.
-        # self.ensureDefaultClientCreated()
-        # self.print("Current wallet set to {}".format(self.defaultClient.name))
-        # alias, signer = next(iter(self.defaultClient.wallet.signers.items()))
-        # self.print("Current identifier set to {alias} ({cryptonym})".format(
-        #     alias=alias, cryptonym=signer.verstr))
+        self.restoreLastActiveWallet("*")
+
+    def getCliVersion(self):
+        return __version__
 
     @property
     def genesisTransactions(self):
@@ -280,6 +283,15 @@ class Cli:
                              self._newKeyring, self._renameKeyring,
                              self._useKeyringAction]
         return self._actions
+
+
+    @property
+    def config(self):
+        if self._config:
+            return self._config
+        else:
+            self._config = getConfig()
+            return self._config
 
     @property
     def allGrams(self):
@@ -376,6 +388,7 @@ class Cli:
             conflictFound = self._checkIfIdentifierConflicts(
                 name, checkInAliases=False, checkInSigners=False)
             if not conflictFound:
+                self._saveActiveWallet()
                 self._newWallet(name)
             return True
 
@@ -467,7 +480,8 @@ class Cli:
             if self.wallets:
                 return firstValue(self.wallets)
             else:
-                return self._newWallet()
+                self._activeWallet = self._newWallet()
+                return self._activeWallet
         return self._activeWallet
 
     @activeWallet.setter
@@ -781,7 +795,8 @@ class Cli:
                                   nodeRegistry=None if self.nodeRegLoadedFromFile
                                   else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths)
+                                  pluginPaths=self.pluginPaths,
+                                  config=self.config)
             # sleep(60)
             self.nodes[name] = node
             self.looper.add(node)
@@ -985,6 +1000,7 @@ class Cli:
                 for c in cmds:
                     self.parse(c)
             except (EOFError, KeyboardInterrupt, Exit):
+                self._saveActiveWallet()
                 break
 
         self.print('Goodbye.')
@@ -997,6 +1013,7 @@ class Cli:
             elif cmd == 'license':
                 self.printCmdHelper('license')
             elif cmd in ['exit', 'quit']:
+                self._saveActiveWallet()
                 raise Exit
             return True
 
@@ -1194,47 +1211,68 @@ class Cli:
             self.print('\n'.join(self.activeWallet.listIds()))
             return True
 
-    def _checkIfIdentifierConflicts(self, name, checkInWallets=True,
+    def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True):
-        allAliases = []
-        allSigners = []
-        allWallets = []
+        if origName:
+            name = origName.lower()
+            allAliases = []
+            allSigners = []
+            allWallets = []
 
-        for wk, wv in self.wallets.items():
-            if checkInAliases:
-                allAliases.extend(list(wv.aliasesToIds.keys()))
-            if checkInSigners:
-                allSigners.extend(list(wv.listIds()))
-            if checkInWallets:
-                allWallets.append(wk)
+            for wk, wv in self.wallets.items():
+                if checkInAliases:
+                    allAliases.extend(
+                        [k.lower() for k in wv.aliasesToIds.keys()])
+                if checkInSigners:
+                    allSigners.extend(list(wv.listIds()))
+                if checkInWallets:
+                    allWallets.append(wk.lower())
 
-        if name:
             if name in allWallets:
                 self.print(
                     "{} conflicts with an existing keyring name. "
-                    "Please choose a new name".format(name), Token.Warning)
+                    "Please choose a new name".format(origName), Token.Warning)
                 return True
             if name in allAliases:
                 self.print(
                     "{} conflicts with an existing alias. "
-                    "Please choose a new name".format(name), Token.Warning)
+                    "Please choose a new name".format(origName), Token.Warning)
                 return True
             if name in allSigners:
                 self.print(
                     "{} conflicts with an existing identifier. "
-                    "Please choose a new name".format(name), Token.Warning)
+                    "Please choose a new name".format(origName), Token.Warning)
                 return True
             return False
         else:
             return False
 
+    def _loadWalletIfExistsAndNotLoaded(self, name):
+        if not self.wallets.get(name):
+            walletFileName = Cli.getPersistentWalletFileName(
+                self.name, self.currPromptText, name)
+            self.restoreWalletByName(walletFileName)
+
+    def _loadFromPath(self, path):
+        if os.path.exists(path):
+            baseFileName = basename(path)
+            walletKeyName = baseFileName
+            while self.wallets.get(walletKeyName):
+                walletKeyName = baseFileName + randomString(5)
+            self.restoreWalletByPath(path, walletKeyName)
+            self.print("\nUse rename keyring if you want to "
+                       "rename to simpler/smaller name\n")
+            return True
+        return False
+
     def _searchAndSetWallet(self, name):
+        self._loadWalletIfExistsAndNotLoaded(name)
         wallet = self.wallets.get(name)
         if wallet:
             self.activeWallet = wallet
-            self.print("Current keyring set to {}".format(name))
         else:
-            self.print("No such keyring found")
+            if not self._loadFromPath(name):
+                self.print("No such keyring found")
         return True
 
     def _useKeyringAction(self, matchedVars):
@@ -1286,6 +1324,137 @@ class Cli:
         # self.cli.application.layout.children[1].children[0]\
         #     .content.content.get_tokens = getTokens
 
+    def restoreWalletByPath(self, walletFilePath, walletKeyName):
+        try:
+            with open(walletFilePath) as walletFile:
+                try:
+                    # if wallet already exists, deserialize it
+                    # and set as active wallet
+                    wallet = decode(walletFile.read())
+                    self._wallets[walletKeyName] = wallet
+                    self.print("Saved keyring {} restored"
+                               .format(walletKeyName))
+                    self._activeWallet = wallet
+                except (ValueError, AttributeError):
+                    self.logger.info(
+                        "decode error occurred while restoring wallet"
+                    )
+        except IOError:
+            pass
+
+    def restoreWalletByName(self, walletFileName, loadWithKeyName=None):
+        walletKeyName = loadWithKeyName if loadWithKeyName \
+            else self.getWalletKeyName(walletFileName)
+
+        walletFilePath = self.getWalletFilePath(
+            self.getKeyringsBaseDir(), walletFileName)
+        self.restoreWalletByPath(walletFilePath, walletKeyName)
+
+    def restoreWallet(self, withName=None):
+        if withName:
+            walletFileName = Cli.getPersistentWalletFileName(
+            self.name, self.currPromptText, withName)
+        else:
+            walletFileName = self.walletFileName
+        self.restoreWalletByName(walletFileName)
+
+    def restoreLastActiveWallet(self, filePattern):
+        try:
+            def getLastModifiedTime(file):
+                return os.stat(file).st_mtime_ns
+
+            keyringPath = self.getKeyringsBaseDir()
+            newest = max(glob.iglob('{}/{}'.format(keyringPath, filePattern)),
+                         key=getLastModifiedTime)
+            baseFileName = basename(newest)
+            walletName = self.getWalletKeyName(baseFileName)
+            self._searchAndSetWallet(walletName)
+        except ValueError as e:
+            if not str(e) == "max() arg is an empty sequence":
+               self.errorDuringRestoringLastActiveWallet(e)
+        except Exception as e:
+            self.errorDuringRestoringLastActiveWallet(e)
+
+    def errorDuringRestoringLastActiveWallet(self, e):
+        self.logger.warning("Error occurred during restoring last "
+                            "active wallet, error: {}".format(e))
+
+    @staticmethod
+    def getWalletKeyName(walletFileName):
+        keyName = walletFileName.replace(WALLET_FILE_NAME_PREFIX, "")
+
+        if WALLET_FILE_NAME_ENV_SEPARATOR not in keyName:
+            return keyName
+
+        return keyName.rsplit(WALLET_FILE_NAME_ENV_SEPARATOR, 1)[0]
+
+    @staticmethod
+    def _normalizedWalletFileName(walletName):
+        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName)
+
+    @staticmethod
+    def getPersistentWalletFileName(cliName, currPromptText, walletName=""):
+        if PROMPT_ENV_SEPARATOR not in currPromptText:
+            prompt, envName = cliName, ""
+        else:
+            prompt, envName = currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
+
+        if envName != "":
+            targetWalletFileName = envName
+        else:
+            targetWalletFileName = prompt
+
+        if walletName != "":
+            targetWalletFileName = "{}{}{}".format(
+                walletName, WALLET_FILE_NAME_ENV_SEPARATOR,
+                targetWalletFileName)
+        return Cli._normalizedWalletFileName(targetWalletFileName)
+
+
+    @property
+    def walletFileName(self):
+        activeWalletName = self._activeWallet.name if self._activeWallet else ""
+        return Cli.getPersistentWalletFileName(self.name, self.currPromptText,
+                                               activeWalletName)
+
+    def getKeyringsBaseDir(self):
+        return os.path.expanduser(os.path.join(self.config.baseDir,
+                                       self.config.keyringsDir))
+
+    @staticmethod
+    def getWalletFilePath(basedir, walletFileName):
+        return os.path.join(basedir, walletFileName)
+
+    def _saveActiveWallet(self):
+        if self._activeWallet:
+            # We would save wallet only if user already has a wallet
+            # otherwise our access for `activeWallet` property
+            # will create a wallet
+            encodedWallet = encode(self._activeWallet)
+            try:
+                keyringsBaseDir = self.getKeyringsBaseDir()
+
+                if not os.path.exists(keyringsBaseDir):
+                    os.makedirs(keyringsBaseDir)
+
+                with open(Cli.getWalletFilePath(
+                        keyringsBaseDir, self.walletFileName), "w+") \
+                        as walletFile:
+                    try:
+                        walletFile.write(encodedWallet)
+                    except ValueError as ex:
+                        self.logger.info("ValueError: " +
+                                         "Could not save wallet while exiting\n {}"
+                                         .format(ex))
+                    except IOError:
+                        self.logger.info(
+                            "IOError while writing data to wallet file"
+                        )
+            except IOError as ex:
+                self.logger.info("Error occurred while creating wallet. " +
+                                 "error no.{}, error.{}"
+                                 .format(ex.errno, ex.strerror))
+
     def parse(self, cmdText):
         cmdText = cmdText.strip()
         m = self.grammar.match(cmdText)
@@ -1334,7 +1503,7 @@ class Cli:
             return host, self.curClientPort
         except Exception as ex:
             tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.".
+                                    "trying another port.\n".
                        format(self.curClientPort, ex))]
             self.printTokens(tokens)
             return self.nextAvailableClientAddr(self.curClientPort)
