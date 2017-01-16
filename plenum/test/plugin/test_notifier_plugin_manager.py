@@ -83,7 +83,7 @@ def testPluginManagerSendMessageUponSuspiciousSpike(
         'value': 10,
         'cnt': 10
     }
-    newVal = 20
+    newVal = 25
     config = {
         'coefficient': 2,
         'minCnt': 10

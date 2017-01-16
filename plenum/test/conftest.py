@@ -9,7 +9,7 @@ from copy import copy
 from functools import partial
 from typing import Dict, Any
 
-import pip.utils as utils
+import pip
 import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -535,7 +535,7 @@ def pluginManager():
 
 @pytest.fixture
 def pluginManagerWithImportedModules(pluginManager, monkeypatch):
-    monkeypatch.setattr(utils, 'get_installed_distributions',
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
                         partial(mockGetInstalledDistributions,
                                 packages=[]))
     monkeypatch.setattr(importlib, 'import_module', mockImportModule)
@@ -544,7 +544,7 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
     packagesCnt = 3
     packages = [pluginManager.prefix + randomText(10)
                 for _ in range(packagesCnt)]
-    monkeypatch.setattr(utils, 'get_installed_distributions',
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
                         partial(mockGetInstalledDistributions,
                                 packages=packages))
     imported, found = pluginManager.importPlugins()

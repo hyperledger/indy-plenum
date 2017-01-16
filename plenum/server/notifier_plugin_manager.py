@@ -60,6 +60,7 @@ class PluginManager:
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        self.plugins = []
         i = 0
         for plugin in plugins:
             try:
