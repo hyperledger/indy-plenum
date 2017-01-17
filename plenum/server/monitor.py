@@ -110,7 +110,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # Monitoring suspicious spikes in cluster throughput
         self.clusterThroughputSpikeMonitorData = {
             'value': 0,
-            'cnt': 0
+            'cnt': 0,
+            'accum': []
         }
 
         psutil.cpu_percent(interval=None)
@@ -121,7 +122,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         HasActionQueue.__init__(self)
 
         if config.SendMonitorStats:
-            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)   
+
+        self._schedule(self.checkPerformance,
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def __repr__(self):
         return self.name
@@ -392,26 +396,33 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return avgLatencies
 
     def sendPeriodicStats(self):
-        self.sendThroughput()
+        thoughputData = self.sendThroughput()
+        self.clusterThroughputSpikeMonitorData['accum'].append(thoughputData['throughput'])
         self.sendLatencies()
         self.sendKnownNodesInfo()
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
-        self.sendClusterThroughputSpike()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    def checkPerformance(self):
+        self.sendClusterThroughputSpike()
+        self._schedule(self.checkPerformance, 
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def sendClusterThroughputSpike(self):
         if self.instances.masterId is None:
             return None
-        throughput = self.getThroughput(self.instances.masterId)
-        if throughput is None:
-            logger.debug('Throughput can\'t be measured')
-            return None
+        accum = 0
+        for val in self.clusterThroughputSpikeMonitorData['accum']:
+            accum += val
+        if len(self.clusterThroughputSpikeMonitorData['accum']):
+            accum /= len(self.clusterThroughputSpikeMonitorData['accum'])
+        self.clusterThroughputSpikeMonitorData['accum'] = []
         return pluginManager.sendMessageUponSuspiciousSpike(
             notifierPluginTriggerEvents['clusterThroughputSpike'],
             self.clusterThroughputSpikeMonitorData,
-            throughput,
+            accum,
             self.notifierEventTriggeringConfig['clusterThroughputSpike'],
             self.name
         )
@@ -440,6 +451,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             "time": time.mktime(utcTime.timetuple()) * 1000
         }
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_THROUGHPUT, mtrStats)
+        return mtrStats
 
     @property
     def masterLatency(self):

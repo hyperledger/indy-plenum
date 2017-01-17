@@ -153,7 +153,7 @@ def logcapture(request, whitelist, concerningLogLevels):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg, allPluginsPath):
+def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
@@ -471,7 +471,7 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def testNodeClass():
+def testNodeClass(patchPluginManager):
     return TestNode
 
 
@@ -482,7 +482,8 @@ def txnPoolNodesLooper():
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodesLooper,
+def txnPoolNodeSet(patchPluginManager,
+                   txnPoolNodesLooper,
                    tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tconf,
@@ -525,11 +526,28 @@ def postingStatsEnabled(request):
 
 
 @pytest.fixture
-def pluginManager():
+def pluginManager(monkeypatch):
     pluginManager = PluginManager()
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
     assert hasattr(pluginManager, 'prefix')
     assert hasattr(pluginManager, '_sendMessage')
     assert hasattr(pluginManager, '_findPlugins')
+    yield pluginManager
+    monkeypatch.undo()
+
+
+@pytest.fixture(scope="module")
+def patchPluginManager():
+    pluginManager = PluginManager()
+    pluginManager.plugins = []
     return pluginManager
 
 
@@ -555,7 +573,7 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(tdir):
+def testNode(pluginManager, tdir):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]

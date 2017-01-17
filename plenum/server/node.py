@@ -210,6 +210,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # every `n` seconds, also support start and stop methods
         # self._schedule(self.checkPerformance, self.perfCheckFreq)
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
+        self.startRepeating(self.checkNodeRequestSpike,
+                            self.config
+                            .notifierEventTriggeringConfig[
+                                'nodeRequestSpike']['freq'])
 
         self.initInsChngThrottling()
 
@@ -1410,6 +1414,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug("{}s master has higher performance than backups".
                              format(self))
         return True
+
+    def checkNodeRequestSpike(self):
+        logger.debug("{} checking its request amount".format(self))
+
+        if not self.isParticipating:
+            return
+
+        if self.instances.masterId is not None:
+            self.sendNodeRequestSpike()
 
     def sendNodeRequestSpike(self):
         requests = self.nodeRequestSpikeMonitorData['accum']
