@@ -187,6 +187,7 @@ class Cli:
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
+            Token.Gray: '#808080',
             Token.Number: '#aa3333 bold',
             Token.Name: '#ffff00 bold',
             Token.Heading: 'bold',
@@ -1353,8 +1354,9 @@ class Cli:
                     wallet = decode(walletFile.read())
                     assert isinstance(wallet, Wallet)
                     self._wallets[walletKeyName] = wallet
-                    self.print("Saved keyring {} restored (from: {})"
-                               .format(walletKeyName, walletFilePath))
+                    self.print('Saved keyring "{}" restored'.
+                               format(walletKeyName), newline=False)
+                    self.print(" (keyring location: {})".format(walletFilePath), Token.Gray)
                     self._activeWallet = wallet
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
