@@ -4,7 +4,8 @@ from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.log import getlogger
 from plenum.common.stacked import Stack
 from plenum.common.types import HA
-from plenum.test.exceptions import NotConnectedToAny, NotFullyConnected
+from plenum.test.exceptions import NotFullyConnected
+from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.stasher import Stasher
 from plenum.test.waits import expectedWait
 

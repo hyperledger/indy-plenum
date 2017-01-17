@@ -1,7 +1,7 @@
 import pytest
 from raet.raeting import AutoMode
 
-from plenum.common.exceptions import EmptySignature, BlowUp
+from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
 from plenum.test.exceptions import NotConnectedToAny
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
