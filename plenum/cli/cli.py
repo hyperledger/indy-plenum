@@ -256,7 +256,8 @@ class Cli:
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        self.restoreLastActiveWallet("{}*".format(WALLET_FILE_NAME_PREFIX))
+        self.restoreLastActiveWallet("{}*{}".format(WALLET_FILE_NAME_PREFIX,
+                                                    self.name))
 
     def getCliVersion(self):
         return __version__
@@ -1352,8 +1353,8 @@ class Cli:
                     wallet = decode(walletFile.read())
                     assert isinstance(wallet, Wallet)
                     self._wallets[walletKeyName] = wallet
-                    self.print("Saved keyring {} restored"
-                               .format(walletKeyName))
+                    self.print("Saved keyring {} restored (from: {})"
+                               .format(walletKeyName, walletFilePath))
                     self._activeWallet = wallet
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
