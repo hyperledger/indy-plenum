@@ -187,7 +187,7 @@ class Cli:
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
-            Token.Gray: '#808080',
+            Token.Gray: '#696969',
             Token.Number: '#aa3333 bold',
             Token.Name: '#ffff00 bold',
             Token.Heading: 'bold',
@@ -1209,8 +1209,16 @@ class Cli:
 
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
-            self.print("Active keyring: {}".format(self.activeWallet.name))
-            self.print('\n'.join(self.activeWallet.listIds()))
+            if self._activeWallet:
+                self.print("Active keyring: {}".
+                           format(self._activeWallet.name), newline=False)
+                self.print(" (active identifier: {})\n".
+                           format(self._activeWallet.defaultId), Token.Gray)
+                self.print("Identifiers:")
+                for i in self._activeWallet.listIds():
+                    self.print("  {}".format(i))
+            else:
+                self.print("No active keyring found.")
             return True
 
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
@@ -1356,7 +1364,8 @@ class Cli:
                     self._wallets[walletKeyName] = wallet
                     self.print('Saved keyring "{}" restored'.
                                format(walletKeyName), newline=False)
-                    self.print(" (keyring location: {})".format(walletFilePath), Token.Gray)
+                    self.print(" (keyring location: {})".format(walletFilePath)
+                               , Token.Gray)
                     self._activeWallet = wallet
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
