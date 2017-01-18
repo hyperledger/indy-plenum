@@ -63,12 +63,13 @@ NODE_IP = "node_ip"
 NODE_PORT = "node_port"
 CLIENT_IP = "client_ip"
 CLIENT_PORT = "client_port"
-NEW_NODE = "NEW_NODE"
-CHANGE_HA = "CHANGE_HA"
-CHANGE_KEYS = "CHANGE_KEYS"
+NODE = "NODE"
+# CHANGE_HA = "CHANGE_HA"
+# CHANGE_KEYS = "CHANGE_KEYS"
+SERVICES = "services"
+VALIDATOR = "VALIDATOR"
 STEWARD = "STEWARD"
 CLIENT = "CLIENT"
-USER = "USER"
 NYM = "NYM"
 ROLE = 'role'
 NONCE = 'nonce'
@@ -82,7 +83,7 @@ TXNS = "Txns"
 
 BY = "by"
 
-POOL_TXN_TYPES = {NEW_NODE, CHANGE_HA, CHANGE_KEYS}
+POOL_TXN_TYPES = {NODE, }
 
 
 class ClientBootStrategy(IntEnum):

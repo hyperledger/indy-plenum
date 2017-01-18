@@ -22,8 +22,8 @@ from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP, NODE_PORT, NYM
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
@@ -36,7 +36,7 @@ from plenum.test.helper import randomOperation, \
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
-from plenum.test.test_client import genTestClient
+from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
@@ -403,11 +403,12 @@ def dirName():
 def nodeAndClientInfoFilePath(dirName):
     return os.path.join(dirName(__file__), "node_and_client_info.py")
 
+
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
     data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
     for txn in data["txns"]:
-        if txn[TXN_TYPE] == NEW_NODE:
+        if txn[TXN_TYPE] == NODE:
             txn[DATA][NODE_PORT] = genHa()[1]
             txn[DATA][CLIENT_PORT] = genHa()[1]
     return data
@@ -419,7 +420,7 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)
     for item in poolTxnData["txns"]:
-        if item.get(TXN_TYPE) in (NEW_NODE, CHANGE_HA, CHANGE_KEYS):
+        if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
     ledger.stop()
     return tdir
@@ -475,6 +476,11 @@ def testNodeClass(patchPluginManager):
     return TestNode
 
 
+@pytest.fixture(scope="module")
+def testClientClass():
+    return TestClient
+
+
 @pytest.yield_fixture(scope="module")
 def txnPoolNodesLooper():
     with Looper(debug=True) as l:
@@ -507,7 +513,7 @@ def txnPoolNodeSet(patchPluginManager,
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NEW_NODE:
+        if txn[TXN_TYPE] == NODE:
             data = txn[DATA]
             cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
                                                                data[CLIENT_PORT])

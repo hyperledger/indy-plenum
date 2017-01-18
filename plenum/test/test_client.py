@@ -80,7 +80,7 @@ def genTestClientProvider(nodes = None,
     return ClientProvider(clbk)
 
 
-def getAcksFromInbox(client, reqId, maxm=None):
+def getAcksFromInbox(client, reqId, maxm=None) -> set:
     acks = set()
     for msg, sender in client.inBox:
         if msg[OP_FIELD_NAME] == REQACK and msg[f.REQ_ID.nm] == reqId:
@@ -90,7 +90,7 @@ def getAcksFromInbox(client, reqId, maxm=None):
     return acks
 
 
-def getNacksFromInbox(client, reqId, maxm=None):
+def getNacksFromInbox(client, reqId, maxm=None) -> dict:
     nacks = {}
     for msg, sender in client.inBox:
         if msg[OP_FIELD_NAME] == REQNACK and msg[f.REQ_ID.nm] == reqId:
@@ -100,7 +100,7 @@ def getNacksFromInbox(client, reqId, maxm=None):
     return nacks
 
 
-def getRepliesFromInbox(client, reqId, maxm=None) -> list:
+def getRepliesFromInbox(client, reqId, maxm=None) -> dict:
     replies = {}
     for msg, sender in client.inBox:
         if msg[OP_FIELD_NAME] == REPLY and msg[f.RESULT.nm][f.REQ_ID.nm] == reqId:

@@ -20,10 +20,13 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.util import F
+from plenum.client.wallet import Wallet
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp, \
+    UnauthorizedClientRequest
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -32,11 +35,12 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.ratchet import Ratchet
 from plenum.common.signer import Signer
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, USER, NYM, VERKEY
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
@@ -49,7 +53,8 @@ from plenum.common.types import Propagate, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
 from plenum.common.request import Request
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
+from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
+    rawToFriendly
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
 from plenum.common.txn import DATA, ALIAS, NODE_IP
@@ -136,7 +141,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
-        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        # HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        self.initPoolManager(nodeRegistry, ha, cliname, cliha)
+
         if isinstance(self.poolManager, RegistryPoolManager):
             self.mode = Mode.discovered
         else:
@@ -305,11 +312,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
 
-        self.addReplicas()
+        self.adjustReplicas()
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         self.logNodeInfo()
+        self._id = None
+        self._wallet = None
+
+    @property
+    def id(self):
+        if not self._id and isinstance(self.poolManager, TxnPoolManager):
+            for txn in self.poolLedger.getAllTxn().values():
+                if self.name == txn[DATA][ALIAS]:
+                    self._id = txn[TARGET_NYM]
+        return self._id
+
+    @property
+    def wallet(self):
+        if not self._wallet:
+            wallet = Wallet(self.name)
+            signer = SimpleSigner(seed=self.nodestack.local.signer.keyraw)
+            wallet.addIdentifier(signer=signer)
+            self._wallet = wallet
+        return self._wallet
+
+    def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
+        HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
 
     def __repr__(self):
         return self.name
@@ -529,7 +558,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += await self.serviceNodeMsgs(limit)
             c += await self.serviceClientMsgs(limit)
             c += self._serviceActions()
-            c += self.ledgerManager._serviceActions()
+            c += self.ledgerManager.service()
             c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
@@ -633,13 +662,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.mode in (Mode.discovered, Mode.participating):
                 self.sendDomainLedgerStatus(n)
 
-    def newNodeJoined(self, txn: str):
+    def newNodeJoined(self, txn):
         self.setF()
-        if self.addReplicas():
+        if self.adjustReplicas() > 0:
             self.decidePrimaries()
         # TODO: Should tell the client after the new node has synced up its
         # ledgers
-        self.sendPoolInfoToClients(txn)
+        # self.sendPoolInfoToClients(txn)
+
+    def nodeLeft(self, txn):
+        self.setF()
+        if self.adjustReplicas():
+            self.decidePrimaries()
+        # TODO: Should tell the client after the new node has synced up its
+        # ledgers
+        # self.sendPoolInfoToClients(txn)
 
     def sendPoolInfoToClients(self, txn):
         logger.debug("{} sending new node info {} to all clients".format(self,
@@ -688,12 +725,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                            self.nodestack.conns))
         self._schedule(self.decidePrimaries)
 
-    def addReplicas(self):
+    def adjustReplicas(self):
         newReplicas = 0
         while len(self.replicas) < self.requiredNumberOfInstances:
             self.addReplica()
             newReplicas += 1
             self.processStashedMsgsForReplica(len(self.replicas)-1)
+
+        while len(self.replicas) > self.requiredNumberOfInstances:
+            self.removeReplica()
+            newReplicas -= 1
+
         return newReplicas
 
     def processStashedMsgsForReplica(self, instId: int):
@@ -751,6 +793,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
                        format(self, replica, instId, instDesc),
+                       extra={"cli": True, "demo": True})
+        return replica
+
+    def removeReplica(self):
+        replica = self.replicas[-1]
+        self.replicas = self.replicas[:-1]
+        self.msgsToReplicas = self.msgsToReplicas[:-1]
+        self.monitor.addInstance()
+        logger.display("{} removed replica {} from instance {}".
+                       format(self, replica, replica.instId),
                        extra={"cli": True, "demo": True})
         return replica
 
@@ -1179,6 +1231,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager.processStashedLedgerStatuses(1)
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
+        # Initialising node id in case where node's information was not present
+        # in pool ledger at the time of starting, happens when a non-genesis
+        # node starts
+        self.id
 
     def postDomainLedgerCaughtUp(self):
         """
@@ -1206,9 +1262,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendDomainLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, 1)
 
+    def getLedgerStatus(self, ledgerType: int):
+        if ledgerType == 0:
+            return self.poolLedgerStatus
+        if ledgerType == 1:
+            return self.domainLedgerStatus
+
     def sendLedgerStatus(self, nodeName: str, ledgerType: int):
-        ledgerStatus = self.poolLedgerStatus if ledgerType == 0 else \
-            self.domainLedgerStatus
+        ledgerStatus = self.getLedgerStatus(ledgerType)
         if ledgerStatus:
             rid = self.nodestack.getRemote(nodeName).uid
             self.send(ledgerStatus, rid)
@@ -1522,19 +1583,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
 
-        identifier = self.clientAuthNr.authenticate(req)
+        identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
                      format(self, identifier, typ, req['reqId']),
                      extra={"cli": True})
 
+    def authNr(self, req):
+        return self.clientAuthNr
+
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def checkValidOperation(self, clientId, reqId, msg):
+    def checkValidOperation(self, clientId, reqId, operation):
+        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            if not self.poolManager.checkValidOperation(operation):
+                raise InvalidClientRequest(clientId, reqId)
+
         if self.opVerifiers:
             try:
                 for v in self.opVerifiers:
-                    v.verify(msg)
+                    v.verify(operation)
             except Exception as ex:
                 raise InvalidClientRequest(clientId, reqId) from ex
 
@@ -1550,7 +1618,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.poolManager.checkRequestAuthorized(request)
         if request.operation.get(TXN_TYPE) == NYM:
             origin = request.identifier
-            return self.secondaryStorage.isSteward(origin)
+            error = None
+            if not self.secondaryStorage.isSteward(origin):
+                error = "Only Steward is allowed to do this transactions"
+            if request.operation.get(ROLE) == STEWARD:
+                error = self.authErrorWhileAddingSteward(request)
+            if error:
+                raise UnauthorizedClientRequest(request.identifier,
+                                                request.reqId,
+                                                error)
 
     def executeRequest(self, ppTime: float, req: Request) -> None:
         """
@@ -1566,11 +1642,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, req):
         reply = self.generateReply(ppTime, req)
-        merkleProof = self.ledgerManager.appendToLedger(1, reply.result)
+        merkleProof = self.appendResultToLedger(reply.result)
         reply.result.update(merkleProof)
         self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
+
+    @staticmethod
+    def ledgerTypeForTxn(txnType: str):
+        return 0 if txnType in POOL_TXN_TYPES else 1
+
+    def appendResultToLedger(self, data):
+        ledgerType = self.ledgerTypeForTxn(data[TXN_TYPE])
+        return self.ledgerManager.appendToLedger(ledgerType, data)
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
@@ -1615,10 +1699,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             verkey = txn.get(VERKEY)
             v = DidVerifier(verkey, identifier=identifier)
             if identifier not in self.clientAuthNr.clients:
-                role = txn.get(ROLE) or USER
-                if role not in (STEWARD, USER):
-                    logger.error("Role {} must be either STEWARD, USER"
-                                 .format(role))
+                role = txn.get(ROLE)
+                if role not in (STEWARD, None):
+                    logger.error("Role if present must be STEWARD".format(role))
                     return
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)
@@ -1718,12 +1801,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Stop key sharing, i.e don't allow any more nodes to join this node.
         """
         if self.nodestack.isKeySharing:
-            if timedOut:
+            if timedOut and self.nodestack.notConnectedNodes:
                 logger.info("{} key sharing timed out; was not able to "
                             "connect to {}".
                             format(self,
                                    ", ".join(
-                                       self.nodestack.notConnectedNodes())),
+                                       self.nodestack.notConnectedNodes)),
                             extra={"cli": "WARNING"})
             else:
                 logger.info("{} completed key sharing".format(self),
@@ -1849,6 +1932,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
+    @staticmethod
+    def getReplyFromLedger(ledger, request):
+        txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
+        if txn:
+            txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
+            return Reply(txn)
+
     def __enter__(self):
         return self
 
@@ -1896,6 +1986,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 data = txn[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
+                    break
 
         info = {
             'name': self.name,

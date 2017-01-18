@@ -9,9 +9,9 @@ from ledger.stores.file_hash_store import FileHashStore
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.raet import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NEW_NODE, CHANGE_KEYS, CHANGE_HA
+    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
-from plenum.common.util import cryptonymToHex
+from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.log import getlogger
 
 logger = getlogger()
@@ -57,13 +57,22 @@ class TxnStackManager:
         return self._ledger
 
     @staticmethod
-    def parseLedgerForHaAndKeys(ledger):
+    def parseLedgerForHaAndKeys(ledger, returnActive=True):
+        """
+        Returns validator ip, ports and keys
+        :param ledger:
+        :param returnActive: If returnActive is True, return only those
+        validators which are not out of service
+        :return:
+        """
         nodeReg = OrderedDict()
         cliNodeReg = OrderedDict()
         nodeKeys = {}
+        activeValidators = set()
         for _, txn in ledger.getAllTxn().items():
-            if txn[TXN_TYPE] in (NEW_NODE, CHANGE_KEYS, CHANGE_HA):
+            if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
+                clientStackName = nodeName + CLIENT_STACK_SUFFIX
                 nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
                     if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
                     else None
@@ -73,27 +82,45 @@ class TxnStackManager:
                 if nHa:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
-                    cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(*cHa)
+                    cliNodeReg[clientStackName] = HA(*cHa)
                 verkey = cryptonymToHex(txn[TARGET_NYM])
                 nodeKeys[nodeName] = verkey
 
-        return nodeReg, cliNodeReg, nodeKeys
+                services = txn[DATA].get(SERVICES)
+                if isinstance(services, list):
+                    if VALIDATOR in services:
+                        activeValidators.add(nodeName)
+                    else:
+                        activeValidators.discard(nodeName)
 
-    def addNewRemoteAndConnect(self, txn, remoteName, nodeOrClientObj):
+        if returnActive:
+            allNodes = tuple(nodeReg.keys())
+            for nodeName in allNodes:
+                if nodeName not in activeValidators:
+                    nodeReg.pop(nodeName, None)
+                    cliNodeReg.pop(nodeName + CLIENT_STACK_SUFFIX, None)
+                    nodeKeys.pop(nodeName, None)
+
+            return nodeReg, cliNodeReg, nodeKeys
+        else:
+            return nodeReg, cliNodeReg, nodeKeys, activeValidators
+
+    def connectNewRemote(self, txn, remoteName, nodeOrClientObj, addRemote=True):
         verkey = cryptonymToHex(txn[TARGET_NYM])
 
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
         cliHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT])
 
-        try:
-            # Override any keys found, reason being the scenario where
-            # before this node comes to know about the other node, the other
-            # node tries to connect to it.
-            initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
-                           override=True)
-        except Exception as ex:
-            logger.error("Exception while initializing keep for remote {}".
-                         format(ex))
+        if addRemote:
+            try:
+                # Override any keys found, reason being the scenario where
+                # before this node comes to know about the other node, the other
+                # node tries to connect to it.
+                initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
+                               override=True)
+            except Exception as ex:
+                logger.error("Exception while initializing keep for remote {}".
+                             format(ex))
 
         if self.isNode:
             nodeOrClientObj.nodeReg[remoteName] = HA(*nodeHa)
@@ -127,7 +154,7 @@ class TxnStackManager:
         # Removing remote so that the nodestack will attempt to connect
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
-        verkey = txn[DATA][VERKEY]
+        verkey = txn[VERKEY]
         try:
             # Override any keys found
             initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
@@ -166,4 +193,37 @@ class TxnStackManager:
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
+
+    def nodeExistsInLedger(self, nym):
+        for txn in self.ledger.getAllTxn().values():
+            if txn[TXN_TYPE] == NODE and \
+                            txn[TARGET_NYM] == nym:
+                return True
+        return False
+
+    @property
+    def nodeIds(self) -> set:
+        return {txn[TARGET_NYM] for txn in self.ledger.getAllTxn().values()}
+
+    def getNodeInfoFromLedger(self, nym, excludeLast=True):
+        # Returns the info of the node from the ledger with transaction
+        # sequence numbers that added or updated the info excluding the last
+        # update transaction. The reason for ignoring last transactions is that
+        #  it is used after update to the ledger has already been made
+        txns = []
+        nodeTxnSeqNos = []
+        for seqNo, txn in self.ledger.getAllTxn().items():
+            if txn[TXN_TYPE] == NODE and txn[TARGET_NYM] == nym:
+                txns.append(txn)
+                nodeTxnSeqNos.append(seqNo)
+        info = {}
+        if len(txns) > 1 and excludeLast:
+            txns = txns[:-1]
+        for txn in txns:
+            self.updateNodeTxns(info, txn)
+        return nodeTxnSeqNos, info
+
+    @staticmethod
+    def updateNodeTxns(oldTxn, newTxn):
+        updateNestedDict(oldTxn, newTxn, nestedKeysToUpdate=[DATA, ])
 

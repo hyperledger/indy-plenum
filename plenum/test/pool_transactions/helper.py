@@ -7,8 +7,8 @@ from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
-    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NEW_NODE, CLIENT_PORT, CHANGE_HA, \
-    CHANGE_KEYS, VERKEY
+    NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
+    VALIDATOR
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.test_client import TestClient, genTestClient
@@ -23,11 +23,13 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
     op = {
         TXN_TYPE: NYM,
-        ROLE: role,
         TARGET_NYM: idr,
         ALIAS: name,
         VERKEY: wallet.getVerkey(idr)
     }
+
+    if role:
+        op[ROLE] = role
 
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
@@ -40,21 +42,22 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True):
+               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
 
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
 
     op = {
-        TXN_TYPE: NEW_NODE,
+        TXN_TYPE: NODE,
         TARGET_NYM: nodeSigner.identifier,
         DATA: {
             NODE_IP: nodeIp,
             NODE_PORT: nodePort,
             CLIENT_IP: clientIp,
             CLIENT_PORT: clientPort,
-            ALIAS: newNodeName
+            ALIAS: newNodeName,
+            SERVICES: [VALIDATOR, ]
         }
     }
 
@@ -66,29 +69,29 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                           req.reqId, 1,
                           retryWait=1, timeout=5 * nodeCount))
     initLocalKeep(newNodeName, tdir, sigseed, override=True)
-    node = TestNode(newNodeName, basedirpath=tdir, config=tconf,
-                    ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
-                    pluginPaths=allPluginsPath)
+    node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
+                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
+                     pluginPaths=allPluginsPath)
     if autoStart:
         looper.add(node)
     return node
 
 
 def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf,
-                         allPluginsPath=None, autoStart=True):
+                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         autoStart=True, nodeClass=TestNode,
+                         clientClass=TestClient):
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
-    newSteward = TestClient(name=stewardName,
-                            nodeReg=None, ha=genHa(),
-                            # DEPR
-                            # signer=newStewardSigner,
-                            basedirpath=tdir)
+    newSteward = clientClass(name=stewardName,
+                             nodeReg=None, ha=genHa(),
+                             basedirpath=tdir)
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
-                         tdir, tconf, allPluginsPath, autoStart=autoStart)
+                         tdir, tconf, allPluginsPath, autoStart=autoStart,
+                         nodeClass=nodeClass)
     return newSteward, newStewardWallet, newNode
 
 
@@ -96,7 +99,7 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
-        TXN_TYPE: CHANGE_HA,
+        TXN_TYPE: NODE,
         TARGET_NYM: nodeNym,
         DATA: {
             NODE_IP: nodeIp,
@@ -122,10 +125,10 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
 
     op = {
-        TXN_TYPE: CHANGE_KEYS,
+        TXN_TYPE: NODE,
         TARGET_NYM: nodeNym,
+        VERKEY: verkey,
         DATA: {
-            VERKEY: verkey,
             ALIAS: node.name
         }
     }
@@ -141,6 +144,40 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     node.clientstack.clearLocalRoleKeep()
     node.clientstack.clearRemoteRoleKeeps()
     node.clientstack.clearAllDir()
+
+
+def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: nodeNym,
+        DATA: {
+            SERVICES: [],
+            ALIAS: nodeName
+        }
+    }
+    req = stewardWallet.signOp(op)
+    stewardClient.submitReqs(req)
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
+                          req.reqId, 1,
+                          retryWait=1, timeout=5))
+
+
+def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
+                         nodeName):
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: nodeNym,
+        DATA: {
+            SERVICES: [VALIDATOR],
+            ALIAS: nodeName
+        }
+    }
+
+    req = stewardWallet.signOp(op)
+    stewardClient.submitReqs(req)
+    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
+                          req.reqId, 1,
+                          retryWait=1, timeout=10))
 
 
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,

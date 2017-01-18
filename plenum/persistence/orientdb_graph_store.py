@@ -65,15 +65,15 @@ class OrientDbGraphStore(GraphStore):
     def getEntityByUniqueAttr(self, entityClassName, attrName, attrValue):
         query = "select from {} where {} = " + \
                 ("{}" if isinstance(attrValue, (int, float)) else "'{}'")
-        result = self.client.command(query.
-                                     format(entityClassName, attrName, attrValue))
+        query = query.format(entityClassName, attrName, attrValue)
+        result = self.client.command(query)
         return None if not result else result[0]
 
     def getEntityByAttrs(self, entityClassName, attrs: Dict):
         attrStr = self.store.getPlaceHolderQueryStringFromDict(attrs,
                                                                joiner=" and ")
-        result = self.client.command("select from {} where {}".
-                                     format(entityClassName, attrStr))
+        query = "select from {} where {}".format(entityClassName, attrStr)
+        result = self.client.command(query)
         return None if not result else result[0]
 
     def countEntitiesByAttrs(self, entityClassName, attrs: Dict):
