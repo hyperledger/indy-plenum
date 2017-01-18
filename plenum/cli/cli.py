@@ -1277,27 +1277,26 @@ class Cli:
 
     def _loadFromPath(self, path):
         if os.path.exists(path):
-            baseFileName = basename(path)
-            walletKeyName = baseFileName
-            while self.wallets.get(walletKeyName):
-                walletKeyName = baseFileName + randomString(5)
-            self.restoreWalletByPath(path, walletKeyName)
+            self.restoreWalletByPath(path)
             if self._activeWallet:
                 self.print("\nUse rename keyring if you want to "
                        "rename to simpler/smaller name\n")
                 return True
         return False
 
+    def _getWalletByName(self, name) -> Wallet:
+        wallets = {k.lower(): v for k, v in self.wallets.items()}
+        return wallets.get(name.lower())
+
     def _searchAndSetWallet(self, name):
         if self._activeWallet:
             self._saveActiveWallet()
 
-        if os.path.exists(name):
-            self._loadFromPath(name)
+        if os.path.exists(name.lower()):
+            self._loadFromPath(name.lower())
         else:
             self._loadWalletIfExistsAndNotLoaded(name)
-            wallets = {k.lower(): v for k, v in self.wallets.items()}
-            wallet = wallets.get(name.lower())
+            wallet = self._getWalletByName(name)
             if wallet:
                 self.activeWallet = wallet
             else:
@@ -1353,7 +1352,7 @@ class Cli:
         # self.cli.application.layout.children[1].children[0]\
         #     .content.content.get_tokens = getTokens
 
-    def restoreWalletByPath(self, walletFilePath, walletKeyName):
+    def restoreWalletByPath(self, walletFilePath):
         try:
             with open(walletFilePath) as walletFile:
                 try:
@@ -1361,9 +1360,9 @@ class Cli:
                     # and set as active wallet
                     wallet = decode(walletFile.read())
                     assert isinstance(wallet, Wallet)
-                    self._wallets[walletKeyName] = wallet
+                    self._wallets[wallet.name] = wallet
                     self.print('Saved keyring "{}" restored'.
-                               format(walletKeyName), newline=False)
+                               format(wallet.name), newline=False)
                     self.print(" (keyring location: {})".format(walletFilePath)
                                , Token.Gray)
                     self._activeWallet = wallet
@@ -1374,13 +1373,10 @@ class Cli:
         except IOError:
             pass
 
-    def restoreWalletByName(self, walletFileName, loadWithKeyName=None):
-        walletKeyName = loadWithKeyName if loadWithKeyName \
-            else self.getWalletKeyName(walletFileName)
-
+    def restoreWalletByName(self, walletFileName):
         walletFilePath = self.getWalletFilePath(
             self.getKeyringsBaseDir(), walletFileName)
-        self.restoreWalletByPath(walletFilePath, walletKeyName)
+        self.restoreWalletByPath(walletFilePath)
 
     def restoreWallet(self, withName=None):
         if withName:
@@ -1422,7 +1418,7 @@ class Cli:
 
     @staticmethod
     def _normalizedWalletFileName(walletName):
-        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName)
+        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName).lower()
 
     @staticmethod
     def getPersistentWalletFileName(cliName, currPromptText, walletName=""):
