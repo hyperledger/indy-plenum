@@ -17,7 +17,7 @@ def run():
         m = re.search("errors during collection", collectedData)
         if m:
             log(collectedData)
-            return -1
+            return 1
     retVal = 0
     totalPassed = 0
     totalFailed = 0
@@ -51,7 +51,7 @@ def run():
                 log("Non zero return value from {} run but no failures "
                     "or errors reported".format(test))
                 log(output)
-                return -1
+                return 1
             failed = int(fai.groups()[0]) if fai else 0
             errors = int(err.groups()[0]) if err else 0
             failedNames = []
