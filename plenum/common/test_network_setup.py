@@ -12,7 +12,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
-    ROLE
+    ROLE, SERVICES, VALIDATOR
 from plenum.common.types import f
 from plenum.common.util import hexToFriendly
 
@@ -68,7 +68,6 @@ class TestNetworkSetup:
                             dataDir=baseDir,
                             fileName=poolTxnFile)
 
-
         domainLedger = Ledger(CompactMerkleTree(),
                               serializer=CompactSerializer(fields=
                                                            domainTxnFieldOrder),
@@ -121,7 +120,8 @@ class TestNetworkSetup:
                     ALIAS: nodeName,
                     CLIENT_PORT: clientPort,
                     NODE_IP: ip,
-                    NODE_PORT: nodePort
+                    NODE_PORT: nodePort,
+                    SERVICES: [VALIDATOR]
                 },
                 TXN_ID: sha256(nodeName.encode()).hexdigest()
             }
