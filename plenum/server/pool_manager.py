@@ -11,8 +11,9 @@ from plenum.common.exceptions import UnsupportedOperation, \
 from plenum.common.stack_manager import TxnStackManager
 
 from plenum.common.types import HA, f, Reply
-from plenum.common.txn import TXN_TYPE, NEW_NODE, TARGET_NYM, DATA, ALIAS, \
-    CHANGE_HA, CHANGE_KEYS, POOL_TXN_TYPES
+from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+    POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
+    VALIDATOR
 from plenum.common.log import getlogger
 
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
@@ -119,7 +120,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         reply = self.node.generateReply(ppTime, req)
         op = req.operation
         reply.result.update(op)
-        merkleProof = self.node.ledgerManager.appendToLedger(0, reply.result)
+        merkleProof = self.node.appendResultToLedger(reply.result)
         txn = deepcopy(reply.result)
         txn[F.seqNo.name] = merkleProof[F.seqNo.name]
         self.onPoolMembershipChange(txn)
@@ -127,22 +128,42 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.sendReplyToClient(reply, req.key)
 
     def getReplyFor(self, request):
-        txn = self.ledger.get(identifier=request.identifier,
-                              reqId=request.reqId)
-        if txn:
-            txn.update(self.ledger.merkleInfo(txn.get(F.seqNo.name)))
-            return Reply(txn)
+        return self.node.getReplyFromLedger(self.ledger, request)
 
     def onPoolMembershipChange(self, txn):
-        if txn[TXN_TYPE] == NEW_NODE:
-            self.addNewNodeAndConnect(txn)
-        if txn[TXN_TYPE] == CHANGE_HA:
-            self.nodeHaChanged(txn)
-        if txn[TXN_TYPE] == CHANGE_KEYS:
-            self.nodeKeysChanged(txn)
-        if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
-            updateGenesisPoolTxnFile(self.config.baseDir,
-                                     self.config.poolTransactionsFile, txn)
+        if txn[TXN_TYPE] == NODE:
+            nodeName = txn[DATA][ALIAS]
+            nodeNym = txn[TARGET_NYM]
+
+            def _updateNode(txn):
+                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
+                        intersection(set(txn[DATA].keys())):
+                    self.nodeHaChanged(txn)
+                if VERKEY in txn:
+                    self.nodeKeysChanged(txn)
+                if SERVICES in txn[DATA]:
+                    self.nodeServicesChanged(txn)
+
+            if nodeName in self.nodeReg:
+                # The node was already part of the pool so update
+                _updateNode(txn)
+            else:
+                seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+                if len(seqNos) == 1:
+                    # Since only one transaction has been made, this is a new
+                    # node transaction
+                    self.addNewNodeAndConnect(txn)
+                else:
+                    self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
+                                                     info[DATA][NODE_PORT])
+                    self.node.cliNodeReg[nodeName] = HA(info[DATA][CLIENT_IP],
+                                                        info[DATA][CLIENT_PORT])
+                    _updateNode(txn)
+
+            self.node.sendPoolInfoToClients(txn)
+            if self.config.UpdateGenesisPoolTxnFile:
+                updateGenesisPoolTxnFile(self.config.baseDir,
+                                         self.config.poolTransactionsFile, txn)
 
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]
@@ -150,7 +171,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             logger.debug("{} not adding itself to node registry".
                          format(self.name))
             return
-        self.addNewRemoteAndConnect(txn, nodeName, self.node)
+        self.connectNewRemote(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
     def doElectionIfNeeded(self, nodeGoingDown):
@@ -162,6 +183,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
+        # TODO: Check if new HA is same as old HA and only update if
+        # new HA is different.
         if nodeName == self.name:
             logger.debug("{} clearing local data in keep".
                          format(self.node.nodestack.name))
@@ -173,7 +196,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            self.node.sendPoolInfoToClients(txn)
+            # self.node.sendPoolInfoToClients(txn)
         self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):
@@ -184,7 +207,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # call its `decidePrimaries`.
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
+        # TODO: Check if new keys are same as old keys and only update if
+        # new keys are different.
         if nodeName == self.name:
+            # TODO: Why?
             logger.debug("{} not changing itself's keep".
                          format(self.name))
             return
@@ -192,22 +218,56 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackKeysChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            self.node.sendPoolInfoToClients(txn)
+            # self.node.sendPoolInfoToClients(txn)
         self.doElectionIfNeeded(nodeName)
 
+    def nodeServicesChanged(self, txn):
+        nodeNym = txn[TARGET_NYM]
+        _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
+        nodeName = nodeInfo[DATA][ALIAS]
+        oldServices = set(nodeInfo[DATA][SERVICES])
+        newServices = set(txn[DATA][SERVICES])
+        if oldServices == newServices:
+            logger.debug("Node {} not changing {} since it is same as existing"
+                         .format(nodeNym, SERVICES))
+            return
+        else:
+            if self.name != nodeName:
+                if VALIDATOR in newServices.difference(oldServices):
+                    # If validator service is enabled
+                    self.updateNodeTxns(nodeInfo, txn)
+                    self.connectNewRemote(nodeInfo, nodeName, self.node)
+
+                if VALIDATOR in oldServices.difference(newServices):
+                    # If validator service is disabled
+                    del self.node.nodeReg[nodeName]
+                    del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+                    rid = self.node.nodestack.removeRemoteByName(nodeName)
+                    if rid:
+                        self.node.nodestack.outBoxes.pop(rid, None)
+                    self.node.nodeLeft(txn)
+            self.doElectionIfNeeded(nodeName)
+
     def getNodeName(self, nym):
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_NODE and txn[TARGET_NYM] == nym:
-                return txn[DATA][ALIAS]
-        raise Exception("Node with nym {} not found".format(nym))
+        # Assuming ALIAS does not change
+        _, nodeTxn = self.getNodeInfoFromLedger(nym)
+        return nodeTxn[DATA][ALIAS]
+
+    def checkValidOperation(self, operation):
+        checks = []
+        if operation[TXN_TYPE] == NODE:
+            checks.append(DATA in operation and isinstance(operation[DATA], dict))
+        return all(checks)
 
     def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
         error = None
-        if typ == NEW_NODE:
-            error = self.authErrorWhileAddingNode(request)
-        if typ in (CHANGE_HA, CHANGE_KEYS):
-            error = self.authErrorWhileUpdatingNode(request)
+        if typ == NODE:
+            nodeNym = request.operation.get(TARGET_NYM)
+            if self.nodeExistsInLedger(nodeNym):
+                error = self.authErrorWhileUpdatingNode(request)
+            else:
+                error = self.authErrorWhileAddingNode(request)
         if error:
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
@@ -219,7 +279,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_NODE:
+            if txn[TXN_TYPE] == NODE:
                 if txn[f.IDENTIFIER.nm] == origin:
                     return "{} already has a node with name {}".\
                         format(origin, txn[DATA][ALIAS])
@@ -233,9 +293,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
         if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
+            return "{} is not a steward so cannot update a node".format(origin)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NEW_NODE and \
+            if txn[TXN_TYPE] == NODE and \
                             txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
                             txn[f.IDENTIFIER.nm] == origin:
                 return

@@ -1,15 +1,15 @@
 from functools import partial
 
 import pytest
-from plenum.test.eventually import eventually
-from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
-    sendDuplicate3PhaseMsg
-from plenum.common.util import adict
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Prepare
+from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getPrimaryReplica, \
     getNodeSuspicions, whitelistNode
+from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
+    sendDuplicate3PhaseMsg
 from plenum.test.test_node import getNonPrimaryReplicas
 
 whitelist = [Suspicions.DUPLICATE_PR_SENT.reason,

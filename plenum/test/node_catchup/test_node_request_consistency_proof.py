@@ -1,14 +1,13 @@
-import asyncio
 import base64
 import types
 from random import randint
 
+from plenum.common.eventually import eventually
 from plenum.common.types import LedgerStatus
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequests
-from plenum.test.test_node import checkNodesConnected
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.test_ledger_manager import TestLedgerManager
+from plenum.test.test_node import checkNodesConnected
 
 
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):

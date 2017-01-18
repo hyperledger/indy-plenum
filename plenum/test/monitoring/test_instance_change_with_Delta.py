@@ -1,16 +1,14 @@
 import logging
-from functools import partial
 
 import pytest
 
-from plenum.common.types import PrePrepare
-from plenum.common.util import getMaxFailures, getNoInstances, adict
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
+from plenum.common.types import PrePrepare
+from plenum.common.util import adict
 from plenum.server.node import Node
-from plenum.test.eventually import eventually
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, checkViewNoForNodes, \
+from plenum.test.helper import checkViewNoForNodes, \
     getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies
-from plenum.test.spy_helpers import getAllArgs
 
 nodeCount = 7
 whitelist = ["discarding message"]

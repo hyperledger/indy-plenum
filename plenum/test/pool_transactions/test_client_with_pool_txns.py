@@ -1,13 +1,11 @@
-import pytest
-
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     sendRandomRequest, checkSufficientRepliesForRequests
-from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
+from plenum.test.test_client import genTestClient
 from plenum.test.test_node import checkNodesConnected, TestNode, \
     ensureElectionsDone
 

@@ -2,16 +2,16 @@ import os
 import random
 
 from jsonpickle import json
-from ledger.stores.text_file_store import TextFileStore
 
+from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
 from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.txn import TXN_TYPE, CHANGE_HA, TARGET_NYM, DATA, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
-from plenum.test.eventually import eventually
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
@@ -128,7 +128,7 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     nodeAddr = vnodeip + ":" + vnodeport
     clientAddr = vclientip + ":" + vclientport
 
-    return 'add genesis transaction NEW_NODE with data {"' + name + '": {' \
+    return 'add genesis transaction NODE with data {"' + name + '": {' \
                                                                     '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
            clientAddr + '"},' \
@@ -141,7 +141,7 @@ def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
                                                                   nodeport,
                                                                   clientip,
                                                                   clientport)
-    return 'add genesis transaction NEW_NODE for ' + verkey + ' by ' + \
+    return 'add genesis transaction NODE for ' + verkey + ' by ' + \
            stewardverkey + ' with data {"node_ip": "' + \
            vnodeip + '", "node_port": ' + vnodeport + ', "client_ip": "' + \
            vclientip + '", "client_port": ' + \
@@ -196,7 +196,7 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
     nodeAddr = nodeInfo.get('nodeAddr')
     clientAddr = nodeInfo.get('clientAddr')
 
-    txn = 'add genesis transaction NEW_NODE with data {"' + name + '": {' \
+    txn = 'add genesis transaction NODE with data {"' + name + '": {' \
                                                                    '"verkey":' \
                                                                    ' "' + \
           nodeVerKey + \
@@ -219,7 +219,7 @@ def submitNodeIpChange(client, stewardWallet, name: str, nym: str,
                        nodeStackHa: HA, clientStackHa: HA):
     (nodeIp, nodePort), (clientIp, clientPort) = nodeStackHa, clientStackHa
     txn = {
-        TXN_TYPE: CHANGE_HA,
+        TXN_TYPE: NODE,
         TARGET_NYM: nym,
         DATA: {
             NODE_IP: nodeIp,

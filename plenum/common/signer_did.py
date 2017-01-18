@@ -1,3 +1,5 @@
+from abc import abstractproperty
+
 import base58
 from binascii import hexlify
 from typing import Dict
@@ -8,11 +10,36 @@ from raet.nacling import Signer as NaclSigner
 
 from plenum.common.signer import Signer
 from plenum.common.signing import serializeMsg
+from plenum.common.types import Identifier
+from plenum.common.util import hexToFriendly, rawToFriendly, friendlyToRaw
 
-from plenum.common.util import hexToFriendly, rawToFriendly
+
+class DidIdentity:
+    def __init__(self, identifier, verkey=None, rawVerkey=None):
+        assert (verkey or rawVerkey) and not (verkey and rawVerkey)
+        if identifier:
+            self._identifier = identifier
+            self._verkey = verkey or rawToFriendly(rawVerkey)
+            self.abbreviated = False
+        else:
+            verraw = rawVerkey or friendlyToRaw(verkey)
+            self._identifier = rawToFriendly(verraw[:16])
+            self._verkey = rawToFriendly(verraw[16:])
+            self.abbreviated = True
+
+    @property
+    def identifier(self) -> Identifier:
+        return self._identifier
+
+    @property
+    def verkey(self) -> str:
+        if self.abbreviated:
+            return '~' + self._verkey
+        else:
+            return self._verkey
 
 
-class DidSigner(Signer):
+class DidSigner(DidIdentity, Signer):
     """
     A simple implementation of Signer for DIDs (Distributed Identifiers).
 
@@ -40,16 +67,8 @@ class DidSigner(Signer):
         # helper for signing
         self.naclSigner = NaclSigner(self.sk)
 
-        verraw = self.naclSigner.verraw
-
-        if identifier:
-            self._identifier = identifier
-            self._verkey = rawToFriendly(verraw)
-            self.abbreviated = False
-        else:
-            self._identifier = rawToFriendly(verraw[:16])
-            self._verkey = rawToFriendly(verraw[16:])
-            self.abbreviated = True
+        Signer.__init__(self)
+        DidIdentity.__init__(self, identifier, rawVerkey=self.naclSigner.verraw)
 
         self._alias = alias
 
@@ -60,17 +79,6 @@ class DidSigner(Signer):
     @alias.setter
     def alias(self, value):
         self._alias = value
-
-    @property
-    def identifier(self) -> str:
-        return self._identifier
-
-    @property
-    def verkey(self) -> str:
-        if self.abbreviated:
-            return '~' + self._verkey
-        else:
-            return self._verkey
 
     @property
     def seedHex(self) -> bytes:

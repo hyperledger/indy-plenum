@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from plenum.test.eventually import eventuallyAll
+from plenum.common.eventually import eventuallyAll
 from plenum.test.helper import checkReqNack
 
 whitelist = ['discarding message']

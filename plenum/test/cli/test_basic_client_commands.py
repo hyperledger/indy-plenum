@@ -1,6 +1,6 @@
+from plenum.common.eventually import eventually
 from plenum.common.util import randomString
 from plenum.test.cli.helper import checkClientConnected
-from plenum.test.eventually import eventually
 
 
 def testClientNames(cli, validNodeNames, createAllNodes):

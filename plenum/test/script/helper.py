@@ -4,28 +4,28 @@ import os
 import pytest
 
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.port_dispenser import genHa
 from plenum.common.script_helper import changeHA
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures
-from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
-from plenum.common.log import getlogger
 
 logger = getlogger()
 
 
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
-    oldVal = tconf.UPDATE_GENESIS_POOL_TXN_FILE
-    tconf.UPDATE_GENESIS_POOL_TXN_FILE = True
+    oldVal = tconf.UpdateGenesisPoolTxnFile
+    tconf.UpdateGenesisPoolTxnFile = True
 
     def reset():
-        tconf.UPDATE_GENESIS_POOL_TXN_FILE = oldVal
+        tconf.UpdateGenesisPoolTxnFile = oldVal
 
     request.addfinalizer(reset)
     return tconf
@@ -99,4 +99,3 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
                           stewardClient, anotherClient, retryWait=1,
                           timeout=10))
-    looper.removeProdable(stewardClient)

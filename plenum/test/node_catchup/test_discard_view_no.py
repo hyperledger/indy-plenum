@@ -1,17 +1,16 @@
 import time
 from functools import partial
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
-from plenum.test.eventually import eventually
+from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkViewNoForNodes, checkDiscardMsg
-from plenum.test.test_node import checkNodesConnected, \
-    checkProtocolInstanceSetup
-from plenum.test.delayers import delayNonPrimaries
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
-
+from plenum.test.test_node import checkNodesConnected, \
+    checkProtocolInstanceSetup
 
 whitelist = ['found legacy entry']  # warnings
 

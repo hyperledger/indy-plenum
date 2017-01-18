@@ -3,9 +3,9 @@ from functools import partial
 
 import pytest
 
+from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
 from plenum.common.types import Reply, RequestNack
-from plenum.test.eventually import eventually, eventuallyAll
 from plenum.test.helper import sendRandomRequest, checkReqAck, checkReplyCount
 
 whitelist = ['AlphaC unable to send message', ]
@@ -36,7 +36,7 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
     looper.run(eventually(chkAcks, retryWait=1, timeout=3))
 
     looper.run(eventually(checkReplyCount, client1, *req.key, 4, retryWait=1,
-                          timeout=tconf.CLIENT_REQACK_TIMEOUT+5))
+                          timeout=tconf.CLIENT_REQACK_TIMEOUT+10))
 
 
 def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,

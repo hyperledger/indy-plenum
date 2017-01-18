@@ -1,15 +1,14 @@
 import pytest
-from plenum.common.looper import Looper
+
+from plenum.common.eventually import eventually
 from plenum.common.util import randomString
-from plenum.common.port_dispenser import genHa
 from plenum.test.conftest import getValueFromModule
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import checkNodesConnected
-from plenum.test.test_client import TestClient
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
+from plenum.test.test_client import TestClient
+from plenum.test.test_node import checkNodesConnected
 
 
 @pytest.yield_fixture("module")

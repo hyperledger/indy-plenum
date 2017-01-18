@@ -11,6 +11,10 @@ def getPipedRegEx(cmd):
 
 psep = re.escape(os.path.sep)
 
+PROMPT_ENV_SEPARATOR = "@"
+WALLET_FILE_NAME_ENV_SEPARATOR = "_"
+WALLET_FILE_NAME_PREFIX="keyring_"
+
 # general reusable reg ex
 NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
@@ -65,7 +69,7 @@ CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) " \
                                   "\s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
 
 CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_kr>use\s+keyring) " \
-                                  "\s+ (?P<keyring>[A-Za-z0-9+=/]*) \s*) "
+                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*) "
 
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
@@ -73,7 +77,7 @@ CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "\s+ (for \s+ (?P<dest>[A-Za-z0-9+=/]+))?" \
     "\s? (by\s+(?P<identifier>[A-Za-z0-9+=/]*))?" \
     "\s? (with\s+data\s+(?P<data>\{\s*.*\}))?" \
-    "\s? (role\s*=\s*(?P<role>USER|STEWARD))?" \
+    "\s? (role\s*=\s*(?P<role>STEWARD))?" \
     "\s*) "
 
 

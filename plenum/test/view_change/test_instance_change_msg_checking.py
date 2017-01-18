@@ -1,7 +1,5 @@
-import pytest
-import types
+from plenum.common.eventually import eventually
 from plenum.common.types import InstanceChange
-from plenum.test.eventually import eventually
 from plenum.test.test_node import TestNode
 
 DISCARD_REASON = 'viewNo has incorrect type'

@@ -1,7 +1,8 @@
-from collections import OrderedDict
-from plenum.common.txn import ClientBootStrategy
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
 import os
+from collections import OrderedDict
+
+from plenum.common.txn import ClientBootStrategy
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -20,6 +21,8 @@ cliNodeReg = OrderedDict([
 ])
 
 baseDir = "~/.plenum/"
+
+keyringsDir = "keyrings"
 
 nodeDataDir = "data/nodes"
 
@@ -69,6 +72,18 @@ DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
 LatencyWindowSize = 30
 LatencyGraphDuration = 240
+notifierEventTriggeringConfig = {
+    'clusterThroughputSpike': {
+        'coefficient': 3,
+        'minCnt': 100,
+        'freq': 60
+    },
+    'nodeRequestSpike': {
+        'coefficient': 3,
+        'minCnt': 100,
+        'freq': 60
+    }
+}
 
 # Stats server configuration
 STATS_SERVER_IP = '127.0.0.1'
@@ -117,5 +132,17 @@ CLIENT_REPLY_TIMEOUT = 10
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
+# The client when learns of new nodes or any change in configuration of
+# other nodes, updates the genesis pool transaction file if this option is set
+# to True. This option is overwritten by default for tests to keep multiple
+# clients from reading an updated pool transaction file, this helps us
+# emulate clients on different machines.
+UpdateGenesisPoolTxnFile = True
 
-UPDATE_GENESIS_POOL_TXN_FILE = True
+
+# Since the ledger is stored in a flat file, this makes the ledger do
+# an fsync on every write. Making it True can significantly slow
+# down writes as shown in a test `test_file_store_perf.py` in the ledger
+# repository
+EnsureLedgerDurability = True
+

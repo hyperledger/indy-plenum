@@ -29,9 +29,9 @@ def timeit(method):
     @wraps(method)
     def timed(*args, **kw):
         nonlocal method
-        ts = time.time()
+        ts = time.perf_counter()
         result = method(*args, **kw)
-        te = time.time()
+        te = time.perf_counter()
         elapsed = te-ts
         print('{} took {} sec'.format(method.__name__, elapsed))
         method.elapsed = elapsed

@@ -3,10 +3,10 @@ import json
 
 from ledger.util import F
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn import TXN_TYPE, NEW_NODE, ALIAS, DATA, CHANGE_HA, \
-    CHANGE_KEYS
-from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f
-from plenum.common.util import getMaxFailures
+from plenum.common.txn import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR
+from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f, HA
+from plenum.common.util import getMaxFailures, updateNestedDict
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.log import getlogger
 
@@ -51,7 +51,7 @@ class HasPoolManager(TxnStackManager):
                 if len(txns) > 0:
                     txn = json.loads(txns[0])
                     self.addToLedger(txn)
-                    if self.config.UPDATE_GENESIS_POOL_TXN_FILE:
+                    if self.config.UpdateGenesisPoolTxnFile:
                         # Adding sequence number field since needed for safely
                         # updating genesis file
                         txn[F.seqNo.name] = len(self.ledger)
@@ -67,20 +67,64 @@ class HasPoolManager(TxnStackManager):
     def processPoolTxn(self, txn):
         logger.debug("{} processing pool txn {} ".format(self, txn))
         typ = txn[TXN_TYPE]
-        if typ == NEW_NODE:
+
+        if typ == NODE:
             remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-            self.addNewRemoteAndConnect(txn, remoteName, self)
-            self.setF()
-        elif typ == CHANGE_HA:
-            remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-            self.stackHaChanged(txn, remoteName, self)
-        elif typ == CHANGE_KEYS:
-            remoteName = txn[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-            self.stackKeysChanged(txn, remoteName, self)
+            nodeName = txn[DATA][ALIAS]
+            nodeNym = txn[TARGET_NYM]
+
+            def _update(txn):
+                if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}.\
+                        intersection(set(txn[DATA].keys())):
+                    self.stackHaChanged(txn, remoteName, self)
+                if VERKEY in txn:
+                    self.stackKeysChanged(txn, remoteName, self)
+                if SERVICES in txn[DATA]:
+                    self.nodeServicesChanged(txn)
+                    self.setF()
+
+            if nodeName in self.nodeReg:
+                # The node was already part of the pool so update
+                _update(txn)
+            else:
+                seqNos, info = self.getNodeInfoFromLedger(nodeNym)
+                if len(seqNos) == 1:
+                    # Since only one transaction has been made, this is a new
+                    # node transactions
+                    self.connectNewRemote(txn, remoteName, self)
+                    self.setF()
+                else:
+                    self.nodeReg[nodeName+CLIENT_STACK_SUFFIX] = HA(
+                        info[DATA][CLIENT_IP], info[DATA][CLIENT_PORT])
+                    _update(txn)
         else:
             logger.error("{} received unknown txn type {} in txn {}"
                          .format(self.name, typ, txn))
             return
+
+    def nodeServicesChanged(self, txn):
+        nodeNym = txn[TARGET_NYM]
+        _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
+        remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
+        oldServices = set(nodeInfo[DATA][SERVICES])
+        newServices = set(txn[DATA][SERVICES])
+        if oldServices == newServices:
+            logger.debug(
+                "Client {} not changing {} since it is same as existing"
+                .format(nodeNym, SERVICES))
+            return
+        else:
+            if VALIDATOR in newServices.difference(oldServices):
+                # If validator service is enabled
+                self.updateNodeTxns(nodeInfo, txn)
+                self.connectNewRemote(nodeInfo, remoteName, self    )
+
+            if VALIDATOR in oldServices.difference(newServices):
+                # If validator service is disabled
+                del self.nodeReg[remoteName]
+                rid = self.nodestack.removeRemoteByName(remoteName)
+                if rid:
+                    self.nodestack.outBoxes.pop(rid, None)
 
     # noinspection PyUnresolvedReferences
     @property

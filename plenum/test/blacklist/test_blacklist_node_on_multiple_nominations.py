@@ -1,7 +1,7 @@
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Nomination
-from plenum.test.eventually import eventually
 
 whitelist = ['already got nomination',
              'doing nothing for now']

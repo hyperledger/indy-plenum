@@ -61,11 +61,11 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker', 'prompt_toolkit==0.57',
-                      'pyorient', 'pygments', 'ledger-dev', 'ioflo==1.5.4',
-                      'semver', 'base58', 'orderedset', 'sortedcontainers',
-                      'pytest', 'psutil'],
-    extras_require = {
+    install_requires=['raet', 'jsonpickle', 'portalocker==0.5.7',
+                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
+                      'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
+                      'sortedcontainers', 'psutil'],
+    extras_require={
         'stats': ['python-firebase']
     },
     setup_requires=['pytest-runner'],
@@ -90,7 +90,8 @@ if not os.path.exists(CONFIG_FILE):
 DATA_DIR = os.path.dirname(data.__file__)
 shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
                 POOL_TXN_FILE)
-# from plenum.common.sys_util import changeOwnerAndGrpToLoggedInUser
+
+
 # TODO: This code should not be copied here.
 import getpass
 import os

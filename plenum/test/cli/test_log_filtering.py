@@ -1,14 +1,13 @@
 import types
 
-import pytest
+from plenum.common.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import checkRequest
-from plenum.test.eventually import eventually
 from plenum.test.helper import checkSufficientRepliesRecvd
 
 
 def testLogFiltering(cli, validNodeNames, createAllNodes):
-    msg = '{"Hello": "There"}'
+    msg = '{"Hello": "There", "type": "greeting"}'
     client, wallet = checkRequest(cli, msg)
 
     x = client.handleOneNodeMsg
@@ -18,7 +17,7 @@ def testLogFiltering(cli, validNodeNames, createAllNodes):
 
     client.handleOneNodeMsg = types.MethodType(handleOneNodeMsg, client)
     client.nodestack.msgHandler = client.handleOneNodeMsg
-    msg = '{"Hello": "Where"}'
+    msg = '{"Hello": "Where", "type": "greeting"}'
     cli.enterCmd('client {} send {}'.format(client.name, msg))
     cli.looper.run(eventually(
         checkSufficientRepliesRecvd,

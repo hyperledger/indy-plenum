@@ -3,7 +3,7 @@ from plenum.test.cli.helper import assertCliTokens
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NEW_NODE,\
+from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, NODE,\
     NYM, ROLE, STEWARD
 
 
@@ -82,8 +82,8 @@ def testAddGenTxnRegEx(grammar):
     assertCliTokens(matchedVars, {TXN_TYPE: NYM, ROLE: STEWARD, TARGET_NYM: "Tyler", DATA: '{"key1": "value1"}'})
 
     matchedVars = getMatchedVariables(grammar,
-                                      'add genesis transaction NEW_NODE for Tyler by Phil with data {"key1": "value1", "key2": "value2"}')
-    assertCliTokens(matchedVars, {TXN_TYPE: NEW_NODE, TARGET_NYM: "Tyler", IDENTIFIER: "Phil",
+                                      'add genesis transaction NODE for Tyler by Phil with data {"key1": "value1", "key2": "value2"}')
+    assertCliTokens(matchedVars, {TXN_TYPE: NODE, TARGET_NYM: "Tyler", IDENTIFIER: "Phil",
                                   DATA: '{"key1": "value1", "key2": "value2"}'})
 
 
@@ -97,8 +97,8 @@ def testNewAddGenTxnRegEx(grammar):
     "node_address": "127.0.0.1:9701",
     "client_address": "127.0.0.1:9702"}, "by":ea0690fbea7fbcd8dd4b80ed83f23d0ff2152e6217f602a01532c16c862aab92}"""
     matchedVars = getMatchedVariables(grammar,
-                                      'add genesis transaction NEW_NODE with data {}'.format(exportedData))
-    assertCliTokens(matchedVars, {TXN_TYPE: NEW_NODE, DATA: exportedData})
+                                      'add genesis transaction NODE with data {}'.format(exportedData))
+    assertCliTokens(matchedVars, {TXN_TYPE: NODE, DATA: exportedData})
 
 
 def testCreateGenesisTxnFileRegEx(grammar):

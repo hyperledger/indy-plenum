@@ -1,10 +1,10 @@
 import pytest
-from plenum.test.eventually import eventually
 
+from plenum.common.eventually import eventually
 from plenum.common.types import Commit
 from plenum.server.replica import Replica
-from plenum.test.test_node import TestNode
 from plenum.test.delayers import delayerMsgTuple
+from plenum.test.test_node import TestNode
 
 nodeCount = 4
 

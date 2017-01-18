@@ -1,7 +1,7 @@
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import Commit, PrePrepare
-from plenum.test.eventually import eventually
-from plenum.test.helper import sendRandomRequest, sendRandomRequests, \
+from plenum.test.helper import sendRandomRequests, \
     checkSufficientRepliesForRequests, checkLedgerEquality, getPrimaryReplica, \
     checkAllLedgersEqual
 from plenum.test.test_node import getNonPrimaryReplicas

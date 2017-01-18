@@ -1,10 +1,10 @@
 import types
 
+from plenum.common.eventually import eventually
 from plenum.common.request import ReqDigest
-from plenum.test.eventually import eventually
 from plenum.test.helper import sendRandomRequest
-from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
+from plenum.test.test_node import getNonPrimaryReplicas
 
 
 def testOrderingCase1(looper, nodeSet, up, client1, wallet1):

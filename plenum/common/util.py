@@ -16,6 +16,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
+import collections
 import libnacl.secret
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
@@ -536,3 +537,14 @@ def getCallableName(callable: Callable):
             RuntimeError("Do not know how to get name of this callable")
     else:
         TypeError("This is not a callable")
+
+
+def updateNestedDict(d, u, nestedKeysToUpdate=None):
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping) and \
+                (not nestedKeysToUpdate or k in nestedKeysToUpdate):
+            r = updateNestedDict(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d

@@ -1,6 +1,4 @@
-import json
 import os
-import shutil
 from collections import OrderedDict
 
 import portalocker
@@ -11,11 +9,9 @@ from ledger.util import F
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.constants import ENVS
 from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY, TYPE, CHANGE_HA, IDENTIFIER, DATA
+    ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
 from plenum.common.types import f
-from plenum.common.util import randomString
 from plenum.common.log import getlogger
 
 
@@ -71,6 +67,7 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
         # It has only been manaully tested in the python terminal. Add a test
         # for it using multiple processes writing concurrently
         with portalocker.Lock(os.path.join(genesisTxnDir, genesisTxnFile),
+                              truncate=None,
                               flags=portalocker.LOCK_EX | portalocker.LOCK_NB):
             seqNo = txn[F.seqNo.name]
             ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
@@ -85,6 +82,6 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
                 logger.debug('Already {} genesis pool transactions present so '
                              'transaction with sequence number {} '
                              'not applicable'.format(ledgerSize, seqNo))
-    except (portalocker.exceptions.LockException,
-            portalocker.exceptions.LockException) as ex:
+    except (portalocker.LockException,
+            portalocker.LockException) as ex:
         return

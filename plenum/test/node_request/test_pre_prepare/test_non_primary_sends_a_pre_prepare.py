@@ -1,17 +1,16 @@
+import time
 import types
 
 import pytest as pytest
-import time
 
-from plenum.common.types import PrePrepare
-from plenum.common.request import ReqDigest
-from plenum.test.eventually import eventually
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
-from plenum.test.test_node import getNonPrimaryReplicas
-
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
+from plenum.common.request import ReqDigest
+from plenum.common.types import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
+from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
 from plenum.test.instances.helper import recvdPrePrepare
+from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getlogger()
 

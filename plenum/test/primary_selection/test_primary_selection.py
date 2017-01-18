@@ -2,16 +2,14 @@ import operator
 
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.util import getNoInstances
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
-from plenum.test.eventually import eventually
 from plenum.test.helper import getPrimaryReplica
 from plenum.test.test_node import checkProtocolInstanceSetup
-
-# noinspection PyUnresolvedReferences
-from plenum.test.view_change.test_view_change import viewChangeDone
 from plenum.test.view_change.conftest import viewNo
+from plenum.test.view_change.test_view_change import viewChangeDone
 
 nodeCount = 7
 

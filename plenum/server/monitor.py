@@ -19,7 +19,11 @@ from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
 
+
+pluginManager = PluginManager()
 logger = getlogger()
 config = getConfig()
 
@@ -35,12 +39,15 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
                  instances: Instances, nodestack: NodeStack,
-                 blacklister: Blacklister, nodeInfo: Dict, pluginPaths: Iterable[str]=None):
+                 blacklister: Blacklister, nodeInfo: Dict,
+                 notifierEventTriggeringConfig: Dict,
+                 pluginPaths: Iterable[str]=None):
         self.name = name
         self.instances = instances
         self.nodestack = nodestack
         self.blacklister = blacklister
         self.nodeInfo = nodeInfo
+        self.notifierEventTriggeringConfig = notifierEventTriggeringConfig
 
         self.Delta = Delta
         self.Lambda = Lambda
@@ -100,6 +107,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         #  value is a tuple of ordering time and latency of a request
         self.latenciesByBackupsInLast = {}
 
+        # Monitoring suspicious spikes in cluster throughput
+        self.clusterThroughputSpikeMonitorData = {
+            'value': 0,
+            'cnt': 0,
+            'accum': []
+        }
+
         psutil.cpu_percent(interval=None)
         self.lastKnownTraffic = self.calculateTraffic()
 
@@ -108,7 +122,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         HasActionQueue.__init__(self)
 
         if config.SendMonitorStats:
-            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)   
+
+        self._schedule(self.checkPerformance,
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def __repr__(self):
         return self.name
@@ -379,13 +396,36 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         return avgLatencies
 
     def sendPeriodicStats(self):
-        self.sendThroughput()
+        thoughputData = self.sendThroughput()
+        self.clusterThroughputSpikeMonitorData['accum'].append(thoughputData['throughput'])
         self.sendLatencies()
         self.sendKnownNodesInfo()
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
         self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
+
+    def checkPerformance(self):
+        self.sendClusterThroughputSpike()
+        self._schedule(self.checkPerformance, 
+            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+
+    def sendClusterThroughputSpike(self):
+        if self.instances.masterId is None:
+            return None
+        accum = 0
+        for val in self.clusterThroughputSpikeMonitorData['accum']:
+            accum += val
+        if len(self.clusterThroughputSpikeMonitorData['accum']):
+            accum /= len(self.clusterThroughputSpikeMonitorData['accum'])
+        self.clusterThroughputSpikeMonitorData['accum'] = []
+        return pluginManager.sendMessageUponSuspiciousSpike(
+            notifierPluginTriggerEvents['clusterThroughputSpike'],
+            self.clusterThroughputSpikeMonitorData,
+            accum,
+            self.notifierEventTriggeringConfig['clusterThroughputSpike'],
+            self.name
+        )
 
     @property
     def highResThroughput(self):
@@ -411,6 +451,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             "time": time.mktime(utcTime.timetuple()) * 1000
         }
         self._sendStatsDataIfRequired(EVENT_PERIODIC_STATS_THROUGHPUT, mtrStats)
+        return mtrStats
 
     @property
     def masterLatency(self):

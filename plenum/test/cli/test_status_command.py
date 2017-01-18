@@ -1,11 +1,9 @@
-import logging
-
 import pytest
 
+from plenum.common.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
     checkClientConnected, checkActiveIdrPrinted
-from plenum.test.eventually import eventually
 
 
 def checkForNamedTokens(printedTokens, expectedNames):

@@ -86,6 +86,9 @@ class LedgerManager(HasActionQueue):
     def __repr__(self):
         return self.owner.name
 
+    def service(self):
+        return self._serviceActions()
+
     def addLedger(self, typ: int, ledger: Ledger,
                   preCatchupStartClbk: Callable=None,
                   postCatchupStartClbk: Callable=None,

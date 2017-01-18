@@ -2,22 +2,21 @@ from pprint import pprint
 
 import pytest
 
+from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
+from plenum.common.looper import Looper
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
-from plenum.common.log import getlogger
 from plenum.common.util import getMaxFailures
-from plenum.test.eventually import eventually
+from plenum.test.delayers import delayerMsgTuple
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import setupNodesAndClient, \
     sendRandomRequest, setupClient, \
     assertLength, addNodeBack, checkSufficientRepliesRecvd, \
     getPendingRequestsForReplica, checkRequestReturnedToNode
+from plenum.test.profiler import profile_this
 from plenum.test.test_node import TestNode, TestNodeSet, checkPoolReady, \
     ensureElectionsDone, genNodeReg, prepareNodeSet
-from plenum.test.delayers import delayerMsgTuple
-
-from plenum.common.looper import Looper
-from plenum.test.profiler import profile_this
 
 whitelist = ['cannot process incoming PREPARE']
 logger = getlogger()

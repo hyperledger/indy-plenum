@@ -1,14 +1,15 @@
 import pytest
 from raet.raeting import AutoMode
 
-from plenum.common.exceptions import EmptySignature, BlowUp
-from plenum.test.exceptions import NotConnectedToAny
+from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
+from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
 from plenum.test.helper import randomOperation, \
     checkLastClientReqForNode, \
     getRepliesFromClientInbox
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, assertLength
+from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
+    assertLength
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet

@@ -1,6 +1,9 @@
+from typing import Dict
+
 from abc import abstractmethod
 
 from base58 import b58decode, b58encode
+from plenum.common.signing import serializeMsg
 from raet.nacling import Verifier as NaclVerifier
 
 
@@ -8,6 +11,10 @@ class Verifier:
     @abstractmethod
     def verify(self, sig, msg) -> bool:
         pass
+
+    def verifyMsg(self, sig, msg: Dict):
+        ser = serializeMsg(msg)
+        return self.verify(sig, ser)
 
 
 class DidVerifier(Verifier):

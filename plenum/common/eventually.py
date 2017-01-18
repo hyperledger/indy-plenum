@@ -53,7 +53,7 @@ async def eventuallyAll(*coroFuncs: FlexFunc, # (use functools.partials if neede
     """
     start = time.perf_counter()
 
-    totalTimeout = totalTimeout * slowFactor
+    totalTimeout *= slowFactor
 
     def remaining():
         return totalTimeout + start - time.perf_counter()

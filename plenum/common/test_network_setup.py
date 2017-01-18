@@ -1,6 +1,6 @@
 import argparse
 import os
-from _sha256 import sha256
+from hashlib import sha256
 
 from ledger.serializers.compact_serializer import CompactSerializer
 from raet.nacling import Signer
@@ -10,9 +10,9 @@ from ledger.ledger import Ledger
 
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
-    TXN_ID, NEW_NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
+    TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
-    ROLE
+    ROLE, SERVICES, VALIDATOR
 from plenum.common.types import f
 from plenum.common.util import hexToFriendly
 
@@ -38,12 +38,15 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
-    def bootstrapTestNodesCore(baseDir,
-                           poolTransactionsFile,
-                           domainTransactionsFile,
-                           domainTxnFieldOrder,
-                           ips, nodeCount, clientCount,
-                           nodeNum, startingPort):
+    def bootstrapTestNodesCore(config, envName, appendToLedgers,
+                               domainTxnFieldOrder,
+                               ips, nodeCount, clientCount,
+                               nodeNum, startingPort):
+
+        baseDir = config.baseDir
+        if not os.path.exists(baseDir):
+            os.makedirs(baseDir, exist_ok=True)
+
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
         else:
@@ -52,19 +55,28 @@ class TestNetworkSetup:
                 if len(ips) > nodeCount:
                     ips = ips[:nodeCount]
                 else:
-                    ips = ips + ['127.0.0.1'] * (nodeCount - len(ips))
+                    ips += ['127.0.0.1'] * (nodeCount - len(ips))
+
+        if hasattr(config, "ENVS") and envName:
+            poolTxnFile = config.ENVS[envName].poolLedger
+            domainTxnFile = config.ENVS[envName].domainLedger
+        else:
+            poolTxnFile = config.poolTransactionsFile
+            domainTxnFile = config.domainTransactionsFile
 
         poolLedger = Ledger(CompactMerkleTree(),
                             dataDir=baseDir,
-                            fileName=poolTransactionsFile)
-        poolLedger.reset()
+                            fileName=poolTxnFile)
 
         domainLedger = Ledger(CompactMerkleTree(),
                               serializer=CompactSerializer(fields=
                                                            domainTxnFieldOrder),
                               dataDir=baseDir,
-                              fileName=domainTransactionsFile)
-        domainLedger.reset()
+                              fileName=domainTxnFile)
+
+        if not appendToLedgers:
+            poolLedger.reset()
+            domainLedger.reset()
 
         steward1Nym = None
         for num in range(1, nodeCount + 1):
@@ -101,14 +113,15 @@ class TestNetworkSetup:
                 verkey = Signer(sigseed).verhex
             txn = {
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
-                TXN_TYPE: NEW_NODE,
+                TXN_TYPE: NODE,
                 f.IDENTIFIER.nm: stewardNym,
                 DATA: {
                     CLIENT_IP: ip,
                     ALIAS: nodeName,
                     CLIENT_PORT: clientPort,
                     NODE_IP: ip,
-                    NODE_PORT: nodePort
+                    NODE_PORT: nodePort,
+                    SERVICES: [VALIDATOR]
                 },
                 TXN_ID: sha256(nodeName.encode()).hexdigest()
             }
@@ -131,10 +144,7 @@ class TestNetworkSetup:
         domainLedger.stop()
 
     @staticmethod
-    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
-                           domainTransactionsFile, domainTxnFieldOrder):
-        if not os.path.exists(baseDir):
-            os.makedirs(baseDir, exist_ok=True)
+    def bootstrapTestNodes(config, startingPort, domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
@@ -144,9 +154,9 @@ class TestNetworkSetup:
                                  'should be less than 20')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
-        parser.add_argument('--nodeNum', required=True, type=int,
-                            help='the number '
-                                 'of the node that will run on this machine')
+        parser.add_argument('--nodeNum', type=int,
+                            help='the number of the node that will '
+                                 'run on this machine')
         parser.add_argument('--ips',
                             help='IPs of the nodes, provide comma separated'
                                  ' IPs, if no of IPs provided are less than '
@@ -155,19 +165,36 @@ class TestNetworkSetup:
                                  'IP, i.e 127.0.0.1',
                             type=str)
 
+        parser.add_argument('--envName',
+                            help='Environment name (test or live)',
+                            type=str,
+                            default="test",
+                            required=False)
+
+        parser.add_argument('--appendToLedgers',
+                            help="Determine if ledger files needs to be erased "
+                                 "before writting new information or not.",
+                            action='store_true')
+
         args = parser.parse_args()
-        nodeCount = min(args.nodes, 20)
+        if args.nodes > 20:
+            print("Cannot run {} nodes for testing purposes as of now. "
+                  "This is not a problem with the protocol but some placeholder"
+                  " rules we put in place which will be replaced by our "
+                  "Governance model. Going to run only 20".format(args.nodes))
+            nodeCount = 20
+        else:
+            nodeCount = args.nodes
         clientCount = args.clients
         nodeNum = args.nodeNum
         ips = args.ips
+        envName = args.envName
+        appendToLedgers = args.appendToLedgers
+        if nodeNum:
+            assert nodeNum <= nodeCount, "nodeNum should be less than equal " \
+                                         "to nodeCount"
 
-        assert nodeNum <= nodeCount, "nodeNum should be less than equal to " \
-                                     "nodeCount"
-
-        TestNetworkSetup.bootstrapTestNodesCore(baseDir,
-                               poolTransactionsFile,
-                               domainTransactionsFile,
-                               domainTxnFieldOrder,
-                               ips, nodeCount, clientCount,
-                               nodeNum, startingPort)
-
+        TestNetworkSetup.bootstrapTestNodesCore(config, envName, appendToLedgers,
+                                                domainTxnFieldOrder,
+                                                ips, nodeCount, clientCount,
+                                                nodeNum, startingPort)

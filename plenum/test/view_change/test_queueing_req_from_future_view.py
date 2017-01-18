@@ -1,16 +1,15 @@
-import logging
 from functools import partial
 
 import pytest
-from plenum.test.eventually import eventually
 
-from plenum.common.util import getMaxFailures
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
-    checkViewChangeInitiatedForNode
+from plenum.common.util import getMaxFailures
+from plenum.test.delayers import ppDelay, icDelay
 from plenum.test.helper import sendRandomRequest, \
     sendReqsToNodesAndVerifySuffReplies
-from plenum.test.delayers import ppDelay, icDelay
+from plenum.test.test_node import TestReplica, getNonPrimaryReplicas, \
+    checkViewChangeInitiatedForNode
 
 nodeCount = 7
 

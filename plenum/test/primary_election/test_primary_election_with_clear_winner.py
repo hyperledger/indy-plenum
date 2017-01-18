@@ -1,10 +1,9 @@
 import pytest
-from plenum.test.eventually import eventually
+
+from plenum.common.eventually import eventually
+from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
-
-from plenum.test.primary_election.helpers import checkNomination
-
 
 nodeCount = 4
 

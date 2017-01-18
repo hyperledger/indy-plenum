@@ -1,23 +1,19 @@
 import ast
-import json
 import os
 import re
-from shutil import copyfile
-
-from pygments.token import Token
 
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
+from plenum.common.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
-from plenum.test.eventually import eventually
-from plenum.test.testable import Spyable
-from plenum.test.helper import checkSufficientRepliesRecvd, \
-    checkPoolReady
+from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
+from plenum.test.testable import Spyable
+from pygments.token import Token
 
 
 class TestCliCore:
@@ -360,12 +356,3 @@ def assertCliTokens(matchedVars, tokens):
         assert matchedVars.get(key) == value
 
 
-def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
-                           tdirWithDomainTxns=None):
-    os.makedirs(dirName, exist_ok=True)
-    if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, tconf.poolTransactionsFile),
-                 os.path.join(dirName, tconf.poolTransactionsFile))
-    if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, tconf.domainTransactionsFile),
-                 os.path.join(dirName, tconf.domainTransactionsFile))

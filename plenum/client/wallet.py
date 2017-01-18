@@ -5,6 +5,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
     crypto_secretbox_NONCEBYTES, crypto_secretbox
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
+from plenum.common.exceptions import EmptyIdentifier
 from plenum.common.log import getlogger
 from plenum.common.signer import Signer
 from plenum.common.types import Identifier
@@ -101,9 +102,35 @@ class Wallet:
             self.aliasesToIds[signer.alias] = signer.identifier
         return signer.identifier, signer
 
-    def _requiredIdr(self,
-                     idr: Identifier=None,
-                     alias: str=None):
+    def updateSigner(self, identifier, signer):
+        """
+        Update signer for an already present identifier. The passed signer
+        should have the same identifier as `identifier` or an error is raised.
+        Also if the existing identifier has an alias in the wallet then the
+        passed signer is given the same alias
+        :param identifier: existing identifier in the wallet
+        :param signer: new signer to update too
+        :return:
+        """
+        if identifier != signer.identifier:
+            raise ValueError("Passed signer has identifier {} but it should"
+                             " have been {}".format(signer.identifier,
+                                                    identifier))
+        if identifier not in self.idsToSigners:
+            raise KeyError("Identifier {} not present in wallet".
+                           format(identifier))
+
+        oldSigner = self.idsToSigners[identifier]
+        if oldSigner.alias and oldSigner.alias in self.aliasesToIds:
+            logger.debug('Changing alias of passed signer to {}'.
+                         format(oldSigner.alias))
+            signer.alias = oldSigner.alias
+
+        self.idsToSigners[identifier] = signer
+
+    def requiredIdr(self,
+                    idr: Identifier=None,
+                    alias: str=None):
         """
         Checks whether signer identifier specified, or can it be
         inferred from alias or can be default used instead
@@ -122,7 +149,7 @@ class Wallet:
         else:
             idr = self.aliasesToIds[alias] if alias else self.defaultId
         if not idr:
-            raise RuntimeError('identifier required, but none found')
+            raise EmptyIdentifier
         return idr
 
     def signMsg(self,
@@ -138,7 +165,7 @@ class Wallet:
         :return: signature that then can be assigned to request
         """
 
-        idr = self._requiredIdr(idr=identifier or otherIdentifier)
+        idr = self.requiredIdr(idr=identifier or otherIdentifier)
         signer = self._signerById(idr)
         signature = signer.sign(msg)
         return signature
@@ -155,7 +182,7 @@ class Wallet:
         :return: signed request
         """
 
-        idr = self._requiredIdr(idr=identifier or req.identifier)
+        idr = self.requiredIdr(idr=identifier or req.identifier)
         idData = self._getIdData(idr)
         req.identifier = idr
         req.reqId = getTimeBasedId()
@@ -234,7 +261,7 @@ class Wallet:
     def _getIdData(self,
                    idr: Identifier = None,
                    alias: Alias = None) -> IdData:
-        idr = self._requiredIdr(idr, alias)
+        idr = self.requiredIdr(idr, alias)
         signer = self.idsToSigners.get(idr)
         idData = self.ids.get(idr)
         return IdData(signer, idData.lastReqId if idData else None)

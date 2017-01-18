@@ -1,39 +1,44 @@
+import importlib
 import inspect
 import itertools
 import json
 import logging
 import os
+import re
+from copy import copy
 from functools import partial
 from typing import Dict, Any
 
+import pip
 import pytest
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-
+from plenum.common.config_util import getConfig
+from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TXN_TYPE, DATA, NEW_NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, CHANGE_HA, CHANGE_KEYS, NYM
+from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP, NODE_PORT, NYM
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
-from plenum.common.config_util import getConfig
-from plenum.test.eventually import eventually, eventuallyAll
+from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, getPrimaryReplica, \
-    checkRequestReturnedToNode, \
-    checkSufficientRepliesRecvd, checkViewNoForNodes, requestReturnedToNode
-from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
-    checkNodesConnected, ensureElectionsDone, genNodeReg
+    checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
+    checkViewNoForNodes, requestReturnedToNode, randomText, \
+    mockGetInstalledDistributions, mockImportModule, createTempDir
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
+from plenum.test.test_client import genTestClient, TestClient
+from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
+    checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
 
@@ -67,7 +72,7 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UPDATE_GENESIS_POOL_TXN_FILE': False
+    'UpdateGenesisPoolTxnFile': False
 }
 
 
@@ -110,6 +115,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'Executing %s took %.3f seconds',
                      'is already stopped',
                      'Error while running coroutine',
+                     'not trying any more because',
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>"
@@ -127,8 +133,13 @@ def logcapture(request, whitelist, concerningLogLevels):
             wl = whitelist
 
         whiteListedExceptions = baseWhitelist + wl
+
+        # Converting the log message to its string representation, the log
+        # message can be an arbitrary object
+        msg = str(record.msg)
         isWhiteListed = bool([w for w in whiteListedExceptions
-                              if w in str(record.msg)])
+                              if re.search(w, msg)])
+
         if not (isBenign or isTest or isWhiteListed):
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
@@ -142,7 +153,7 @@ def logcapture(request, whitelist, concerningLogLevels):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg, allPluginsPath):
+def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
@@ -157,10 +168,7 @@ def counter():
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
-    logger.debug("module-level temporary directory: {}".format(tempdir))
-    return tempdir
+    return createTempDir(tmpdir_factory, counter)
 
 another_tdir = tdir
 
@@ -359,8 +367,8 @@ def looperWithoutNodeSet():
 
 
 @pytest.fixture(scope="module")
-def poolTxnNodeNames():
-    return "Alpha", "Beta", "Gamma", "Delta"
+def poolTxnNodeNames(index=""):
+    return [n + index for n in ("Alpha", "Beta", "Gamma", "Delta")]
 
 
 @pytest.fixture(scope="module")
@@ -392,11 +400,15 @@ def dirName():
 
 
 @pytest.fixture(scope="module")
-def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
-    data = json.loads(open(filePath).read().strip())
+def nodeAndClientInfoFilePath(dirName):
+    return os.path.join(dirName(__file__), "node_and_client_info.py")
+
+
+@pytest.fixture(scope="module")
+def poolTxnData(nodeAndClientInfoFilePath):
+    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
     for txn in data["txns"]:
-        if txn[TXN_TYPE] == NEW_NODE:
+        if txn[TXN_TYPE] == NODE:
             txn[DATA][NODE_PORT] = genHa()[1]
             txn[DATA][CLIENT_PORT] = genHa()[1]
     return data
@@ -408,8 +420,9 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)
     for item in poolTxnData["txns"]:
-        if item.get(TXN_TYPE) in (NEW_NODE, CHANGE_HA, CHANGE_KEYS):
+        if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
+    ledger.stop()
     return tdir
 
 
@@ -427,6 +440,7 @@ def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)
+    ledger.stop()
     return tdir
 
 
@@ -458,8 +472,13 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def testNodeClass():
+def testNodeClass(patchPluginManager):
     return TestNode
+
+
+@pytest.fixture(scope="module")
+def testClientClass():
+    return TestClient
 
 
 @pytest.yield_fixture(scope="module")
@@ -469,7 +488,8 @@ def txnPoolNodesLooper():
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodesLooper,
+def txnPoolNodeSet(patchPluginManager,
+                   txnPoolNodesLooper,
                    tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tconf,
@@ -485,7 +505,7 @@ def txnPoolNodeSet(txnPoolNodesLooper,
         nodes.append(node)
     txnPoolNodesLooper.run(checkNodesConnected(nodes))
     ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=10)
+                        timeout=20)
     return nodes
 
 
@@ -493,7 +513,7 @@ def txnPoolNodeSet(txnPoolNodesLooper,
 def txnPoolCliNodeReg(poolTxnData):
     cliNodeReg = {}
     for txn in poolTxnData["txns"]:
-        if txn[TXN_TYPE] == NEW_NODE:
+        if txn[TXN_TYPE] == NODE:
             data = txn[DATA]
             cliNodeReg[data[ALIAS] + CLIENT_STACK_SUFFIX] = HA(data[CLIENT_IP],
                                                                data[CLIENT_PORT])
@@ -509,3 +529,60 @@ def postingStatsEnabled(request):
     #    config.SendMonitorStats = False
 
     # request.addfinalizer(reset)
+
+
+@pytest.fixture
+def pluginManager(monkeypatch):
+    pluginManager = PluginManager()
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
+    assert hasattr(pluginManager, 'prefix')
+    assert hasattr(pluginManager, '_sendMessage')
+    assert hasattr(pluginManager, '_findPlugins')
+    yield pluginManager
+    monkeypatch.undo()
+
+
+@pytest.fixture(scope="module")
+def patchPluginManager():
+    pluginManager = PluginManager()
+    pluginManager.plugins = []
+    return pluginManager
+
+
+@pytest.fixture
+def pluginManagerWithImportedModules(pluginManager, monkeypatch):
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=[]))
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    imported, found = pluginManager.importPlugins()
+    assert imported == 0
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
+    yield pluginManager
+    monkeypatch.undo()
+    pluginManager.importPlugins()
+
+
+@pytest.fixture
+def testNode(pluginManager, tdir):
+    name = randomText(20)
+    nodeReg = genNodeReg(names=[name])
+    ha, cliname, cliha = nodeReg[name]
+    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+                    nodeRegistry=copy(nodeReg), basedirpath=tdir,
+                    primaryDecider=None, pluginPaths=None)

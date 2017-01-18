@@ -66,7 +66,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param instId: the id of the protocol instance the replica belongs to
         :param isMaster: is this a replica of the master protocol instance
         """
-        super().__init__()
+        HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
 
         self.config = getConfig()

@@ -1,14 +1,14 @@
 from random import shuffle, randint
-from tempfile import TemporaryDirectory
 
 import pytest
 from ioflo.aid import getConsole
 
-from plenum.common.looper import Looper
-from plenum.common.types import NodeDetail
-from plenum.common.port_dispenser import genHa
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
+from plenum.common.looper import Looper
+from plenum.common.port_dispenser import genHa
+from plenum.common.temp_file_util import SafeTemporaryDirectory
+from plenum.common.types import NodeDetail
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -26,7 +26,7 @@ nodeReg = {
 # Its a function fixture, deliberately
 @pytest.yield_fixture()
 def tdirAndLooper():
-    with TemporaryDirectory() as td:
+    with SafeTemporaryDirectory() as td:
         logger.debug("temporary directory: {}".format(td))
         with Looper() as looper:
             yield td, looper

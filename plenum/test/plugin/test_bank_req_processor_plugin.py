@@ -1,18 +1,18 @@
 import pytest
 
-from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
+from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.test.eventually import eventually
+from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
 from plenum.test.helper import checkSufficientRepliesRecvd, \
     checkReqNack, setupClients
-from plenum.test.test_node import TestNodeSet
+from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
+    BALANCE, ALL_TXNS
+from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
+    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
     BANK_REQ_PROCESSOR_PLUGIN_PATH_VALUE
 from plenum.test.plugin.helper import getPluginPath, App
-from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
-    CREDIT, AMOUNT, GET_BAL, GET_ALL_TXNS
-from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
-    BALANCE, ALL_TXNS
+from plenum.test.test_node import TestNodeSet
 
 logger = getlogger()
 
