@@ -1212,11 +1212,16 @@ class Cli:
             if self._activeWallet:
                 self.print("Active keyring: {}".
                            format(self._activeWallet.name), newline=False)
-                self.print(" (active identifier: {})\n".
+                if self._activeWallet.defaultId:
+                    self.print(" (active identifier: {})\n".
                            format(self._activeWallet.defaultId), Token.Gray)
-                self.print("Identifiers:")
-                for i in self._activeWallet.listIds():
-                    self.print("  {}".format(i))
+                if len(self._activeWallet.listIds()) > 0:
+                    self.print("Identifiers:")
+                    for i in self._activeWallet.listIds():
+                        self.print("  {}".format(i))
+                else:
+                    self.print("\nNo identifiers")
+
             else:
                 self.print("No active keyring found.")
             return True
@@ -1279,8 +1284,6 @@ class Cli:
         if os.path.exists(path):
             self.restoreWalletByPath(path)
             if self._activeWallet:
-                self.print("\nUse rename keyring if you want to "
-                       "rename to simpler/smaller name\n")
                 return True
         return False
 
@@ -1538,7 +1541,7 @@ class Cli:
 
     @property
     def hasAnyKey(self):
-        if not self.activeWallet.defaultId:
+        if not self._activeWallet or not self._activeWallet.defaultId:
             self.printNoKeyMsg()
             return False
         return True

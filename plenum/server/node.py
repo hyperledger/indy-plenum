@@ -1737,7 +1737,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Raises RaetKeysNotFoundException if not found.
         """
         if not isLocalKeepSetup(name, baseDir):
-            raise REx(REx.reason + cls.keygenScript)
+            raise REx(REx.reason.format(name) + cls.keygenScript)
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """
