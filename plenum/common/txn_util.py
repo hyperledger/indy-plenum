@@ -1,6 +1,4 @@
-import json
 import os
-import shutil
 from collections import OrderedDict
 
 import portalocker
@@ -11,11 +9,9 @@ from ledger.util import F
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
-from plenum.common.constants import ENVS
 from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
 from plenum.common.types import f
-from plenum.common.util import randomString
 from plenum.common.log import getlogger
 
 

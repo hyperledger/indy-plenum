@@ -2,7 +2,8 @@ import os
 
 import pytest
 
-from plenum.test.cli.helper import newCLI, newKeyPair, initDirWithGenesisTxns
+from plenum.test.cli.helper import newCLI, newKeyPair
+from plenum.test.helper import initDirWithGenesisTxns
 
 
 @pytest.fixture(scope="module")

@@ -9,7 +9,7 @@ import os
 import time
 from collections import deque, OrderedDict
 from functools import partial
-from typing import List, Union, Dict, Optional, Mapping, Tuple, Set, Any, \
+from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
 from raet.raeting import AutoMode
@@ -21,7 +21,6 @@ from plenum.client.pool_manager import HasPoolManager
 from plenum.common.exceptions import MissingNodeOp, RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getHaFromLocalEstate
@@ -30,19 +29,17 @@ from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
-from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.request import Request
-from plenum.common.util import getMaxFailures, MessageProcessor, checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.util import getMaxFailures, MessageProcessor, \
+    checkIfMoreThanFSameItems, rawToFriendly
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from raet.nacling import Signer
 
 from plenum.common.log import getlogger
 from plenum.common.txn_util import getTxnOrderedFields
-# DEPR
-# from plenum.persistence.wallet_storage_file import WalletStorageFile
 from plenum.common.config_util import getConfig
 from plenum.server.has_action_queue import HasActionQueue
 

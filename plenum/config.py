@@ -1,7 +1,8 @@
-from collections import OrderedDict
-from plenum.common.txn import ClientBootStrategy
-from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER, PLUGIN_BASE_DIR_PATH
 import os
+from collections import OrderedDict
+
+from plenum.common.txn import ClientBootStrategy
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -20,6 +21,8 @@ cliNodeReg = OrderedDict([
 ])
 
 baseDir = "~/.plenum/"
+
+keyringsDir = "keyrings"
 
 nodeDataDir = "data/nodes"
 
@@ -72,11 +75,13 @@ LatencyGraphDuration = 240
 notifierEventTriggeringConfig = {
     'clusterThroughputSpike': {
         'coefficient': 3,
-        'minCnt': 100
+        'minCnt': 100,
+        'freq': 60
     },
     'nodeRequestSpike': {
         'coefficient': 3,
-        'minCnt': 100
+        'minCnt': 100,
+        'freq': 60
     }
 }
 
@@ -140,3 +145,4 @@ UpdateGenesisPoolTxnFile = True
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
 # repository
 EnsureLedgerDurability = True
+

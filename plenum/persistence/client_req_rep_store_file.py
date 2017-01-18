@@ -102,7 +102,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
                             prefix: str) -> List[str]:
         key = '{}{}'.format(identifier, reqId)
         data = self.reqStore.get(key)
-        return [line for line in data.split(os.linesep)
+        return [line for line in data.splitlines()
                 if line.startswith(prefix)] if data else []
 
     def _getSerializedReplies(self, identifier: str, reqId: int) -> \

@@ -210,3 +210,7 @@ class ProdableAlreadyAdded(Exception):
 
 class NoConsensusYet(Exception):
     pass
+
+
+class NotConnectedToAny(Exception):
+    pass

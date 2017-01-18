@@ -9,7 +9,7 @@ from copy import copy
 from functools import partial
 from typing import Dict, Any
 
-import pip.utils as utils
+import pip
 import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -32,7 +32,7 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
     checkViewNoForNodes, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule
+    mockGetInstalledDistributions, mockImportModule, createTempDir
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommited
 from plenum.test.plugin.helper import getPluginPath
@@ -153,7 +153,7 @@ def logcapture(request, whitelist, concerningLogLevels):
 
 
 @pytest.yield_fixture(scope="module")
-def nodeSet(request, tdir, nodeReg, allPluginsPath):
+def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
     primaryDecider = getValueFromModule(request, "PrimaryDecider", None)
     with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir,
                      primaryDecider=primaryDecider,
@@ -168,10 +168,7 @@ def counter():
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
-    logger.debug("module-level temporary directory: {}".format(tempdir))
-    return tempdir
+    return createTempDir(tmpdir_factory, counter)
 
 another_tdir = tdir
 
@@ -370,8 +367,8 @@ def looperWithoutNodeSet():
 
 
 @pytest.fixture(scope="module")
-def poolTxnNodeNames():
-    return "Alpha", "Beta", "Gamma", "Delta"
+def poolTxnNodeNames(index=""):
+    return [n + index for n in ("Alpha", "Beta", "Gamma", "Delta")]
 
 
 @pytest.fixture(scope="module")
@@ -403,9 +400,12 @@ def dirName():
 
 
 @pytest.fixture(scope="module")
-def poolTxnData(dirName):
-    filePath = os.path.join(dirName(__file__), "node_and_client_info.py")
-    data = json.loads(open(filePath).read().strip())
+def nodeAndClientInfoFilePath(dirName):
+    return os.path.join(dirName(__file__), "node_and_client_info.py")
+
+@pytest.fixture(scope="module")
+def poolTxnData(nodeAndClientInfoFilePath):
+    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
     for txn in data["txns"]:
         if txn[TXN_TYPE] == NODE:
             txn[DATA][NODE_PORT] = genHa()[1]
@@ -471,7 +471,7 @@ def poolTxnClient(tdirWithPoolTxns, tdirWithDomainTxns, txnPoolNodeSet):
 
 
 @pytest.fixture(scope="module")
-def testNodeClass():
+def testNodeClass(patchPluginManager):
     return TestNode
 
 
@@ -487,7 +487,8 @@ def txnPoolNodesLooper():
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodesLooper,
+def txnPoolNodeSet(patchPluginManager,
+                   txnPoolNodesLooper,
                    tdirWithPoolTxns,
                    tdirWithDomainTxns,
                    tconf,
@@ -503,7 +504,7 @@ def txnPoolNodeSet(txnPoolNodesLooper,
         nodes.append(node)
     txnPoolNodesLooper.run(checkNodesConnected(nodes))
     ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=10)
+                        timeout=20)
     return nodes
 
 
@@ -530,17 +531,34 @@ def postingStatsEnabled(request):
 
 
 @pytest.fixture
-def pluginManager():
+def pluginManager(monkeypatch):
     pluginManager = PluginManager()
+    monkeypatch.setattr(importlib, 'import_module', mockImportModule)
+    packagesCnt = 3
+    packages = [pluginManager.prefix + randomText(10)
+                for _ in range(packagesCnt)]
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
+                        partial(mockGetInstalledDistributions,
+                                packages=packages))
+    imported, found = pluginManager.importPlugins()
+    assert imported == 3
     assert hasattr(pluginManager, 'prefix')
     assert hasattr(pluginManager, '_sendMessage')
     assert hasattr(pluginManager, '_findPlugins')
+    yield pluginManager
+    monkeypatch.undo()
+
+
+@pytest.fixture(scope="module")
+def patchPluginManager():
+    pluginManager = PluginManager()
+    pluginManager.plugins = []
     return pluginManager
 
 
 @pytest.fixture
 def pluginManagerWithImportedModules(pluginManager, monkeypatch):
-    monkeypatch.setattr(utils, 'get_installed_distributions',
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
                         partial(mockGetInstalledDistributions,
                                 packages=[]))
     monkeypatch.setattr(importlib, 'import_module', mockImportModule)
@@ -549,7 +567,7 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
     packagesCnt = 3
     packages = [pluginManager.prefix + randomText(10)
                 for _ in range(packagesCnt)]
-    monkeypatch.setattr(utils, 'get_installed_distributions',
+    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
                         partial(mockGetInstalledDistributions,
                                 packages=packages))
     imported, found = pluginManager.importPlugins()
@@ -560,7 +578,7 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
 
 
 @pytest.fixture
-def testNode(tdir):
+def testNode(pluginManager, tdir):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]

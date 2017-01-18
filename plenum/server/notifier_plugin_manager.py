@@ -48,18 +48,19 @@ class PluginManager:
             logger.debug('Not enough data to detect a {} spike'.format(event))
             return None
 
-        if (val / coefficient) < newVal < (val * coefficient):
-            logger.debug('New value is within bounds')
+        if (val / coefficient) <= newVal <= (val * coefficient):
+            logger.debug('{}: New value {} is within bounds. Average: {}'.format(event, newVal, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
-                  'Usual thoughput: {}. New throughput: {}.'\
+                  'Usual: {}. New: {}.'\
             .format(event, nodeName, time.time(), val, newVal)
         logger.warning(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        self.plugins = []
         i = 0
         for plugin in plugins:
             try:

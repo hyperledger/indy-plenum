@@ -1,11 +1,15 @@
+import os
 import random
 import string
 from functools import partial
 from itertools import permutations
+from shutil import copyfile
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
 
+from plenum.common.config_util import getConfig
+from plenum.config import poolTransactionsFile, domainTransactionsFile
 from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client
@@ -464,7 +468,8 @@ def checkAllLedgersEqual(*ledgers):
         checkLedgerEquality(l1, l2)
 
 
-def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None, tries=None, sighex=None):
+def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None,
+                                     tries=None, sighex=None):
     client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name, sighex=sighex)
     clientSendMessageAndRemove(client, looper, wallet, tries)
     return client
@@ -496,3 +501,22 @@ def mockImportModule(moduleName):
     obj = type(moduleName, (), {})()
     obj.send_message = lambda *args: None
     return obj
+
+
+def createTempDir(tmpdir_factory, counter):
+    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
+                           str(next(counter)))
+    logger.debug("module-level temporary directory: {}".format(tempdir))
+    return tempdir
+
+
+def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
+                           tdirWithDomainTxns=None):
+    os.makedirs(dirName, exist_ok=True)
+    if tdirWithPoolTxns:
+        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFile),
+                 os.path.join(dirName, tconf.poolTransactionsFile))
+    if tdirWithDomainTxns:
+        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
+                 os.path.join(dirName, tconf.domainTransactionsFile))
+

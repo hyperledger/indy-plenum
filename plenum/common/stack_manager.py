@@ -43,7 +43,8 @@ class TxnStackManager:
                 defaultTxnFile = os.path.join(self.basedirpath,
                                               self.ledgerFile)
                 if not os.path.isfile(defaultTxnFile):
-                    raise FileNotFoundError("Pool transactions file not found")
+                    raise FileNotFoundError("Pool transactions file not "
+                                            "found: {}".format(defaultTxnFile))
                 else:
                     shutil.copy(defaultTxnFile, self.ledgerLocation)
 

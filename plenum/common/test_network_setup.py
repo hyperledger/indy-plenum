@@ -38,12 +38,15 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
-    def bootstrapTestNodesCore(baseDir,
-                               poolTransactionsFile,
-                               domainTransactionsFile,
+    def bootstrapTestNodesCore(config, envName, appendToLedgers,
                                domainTxnFieldOrder,
                                ips, nodeCount, clientCount,
                                nodeNum, startingPort):
+
+        baseDir = config.baseDir
+        if not os.path.exists(baseDir):
+            os.makedirs(baseDir, exist_ok=True)
+
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
         else:
@@ -54,17 +57,27 @@ class TestNetworkSetup:
                 else:
                     ips += ['127.0.0.1'] * (nodeCount - len(ips))
 
+        if hasattr(config, "ENVS") and envName:
+            poolTxnFile = config.ENVS[envName].poolLedger
+            domainTxnFile = config.ENVS[envName].domainLedger
+        else:
+            poolTxnFile = config.poolTransactionsFile
+            domainTxnFile = config.domainTransactionsFile
+
         poolLedger = Ledger(CompactMerkleTree(),
                             dataDir=baseDir,
-                            fileName=poolTransactionsFile)
-        poolLedger.reset()
+                            fileName=poolTxnFile)
+
 
         domainLedger = Ledger(CompactMerkleTree(),
                               serializer=CompactSerializer(fields=
                                                            domainTxnFieldOrder),
                               dataDir=baseDir,
-                              fileName=domainTransactionsFile)
-        domainLedger.reset()
+                              fileName=domainTxnFile)
+
+        if not appendToLedgers:
+            poolLedger.reset()
+            domainLedger.reset()
 
         steward1Nym = None
         for num in range(1, nodeCount + 1):
@@ -131,10 +144,7 @@ class TestNetworkSetup:
         domainLedger.stop()
 
     @staticmethod
-    def bootstrapTestNodes(startingPort, baseDir, poolTransactionsFile,
-                           domainTransactionsFile, domainTxnFieldOrder):
-        if not os.path.exists(baseDir):
-            os.makedirs(baseDir, exist_ok=True)
+    def bootstrapTestNodes(config, startingPort, domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
@@ -155,6 +165,17 @@ class TestNetworkSetup:
                                  'IP, i.e 127.0.0.1',
                             type=str)
 
+        parser.add_argument('--envName',
+                            help='Environment name (test or live)',
+                            type=str,
+                            default="test",
+                            required=False)
+
+        parser.add_argument('--appendToLedgers',
+                            help="Determine if ledger files needs to be erased "
+                                 "before writting new information or not.",
+                            action='store_true')
+
         args = parser.parse_args()
         if args.nodes > 20:
             print("Cannot run {} nodes for testing purposes as of now. "
@@ -167,14 +188,13 @@ class TestNetworkSetup:
         clientCount = args.clients
         nodeNum = args.nodeNum
         ips = args.ips
-
+        envName = args.envName
+        appendToLedgers = args.appendToLedgers
         if nodeNum:
             assert nodeNum <= nodeCount, "nodeNum should be less than equal " \
                                          "to nodeCount"
 
-        TestNetworkSetup.bootstrapTestNodesCore(baseDir,
-                                                poolTransactionsFile,
-                                                domainTransactionsFile,
+        TestNetworkSetup.bootstrapTestNodesCore(config, envName, appendToLedgers,
                                                 domainTxnFieldOrder,
                                                 ips, nodeCount, clientCount,
                                                 nodeNum, startingPort)
