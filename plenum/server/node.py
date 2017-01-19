@@ -1233,7 +1233,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.checkInstances()
         # Initialising node id in case where node's information was not present
         # in pool ledger at the time of starting, happens when a non-genesis
-        # node starts
+        # node starts for the first time or it had lost its ledger
         self.id
 
     def postDomainLedgerCaughtUp(self):
