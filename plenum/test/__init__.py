@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-import pytest
-
 
 def run():
+    import pytest
     pytest.main()
 
 if __name__ == "__main__":

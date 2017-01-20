@@ -1460,6 +1460,17 @@ class Cli:
         return os.path.expanduser(os.path.join(self.config.baseDir,
                                        self.config.keyringsDir))
 
+
+    def isAnyWalletFileExistsForEnv(self, envName):
+        keyringPath = self.getKeyringsBaseDir()
+        pattern = "{}/{}*{}{}".format(keyringPath, WALLET_FILE_NAME_PREFIX,
+                                  WALLET_FILE_NAME_ENV_SEPARATOR, envName)
+        files = glob.glob(pattern)
+        if files:
+            return True
+        else:
+            return False
+
     @staticmethod
     def getWalletFilePath(basedir, walletFileName):
         return os.path.join(basedir, walletFileName)

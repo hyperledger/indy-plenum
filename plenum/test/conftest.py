@@ -403,6 +403,7 @@ def dirName():
 def nodeAndClientInfoFilePath(dirName):
     return os.path.join(dirName(__file__), "node_and_client_info.py")
 
+
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
     data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
