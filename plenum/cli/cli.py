@@ -74,6 +74,7 @@ from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 
+
 class CustomOutput(Vt100_Output):
     """
     Subclassing Vt100 just to override the `ask_for_cpr` method which prints
@@ -1370,7 +1371,6 @@ class Cli:
                     # if wallet already exists, deserialize it
                     # and set as active wallet
                     wallet = decode(walletFile.read())
-                    assert isinstance(wallet, Wallet)
                     self._wallets[wallet.name] = wallet
                     self.print('Saved keyring "{}" restored'.
                                format(wallet.name), newline=False)
@@ -1398,6 +1398,7 @@ class Cli:
         self.restoreWalletByName(walletFileName)
 
     def restoreLastActiveWallet(self, filePattern):
+        baseFileName=None
         try:
             def getLastModifiedTime(file):
                 return os.stat(file).st_mtime_ns
@@ -1410,13 +1411,14 @@ class Cli:
             self._searchAndSetWallet(walletName)
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
-               self.errorDuringRestoringLastActiveWallet(e)
+               self.errorDuringRestoringLastActiveWallet(baseFileName, e)
         except Exception as e:
-            self.errorDuringRestoringLastActiveWallet(e)
+            self.errorDuringRestoringLastActiveWallet(baseFileName, e)
 
-    def errorDuringRestoringLastActiveWallet(self, e):
+    def errorDuringRestoringLastActiveWallet(self, baseFileName, e):
         self.logger.warning("Error occurred during restoring last "
-                            "active wallet, error: {}".format(e))
+                            "active wallet ({}), error: {}".
+                            format(baseFileName, str(e)))
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1607,3 +1609,4 @@ class Cli:
 
 class Exit(Exception):
     pass
+
