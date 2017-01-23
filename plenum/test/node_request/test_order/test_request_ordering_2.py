@@ -11,7 +11,7 @@ nodeCount = 7
 logger = getlogger()
 
 
-def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
+def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     """
     Scenario -> A client sends requests, some nodes delay COMMITs to few
     specific nodes such some nodes achieve commit quorum later for those
@@ -39,11 +39,12 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     node5 = rep5.node
     node6 = rep6.node
 
-    requests = sendRandomRequests(wallet1, client1, 15)
-
     ppSeqsToDelay = 5
-
+    commitDelay = 3  # delay each COMMIT by this number of seconds
     delayedPpSeqNos = set()
+
+    requestCount = 15
+    requests = sendRandomRequests(wallet1, client1, requestCount)
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5
@@ -56,7 +57,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
         if isinstance(msg, Commit) and msg.instId == 0 and \
             sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:
-            return 3
+            return commitDelay
 
     for node in (node1, node2):
         logger.debug('{} would be delaying commits'.format(node))
@@ -67,7 +68,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2
         for node in node1, node2:
-            assert len(node.domainLedger) == 15
+            assert len(node.domainLedger) == requestCount
 
     looper.run(eventually(ensureSlowNodesHaveAllTxns, retryWait=1, timeout=15))
 

@@ -11,6 +11,7 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
+from functools import partial
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
@@ -18,6 +19,9 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import base58
 import collections
 import libnacl.secret
+from decimal import Decimal
+
+import sys
 from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
@@ -497,11 +501,28 @@ def prettyDateDifference(startTime, finishTime=None):
         return str(day_diff) + " days ago"
 
 
-TIME_BASED_REQ_ID_PRECISION = 1000000
-
-
-def getTimeBasedId():
+def getTimeBasedIdIx():
     return int(time.time() * TIME_BASED_REQ_ID_PRECISION)
+
+
+def getTimeBasedIdWin(precision=24):
+    # TODO: Maybe precision is too high
+    t = "%.{}f".format(precision) % time.time()
+    d = Decimal(t)
+    d *= TIME_BASED_REQ_ID_PRECISION
+    return int(d)
+
+
+TIME_BASED_REQ_ID_PRECISION = 100000000
+
+
+if sys.platform == 'win32':
+    # Precision for time on windows is low leading to generation of duplicate
+    # requests ids if generated quickly, which leads to failing tests
+    PRECISION = len(str(TIME_BASED_REQ_ID_PRECISION))
+    getTimeBasedId = partial(getTimeBasedIdWin, PRECISION)
+else:
+    getTimeBasedId = getTimeBasedIdIx
 
 
 def convertTimeBasedReqIdToMillis(reqId):
