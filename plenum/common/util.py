@@ -513,15 +513,14 @@ def getTimeBasedIdWin(precision=24):
     return int(d)
 
 
-TIME_BASED_REQ_ID_PRECISION = 100000000
-
-
 if sys.platform == 'win32':
+    TIME_BASED_REQ_ID_PRECISION = 10000000000
     # Precision for time on windows is low leading to generation of duplicate
     # requests ids if generated quickly, which leads to failing tests
     PRECISION = len(str(TIME_BASED_REQ_ID_PRECISION)) - 1
     getTimeBasedId = partial(getTimeBasedIdWin, PRECISION)
 else:
+    TIME_BASED_REQ_ID_PRECISION = 100000000
     getTimeBasedId = getTimeBasedIdIx
 
 
