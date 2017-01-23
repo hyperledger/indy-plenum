@@ -511,7 +511,7 @@ def getTimeBasedIdWin(precision=24):
     d = Decimal(t)
     d *= TIME_BASED_REQ_ID_PRECISION
     d = int(d)
-    return d + random.randint(1, d)
+    return d + random.randint(1, 100)
 
 
 if sys.platform == 'win32':
