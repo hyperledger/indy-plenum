@@ -246,15 +246,23 @@ class Cli:
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
+        self._actions = []
+
         if nodeReg:
             self.print("Node registry loaded.")
-            # self.print("None of these are created or running yet.")
-
             self.showNodeRegistry()
-        self.print("Type 'help' for more information.")
-        self.print("Running {} {}\n".format(self.properName, self.getCliVersion()))
+        else:
+            self.print("No information is found which can be used to connect to"
+                       " the Sovrin nodes. This indicates an error. Check if "
+                       "the file containing genesis transactions is present "
+                       "in your base direcory which can be found in the config "
+                       "as `baseDir`, if not then get this file from the github"
+                       " repository and paste it in location `baseDir`")
+            sys.exit(1)
 
-        self._actions = []
+        self.print("Type 'help' for more information.")
+        self.print("Running {} {}\n".format(self.properName,
+                                            self.getCliVersion()))
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
@@ -262,7 +270,8 @@ class Cli:
         self.restoreLastActiveWallet("{}*{}".format(WALLET_FILE_NAME_PREFIX,
                                                     self.name))
 
-    def getCliVersion(self):
+    @staticmethod
+    def getCliVersion():
         return __version__
 
     @property
@@ -287,7 +296,6 @@ class Cli:
                              self._newKeyring, self._renameKeyring,
                              self._useKeyringAction]
         return self._actions
-
 
     @property
     def config(self):
@@ -1289,7 +1297,7 @@ class Cli:
                 return False, None
 
         status, foundIn = _checkIfWalletExists(origName, checkInWallets,
-                                           checkInAliases, checkInSigners)
+                                               checkInAliases, checkInSigners)
         if foundIn and printAppropriateMsg:
             self.print('"{}" conflicts with an existing {}. '
                        'Please choose a new name.'.
@@ -1430,7 +1438,7 @@ class Cli:
     def restoreWallet(self, withName=None):
         if withName:
             walletFileName = Cli.getPersistentWalletFileName(
-            self.name, self.currPromptText, withName)
+                self.name, self.currPromptText, withName)
         else:
             walletFileName = self.walletFileName
         self.restoreWalletByName(walletFileName)
@@ -1475,8 +1483,7 @@ class Cli:
 
     def getKeyringsBaseDir(self):
         return os.path.expanduser(os.path.join(self.config.baseDir,
-                                       self.config.keyringsDir))
-
+                                  self.config.keyringsDir))
 
     def isAnyWalletFileExistsForEnv(self, envName):
         keyringPath = self.getKeyringsBaseDir()
