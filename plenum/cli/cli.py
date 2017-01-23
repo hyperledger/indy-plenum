@@ -1395,7 +1395,8 @@ class Cli:
                         "error occurred while restoring wallet {}: {}".
                             format(walletFilePath, e))
         except IOError:
-            pass
+            self.logger.warning("no such wallet file exists: {}".
+                              format(walletFilePath))
 
     def restoreLastActiveWallet(self, filePattern):
         baseFileName=None
