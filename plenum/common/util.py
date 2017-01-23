@@ -510,17 +510,18 @@ def getTimeBasedIdWin(precision=24):
     t = "%.{}f".format(precision) % time.time()
     d = Decimal(t)
     d *= TIME_BASED_REQ_ID_PRECISION
-    return int(d)
+    d = int(d)
+    return d + random.randint(1, d)
 
 
 if sys.platform == 'win32':
-    TIME_BASED_REQ_ID_PRECISION = 10000000000
+    TIME_BASED_REQ_ID_PRECISION = 100000000
     # Precision for time on windows is low leading to generation of duplicate
     # requests ids if generated quickly, which leads to failing tests
     PRECISION = len(str(TIME_BASED_REQ_ID_PRECISION)) - 1
     getTimeBasedId = partial(getTimeBasedIdWin, PRECISION)
 else:
-    TIME_BASED_REQ_ID_PRECISION = 100000000
+    TIME_BASED_REQ_ID_PRECISION = 1000000
     getTimeBasedId = getTimeBasedIdIx
 
 
