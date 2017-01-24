@@ -74,6 +74,7 @@ NYM = "NYM"
 ROLE = 'role'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
+VERIFIABLE_ATTRIBUTES = 'verifiableAttributes'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
@@ -82,8 +83,7 @@ TXNS = "Txns"
 
 BY = "by"
 
-# POOL_TXN_TYPES = {NODE, CHANGE_HA, CHANGE_KEYS}
-POOL_TXN_TYPES = {NODE}
+POOL_TXN_TYPES = {NODE, }
 
 
 class ClientBootStrategy(IntEnum):

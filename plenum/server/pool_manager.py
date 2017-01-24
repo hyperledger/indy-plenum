@@ -121,7 +121,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         reply = self.node.generateReply(ppTime, req)
         op = req.operation
         reply.result.update(op)
-        merkleProof = self.node.ledgerManager.appendToLedger(0, reply.result)
+        merkleProof = self.node.appendResultToLedger(reply.result)
         txn = deepcopy(reply.result)
         txn[F.seqNo.name] = merkleProof[F.seqNo.name]
         self.onPoolMembershipChange(txn)
@@ -129,11 +129,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.sendReplyToClient(reply, req.key)
 
     def getReplyFor(self, request):
-        txn = self.ledger.get(identifier=request.identifier,
-                              reqId=request.reqId)
-        if txn:
-            txn.update(self.ledger.merkleInfo(txn.get(F.seqNo.name)))
-            return Reply(txn)
+        return self.node.getReplyFromLedger(self.ledger, request)
 
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NODE:

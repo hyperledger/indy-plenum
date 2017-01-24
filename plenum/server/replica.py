@@ -931,7 +931,6 @@ class Replica(HasActionQueue, MessageProcessor):
             if viewNo not in self.stashedCommitsForOrdering:
                 self.stashedCommitsForOrdering[viewNo] = {}
             self.stashedCommitsForOrdering[viewNo][ppSeqNo] = commit
-            # self._schedule(self.orderStashedCommits, 2)
             self.startRepeating(self.orderStashedCommits, 2)
             return False, "stashing {} since out of order".\
                 format(commit)

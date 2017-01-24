@@ -12,7 +12,11 @@ notifierPluginTriggerEvents = {
     'nodeRequestSpike': 'NodeRequestSuspiciousSpike',
     'clusterThroughputSpike': 'ClusterThroughputSuspiciousSpike',
     # TODO: Implement clusterLatencyTooHigh event triggering
-    'clusterLatencyTooHigh': 'ClusterLatencyTooHigh'
+    'clusterLatencyTooHigh': 'ClusterLatencyTooHigh',
+    'nodeUpgradeScheduled': 'NodeUpgradeScheduled',
+    'nodeUpgradeComplete': 'NodeUpgradeComplete',
+    'nodeUpgradeFail': 'NodeUpgradeFail',
+    'poolUpgradeCancel': 'PoolUpgradeCancel'
 }
 
 
@@ -27,7 +31,20 @@ class PluginManager:
 
     def __init__(self):
         self.plugins = []
+        self.topics = notifierPluginTriggerEvents
         self.importPlugins()
+
+    def sendMessageUponNodeUpgradeScheduled(self, message='Node uprgade has been scheduled'):
+        return self._sendMessage(self.topics['nodeUpgradeScheduled'], message)
+
+    def sendMessageUponNodeUpgradeComplete(self, message='Node has successfully upgraded.'):
+        return self._sendMessage(self.topics['nodeUpgradeComplete'], message)
+
+    def sendMessageUponNodeUpgradeFail(self, message='Node upgrade has failed. Please take action.'):
+        return self._sendMessage(self.topics['nodeUpgradeFail'], message)
+
+    def sendMessageUponPoolUpgradeCancel(self, message='Pool upgrade has been cancelled. Please take action.'):
+        return self._sendMessage(self.topics['poolUpgradeCancel'], message)
 
     def sendMessageUponSuspiciousSpike(self, event: str, historicalData: Dict,
                                        newVal: float, config: Dict, nodeName: str):
@@ -48,18 +65,19 @@ class PluginManager:
             logger.debug('Not enough data to detect a {} spike'.format(event))
             return None
 
-        if (val / coefficient) < newVal < (val * coefficient):
-            logger.debug('New value is within bounds')
+        if (val / coefficient) <= newVal <= (val * coefficient):
+            logger.debug('{}: New value {} is within bounds. Average: {}'.format(event, newVal, val))
             return None
 
         message = '{} suspicious spike has been noticed on node {} at {}. ' \
-                  'Usual thoughput: {}. New throughput: {}.'\
+                  'Usual: {}. New: {}.'\
             .format(event, nodeName, time.time(), val, newVal)
         logger.warning(message)
         return self._sendMessage(event, message)
 
     def importPlugins(self):
         plugins = self._findPlugins()
+        self.plugins = []
         i = 0
         for plugin in plugins:
             try:

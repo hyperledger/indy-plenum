@@ -70,7 +70,8 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
     # TODO: There is a bug that if a primary node is turned off, it sends
     # duplicate Pre-Prepare and gets blacklisted. Here is the gist
     # https://gist.github.com/lovesh/c16989616ebb6856f9fa2905c14dc4b7
-    oldNodeIdx, oldNode = [(i, n) for i, n in enumerate(txnPoolNodeSet) if not n.hasPrimary][0]
+    oldNodeIdx, oldNode = [(i, n) for i, n in enumerate(txnPoolNodeSet)
+                           if not n.hasPrimary][0]
     oldNode.stop()
     looper.removeProdable(oldNode)
     oldNode = TestNode(oldNode.name, basedirpath=tdirWithPoolTxns,

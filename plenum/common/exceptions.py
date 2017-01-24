@@ -107,7 +107,7 @@ class UnregisteredIdentifier(SigningException):
 
 class RaetKeysNotFoundException(Exception):
     code = 141
-    reason = 'Keys not found in the keep. ' \
+    reason = 'Keys not found in the keep for {}. ' \
              'To generate them run script '
 
 
@@ -209,4 +209,12 @@ class ProdableAlreadyAdded(Exception):
 
 
 class NoConsensusYet(Exception):
+    pass
+
+
+class NotConnectedToAny(Exception):
+    pass
+
+
+class NameAlreadyExists(Exception):
     pass

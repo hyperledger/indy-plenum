@@ -9,7 +9,7 @@ from plenum.common.logging.TimeAndSizeRotatingFileHandler \
 
 def cleanFolder(path):
     if os.path.exists(path):
-        shutil.rmtree(path)
+        shutil.rmtree(path, ignore_errors=True)
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -34,10 +34,12 @@ def test_size_log_rotation():
     logger = logging.getLogger('test_time_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = TimeAndSizeRotatingFileHandler(logFile, maxBytes=21)
+    handler = TimeAndSizeRotatingFileHandler(
+        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1)
     logger.addHandler(handler)
     for i in range(20):
         logger.debug("line")
+    handler.flush()
 
     assert len(os.listdir(logDirPath)) == 5
 
@@ -48,7 +50,8 @@ def test_time_and_size_log_rotation():
     logger = logging.getLogger('test_time_and_size_log_rotation-logger')
 
     logger.setLevel(logging.DEBUG)
-    handler = TimeAndSizeRotatingFileHandler(logFile, maxBytes=21, interval=1, when="s")
+    handler = TimeAndSizeRotatingFileHandler(
+        logFile, maxBytes=(4 + len(os.linesep)) * 4 + 1, interval=1, when="s")
     logger.addHandler(handler)
 
     for i in range(20):

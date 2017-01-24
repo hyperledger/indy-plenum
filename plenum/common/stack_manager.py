@@ -43,7 +43,8 @@ class TxnStackManager:
                 defaultTxnFile = os.path.join(self.basedirpath,
                                               self.ledgerFile)
                 if not os.path.isfile(defaultTxnFile):
-                    raise FileNotFoundError("Pool transactions file not found")
+                    raise FileNotFoundError("Pool transactions file not "
+                                            "found: {}".format(defaultTxnFile))
                 else:
                     shutil.copy(defaultTxnFile, self.ledgerLocation)
 
@@ -199,6 +200,10 @@ class TxnStackManager:
                             txn[TARGET_NYM] == nym:
                 return True
         return False
+
+    @property
+    def nodeIds(self) -> set:
+        return {txn[TARGET_NYM] for txn in self.ledger.getAllTxn().values()}
 
     def getNodeInfoFromLedger(self, nym, excludeLast=True):
         # Returns the info of the node from the ledger with transaction

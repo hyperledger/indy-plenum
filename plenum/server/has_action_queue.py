@@ -16,7 +16,7 @@ class HasActionQueue:
         self.aid = 0  # action id
         self.repeatingActions = set()
 
-    def _schedule(self, action: Callable, seconds: int=0) -> None:
+    def _schedule(self, action: Callable, seconds: int=0) -> int:
         """
         Schedule an action to be executed after `seconds` seconds.
 

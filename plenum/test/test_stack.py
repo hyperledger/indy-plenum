@@ -4,7 +4,8 @@ from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.log import getlogger
 from plenum.common.stacked import Stack
 from plenum.common.types import HA
-from plenum.test.exceptions import NotConnectedToAny, NotFullyConnected
+from plenum.test.exceptions import NotFullyConnected
+from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.stasher import Stasher
 from plenum.test.waits import expectedWait
 
@@ -87,7 +88,8 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
         for key, s in state._asdict().items():
             checkedItems[key] = 'N/A' if s == 'N/A' else getattr(obj, key)
         actualState = RemoteState(**checkedItems)
-        assert actualState == state
+        assert actualState == state, set(actualState._asdict().items()) - \
+                                     set(state._asdict().items())
 
 
 def checkRemoteExists(frm: Stack,

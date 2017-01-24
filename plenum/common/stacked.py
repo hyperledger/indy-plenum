@@ -97,14 +97,18 @@ class Stack(RoadStack):
         :return: the number of messages processed.
         """
         pracLimit = limit if limit else sys.maxsize
-        x = next(self.coro)
-        if x > 0:
-            for x in range(pracLimit):
-                try:
-                    self.msgHandler(self.rxMsgs.popleft())
-                except IndexError:
-                    break
-        return x
+        if self.coro:
+            x = next(self.coro)
+            if x > 0:
+                for x in range(pracLimit):
+                    try:
+                        self.msgHandler(self.rxMsgs.popleft())
+                    except IndexError:
+                        break
+            return x
+        else:
+            logger.debug("{} is stopped".format(self))
+            return 0
 
     @property
     def age(self):
@@ -460,6 +464,7 @@ class KITStack(SimpleStack):
                     extra={"cli": "PLAIN"})
         return remote.uid
 
+    @property
     def notConnectedNodes(self) -> Set[str]:
         """
         Returns the names of nodes in the registry this node is NOT connected
