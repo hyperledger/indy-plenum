@@ -5,6 +5,7 @@ import re
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
@@ -14,6 +15,9 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
 from plenum.test.testable import Spyable
 from pygments.token import Token
+
+
+logger = getlogger()
 
 
 class TestCliCore:
@@ -75,6 +79,7 @@ class TestCliCore:
 
     # noinspection PyUnresolvedReferences
     def enterCmd(self, cmd: str):
+        logger.debug('CLI got command: {}'.format(cmd))
         self.lastPrintIndex = len(self.printeds)
         self.lastPrintedTokenIndex = len(self.printedTokens)
         self.parse(cmd)
