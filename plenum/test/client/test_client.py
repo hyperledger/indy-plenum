@@ -25,19 +25,26 @@ whitelist = ['signer not configured so not signing',
              'found legacy entry']  # warnings
 
 
-def checkResponseRecvdFromNodes(client, expectedCount: int, expectedReqId: int):
-    respCount = 0
+def checkResponseRecvdFromNodes(client, expectedCount: int,
+                                expectedReqId: int):
+    # Checks if the client has unique `expectedCount` number of REQACKs and
+    # REPLYs from nodes. It ignores more than one REQACK or REPLY since a
+    # client might be retrying
+    acks = set()
+    replies = set()
     for (resp, nodeNm) in client.inBox:
         op = resp.get(OP_FIELD_NAME)
         if op == REPLY:
             reqId = resp.get(f.RESULT.nm, {}).get(f.REQ_ID.nm)
+            coll = replies
         elif op == REQACK:
             reqId = resp.get(f.REQ_ID.nm)
+            coll = acks
         else:
             continue
         if reqId == expectedReqId:
-            respCount += 1
-    assert respCount == expectedCount
+            coll.add(nodeNm)
+    assert len(replies) == len(acks) == expectedCount
 
 
 # noinspection PyIncorrectDocstring
@@ -169,7 +176,7 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     request = sendRandomRequest(wallet1, client1)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount, request.reqId,
+                       nodeCount, request.reqId,
                        retryWait=1, timeout=20))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
@@ -188,7 +195,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # have a different operations
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
-                       2 * nodeCount, request.reqId,
+                       nodeCount, request.reqId,
                        retryWait=1, timeout=20))
 
     replies = (msg for msg, frm in client1.inBox
@@ -278,7 +285,7 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
         for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
-                                  2 * nodeCount * i,
+                                  nodeCount,
                                   reqId,
                                   retryWait=1,
                                   timeout=25))

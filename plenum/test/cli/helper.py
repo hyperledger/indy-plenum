@@ -5,6 +5,7 @@ import re
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
@@ -14,6 +15,9 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
 from plenum.test.testable import Spyable
 from pygments.token import Token
+
+
+logger = getlogger()
 
 
 class TestCliCore:
@@ -75,6 +79,7 @@ class TestCliCore:
 
     # noinspection PyUnresolvedReferences
     def enterCmd(self, cmd: str):
+        logger.debug('CLI got command: {}'.format(cmd))
         self.lastPrintIndex = len(self.printeds)
         self.lastPrintedTokenIndex = len(self.printedTokens)
         self.parse(cmd)
@@ -352,7 +357,19 @@ def loadPlugin(cli, pluginPkgName):
 
 
 def assertCliTokens(matchedVars, tokens):
-    for key, value in tokens.items():
-        assert matchedVars.get(key) == value
+    for key, expectedValue in tokens.items():
+        matchedValue = matchedVars.get(key)
+
+        if expectedValue is not None:
+            assert matchedValue is not None, \
+                "Key '{}' not found in machedVars (matchedValue={})".\
+                    format(key, matchedValue)
+
+        assert matchedValue == expectedValue, \
+            "Value not matched for key '{}', " \
+            "\nexpectedValue (length: {}): {}, " \
+            "\nactualValue (length: {}): {}".\
+                format(key, len(expectedValue), expectedValue,
+                       len(matchedValue), matchedValue)
 
 

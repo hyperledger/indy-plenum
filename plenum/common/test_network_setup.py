@@ -78,6 +78,21 @@ class TestNetworkSetup:
             poolLedger.reset()
             domainLedger.reset()
 
+        trusteeName = "Trustee1"
+        sigseed = TestNetworkSetup.getSigningSeed(trusteeName)
+        verkey = Signer(sigseed).verhex
+        trusteeNym = TestNetworkSetup.getNymFromVerkey(verkey)
+        txn = {
+            TARGET_NYM: trusteeNym,
+            TXN_TYPE: NYM,
+            # TODO: Trustees dont exist in Plenum, but only in Sovrin.
+            # This should be moved to Sovrin
+            ROLE: 'TRUSTEE',
+            ALIAS: trusteeName,
+            TXN_ID: sha256(trusteeName.encode()).hexdigest()
+        }
+        domainLedger.add(txn)
+
         steward1Nym = None
         for num in range(1, nodeCount + 1):
             stewardName = "Steward" + str(num)
