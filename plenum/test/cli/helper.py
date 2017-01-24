@@ -353,6 +353,12 @@ def loadPlugin(cli, pluginPkgName):
 
 def assertCliTokens(matchedVars, tokens):
     for key, value in tokens.items():
-        assert matchedVars.get(key) == value
+        matchedValue = matchedVars.get(key)
+        assert matchedValue is not None, "Key '{}' not found in machedVars " \
+                                     "(matchedValue={})".format(key, matchedValue)
+        assert matchedValue == value, "Value not matched for key '{}', " \
+                                      "\nexpectedValue (length: {}): {}, " \
+                                      "\nactualValue (length: {}): {}".\
+            format(key, len(value), value, len(matchedValue), matchedValue)
 
 
