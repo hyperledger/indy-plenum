@@ -1,41 +1,41 @@
-from patricia.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles
-from patricia.persistent_db import PeristentDB
-from patricia.refcount_db import RefcountDB
-from patricia.fast_rlp import encode_optimized as rlp_encode, \
+from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles
+from state.db.persistent_db import PeristentDB
+from state.db.refcount_db import RefcountDB
+from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
-from patricia.utils import to_string
+from state.util.utils import to_string
 
 
 class State:
     def __init__(self, db, initState):
-        pass
+        raise NotImplementedError
 
     def set(self, key: bytes, value: bytes):
-        pass
+        raise NotImplementedError
 
     def get(self, key: bytes, isCommitted: bool=True):
         # If `isCommitted` is True then get value corresponding to the
         # committed state else get the latest value
-        pass
+        raise NotImplementedError
 
     def remove(self, key: bytes):
-        pass
+        raise NotImplementedError
 
     @property
     def head(self):
         # The current head of the state, if the state is a merkle tree then
         # head is the root
-        pass
+        raise NotImplementedError
 
     @property
     def committedHead(self):
         # The committed head of the state, if the state is a merkle tree then
         # head is the root
-        pass
+        raise NotImplementedError
 
     def revertToCommittedHead(self):
         # Make the current head same as the committed head
-        pass
+        raise NotImplementedError
 
 
 class PruningState(State):
