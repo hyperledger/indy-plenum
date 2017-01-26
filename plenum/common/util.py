@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import inspect
 import itertools
 import json
@@ -11,22 +12,16 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
-from functools import partial
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
-import collections
 import libnacl.secret
-from decimal import Decimal
-
-import sys
-from libnacl import crypto_hash_sha256
-from six import iteritems, string_types
-
 from ledger.util import F
+from libnacl import crypto_hash_sha256
 from plenum.common.error import error
+from six import iteritems, string_types
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -501,28 +496,22 @@ def prettyDateDifference(startTime, finishTime=None):
         return str(day_diff) + " days ago"
 
 
-def getTimeBasedIdIx():
-    return int(time.time() * TIME_BASED_REQ_ID_PRECISION)
+INITIAL_WALL_TIME = time.time()
 
 
-def getTimeBasedIdWin(precision=24):
-    # TODO: Maybe precision is too high
-    t = "%.{}f".format(precision) % time.time()
-    d = Decimal(t)
-    d *= TIME_BASED_REQ_ID_PRECISION
-    d = int(d)
-    return d + random.randint(1, 100)
+INITIAL_PERF_COUNTER = time.perf_counter()
 
 
-if sys.platform == 'win32':
-    TIME_BASED_REQ_ID_PRECISION = 100000000
-    # Precision for time on windows is low leading to generation of duplicate
-    # requests ids if generated quickly, which leads to failing tests
-    PRECISION = len(str(TIME_BASED_REQ_ID_PRECISION)) - 1
-    getTimeBasedId = partial(getTimeBasedIdWin, PRECISION)
-else:
-    TIME_BASED_REQ_ID_PRECISION = 1000000
-    getTimeBasedId = getTimeBasedIdIx
+def preciseTime():
+    perfCounterDelta = time.perf_counter() - INITIAL_PERF_COUNTER
+    return INITIAL_WALL_TIME + perfCounterDelta
+
+
+TIME_BASED_REQ_ID_PRECISION = 1000000
+
+
+def getTimeBasedId():
+    return int(preciseTime() * TIME_BASED_REQ_ID_PRECISION)
 
 
 def convertTimeBasedReqIdToMillis(reqId):
