@@ -2,7 +2,7 @@
 plenum package metadata
 """
 __version_info__ = (0, 2)
-__version__ = '{}.{}.{}'.format(*__version_info__)
+__version__ = '{}.{}.{}'.format(*(__version_info__ if len(__version_info__)==3 else __version_info__+(0,)))
 __author__ = "Evernym, Inc."
 __license__ = "Apache 2.0"
 
