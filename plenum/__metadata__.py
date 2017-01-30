@@ -1,8 +1,8 @@
 """
 plenum package metadata
 """
-__version_info__ = (0, 1, 166)
-__version__ = '{}.{}.{}'.format(*__version_info__)
+__version_info__ = (0, 2)
+__version__ = '.'.join(map(str, __version_info__))
 __author__ = "Evernym, Inc."
 __license__ = "Apache 2.0"
 
