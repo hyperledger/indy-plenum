@@ -236,6 +236,7 @@ def sendRandomRequest(wallet: Wallet, client: Client):
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
+    logger.debug('{} random requests will be sent'.format(count))
     reqs = [wallet.signOp(randomOperation()) for _ in range(count)]
     return client.submitReqs(*reqs)
 

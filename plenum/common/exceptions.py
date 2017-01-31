@@ -214,3 +214,7 @@ class NoConsensusYet(Exception):
 
 class NotConnectedToAny(Exception):
     pass
+
+
+class NameAlreadyExists(Exception):
+    pass

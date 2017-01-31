@@ -9,6 +9,7 @@ from os.path import basename
 from typing import Dict
 
 from jsonpickle import json, encode, decode
+from plenum.common.exceptions import NameAlreadyExists
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
@@ -73,6 +74,7 @@ from plenum.server.replica import Replica
 from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
+
 
 class CustomOutput(Vt100_Output):
     """
@@ -244,15 +246,22 @@ class Cli:
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
+        self._actions = []
+
         if nodeReg:
             self.print("Node registry loaded.")
-            # self.print("None of these are created or running yet.")
-
             self.showNodeRegistry()
-        self.print("Type 'help' for more information.")
-        self.print("Running {} {}\n".format(self.properName, self.getCliVersion()))
+        else:
+            self.print("No information is found which can be used to connect to"
+                       " the Sovrin nodes. This indicates an error. Check if "
+                       "the file containing genesis transactions is present "
+                       "in your base direcory which can be found in the config "
+                       "as `baseDir`, if not then get this file from the github"
+                       " repository and paste it in location `baseDir`")
 
-        self._actions = []
+        self.print("Type 'help' for more information.")
+        self.print("Running {} {}\n".format(self.properName,
+                                            self.getCliVersion()))
 
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
@@ -260,7 +269,8 @@ class Cli:
         self.restoreLastActiveWallet("{}*{}".format(WALLET_FILE_NAME_PREFIX,
                                                     self.name))
 
-    def getCliVersion(self):
+    @staticmethod
+    def getCliVersion():
         return __version__
 
     @property
@@ -285,7 +295,6 @@ class Cli:
                              self._newKeyring, self._renameKeyring,
                              self._useKeyringAction]
         return self._actions
-
 
     @property
     def config(self):
@@ -1200,6 +1209,18 @@ class Cli:
 
     def _newWallet(self, walletName=None):
         nm = walletName or self.defaultWalletName
+
+        while True:
+            conflictFound = self._checkIfIdentifierConflicts(
+                nm, checkInAliases=False, checkInSigners=False,
+                printAppropriateMsg=False)
+            if not conflictFound:
+                break
+
+            if walletName and conflictFound:
+                raise NameAlreadyExists
+            nm = "{}_{}".format(nm, randomString(5))
+
         if nm in self.wallets:
             self.print("Keyring {} already exists".format(nm))
             wallet = self._wallets[nm]
@@ -1235,52 +1256,52 @@ class Cli:
             return True
 
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
+                                    checkInAliases=True, checkInSigners=True,
+                                    printAppropriateMsg=True):
+
+        def _checkIfWalletExists(origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True):
-        if origName:
-            name = origName.lower()
-            allAliases = []
-            allSigners = []
-            allWallets = []
+            if origName:
+                name = origName.lower()
+                allAliases = []
+                allSigners = []
+                allWallets = []
 
-            for wk, wv in self.wallets.items():
-                if checkInAliases:
-                    allAliases.extend(
-                        [k.lower() for k in wv.aliasesToIds.keys()])
-                if checkInSigners:
-                    allSigners.extend(list(wv.listIds()))
-                if checkInWallets:
-                    allWallets.append(wk.lower())
+                for wk, wv in self.wallets.items():
+                    if checkInAliases:
+                        allAliases.extend(
+                            [k.lower() for k in wv.aliasesToIds.keys()])
+                    if checkInSigners:
+                        allSigners.extend(list(wv.listIds()))
+                    if checkInWallets:
+                        allWallets.append(wk.lower())
 
-            if name in allWallets:
-                self.print(
-                    "{} conflicts with an existing keyring name. "
-                    "Please choose a new name".format(origName), Token.Warning)
-                return True
-            if name in allAliases:
-                self.print(
-                    "{} conflicts with an existing alias. "
-                    "Please choose a new name".format(origName), Token.Warning)
-                return True
-            if name in allSigners:
-                self.print(
-                    "{} conflicts with an existing identifier. "
-                    "Please choose a new name".format(origName), Token.Warning)
-                return True
+                if name in allWallets:
+                    return True, 'keyring'
+                if name in allAliases:
+                    return True, 'alias'
+                if name in allSigners:
+                    return True, 'identifier'
 
-            toBeWalletFileName = self.getPersistentWalletFileName(
-                self.name, self.currPromptText, origName)
-            toBeWalletFilePath = Cli.getWalletFilePath(
-                self.getKeyringsBaseDir(), toBeWalletFileName)
-            if os.path.exists(toBeWalletFilePath):
-                self.print(
-                    "{} conflicts with an existing keyring name (stored at: {})"
-                    ". Please choose a new name".format(
-                        origName, toBeWalletFilePath), Token.Warning)
-                return True
+                toBeWalletFileName = self.getPersistentWalletFileName(
+                    self.name, self.currPromptText, origName)
+                toBeWalletFilePath = Cli.getWalletFilePath(
+                    self.getKeyringsBaseDir(), toBeWalletFileName)
+                if os.path.exists(toBeWalletFilePath):
+                    return True, 'keyring (stored at: {})'.\
+                        format(toBeWalletFilePath)
 
-            return False
-        else:
-            return False
+                return False, None
+            else:
+                return False, None
+
+        status, foundIn = _checkIfWalletExists(origName, checkInWallets,
+                                               checkInAliases, checkInSigners)
+        if foundIn and printAppropriateMsg:
+            self.print('"{}" conflicts with an existing {}. '
+                       'Please choose a new name.'.
+                       format(origName, foundIn), Token.Warning)
+        return status
 
     def _loadWalletIfExistsAndNotLoaded(self, name):
         if not self.wallets.get(name):
@@ -1370,7 +1391,6 @@ class Cli:
                     # if wallet already exists, deserialize it
                     # and set as active wallet
                     wallet = decode(walletFile.read())
-                    assert isinstance(wallet, Wallet)
                     self._wallets[wallet.name] = wallet
                     self.print('Saved keyring "{}" restored'.
                                format(wallet.name), newline=False)
@@ -1379,25 +1399,14 @@ class Cli:
                     self._activeWallet = wallet
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
-                        "decode error occurred while restoring wallet {}: {}".
+                        "error occurred while restoring wallet {}: {}".
                             format(walletFilePath, e))
         except IOError:
-            pass
-
-    def restoreWalletByName(self, walletFileName):
-        walletFilePath = self.getWalletFilePath(
-            self.getKeyringsBaseDir(), walletFileName)
-        self.restoreWalletByPath(walletFilePath)
-
-    def restoreWallet(self, withName=None):
-        if withName:
-            walletFileName = Cli.getPersistentWalletFileName(
-            self.name, self.currPromptText, withName)
-        else:
-            walletFileName = self.walletFileName
-        self.restoreWalletByName(walletFileName)
+            self.logger.warning("no such wallet file exists: {}".
+                              format(walletFilePath))
 
     def restoreLastActiveWallet(self, filePattern):
+        baseFileName=None
         try:
             def getLastModifiedTime(file):
                 return os.stat(file).st_mtime_ns
@@ -1410,13 +1419,28 @@ class Cli:
             self._searchAndSetWallet(walletName)
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
-               self.errorDuringRestoringLastActiveWallet(e)
+               self.errorDuringRestoringLastActiveWallet(baseFileName, e)
         except Exception as e:
-            self.errorDuringRestoringLastActiveWallet(e)
+            self.errorDuringRestoringLastActiveWallet(baseFileName, e)
 
-    def errorDuringRestoringLastActiveWallet(self, e):
+    def errorDuringRestoringLastActiveWallet(self, baseFileName, e):
         self.logger.warning("Error occurred during restoring last "
-                            "active wallet, error: {}".format(e))
+                            "active wallet ({}), error: {}".
+                            format(baseFileName, str(e)))
+        raise e
+
+    def restoreWalletByName(self, walletFileName):
+        walletFilePath = self.getWalletFilePath(
+            self.getKeyringsBaseDir(), walletFileName)
+        self.restoreWalletByPath(walletFilePath)
+
+    def restoreWallet(self, withName=None):
+        if withName:
+            walletFileName = Cli.getPersistentWalletFileName(
+                self.name, self.currPromptText, withName)
+        else:
+            walletFileName = self.walletFileName
+        self.restoreWalletByName(walletFileName)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1458,8 +1482,7 @@ class Cli:
 
     def getKeyringsBaseDir(self):
         return os.path.expanduser(os.path.join(self.config.baseDir,
-                                       self.config.keyringsDir))
-
+                                  self.config.keyringsDir))
 
     def isAnyWalletFileExistsForEnv(self, envName):
         keyringPath = self.getKeyringsBaseDir()
@@ -1607,3 +1630,4 @@ class Cli:
 
 class Exit(Exception):
     pass
+

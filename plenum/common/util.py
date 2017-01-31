@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import inspect
 import itertools
 import json
@@ -16,13 +17,11 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
-import collections
 import libnacl.secret
-from libnacl import crypto_hash_sha256
-from six import iteritems, string_types
-
 from ledger.util import F
+from libnacl import crypto_hash_sha256
 from plenum.common.error import error
+from six import iteritems, string_types
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -497,11 +496,22 @@ def prettyDateDifference(startTime, finishTime=None):
         return str(day_diff) + " days ago"
 
 
+INITIAL_WALL_TIME = time.time()
+
+
+INITIAL_PERF_COUNTER = time.perf_counter()
+
+
+def preciseTime():
+    perfCounterDelta = time.perf_counter() - INITIAL_PERF_COUNTER
+    return INITIAL_WALL_TIME + perfCounterDelta
+
+
 TIME_BASED_REQ_ID_PRECISION = 1000000
 
 
 def getTimeBasedId():
-    return int(time.time() * TIME_BASED_REQ_ID_PRECISION)
+    return int(preciseTime() * TIME_BASED_REQ_ID_PRECISION)
 
 
 def convertTimeBasedReqIdToMillis(reqId):

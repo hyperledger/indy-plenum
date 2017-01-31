@@ -25,6 +25,14 @@ def listener():
     loop.run_until_complete(server.wait_closed())
 
 
+@pytest.fixture
+def statsServerMessageBufferMaxSizeReducer():
+    originalValue = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
+    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = 100
+    yield
+    config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE = originalValue
+
+
 def testSendOneMessageNoOneListens(postingStatsEnabled):
     statsPublisher = TestStatsPublisher()
     statsPublisher.send(message="testMessage")
@@ -88,8 +96,9 @@ def testSendAllFromBuffer(postingStatsEnabled):
     statsPublisher.assertMessages(0, N + 1, 0)
 
 
-def testSendEvenIfBufferFull(postingStatsEnabled):
-    N = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE + 100
+def testSendEvenIfBufferFull(postingStatsEnabled,
+                             statsServerMessageBufferMaxSizeReducer):
+    N = config.STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE + 10
     statsPublisher = TestStatsPublisher()
     for i in range(N):
         statsPublisher.addMsgToBuffer("testMessage{}".format(i))
@@ -109,7 +118,7 @@ def testUnexpectedConnectionError(postingStatsEnabled):
 
 
 def testSendManyNoExceptions(postingStatsEnabled):
-    N = 50000
+    N = 100
     statsPublisher = TestStatsPublisher()
     statsPublisher.localPort = None
     for i in range(N):
@@ -119,7 +128,7 @@ def testSendManyNoExceptions(postingStatsEnabled):
 
 
 def testSendManyNoExceptionsIfDestPortFromSourceRange(postingStatsEnabled):
-    N = 50000
+    N = 100
     # use a port that may lead to assertion error (this port may be used as an input port to establish connection)
     statsPublisher = TestStatsPublisher(port=50000)
     for i in range(N):

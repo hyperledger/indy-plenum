@@ -1,7 +1,10 @@
+import re
 import sys
 from importlib import import_module
 
 import semver
+
+MAJOR_MINOR_REGEX = re.compile(r"\d+\.\d+")
 
 
 def getPackageMeta(pkg):
@@ -23,6 +26,8 @@ def check_deps(dependencies, parent=""):
                 full_name = pkg_name
             meta = getPackageMeta(pkg_name)
             ver = meta.__version__
+            if MAJOR_MINOR_REGEX.fullmatch(ver):
+                ver += ".0" # Add a fictive patch number to fit semver format
             if not semver.match(ver, exp_ver):
                 raise RuntimeError("Incompatible '{}' package version. "
                                    "Expected: {} "

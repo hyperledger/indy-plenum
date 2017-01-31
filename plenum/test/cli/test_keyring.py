@@ -30,7 +30,7 @@ def renameToExistingKeyring(oldName, newName, cli):
         cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
     else:
         cli.enterCmd("rename keyring to {}".format(newName))
-    assert '{} conflicts with an existing keyring name. ' \
+    assert '"{}" conflicts with an existing keyring. ' \
            'Please choose a new name'.format(newName) in \
            cli.lastCmdOutput
 
