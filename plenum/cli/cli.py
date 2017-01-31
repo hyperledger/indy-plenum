@@ -258,7 +258,6 @@ class Cli:
                        "in your base direcory which can be found in the config "
                        "as `baseDir`, if not then get this file from the github"
                        " repository and paste it in location `baseDir`")
-            sys.exit(1)
 
         self.print("Type 'help' for more information.")
         self.print("Running {} {}\n".format(self.properName,
