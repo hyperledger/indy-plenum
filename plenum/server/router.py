@@ -1,6 +1,6 @@
 from collections import deque, OrderedDict
 from inspect import isawaitable
-from typing import Callable, Any, NamedTuple
+from typing import Callable, Any, NamedTuple, Union
 from typing import Tuple
 
 

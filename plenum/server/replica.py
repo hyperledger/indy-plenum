@@ -147,8 +147,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
         # pre-prepare seqNo and value is a tuple of Request Digest and time
+        # TODO: GC this
         self.sentPrePrepares = {}
-        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], float]]
+        # type: Dict[Tuple[int, int], PrePrepare]
 
         # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value is
@@ -177,7 +178,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.primaryNames = {}  # type: Dict[int, str]
 
         # Holds msgs that are for later views
-        self.threePhaseMsgsForLaterView = deque()
+        # self.threePhaseMsgsForLaterView = deque()
         # type: deque[(ThreePhaseMsg, str)]
 
         # Holds tuple of view no and prepare seq no of 3-phase messages it
@@ -190,23 +191,28 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stashedCommitsForOrdering = {}         # type: Dict[int,
         # Dict[int, Commit]]
 
-        self.checkpoints = SortedDict(lambda k: k[0])
-
-        self.stashingWhileOutsideWaterMarks = deque()
-
-        # Low water mark
-        self._h = 0              # type: int
-
-        # High water mark
-        self.H = self._h + self.config.LOG_SIZE   # type: int
+        # self.checkpoints = SortedDict(lambda k: k[0])
+        #
+        # self.stashingWhileOutsideWaterMarks = deque()
+        #
+        # # Low water mark
+        # self._h = 0              # type: int
+        #
+        # # High water mark
+        # self.H = self._h + self.config.LOG_SIZE   # type: int
 
         self.lastPrePrepareSeqNo = self.h  # type: int
 
-        # Queues used in PRE-PREPARE for each ledger
+        # Queues used in PRE-PREPARE for each ledger,
+        # TODO: Empty it when view change makes this replica non-primary
+        # from primary
         self.requestQueues = {}  # type: Dict[int, deque]
-        if self.node.poolLedger:
-            self.requestQueues[0] = deque()
-        self.requestQueues[1] = deque()
+        for ledgerId in self.node.ledgers:
+            self.requestQueues[ledgerId] = deque()
+
+        # Batches with key as ppSeqNo of batch and value as a tuple of number
+        # of txns and the time as batch was created/received
+        self.batches = {}   # type: OrderedDict[int, Tuple[int, float]]
 
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = time.perf_counter()
@@ -287,7 +293,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         self._unstashInBox()
         if self.isPrimary is not None:
-            self.process3PhaseReqsQueue()
+            # self.process3PhaseReqsQueue()
             # TODO handle suspicion exceptions here
             try:
                 self.processPostElectionMsgs()
@@ -336,13 +342,13 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return self.primaryNames[viewNo] == self.name
 
-    def isMsgForLaterView(self, msg):
-        """
-        Return whether this request's view number is greater than the current
-        view number of this replica.
-        """
-        viewNo = getattr(msg, "viewNo", None)
-        return viewNo > self.viewNo
+    # def isMsgForLaterView(self, msg):
+    #     """
+    #     Return whether this request's view number is greater than the current
+    #     view number of this replica.
+    #     """
+    #     viewNo = getattr(msg, "viewNo", None)
+    #     return viewNo > self.viewNo
 
     def isMsgForCurrentView(self, msg):
         """
@@ -352,13 +358,13 @@ class Replica(HasActionQueue, MessageProcessor):
         viewNo = getattr(msg, "viewNo", None)
         return viewNo == self.viewNo
 
-    def isMsgForPrevView(self, msg):
-        """
-        Return whether this request's view number is less than the current view
-        number of this replica.
-        """
-        viewNo = getattr(msg, "viewNo", None)
-        return viewNo < self.viewNo
+    # def isMsgForPrevView(self, msg):
+    #     """
+    #     Return whether this request's view number is less than the current view
+    #     number of this replica.
+    #     """
+    #     viewNo = getattr(msg, "viewNo", None)
+    #     return viewNo < self.viewNo
 
     def isPrimaryForMsg(self, msg) -> Optional[bool]:
         """
@@ -369,14 +375,14 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param msg: message
         """
-        if self.isMsgForLaterView(msg):
-            self.discard(msg,
-                         "Cannot get primary status for a request for a later "
-                         "view {}. Request is {}".format(self.viewNo, msg),
-                         logger.error)
-        else:
-            return self.isPrimary if self.isMsgForCurrentView(msg) \
-                else self.isPrimaryInView(msg.viewNo)
+        # if self.isMsgForLaterView(msg):
+        #     self.discard(msg,
+        #                  "Cannot get primary status for a request for a later "
+        #                  "view {}. Request is {}".format(self.viewNo, msg),
+        #                  logger.error)
+        # else:
+        return self.isPrimary if self.isMsgForCurrentView(msg) \
+            else self.isPrimaryInView(msg.viewNo)
 
     def isMsgFromPrimary(self, msg, sender: str) -> bool:
         """
@@ -385,12 +391,12 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender:
         :return:
         """
-        if self.isMsgForLaterView(msg):
-            logger.error("{} cannot get primary for a request for a later "
-                         "view. Request is {}".format(self, msg))
-        else:
-            return self.primaryName == sender if self.isMsgForCurrentView(
-                msg) else self.primaryNames[msg.viewNo] == sender
+        # if self.isMsgForLaterView(msg):
+        #     logger.error("{} cannot get primary for a request for a later "
+        #                  "view. Request is {}".format(self, msg))
+        # else:
+        return self.primaryName == sender if self.isMsgForCurrentView(
+            msg) else self.primaryNames[msg.viewNo] == sender
 
     def _preProcessReq(self, req: Request) -> None:
         """
@@ -423,20 +429,26 @@ class Replica(HasActionQueue, MessageProcessor):
                 for lid, q in self.requestQueues.items():
                     if len(q) >= self.config.Max3PCBatchSize or (
                                         self.lastBatchCreated +
-                                        self.config.Max3PCBatchTime >
+                                        self.config.Max3PCBatchWait >
                                         time.perf_counter() and len(q) > 0):
-                        self.create3PCBatch(lid)
+                        ppReq = self.create3PCBatch(lid)
+                        self.sentPrePrepares[
+                            ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+                        self.batches[ppReq.ppSeqNo] = [len(ppReq.reqIdr),
+                                                       time.perf_counter()]
+                        self.send(ppReq, TPCStat.PrePrepareSent)
                         r += 1
         return r
 
     def create3PCBatch(self, ledgerId):
-        self.lastPrePrepareSeqNo += 1
+        ppSeqNo = self.lastPrePrepareSeqNo + 1
         tm = time.time() * 1000
         validReqs = []
         inValidReqs = []
         while len(validReqs)+len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledgerId]:
-            req = self.requestQueues[ledgerId].popleft()
+            reqKey = self.requestQueues[ledgerId].popleft()
+            req = self.node.requests[reqKey]
             try:
                 if self.isMaster:
                     self.node.doDynamicValidation(req)
@@ -448,7 +460,7 @@ class Replica(HasActionQueue, MessageProcessor):
         digest = sha256(b''.join(reqs))
         prePrepareReq = PrePrepare(self.instId,
                                    self.viewNo,
-                                   self.lastPrePrepareSeqNo,
+                                   ppSeqNo,
                                    tm,
                                    [(req.identifier, req.reqId) for req in reqs],
                                    len(validReqs),
@@ -456,10 +468,11 @@ class Replica(HasActionQueue, MessageProcessor):
                                    ledgerId,
                                    # TODO: State root and txn root
                                    )
+        self.lastPrePrepareSeqNo = ppSeqNo
         return prePrepareReq
 
     def readyFor3PC(self, request: Request):
-        self.requestQueues[self.node.ledgerForRequest(request)].append(request)
+        self.requestQueues[self.node.ledgerForRequest(request)].append(request.key)
 
     def serviceQueues(self, limit=None):
         """
@@ -486,23 +499,23 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} processing pended msg {}".format(self, msg))
             self.dispatchThreePhaseMsg(*msg)
 
-    def process3PhaseReqsQueue(self):
-        """
-        Process the 3 phase requests from the queue whose view number is equal
-        to the current view number of this replica.
-        """
-        unprocessed = deque()
-        while self.threePhaseMsgsForLaterView:
-            request, sender = self.threePhaseMsgsForLaterView.popleft()
-            logger.debug("{} processing pended 3 phase request: {}"
-                         .format(self, request))
-            # If the request is for a later view dont try to process it but add
-            # it back to the queue.
-            if self.isMsgForLaterView(request):
-                unprocessed.append((request, sender))
-            else:
-                self.processThreePhaseMsg(request, sender)
-        self.threePhaseMsgsForLaterView = unprocessed
+    # def process3PhaseReqsQueue(self):
+    #     """
+    #     Process the 3 phase requests from the queue whose view number is equal
+    #     to the current view number of this replica.
+    #     """
+    #     unprocessed = deque()
+    #     while self.threePhaseMsgsForLaterView:
+    #         request, sender = self.threePhaseMsgsForLaterView.popleft()
+    #         logger.debug("{} processing pended 3 phase request: {}"
+    #                      .format(self, request))
+    #         # If the request is for a later view dont try to process it but add
+    #         # it back to the queue.
+    #         if self.isMsgForLaterView(request):
+    #             unprocessed.append((request, sender))
+    #         else:
+    #             self.processThreePhaseMsg(request, sender)
+    #     self.threePhaseMsgsForLaterView = unprocessed
 
     @property
     def quorum(self) -> int:
@@ -555,17 +568,17 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent this message
         """
         # Can only proceed further if it knows whether its primary or not
-        if self.isMsgForLaterView(msg):
-            self.threePhaseMsgsForLaterView.append((msg, sender))
-            logger.debug("{} pended received 3 phase request for a later view: "
-                         "{}".format(self, msg))
+        # if self.isMsgForLaterView(msg):
+        #     self.threePhaseMsgsForLaterView.append((msg, sender))
+        #     logger.debug("{} pended received 3 phase request for a later view: "
+        #                  "{}".format(self, msg))
+        # else:
+        if self.isPrimary is None:
+            self.postElectionMsgs.append((msg, sender))
+            logger.debug("Replica {} pended request {} from {}".
+                         format(self, msg, sender))
         else:
-            if self.isPrimary is None:
-                self.postElectionMsgs.append((msg, sender))
-                logger.debug("Replica {} pended request {} from {}".
-                             format(self, msg, sender))
-            else:
-                self.dispatchThreePhaseMsg(msg, sender)
+            self.dispatchThreePhaseMsg(msg, sender)
 
     def processPrePrepare(self, pp: PrePrepare, sender: str):
         """
@@ -1037,84 +1050,84 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} ordered request {}".format(self, (viewNo, ppSeqNo)))
         self.addToCheckpoint(ppSeqNo, digest)
 
-    def processCheckpoint(self, msg: Checkpoint, sender: str):
-        if self.checkpoints:
-            seqNo = msg.seqNo
-            _, firstChk = self.firstCheckPoint
-            if firstChk.isStable:
-                if firstChk.seqNo == seqNo:
-                    self.discard(msg, reason="Checkpoint already stable",
-                                 logMethod=logger.debug)
-                    return
-                if firstChk.seqNo > seqNo:
-                    self.discard(msg, reason="Higher stable checkpoint present",
-                                 logMethod=logger.debug)
-                    return
-            for state in self.checkpoints.values():
-                if state.seqNo == seqNo:
-                    if state.digest == msg.digest:
-                        state.receivedDigests[sender] = msg.digest
-                        break
-                    else:
-                        logger.error("{} received an incorrect digest {} for "
-                                     "checkpoint {} from {}".format(self,
-                                                                    msg.digest,
-                                                                    seqNo,
-                                                                    sender))
-                        return
-            if len(state.receivedDigests) == 2*self.f:
-                self.markCheckPointStable(msg.seqNo)
-        else:
-            self.discard(msg, reason="No checkpoints present to tally",
-                         logMethod=logger.warn)
-
-    def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
-        s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
-        logger.debug("{} adding new checkpoint state for {}".
-                     format(self, (s, e)))
-        state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
-        self.checkpoints[s, e] = state
-        return state
-
-    def addToCheckpoint(self, ppSeqNo, digest):
-        for (s, e) in self.checkpoints.keys():
-            if s <= ppSeqNo <= e:
-                state = self.checkpoints[s, e]  # type: CheckpointState
-                state.digests.append(digest)
-                state = updateNamedTuple(state, seqNo=ppSeqNo)
-                self.checkpoints[s, e] = state
-                break
-        else:
-            state = self._newCheckpointState(ppSeqNo, digest)
-            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ
-
-        if len(state.digests) == self.config.CHK_FREQ:
-            state = updateNamedTuple(state, digest=serialize(state.digests),
-                                     digests=[])
-            self.checkpoints[s, e] = state
-            self.send(Checkpoint(self.instId, self.viewNo, ppSeqNo,
-                                 state.digest))
-
-    def markCheckPointStable(self, seqNo):
-        previousCheckpoints = []
-        for (s, e), state in self.checkpoints.items():
-            if e == seqNo:
-                state = updateNamedTuple(state, isStable=True)
-                self.checkpoints[s, e] = state
-                break
-            else:
-                previousCheckpoints.append((s, e))
-        else:
-            logger.error("{} could not find {} in checkpoints".
-                         format(self, seqNo))
-            return
-        self.h = seqNo
-        for k in previousCheckpoints:
-            logger.debug("{} removing previous checkpoint {}".format(self, k))
-            self.checkpoints.pop(k)
-        self.gc(seqNo)
-        logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
-        self.processStashedMsgsForNewWaterMarks()
+    # def processCheckpoint(self, msg: Checkpoint, sender: str):
+    #     if self.checkpoints:
+    #         seqNo = msg.seqNo
+    #         _, firstChk = self.firstCheckPoint
+    #         if firstChk.isStable:
+    #             if firstChk.seqNo == seqNo:
+    #                 self.discard(msg, reason="Checkpoint already stable",
+    #                              logMethod=logger.debug)
+    #                 return
+    #             if firstChk.seqNo > seqNo:
+    #                 self.discard(msg, reason="Higher stable checkpoint present",
+    #                              logMethod=logger.debug)
+    #                 return
+    #         for state in self.checkpoints.values():
+    #             if state.seqNo == seqNo:
+    #                 if state.digest == msg.digest:
+    #                     state.receivedDigests[sender] = msg.digest
+    #                     break
+    #                 else:
+    #                     logger.error("{} received an incorrect digest {} for "
+    #                                  "checkpoint {} from {}".format(self,
+    #                                                                 msg.digest,
+    #                                                                 seqNo,
+    #                                                                 sender))
+    #                     return
+    #         if len(state.receivedDigests) == 2*self.f:
+    #             self.markCheckPointStable(msg.seqNo)
+    #     else:
+    #         self.discard(msg, reason="No checkpoints present to tally",
+    #                      logMethod=logger.warn)
+    #
+    # def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
+    #     s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
+    #     logger.debug("{} adding new checkpoint state for {}".
+    #                  format(self, (s, e)))
+    #     state = CheckpointState(ppSeqNo, [digest, ], None, {}, False)
+    #     self.checkpoints[s, e] = state
+    #     return state
+    #
+    # def addToCheckpoint(self, ppSeqNo, digest):
+    #     for (s, e) in self.checkpoints.keys():
+    #         if s <= ppSeqNo <= e:
+    #             state = self.checkpoints[s, e]  # type: CheckpointState
+    #             state.digests.append(digest)
+    #             state = updateNamedTuple(state, seqNo=ppSeqNo)
+    #             self.checkpoints[s, e] = state
+    #             break
+    #     else:
+    #         state = self._newCheckpointState(ppSeqNo, digest)
+    #         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ
+    #
+    #     if len(state.digests) == self.config.CHK_FREQ:
+    #         state = updateNamedTuple(state, digest=serialize(state.digests),
+    #                                  digests=[])
+    #         self.checkpoints[s, e] = state
+    #         self.send(Checkpoint(self.instId, self.viewNo, ppSeqNo,
+    #                              state.digest))
+    #
+    # def markCheckPointStable(self, seqNo):
+    #     previousCheckpoints = []
+    #     for (s, e), state in self.checkpoints.items():
+    #         if e == seqNo:
+    #             state = updateNamedTuple(state, isStable=True)
+    #             self.checkpoints[s, e] = state
+    #             break
+    #         else:
+    #             previousCheckpoints.append((s, e))
+    #     else:
+    #         logger.error("{} could not find {} in checkpoints".
+    #                      format(self, seqNo))
+    #         return
+    #     self.h = seqNo
+    #     for k in previousCheckpoints:
+    #         logger.debug("{} removing previous checkpoint {}".format(self, k))
+    #         self.checkpoints.pop(k)
+    #     self.gc(seqNo)
+    #     logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
+    #     self.processStashedMsgsForNewWaterMarks()
 
     def gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
@@ -1145,37 +1158,37 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in reqKeys:
             self.requests.pop(k, None)
 
-    def processStashedMsgsForNewWaterMarks(self):
-        while self.stashingWhileOutsideWaterMarks:
-            item = self.stashingWhileOutsideWaterMarks.pop()
-            logger.debug("{} processing stashed item {} after new stable "
-                         "checkpoint".format(self, item))
+    # def processStashedMsgsForNewWaterMarks(self):
+    #     while self.stashingWhileOutsideWaterMarks:
+    #         item = self.stashingWhileOutsideWaterMarks.pop()
+    #         logger.debug("{} processing stashed item {} after new stable "
+    #                      "checkpoint".format(self, item))
+    #
+    #         if isinstance(item, ReqDigest):
+    #             self.doPrePrepare(item)
+    #         elif isinstance(item, tuple) and len(tuple) == 2:
+    #             self.dispatchThreePhaseMsg(*item)
+    #         else:
+    #             logger.error("{} cannot process {} "
+    #                          "from stashingWhileOutsideWaterMarks".
+    #                          format(self, item))
 
-            if isinstance(item, ReqDigest):
-                self.doPrePrepare(item)
-            elif isinstance(item, tuple) and len(tuple) == 2:
-                self.dispatchThreePhaseMsg(*item)
-            else:
-                logger.error("{} cannot process {} "
-                             "from stashingWhileOutsideWaterMarks".
-                             format(self, item))
-
-    @property
-    def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
-        if not self.checkpoints:
-            return None
-        else:
-            return self.checkpoints.peekitem(0)
-
-    @property
-    def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
-        if not self.checkpoints:
-            return None
-        else:
-            return self.checkpoints.peekitem(-1)
-
-    def isPpSeqNoAcceptable(self, ppSeqNo: int):
-        return self.h < ppSeqNo <= self.H
+    # @property
+    # def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+    #     if not self.checkpoints:
+    #         return None
+    #     else:
+    #         return self.checkpoints.peekitem(0)
+    #
+    # @property
+    # def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
+    #     if not self.checkpoints:
+    #         return None
+    #     else:
+    #         return self.checkpoints.peekitem(-1)
+    #
+    # def isPpSeqNoAcceptable(self, ppSeqNo: int):
+    #     return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))

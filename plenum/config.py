@@ -121,10 +121,10 @@ logFormatStyle='{'
 ExpectedConnectTime = 1.1
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-CHK_FREQ = 100
+# CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
+# LOG_SIZE = 3*CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5
@@ -147,12 +147,16 @@ UpdateGenesisPoolTxnFile = True
 EnsureLedgerDurability = True
 
 
-# After `Max3PCBatchSize` requests or `Max3PCBatchTime`, whichever is earlier,
+# After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
-# Max 3 phase batch size.
+# Max batch size for 3 phase commit
 Max3PCBatchSize = 10
-# 3 phase batch timeout
-Max3PCBatchTime = 3
+# Max time to wait before creating a batch for 3 phase commit
+Max3PCBatchWait = 3
+
+# Maximum lifespan for a batch, this needs to be changed if
+# `Max3PCBatchSize` is changed
+ThreePCBatchTimeout = 15
 
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is

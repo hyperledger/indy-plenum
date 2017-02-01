@@ -197,7 +197,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.doElectionIfNeeded(nodeName)
 
     def nodeKeysChanged(self, txn):
@@ -219,7 +218,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackKeysChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-            # self.node.sendPoolInfoToClients(txn)
         self.doElectionIfNeeded(nodeName)
 
     def nodeServicesChanged(self, txn):
@@ -262,6 +260,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             raise InvalidClientRequest(clientId, reqId)
 
     def doDynamicValidation(self, request: Request):
+        # TODO:
         pass
 
     def checkRequestAuthorized(self, request):

@@ -4,7 +4,6 @@ from abc import abstractproperty
 from collections import OrderedDict
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.raet import initRemoteKeep
@@ -13,6 +12,8 @@ from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.log import getlogger
+from plenum.common.ledger import Ledger
+
 
 logger = getlogger()
 

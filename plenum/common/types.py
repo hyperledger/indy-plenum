@@ -49,7 +49,7 @@ class f:  # provides a namespace for reusable field constants
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
-    REQ_IDR = Field("req_idr", List[Tuple[str, int]])
+    REQ_IDR = Field("reqIdr", List[Tuple[str, int]])
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("state_root", str)
     TXN_ROOT = Field("txn_root", str)
@@ -207,20 +207,20 @@ Commit = TaggedTuple(COMMIT, [
     f.PP_SEQ_NO
     ])
 
-Checkpoint = TaggedTuple(CHECKPOINT, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.SEQ_NO,
-    f.DIGEST])
-
-CheckpointState = NamedTuple(CHECKPOINT_STATE, [
-    f.SEQ_NO,
-    f.DIGESTS,  # Digest of all the requests in the checkpoint
-    f.DIGEST,   # Final digest of the checkpoint, after all requests in its
-    # range have been ordered
-    f.RECEIVED_DIGESTS,
-    f.IS_STABLE
-    ])
+# Checkpoint = TaggedTuple(CHECKPOINT, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.SEQ_NO,
+#     f.DIGEST])
+#
+# CheckpointState = NamedTuple(CHECKPOINT_STATE, [
+#     f.SEQ_NO,
+#     f.DIGESTS,  # Digest of all the requests in the checkpoint
+#     f.DIGEST,   # Final digest of the checkpoint, after all requests in its
+#     # range have been ordered
+#     f.RECEIVED_DIGESTS,
+#     f.IS_STABLE
+#     ])
 
 ThreePCState = TaggedTuple(THREE_PC_STATE, [
     f.INST_ID,
@@ -294,6 +294,9 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
                         f.PP_SEQ_NO
                     ])
+
+POOL_LEDGER_ID = 0
+DOMAIN_LEDGER_ID = 1
 
 CLIENT_STACK_SUFFIX = "C"
 CLIENT_BLACKLISTER_SUFFIX = "BLC"

@@ -18,7 +18,7 @@ from ledger.util import F
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
-    CatchupReq, ConsProofRequest
+    CatchupReq, ConsProofRequest, POOL_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
 from plenum.common.log import getlogger
@@ -271,14 +271,14 @@ class LedgerManager(HasActionQueue):
         # consistency proof:
         statusFromClient = self.getStack(frm) == self.clientstack
         if self.ownedByNode and statusFromClient:
-            if ledgerType != 0:
+            if ledgerType != POOL_LEDGER_ID:
                 logger.debug("{} received inappropriate ledger status {} from "
                              "client {}".format(self, status, frm))
                 return
             else:
                 if self.isLedgerSame(ledgerStatus):
-                    ledger = self.ledgers[0]["ledger"]
-                    ledgerStatus = LedgerStatus(0, ledger.size,
+                    ledger = self.ledgers[POOL_LEDGER_ID]["ledger"]
+                    ledgerStatus = LedgerStatus(POOL_LEDGER_ID, ledger.size,
                                                 ledger.root_hash)
                     self.sendTo(ledgerStatus, frm)
 
@@ -470,23 +470,21 @@ class LedgerManager(HasActionQueue):
         # Here seqNo has to be the seqNo of first transaction of
         # `catchupReplies`
 
-        # Creating a temporary tree which will be used to verify consistency
-        # proof, by inserting transactions. Duplicating a merkle tree is not
-        # expensive since we are using a compact merkle tree.
-        tempTree = copy(ledger.tree)
-
         # Get the batch of transactions in the catchup reply which has sequence
         # number `seqNo`
         nodeName, catchupReply = self._getCatchupReplyForSeqNo(ledgerType,
                                                                seqNo)
 
         txns = getattr(catchupReply, f.TXNS.nm)
-        for s, txn in catchUpReplies[:len(txns)]:
-            # Add only those transaction in the temporary tree from the above
-            # batch
-            # Transfers of odcits in RAET converts integer keys to string
-            if str(s) in txns:
-                tempTree.append(ledger.serializeLeaf(txn))
+        # Add only those transaction in the temporary tree from the above
+        # batch
+        # Transfers of odcits in RAET converts integer keys to string
+        txns = [txn for s, txn in catchUpReplies[:len(txns)] if str(s) in txns]
+
+        # Creating a temporary tree which will be used to verify consistency
+        # proof, by inserting transactions. Duplicating a merkle tree is not
+        # expensive since we are using a compact merkle tree.
+        tempTree = ledger.treeWithAppliedTxns(txns)
 
         proof = getattr(catchupReply, f.CONS_PROOF.nm)
         verifier = self.ledgers[ledgerType]["verifier"]

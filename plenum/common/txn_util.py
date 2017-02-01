@@ -22,7 +22,7 @@ def getTxnOrderedFields():
     return OrderedDict([
         (f.IDENTIFIER.nm, (str, str)),
         (f.REQ_ID.nm, (str, int)),
-        (TXN_ID, (str, str)),
+        (f.SIG.nm, (str, int)),
         (TXN_TIME, (str, int)),
         (TXN_TYPE, (str, str)),
         (TARGET_NYM, (str, str)),

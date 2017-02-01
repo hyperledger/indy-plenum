@@ -98,16 +98,16 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
-    def pendMsgForLaterView(self, msg: Any, viewNo: int):
-        """
-        Add a message to the pending queue for a later view.
-
-        :param msg: the message to pend
-        :param viewNo: the viewNo this message is meant for.
-        """
-        if viewNo not in self.pendingMsgsForViews:
-            self.pendingMsgsForViews[viewNo] = deque()
-        self.pendingMsgsForViews[viewNo].append(msg)
+    # def pendMsgForLaterView(self, msg: Any, viewNo: int):
+    #     """
+    #     Add a message to the pending queue for a later view.
+    #
+    #     :param msg: the message to pend
+    #     :param viewNo: the viewNo this message is meant for.
+    #     """
+    #     if viewNo not in self.pendingMsgsForViews:
+    #         self.pendingMsgsForViews[viewNo] = deque()
+    #     self.pendingMsgsForViews[viewNo].append(msg)
 
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
@@ -124,11 +124,11 @@ class PrimaryElector(PrimaryDecider):
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
                 if reqViewNo == self.viewNo:
                     filtered.append(wrappedMsg)
-                elif reqViewNo > self.viewNo:
-                    logger.debug(
-                        "{}'s elector queueing {} since it is for a later view"
-                            .format(self.name, wrappedMsg))
-                    self.pendMsgForLaterView((msg, sender), reqViewNo)
+                # elif reqViewNo > self.viewNo:
+                #     logger.debug(
+                #         "{}'s elector queueing {} since it is for a later view"
+                #             .format(self.name, wrappedMsg))
+                #     self.pendMsgForLaterView((msg, sender), reqViewNo)
                 else:
                     self.discard(wrappedMsg,
                                  "its view no {} is less than the elector's {}"
@@ -705,13 +705,13 @@ class PrimaryElector(PrimaryDecider):
                 replica.primaryName = None
 
             # Remove all pending messages which came for earlier views
-            oldViews = []
-            for v in self.pendingMsgsForViews:
-                if v < viewNo:
-                    oldViews.append(v)
+            # oldViews = []
+            # for v in self.pendingMsgsForViews:
+            #     if v < viewNo:
+            #         oldViews.append(v)
 
-            for v in oldViews:
-                self.pendingMsgsForViews.pop(v)
+            # for v in oldViews:
+            #     self.pendingMsgsForViews.pop(v)
 
             # Reset to defaults values for different data structures as new
             # elections would begin
@@ -720,15 +720,15 @@ class PrimaryElector(PrimaryDecider):
             self.replicaNominatedForItself = None
 
             # Schedule execution of any pending msgs from the new view
-            if viewNo in self.pendingMsgsForViews:
-                logger.debug("Pending election messages found for view {}".
-                             format(viewNo))
-                pendingMsgs = self.pendingMsgsForViews.pop(viewNo)
-                self.inBox.extendleft(pendingMsgs)
-            else:
-                logger.debug(
-                    "{} found no pending election messages for view {}".
-                    format(self.name, viewNo))
+            # if viewNo in self.pendingMsgsForViews:
+            #     logger.debug("Pending election messages found for view {}".
+            #                  format(viewNo))
+            #     pendingMsgs = self.pendingMsgsForViews.pop(viewNo)
+            #     self.inBox.extendleft(pendingMsgs)
+            # else:
+            #     logger.debug(
+            #         "{} found no pending election messages for view {}".
+            #         format(self.name, viewNo))
 
             self.nominateRandomReplica()
         else:

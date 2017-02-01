@@ -28,7 +28,7 @@ class ReqState:
         return self.finalised
 
 
-class Requests(OrderedDict[Tuple[str, int], ReqState]):
+class Requests(OrderedDict):
     """
     Storing client request object corresponding to each client and its
     request id. Key of the dictionary is a Tuple2 containing identifier,

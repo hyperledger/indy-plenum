@@ -15,7 +15,6 @@ import pyorient
 from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
@@ -51,14 +50,14 @@ from plenum.common.types import Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
+    POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
-    rawToFriendly
+from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
 from plenum.common.txn import DATA, ALIAS, NODE_IP
-
+from plenum.common.ledger import Ledger
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -273,11 +272,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager = self.getLedgerManager()
 
         if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.addLedger(0, self.poolLedger,
+            self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
 
-        self.ledgerManager.addLedger(1, self.domainLedger,
+        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
 
@@ -312,6 +311,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # are not aware of it. Key is instance id and value is a deque
         # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
+
+        # Any messages that are intended for view numbers higher than the
+        # current view.
+        # TODO: Do GC for `msgsForFutureViews`
+        self.msgsForFutureViews = {}
 
         self.adjustReplicas()
 
@@ -366,13 +370,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def poolLedgerStatus(self):
-        return LedgerStatus(0, self.poolLedger.size,
+        return LedgerStatus(POOL_LEDGER_ID, self.poolLedger.size,
                             self.poolLedger.root_hash) \
             if self.poolLedger else None
 
     @property
     def domainLedgerStatus(self):
-        return LedgerStatus(1, self.domainLedger.size,
+        return LedgerStatus(DOMAIN_LEDGER_ID, self.domainLedger.size,
                             self.domainLedger.root_hash)
 
     @property
@@ -462,9 +466,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         assert request.operation[TXN_TYPE]
         typ = request.operation[TXN_TYPE]
         if typ in POOL_TXN_TYPES:
-            return 0
+            return POOL_LEDGER_ID
         else:
-            return 1
+            return DOMAIN_LEDGER_ID
 
     def start(self, loop):
         oldstatus = self.status
@@ -491,11 +495,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if isinstance(self.poolManager, RegistryPoolManager):
                 # Node not using pool ledger so start syncing domain ledger
                 self.mode = Mode.discovered
-                self.ledgerManager.setLedgerCanSync(1, True)
+                self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
             else:
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
-                self.ledgerManager.setLedgerCanSync(0, True)
+                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
 
         self.logNodeInfo()
 
@@ -537,8 +541,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
-        self.ledgerManager.setLedgerState(1, LedgerState.not_synced)
+            self.ledgerManager.setLedgerState(POOL_LEDGER_ID,
+                                              LedgerState.not_synced)
+        self.ledgerManager.setLedgerState(DOMAIN_LEDGER_ID,
+                                          LedgerState.not_synced)
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -949,7 +955,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
-        instId = getattr(msg, "instId", None)
+        instId = getattr(msg, f.INST_ID.nm, None)
         if instId is None or not isinstance(instId, int) or instId < 0:
             return False
         if instId >= len(self.msgsToReplicas):
@@ -961,7 +967,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def msgHasAcceptableViewNo(self, msg) -> bool:
+    def msgHasAcceptableViewNo(self, msg, frm) -> bool:
         """
         Return true if the view no of message corresponds to the current view
         no, or a view no in the past that the replicas know of or a view no in
@@ -970,30 +976,41 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
-        viewNo = getattr(msg, "viewNo", None)
+        viewNo = getattr(msg, f.VIEW_NO.nm, None)
         if viewNo is None or not isinstance(viewNo, int) or viewNo < 0:
             return False
-        corrects = []
-        for r in self.replicas:
-            if not r.primaryNames:
-                # The replica and thus this node does not know any viewNos
-                corrects.append(True)
-                continue
-            if viewNo in r.primaryNames.keys():
-                # Replica has seen primary with this view no
-                corrects.append(True)
-            elif viewNo > max(r.primaryNames.keys()):
-                # msg for a future view no
-                corrects.append(True)
-            else:
-                # Replica has not seen any primary for this `viewNo` and its
-                # less than the current `viewNo`
-                corrects.append(False)
-        r = all(corrects)
-        if not r:
+        if viewNo < self.viewNo:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logger.debug)
-        return r
+                         .format(viewNo), logMethod=logger.info)
+        elif viewNo > self.viewNo:
+            if viewNo not in self.msgsForFutureViews:
+                self.msgsForFutureViews[viewNo] = deque()
+            self.msgsForFutureViews[viewNo].append((msg, frm))
+        else:
+            return True
+        return False
+
+        # corrects = []
+        # for r in self.replicas:
+        #     if not r.primaryNames:
+        #         # The replica and thus this node does not know any viewNos
+        #         corrects.append(True)
+        #         continue
+        #     if viewNo in r.primaryNames.keys():
+        #         # Replica has seen primary with this view no
+        #         corrects.append(True)
+        #     elif viewNo > max(r.primaryNames.keys()):
+        #         # msg for a future view no
+        #         corrects.append(True)
+        #     else:
+        #         # Replica has not seen any primary for this `viewNo` and its
+        #         # less than the current `viewNo`
+        #         corrects.append(False)
+        # r = all(corrects)
+        # if not r:
+        #     self.discard(msg, "un-acceptable viewNo {}"
+        #                  .format(viewNo), logMethod=logger.debug)
+        # return r
 
     def sendToReplica(self, msg, frm):
         """
@@ -1003,7 +1020,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if self.msgHasAcceptableInstId(msg, frm) and \
-                self.msgHasAcceptableViewNo(msg):
+                self.msgHasAcceptableViewNo(msg, frm):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -1014,7 +1031,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if self.msgHasAcceptableInstId(msg, frm) and \
-                self.msgHasAcceptableViewNo(msg):
+                self.msgHasAcceptableViewNo(msg, frm):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -1259,24 +1276,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
-        if ledgerType == 0:
+        if ledgerType == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
-        if ledgerType == 1:
+        if ledgerType == DOMAIN_LEDGER_ID:
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
 
     def sendPoolLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, 0)
+        self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
 
     def sendDomainLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, 1)
+        self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
 
     def getLedgerStatus(self, ledgerType: int):
-        if ledgerType == 0:
+        if ledgerType == POOL_LEDGER_ID:
             return self.poolLedgerStatus
-        if ledgerType == 1:
+        if ledgerType == DOMAIN_LEDGER_ID:
             return self.domainLedgerStatus
 
     def sendLedgerStatus(self, nodeName: str, ledgerType: int):
@@ -1290,8 +1307,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def doStaticValidation(self, clientId, reqId, operation):
         if TXN_TYPE not in operation:
-            # return "{} needs to be present in operation {}". \
-            #     format(TXN_TYPE, request)
             raise InvalidClientRequest(clientId, reqId)
 
         if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
@@ -1308,7 +1323,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         State based validation
         """
-        if self.ledgerForRequest(request) == 0:
+        if self.ledgerForRequest(request) == POOL_LEDGER_ID:
             self.poolManager.doDynamicValidation(request)
 
     def processRequest(self, request: Request, frm: str):
@@ -1684,7 +1699,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @staticmethod
     def ledgerTypeForTxn(txnType: str):
-        return 0 if txnType in POOL_TXN_TYPES else 1
+        return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
 
     def appendResultToLedger(self, data):
         ledgerType = self.ledgerTypeForTxn(data[TXN_TYPE])
@@ -1695,9 +1710,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 
-    @staticmethod
-    def genTxnId(identifier, reqId):
-        return sha256("{}{}".format(identifier, reqId).encode()).hexdigest()
+    # @staticmethod
+    # def genTxnId(identifier, reqId):
+    #     return sha256("{}{}".format(identifier, reqId).encode()).hexdigest()
 
     def generateReply(self, ppTime: float, req: Request) -> Reply:
         """
@@ -1709,11 +1724,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: a Reply generated from the request
         """
         logger.debug("{} generating reply for {}".format(self, req))
-        txnId = self.genTxnId(req.identifier, req.reqId)
+        # txnId = self.genTxnId(req.identifier, req.reqId)
         result = {
             f.IDENTIFIER.nm: req.identifier,
             f.REQ_ID.nm: req.reqId,
-            TXN_ID: txnId,
+            f.SIG.nm: req.signature,
+            # TXN_ID: txnId,
             TXN_TIME: int(ppTime)
         }
         result.update(req.operation)
