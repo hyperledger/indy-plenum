@@ -12,8 +12,7 @@ def getPipedRegEx(cmd):
 psep = re.escape(os.path.sep)
 
 PROMPT_ENV_SEPARATOR = "@"
-WALLET_FILE_NAME_ENV_SEPARATOR = "_"
-WALLET_FILE_NAME_PREFIX="keyring_"
+WALLET_FILE_EXTENSION = "wallet"
 
 # general reusable reg ex
 NODE_OR_CLI = ['node',  'client']

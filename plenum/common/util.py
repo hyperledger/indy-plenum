@@ -1,4 +1,6 @@
 import asyncio
+import os
+
 import collections
 import inspect
 import itertools
@@ -558,3 +560,8 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
         else:
             d[k] = u[k]
     return d
+
+
+def createDirIfNotExists(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)

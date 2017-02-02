@@ -5,7 +5,7 @@ import glob
 import random
 from hashlib import sha256
 import shutil
-from os.path import basename
+from os.path import basename, dirname
 from typing import Dict
 
 from jsonpickle import json, encode, decode
@@ -20,8 +20,7 @@ from ledger.ledger import Ledger
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
-    PROMPT_ENV_SEPARATOR, WALLET_FILE_NAME_ENV_SEPARATOR, \
-    WALLET_FILE_NAME_PREFIX
+    PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION
 from plenum.common.signer_simple import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
@@ -64,7 +63,8 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, checkPortAvailable, \
-    firstValue, randomString, cleanSeed, bootstrapClientKeys
+    firstValue, randomString, cleanSeed, bootstrapClientKeys, \
+    createDirIfNotExists
 from plenum.common.log import CliHandler, getlogger, setupLogging, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
@@ -266,8 +266,7 @@ class Cli:
         tp = loadPlugins(self.basedirpath)
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
-        self.restoreLastActiveWallet("{}*{}".format(WALLET_FILE_NAME_PREFIX,
-                                                    self.name))
+        self.restoreLastActiveWallet()
 
     @staticmethod
     def getCliVersion():
@@ -1283,10 +1282,9 @@ class Cli:
                 if name in allSigners:
                     return True, 'identifier'
 
-                toBeWalletFileName = self.getPersistentWalletFileName(
-                    self.name, self.currPromptText, origName)
+                toBeWalletFileName = Cli._normalizedWalletFileName(origName)
                 toBeWalletFilePath = Cli.getWalletFilePath(
-                    self.getKeyringsBaseDir(), toBeWalletFileName)
+                    self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
                 if os.path.exists(toBeWalletFilePath):
                     return True, 'keyring (stored at: {})'.\
                         format(toBeWalletFilePath)
@@ -1305,27 +1303,38 @@ class Cli:
 
     def _loadWalletIfExistsAndNotLoaded(self, name):
         if not self.wallets.get(name):
-            walletFileName = Cli.getPersistentWalletFileName(
-                self.name, self.currPromptText, name)
+            walletFileName = Cli._normalizedWalletFileName(name)
             self.restoreWalletByName(walletFileName)
 
     def _loadFromPath(self, path):
         if os.path.exists(path):
             self.restoreWalletByPath(path)
-            if self._activeWallet:
-                return True
-        return False
 
     def _getWalletByName(self, name) -> Wallet:
         wallets = {k.lower(): v for k, v in self.wallets.items()}
         return wallets.get(name.lower())
+
+    def checkIfWalletPathBelongsToCurrentContext(self, filePath):
+        baseWalletDirName = dirname(filePath)
+        curContextDirName = self.getContextBasedKeyringsBaseDir()
+        if baseWalletDirName == curContextDirName:
+            return True
+        else:
+            return False
 
     def _searchAndSetWallet(self, name):
         if self._activeWallet:
             self._saveActiveWallet()
 
         if os.path.exists(name.lower()):
-            self._loadFromPath(name.lower())
+            if self.checkIfWalletPathBelongsToCurrentContext(name):
+                self._loadFromPath(name.lower())
+            else:
+                self.print(
+                    "Given wallet file ({}) doesn't belong to current environment. "
+                    "Please connect to that environment or restart cli "
+                    "if given wallet file doesn't belong to any environment "
+                    "and then retry.".format(name))
         else:
             self._loadWalletIfExistsAndNotLoaded(name)
             wallet = self._getWalletByName(name)
@@ -1396,27 +1405,27 @@ class Cli:
                                format(wallet.name), newline=False)
                     self.print(" (keyring location: {})".format(walletFilePath)
                                , Token.Gray)
-                    self._activeWallet = wallet
+                    self.activeWallet = wallet
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
                         "error occurred while restoring wallet {}: {}".
                             format(walletFilePath, e))
         except IOError:
-            self.logger.warning("no such wallet file exists: {}".
+            self.logger.warning("No such wallet file exists: {}".
                               format(walletFilePath))
 
-    def restoreLastActiveWallet(self, filePattern):
+    def restoreLastActiveWallet(self):
+        filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
         baseFileName=None
         try:
             def getLastModifiedTime(file):
                 return os.stat(file).st_mtime_ns
 
-            keyringPath = self.getKeyringsBaseDir()
+            keyringPath = self.getContextBasedKeyringsBaseDir()
             newest = max(glob.iglob('{}/{}'.format(keyringPath, filePattern)),
                          key=getLastModifiedTime)
             baseFileName = basename(newest)
-            walletName = self.getWalletKeyName(baseFileName)
-            self._searchAndSetWallet(walletName)
+            self._searchAndSetWallet(os.path.join(keyringPath, baseFileName))
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
                self.errorDuringRestoringLastActiveWallet(baseFileName, e)
@@ -1431,68 +1440,67 @@ class Cli:
 
     def restoreWalletByName(self, walletFileName):
         walletFilePath = self.getWalletFilePath(
-            self.getKeyringsBaseDir(), walletFileName)
+            self.getContextBasedKeyringsBaseDir(), walletFileName)
         self.restoreWalletByPath(walletFilePath)
-
-    def restoreWallet(self, withName=None):
-        if withName:
-            walletFileName = Cli.getPersistentWalletFileName(
-                self.name, self.currPromptText, withName)
-        else:
-            walletFileName = self.walletFileName
-        self.restoreWalletByName(walletFileName)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
-        keyName = walletFileName.replace(WALLET_FILE_NAME_PREFIX, "")
-
-        if WALLET_FILE_NAME_ENV_SEPARATOR not in keyName:
-            return keyName
-
-        return keyName.rsplit(WALLET_FILE_NAME_ENV_SEPARATOR, 1)[0]
+        return walletFileName.replace(
+            ".{}".format(WALLET_FILE_EXTENSION), "")
 
     @staticmethod
     def _normalizedWalletFileName(walletName):
-        return "{}{}".format(WALLET_FILE_NAME_PREFIX, walletName).lower()
+        return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
 
     @staticmethod
-    def getPersistentWalletFileName(cliName, currPromptText, walletName=""):
+    def getPromptAndEnv(cliName, currPromptText):
         if PROMPT_ENV_SEPARATOR not in currPromptText:
-            prompt, envName = cliName, ""
+            return cliName, ""
         else:
-            prompt, envName = currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
+            return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
-        if envName != "":
-            targetWalletFileName = envName
-        else:
-            targetWalletFileName = prompt
-
-        if walletName != "":
-            targetWalletFileName = "{}{}{}".format(
-                walletName, WALLET_FILE_NAME_ENV_SEPARATOR,
-                targetWalletFileName)
-        return Cli._normalizedWalletFileName(targetWalletFileName)
+    def getPersistentWalletFileName(self):
+        fileName = self._activeWallet.name if self._activeWallet \
+            else self.name
+        return Cli._normalizedWalletFileName(fileName)
 
 
     @property
     def walletFileName(self):
-        activeWalletName = self._activeWallet.name if self._activeWallet else ""
-        return Cli.getPersistentWalletFileName(self.name, self.currPromptText,
-                                               activeWalletName)
+        return self.getPersistentWalletFileName()
 
     def getKeyringsBaseDir(self):
         return os.path.expanduser(os.path.join(self.config.baseDir,
-                                  self.config.keyringsDir))
+                                        self.config.keyringsDir))
 
-    def isAnyWalletFileExistsForEnv(self, envName):
+    def getContextBasedKeyringsBaseDir(self):
+        keyringsBaseDir = self.getKeyringsBaseDir()
+        prompt, envName = Cli.getPromptAndEnv(self.name,
+                                              self.currPromptText)
+        envKeyringsDir = keyringsBaseDir
+        if envName != "":
+            envKeyringsDir = os.path.join(keyringsBaseDir, envName)
+
+        return envKeyringsDir
+
+    def isAnyWalletFileExistsForGivenEnv(self, env):
         keyringPath = self.getKeyringsBaseDir()
-        pattern = "{}/{}*{}{}".format(keyringPath, WALLET_FILE_NAME_PREFIX,
-                                  WALLET_FILE_NAME_ENV_SEPARATOR, envName)
+        envKeyringPath = os.path.join(keyringPath, env)
+        pattern = "{}/*.{}".format(envKeyringPath, WALLET_FILE_EXTENSION)
+        return self.isAnyWalletFileExistsForGivenContext(pattern)
+
+
+    def isAnyWalletFileExistsForGivenContext(self, pattern):
         files = glob.glob(pattern)
         if files:
             return True
         else:
             return False
+
+    def isAnyWalletFileExistsForCurrentContext(self):
+        keyringPath = self.getContextBasedKeyringsBaseDir()
+        pattern = "{}/*.{}".format(keyringPath, WALLET_FILE_EXTENSION)
+        return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     @staticmethod
     def getWalletFilePath(basedir, walletFileName):
@@ -1505,14 +1513,11 @@ class Cli:
             # will create a wallet
             encodedWallet = encode(self._activeWallet)
             try:
-                keyringsBaseDir = self.getKeyringsBaseDir()
-
-                if not os.path.exists(keyringsBaseDir):
-                    os.makedirs(keyringsBaseDir)
-
-                with open(Cli.getWalletFilePath(
-                        keyringsBaseDir, self.walletFileName), "w+") \
-                        as walletFile:
+                keyringsDir = self.getContextBasedKeyringsBaseDir()
+                createDirIfNotExists(keyringsDir)
+                walletFilePath = Cli.getWalletFilePath(
+                        keyringsDir, self.walletFileName)
+                with open(walletFilePath, "w+") as walletFile:
                     try:
                         walletFile.write(encodedWallet)
                     except ValueError as ex:
