@@ -1322,6 +1322,11 @@ class Cli:
         else:
             return False
 
+    def getWalletNotExistsForGivenContextMsg(self, context):
+        return \
+            "Given wallet file ({}) doesn't belong to current context.".\
+                format(context)
+
     def _searchAndSetWallet(self, name):
         if self._activeWallet:
             self._saveActiveWallet()
@@ -1330,11 +1335,7 @@ class Cli:
             if self.checkIfWalletPathBelongsToCurrentContext(name):
                 self._loadFromPath(name.lower())
             else:
-                self.print(
-                    "Given wallet file ({}) doesn't belong to current environment. "
-                    "Please connect to that environment or restart cli "
-                    "if given wallet file doesn't belong to any environment "
-                    "and then retry.".format(name))
+                self.print(self.getWalletNotExistsForGivenContextMsg(name))
         else:
             self._loadWalletIfExistsAndNotLoaded(name)
             wallet = self._getWalletByName(name)
