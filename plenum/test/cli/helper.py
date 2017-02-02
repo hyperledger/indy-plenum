@@ -365,11 +365,14 @@ def assertCliTokens(matchedVars, tokens):
                 "Key '{}' not found in machedVars (matchedValue={})".\
                     format(key, matchedValue)
 
+        expectedValueLen = len(expectedValue) if expectedValue else 0
+        matchedValueLen = len(matchedValue) if matchedValue else 0
+
         assert matchedValue == expectedValue, \
             "Value not matched for key '{}', " \
             "\nexpectedValue (length: {}): {}, " \
             "\nactualValue (length: {}): {}".\
-                format(key, len(expectedValue), expectedValue,
-                       len(matchedValue), matchedValue)
+                format(key, expectedValueLen, expectedValue,
+                       matchedValueLen, matchedValue)
 
 
