@@ -46,6 +46,8 @@ class Suspicions:
         Suspicion(5, "PREPARE time does not match with PRE-PREPARE")
     CM_TIME_WRONG = \
         Suspicion(5, "COMMIT time does not match with PRE-PREPARE")
+    PPR_REJECT_WRONG = \
+        Suspicion(16, "Pre-Prepare message has incorrect reject")
 
     @classmethod
     def getList(cls):

@@ -1,5 +1,5 @@
 from copy import copy
-from typing import List
+from typing import List, Tuple
 
 from ledger.ledger import Ledger as _Ledger
 
@@ -19,16 +19,22 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = self.uncommittedTree.root_hash
         self.uncommittedTxns.append(txns)
 
-    def commitTxns(self, count: int):
+    def commitTxns(self, count: int) -> Tuple[int, int]:
         """
         The number of txns from the beginning of `uncommittedTxns` to commit
         :param count:
-        :return:
+        :return: a tuple of 2 seqNos indicating the start and end of sequence
+        numbers of the committed txns
         """
+        committedSize = self.size
         for txn in self.uncommittedTxns[:count]:
             self.append(txn)
-        self.uncommittedTxns = self.uncommittedTxns[count:]
         self.discardTxns(count)
+        return committedSize + 1, committedSize + count
+
+    def appendCommittedTxns(self, txns: List):
+        # Called while receiving committed txns from other nodes
+        self.append(txns)
 
     def discardTxns(self, index: int):
         """

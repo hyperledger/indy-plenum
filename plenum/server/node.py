@@ -37,10 +37,11 @@ from plenum.common.signer import Signer
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
+from plenum.common.state import PruningState
 from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
-from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.txn_util import getTxnOrderedFields, reqToTxn
 from plenum.common.types import Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
@@ -50,8 +51,8 @@ from plenum.common.types import Propagate, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    ConsProofRequest, ElectionType, ThreePhaseType, ThreePCState, \
+    POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
 from plenum.common.request import Request
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
 from plenum.common.config_util import getConfig
@@ -67,6 +68,7 @@ from plenum.server import replica
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
+from plenum.server.domain_req_handler import DomainReqHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
@@ -81,7 +83,6 @@ from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
-
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -202,7 +203,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           [Nomination, Primary, Reelection])
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit, Checkpoint,
+                          [PrePrepare, Prepare, Commit,
                            ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
@@ -256,7 +257,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                PrePrepare, Prepare,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ConsProofRequest, Checkpoint, ThreePCState)
+                               ConsProofRequest, ThreePCState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -270,15 +271,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.secondaryStorage = self.getSecondaryStorage()
         self.addGenesisNyms()
         self.ledgerManager = self.getLedgerManager()
+        self.states = {}    # type: Dict[int, PruningState]
 
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.states[POOL_LEDGER_ID] = self.poolManager.state
 
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
             postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
             postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
@@ -325,6 +329,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._id = None
         self._wallet = None
+        self.reqHandler = self.getDomainReqHandler()
 
     @property
     def id(self):
@@ -348,6 +353,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def __repr__(self):
         return self.name
+
+    def getDomainReqHandler(self):
+        return DomainReqHandler(self.domainLedger,
+                                self.states[DOMAIN_LEDGER_ID])
 
     # noinspection PyAttributeOutsideInit
     def setF(self):
@@ -378,6 +387,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainLedgerStatus(self):
         return LedgerStatus(DOMAIN_LEDGER_ID, self.domainLedger.size,
                             self.domainLedger.root_hash)
+
+    def getLedgerRootHash(self, ledgerId, isCommitted=True):
+        ledger = self.ledgerManager.ledgers.get(ledgerId)
+        if not ledger:
+            raise RuntimeError('Ledger with id {} does not exist')
+        ledger = ledger['ledger']
+        if isCommitted:
+            return ledger.root_hash
+        else:
+            return ledger.uncommittedRootHash or ledger.root_hash
+
+    def stateRootHash(self, ledgerId, isCommitted=True):
+        state = self.states.get(ledgerId)
+        if not state:
+            raise RuntimeError('State with id {} does not exist')
+        return state.committedHeadHash if isCommitted else state.headHash
 
     @property
     def isParticipating(self):
@@ -461,14 +486,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getLedgerManager(self):
         return LedgerManager(self, ownedByNode=True)
 
+    def loadDomainState(self):
+        return PruningState(os.path.join(self.dataLocation,
+                                         self.config.domain_state_db_name))
+
     @staticmethod
-    def ledgerForRequest(request: Request):
+    def ledgerIdForRequest(request: Request):
         assert request.operation[TXN_TYPE]
         typ = request.operation[TXN_TYPE]
-        if typ in POOL_TXN_TYPES:
-            return POOL_LEDGER_ID
-        else:
-            return DOMAIN_LEDGER_ID
+        return Node.ledgerId(typ)
 
     def start(self, loop):
         oldstatus = self.status
@@ -870,6 +896,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      format(self, msg, self.mode,
                                             recvd))
                         self.stashedOrderedReqs.append(msg)
+                elif isinstance(msg, Reject):
+                    reqKey = (msg.identifier, msg.reqId)
+                    reject = Reject(*reqKey,
+                                    self.reasonForClientFromException(msg.reason))
+                    self.transmitToClient(reject, self.requestSender[reqKey])
+                    self.doneProcessingReq(*reqKey)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
@@ -1150,7 +1182,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
-        reason = "client request invalid: {}".format(friendly)
+        reason = self.reasonForClientFromException(ex)
         if isinstance(msg, Request):
             msg = msg.__getstate__()
         identifier = msg.get(f.IDENTIFIER.nm)
@@ -1275,14 +1307,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # self.sync3PhaseState()
         self.checkInstances()
 
-    def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
-        if ledgerType == POOL_LEDGER_ID:
+    def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
+        if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
-        if ledgerType == DOMAIN_LEDGER_ID:
+        if ledgerId == DOMAIN_LEDGER_ID:
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
+
+    def getLedger(self, ledgerId):
+        return self.ledgerManager.ledgers.get(ledgerId)
+
+    def getState(self, ledgerId):
+        return self.states.get(ledgerId)
 
     def sendPoolLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
@@ -1290,20 +1328,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendDomainLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
 
-    def getLedgerStatus(self, ledgerType: int):
-        if ledgerType == POOL_LEDGER_ID:
+    def getLedgerStatus(self, ledgerId: int):
+        if ledgerId == POOL_LEDGER_ID:
             return self.poolLedgerStatus
-        if ledgerType == DOMAIN_LEDGER_ID:
+        if ledgerId == DOMAIN_LEDGER_ID:
             return self.domainLedgerStatus
 
-    def sendLedgerStatus(self, nodeName: str, ledgerType: int):
-        ledgerStatus = self.getLedgerStatus(ledgerType)
+    def sendLedgerStatus(self, nodeName: str, ledgerId: int):
+        ledgerStatus = self.getLedgerStatus(ledgerId)
         if ledgerStatus:
             rid = self.nodestack.getRemote(nodeName).uid
             self.send(ledgerStatus, rid)
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
-                         .format(self, ledgerType, nodeName))
+                         .format(self, ledgerId, nodeName))
 
     def doStaticValidation(self, clientId, reqId, operation):
         if TXN_TYPE not in operation:
@@ -1323,8 +1361,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         State based validation
         """
-        if self.ledgerForRequest(request) == POOL_LEDGER_ID:
+        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
             self.poolManager.doDynamicValidation(request)
+        else:
+            self.customDynamicValidation(request)
+
+    def applyReq(self, request: Request):
+        """
+        Apply request to appropriate ledger and state
+        """
+        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
+            self.poolManager.applyReq(request)
+        else:
+            self.customRequestApplication(request)
+
+    def customDynamicValidation(self, request: Request):
+        self.reqHandler.validateReq(request, self.config)
+
+    def customRequestApplication(self, request: Request):
+        self.reqHandler.applyReq(request)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -1365,7 +1420,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
-            self.checkRequestAuthorized(request)
+            # self.checkRequestAuthorized(request)
             if not self.isProcessingReq(*request.key):
                 self.startedProcessingReq(*request.key, frm)
             # If not already got the propagate request(PROPAGATE) for the
@@ -1423,35 +1478,38 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, identifier, reqId, ppTime = tuple(ordered)
+        instId, viewNo, reqIdrs, ppTime, ledgerId, stateRoot, txnRoot \
+            = tuple(ordered)
 
-        self.monitor.requestOrdered(identifier,
-                                    reqId,
+        self.monitor.requestOrdered(reqIdrs,
                                     instId,
                                     byMaster=(instId == self.instances.masterId))
 
         # Only the request ordered by master protocol instance are executed by
         # the client
         if instId == self.instances.masterId:
-            key = (identifier, reqId)
-            if key in self.requests:
-                req = self.requests[key].request
-                self.executeRequest(ppTime, req)
-                logger.debug("{} executed client request {} {}".
-                             format(self.name, identifier, reqId))
-            # If the client request hasn't reached the node but corresponding
-            # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
-            # then retry 3 times
+            reqs = [self.requests[i, r].request for (i, r) in reqIdrs
+                    if (i, r) in self.requests]
+            if len(reqs) == len(reqIdrs):
+                self.executeBatch(ppTime, reqs, ledgerId, stateRoot, txnRoot)
+                logger.debug("{} executing Ordered batch of {} requests".
+                             format(self.name, len(reqIdrs)))
+                # If the client request hasn't reached the node but corresponding
+                # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
+                # then retry 3 times
             elif retryNo < 3:
                 retryNo += 1
                 asyncio.sleep(random.randint(2, 4))
                 self.processOrdered(ordered, retryNo)
-                logger.debug("{} retrying executing client request {} {}".
-                             format(self.name, identifier, reqId))
+                logger.debug('{} retrying executing ordered client requests'.
+                             format(self.name))
+            else:
+                logger.warn('{} not retrying processing Ordered any more {} '
+                            'times'.format(self, retryNo))
             return True
         else:
-            logger.trace("{} got ordered request from backup replica".
-                         format(self))
+            logger.trace("{} got ordered requests from backup replica {}".
+                         format(self, instId))
 
     def processEscalatedException(self, ex):
         """
@@ -1655,88 +1713,87 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     #         except Exception as ex:
     #             raise InvalidClientRequest(clientId, reqId) from ex
 
-    def checkRequestAuthorized(self, request):
-        """
-        Subclasses can implement this method to throw an
-        UnauthorizedClientRequest if the request is not authorized.
+    # def checkRequestAuthorized(self, request):
+    #     """
+    #     Subclasses can implement this method to throw an
+    #     UnauthorizedClientRequest if the request is not authorized.
+    #
+    #     If a request makes it this far, the signature has been verified
+    #     to match the identifier.
+    #     """
+    #     if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+    #         return self.poolManager.checkRequestAuthorized(request)
+    #     if request.operation.get(TXN_TYPE) == NYM:
+    #         origin = request.identifier
+    #         error = None
+    #         if not self.secondaryStorage.isSteward(origin):
+    #             error = "Only Steward is allowed to do this transactions"
+    #         if request.operation.get(ROLE) == STEWARD:
+    #             error = self.authErrorWhileAddingSteward(request)
+    #         if error:
+    #             raise UnauthorizedClientRequest(request.identifier,
+    #                                             request.reqId,
+    #                                             error)
 
-        If a request makes it this far, the signature has been verified
-        to match the identifier.
-        """
-        if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            return self.poolManager.checkRequestAuthorized(request)
-        if request.operation.get(TXN_TYPE) == NYM:
-            origin = request.identifier
-            error = None
-            if not self.secondaryStorage.isSteward(origin):
-                error = "Only Steward is allowed to do this transactions"
-            if request.operation.get(ROLE) == STEWARD:
-                error = self.authErrorWhileAddingSteward(request)
-            if error:
-                raise UnauthorizedClientRequest(request.identifier,
-                                                request.reqId,
-                                                error)
-
-    def executeRequest(self, ppTime: float, req: Request) -> None:
+    def executeBatch(self, ppTime: float, reqs: List[Request], ledgerId,
+                     stateRoot, txnRoot) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param viewNo: the view number (See glossary)
         :param ppTime: the time at which PRE-PREPARE was sent
-        :param req: the client REQUEST
+        :param reqs: list of client REQUESTs
         """
-
-        self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
+        self.requestExecuter[ledgerId](ppTime, reqs, stateRoot, txnRoot)
 
     # TODO: Find a better name for the function
-    def doCustomAction(self, ppTime, req):
-        reply = self.generateReply(ppTime, req)
-        merkleProof = self.appendResultToLedger(reply.result)
-        reply.result.update(merkleProof)
-        self.sendReplyToClient(reply, req.key)
-        if reply.result.get(TXN_TYPE) == NYM:
-            self.addNewRole(reply.result)
+    def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
+        seqNoStart, seqNoEnd = self.domainLedger.commitTxns(len(reqs))
+        self.states[DOMAIN_LEDGER_ID].commit(rootHash=stateRoot)
+        assert self.domainLedger.root_hash == txnRoot
+        for seqNo, req in zip(reqs, range(seqNoStart, seqNoEnd + 1)):
+            # TODO: Send txn and state proof to the client
+            txn = reqToTxn(req)
+            txn[F.seqNo.name] = seqNo
+            txn[TXN_TIME] = ppTime
+            self.sendReplyToClient(txn, req.key)
+            if txn[TXN_TYPE] == NYM:
+                self.addNewRole(txn)
 
     @staticmethod
-    def ledgerTypeForTxn(txnType: str):
+    def ledgerId(txnType: str):
         return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
 
-    def appendResultToLedger(self, data):
-        ledgerType = self.ledgerTypeForTxn(data[TXN_TYPE])
-        return self.ledgerManager.appendToLedger(ledgerType, data)
+    # def appendResultToLedger(self, data):
+    #     ledgerId = self.ledgerId(data[TXN_TYPE])
+    #     return self.ledgerManager.appendToLedger(ledgerId, data)
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 
-    # @staticmethod
-    # def genTxnId(identifier, reqId):
-    #     return sha256("{}{}".format(identifier, reqId).encode()).hexdigest()
-
-    def generateReply(self, ppTime: float, req: Request) -> Reply:
-        """
-        Return a new clientReply created using the viewNo, request and the
-        computed txnId of the request
-
-        :param ppTime: the time at which PRE-PREPARE was sent
-        :param req: the REQUEST
-        :return: a Reply generated from the request
-        """
-        logger.debug("{} generating reply for {}".format(self, req))
-        # txnId = self.genTxnId(req.identifier, req.reqId)
-        result = {
-            f.IDENTIFIER.nm: req.identifier,
-            f.REQ_ID.nm: req.reqId,
-            f.SIG.nm: req.signature,
-            # TXN_ID: txnId,
-            TXN_TIME: int(ppTime)
-        }
-        result.update(req.operation)
-        for processor in self.reqProcessors:
-            result.update(processor.process(req))
-
-        return Reply(result)
+    # def generateReply(self, ppTime: float, req: Request) -> Reply:
+    #     """
+    #     Return a new clientReply created using the viewNo, request and the
+    #     computed txnId of the request
+    #
+    #     :param ppTime: the time at which PRE-PREPARE was sent
+    #     :param req: the REQUEST
+    #     :return: a Reply generated from the request
+    #     """
+    #     logger.debug("{} generating reply for {}".format(self, req))
+    #     result = {
+    #         f.IDENTIFIER.nm: req.identifier,
+    #         f.REQ_ID.nm: req.reqId,
+    #         f.SIG.nm: req.signature,
+    #         TXN_TIME: int(ppTime)
+    #     }
+    #     result.update(req.operation)
+    #     for processor in self.reqProcessors:
+    #         result.update(processor.process(req))
+    #
+    #     return Reply(result)
 
     def addNewRole(self, txn):
         """
@@ -1770,15 +1827,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
-    def authErrorWhileAddingSteward(self, request):
-        origin = request.identifier
-        if not self.secondaryStorage.isSteward(origin):
-            return "{} is not a steward so cannot add a new steward". \
-                format(origin)
-        if self.stewardThresholdExceeded():
-            return "New stewards cannot be added by other stewards as "\
-                "there are already {} stewards in the system".format(
-                    self.config.stewardThreshold)
+    # def authErrorWhileAddingSteward(self, request):
+    #     origin = request.identifier
+    #     if not self.secondaryStorage.isSteward(origin):
+    #         return "{} is not a steward so cannot add a new steward". \
+    #             format(origin)
+    #     if self.stewardThresholdExceeded():
+    #         return "New stewards cannot be added by other stewards as "\
+    #             "there are already {} stewards in the system".format(
+    #                 self.config.stewardThreshold)
 
     def stewardThresholdExceeded(self) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
@@ -1871,6 +1928,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if not isLocalKeepSetup(name, baseDir):
             raise REx(REx.reason.format(name) + cls.keygenScript)
+
+    @staticmethod
+    def reasonForClientFromException(ex: Exception):
+        friendly = friendlyEx(ex)
+        reason = "client request invalid: {}".format(friendly)
+        return reason
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """

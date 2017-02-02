@@ -28,7 +28,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
     def sendIncorrectTxns(self, req, frm):
-        ledgerType = getattr(req, f.LEDGER_TYPE.nm)
+        ledgerType = getattr(req, f.LEDGER_ID.nm)
         if ledgerType == 1:
             logger.info("{} being malicious and sending incorrect transactions"
                         " for catchup request {} from {}".
@@ -43,7 +43,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                     txns[seqNo][TXN_TYPE] = "randomtype"
             consProof = [b64encode(p).decode() for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
-            self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns,
+            self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                        consProof), to=frm)
         else:
             self.processCatchupReq(req, frm)

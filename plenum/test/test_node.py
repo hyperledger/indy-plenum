@@ -240,7 +240,8 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@Spyable(methods=[replica.Replica.doPrePrepare,
+@Spyable(methods=[
+                  # replica.Replica.doPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
                   replica.Replica.isValidPrepare,
@@ -395,11 +396,12 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
         self.masterReqLatenciesTest = {}
 
-    def requestOrdered(self, identifier: str, reqId: int, instId: int,
+    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False):
-        duration = super().requestOrdered(identifier, reqId, instId, byMaster)
-        if byMaster and duration is not None:
-            self.masterReqLatenciesTest[(identifier, reqId)] = duration
+        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+        if byMaster and durations:
+            for (identifier, reqId), duration in durations.items():
+                self.masterReqLatenciesTest[identifier, reqId] = duration
 
     def reset(self):
         super().reset()

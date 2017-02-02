@@ -64,7 +64,7 @@ setup(
     install_requires=['raet', 'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers', 'psutil'],
+                      'sortedcontainers', 'psutil', 'leveldb'],
     extras_require={
         'stats': ['python-firebase']
     },

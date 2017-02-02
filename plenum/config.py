@@ -20,19 +20,16 @@ cliNodeReg = OrderedDict([
     ('DeltaC', ('127.0.0.1', 9708))
 ])
 
-baseDir = "~/.plenum/"
+baseDir = '~/.plenum/'
+keyringsDir = 'keyrings'
+nodeDataDir = 'data/nodes'
+clientDataDir = 'data/clients'
+walletDir = 'wallet'
 
-keyringsDir = "keyrings"
-
-nodeDataDir = "data/nodes"
-
-clientDataDir = "data/clients"
-
-domainTransactionsFile = "transactions_sandbox"
-
-poolTransactionsFile = "pool_transactions_sandbox"
-
-walletDir = "wallet"
+poolTransactionsFile = 'pool_transactions_sandbox'
+domainTransactionsFile = 'transactions_sandbox'
+pool_state_db_name = 'pool_state'
+domain_state_db_name = 'domain_state'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 

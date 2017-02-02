@@ -7,7 +7,7 @@ from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
-    CHECKPOINT_STATE, THREE_PC_STATE
+    CHECKPOINT_STATE, THREE_PC_STATE, REJECT
 
 HA = NamedTuple("HA", [
     ("host", str),
@@ -53,17 +53,12 @@ class f:  # provides a namespace for reusable field constants
     DISCARDED = Field("discarded", int)
     STATE_ROOT = Field("state_root", str)
     TXN_ROOT = Field("txn_root", str)
-    CoSi_ANNOUNCEMENT = Field("cosi_announcement", Any)
-    CoSi_COMMITMENT = Field("cosi_commitment", Any)
-    CoSi_CHALLENGE = Field("cosi_challenge", Any)
-    CoSi_RESPONSE = Field("cosi_response", Any)
-    CoSi_MULTISIG = Field("cosi_multisig", Any)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
     TXN_SEQ_NO = Field("txnSeqNo", int)
     # 0 for pool transaction ledger, 1 for domain transaction ledger
-    LEDGER_TYPE = Field("ledgerType", int)
+    LEDGER_ID = Field("ledgerId", int)
     SEQ_NO_START = Field("seqNoStart", int)
     SEQ_NO_END = Field("seqNoEnd", int)
     HASHES = Field("hashes", List[str])
@@ -156,7 +151,7 @@ RequestNack = TaggedTuple(REQNACK, [
     f.REQ_ID,
     f.REASON])
 
-Reject = TaggedTuple(REQNACK, [
+Reject = TaggedTuple(REJECT, [
     f.IDENTIFIER,
     f.REQ_ID,
     f.REASON])
@@ -168,9 +163,12 @@ PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
-    f.IDENTIFIER,
-    f.REQ_ID,
-    f.PP_TIME])
+    f.REQ_IDR,
+    f.PP_TIME,
+    f.LEDGER_ID,
+    f.STATE_ROOT,
+    f.TXN_ROOT,
+    ])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
@@ -190,7 +188,7 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.REQ_IDR,
     f.DISCARDED,
     f.DIGEST,
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.STATE_ROOT,
     f.TXN_ROOT,
     ])
@@ -198,7 +196,10 @@ PrePrepare = TaggedTuple(PREPREPARE, [
 Prepare = TaggedTuple(PREPARE, [
     f.INST_ID,
     f.VIEW_NO,
-    f.PP_SEQ_NO
+    f.PP_SEQ_NO,
+    f.DIGEST,
+    f.STATE_ROOT,
+    f.TXN_ROOT,
     ])
 
 Commit = TaggedTuple(COMMIT, [
@@ -233,12 +234,12 @@ InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.TXN_SEQ_NO,
     f.MERKLE_ROOT])
 
 ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
     f.OLD_MERKLE_ROOT,
@@ -250,20 +251,20 @@ ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
 # is familiar
 
 CatchupReq = TaggedTuple(CATCHUP_REQ, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
 ])
 
 CatchupRep = TaggedTuple(CATCHUP_REP, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.TXNS,
     f.CONS_PROOF
 ])
 
 
 ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END
 ])

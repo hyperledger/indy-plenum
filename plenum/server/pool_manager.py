@@ -1,9 +1,11 @@
+import os
 from typing import Dict, Tuple
 
 from copy import deepcopy
 from ledger.util import F
 from plenum.common.request import Request
-from plenum.common.txn_util import updateGenesisPoolTxnFile
+from plenum.common.state import PruningState
+from plenum.common.txn_util import updateGenesisPoolTxnFile, reqToTxn
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
@@ -11,14 +13,14 @@ from plenum.common.exceptions import UnsupportedOperation, \
 
 from plenum.common.stack_manager import TxnStackManager
 
-from plenum.common.types import HA, f, Reply
+from plenum.common.types import HA, f, Reply, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR
+    VALIDATOR, TXN_TIME
 from plenum.common.log import getlogger
 
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
-
+from plenum.server.pool_req_handler import PoolReqHandler
 
 logger = getlogger()
 
@@ -46,9 +48,7 @@ class HasPoolManager:
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
-            for types in POOL_TXN_TYPES:
-                self.requestExecuter[types] = \
-                    self.poolManager.executePoolTxnRequest
+            self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnRequest
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,
@@ -66,6 +66,16 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
+        self.state = self.loadState()
+        self.reqHandler = self.getPoolReqHandler()
+
+    def getPoolReqHandler(self):
+        return PoolReqHandler(self.ledger, self.state,
+                              self.node.states[DOMAIN_LEDGER_ID])
+
+    def loadState(self):
+        return PruningState(os.path.join(self.node.dataLocation,
+                                         self.config.pool_state_db_name))
 
     @property
     def hasLedger(self):
@@ -110,23 +120,31 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def executePoolTxnRequest(self, ppTime, req):
+    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot):
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
 
         :param ppTime: PrePrepare request time
-        :param req: request
+        :param reqs: request
         """
-        reply = self.node.generateReply(ppTime, req)
-        op = req.operation
-        reply.result.update(op)
-        merkleProof = self.node.appendResultToLedger(reply.result)
-        txn = deepcopy(reply.result)
-        txn[F.seqNo.name] = merkleProof[F.seqNo.name]
-        self.onPoolMembershipChange(txn)
-        reply.result.update(merkleProof)
-        self.node.sendReplyToClient(reply, req.key)
+        seqNoStart, seqNoEnd = self.reqHandler.commitReqs(len(reqs), stateRoot)
+        assert self.ledger.root_hash == txnRoot
+        for seqNo, req in zip(reqs, range(seqNoStart, seqNoEnd+1)):
+            # TODO: Send txn and state proof to the client
+            # reply = self.node.generateReply(ppTime, req)
+            # op = req.operation
+            # reply.result.update(op)
+            # merkleProof = self.node.appendResultToLedger(reply.result)
+            # txn = deepcopy(reply.result)
+            # txn[F.seqNo.name] = merkleProof[F.seqNo.name]
+            # self.onPoolMembershipChange(txn)
+            # reply.result.update(merkleProof)
+            txn = reqToTxn(req)
+            txn[F.seqNo.name] = seqNo
+            self.onPoolMembershipChange(deepcopy(txn))
+            txn[TXN_TIME] = ppTime
+            self.node.sendReplyToClient(txn, req.key)
 
     def getReplyFor(self, request):
         return self.node.getReplyFromLedger(self.ledger, request)
@@ -260,51 +278,53 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             raise InvalidClientRequest(clientId, reqId)
 
     def doDynamicValidation(self, request: Request):
-        # TODO:
-        pass
+        self.reqHandler.validateReq(request)
 
-    def checkRequestAuthorized(self, request):
-        typ = request.operation.get(TXN_TYPE)
-        error = None
-        if typ == NODE:
-            nodeNym = request.operation.get(TARGET_NYM)
-            if self.nodeExistsInLedger(nodeNym):
-                error = self.authErrorWhileUpdatingNode(request)
-            else:
-                error = self.authErrorWhileAddingNode(request)
-        if error:
-            raise UnauthorizedClientRequest(request.identifier, request.reqId,
-                                            error)
+    def applyReq(self, request: Request):
+        self.reqHandler.applyReq(request)
 
-    def authErrorWhileAddingNode(self, request):
-        origin = request.identifier
-        operation = request.operation
-        isSteward = self.node.secondaryStorage.isSteward(origin)
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE:
-                if txn[f.IDENTIFIER.nm] == origin:
-                    return "{} already has a node with name {}".\
-                        format(origin, txn[DATA][ALIAS])
-                if txn[DATA] == operation.get(DATA):
-                    return "transaction data {} has conflicts with " \
-                           "request data {}".format(txn[DATA],
-                                                    operation.get(DATA))
-
-    def authErrorWhileUpdatingNode(self, request):
-        origin = request.identifier
-        operation = request.operation
-        isSteward = self.node.secondaryStorage.isSteward(origin)
-        if not isSteward:
-            return "{} is not a steward so cannot update a node".format(origin)
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
-                            txn[f.IDENTIFIER.nm] == origin:
-                return
-        return "{} is not a steward of node {}".\
-            format(origin, operation.get(TARGET_NYM))
+    # def checkRequestAuthorized(self, request):
+    #     typ = request.operation.get(TXN_TYPE)
+    #     error = None
+    #     if typ == NODE:
+    #         nodeNym = request.operation.get(TARGET_NYM)
+    #         if self.nodeExistsInLedger(nodeNym):
+    #             error = self.authErrorWhileUpdatingNode(request)
+    #         else:
+    #             error = self.authErrorWhileAddingNode(request)
+    #     if error:
+    #         raise UnauthorizedClientRequest(request.identifier, request.reqId,
+    #                                         error)
+    #
+    # def authErrorWhileAddingNode(self, request):
+    #     origin = request.identifier
+    #     operation = request.operation
+    #     isSteward = self.node.secondaryStorage.isSteward(origin)
+    #     if not isSteward:
+    #         return "{} is not a steward so cannot add a new node".format(origin)
+    #     for txn in self.ledger.getAllTxn().values():
+    #         if txn[TXN_TYPE] == NODE:
+    #             if txn[f.IDENTIFIER.nm] == origin:
+    #                 return "{} already has a node with name {}".\
+    #                     format(origin, txn[DATA][ALIAS])
+    #             if txn[DATA] == operation.get(DATA):
+    #                 return "transaction data {} has conflicts with " \
+    #                        "request data {}".format(txn[DATA],
+    #                                                 operation.get(DATA))
+    #
+    # def authErrorWhileUpdatingNode(self, request):
+    #     origin = request.identifier
+    #     operation = request.operation
+    #     isSteward = self.node.secondaryStorage.isSteward(origin)
+    #     if not isSteward:
+    #         return "{} is not a steward so cannot update a node".format(origin)
+    #     for txn in self.ledger.getAllTxn().values():
+    #         if txn[TXN_TYPE] == NODE and \
+    #                         txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
+    #                         txn[f.IDENTIFIER.nm] == origin:
+    #             return
+    #     return "{} is not a steward of node {}".\
+    #         format(origin, operation.get(TARGET_NYM))
 
     @property
     def merkleRootHash(self):

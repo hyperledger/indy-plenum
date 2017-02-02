@@ -9,9 +9,10 @@ from ledger.util import F
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
+from plenum.common.request import Request
 from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
-from plenum.common.types import f
+from plenum.common.types import f, OPERATION
 from plenum.common.log import getlogger
 
 
@@ -64,7 +65,7 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
         # since there might be multiple clients running on a machine so genesis
         #  files should be updated safely.
         # TODO: There is no automated test in the codebase that confirms it.
-        # It has only been manaully tested in the python terminal. Add a test
+        # It has only been manually tested in the python terminal. Add a test
         # for it using multiple processes writing concurrently
         with portalocker.Lock(os.path.join(genesisTxnDir, genesisTxnFile),
                               truncate=None,
@@ -85,3 +86,20 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn):
     except (portalocker.LockException,
             portalocker.LockException) as ex:
         return
+
+
+def reqToTxn(req: Request):
+    """
+    Transform a client request such that it can be stored in the ledger.
+    Also this is what will be returned to the client in the reply
+    :param req:
+    :return:
+    """
+    data = req.getSigningState()
+    res = {
+        f.IDENTIFIER.nm: req.identifier,
+        f.REQ_ID.nm: req.reqId,
+        f.SIG.nm: req.signature
+    }
+    res.update(data[OPERATION])
+    return res

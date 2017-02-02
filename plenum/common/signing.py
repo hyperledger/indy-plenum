@@ -60,7 +60,8 @@ def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):
-        keys = [k for k in obj.keys() if level > 0 or k not in topLevelKeysToIgnore]  # remove signature if top level
+        keys = [k for k in obj.keys() if level > 0 or k not in
+                (topLevelKeysToIgnore or [])]  # remove signature if top level
         keys.sort()
         strs = []
         for k in keys:

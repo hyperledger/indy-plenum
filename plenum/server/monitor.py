@@ -191,48 +191,58 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
-    def requestOrdered(self, identifier: str, reqId: int, instId: int,
-                       byMaster: bool = False) -> Optional[float]:
+    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
+                       byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
         might have been reset due to view change due to which this method
         returns None
         """
-        if (identifier, reqId) not in self.requestOrderingStarted:
-            logger.debug("Got ordered request with identifier {} and reqId {} "
-                          "but it was from a previous view".
-                          format(identifier, reqId))
-            return
         now = time.perf_counter()
-        duration = now - self.requestOrderingStarted[(identifier, reqId)]
-        reqs, tm = self.numOrderedRequests[instId]
-        self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
-        if byMaster:
-            self.masterReqLatencies[(identifier, reqId)] = duration
-            self.orderedRequestsInLast.append(now)
-            self.latenciesByMasterInLast.append((now, duration))
-        else:
-            if instId not in self.latenciesByBackupsInLast:
-                self.latenciesByBackupsInLast[instId] = []
-            self.latenciesByBackupsInLast[instId].append((now, duration))
+        durations = {}
+        for identifier, reqId in reqIdrs:
+            if (identifier, reqId) not in self.requestOrderingStarted:
+                logger.debug(
+                    "Got ordered request with identifier {} and reqId {} "
+                    "but it was from a previous view".
+                    format(identifier, reqId))
+                continue
+            duration = now - self.requestOrderingStarted[(identifier, reqId)]
+            if byMaster:
+                self.masterReqLatencies[(identifier, reqId)] = duration
+                self.orderedRequestsInLast.append(now)
+                self.latenciesByMasterInLast.append((now, duration))
+            else:
+                if instId not in self.latenciesByBackupsInLast:
+                    self.latenciesByBackupsInLast[instId] = []
+                self.latenciesByBackupsInLast[instId].append((now, duration))
 
-        if identifier not in self.clientAvgReqLatencies[instId]:
-            self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
-        totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
-        # If avg of `n` items is `a`, thus sum of `n` items is `x` where
-        # `x=n*a` then avg of `n+1` items where `y` is the new item is
-        # `((n*a)+y)/n+1`
-        self.clientAvgReqLatencies[instId][identifier] = \
-            (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            if identifier not in self.clientAvgReqLatencies[instId]:
+                self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
+            totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
+            # If avg of `n` items is `a`, thus sum of `n` items is `x` where
+            # `x=n*a` then avg of `n+1` items where `y` is the new item is
+            # `((n*a)+y)/n+1`
+            self.clientAvgReqLatencies[instId][identifier] = \
+                (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+
+            durations[identifier, reqId] = duration
+
+        reqs, tm = self.numOrderedRequests[instId]
+        orderedNow = len(durations)
+        self.numOrderedRequests[instId] = (reqs + orderedNow,
+                                           tm + sum(durations.values()))
 
         # TODO: Inefficient, as on every request a minimum of a large list is
         # calculated
-        if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
-            self.totalRequests += 1
+        # If any
+        if min(r[0] for r in self.numOrderedRequests) == (reqs + orderedNow):
+            self.totalRequests += orderedNow
             self.postOnReqOrdered()
             if 0 == reqs:
                 self.postOnNodeStarted(self.started)
-        return duration
+
+        return durations
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """

@@ -49,7 +49,7 @@ class PruningState(State):
     # some key that does not collide with any state variable's name
     rootHashKey = b'\x88\xc8\x88 \x9a\xa7\x89\x1b'
 
-    def __init__(self, dbPath, initState):
+    def __init__(self, dbPath, initState=None):
         db = PeristentDB(dbPath)
         if self.rootHashKey in db:
             rootHash = db.get(self.rootHashKey)
@@ -85,6 +85,15 @@ class PruningState(State):
         if rootNode:
             rootHash = self.trie._encode_node(rootNode)
         self.db.db.put(self.rootHashKey, rootHash)
+
+    @property
+    def headHash(self):
+        """
+        The hash of the current head of the state, if the state is a merkle
+        tree then hash of the root
+        :return:
+        """
+        return self.trie.root_hash
 
     @property
     def committedHeadHash(self):
