@@ -1251,8 +1251,8 @@ class Cli:
 
             for e in envs:
                 fe = e.rstrip(os.sep)
-                envName = "N/A" if e == keyringsBaseDir else basename(fe)
-                files = glob.glob("{}/*.{}".format(e, WALLET_FILE_EXTENSION))
+                envName = "N/A" if fe == keyringsBaseDir else basename(fe)
+                files = glob.glob("{}/*.{}".format(fe, WALLET_FILE_EXTENSION))
                 persistedWalletNames = []
                 unpersistedWalletNames = []
 
@@ -1261,7 +1261,7 @@ class Cli:
                         walletName = Cli.getWalletKeyName(basename(f))
                         persistedWalletNames.append(walletName)
 
-                if contextDirPath == e:
+                if contextDirPath == fe:
                     unpersistedWalletNames = [
                         n for n in self.wallets.keys()
                         if n.lower() not in persistedWalletNames]
@@ -1273,15 +1273,16 @@ class Cli:
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(e, Cli._normalizedWalletFileName(pwn))
+                        f = os.path.join(fe, Cli._normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
-                        isThisActiveWallet = True if contextDirPath == e and \
+                        isThisActiveWallet = True if contextDirPath == fe and \
                                self._activeWallet is not None and \
                                self._activeWallet.name.lower() == pwn.lower() \
                             else False
-                        unSavedChanges = " [may have unsaved changes]" \
+                        unSavedChanges = " [may have some unsaved changes]" \
                             if isThisActiveWallet else ""
-                        activeWalletSign = "*  " if isThisActiveWallet else "   "
+                        activeWalletSign = "*  " if isThisActiveWallet \
+                            else "   "
 
                         self.print("    {}{}{}".format(
                             activeWalletSign, pwn, unSavedChanges), newline=False)
