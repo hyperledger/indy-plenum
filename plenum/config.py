@@ -1,9 +1,9 @@
 import os
+import sys
 from collections import OrderedDict
 
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
 nodeReg = OrderedDict([
@@ -118,7 +118,7 @@ logFormatStyle='{'
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 1.1
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.1
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
 CHK_FREQ = 100
