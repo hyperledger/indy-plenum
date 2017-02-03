@@ -189,7 +189,7 @@ class Cli:
 
         self.style = PygmentsStyle.from_defaults({
             Token.Operator: '#33aa33 bold',
-            Token.Gray: '#696969',
+            Token.Gray: '#424242',
             Token.Number: '#aa3333 bold',
             Token.Name: '#ffff00 bold',
             Token.Heading: 'bold',
@@ -292,7 +292,8 @@ class Cli:
                              self._useIdentifierAction, self._addGenesisAction,
                              self._createGenTxnFileAction, self._changePrompt,
                              self._newKeyring, self._renameKeyring,
-                             self._useKeyringAction, self._saveKeyringAction]
+                             self._useKeyringAction, self._saveKeyringAction,
+                             self._listKeyringsAction ]
         return self._actions
 
     @property
@@ -332,6 +333,7 @@ class Cli:
                 'new_keyring': WordCompleter(['new', 'keyring']),
                 'rename_keyring': WordCompleter(['rename', 'keyring']),
                 'list_ids': WordCompleter(['list', 'ids']),
+                'list_krs': WordCompleter(['list', 'keyrings']),
                 'become': WordCompleter(['become']),
                 'use_id': WordCompleter(['use', 'identifier']),
                 'use_kr': WordCompleter(['use', 'keyring']),
@@ -363,6 +365,7 @@ class Cli:
                 'identifier',
                 'new_key',
                 'list_ids',
+                'list_krs,'
                 'become',
                 'use_id',
                 'prompt',
@@ -1239,6 +1242,59 @@ class Cli:
         #     self.print("    rename wallet {} to NewName".format(nm))
         return wallet
 
+    def _listKeyringsAction(self, matchedVars):
+        if matchedVars.get('list_krs') == 'list keyrings':
+            keyringsBaseDir = self.getKeyringsBaseDir()
+            envs = glob.glob("{}/*/".format(keyringsBaseDir))
+            envs.append(keyringsBaseDir)
+            contextDirPath = self.getContextBasedKeyringsBaseDir()
+
+            for e in envs:
+                fe = e.rstrip(os.sep)
+                envName = "N/A" if e == keyringsBaseDir else basename(fe)
+                files = glob.glob("{}/*.{}".format(e, WALLET_FILE_EXTENSION))
+                persistedWalletNames = []
+                unpersistedWalletNames = []
+
+                if len(files) > 0:
+                    for f in files:
+                        walletName = Cli.getWalletKeyName(basename(f))
+                        persistedWalletNames.append(walletName)
+
+                if contextDirPath == e:
+                    unpersistedWalletNames = [
+                        n for n in self.wallets.keys()
+                        if n.lower() not in persistedWalletNames]
+
+                if len(persistedWalletNames) > 0 or \
+                                len(unpersistedWalletNames) > 0:
+                    self.print("\nEnvironment: {}".format(envName))
+
+                if len(persistedWalletNames) > 0:
+                    self.print("    Persisted wallets:")
+                    for pwn in persistedWalletNames:
+                        f = os.path.join(e, Cli._normalizedWalletFileName(pwn))
+                        lastModifiedTime = time.ctime(os.path.getmtime(f))
+                        isThisActiveWallet = True if contextDirPath == e and \
+                               self._activeWallet is not None and \
+                               self._activeWallet.name.lower() == pwn.lower() \
+                            else False
+                        unSavedChanges = " [may have unsaved changes]" \
+                            if isThisActiveWallet else ""
+                        activeWalletSign = "*  " if isThisActiveWallet else "   "
+
+                        self.print("    {}{}{}".format(
+                            activeWalletSign, pwn, unSavedChanges), newline=False)
+                        self.print(" (last modified at: {})".
+                                   format(lastModifiedTime), Token.Gray)
+
+                if len(unpersistedWalletNames) > 0:
+                    self.print("    Un-persisted wallets:")
+                    for n in unpersistedWalletNames:
+                        self.print("        {}".format(n))
+
+            return True
+
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
             if self._activeWallet:
@@ -1369,10 +1425,11 @@ class Cli:
         if matchedVars.get('save_kr') == 'save keyring':
             name = matchedVars.get('keyring')
             if name:
-                if not self.wallets.get(name):
+                wallet = self._getWalletByName(name)
+                if not wallet:
                     self.print("Given keyring not found")
                     return True
-                elif name != self._activeWallet.name:
+                elif wallet.name != self._activeWallet.name:
                     self.print("Given keyring is not active "
                                "and it must be already saved")
                     return True
@@ -1572,7 +1629,6 @@ class Cli:
             # otherwise our access for `activeWallet` property
             # will create a wallet
             self.updateEnvNameInWallet()
-
             if self._activeWallet.getEnvName != self.getActiveEnv:
                 self.print("Active keyring belongs to {} environment can't be "
                            "saved to the currently connected environment {}".

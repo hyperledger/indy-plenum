@@ -31,7 +31,7 @@ def testUseKeyringRegEx(grammar):
 
 def testSaveKeyringRegEx(grammar):
     matchedVars = getMatchedVariables(grammar, "save keyring")
-    assertCliTokens(matchedVars, {"save_kr": "save keyring", "keyring": ""})
+    assertCliTokens(matchedVars, {"save_kr": "save keyring", "keyring": None})
     matchedVars = getMatchedVariables(grammar, "save keyring default")
     assertCliTokens(matchedVars, {"save_kr": "save keyring",
                                   "keyring": "default"})
@@ -42,6 +42,13 @@ def testPromptCommandRegEx(grammar):
     assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
     matchedVars = getMatchedVariables(grammar, "prompt Alice ")
     assertCliTokens(matchedVars, {"prompt": "prompt", "name": "Alice"})
+
+
+def testListKeyringsCommandRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "list keyrings")
+    assertCliTokens(matchedVars, {"list_krs": "list keyrings", "all": None})
+    matchedVars = getMatchedVariables(grammar, "list keyrings all")
+    assertCliTokens(matchedVars, {"list_krs": "list keyrings", "all": "all"})
 
 
 def testNewKeyRingCommandRegEx(grammar):
