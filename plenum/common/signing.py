@@ -79,13 +79,15 @@ def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
         return str(obj)
 
 
-def serializeMsg(msg: Mapping):
+def serializeMsg(msg: Mapping, topLevelKeysToIgnore=None):
     """
     Serialize a message for signing.
 
     :param msg: the message to sign
+    :param topLevelKeysToIgnore: the top level keys of the Mapping that should
+    not be included in the serialized form
     :return: a uft-8 encoded version of `msg`
     """
-    ser = serialize(msg)
+    ser = serialize(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
     logger.trace("serialized msg {} into {}".format(msg, ser))
     return ser.encode('utf-8')

@@ -90,7 +90,7 @@ class NaclAuthNr(ClientAuthNr):
                 sig = base58.b58decode(signature)
             except Exception as ex:
                 raise InvalidSignatureFormat from ex
-            ser = self.serializeForSig(msg)
+            ser = self.serializeForSig(msg, topLevelKeysToIgnore=[f.SIG.nm])
             verkey = self.getVerkey(identifier)
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
@@ -110,8 +110,8 @@ class NaclAuthNr(ClientAuthNr):
     def getVerkey(self, identifier):
         pass
 
-    def serializeForSig(self, msg):
-        return serializeMsg(msg)
+    def serializeForSig(self, msg, topLevelKeysToIgnore=None):
+        return serializeMsg(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class SimpleAuthNr(NaclAuthNr):

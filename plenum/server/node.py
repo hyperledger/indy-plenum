@@ -1690,6 +1690,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             req = msg.__getstate__()
 
+        # Since clients send si
+
         identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
                        format(self, identifier, typ, req['reqId']),

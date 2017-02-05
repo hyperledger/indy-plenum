@@ -415,13 +415,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self._stashInBox(req)
 
     def send3PCBatch(self):
-        # if self.lastPrePrepareSeqNo == self.H:
-        #     logger.debug("{} pre-prepare sequence no {} since outside greater "
-        #                  "than high water mark {}".
-        #                  format(self, self.lastPrePrepareSeqNo+1, self.H))
-        #     return 0
         if not self.node.isParticipating:
-            logger.warn('{} is not participating'.format(self))
+            logger.trace('{} is not participating'.format(self))
             return 0
 
         r = 0
@@ -438,6 +433,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return r
 
     def create3PCBatch(self, ledgerId):
+        logger.debug("{} creating a batch for ledger {}".format(self, ledgerId))
         ppSeqNo = self.lastPrePrepareSeqNo + 1
         tm = time.time() * 1000
         validReqs = []
