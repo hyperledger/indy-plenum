@@ -8,6 +8,7 @@ from functools import partial
 from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
+import json
 
 import plenum.test.delayers as delayers
 from plenum.common.error import error
@@ -18,7 +19,10 @@ from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
+from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX, \
+    DOMAIN_LEDGER_ID
+from plenum.common.txn import TXN_TYPE
+from plenum.common.txn_util import reqToTxn
 from plenum.common.util import Seconds, getMaxFailures, adict
 from plenum.persistence import orientdb_store
 from plenum.server import replica
@@ -181,6 +185,18 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(cls, name, baseDir):
         pass
 
+    def customRequestApplication(self, request):
+        typ = request.operation.get(TXN_TYPE)
+        if typ == 'buy':
+            txn = reqToTxn(request)
+            ledger = self.getLedger(DOMAIN_LEDGER_ID)
+            state = self.getState(DOMAIN_LEDGER_ID)
+            ledger.appendTxns([txn])
+            key = '{}:{}'.format(request.identifier, request.reqId).encode()
+            state.set(key, json.dumps(request.operation).encode())
+        else:
+            return super().customRequestApplication(request)
+
 
 @Spyable(methods=[Node.handleOneNodeMsg,
                   Node.handleInvalidClientMsg,
@@ -244,7 +260,7 @@ class TestPrimaryElector(PrimaryElector):
                   # replica.Replica.doPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
-                  replica.Replica.isValidPrepare,
+                  replica.Replica.validatePrepare,
                   replica.Replica.addToPrePrepares,
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,

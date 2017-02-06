@@ -2,7 +2,7 @@ import time
 from functools import partial
 
 from plenum.common.eventually import eventuallyAll
-from plenum.common.types import PrePrepare, OPERATION, f
+from plenum.common.types import PrePrepare, OPERATION, f, DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -77,10 +77,14 @@ def checkPrePrepared(looper,
                     instId,
                     primary.viewNo,
                     primary.lastPrePrepareSeqNo,
-                    propagated1.identifier,
-                    propagated1.reqId,
-                    propagated1.digest,
-                    time.time())
+                    time.time(),
+                    [(propagated1.identifier, propagated1.reqId)],
+                    1,
+                    Replica.batchDigest([propagated1,]),
+                    DOMAIN_LEDGER_ID,
+                    primary.node.getState(DOMAIN_LEDGER_ID).headHash if instId == 0 else None,
+                    primary.node.getLedger(DOMAIN_LEDGER_ID).uncommittedRootHash if instId == 0 else None,
+                    )
 
             passes = 0
             for npr in nonPrimaryReplicas:

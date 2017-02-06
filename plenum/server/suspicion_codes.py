@@ -48,6 +48,14 @@ class Suspicions:
         Suspicion(5, "COMMIT time does not match with PRE-PREPARE")
     PPR_REJECT_WRONG = \
         Suspicion(16, "Pre-Prepare message has incorrect reject")
+    PPR_STATE_WRONG = \
+        Suspicion(17, "Pre-Prepare message has incorrect state trie root")
+    PPR_TXN_WRONG = \
+        Suspicion(18, "Pre-Prepare message has incorrect transaction tree root")
+    PR_STATE_WRONG = \
+        Suspicion(19, "Prepare message has incorrect state trie root")
+    PR_TXN_WRONG = \
+        Suspicion(20, "Prepare message has incorrect transaction tree root")
 
     @classmethod
     def getList(cls):

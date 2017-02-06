@@ -13,11 +13,15 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = None
         self.uncommittedTree = None
 
+    @property
+    def uncommittedSize(self):
+        return len(self.uncommittedTxns)
+
     def appendTxns(self, txns: List):
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
-        self.uncommittedTxns.append(txns)
+        self.uncommittedTxns.extend(txns)
 
     def commitTxns(self, count: int) -> Tuple[int, int]:
         """
@@ -29,23 +33,31 @@ class Ledger(_Ledger):
         committedSize = self.size
         for txn in self.uncommittedTxns[:count]:
             self.append(txn)
-        self.discardTxns(count)
+        self.uncommittedTxns = self.uncommittedTxns[count:]
+        if not self.uncommittedTxns:
+            self.uncommittedTree = None
+            self.uncommittedRootHash = None
         return committedSize + 1, committedSize + count
 
     def appendCommittedTxns(self, txns: List):
         # Called while receiving committed txns from other nodes
-        self.append(txns)
+        for txn in txns:
+            self.append(txn)
 
-    def discardTxns(self, index: int):
+    def discardTxns(self, count: int):
         """
-        The index in `uncommittedTxns` from which txns have to be discarded
-        :param index:
+        The number of txns in `uncommittedTxns` which have to be
+        discarded
+        :param count: inclusive
         :return:
         """
-        self.uncommittedTxns = self.uncommittedTxns[index:]
+        self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
+        else:
+            self.uncommittedTree = self.treeWithAppliedTxns(self.uncommittedTxns)
+            self.uncommittedRootHash = self.uncommittedTree.root_hash
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """

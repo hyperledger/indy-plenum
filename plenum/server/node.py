@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import time
+from binascii import unhexlify
 from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
@@ -141,6 +142,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         Motor.__init__(self)
 
+        self.hashStore = self.getHashStore(self.name)
+        self.initDomainLedger()
+        self.primaryStorage = storage or self.getPrimaryStorage()
+        self.secondaryStorage = self.getSecondaryStorage()
+        self.addGenesisNyms()
+        self.ledgerManager = self.getLedgerManager()
+        self.states = {}  # type: Dict[int, PruningState]
+
+        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
+                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+
         # HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -265,13 +279,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case the node crashes before sending the reply to the client
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        self.hashStore = self.getHashStore(self.name)
-        self.initDomainLedger()
-        self.primaryStorage = storage or self.getPrimaryStorage()
-        self.secondaryStorage = self.getSecondaryStorage()
-        self.addGenesisNyms()
-        self.ledgerManager = self.getLedgerManager()
-        self.states = {}    # type: Dict[int, PruningState]
+        # self.hashStore = self.getHashStore(self.name)
+        # self.initDomainLedger()
+        # self.primaryStorage = storage or self.getPrimaryStorage()
+        # self.secondaryStorage = self.getSecondaryStorage()
+        # self.addGenesisNyms()
+        # self.ledgerManager = self.getLedgerManager()
+        # self.states = {}    # type: Dict[int, PruningState]
 
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
@@ -279,10 +293,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.states[POOL_LEDGER_ID] = self.poolManager.state
 
-        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
-            postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-            postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+        # self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
+        #     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+        #     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        # self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
@@ -880,8 +894,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 msg = replica.outBox.popleft()
                 if isinstance(msg, (PrePrepare,
                                     Prepare,
-                                    Commit,
-                                    Checkpoint)):
+                                    Commit)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
                     # Checking for request in received catchup replies as a
@@ -1317,7 +1330,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          txn.get(f.REQ_ID.nm)))
 
     def getLedger(self, ledgerId):
-        return self.ledgerManager.ledgers.get(ledgerId)
+        return self.ledgerManager.ledgers.get(ledgerId, {}).get('ledger')
 
     def getState(self, ledgerId):
         return self.states.get(ledgerId)
@@ -1371,15 +1384,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Apply request to appropriate ledger and state
         """
         if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
-            self.poolManager.applyReq(request)
+            return self.poolManager.applyReq(request)
         else:
-            self.customRequestApplication(request)
+            return self.customRequestApplication(request)
 
     def customDynamicValidation(self, request: Request):
         self.reqHandler.validateReq(request, self.config)
 
     def customRequestApplication(self, request: Request):
-        self.reqHandler.applyReq(request)
+        return self.reqHandler.applyReq(request)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -1751,14 +1764,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
         seqNoStart, seqNoEnd = self.domainLedger.commitTxns(len(reqs))
+        stateRoot = unhexlify(stateRoot.encode())
+        txnRoot = unhexlify(txnRoot.encode())
         self.states[DOMAIN_LEDGER_ID].commit(rootHash=stateRoot)
-        assert self.domainLedger.root_hash == txnRoot
-        for seqNo, req in zip(reqs, range(seqNoStart, seqNoEnd + 1)):
+        assert self.domainLedger.tree.root_hash == txnRoot
+        for req, seqNo in zip(reqs, range(seqNoStart, seqNoEnd + 1)):
             # TODO: Send txn and state proof to the client
             txn = reqToTxn(req)
             txn[F.seqNo.name] = seqNo
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(txn, req.key)
+            self.sendReplyToClient(Reply(txn), req.key)
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
 
@@ -1856,7 +1871,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def processStashedOrderedReqs(self):
         i = 0
         while self.stashedOrderedReqs:
-            msg = self.stashedOrderedReqs.pop()
+            msg = self.stashedOrderedReqs.popleft()
             if not self.gotInCatchupReplies(msg):
                 self.processOrdered(msg)
             i += 1
@@ -1867,8 +1882,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return i
 
     def gotInCatchupReplies(self, msg):
-        key = (getattr(msg, f.IDENTIFIER.nm), getattr(msg, f.REQ_ID.nm))
-        return key in self.reqsFromCatchupReplies
+        reqIdr = getattr(msg, f.REQ_IDR.nm)
+        return set(reqIdr).intersection(self.reqsFromCatchupReplies)
 
     def sync3PhaseState(self):
         for replica in self.replicas:

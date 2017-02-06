@@ -48,7 +48,7 @@ class HasPoolManager:
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
-            self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnRequest
+            self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,
@@ -281,7 +281,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.reqHandler.validateReq(request)
 
     def applyReq(self, request: Request):
-        self.reqHandler.applyReq(request)
+        return self.reqHandler.applyReq(request)
 
     # def checkRequestAuthorized(self, request):
     #     typ = request.operation.get(TXN_TYPE)

@@ -1,9 +1,13 @@
+from binascii import hexlify
+
 from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles
 from state.db.persistent_db import PeristentDB
 from state.db.refcount_db import RefcountDB
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string
+
+from plenum.common.util import isHex
 
 
 class State:
@@ -84,7 +88,14 @@ class PruningState(State):
     def commit(self, rootHash=None, rootNode=None):
         if rootNode:
             rootHash = self.trie._encode_node(rootNode)
+        elif isHex(rootHash):
+            if isinstance(rootHash, str):
+                rootHash = rootHash.encode()
+            rootHash = hexlify(rootHash)
         self.db.db.put(self.rootHashKey, rootHash)
+
+    def revertToHead(self, head):
+        self.trie.replace_root_hash(self.trie.root_node, head)
 
     @property
     def headHash(self):

@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from typing import Dict, Tuple, Union
+import weakref
 
 from plenum.common.types import Propagate
 from plenum.common.request import Request
@@ -173,9 +174,10 @@ class Propagator:
         key = request.key
         logger.debug("{} forwarding client request {} to its replicas".
                      format(self, key))
-        for idx, repQueue in enumberate(self.msgsToReplicas):
+        for idx, repQueue in enumerate(self.msgsToReplicas):
             if self.primaryReplicaNo == idx:
-                req = weakref.ref(self.requests[key].finalised)
+                # req = weakref.ref(self.requests[key].finalised)
+                req = self.requests[key].finalised
                 repQueue.append(req)
         self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request)

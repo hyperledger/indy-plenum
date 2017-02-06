@@ -10,7 +10,7 @@ from raet.nacling import Signer as NaclSigner
 
 from plenum.common.signer import Signer
 from plenum.common.signing import serializeMsg
-from plenum.common.types import Identifier
+from plenum.common.types import Identifier, f
 from plenum.common.util import hexToFriendly, rawToFriendly, friendlyToRaw
 
 
@@ -88,7 +88,7 @@ class DidSigner(DidIdentity, Signer):
         """
         Return a signature for the given message.
         """
-        ser = serializeMsg(msg)
+        ser = serializeMsg(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

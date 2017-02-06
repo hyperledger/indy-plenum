@@ -44,8 +44,10 @@ class DomainReqHandler:
                 ROLE: operation.get(ROLE),
                 VERKEY: operation.get(VERKEY)
             }, isCommitted=False)
+            return True
         else:
             logger.debug('Cannot apply request of type {}'.format(typ))
+            return False
 
     def countStewards(self) -> int:
         """Count the number of stewards added to the pool transaction store"""

@@ -44,8 +44,10 @@ class PoolReqHandler:
             self.ledger.appendTxns([txn])
             self.updateState(nym, req.operation.get(DATA, {}),
                              isCommitted=False)
+            return True
         else:
             logger.debug('Cannot apply request of type {}'.format(typ))
+            return False
 
     def commitReqs(self, count, stateRoot) -> Tuple[int, int]:
         """
