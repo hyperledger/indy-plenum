@@ -90,7 +90,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                          ha=newNode.nodestack.ha, cliha=newNode.clientstack.ha)
     looper.add(nodeTheta)
     txnPoolNodeSet.append(nodeTheta)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=10))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
