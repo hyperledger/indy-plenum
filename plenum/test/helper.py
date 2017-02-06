@@ -18,7 +18,7 @@ from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.request import Request
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
+from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, REJECT
 from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
@@ -385,6 +385,16 @@ def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
         if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "")\
+                and sdr == sender:
+            found = True
+            break
+    assert found
+
+
+def checkRejectWithReason(client, reason: str, sender: str):
+    found = False
+    for msg, sdr in client.inBox:
+        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "")\
                 and sdr == sender:
             found = True
             break

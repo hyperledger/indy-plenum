@@ -1,9 +1,14 @@
+import types
+
+import pytest
+
 from plenum.common.eventually import eventually
+from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.types import DOMAIN_LEDGER_ID
 from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs, \
     checkNodesHaveSameRoots
 from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
-    checkSufficientRepliesRecvd
+    checkSufficientRepliesRecvd, checkRejectWithReason
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 
@@ -68,10 +73,39 @@ def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
-def testRequestDynamicValidation():
+def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
+                                              client1, wallet1,
+                                              client1Connected):
     """
     Check that for requests which fail dynamic (state based) validation,
     REJECT is sent to the client
     :return:
     """
-    pass
+    origMethods = []
+    names = {node.name: 0 for node in txnPoolNodeSet}
+
+    def rejectingMethod(self, req):
+        names[self.name] += 1
+        # Raise rejection for last request of batch
+        if tconf.Max3PCBatchSize - names[self.name] == 0:
+            raise UnauthorizedClientRequest(req.identifier,
+                                            req.reqId,
+                                            'Simulated rejection')
+
+    for node in txnPoolNodeSet:
+        origMethods.append(node.doDynamicValidation)
+        node.doDynamicValidation = types.MethodType(rejectingMethod, node)
+
+    reqs = sendRandomRequests(wallet1, client1, tconf.Max3PCBatchSize)
+    checkSufficientRepliesRecvdForReqs(looper, reqs[:-1], client1,
+                                       tconf.Max3PCBatchWait)
+    with pytest.raises(AssertionError):
+        checkSufficientRepliesRecvdForReqs(looper, reqs[-1:], client1,
+                                           tconf.Max3PCBatchWait)
+    for node in txnPoolNodeSet:
+        looper.run(eventually(checkRejectWithReason, client1,
+                              'Simulated rejection', node.clientstack.name,
+                              retryWait=1))
+
+    for i, node in enumerate(txnPoolNodeSet):
+        node.doDynamicValidation = origMethods[i]

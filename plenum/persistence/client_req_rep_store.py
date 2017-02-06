@@ -27,6 +27,10 @@ class ClientReqRepStore:
         pass
 
     @abstractmethod
+    def addReject(self, msg: Any, sender: str):
+        pass
+
+    @abstractmethod
     def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> Sequence[str]:
         pass
@@ -49,6 +53,10 @@ class ClientReqRepStore:
 
     @abstractmethod
     def getNacks(self, identifier: str, reqId: int) -> dict:
+        pass
+
+    @abstractmethod
+    def getRejects(self, identifier: str, reqId: int) -> dict:
         pass
 
     def getAllReplies(self, identifier: str, reqId: int):

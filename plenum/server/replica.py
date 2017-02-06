@@ -14,7 +14,8 @@ from sortedcontainers import SortedDict
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
-from plenum.common.exceptions import SuspiciousNode, InvalidClientRequest
+from plenum.common.exceptions import SuspiciousNode, InvalidClientRequest, \
+    InvalidClientMessageException
 from plenum.common.signing import serialize
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import PrePrepare, \
@@ -480,7 +481,7 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.node.doDynamicValidation(req)
                     self.node.applyReq(req)
                 validReqs.append(req)
-            except InvalidClientRequest as ex:
+            except InvalidClientMessageException as ex:
                 rejects.append(Reject(req.identifier, req.reqId, ex))
                 inValidReqs.append(req)
 
@@ -819,18 +820,12 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.discardTxns(len(validReqs))
                 state.revertToHead(oldStateRoot)
 
-            for req in validReqs:
-                self.node.doDynamicValidation(req)
-                self.node.applyReq(req)
-
             if pp.stateRoot != self.stateRoot(pp.ledgerId):
                 revert()
                 raise SuspiciousNode(sender, Suspicions.PPR_STATE_WRONG, pp)
 
-            rt = self.txnRoot(pp.ledgerId)
-            if pp.txnRoot != rt:
+            if pp.txnRoot != self.txnRoot(pp.ledgerId):
                 revert()
-                logger.debug('offending {}'.format(rt))
                 raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:

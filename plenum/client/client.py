@@ -28,7 +28,7 @@ from plenum.common.signer import Signer
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT
 from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.request import Request
@@ -293,6 +293,9 @@ class Client(Motor,
             elif msg[OP_FIELD_NAME] == REQNACK:
                 self.reqRepStore.addNack(msg, frm)
                 self.gotExpected(msg, frm)
+            elif msg[OP_FIELD_NAME] == REJECT:
+                self.reqRepStore.addReject(msg, frm)
+                self.gotExpected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
                 identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
@@ -475,7 +478,7 @@ class Client(Motor,
             # would fetch the reply or the client might just lose REQACK and not
             # REPLY so when REPLY received, request does not need to be resent
             colls = (self.expectingAcksFor, self.expectingRepliesFor)
-        elif msg[OP_FIELD_NAME] == REQNACK:
+        elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
             container = msg
             colls = (self.expectingAcksFor, self.expectingRepliesFor)
         else:
@@ -546,8 +549,8 @@ class Client(Motor,
             # nodes, a better way is not to assume the delay value but only
             # send requests once the connection is established. Also it is
             # assumed that connection is not established if a node not sending
-            # REQACK/REQNACK/REPLY, but a little better way is to compare the
-            # value in stats of the stack and look for changes in count of
+            # REQACK/REQNACK/REJECT/REPLY, but a little better way is to compare
+            # the value in stats of the stack and look for changes in count of
             # `message_reject_rx` but that is not very helpful either since
             # it does not record which node rejected
             delay = 3 if nodesNotSendingAck else 0

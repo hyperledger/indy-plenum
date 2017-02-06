@@ -51,6 +51,14 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         self.reqStore.appendToValue(key, "N:{}:{}".
                                     format(sender, reason))
 
+    def addReject(self, msg: Any, sender: str):
+        idr = msg[f.IDENTIFIER.nm]
+        reqId = msg[f.REQ_ID.nm]
+        key = "{}{}".format(idr, reqId)
+        reason = msg[f.REASON.nm]
+        self.reqStore.appendToValue(key, "J:{}:{}".
+                                    format(sender, reason))
+
     def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> Sequence[str]:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
@@ -79,6 +87,14 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def getNacks(self, identifier: str, reqId: int) -> dict:
         nackLines = self._getLinesWithPrefix(identifier, reqId, "N:")
+        result = {}
+        for line in nackLines:
+            sender, reason = line[2:].split(":", 1)
+            result[sender] = reason
+        return result
+
+    def getRejects(self, identifier: str, reqId: int) -> dict:
+        nackLines = self._getLinesWithPrefix(identifier, reqId, "J:")
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(":", 1)
