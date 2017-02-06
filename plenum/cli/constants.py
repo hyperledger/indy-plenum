@@ -11,6 +11,7 @@ def getPipedRegEx(cmd):
 
 psep = re.escape(os.path.sep)
 
+NO_ENV = "no-env"
 PROMPT_ENV_SEPARATOR = "@"
 WALLET_FILE_EXTENSION = "wallet"
 
@@ -63,8 +64,7 @@ CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
 
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
 
-CLIENT_GRAMS_LIST_KEYRINGS_REG_EX = "(\s* (?P<list_krs>list\s+keyrings)" \
-                                    "\s? (?P<all>all)? \s*) "
+CLIENT_GRAMS_LIST_KEYRINGS_REG_EX = "(\s* (?P<list_krs>list\skeyrings) \s*) "
 
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) " \
                              "\s+ (?P<id>[a-zA-Z0-9]+) \s*) "
@@ -73,7 +73,11 @@ CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) " \
                                   "\s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
 
 CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_kr>use\s+keyring) " \
-                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*) "
+                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*" \
+                                  "\s? ((?P<copy_as>copy\sas)\s" \
+                                  "(?P<copy_as_name>[A-Za-z0-9+-_=/]+)?)? \s*" \
+                                  "\s? (?P<override>override)? " \
+                                  "\s*)"
 
 CLIENT_GRAMS_SAVE_KEYRING_REG_EX = "(\s* (?P<save_kr>save\s+keyring)" \
                                   "\s? (?P<keyring>[A-Za-z0-9+-_=/]+)? \s*)"

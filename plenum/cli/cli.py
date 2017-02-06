@@ -20,7 +20,7 @@ from ledger.ledger import Ledger
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
-    PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION
+    PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
 from plenum.common.signer_simple import SimpleSigner
 from plenum.client.wallet import Wallet
 from plenum.common.plugin_helper import loadPlugins
@@ -365,7 +365,7 @@ class Cli:
                 'identifier',
                 'new_key',
                 'list_ids',
-                'list_krs,'
+                'list_krs',
                 'become',
                 'use_id',
                 'prompt',
@@ -384,7 +384,8 @@ class Cli:
         if matchedVars.get('rename_keyring'):
             fromName = matchedVars.get('from')
             toName = matchedVars.get('to')
-            conflictFound = self._checkIfIdentifierConflicts(toName)
+            conflictFound = self._checkIfIdentifierConflicts(
+                toName, checkInAliases=False, checkInSigners=False)
             if not conflictFound:
                 fromWallet = self.wallets.get(fromName) if fromName \
                     else self.activeWallet
@@ -1244,14 +1245,13 @@ class Cli:
 
     def _listKeyringsAction(self, matchedVars):
         if matchedVars.get('list_krs') == 'list keyrings':
-            keyringsBaseDir = self.getKeyringsBaseDir()
-            envs = glob.glob("{}/*/".format(keyringsBaseDir))
-            envs.append(keyringsBaseDir)
+            envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
+            envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
 
-            for e in envs:
+            for e in envPaths:
                 fe = e.rstrip(os.sep)
-                envName = "N/A" if fe == keyringsBaseDir else basename(fe)
+                envName = basename(fe)
                 files = glob.glob("{}/*.{}".format(fe, WALLET_FILE_EXTENSION))
                 persistedWalletNames = []
                 unpersistedWalletNames = []
@@ -1317,10 +1317,12 @@ class Cli:
 
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True,
-                                    printAppropriateMsg=True):
+                                    printAppropriateMsg=True,
+                                    checkPersistedFile=True):
 
         def _checkIfWalletExists(origName, checkInWallets=True,
-                                    checkInAliases=True, checkInSigners=True):
+                                 checkInAliases=True, checkInSigners=True,
+                                 checkPersistedFile=True):
             if origName:
                 name = origName.lower()
                 allAliases = []
@@ -1343,33 +1345,37 @@ class Cli:
                 if name in allSigners:
                     return True, 'identifier'
 
-                toBeWalletFileName = Cli._normalizedWalletFileName(origName)
-                toBeWalletFilePath = Cli.getWalletFilePath(
-                    self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
-                if os.path.exists(toBeWalletFilePath):
-                    return True, 'keyring (stored at: {})'.\
-                        format(toBeWalletFilePath)
+                if checkPersistedFile:
+                    toBeWalletFileName = Cli._normalizedWalletFileName(origName)
+                    toBeWalletFilePath = Cli.getWalletFilePath(
+                        self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
+                    if os.path.exists(toBeWalletFilePath):
+                        return True, 'keyring (stored at: {})'.\
+                            format(toBeWalletFilePath)
 
                 return False, None
             else:
                 return False, None
 
         status, foundIn = _checkIfWalletExists(origName, checkInWallets,
-                                               checkInAliases, checkInSigners)
+                                               checkInAliases, checkInSigners,
+                                               checkPersistedFile)
         if foundIn and printAppropriateMsg:
             self.print('"{}" conflicts with an existing {}. '
                        'Please choose a new name.'.
                        format(origName, foundIn), Token.Warning)
         return status
 
-    def _loadWalletIfExistsAndNotLoaded(self, name):
-        if not self.wallets.get(name):
+    def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
+        wallet = self._getWalletByName(name)
+        if not wallet:
             walletFileName = Cli._normalizedWalletFileName(name)
-            self.restoreWalletByName(walletFileName)
+            self.restoreWalletByName(walletFileName, copyAs=copyAs,
+                                     override=override)
 
-    def _loadFromPath(self, path):
+    def _loadFromPath(self, path, copyAs=None, override=False):
         if os.path.exists(path):
-            self.restoreWalletByPath(path)
+            self.restoreWalletByPath(path, copyAs=copyAs, override=override)
 
     def _getWalletByName(self, name) -> Wallet:
         wallets = {k.lower(): v for k, v in self.wallets.items()}
@@ -1380,40 +1386,61 @@ class Cli:
             return False
         return True
 
+    def _isWalletFilePathBelongsToCurrentContext(self, filePath):
+        keyringsBaseDir = self.getKeyringsBaseDir()
+        fileBaseDir = dirname(filePath)
+        inKeyringsDir = os.path.commonprefix(
+            [filePath, keyringsBaseDir]) == keyringsBaseDir
+        if not inKeyringsDir or keyringsBaseDir == fileBaseDir:
+            return False
+        return True
+
+    def getAllEnvDirNamesForKeyrings(self):
+        return [NO_ENV]
+
     def checkIfWalletPathBelongsToCurrentContext(self, filePath):
         keyringsBaseDir = self.getKeyringsBaseDir()
         baseWalletDirName = dirname(filePath)
-        inKeyringsDir = os.path.commonprefix([filePath, keyringsBaseDir]) == keyringsBaseDir
-        if not inKeyringsDir:
-            self.print("\nKeyring base directory is: {}\n"
-                       "Based on given keyring's environment, please move it "
-                       "to the above mentioned directory or in one of "
-                       "it's subdirectory".format(keyringsBaseDir))
+        if not self._isWalletFilePathBelongsToCurrentContext(filePath):
+            self.print("\nKeyring base directory is: {}"
+                       "\nGiven keyring file should be in one of it's "
+                       "sub directory (you can create it if it doesn't exists) "
+                       "according to the environment it belongs to."
+                       "\nPossible sub directory names are: {}".
+                       format(keyringsBaseDir, self.getAllEnvDirNamesForKeyrings()))
             return False
 
         curContextDirName = self.getContextBasedKeyringsBaseDir()
         if baseWalletDirName != curContextDirName:
             self.print(
-                self.getWalletNotExistsForGivenContextMsg(filePath))
+                self.getWalletFileIncompatibleForGivenContextMsg(filePath))
             return False
 
         return True
 
-    def getWalletNotExistsForGivenContextMsg(self, filePath):
-        return \
-            "Given wallet file ({}) doesn't belong to current context.".\
+    def getWalletFileIncompatibleForGivenContextMsg(self, filePath):
+        noEnvKeyringsBaseDir = self.getNoEnvKeyringsBaseDir()
+        baseWalletDirName = dirname(filePath)
+        msg = "Given wallet file ({}) doesn't belong to current context.".\
                 format(filePath)
+        if baseWalletDirName == noEnvKeyringsBaseDir:
+            msg += "\nPlease disconnect and try again."
+        else:
+            msg += "\nPlease connect to '{}' environment and try again.".\
+                format(basename(baseWalletDirName))
+        return msg
 
-    def _searchAndSetWallet(self, name):
+    def _searchAndSetWallet(self, name, copyAs=None, override=False):
         if self._activeWallet and self._activeWallet.name.lower() == name.lower():
             self.print("Keyring already in use.")
             return True
 
         filePath = os.path.join(name.lower())
         if os.path.isabs(filePath) and os.path.exists(filePath):
-            self._loadFromPath(filePath)
+            self._loadFromPath(filePath, copyAs=copyAs, override=override)
         else:
-            self._loadWalletIfExistsAndNotLoaded(name)
+            self._loadWalletIfExistsAndNotLoaded(name, copyAs=copyAs,
+                                                 override=override)
             wallet = self._getWalletByName(name)
             if wallet and self._activeWallet.name != wallet.name:
                 self._saveActiveWallet()
@@ -1428,7 +1455,7 @@ class Cli:
             if name:
                 wallet = self._getWalletByName(name)
                 if not wallet:
-                    self.print("Given keyring not found")
+                    self.print("No such keyring loaded or exists.")
                     return True
                 elif wallet.name != self._activeWallet.name:
                     self.print("Given keyring is not active "
@@ -1441,7 +1468,9 @@ class Cli:
     def _useKeyringAction(self, matchedVars):
         if matchedVars.get('use_kr') == 'use keyring':
             name = matchedVars.get('keyring')
-            self._searchAndSetWallet(name)
+            override = True if matchedVars.get('override') else False
+            copyAs = matchedVars.get('copy_as_name')
+            self._searchAndSetWallet(name, copyAs=copyAs, override=override)
             return True
 
     def _setActiveIdentifier(self, idrOrAlias):
@@ -1487,7 +1516,54 @@ class Cli:
         # self.cli.application.layout.children[1].children[0]\
         #     .content.content.get_tokens = getTokens
 
-    def restoreWalletByPath(self, walletFilePath):
+    def performEnvCompatibilityCheck(self, wallet, walletFilePath):
+        if not self.checkIfWalletBelongsToCurrentContext(wallet):
+            self.print(self.getWalletFileIncompatibleForGivenContextMsg(
+                walletFilePath))
+            return False
+
+        if not self.checkIfWalletPathBelongsToCurrentContext(walletFilePath):
+            return False
+        return True
+
+    @property
+    def getWalletContextMistmatchMsg(self):
+        return "The active keyring '{}' doesn't belong to current " \
+               "environment. \nBefore you perform any transaction signing, " \
+               "please create or activate compatible keyring.".\
+            format(self._activeWallet.name)
+
+    def printWarningIfIncompatibleWalletIsRestored(self, walletFilePath):
+        if not self.checkIfWalletBelongsToCurrentContext(self._activeWallet) \
+                or not self._isWalletFilePathBelongsToCurrentContext(walletFilePath):
+            self.print(self.getWalletContextMistmatchMsg)
+            self.print("Any changes made to this keyring won't be persisted.",
+                       Token.BoldOrange)
+
+    def performValidationCheck(self, wallet, walletFilePath, override=False):
+
+        if not self.performEnvCompatibilityCheck(wallet, walletFilePath):
+            return False
+
+        conflictFound = self._checkIfIdentifierConflicts(
+            wallet.name, checkInAliases=False, checkInSigners=False,
+            checkPersistedFile=False, printAppropriateMsg=False)
+
+        if conflictFound and not override:
+            self.print(
+                "A keyring with given name already loaded, "
+                "here are few options:\n"
+                "1. If you still want to load given persisted keyring at the "
+                "risk of overriding the already loaded keyring, then add this "
+                "clause to same command and retry: override\n"
+                "2. If you want to create a copy of persisted keyring with "
+                "different name, then, add this clause to "
+                "same command and retry: copy-as <new-wallet-name>")
+            return False
+
+        return True
+
+    def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
 
             with open(walletFilePath) as walletFile:
@@ -1495,16 +1571,14 @@ class Cli:
                     # if wallet already exists, deserialize it
                     # and set as active wallet
                     wallet = decode(walletFile.read())
-                    if not self.checkIfWalletBelongsToCurrentContext(wallet):
-                        self.print(self.getWalletNotExistsForGivenContextMsg(
-                            walletFilePath))
+                    if copyAs:
+                        wallet.name=copyAs
+
+                    if not self.performValidationCheck(wallet, walletFilePath,
+                                                       override):
                         return False
 
-                    if not self.checkIfWalletPathBelongsToCurrentContext(
-                            walletFilePath):
-                        return False
-
-                    # As the persisted wallet restored successfully,
+                    # As the persisted wallet restored and validated successfully,
                     # before we restore it, lets save active wallet (if exists)
                     if self._activeWallet:
                         self._saveActiveWallet()
@@ -1515,6 +1589,9 @@ class Cli:
                     self.print(" ({})".format(walletFilePath)
                                , Token.Gray)
                     self.activeWallet = wallet
+
+                    self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
+
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
                         "error occurred while restoring wallet {}: {}".
@@ -1547,10 +1624,10 @@ class Cli:
                             format(baseFileName, str(e)))
         raise e
 
-    def restoreWalletByName(self, walletFileName):
+    def restoreWalletByName(self, walletFileName, copyAs=None, override=False):
         walletFilePath = self.getWalletFilePath(
             self.getContextBasedKeyringsBaseDir(), walletFileName)
-        self.restoreWalletByPath(walletFilePath)
+        self.restoreWalletByPath(walletFilePath, copyAs=copyAs, override=override)
 
     @staticmethod
     def getWalletKeyName(walletFileName):
@@ -1564,7 +1641,7 @@ class Cli:
     @staticmethod
     def getPromptAndEnv(cliName, currPromptText):
         if PROMPT_ENV_SEPARATOR not in currPromptText:
-            return cliName, ""
+            return cliName, NO_ENV
         else:
             return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
@@ -1577,6 +1654,10 @@ class Cli:
     @property
     def walletFileName(self):
         return self.getPersistentWalletFileName()
+
+    def getNoEnvKeyringsBaseDir(self):
+        return os.path.expanduser(
+            os.path.join(self.getKeyringsBaseDir(), NO_ENV))
 
     def getKeyringsBaseDir(self):
         return os.path.expanduser(os.path.join(self.config.baseDir,
@@ -1624,18 +1705,28 @@ class Cli:
     def updateEnvNameInWallet(self):
         pass
 
+    def performCompatibilityCheckBeforeSave(self):
+        if self._activeWallet.getEnvName != self.getActiveEnv:
+            walletEnvName = self._activeWallet.getEnvName \
+                if self._activeWallet.getEnvName else "a different"
+            currEnvName = " ({})".format(self.getActiveEnv) \
+                if self.getActiveEnv else ""
+            self.print("Active keyring belongs to '{}' environment and can't "
+                       "be saved to the current environment{}.".
+                       format(walletEnvName, currEnvName),
+                       Token.BoldOrange)
+            return False
+        return True
+
     def _saveActiveWallet(self):
         if self._activeWallet:
             # We would save wallet only if user already has a wallet
             # otherwise our access for `activeWallet` property
             # will create a wallet
             self.updateEnvNameInWallet()
-            if self._activeWallet.getEnvName != self.getActiveEnv:
-                self.print("Active keyring belongs to {} environment can't be "
-                           "saved to the currently connected environment {}".
-                           format(self._activeWallet.getEnvName, self.getActiveEnv),
-                           Token.BoldOrange)
-                return True
+
+            if not self.performCompatibilityCheckBeforeSave():
+                return False
 
             encodedWallet = encode(self._activeWallet)
             try:
