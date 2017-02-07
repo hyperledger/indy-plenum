@@ -1464,7 +1464,7 @@ class Cli:
                     return True
                 elif wallet.name != self._activeWallet.name:
                     self.print("Given keyring is not active "
-                               "and it must be already saved")
+                               "and it must be already saved.")
                     return True
 
             self._saveActiveWallet()
