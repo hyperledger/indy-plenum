@@ -1,11 +1,12 @@
 import json
 import os
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from typing import Any, Sequence, List, Dict
 
 from ledger.stores.directory_store import DirectoryStore
 from ledger.util import F
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.txn import REQACK, REQNACK, REJECT, REPLY
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
 from plenum.common.request import Request
@@ -14,6 +15,8 @@ from plenum.persistence.client_req_rep_store import ClientReqRepStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
+    LinePrefixes = namedtuple('LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
+
     def __init__(self, name, baseDir):
         self.baseDir = baseDir
         self.dataDir = "data/clients"
@@ -24,6 +27,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
             os.makedirs(self.dataLocation)
         self.reqStore = DirectoryStore(self.dataLocation, "Requests")
         self._serializer = None
+        self.linePrefixes = self.LinePrefixes('0', 'A', 'N', 'J', 'R')
 
     @property
     def lastReqId(self) -> int:
@@ -34,37 +38,42 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         idr = req.identifier
         reqId = req.reqId
         key = "{}{}".format(idr, reqId)
-        self.reqStore.appendToValue(key, "0:{}".
-                                    format(self.serializeReq(req)))
+        self.reqStore.appendToValue(key, "{}:{}".
+                                    format(self.linePrefixes.Request,
+                                           self.serializeReq(req)))
 
     def addAck(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
         key = "{}{}".format(idr, reqId)
-        self.reqStore.appendToValue(key, "A:{}".format(sender))
+        self.reqStore.appendToValue(key, "{}:{}".
+                                    format(self.linePrefixes.REQACK, sender))
 
     def addNack(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
         key = "{}{}".format(idr, reqId)
         reason = msg[f.REASON.nm]
-        self.reqStore.appendToValue(key, "N:{}:{}".
-                                    format(sender, reason))
+        self.reqStore.appendToValue(key, "{}:{}:{}".
+                                    format(self.linePrefixes.REQNACK,
+                                           sender, reason))
 
     def addReject(self, msg: Any, sender: str):
         idr = msg[f.IDENTIFIER.nm]
         reqId = msg[f.REQ_ID.nm]
         key = "{}{}".format(idr, reqId)
         reason = msg[f.REASON.nm]
-        self.reqStore.appendToValue(key, "J:{}:{}".
-                                    format(sender, reason))
+        self.reqStore.appendToValue(key, "{}:{}:{}".
+                                    format(self.linePrefixes.REJECT,
+                                           sender, reason))
 
     def addReply(self, identifier: str, reqId: int, sender: str,
                  result: Any) -> Sequence[str]:
         serializedReply = self.txnSerializer.serialize(result, toBytes=False)
         key = "{}{}".format(identifier, reqId)
         self.reqStore.appendToValue(key,
-                                    "R:{}:{}".format(sender, serializedReply))
+                                    "{}:{}:{}".format(self.linePrefixes.REPLY,
+                                                      sender, serializedReply))
         return len(self._getSerializedReplies(identifier, reqId))
 
     def hasRequest(self, identifier: str, reqId: int) -> bool:
@@ -72,7 +81,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return self.reqStore.exists(key)
 
     def getRequest(self, identifier: str, reqId: int) -> Request:
-        for r in self._getLinesWithPrefix(identifier, reqId, "0:"):
+        for r in self._getLinesWithPrefix(identifier, reqId, "{}:".
+                format(self.linePrefixes.Request)):
             return self.deserializeReq(r[2:])
 
     def getReplies(self, identifier: str, reqId: int):
@@ -82,11 +92,13 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return replies
 
     def getAcks(self, identifier: str, reqId: int) -> List[str]:
-        ackLines = self._getLinesWithPrefix(identifier, reqId, "A:")
+        ackLines = self._getLinesWithPrefix(identifier, reqId, "{}:".
+                                            format(self.linePrefixes.REQACK))
         return [line[2:] for line in ackLines]
 
     def getNacks(self, identifier: str, reqId: int) -> dict:
-        nackLines = self._getLinesWithPrefix(identifier, reqId, "N:")
+        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}:".
+                                             format(self.linePrefixes.REQNACK))
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(":", 1)
@@ -94,7 +106,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         return result
 
     def getRejects(self, identifier: str, reqId: int) -> dict:
-        nackLines = self._getLinesWithPrefix(identifier, reqId, "J:")
+        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}:".
+                                             format(self.linePrefixes.REJECT))
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(":", 1)
@@ -123,7 +136,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
 
     def _getSerializedReplies(self, identifier: str, reqId: int) -> \
             Dict[str, str]:
-        replyLines = self._getLinesWithPrefix(identifier, reqId, "R:")
+        replyLines = self._getLinesWithPrefix(identifier, reqId, "{}:".
+                                              format(self.linePrefixes.REPLY))
         result = {}
         for line in replyLines:
             sender, reply = line[2:].split(":", 1)

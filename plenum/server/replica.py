@@ -442,6 +442,11 @@ class Replica(HasActionQueue, MessageProcessor):
     #                      format(self, (req.identifier, req.reqId)))
     #         self._stashInBox(req)
 
+    def trackBatches(self, pp: PrePrepare):
+        # ppReq.discarded indicates the index from where the discarded requests
+        #  starts hence the count of accepted requests
+        self.batches[pp.ppSeqNo] = [pp.discarded, pp.ppTime, pp.stateRoot]
+
     def send3PCBatch(self):
         if not self.node.isParticipating:
             logger.trace('{} is not participating'.format(self))
@@ -466,7 +471,20 @@ class Replica(HasActionQueue, MessageProcessor):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
+    def processReqDuringBatch(self, req: Request, validReqs: List,
+                              inValidReqs: List, rejects: List):
+        try:
+            if self.isMaster:
+                self.node.doDynamicValidation(req)
+                self.node.applyReq(req)
+            validReqs.append(req)
+        except InvalidClientMessageException as ex:
+            rejects.append(Reject(req.identifier, req.reqId, ex))
+            inValidReqs.append(req)
+
     def create3PCBatch(self, ledgerId):
+        # TODO: If no valid requests then PRE-PREPARE should be sent but rejects
+        #  should be tracked so they can be sent as part of next batch.
         logger.debug("{} creating a batch for ledger {}".format(self, ledgerId))
         ppSeqNo = self.lastPrePrepareSeqNo + 1
         tm = time.time() * 1000
@@ -476,14 +494,7 @@ class Replica(HasActionQueue, MessageProcessor):
         while len(validReqs)+len(inValidReqs) < self.config.Max3PCBatchSize \
                 and self.requestQueues[ledgerId]:
             req = self.requestQueues[ledgerId].popleft()
-            try:
-                if self.isMaster:
-                    self.node.doDynamicValidation(req)
-                    self.node.applyReq(req)
-                validReqs.append(req)
-            except InvalidClientMessageException as ex:
-                rejects.append(Reject(req.identifier, req.reqId, ex))
-                inValidReqs.append(req)
+            self.processReqDuringBatch(req, validReqs, inValidReqs, rejects)
 
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
@@ -507,8 +518,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[
             ppReq.viewNo, ppReq.ppSeqNo] = ppReq
-        self.batches[ppReq.ppSeqNo] = [len(ppReq.reqIdr),
-                                       time.perf_counter()]
+        self.trackBatches(ppReq)
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, request: Request):
@@ -637,6 +647,7 @@ class Replica(HasActionQueue, MessageProcessor):
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
+            self.trackBatches(pp)
             logger.info("{} processed incoming PRE-PREPARE{}".
                         format(self, key))
 
@@ -789,14 +800,7 @@ class Replica(HasActionQueue, MessageProcessor):
         rejects = []
         for reqKey in pp.reqIdr:
             req = self.node.requests[reqKey].finalised
-            try:
-                if self.isMaster:
-                    self.node.doDynamicValidation(req)
-                    self.node.applyReq(req)
-                validReqs.append(req)
-            except InvalidClientRequest as ex:
-                rejects.append(Reject(req.identifier, req.reqId, ex))
-                inValidReqs.append(req)
+            self.processReqDuringBatch(req, validReqs, inValidReqs, rejects)
 
         if len(validReqs) != pp.discarded:
             raise SuspiciousNode(sender, Suspicions.PPR_REJECT_WRONG, pp)
@@ -827,6 +831,8 @@ class Replica(HasActionQueue, MessageProcessor):
             if pp.txnRoot != self.txnRoot(pp.ledgerId):
                 revert()
                 raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
+
+            self.outBox.extend(rejects)
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:
         """
