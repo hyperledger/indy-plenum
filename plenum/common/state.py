@@ -43,10 +43,11 @@ class State:
 
 
 class PruningState(State):
-    # This key is used to store the committed root hash of the trie in the db.
-    #  The committed root hash is only updated once a batch gets written to the
-    #  ledger. It might happen the a few batches are in 3 phase commit and the
-    #  node crashes. Now when the node restarts, it restores the db from the
+    # This class is used to store the
+    # committed root hash of the trie in the db.
+    # The committed root hash is only updated once a batch gets written to the
+    # ledger. It might happen that a few batches are in 3 phase commit and the
+    # node crashes. Now when the node restarts, it restores the db from the
     # committed root hash and all entries for uncommitted batches will be
     # ignored
 
