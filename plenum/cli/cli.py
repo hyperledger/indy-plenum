@@ -254,14 +254,12 @@ class Cli:
             self.showNodeRegistry()
         else:
             msg = """
-            No information is found which can be used to connect to the nodes.
-             This indicates an error. Check if the file containing genesis
-             transactions (which has name specified in config as
-             `poolTransactionsFile`) is present in your base directory
-             which can be found in the config as `baseDir`, if not then get
-             this file from the github repository under `/data` and paste it
-             in location `baseDir`. The github url repository is at {}
-            """.format(self.githubUrl)
+            The information required to connect this client to the nodes cannot be found.
+            This is an error. To correct the error, get the file containing genesis transactions
+            (the file name is `{}`) from the github repository and place it in directory
+            `{}`. The github url is {}.\n""".format(self.config.poolTransactionsFile,
+                                                    self.config.baseDir,
+                                                    self.githubUrl)
             self.print(msg)
 
         self.print("Type 'help' for more information.")
