@@ -80,6 +80,7 @@ from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
+from plenum.server.req_id_to_txn import ReqIdrToTxnLevelDB
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
@@ -155,7 +156,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
 
-        # HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
         if isinstance(self.poolManager, RegistryPoolManager):
@@ -279,24 +279,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case the node crashes before sending the reply to the client
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        # self.hashStore = self.getHashStore(self.name)
-        # self.initDomainLedger()
-        # self.primaryStorage = storage or self.getPrimaryStorage()
-        # self.secondaryStorage = self.getSecondaryStorage()
-        # self.addGenesisNyms()
-        # self.ledgerManager = self.getLedgerManager()
-        # self.states = {}    # type: Dict[int, PruningState]
-
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
             self.states[POOL_LEDGER_ID] = self.poolManager.state
-
-        # self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
-        #     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-        #     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-        # self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
@@ -344,6 +331,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._id = None
         self._wallet = None
         self.reqHandler = self.getDomainReqHandler()
+        self.seqNoDB = self.loadSeqNoDB()
 
     @property
     def id(self):
@@ -371,6 +359,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getDomainReqHandler(self):
         return DomainReqHandler(self.domainLedger,
                                 self.states[DOMAIN_LEDGER_ID])
+
+    def loadSeqNoDB(self):
+        dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
+        return ReqIdrToTxnLevelDB(dbPath)
 
     # noinspection PyAttributeOutsideInit
     def setF(self):
@@ -502,7 +494,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def loadDomainState(self):
         return PruningState(os.path.join(self.dataLocation,
-                                         self.config.domain_state_db_name))
+                                         self.config.domainStateDbName))
 
     @staticmethod
     def ledgerIdForRequest(request: Request):
@@ -1422,18 +1414,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: What if the reply was a REQNACK? Its not gonna be found in the
         # replies.
 
-        typ = request.operation.get(TXN_TYPE)
-        if typ in POOL_TXN_TYPES:
-            reply = self.poolManager.getReplyFor(request)
-        else:
-            reply = self.getReplyFor(request)
-
+        ledgerId = self.ledgerIdForRequest(request)
+        ledger = self.getLedger(ledgerId)
+        reply = self.getReplyFromLedger(ledger, request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
-            # self.checkRequestAuthorized(request)
             if not self.isProcessingReq(*request.key):
                 self.startedProcessingReq(*request.key, frm)
             # If not already got the propagate request(PROPAGATE) for the
@@ -1781,12 +1769,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def ledgerId(txnType: str):
         return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
 
-    # def appendResultToLedger(self, data):
-    #     ledgerId = self.ledgerId(data[TXN_TYPE])
-    #     return self.ledgerManager.appendToLedger(ledgerId, data)
-
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
+            self.seqNoDB.add(*reqKey, reply.result[F.seqNo.name])
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 
@@ -1863,10 +1848,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def defaultAuthNr(self):
         return SimpleAuthNr()
 
-    def getReplyFor(self, request):
-        result = self.secondaryStorage.getReply(request.identifier,
-                                                request.reqId)
-        return Reply(result) if result else None
+    # def getReplyFor(self, request):
+    #     result = self.secondaryStorage.getReply(request.identifier,
+    #                                             request.reqId)
+    #     return Reply(result) if result else None
 
     def processStashedOrderedReqs(self):
         i = 0
@@ -2062,9 +2047,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    @staticmethod
-    def getReplyFromLedger(ledger, request):
-        txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
+    def getReplyFromLedger(self, ledger, request):
+        seqNo = self.seqNoDB.get(request.identifier, request.reqId)
+        if seqNo:
+            txn = ledger.getBySeqNo(int(seqNo))
+        else:
+            txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
         if txn:
             txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
             return Reply(txn)

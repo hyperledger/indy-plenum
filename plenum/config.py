@@ -28,8 +28,12 @@ walletDir = 'wallet'
 
 poolTransactionsFile = 'pool_transactions_sandbox'
 domainTransactionsFile = 'transactions_sandbox'
-pool_state_db_name = 'pool_state'
-domain_state_db_name = 'domain_state'
+poolStateDbName = 'pool_state'
+domainStateDbName = 'domain_state'
+
+# There is only one seqNoDB as it maintain the mapping of
+# request id to sequence numbers
+seqNoDB = 'seq_no_db'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 

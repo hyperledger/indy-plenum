@@ -31,15 +31,15 @@ class SecondaryStorage:
     def getReplies(self, *txnIds, seqNo=None, **kwargs):
         raise NotImplementedError
 
-    def countStewards(self) -> int:
-        """Count the number of stewards added to the pool transaction store"""
-        allTxns = self._primaryStorage.getAllTxn().values()
-        return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
-                   (txn.get(ROLE) == STEWARD))
-
-    def isSteward(self, nym):
-        for txn in self._primaryStorage.getAllTxn().values():
-            if txn[TXN_TYPE] == NYM and txn[TARGET_NYM] == nym and \
-                            txn.get(ROLE) == STEWARD:
-                return True
-        return False
+    # def countStewards(self) -> int:
+    #     """Count the number of stewards added to the pool transaction store"""
+    #     allTxns = self._primaryStorage.getAllTxn().values()
+    #     return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
+    #                (txn.get(ROLE) == STEWARD))
+    #
+    # def isSteward(self, nym):
+    #     for txn in self._primaryStorage.getAllTxn().values():
+    #         if txn[TXN_TYPE] == NYM and txn[TARGET_NYM] == nym and \
+    #                         txn.get(ROLE) == STEWARD:
+    #             return True
+    #     return False

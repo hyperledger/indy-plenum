@@ -82,8 +82,8 @@ def checkPrePrepared(looper,
                     1,
                     Replica.batchDigest([propagated1,]),
                     DOMAIN_LEDGER_ID,
-                    primary.node.getState(DOMAIN_LEDGER_ID).headHash if instId == 0 else None,
-                    primary.node.getLedger(DOMAIN_LEDGER_ID).uncommittedRootHash if instId == 0 else None,
+                    primary.stateRoot(DOMAIN_LEDGER_ID),
+                    primary.txnRoot(DOMAIN_LEDGER_ID),
                     )
 
             passes = 0

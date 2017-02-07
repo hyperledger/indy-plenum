@@ -4,7 +4,7 @@ import leveldb as leveldb
 from typing import Optional
 
 
-class ReqIdToTxn:
+class ReqIdrToTxn:
     """
     Stores a map from client identifier, request id tuple to transaction
     sequence number
@@ -19,7 +19,7 @@ class ReqIdToTxn:
         raise NotImplementedError
 
 
-class ReqIdToTxnLevelDB(ReqIdToTxn):
+class ReqIdrToTxnLevelDB(ReqIdrToTxn):
     def __init__(self, dbPath):
         self.db = leveldb.LevelDB(dbPath)
 
@@ -35,8 +35,8 @@ class ReqIdToTxnLevelDB(ReqIdToTxn):
 
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)
-        val = self.db.Get(key)
         try:
+            val = self.db.Get(key)
             return int(val)
-        except:
+        except (KeyError, ValueError):
             return None

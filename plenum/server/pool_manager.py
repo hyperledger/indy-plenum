@@ -75,7 +75,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def loadState(self):
         return PruningState(os.path.join(self.node.dataLocation,
-                                         self.config.pool_state_db_name))
+                                         self.config.poolStateDbName))
 
     @property
     def hasLedger(self):
@@ -146,8 +146,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             txn[TXN_TIME] = ppTime
             self.node.sendReplyToClient(txn, req.key)
 
-    def getReplyFor(self, request):
-        return self.node.getReplyFromLedger(self.ledger, request)
+    # def getReplyFor(self, request):
+    #     return self.node.getReplyFromLedger(self.ledger, request)
 
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NODE:
