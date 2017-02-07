@@ -23,7 +23,7 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = self.uncommittedTree.root_hash
         self.uncommittedTxns.extend(txns)
 
-    def commitTxns(self, count: int) -> Tuple[int, int]:
+    def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """
         The number of txns from the beginning of `uncommittedTxns` to commit
         :param count:
@@ -33,11 +33,12 @@ class Ledger(_Ledger):
         committedSize = self.size
         for txn in self.uncommittedTxns[:count]:
             self.append(txn)
+        committedTxns = self.uncommittedTxns[:count]
         self.uncommittedTxns = self.uncommittedTxns[count:]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
-        return committedSize + 1, committedSize + count
+        return (committedSize + 1, committedSize + count), committedTxns
 
     def appendCommittedTxns(self, txns: List):
         # Called while receiving committed txns from other nodes

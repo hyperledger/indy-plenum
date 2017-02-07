@@ -16,8 +16,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
-        tdir_for_func):
+def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(tdir_for_func):
     """
     A protocol instance must have at least 4 nodes to come up.
     The status of the nodes will change from starting to started only after the
@@ -56,8 +55,6 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                         eventually(checkNodeStatusRemotesAndF, expectedStatus,
                                    nodeIdx,
                                    retryWait=1, timeout=30))
-
-            # tests
 
             logger.debug("Sharing keys")
             looper.run(checkNodesConnected(nodeSet))

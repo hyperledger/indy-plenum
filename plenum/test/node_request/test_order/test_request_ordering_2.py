@@ -53,8 +53,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         if isinstance(msg, PrePrepare):
             if len(delayedPpSeqNos) < ppSeqsToDelay:
                 delayedPpSeqNos.add(msg.ppSeqNo)
-                logger.debug('ppSeqNo {} corresponding to request id {} would '
-                             'be delayed'.format(msg.ppSeqNo, msg.reqId))
+                logger.debug('ppSeqNo {} be delayed'.format(msg.ppSeqNo))
         if isinstance(msg, Commit) and msg.instId == 0 and \
             sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:

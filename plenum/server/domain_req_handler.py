@@ -12,9 +12,10 @@ logger = getlogger()
 
 
 class DomainReqHandler:
-    def __init__(self, ledger, state):
+    def __init__(self, ledger, state, reqProcessors):
         self.ledger = ledger
         self.state = state
+        self.reqProcessors = reqProcessors
 
     def validateReq(self, req: Request, config):
         if req.operation.get(TXN_TYPE) == NYM:
@@ -33,13 +34,21 @@ class DomainReqHandler:
                                                 req.reqId,
                                                 error)
 
+    def reqToTxn(self, req: Request):
+        txn = reqToTxn(req)
+        for processor in self.reqProcessors:
+            res = processor.process(req)
+            txn.update(res)
+
+        return txn
+
     def applyReq(self, req: Request):
         operation = req.operation
         typ = operation.get(TXN_TYPE)
+        txn = self.reqToTxn(req)
+        nym = operation.get(TARGET_NYM)
+        self.ledger.appendTxns([txn])
         if typ == NYM:
-            nym = operation.get(TARGET_NYM)
-            txn = reqToTxn(req)
-            self.ledger.appendTxns([txn])
             self.updateNym(nym, {
                 ROLE: operation.get(ROLE),
                 VERKEY: operation.get(VERKEY)

@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.types import PrePrepare
+from plenum.common.types import PrePrepare, DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
@@ -49,14 +49,18 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
     logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
+    reqIdr = [(request2.identifier, request2.reqId)]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.lastPrePrepareSeqNo,
-        wallet1.defaultId,
-        request2.reqId,
-        request2.digest,
-        time.time()
+        time.time(),
+        reqIdr,
+        1,
+        primaryRepl.batchDigest([request2]),
+        DOMAIN_LEDGER_ID,
+        primaryRepl.stateRoot(DOMAIN_LEDGER_ID),
+        primaryRepl.txnRoot(DOMAIN_LEDGER_ID)
     )
 
     logger.debug("""Checking whether all the non primary replicas have received
@@ -73,7 +77,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
-                                  wallet1.defaultId,
+                                  request2.identifier,
                                   request2.reqId,
                                   retryWait=1,
                                   timeout=10))

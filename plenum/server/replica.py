@@ -516,8 +516,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return prePrepareReq
 
     def sendPrePrepare(self, ppReq: PrePrepare):
-        self.sentPrePrepares[
-            ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+        self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
         self.trackBatches(ppReq)
         self.send(ppReq, TPCStat.PrePrepareSent)
 
@@ -788,7 +787,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def isNextPrePrepare(self, pp: PrePrepare):
         if (self.sentPrePrepares and (self.sentPrePrepares.iloc[-1][1] -
-                                          pp.ppSeqNo) != -1) and \
+                                          pp.ppSeqNo) != -1) or \
                 (self.prePrepares and (self.prePrepares.iloc[-1][1] -
                                            pp.ppSeqNo != -1)):
             return False

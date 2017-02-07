@@ -358,7 +358,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getDomainReqHandler(self):
         return DomainReqHandler(self.domainLedger,
-                                self.states[DOMAIN_LEDGER_ID])
+                                self.states[DOMAIN_LEDGER_ID],
+                                self.reqProcessors)
+
+    def loadSeqNoDB(self):
+        dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
+        return ReqIdrToTxnLevelDB(dbPath)
 
     def loadSeqNoDB(self):
         dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
@@ -571,12 +576,30 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.stop()
         self.clientstack.stop()
 
+        self.closeAllLevelDBs()
+
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.setLedgerState(POOL_LEDGER_ID,
                                               LedgerState.not_synced)
         self.ledgerManager.setLedgerState(DOMAIN_LEDGER_ID,
                                           LedgerState.not_synced)
+
+    def closeAllLevelDBs(self):
+        # Clear leveldb lock files
+        for ledgerId in self.ledgerManager.ledgers:
+            state = self.getState(ledgerId)
+            if state:
+                self.removeLockFiles(state.db.db.dbPath)
+            if self.seqNoDB:
+                self.removeLockFiles(self.seqNoDB.dbPath)
+
+    @staticmethod
+    def removeLockFiles(dbPath):
+        if os.path.isdir(dbPath):
+            lockFilePath = os.path.join(dbPath, 'LOCK')
+            if os.path.isfile(lockFilePath):
+                os.remove(lockFilePath)
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -1751,17 +1774,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
-        seqNoStart, seqNoEnd = self.domainLedger.commitTxns(len(reqs))
+        (seqNoStart, seqNoEnd), committedTxns = self.domainLedger.commitTxns(len(reqs))
         stateRoot = unhexlify(stateRoot.encode())
         txnRoot = unhexlify(txnRoot.encode())
         self.states[DOMAIN_LEDGER_ID].commit(rootHash=stateRoot)
         assert self.domainLedger.tree.root_hash == txnRoot
-        for req, seqNo in zip(reqs, range(seqNoStart, seqNoEnd + 1)):
+        for txn, seqNo in zip(committedTxns,
+                              range(seqNoStart, seqNoEnd + 1)):
             # TODO: Send txn and state proof to the client
-            txn = reqToTxn(req)
             txn[F.seqNo.name] = seqNo
             txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn), req.key)
+            self.sendReplyToClient(Reply(txn), (txn[f.IDENTIFIER.nm],
+                                                txn[f.REQ_ID.nm]))
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
 

@@ -61,6 +61,22 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
+def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
+    """
+    Compare provided fields of 2 named tuples for equality and returns true
+    :param tuple1:
+    :param tuple2:
+    :param fields:
+    :return:
+    """
+    tuple1 = tuple1._asdict()
+    tuple2 = tuple2._asdict()
+    comp = []
+    for field in fields:
+        comp.append(tuple1[field] == tuple2[field])
+    return all(comp)
+
+
 def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
                      , logMsg: str = None) -> None:
     """

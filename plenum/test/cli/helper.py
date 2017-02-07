@@ -138,7 +138,7 @@ def checkAllNodesUp(cli):
         for inst in [0, 1]:
             rep = node.replicas[inst]
             assert rep
-            pri = rep.primaryNames[0]
+            pri = rep.primaryName
             assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
 
 
@@ -205,8 +205,9 @@ def checkRequest(cli, operation):
     # txnTimePattern = "'txnTime', \d+\.*\d*"
     # txnIdPattern = "'txnId', '" + txn['txnId'] + "'"
     txnTimePattern = "\'txnTime\': \d+\.*\d*"
-    txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
-    assert re.search(txnIdPattern, printedReply['msg'])
+    # DEPR
+    # txnIdPattern = "\'txnId\': '" + txn['txnId'] + "'"
+    # assert re.search(txnIdPattern, printedReply['msg'])
     assert re.search(txnTimePattern, printedReply['msg'])
     assert printedStatus['msg'] == "Status: {}".format(status)
     return client, wallet

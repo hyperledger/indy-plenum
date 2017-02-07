@@ -102,8 +102,8 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     """
     the client must get at least :math:`2f+1` responses
     """
-    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
-            getRepliesFromClientInbox(receivedMsgs, reqId)]
+    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][f.IDENTIFIER.nm])
+            for msg in getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
     for tpl in msgs:
         groupedMsgs[tpl] = groupedMsgs.get(tpl, 0) + 1
@@ -298,7 +298,7 @@ def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
-    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
+    recvdOrderedReqs = [(p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
     expected = (instId, identifier, reqId)
     return expected in recvdOrderedReqs
 
@@ -309,27 +309,28 @@ def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.doPrePrepare)
-    expected = req.reqDigest
-    assert expected in [p["reqDigest"] for p in prePreparesSent]
+    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    expectedDigest = TestReplica.batchDigest([req])
+    assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
+    assert [(req.identifier, req.reqId)] in \
+           [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
         params = getAllArgs(replica, replica.canProcessPrePrepare)
-        assert expectedRequest[:-1] in [p['pp'][:-1] for p in params]
+        assert expectedRequest.reqIdr in [p['pp'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
     paramsList = getAllArgs(replica, replica.canSendPrepare)
     rv = getAllReturnVals(replica,
                           replica.canSendPrepare)
-    for params in paramsList:
-        req = params['request']
-        assert req.identifier == identifier
-        assert req.reqId == reqId
-    assert all(rv)
+    assert [(identifier, reqId)] in \
+           [p["ppReq"].reqIdr for p in paramsList]
+    idx = [p["ppReq"].reqIdr for p in paramsList].index([(identifier, reqId)])
+    assert rv[idx]
 
 
 def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,

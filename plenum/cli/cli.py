@@ -486,7 +486,7 @@ class Cli:
         txn = {
             TXN_TYPE: typ,
             TARGET_NYM: destId,
-            TXN_ID: sha256(randomString(6).encode()).hexdigest(),
+            # TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
             txn[IDENTIFIER] = hexToFriendly(matchedVars.get(IDENTIFIER))

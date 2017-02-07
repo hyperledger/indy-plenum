@@ -6,10 +6,11 @@ import pytest as pytest
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.request import ReqDigest
-from plenum.common.types import PrePrepare
+from plenum.common.types import PrePrepare, DOMAIN_LEDGER_ID, f
+from plenum.common.util import compareNamedTuple
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
-from plenum.test.instances.helper import recvdPrePrepare
+from plenum.test.instances.helper import recvdPrePrepare, processedPrePrepare
 from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getlogger()
@@ -30,34 +31,29 @@ def setup(nodeSet, up):
 
     pr = getPrimaryReplica(nodeSet, instId)
     evilMethod = types.MethodType(dontSendPrePrepareRequest, pr)
-    pr.doPrePrepare = evilMethod
+    pr.sendPrePrepare = evilMethod
 
 
 def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
-    primaryReplica = getPrimaryReplica(nodeSet, instId)
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, instId)
     firstNpr = nonPrimaryReplicas[0]
     remainingNpr = nonPrimaryReplicas[1:]
 
-    def sendPrePrepareFromNonPrimary(replica):
-        firstNpr.doPrePrepare(propagated1.reqDigest)
+    def sendPrePrepareFromNonPrimary():
+        firstNpr.requestQueues[DOMAIN_LEDGER_ID].append(propagated1)
+        ppReq = firstNpr.create3PCBatch(DOMAIN_LEDGER_ID)
+        firstNpr.sendPrePrepare(ppReq)
+        return ppReq
 
-        return PrePrepare(
-                replica.instId,
-                firstNpr.viewNo,
-                firstNpr.lastPrePrepareSeqNo,
-                propagated1.identifier,
-                propagated1.reqId,
-                propagated1.digest,
-                time.time())
-
-    ppr = sendPrePrepareFromNonPrimary(firstNpr)
+    ppr = sendPrePrepareFromNonPrimary()
 
     def chk():
-        for r in (primaryReplica, *remainingNpr):
+        for r in remainingNpr:
             recvdPps = recvdPrePrepare(r)
             assert len(recvdPps) == 1
-            assert recvdPps[0]['pp'][:-1] == ppr[:-1]
+            assert compareNamedTuple(recvdPps[0]['pp'], ppr,
+                                     f.DIGEST.nm, f.STATE_ROOT.nm,
+                                     f.TXN_ROOT.nm)
             nodeSuspicions = len(getNodeSuspicions(
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1

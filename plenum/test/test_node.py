@@ -187,15 +187,17 @@ class TestNodeCore(StackedTester):
 
     def customRequestApplication(self, request):
         typ = request.operation.get(TXN_TYPE)
+        # txn = self.reqHandler.reqToTxn(request)
+        # ledger = self.getLedger(DOMAIN_LEDGER_ID)
+        # ledger.appendTxns([txn])
+        r = super().customRequestApplication(request)
         if typ == 'buy':
-            txn = reqToTxn(request)
-            ledger = self.getLedger(DOMAIN_LEDGER_ID)
             state = self.getState(DOMAIN_LEDGER_ID)
-            ledger.appendTxns([txn])
             key = '{}:{}'.format(request.identifier, request.reqId).encode()
             state.set(key, json.dumps(request.operation).encode())
+            return True
         else:
-            return super().customRequestApplication(request)
+            return r
 
 
 @Spyable(methods=[Node.handleOneNodeMsg,
@@ -257,7 +259,7 @@ class TestPrimaryElector(PrimaryElector):
 
 
 @Spyable(methods=[
-                  # replica.Replica.doPrePrepare,
+                  replica.Replica.sendPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
                   replica.Replica.validatePrepare,

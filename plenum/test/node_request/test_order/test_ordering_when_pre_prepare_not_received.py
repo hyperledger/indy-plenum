@@ -20,25 +20,25 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     sendRandomRequest(wallet1, client1)
 
     stash = []
-    origMethod = slowRep.processRequest
+    origMethod = slowRep.processPrePrepare
 
-    def patched(self, msg):
-        stash.append(msg)
+    def patched(self, msg, sender):
+        stash.append((msg, sender))
 
     patchedMethod = types.MethodType(patched, slowRep)
-    slowRep.processRequest = patchedMethod
+    slowRep.processPrePrepare = patchedMethod
 
     def chk1():
         assert len(slowRep.commitsWaitingForPrepare) > 0
 
     looper.run(eventually(chk1, timeout=4))
 
-    for item in stash:
-        origMethod(item)
+    for m, s in stash:
+        origMethod(m, s)
 
     def chk2():
         assert len(slowRep.commitsWaitingForPrepare) == 0
         assert slowRep.spylog.count(slowRep.doOrder.__name__) == 1
 
-    looper.run(eventually(chk2, timeout=12))
+    looper.run(eventually(chk2, retryWait=1, timeout=12))
 

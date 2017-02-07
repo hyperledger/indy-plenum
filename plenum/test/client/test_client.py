@@ -205,7 +205,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # change two responses to something different
     for i in range(2):
         msg = next(replies)
-        msg[f.RESULT.nm][TXN_ID] = str(i) + "Some random id"
+        msg[f.RESULT.nm][f.SIG.nm] = str(i) + "Some random id"
 
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 

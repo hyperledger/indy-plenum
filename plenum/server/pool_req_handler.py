@@ -57,7 +57,7 @@ class PoolReqHandler:
         :return: a tuple of 2 seqNos indicating the start and end of sequence
         numbers of the committed txns
         """
-        seqNoRange = self.ledger.commitTxns(count)
+        seqNoRange, _ = self.ledger.commitTxns(count)
         self.state.commit(rootHash=stateRoot)
         return seqNoRange
 

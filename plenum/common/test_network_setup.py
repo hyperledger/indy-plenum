@@ -89,7 +89,7 @@ class TestNetworkSetup:
             # This should be moved to Sovrin
             ROLE: 'TRUSTEE',
             ALIAS: trusteeName,
-            TXN_ID: sha256(trusteeName.encode()).hexdigest()
+            # TXN_ID: sha256(trusteeName.encode()).hexdigest()
         }
         domainLedger.add(txn)
 
@@ -104,7 +104,7 @@ class TestNetworkSetup:
                 TXN_TYPE: NYM,
                 ROLE: STEWARD,
                 ALIAS: stewardName,
-                TXN_ID: sha256(stewardName.encode()).hexdigest()
+                # TXN_ID: sha256(stewardName.encode()).hexdigest()
             }
             if num == 1:
                 steward1Nym = stewardNym
@@ -138,7 +138,7 @@ class TestNetworkSetup:
                     NODE_PORT: nodePort,
                     SERVICES: [VALIDATOR]
                 },
-                TXN_ID: sha256(nodeName.encode()).hexdigest()
+                # TXN_ID: sha256(nodeName.encode()).hexdigest()
             }
             poolLedger.add(txn)
 
@@ -151,7 +151,7 @@ class TestNetworkSetup:
                 TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
                 TXN_TYPE: NYM,
                 ALIAS: clientName,
-                TXN_ID: sha256(clientName.encode()).hexdigest()
+                # TXN_ID: sha256(clientName.encode()).hexdigest()
             }
             domainLedger.add(txn)
 

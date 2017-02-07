@@ -41,7 +41,7 @@ def setup(looper, startedNodes, up, wallet1, client1):
     def by65SpecificPrePrepare(msg):
         nonlocal slowRequest
         if isinstance(msg, PrePrepare) and slowRequest is None:
-            slowRequest = getattr(msg, f.REQ_ID.nm)
+            slowRequest = getattr(msg, f.REQ_IDR.nm)
             return 65
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)

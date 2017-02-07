@@ -21,6 +21,7 @@ class ReqIdrToTxn:
 
 class ReqIdrToTxnLevelDB(ReqIdrToTxn):
     def __init__(self, dbPath):
+        self.dbPath = dbPath
         self.db = leveldb.LevelDB(dbPath)
 
     def getKey(self, identifier, reqId):

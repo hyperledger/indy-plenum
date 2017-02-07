@@ -21,6 +21,7 @@ def test_throttler_case1():
             assert windowSize - i % windowSize == round(timeToWait)
         time.sleep(1)
 
+
 def test_throttler_case2():
     '''
     Tests throttler with custom delay function

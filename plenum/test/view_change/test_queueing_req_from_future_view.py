@@ -17,6 +17,8 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skipif(True, reason="Replicas do not get messages for other "
+                                 "than the current view")
 def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
                                   wallet1, client1):
     """
