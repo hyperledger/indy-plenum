@@ -1,6 +1,8 @@
 import types
 from base64 import b64encode
 
+import pytest
+
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.txn import TXN_TYPE
@@ -12,6 +14,7 @@ from plenum.test.test_node import checkNodesConnected
 logger = getlogger()
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-331')
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
