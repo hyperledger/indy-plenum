@@ -1251,7 +1251,7 @@ class Cli:
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
-
+            anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
                 envName = basename(fe)
@@ -1271,6 +1271,7 @@ class Cli:
 
                 if len(persistedWalletNames) > 0 or \
                                 len(unpersistedWalletNames) > 0:
+                    anyWalletFound = True
                     self.print("\nEnvironment: {}".format(envName))
 
                 if len(persistedWalletNames) > 0:
@@ -1296,6 +1297,9 @@ class Cli:
                     self.print("    Un-persisted wallets:")
                     for n in unpersistedWalletNames:
                         self.print("        {}".format(n))
+
+            if not anyWalletFound:
+                self.print("No keyrings exists")
 
             return True
 
@@ -1385,17 +1389,29 @@ class Cli:
         return wallets.get(name.lower())
 
     def checkIfWalletBelongsToCurrentContext(self, wallet):
+        self.logger.debug("wallet context check: {}".format(wallet.name))
+        self.logger.debug("  wallet.getEnvName: {}".format(wallet.getEnvName))
+        self.logger.debug("  active env: {}".format(self.getActiveEnv))
+
         if wallet.getEnvName and wallet.getEnvName != self.getActiveEnv:
+            self.logger.debug("  doesn't belong to the context")
             return False
+
         return True
 
     def _isWalletFilePathBelongsToCurrentContext(self, filePath):
-        keyringsBaseDir = self.getKeyringsBaseDir()
+        contextBasedKeyringsBaseDir = self.getContextBasedKeyringsBaseDir()
         fileBaseDir = dirname(filePath)
-        inKeyringsDir = os.path.commonprefix(
-            [filePath, keyringsBaseDir]) == keyringsBaseDir
-        if not inKeyringsDir or keyringsBaseDir == fileBaseDir:
+
+        self.logger.debug("wallet file path: {}".format(filePath))
+        self.logger.debug("  contextBasedKeyringsBaseDir: {}".
+                          format(contextBasedKeyringsBaseDir))
+        self.logger.debug("  fileBaseDir: {}".format(fileBaseDir))
+
+        if contextBasedKeyringsBaseDir != fileBaseDir:
+            self.logger.debug("  doesn't belong to the context")
             return False
+
         return True
 
     def getAllEnvDirNamesForKeyrings(self):
@@ -1406,11 +1422,13 @@ class Cli:
         baseWalletDirName = dirname(filePath)
         if not self._isWalletFilePathBelongsToCurrentContext(filePath):
             self.print("\nKeyring base directory is: {}"
-                       "\nGiven keyring file should be in one of it's "
-                       "sub directory (you can create it if it doesn't exists) "
+                       "\nGiven keyring file {} "
+                       "should be in one of it's sub directories "
+                       "(you can create it if it doesn't exists) "
                        "according to the environment it belongs to."
                        "\nPossible sub directory names are: {}".
-                       format(keyringsBaseDir, self.getAllEnvDirNamesForKeyrings()))
+                       format(keyringsBaseDir, filePath,
+                              self.getAllEnvDirNamesForKeyrings()))
             return False
 
         curContextDirName = self.getContextBasedKeyringsBaseDir()
@@ -1438,9 +1456,8 @@ class Cli:
             self.print("Keyring already in use.")
             return True
 
-        filePath = os.path.join(name.lower())
-        if os.path.isabs(filePath) and os.path.exists(filePath):
-            self._loadFromPath(filePath, copyAs=copyAs, override=override)
+        if os.path.isabs(name) and os.path.exists(name):
+            self._loadFromPath(name, copyAs=copyAs, override=override)
         else:
             self._loadWalletIfExistsAndNotLoaded(name, copyAs=copyAs,
                                                  override=override)
@@ -1527,6 +1544,7 @@ class Cli:
 
         if not self.checkIfWalletPathBelongsToCurrentContext(walletFilePath):
             return False
+
         return True
 
     @property
