@@ -1,8 +1,6 @@
 import time
 from functools import partial
 
-import pytest
-
 from plenum.common.eventually import eventually
 from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
@@ -17,7 +15,6 @@ from plenum.test.test_node import checkNodesConnected, \
 whitelist = ['found legacy entry']  # warnings
 
 
-@pytest.mark.skip(reason='SOV-456')
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,
