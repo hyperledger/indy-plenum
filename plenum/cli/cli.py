@@ -1251,7 +1251,7 @@ class Cli:
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
-
+            anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
                 envName = basename(fe)
@@ -1271,6 +1271,7 @@ class Cli:
 
                 if len(persistedWalletNames) > 0 or \
                                 len(unpersistedWalletNames) > 0:
+                    anyWalletFound = True
                     self.print("\nEnvironment: {}".format(envName))
 
                 if len(persistedWalletNames) > 0:
@@ -1296,6 +1297,9 @@ class Cli:
                     self.print("    Un-persisted wallets:")
                     for n in unpersistedWalletNames:
                         self.print("        {}".format(n))
+
+            if not anyWalletFound:
+                self.print("No keyrings exists")
 
             return True
 
@@ -1452,9 +1456,8 @@ class Cli:
             self.print("Keyring already in use.")
             return True
 
-        filePath = os.path.join(name.lower())
-        if os.path.isabs(filePath) and os.path.exists(filePath):
-            self._loadFromPath(filePath, copyAs=copyAs, override=override)
+        if os.path.isabs(name) and os.path.exists(name):
+            self._loadFromPath(name, copyAs=copyAs, override=override)
         else:
             self._loadWalletIfExistsAndNotLoaded(name, copyAs=copyAs,
                                                  override=override)
