@@ -10,6 +10,15 @@ from typing import Dict
 
 from jsonpickle import json, encode, decode
 from plenum.common.exceptions import NameAlreadyExists
+from plenum.test.cli.HelpMsg import helpMsg, simpleHelpMsg, \
+    licenseHelpMsg, statusHelpMsg, exitHelpMsg, quitHelpMsg, listHelpMsg, \
+    newNodeHelpMsg, newClientHelpMsg, statusNodeHelpMsg, statusClientHelpMsg, \
+    keyShareHelpMsg, loadPlugingDirHelpMsg, clientSendMsgHelpMsg, \
+    clientCommandMsgHelpMsg, clientShowMsgHelpMsg, addKeyHelpMsg, newKeyHelpMsg, \
+    listIdsHelpMsg, useIdHelpMsg, addGenesisTxnHelpMsg, \
+    createGenesisTxnFileHelpMsg, changePromptHelpMsg, newKeyringHelpMsg, \
+    renameKeyringHelpMsg, useKeyringHelpMsg, saveKeyringHelpMsg, \
+    listKeyringHelpMsg
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
@@ -199,8 +208,6 @@ class Cli:
             Token.BoldOrange: '#ff4f2f bold',
             Token.BoldBlue: '#095cab bold'})
 
-        self.functionMappings = self.createFunctionMappings()
-
         self.voidMsg = "<none>"
 
         # Create an asyncio `EventLoop` object. This is a wrapper around the
@@ -270,6 +277,17 @@ class Cli:
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
         self.restoreLastActiveWallet()
+
+        self.checkIfHelpMsgExistsForAllCmds()
+
+    def checkIfHelpMsgExistsForAllCmds(self):
+        for cmdHandlerFunc in self.actions:
+            funcName = cmdHandlerFunc.__name__.replace("_","")
+            if funcName not in self.helpMsgs().keys():
+                raise Exception("\n************\nHelp msg not provided for "
+                                "'{}' command handler. Please add proper "
+                                "mapping for related help msg in function "
+                                "'helpMsgs'\n************\n".format(funcName))
 
     @staticmethod
     def getCliVersion():
@@ -538,81 +556,6 @@ class Cli:
     def initializeGrammarCompleter(self):
         self.grammarCompleter = GrammarCompleter(self.grammar, self.completers)
 
-    def createFunctionMappings(self):
-
-        def newHelper():
-            self.print("""Is used to create a new node or a client.
-                     Usage: new <node/client> <nodeName/clientName>""")
-
-        def statusHelper():
-            self.print("status command helper")
-
-        def nodeHelper():
-            self.print("It is used to create a new node")
-
-        def clientHelper():
-            self.print("It is used to create a new client")
-
-        def statusNodeHelper():
-            self.print("It is used to check status of a created node")
-
-        def statusClientHelper():
-            self.print("It is used to check status of a created client")
-
-        def listHelper():
-            self.print("List all the commands, you can use in this CLI.")
-
-        def exitHelper():
-            self.print("Exits the CLI")
-
-        def licenseHelper():
-            self.print("""
-                        Copyright 2016 Evernym, Inc.
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
-
-            http://www.apache.org/licenses/LICENSE-2.0
-
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        See the License for the specific language governing permissions and
-        limitations under the License.
-            """)
-
-        def sendHelper():
-            self.print("""Used to send a message from a client to nodes"
-                     Usage: client <clientName> send <{Message}>""")
-
-        def showHelper():
-            self.print("""Used to show status of request sent by the client"
-                     Usage: client <clientName> show <reqID>""")
-
-        def defaultHelper():
-            self.printHelp()
-
-        def pluginHelper():
-            self.print("""Used to load a plugin from a given directory
-                        Usage: load plugins from <dir>""")
-
-        mappings = {
-            'new': newHelper,
-            'status': statusHelper,
-            'list': listHelper,
-            'newnode': nodeHelper,
-            'newclient': clientHelper,
-            'statusnode': statusNodeHelper,
-            'statusclient': statusClientHelper,
-            'license': licenseHelper,
-            'send': sendHelper,
-            'show': showHelper,
-            'exit': exitHelper,
-            'plugins': pluginHelper
-        }
-
-        return defaultdict(lambda: defaultHelper, **mappings)
-
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
@@ -644,22 +587,67 @@ class Cli:
         else:
             self.print(record.msg, Token)
 
-    def printHelp(self):
-        self.print("""{}-CLI, a simple command-line interface for a {} sandbox.
-        Commands:
-            help - Shows this help message
-            help <command> - Shows the help message of <command>
-            new - creates one or more new nodes or clients
-            keyshare - manually starts key sharing of a node
-            status - Shows general status of the sandbox
-            status <node_name>|<client_name> - Shows specific status
-            list - Shows the list of commands you can run
-            license - Show the license
-            exit - exit the command-line interface ('quit' also works)""".
-                format(self.properName, self.fullName))
+    def helpMsgs(self):
+        helpMsgMappings = OrderedDict()
 
-    def printCmdHelper(self, command=None):
-        self.functionMappings[command]()
+        helpMsgMappings['helpAction'] = helpMsg
+        helpMsgMappings['simpleAction'] = simpleHelpMsg
+        helpMsgMappings['statusAction'] = statusHelpMsg
+        helpMsgMappings['licenseAction'] = licenseHelpMsg
+        helpMsgMappings['listAction'] = listHelpMsg
+        helpMsgMappings['newNodeAction'] = newNodeHelpMsg
+        helpMsgMappings['newClientAction'] = newClientHelpMsg
+        helpMsgMappings['statusNodeAction'] = statusNodeHelpMsg
+        helpMsgMappings['statusClientAction'] = statusClientHelpMsg
+        helpMsgMappings['keyShareAction'] = keyShareHelpMsg
+        helpMsgMappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
+        helpMsgMappings['clientCommand'] = clientCommandMsgHelpMsg
+        helpMsgMappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
+        helpMsgMappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
+        helpMsgMappings['addKeyAction'] = addKeyHelpMsg
+        helpMsgMappings['newKeyAction'] = newKeyHelpMsg
+        helpMsgMappings['newKeyring'] = newKeyringHelpMsg
+        helpMsgMappings['renameKeyring'] = renameKeyringHelpMsg
+        helpMsgMappings['useKeyringAction'] = useKeyringHelpMsg
+        helpMsgMappings['saveKeyringAction'] = saveKeyringHelpMsg
+        helpMsgMappings['listKeyringsAction'] = listKeyringHelpMsg
+        helpMsgMappings['listIdsAction'] = listIdsHelpMsg
+        helpMsgMappings['useIdentifierAction'] = useIdHelpMsg
+        helpMsgMappings['addGenesisAction'] = addGenesisTxnHelpMsg
+        helpMsgMappings['createGenTxnFileAction'] = createGenesisTxnFileHelpMsg
+        helpMsgMappings['changePrompt'] = changePromptHelpMsg
+        helpMsgMappings['exitAction'] = exitHelpMsg
+        helpMsgMappings['quitAction'] = quitHelpMsg
+
+        return helpMsgMappings
+
+    def getOrderedHelpMsgs(self):
+        topHelpMsgsKeys = ['helpAction']
+        bottomHelpMsgsKeys = ['exitAction', 'quitAction']
+
+        topMsgs = []
+        middleMsgs = []
+        bottomMsgs = []
+
+        for k, helpMsg in self.helpMsgs().items():
+            if helpMsg:
+                if k in topHelpMsgsKeys:
+                    topMsgs.append(helpMsg)
+                elif k in bottomHelpMsgsKeys:
+                    bottomMsgs.append(helpMsg)
+                else:
+                    middleMsgs.append(helpMsg)
+
+        return topMsgs + middleMsgs + bottomMsgs
+
+    def printHelp(self):
+        helpMsgStr = "{}-CLI, a simple command-line interface for a {} sandbox." \
+                  "\n   Commands:".format(self.properName, self.fullName)
+
+        for helpMsg in self.getOrderedHelpMsgs():
+            helpMsgStr += "\n       {} - {}".format(helpMsg.id, helpMsg.msg)
+
+        self.print(helpMsgStr)
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1032,30 +1020,45 @@ class Cli:
             if cmd == 'status':
                 self.getStatus()
             elif cmd == 'license':
-                self.printCmdHelper('license')
+                self._showLicense()
             elif cmd in ['exit', 'quit']:
                 self._saveActiveWallet()
                 raise Exit
             return True
 
+    def _showLicense(self):
+        self.print("""
+                                Copyright 2016 Evernym, Inc.
+                Licensed under the Apache License, Version 2.0 (the "License");
+                you may not use this file except in compliance with the License.
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software
+                distributed under the License is distributed on an "AS IS" BASIS,
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                See the License for the specific language governing permissions and
+                limitations under the License.
+                    """)
+
     def _helpAction(self, matchedVars):
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
-            node_or_cli = matchedVars.get('node_or_cli')
             if helpable:
-                if node_or_cli:
-                    self.printCmdHelper(command="{}{}".
-                                        format(helpable, node_or_cli))
+                matchedHelpMsgs = [hm for hm in self.helpMsgs().values() if hm and hm.id == helpable]
+                if matchedHelpMsgs:
+                    self.print(str(matchedHelpMsgs[0]))
                 else:
-                    self.printCmdHelper(command=helpable)
+                    self.printHelp()
             else:
                 self.printHelp()
             return True
 
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
-            for cmd in self.commands:
-                self.print(cmd)
+            for helpMsg in self.getOrderedHelpMsgs():
+                print("{}".format(helpMsg.id))
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1808,7 +1811,7 @@ class Cli:
 
     def invalidCmd(self, cmdText):
         self.print("Invalid command: '{}'\n".format(cmdText))
-        self.printCmdHelper(command=None)
+        self.printHelp()
 
     def nextAvailableClientAddr(self, curClientPort=8100):
         self.curClientPort = self.curClientPort or curClientPort
