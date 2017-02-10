@@ -56,7 +56,7 @@ loadPlugingDirHelpMsg = HelpMsg("load plugins", "Loads plugin from given directo
 
 clientCommandMsgHelpMsg = None
 
-clientSendMsgHelpMsg = HelpMsg("client send msg", "Client sends a message to pool",
+clientSendMsgHelpMsg = HelpMsg("client send", "Client sends a message to pool",
                                "client <client-name> send {<json data>}",
                                ["client Alice send {'data':'test'}"])
 
@@ -71,8 +71,15 @@ addKeyHelpMsg = HelpMsg("add key", "Adds given key for the given client",
                         ["add key abcdef09334343 for client BiCMHDqC5EjheFHumZX9nuAoVEp8xyuBgiRi5JcY5whi"])
 
 newKeyHelpMsg = HelpMsg("new key",
-                        "Adds new key to active keyring","new key [with seed <32 character seed>]",
-                        ["new key","new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"])
+                        "Adds new key to active keyring",
+                        "new key [with seed <32 character seed>] [[as] <alias>]",
+                        [
+                            "new key",
+                            "new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa myalias",
+                            "new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa as myalias",
+
+                         ])
 
 listIdsHelpMsg = HelpMsg("list ids", "Lists all identifiers of active keyring",
                          "list ids", ["list ids"])
