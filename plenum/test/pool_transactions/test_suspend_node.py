@@ -1,3 +1,4 @@
+import pytest
 from plenum.client.client import Client
 from plenum.common.eventually import eventually
 from plenum.common.types import CLIENT_STACK_SUFFIX
@@ -29,6 +30,7 @@ def checkNodeNotInNodeReg(nodeOrClient, nodeName):
         raise ValueError("pass a node or client object as first argument")
 
 
+@pytest.mark.skipif(True, reason="SOV-383")
 def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             tdirWithPoolTxns, tconf,
                             steward1, stewardWallet,
@@ -90,7 +92,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                          ha=newNode.nodestack.ha, cliha=newNode.clientstack.ha)
     looper.add(nodeTheta)
     txnPoolNodeSet.append(nodeTheta)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=10))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
