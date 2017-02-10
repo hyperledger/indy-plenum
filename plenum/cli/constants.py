@@ -11,16 +11,16 @@ def getPipedRegEx(cmd):
 
 psep = re.escape(os.path.sep)
 
+NO_ENV = "no-env"
 PROMPT_ENV_SEPARATOR = "@"
-WALLET_FILE_NAME_ENV_SEPARATOR = "_"
-WALLET_FILE_NAME_PREFIX="keyring_"
+WALLET_FILE_EXTENSION = "wallet"
 
 # general reusable reg ex
 NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
 
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
-    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9]+) )? " \
+    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9 ]+) )? " \
     "(\s+ (?P<node_or_cli>{}) )?\s*) "
 UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list) \s*)"
 UTIL_GRAMS_COMMAND_PROMPT_REG_EX = "(\s* (?P<prompt>prompt) " \
@@ -63,13 +63,24 @@ CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
     "\s*) "
 
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
+
+CLIENT_GRAMS_LIST_KEYRINGS_REG_EX = "(\s* (?P<list_krs>list\skeyrings) \s*) "
+
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) " \
                              "\s+ (?P<id>[a-zA-Z0-9]+) \s*) "
+
 CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+identifier) " \
                                   "\s+ (?P<identifier>[A-Za-z0-9+=/]*) \s*) "
 
 CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_kr>use\s+keyring) " \
-                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*) "
+                                  "\s+ (?P<keyring>[A-Za-z0-9+-_=/]*) \s*" \
+                                  "\s? ((?P<copy_as>copy\sas)\s" \
+                                  "(?P<copy_as_name>[A-Za-z0-9+-_=/]+)?)? \s*" \
+                                  "\s? (?P<override>override)? " \
+                                  "\s*)"
+
+CLIENT_GRAMS_SAVE_KEYRING_REG_EX = "(\s* (?P<save_kr>save\s+keyring)" \
+                                  "\s? (?P<keyring>[A-Za-z0-9+-_=/]+)? \s*)"
 
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
@@ -122,6 +133,8 @@ CLIENT_GRAMS_RENAME_KEYRING_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_RENAME_KEYRING_REG_EX)
 CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_LIST_IDS_REG_EX)
+CLIENT_GRAMS_LIST_KEYRINGS_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_LIST_KEYRINGS_REG_EX)
 CLIENT_GRAMS_BECOME_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_BECOME_REG_EX)
 CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX = \
@@ -132,4 +145,5 @@ CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_USE_KEYPAIR_REG_EX)
 CLIENT_GRAMS_USE_KEYRING_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_USE_KEYRING_REG_EX)
-
+CLIENT_GRAMS_SAVE_KEYRING_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_SAVE_KEYRING_REG_EX)

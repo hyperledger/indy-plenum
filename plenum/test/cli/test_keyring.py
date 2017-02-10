@@ -47,6 +47,8 @@ def testKeyAndKeyRing(cli):
     cli.enterCmd("new keyring {}".format(keyring1))
     assert 'Active keyring set to "{}"'.format(keyring1) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(keyring1) in cli.lastCmdOutput
+    cli.enterCmd("list keyrings")
+    assert 'testkr1' in cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format(keyring1))
     assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
@@ -61,6 +63,8 @@ def testKeyAndKeyRing(cli):
     cli.enterCmd("new keyring {}".format(key1))
     assert 'Active keyring set to "{}"'.format(key1) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(key1) in cli.lastCmdOutput
+    cli.enterCmd("list keyrings")
+    assert 'testkey1' in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
     assert 'No such identifier found in current keyring' in cli.lastCmdOutput

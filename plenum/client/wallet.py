@@ -54,6 +54,10 @@ class Wallet:
     def __repr__(self):
         return self.name
 
+    @property
+    def getEnvName(self):
+        return self.env if hasattr(self, "env") else None
+
     @staticmethod
     def decrypt(ec: EncryptedWallet, key: bytes) -> 'Wallet':
         decryped = crypto_secretbox_open(ec.raw, ec.nonce, key)
