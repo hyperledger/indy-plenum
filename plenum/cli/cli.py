@@ -6,6 +6,7 @@ from typing import Dict
 
 import pyorient
 import random
+from hashlib import sha256
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
