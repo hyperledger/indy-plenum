@@ -1722,9 +1722,7 @@ class Cli:
 
     @property
     def getActiveEnv(self):
-        prompt, env = Cli.getPromptAndEnv(self.name,
-                            self.currPromptText)
-        return env
+        return None
 
     def updateEnvNameInWallet(self):
         pass
