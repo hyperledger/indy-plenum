@@ -25,8 +25,7 @@ from plenum.client.wallet import Wallet
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp, \
-    UnauthorizedClientRequest
+    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
@@ -146,8 +145,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.hashStore = self.getHashStore(self.name)
         self.initDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
-        self.secondaryStorage = self.getSecondaryStorage()
-        self.addGenesisNyms()
         self.ledgerManager = self.getLedgerManager()
         self.states = {}  # type: Dict[int, PruningState]
 
@@ -155,6 +152,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
                                      postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+        self.reqHandler = self.getDomainReqHandler()
+        self.initDomainState()
+
+        self.addGenesisNyms()
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -330,7 +331,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         self._id = None
         self._wallet = None
-        self.reqHandler = self.getDomainReqHandler()
         self.seqNoDB = self.loadSeqNoDB()
 
     @property
@@ -1336,11 +1336,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
+        rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
+            rh = self.poolManager.reqHandler
         if ledgerId == DOMAIN_LEDGER_ID:
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
+            rh = self.reqHandler
+
+        if rh:
+            rh.updateState([txn])
+            state = self.getState(ledgerId)
+            state.commit(rootHash=state.headHash)
+
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
 
@@ -1776,9 +1785,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
         (seqNoStart, seqNoEnd), committedTxns = self.domainLedger.commitTxns(len(reqs))
         stateRoot = unhexlify(stateRoot.encode())
-        txnRoot = unhexlify(txnRoot.encode())
+        txnRoot = self.domainLedger.hashToStr(unhexlify(txnRoot.encode()))
+        assert self.domainLedger.root_hash == txnRoot
         self.states[DOMAIN_LEDGER_ID].commit(rootHash=stateRoot)
-        assert self.domainLedger.tree.root_hash == txnRoot
         for txn, seqNo in zip(committedTxns,
                               range(seqNoStart, seqNoEnd + 1)):
             # TODO: Send txn and state proof to the client
@@ -1848,6 +1857,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if os.path.isfile(defaultTxnFile):
                 shutil.copy(defaultTxnFile, self.dataLocation)
 
+    @staticmethod
+    def initStateFromLedger(state: PruningState, ledger: Ledger, reqHandler):
+        # If the trie is empty then initialize it by applying
+        # txns from ledger
+        if state.isEmpty:
+            txns = [_ for _ in ledger.getAllTxn().values()]
+            reqHandler.updateState(txns)
+            state.commit(rootHash=state.headHash)
+
+    def initDomainState(self):
+        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
+                                      self.domainLedger, self.reqHandler)
+
     def addGenesisNyms(self):
         for _, txn in self.domainLedger.getAllTxn().items():
             if txn.get(TXN_TYPE) == NYM:
@@ -1863,11 +1885,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     #             "there are already {} stewards in the system".format(
     #                 self.config.stewardThreshold)
 
-    def stewardThresholdExceeded(self) -> bool:
-        """We allow at most `stewardThreshold` number of  stewards to be added
-        by other stewards"""
-        return self.secondaryStorage.countStewards() > \
-               self.config.stewardThreshold
+    # def stewardThresholdExceeded(self) -> bool:
+    #     """We allow at most `stewardThreshold` number of  stewards to be added
+    #     by other stewards"""
+    #     return self.secondaryStorage.countStewards() > \
+    #            self.config.stewardThreshold
 
     def defaultAuthNr(self):
         return SimpleAuthNr()

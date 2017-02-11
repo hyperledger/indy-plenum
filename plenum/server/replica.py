@@ -479,6 +479,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.node.applyReq(req)
             validReqs.append(req)
         except InvalidClientMessageException as ex:
+            logger.warn('{} encountered exception {} while processing {}, '
+                        'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))
             inValidReqs.append(req)
 

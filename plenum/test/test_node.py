@@ -187,9 +187,6 @@ class TestNodeCore(StackedTester):
 
     def customRequestApplication(self, request):
         typ = request.operation.get(TXN_TYPE)
-        # txn = self.reqHandler.reqToTxn(request)
-        # ledger = self.getLedger(DOMAIN_LEDGER_ID)
-        # ledger.appendTxns([txn])
         r = super().customRequestApplication(request)
         if typ == 'buy':
             state = self.getState(DOMAIN_LEDGER_ID)

@@ -1,10 +1,23 @@
 from copy import copy
 from typing import List, Tuple
 
+import base58
+
+from ledger.stores.chunked_file_store import ChunkedFileStore
+from ledger.stores.file_store import FileStore
+
 from ledger.ledger import Ledger as _Ledger
 
 
 class Ledger(_Ledger):
+    @staticmethod
+    def _defaultStore(dataDir, logName, ensureDurability) -> FileStore:
+        return ChunkedFileStore(dataDir,
+                                logName,
+                                isLineNoKey=True,
+                                storeContentHash=False,
+                                ensureDurability=ensureDurability)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Merkle tree of containing transactions that have not yet been
@@ -71,3 +84,7 @@ class Ledger(_Ledger):
         for txn in txns:
             tempTree.append(self.serializeLeaf(txn))
         return tempTree
+
+    @staticmethod
+    def hashToStr(h):
+        return base58.b58encode(h)

@@ -28,7 +28,7 @@ class PoolReqHandler:
         error = None
         if typ == NODE:
             nodeNym = req.operation.get(TARGET_NYM)
-            if self.getNodeData(nodeNym):
+            if self.getNodeData(nodeNym, isCommitted=False):
                 error = self.authErrorWhileUpdatingNode(req)
             else:
                 error = self.authErrorWhileAddingNode(req)
@@ -39,15 +39,21 @@ class PoolReqHandler:
     def applyReq(self, req: Request):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
-            nym = req.operation.get(TARGET_NYM)
             txn = reqToTxn(req)
             self.ledger.appendTxns([txn])
-            self.updateState(nym, req.operation.get(DATA, {}),
-                             isCommitted=False)
+            self.updateState([txn])
             return True
         else:
-            logger.debug('Cannot apply request of type {}'.format(typ))
+            logger.debug('Cannot apply request of type {} to state'.format(typ))
             return False
+
+    def updateState(self, txns, isCommitted=False):
+        for txn in txns:
+            nodeNym = txn.get(TARGET_NYM)
+            data = txn.get(DATA, {})
+            existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
+            existingData.update(data)
+            self.updateNodeData(nodeNym, existingData)
 
     def commitReqs(self, count, stateRoot) -> Tuple[int, int]:
         """
@@ -60,11 +66,6 @@ class PoolReqHandler:
         seqNoRange, _ = self.ledger.commitTxns(count)
         self.state.commit(rootHash=stateRoot)
         return seqNoRange
-
-    def updateState(self, nodeNym, data, isCommitted: False):
-        existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
-        existingData.update(data)
-        self.updateNodeData(nodeNym, existingData)
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
@@ -97,7 +98,7 @@ class PoolReqHandler:
     def getNodeData(self, nym, isCommitted: bool = True):
         key = nym.encode()
         data = self.state.get(key, isCommitted)
-        return json.loads(data) if data else {}
+        return json.loads(data.decode()) if data else {}
 
     def updateNodeData(self, nym, data):
         key = nym.encode()
@@ -106,13 +107,13 @@ class PoolReqHandler:
     def isSteward(self, nym, isCommitted: bool = True):
         return DomainReqHandler.isSteward(self.domainState, nym, isCommitted)
 
-    def getNodeDataOfSteward(self, stewardNym):
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and txn[f.IDENTIFIER.nm] == stewardNym:
-                break
-        else:
-            raise KeyError('Steward {} has no Node'.format(stewardNym))
-        return self.getNodeData(txn[TARGET_NYM])
+    # def getNodeDataOfSteward(self, stewardNym):
+    #     for txn in self.ledger.getAllTxn().values():
+    #         if txn[TXN_TYPE] == NODE and txn[f.IDENTIFIER.nm] == stewardNym:
+    #             break
+    #     else:
+    #         raise KeyError('Steward {} has no Node'.format(stewardNym))
+    #     return self.getNodeData(txn[TARGET_NYM])
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym):

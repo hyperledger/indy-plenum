@@ -81,10 +81,12 @@ class PruningState(State):
 
     def get(self, key: bytes, isCommitted: bool=True):
         if not isCommitted:
-            return self.trie.get(key)
+            val = self.trie.get(key)
         else:
-            return self.trie._get(self.committedHead,
-                                  bin_to_nibbles(to_string(key)))
+            val = self.trie._get(self.committedHead,
+                                 bin_to_nibbles(to_string(key)))
+        if val:
+            return rlp_decode(val)[0]
 
     def commit(self, rootHash=None, rootNode=None):
         if rootNode:
@@ -110,3 +112,8 @@ class PruningState(State):
     @property
     def committedHeadHash(self):
         return self.db.db.get(self.rootHashKey)
+
+    @property
+    def isEmpty(self):
+        return self.committedHeadHash == BLANK_ROOT
+

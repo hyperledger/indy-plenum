@@ -1,4 +1,5 @@
 import os
+from binascii import unhexlify
 from typing import Dict, Tuple
 
 from copy import deepcopy
@@ -63,11 +64,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.basedirpath = node.basedirpath
         self._ledger = None
         TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
+        self.state = self.loadState()
+        self.reqHandler = self.getPoolReqHandler()
+        self.initPoolState()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
-        self.state = self.loadState()
-        self.reqHandler = self.getPoolReqHandler()
+
+    def __repr__(self):
+        return self.node.name
 
     def getPoolReqHandler(self):
         return PoolReqHandler(self.ledger, self.state,
@@ -76,6 +81,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def loadState(self):
         return PruningState(os.path.join(self.node.dataLocation,
                                          self.config.poolStateDbName))
+
+    def initPoolState(self):
+        self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
 
     @property
     def hasLedger(self):
@@ -129,8 +137,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param reqs: request
         """
         seqNoStart, seqNoEnd = self.reqHandler.commitReqs(len(reqs), stateRoot)
+        txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
         assert self.ledger.root_hash == txnRoot
-        for seqNo, req in zip(reqs, range(seqNoStart, seqNoEnd+1)):
+        for req, seqNo in zip(reqs, range(seqNoStart, seqNoEnd+1)):
             # TODO: Send txn and state proof to the client
             # reply = self.node.generateReply(ppTime, req)
             # op = req.operation
@@ -144,7 +153,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             txn[F.seqNo.name] = seqNo
             self.onPoolMembershipChange(deepcopy(txn))
             txn[TXN_TIME] = ppTime
-            self.node.sendReplyToClient(txn, req.key)
+            self.node.sendReplyToClient(Reply(txn), req.key)
 
     # def getReplyFor(self, request):
     #     return self.node.getReplyFromLedger(self.ledger, request)

@@ -22,7 +22,7 @@ class DomainReqHandler:
             origin = req.identifier
             error = None
             if not self.isSteward(self.state,
-                             origin, isCommitted=False):
+                                  origin, isCommitted=False):
                 error = "Only Steward is allowed to do this transactions"
             if req.operation.get(ROLE) == STEWARD:
                 if self.stewardThresholdExceeded(config):
@@ -43,20 +43,22 @@ class DomainReqHandler:
         return txn
 
     def applyReq(self, req: Request):
-        operation = req.operation
-        typ = operation.get(TXN_TYPE)
         txn = self.reqToTxn(req)
-        nym = operation.get(TARGET_NYM)
         self.ledger.appendTxns([txn])
-        if typ == NYM:
-            self.updateNym(nym, {
-                ROLE: operation.get(ROLE),
-                VERKEY: operation.get(VERKEY)
-            }, isCommitted=False)
-            return True
-        else:
-            logger.debug('Cannot apply request of type {}'.format(typ))
-            return False
+        self.updateState([txn])
+        return True
+
+    def updateState(self, txns, isCommitted=False):
+        for txn in txns:
+            typ = txn.get(TXN_TYPE)
+            nym = txn.get(TARGET_NYM)
+            if typ == NYM:
+                self.updateNym(nym, {
+                    ROLE: txn.get(ROLE),
+                    VERKEY: txn.get(VERKEY)
+                }, isCommitted=isCommitted)
+            else:
+                logger.debug('Cannot apply request of type {} to state'.format(typ))
 
     def countStewards(self) -> int:
         """Count the number of stewards added to the pool transaction store"""
@@ -78,8 +80,10 @@ class DomainReqHandler:
     def getSteward(state, nym, isCommitted: bool = True):
         key = nym.encode()
         data = state.get(key, isCommitted)
-        return json.loads(data) if data else {}
+        return json.loads(data.decode()) if data else {}
 
     @staticmethod
     def isSteward(state, nym, isCommitted: bool = True):
-        return DomainReqHandler.getSteward(state, nym, isCommitted).get(ROLE) == STEWARD
+        return DomainReqHandler.getSteward(state,
+                                           nym,
+                                           isCommitted).get(ROLE) == STEWARD
