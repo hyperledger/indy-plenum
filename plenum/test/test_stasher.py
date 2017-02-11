@@ -6,6 +6,7 @@ import pytest
 from plenum.test.stasher import Stasher
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def test_delay():
     x = deque()
     s = Stasher(x, "my-stasher")
