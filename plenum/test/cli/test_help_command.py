@@ -23,7 +23,7 @@ def testNewKey(cli):
     cli.enterCmd("help new key")
     newMsg = """new key
    Description = Adds new key to active keyring
-   Syntax = new key [with seed <32 character seed>]
+   Syntax = new key [with seed <32 character seed>] [[as] <alias>]
    Examples:
       new key
       new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"""

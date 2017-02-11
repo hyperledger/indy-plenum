@@ -944,7 +944,7 @@ class Cli:
         return clientName in self.clients
 
     def printMsgForUnknownClient(self):
-        self.print("No such client. See: 'help new' for more details")
+        self.print("No such client. See: 'help new client' for more details")
 
     def printMsgForUnknownWallet(self, walletName):
         self.print("No such wallet {}.".format(walletName))
@@ -973,7 +973,7 @@ class Cli:
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help new' for more details")
+            self.print("No such request. See: 'help client send' for more details")
 
     def showDetails(self, clientName, identifier, reqId):
         client = self.clients.get(clientName, None)
@@ -1722,9 +1722,7 @@ class Cli:
 
     @property
     def getActiveEnv(self):
-        prompt, env = Cli.getPromptAndEnv(self.name,
-                            self.currPromptText)
-        return env
+        return None
 
     def updateEnvNameInWallet(self):
         pass
