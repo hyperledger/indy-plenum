@@ -42,8 +42,8 @@ quitHelpMsg = HelpMsg("quit",
 
 listHelpMsg = HelpMsg("list",
                       "Show the list of all commands you can run",
-                      "list",
-                      "list")
+                      "list [sorted]",
+                      "list", "list sorted")
 
 newNodeHelpMsg = HelpMsg("new node",
                          "Starts new node",
@@ -95,10 +95,11 @@ newKeyHelpMsg = HelpMsg("new key",
 
 listIdsHelpMsg = HelpMsg("list ids",
                          "Lists all identifiers of active keyring",
+                         "list ids [with verkeys]",
                          "list ids",
-                         "list ids")
+                         "list ids with verkeys")
 
-useIdHelpMsg = HelpMsg("use ids",
+useIdHelpMsg = HelpMsg("use identifier",
                        "Marks given idetifier active/default",
                        "use identifier <identifier>",
                        "use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")

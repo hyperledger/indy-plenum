@@ -283,11 +283,12 @@ class Cli:
     def checkIfHelpMsgExistsForAllCmds(self):
         for cmdHandlerFunc in self.actions:
             funcName = cmdHandlerFunc.__name__.replace("_","")
-            if funcName not in self.helpMsgs().keys():
+            if funcName not in self.helpMsgMappings().keys():
                 raise Exception("\n************\nHelp msg not provided for "
                                 "'{}' command handler. Please add proper "
                                 "mapping for related help msg in function "
-                                "'helpMsgs'\n************\n".format(funcName))
+                                "'helpMsgMappings'\n************\n".
+                                format(funcName))
 
     @staticmethod
     def getCliVersion():
@@ -587,59 +588,59 @@ class Cli:
         else:
             self.print(record.msg, Token)
 
-    def helpMsgs(self):
-        helpMsgMappings = OrderedDict()
+    def helpMsgMappings(self):
+        mappings = OrderedDict()
 
-        helpMsgMappings['helpAction'] = helpMsg
-        helpMsgMappings['simpleAction'] = simpleHelpMsg
-        helpMsgMappings['statusAction'] = statusHelpMsg
-        helpMsgMappings['licenseAction'] = licenseHelpMsg
-        helpMsgMappings['listAction'] = listHelpMsg
-        helpMsgMappings['newNodeAction'] = newNodeHelpMsg
-        helpMsgMappings['newClientAction'] = newClientHelpMsg
-        helpMsgMappings['statusNodeAction'] = statusNodeHelpMsg
-        helpMsgMappings['statusClientAction'] = statusClientHelpMsg
-        helpMsgMappings['keyShareAction'] = keyShareHelpMsg
-        helpMsgMappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
-        helpMsgMappings['clientCommand'] = None
-        helpMsgMappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
-        helpMsgMappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
-        helpMsgMappings['addKeyAction'] = None
-        helpMsgMappings['newKeyAction'] = newKeyHelpMsg
-        helpMsgMappings['newKeyring'] = newKeyringHelpMsg
-        helpMsgMappings['renameKeyring'] = renameKeyringHelpMsg
-        helpMsgMappings['useKeyringAction'] = useKeyringHelpMsg
-        helpMsgMappings['saveKeyringAction'] = saveKeyringHelpMsg
-        helpMsgMappings['listKeyringsAction'] = listKeyringHelpMsg
-        helpMsgMappings['listIdsAction'] = listIdsHelpMsg
-        helpMsgMappings['useIdentifierAction'] = useIdHelpMsg
-        helpMsgMappings['addGenesisAction'] = addGenesisTxnHelpMsg
-        helpMsgMappings['createGenTxnFileAction'] = createGenesisTxnFileHelpMsg
-        helpMsgMappings['changePrompt'] = changePromptHelpMsg
-        helpMsgMappings['exitAction'] = exitHelpMsg
-        helpMsgMappings['quitAction'] = quitHelpMsg
+        mappings['helpAction'] = helpMsg
+        mappings['listAction'] = listHelpMsg
+        mappings['licenseAction'] = licenseHelpMsg
+        mappings['simpleAction'] = simpleHelpMsg
+        mappings['statusAction'] = statusHelpMsg
+        mappings['newNodeAction'] = newNodeHelpMsg
+        mappings['newClientAction'] = newClientHelpMsg
+        mappings['statusNodeAction'] = statusNodeHelpMsg
+        mappings['statusClientAction'] = statusClientHelpMsg
+        mappings['keyShareAction'] = keyShareHelpMsg
+        mappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
+        mappings['clientCommand'] = None
+        mappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
+        mappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
+        mappings['addKeyAction'] = None
+        mappings['newKeyAction'] = newKeyHelpMsg
+        mappings['newKeyring'] = newKeyringHelpMsg
+        mappings['renameKeyring'] = renameKeyringHelpMsg
+        mappings['useKeyringAction'] = useKeyringHelpMsg
+        mappings['saveKeyringAction'] = saveKeyringHelpMsg
+        mappings['listKeyringsAction'] = listKeyringHelpMsg
+        mappings['listIdsAction'] = listIdsHelpMsg
+        mappings['useIdentifierAction'] = useIdHelpMsg
+        mappings['addGenesisAction'] = addGenesisTxnHelpMsg
+        mappings['createGenTxnFileAction'] = createGenesisTxnFileHelpMsg
+        mappings['changePrompt'] = changePromptHelpMsg
+        mappings['exitAction'] = exitHelpMsg
+        mappings['quitAction'] = quitHelpMsg
 
-        return helpMsgMappings
+        return mappings
 
     def getBasicHelpMsgs(self):
-        basicMsgKeys = ["helpAction","statusAction","licenseAction",
-                        "listAction", "exitAction", "quitAction"]
+        basicMsgKeys = ["helpAction", "listAction", "licenseAction",
+                        "statusAction", "exitAction", "quitAction"]
         basicMsgs = []
-        for k, helpMsg in self.helpMsgs().items():
+        for k, helpMsg in self.helpMsgMappings().items():
             if helpMsg:
                 if k in basicMsgKeys:
                     basicMsgs.append(helpMsg)
         return basicMsgs
 
     def getOrderedHelpMsgs(self):
-        topHelpMsgsKeys = ['helpAction']
+        topHelpMsgsKeys = ['helpAction', 'listAction']
         bottomHelpMsgsKeys = ['exitAction', 'quitAction']
 
         topMsgs = []
         middleMsgs = []
         bottomMsgs = []
 
-        for k, helpMsg in self.helpMsgs().items():
+        for k, helpMsg in self.helpMsgMappings().items():
             if helpMsg:
                 if k in topHelpMsgsKeys:
                     topMsgs.append(helpMsg)
@@ -650,7 +651,7 @@ class Cli:
 
         return topMsgs + middleMsgs + bottomMsgs
 
-    def _printGivenHelpMsgs(self, helpMsgs, printHeader=True,
+    def _printGivenHelpMsgs(self, helpMsgs, sort=False, printHeader=True,
                             showUsageFor=[]):
         helpMsgStr = ""
         if printHeader:
@@ -658,6 +659,10 @@ class Cli:
                 format(self.properName, self.fullName)
 
         helpMsgStr += "\n   Commands:"
+
+        if sort:
+            helpMsgs = sorted(helpMsgs, key=lambda hm: hm.id)
+
         for helpMsg in helpMsgs:
             helpMsgLines = helpMsg.msg.split("\n")
             helpMsgFormattedLine = "\n         ".join(helpMsgLines)
@@ -670,7 +675,8 @@ class Cli:
         self.print(helpMsgStr)
 
     def printHelp(self):
-        self._printGivenHelpMsgs(self.getBasicHelpMsgs(), showUsageFor=["help"])
+        self._printGivenHelpMsgs(self.getBasicHelpMsgs(),
+                                 showUsageFor=["help", "list"])
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1069,7 +1075,7 @@ class Cli:
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
             if helpable:
-                matchedHelpMsgs = [hm for hm in self.helpMsgs().values() if hm and hm.id == helpable]
+                matchedHelpMsgs = [hm for hm in self.helpMsgMappings().values() if hm and hm.id == helpable]
                 if matchedHelpMsgs:
                     self.print(str(matchedHelpMsgs[0]))
                 else:
@@ -1081,7 +1087,9 @@ class Cli:
 
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
-            self._printGivenHelpMsgs(self.getOrderedHelpMsgs(), printHeader=False)
+            sorted = True if matchedVars.get('sorted') else False
+            self._printGivenHelpMsgs(self.getOrderedHelpMsgs(), sort=sorted,
+                                     printHeader=False)
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1221,15 +1229,21 @@ class Cli:
     def bootstrapClientKeys(idr, verkey, nodes):
         bootstrapClientKeys(idr, verkey, nodes)
 
+    def isValidSeedForNewKey(self, seed):
+        if seed:
+            seed = seed.strip()
+            if len(seed) != 32:
+                self.print('Seed needs to be 32 characters long but is {} '
+                           'characters long'.format(len(seed)), Token.Error)
+                return False
+
+        return True
+
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
-            if seed:
-                seed = seed.strip()
-                if len(seed) != 32:
-                    self.print('Seed needs to be 32 characters long but is {} '
-                               'characters long'.format(len(seed)), Token.Error)
-                    return True
+            if not self.isValidSeedForNewKey(seed):
+                return True
             alias = matchedVars.get('alias')
             if alias:
                 alias = alias.strip()
@@ -1339,8 +1353,16 @@ class Cli:
                            format(self._activeWallet.defaultId), Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
                     self.print("Identifiers:")
-                    for i in self._activeWallet.listIds():
-                        self.print("  {}".format(i))
+                    withVerkeys = matchedVars.get('with_verkeys') == 'with verkeys'
+                    for id in self._activeWallet.listIds():
+                        verKey = ""
+                        if withVerkeys:
+                            aliasId = self._activeWallet.aliasesToIds.get(id)
+                            actualId = aliasId if aliasId else id
+                            signer = self._activeWallet.idsToSigners.get(actualId)
+                            verKey = ", verkey: {}".format(signer.verkey)
+
+                        self.print("  {}{}".format(id, verKey))
                 else:
                     self.print("\nNo identifiers")
 
