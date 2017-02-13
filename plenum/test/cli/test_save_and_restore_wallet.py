@@ -1,4 +1,5 @@
 import pytest
+
 from plenum.cli.cli import Exit, Cli
 from plenum.test.cli.helper import createAndAssertNewCreation, \
     createAndAssertNewKeyringCreation, useAndAssertKeyring, exitFromCli
@@ -27,6 +28,7 @@ def useKeyring(name, do, expectedName=None, expectedMsgs=None):
     useAndAssertKeyring(do, name, expectedName, expectedMsgs)
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-463')
 def testSaveAndRestoreWallet(do, be, cli, aliceCli):
     be(cli)
     assert cli._activeWallet is None
