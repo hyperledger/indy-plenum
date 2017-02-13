@@ -62,6 +62,7 @@ from plenum.common.txn import DATA, ALIAS, NODE_IP
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
+from plenum.persistence.verkey_store import VerkeyStore
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
@@ -271,6 +272,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.secondaryStorage = self.getSecondaryStorage()
         self.addGenesisNyms()
         self.ledgerManager = self.getLedgerManager()
+        self.verkeyStore = self.getVerkeyStore()
 
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(0, self.poolLedger,
@@ -454,6 +456,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getLedgerManager(self):
         return LedgerManager(self, ownedByNode=True)
+
+    def getVerkeyStore(self):
+        return VerkeyStore(self.basedirpath)
 
     def start(self, loop):
         oldstatus = self.status
@@ -1647,6 +1652,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
+            self.cacheVerkey(reply.result)
+
+    def cacheVerkey(self, txn):
+        ddo = txn.get('ddo', None)
+        did = txn.get('dest', None)
+        verkey = txn.get('verkey', '')
+        if ddo:
+            did = ddo.get('id', did)
+            verkey = ddo.get('publicKeyBase64', verkey)
+        if did:
+            self.verkeyStore.set(did, verkey)
 
     @staticmethod
     def ledgerTypeForTxn(txnType: str):
