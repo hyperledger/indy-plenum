@@ -129,4 +129,4 @@ def log(msg):
 
 if __name__ == "__main__":
     r = run()
-    sys.exit(os.EX_OK if r == 0 else os.EX_SOFTWARE)
+    sys.exit(0 if r == 0 else 1)

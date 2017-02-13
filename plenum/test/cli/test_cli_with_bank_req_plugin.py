@@ -14,6 +14,7 @@ def loadBankReqPlugin(cli):
     loadPlugin(cli, 'bank_req_processor')
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     cli.enterCmd("client Random balance")
     assertNoClient(cli)
@@ -23,6 +24,7 @@ def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     assertNoClient(cli)
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
     createClientAndConnect(cli, validNodeNames, "Alice")

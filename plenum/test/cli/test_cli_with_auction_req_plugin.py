@@ -14,6 +14,7 @@ def loadAuctionReqPlugin(cli):
     loadPlugin(cli, 'auction_req_processor')
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):
     cli.enterCmd("client Random balance")
     assertNoClient(cli)
@@ -28,6 +29,7 @@ def testReqForNonExistentClient(cli, loadAuctionReqPlugin, createAllNodes):
 # TODO: Have a test for non existent auction id
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTransactions(cli, loadAuctionReqPlugin, createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
     auctionId = str(uuid4())
