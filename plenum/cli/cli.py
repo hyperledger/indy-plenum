@@ -10,6 +10,15 @@ from typing import Dict
 
 from jsonpickle import json, encode, decode
 from plenum.common.exceptions import NameAlreadyExists
+from plenum.test.cli.HelpMsg import helpMsg, simpleHelpMsg, \
+    licenseHelpMsg, statusHelpMsg, exitHelpMsg, quitHelpMsg, listHelpMsg, \
+    newNodeHelpMsg, newClientHelpMsg, statusNodeHelpMsg, statusClientHelpMsg, \
+    keyShareHelpMsg, loadPlugingDirHelpMsg, clientSendMsgHelpMsg, \
+    clientCommandMsgHelpMsg, clientShowMsgHelpMsg, addKeyHelpMsg, newKeyHelpMsg, \
+    listIdsHelpMsg, useIdHelpMsg, addGenesisTxnHelpMsg, \
+    createGenesisTxnFileHelpMsg, changePromptHelpMsg, newKeyringHelpMsg, \
+    renameKeyringHelpMsg, useKeyringHelpMsg, saveKeyringHelpMsg, \
+    listKeyringHelpMsg
 
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
@@ -199,8 +208,6 @@ class Cli:
             Token.BoldOrange: '#ff4f2f bold',
             Token.BoldBlue: '#095cab bold'})
 
-        self.functionMappings = self.createFunctionMappings()
-
         self.voidMsg = "<none>"
 
         # Create an asyncio `EventLoop` object. This is a wrapper around the
@@ -254,14 +261,12 @@ class Cli:
             self.showNodeRegistry()
         else:
             msg = """
-            No information is found which can be used to connect to the nodes.
-             This indicates an error. Check if the file containing genesis
-             transactions (which has name specified in config as
-             `poolTransactionsFile`) is present in your base directory
-             which can be found in the config as `baseDir`, if not then get
-             this file from the github repository under `/data` and paste it
-             in location `baseDir`. The github url repository is at {}
-            """.format(self.githubUrl)
+            The information required to connect this client to the nodes cannot be found.
+            This is an error. To correct the error, get the file containing genesis transactions
+            (the file name is `{}`) from the github repository and place it in directory
+            `{}`. The github url is {}.\n""".format(self.config.poolTransactionsFile,
+                                                    self.config.baseDir,
+                                                    self.githubUrl)
             self.print(msg)
 
         self.print("Type 'help' for more information.")
@@ -272,6 +277,17 @@ class Cli:
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
         self.restoreLastActiveWallet()
+
+        self.checkIfHelpMsgExistsForAllCmds()
+
+    def checkIfHelpMsgExistsForAllCmds(self):
+        for cmdHandlerFunc in self.actions:
+            funcName = cmdHandlerFunc.__name__.replace("_","")
+            if funcName not in self.helpMsgs().keys():
+                raise Exception("\n************\nHelp msg not provided for "
+                                "'{}' command handler. Please add proper "
+                                "mapping for related help msg in function "
+                                "'helpMsgs'\n************\n".format(funcName))
 
     @staticmethod
     def getCliVersion():
@@ -540,81 +556,6 @@ class Cli:
     def initializeGrammarCompleter(self):
         self.grammarCompleter = GrammarCompleter(self.grammar, self.completers)
 
-    def createFunctionMappings(self):
-
-        def newHelper():
-            self.print("""Is used to create a new node or a client.
-                     Usage: new <node/client> <nodeName/clientName>""")
-
-        def statusHelper():
-            self.print("status command helper")
-
-        def nodeHelper():
-            self.print("It is used to create a new node")
-
-        def clientHelper():
-            self.print("It is used to create a new client")
-
-        def statusNodeHelper():
-            self.print("It is used to check status of a created node")
-
-        def statusClientHelper():
-            self.print("It is used to check status of a created client")
-
-        def listHelper():
-            self.print("List all the commands, you can use in this CLI.")
-
-        def exitHelper():
-            self.print("Exits the CLI")
-
-        def licenseHelper():
-            self.print("""
-                        Copyright 2016 Evernym, Inc.
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
-
-            http://www.apache.org/licenses/LICENSE-2.0
-
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        See the License for the specific language governing permissions and
-        limitations under the License.
-            """)
-
-        def sendHelper():
-            self.print("""Used to send a message from a client to nodes"
-                     Usage: client <clientName> send <{Message}>""")
-
-        def showHelper():
-            self.print("""Used to show status of request sent by the client"
-                     Usage: client <clientName> show <reqID>""")
-
-        def defaultHelper():
-            self.printHelp()
-
-        def pluginHelper():
-            self.print("""Used to load a plugin from a given directory
-                        Usage: load plugins from <dir>""")
-
-        mappings = {
-            'new': newHelper,
-            'status': statusHelper,
-            'list': listHelper,
-            'newnode': nodeHelper,
-            'newclient': clientHelper,
-            'statusnode': statusNodeHelper,
-            'statusclient': statusClientHelper,
-            'license': licenseHelper,
-            'send': sendHelper,
-            'show': showHelper,
-            'exit': exitHelper,
-            'plugins': pluginHelper
-        }
-
-        return defaultdict(lambda: defaultHelper, **mappings)
-
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
@@ -646,22 +587,67 @@ class Cli:
         else:
             self.print(record.msg, Token)
 
-    def printHelp(self):
-        self.print("""{}-CLI, a simple command-line interface for a {} sandbox.
-        Commands:
-            help - Shows this help message
-            help <command> - Shows the help message of <command>
-            new - creates one or more new nodes or clients
-            keyshare - manually starts key sharing of a node
-            status - Shows general status of the sandbox
-            status <node_name>|<client_name> - Shows specific status
-            list - Shows the list of commands you can run
-            license - Show the license
-            exit - exit the command-line interface ('quit' also works)""".
-                format(self.properName, self.fullName))
+    def helpMsgs(self):
+        helpMsgMappings = OrderedDict()
 
-    def printCmdHelper(self, command=None):
-        self.functionMappings[command]()
+        helpMsgMappings['helpAction'] = helpMsg
+        helpMsgMappings['simpleAction'] = simpleHelpMsg
+        helpMsgMappings['statusAction'] = statusHelpMsg
+        helpMsgMappings['licenseAction'] = licenseHelpMsg
+        helpMsgMappings['listAction'] = listHelpMsg
+        helpMsgMappings['newNodeAction'] = newNodeHelpMsg
+        helpMsgMappings['newClientAction'] = newClientHelpMsg
+        helpMsgMappings['statusNodeAction'] = statusNodeHelpMsg
+        helpMsgMappings['statusClientAction'] = statusClientHelpMsg
+        helpMsgMappings['keyShareAction'] = keyShareHelpMsg
+        helpMsgMappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
+        helpMsgMappings['clientCommand'] = clientCommandMsgHelpMsg
+        helpMsgMappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
+        helpMsgMappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
+        helpMsgMappings['addKeyAction'] = addKeyHelpMsg
+        helpMsgMappings['newKeyAction'] = newKeyHelpMsg
+        helpMsgMappings['newKeyring'] = newKeyringHelpMsg
+        helpMsgMappings['renameKeyring'] = renameKeyringHelpMsg
+        helpMsgMappings['useKeyringAction'] = useKeyringHelpMsg
+        helpMsgMappings['saveKeyringAction'] = saveKeyringHelpMsg
+        helpMsgMappings['listKeyringsAction'] = listKeyringHelpMsg
+        helpMsgMappings['listIdsAction'] = listIdsHelpMsg
+        helpMsgMappings['useIdentifierAction'] = useIdHelpMsg
+        helpMsgMappings['addGenesisAction'] = addGenesisTxnHelpMsg
+        helpMsgMappings['createGenTxnFileAction'] = createGenesisTxnFileHelpMsg
+        helpMsgMappings['changePrompt'] = changePromptHelpMsg
+        helpMsgMappings['exitAction'] = exitHelpMsg
+        helpMsgMappings['quitAction'] = quitHelpMsg
+
+        return helpMsgMappings
+
+    def getOrderedHelpMsgs(self):
+        topHelpMsgsKeys = ['helpAction']
+        bottomHelpMsgsKeys = ['exitAction', 'quitAction']
+
+        topMsgs = []
+        middleMsgs = []
+        bottomMsgs = []
+
+        for k, helpMsg in self.helpMsgs().items():
+            if helpMsg:
+                if k in topHelpMsgsKeys:
+                    topMsgs.append(helpMsg)
+                elif k in bottomHelpMsgsKeys:
+                    bottomMsgs.append(helpMsg)
+                else:
+                    middleMsgs.append(helpMsg)
+
+        return topMsgs + middleMsgs + bottomMsgs
+
+    def printHelp(self):
+        helpMsgStr = "{}-CLI, a simple command-line interface for a {} sandbox." \
+                  "\n   Commands:".format(self.properName, self.fullName)
+
+        for helpMsg in self.getOrderedHelpMsgs():
+            helpMsgStr += "\n       {} - {}".format(helpMsg.id, helpMsg.msg)
+
+        self.print(helpMsgStr)
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1034,30 +1020,45 @@ class Cli:
             if cmd == 'status':
                 self.getStatus()
             elif cmd == 'license':
-                self.printCmdHelper('license')
+                self._showLicense()
             elif cmd in ['exit', 'quit']:
                 self._saveActiveWallet()
                 raise Exit
             return True
 
+    def _showLicense(self):
+        self.print("""
+                                Copyright 2016 Evernym, Inc.
+                Licensed under the Apache License, Version 2.0 (the "License");
+                you may not use this file except in compliance with the License.
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software
+                distributed under the License is distributed on an "AS IS" BASIS,
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                See the License for the specific language governing permissions and
+                limitations under the License.
+                    """)
+
     def _helpAction(self, matchedVars):
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
-            node_or_cli = matchedVars.get('node_or_cli')
             if helpable:
-                if node_or_cli:
-                    self.printCmdHelper(command="{}{}".
-                                        format(helpable, node_or_cli))
+                matchedHelpMsgs = [hm for hm in self.helpMsgs().values() if hm and hm.id == helpable]
+                if matchedHelpMsgs:
+                    self.print(str(matchedHelpMsgs[0]))
                 else:
-                    self.printCmdHelper(command=helpable)
+                    self.printHelp()
             else:
                 self.printHelp()
             return True
 
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
-            for cmd in self.commands:
-                self.print(cmd)
+            for helpMsg in self.getOrderedHelpMsgs():
+                print("{}".format(helpMsg.id))
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1253,7 +1254,7 @@ class Cli:
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
-
+            anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
                 envName = basename(fe)
@@ -1273,6 +1274,7 @@ class Cli:
 
                 if len(persistedWalletNames) > 0 or \
                                 len(unpersistedWalletNames) > 0:
+                    anyWalletFound = True
                     self.print("\nEnvironment: {}".format(envName))
 
                 if len(persistedWalletNames) > 0:
@@ -1298,6 +1300,9 @@ class Cli:
                     self.print("    Un-persisted wallets:")
                     for n in unpersistedWalletNames:
                         self.print("        {}".format(n))
+
+            if not anyWalletFound:
+                self.print("No keyrings exists")
 
             return True
 
@@ -1387,17 +1392,29 @@ class Cli:
         return wallets.get(name.lower())
 
     def checkIfWalletBelongsToCurrentContext(self, wallet):
+        self.logger.debug("wallet context check: {}".format(wallet.name))
+        self.logger.debug("  wallet.getEnvName: {}".format(wallet.getEnvName))
+        self.logger.debug("  active env: {}".format(self.getActiveEnv))
+
         if wallet.getEnvName and wallet.getEnvName != self.getActiveEnv:
+            self.logger.debug("  doesn't belong to the context")
             return False
+
         return True
 
     def _isWalletFilePathBelongsToCurrentContext(self, filePath):
-        keyringsBaseDir = self.getKeyringsBaseDir()
+        contextBasedKeyringsBaseDir = self.getContextBasedKeyringsBaseDir()
         fileBaseDir = dirname(filePath)
-        inKeyringsDir = os.path.commonprefix(
-            [filePath, keyringsBaseDir]) == keyringsBaseDir
-        if not inKeyringsDir or keyringsBaseDir == fileBaseDir:
+
+        self.logger.debug("wallet file path: {}".format(filePath))
+        self.logger.debug("  contextBasedKeyringsBaseDir: {}".
+                          format(contextBasedKeyringsBaseDir))
+        self.logger.debug("  fileBaseDir: {}".format(fileBaseDir))
+
+        if contextBasedKeyringsBaseDir != fileBaseDir:
+            self.logger.debug("  doesn't belong to the context")
             return False
+
         return True
 
     def getAllEnvDirNamesForKeyrings(self):
@@ -1408,11 +1425,13 @@ class Cli:
         baseWalletDirName = dirname(filePath)
         if not self._isWalletFilePathBelongsToCurrentContext(filePath):
             self.print("\nKeyring base directory is: {}"
-                       "\nGiven keyring file should be in one of it's "
-                       "sub directory (you can create it if it doesn't exists) "
+                       "\nGiven keyring file {} "
+                       "should be in one of it's sub directories "
+                       "(you can create it if it doesn't exists) "
                        "according to the environment it belongs to."
                        "\nPossible sub directory names are: {}".
-                       format(keyringsBaseDir, self.getAllEnvDirNamesForKeyrings()))
+                       format(keyringsBaseDir, filePath,
+                              self.getAllEnvDirNamesForKeyrings()))
             return False
 
         curContextDirName = self.getContextBasedKeyringsBaseDir()
@@ -1440,9 +1459,8 @@ class Cli:
             self.print("Keyring already in use.")
             return True
 
-        filePath = os.path.join(name.lower())
-        if os.path.isabs(filePath) and os.path.exists(filePath):
-            self._loadFromPath(filePath, copyAs=copyAs, override=override)
+        if os.path.isabs(name) and os.path.exists(name):
+            self._loadFromPath(name, copyAs=copyAs, override=override)
         else:
             self._loadWalletIfExistsAndNotLoaded(name, copyAs=copyAs,
                                                  override=override)
@@ -1464,7 +1482,7 @@ class Cli:
                     return True
                 elif wallet.name != self._activeWallet.name:
                     self.print("Given keyring is not active "
-                               "and it must be already saved")
+                               "and it must be already saved.")
                     return True
 
             self._saveActiveWallet()
@@ -1529,6 +1547,7 @@ class Cli:
 
         if not self.checkIfWalletPathBelongsToCurrentContext(walletFilePath):
             return False
+
         return True
 
     @property
@@ -1792,7 +1811,7 @@ class Cli:
 
     def invalidCmd(self, cmdText):
         self.print("Invalid command: '{}'\n".format(cmdText))
-        self.printCmdHelper(command=None)
+        self.printHelp()
 
     def nextAvailableClientAddr(self, curClientPort=8100):
         self.curClientPort = self.curClientPort or curClientPort

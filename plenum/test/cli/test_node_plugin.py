@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testEachNodeHasSeparatePluginObject(cli,
                                       validNodeNames,
                                       loadOpVerificationPlugin,
