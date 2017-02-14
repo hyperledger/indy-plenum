@@ -2,6 +2,8 @@ import base64
 import types
 from random import randint
 
+import pytest
+
 from plenum.common.eventually import eventually
 from plenum.common.types import LedgerStatus
 from plenum.test.helper import sendRandomRequests
@@ -10,6 +12,7 @@ from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
