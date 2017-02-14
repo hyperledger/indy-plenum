@@ -8,6 +8,9 @@ logger = getlogger()
 
 
 class VerkeyStore:
+    #TODO: Fix me
+    guardianPrefix = b''
+
     def __init__(self, basedir: str, name='verkey_store'):
         logger.debug('Initializing verkey {} store at {}'.format(name, basedir))
         self._basedir = basedir
@@ -15,16 +18,22 @@ class VerkeyStore:
         self._db = None
         self.open()
 
-    def get(self, did):
+    def get(self, did, unpack=False):
         self._checkDb()
         value = self._db.get(str.encode(did))
         if value:
+            if unpack and (value[0] == VerkeyStore.guardianPrefix):
+                return self.get(bytes.decode(value[1:]))
             value = bytes.decode(value)
         return value
 
-    def set(self, did, value):
+    def set(self, did, value, guarded=False):
         self._checkDb()
-        self._db.put(str.encode(did), str.encode(value))
+        did = str.encode(did)
+        value = str.encode(value)
+        if guarded:
+            value = VerkeyStore.guardianPrefix + value
+        self._db.put(did, value)
 
     def close(self):
         self._checkDb()
