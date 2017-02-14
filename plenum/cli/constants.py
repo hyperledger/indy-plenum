@@ -20,7 +20,7 @@ NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
 
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
-    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9 ]+) )? " \
+    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9_ ]+) )? " \
     "(\s+ (?P<node_or_cli>{}) )?\s*) "
 
 UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list)" \

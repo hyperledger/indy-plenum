@@ -8,25 +8,31 @@ class HelpMsg:
         self.examples = examples    # few examples
 
     def __str__(self):
-        examples = '\n      '.join(self.examples)
-        return "\n{}\n   description = {}\n   syntax = {}\n   " \
-               "examples:\n      {}\n".format(self.id, self.msg, self.syntax, examples)
-
+        detailIndent = "    "
+        examples = '\n{}{}'.format(detailIndent, detailIndent).join(self.examples)
+        header = "\n{}\n{}\n".format(self.id, '-'*(len(self.id)))
+        detail = "{} description: {}\n\n" \
+                 "{} syntax: {}\n\n" \
+                 "{} examples:\n" \
+                 "{}    {}\n".format(detailIndent, self.msg,
+                             detailIndent, self.syntax,
+                             detailIndent, detailIndent, examples)
+        return header + detail
 
 simpleHelpMsg = None
 
 helpMsg = HelpMsg("help",
-                  "Show this or specific help message for given command",
+                  "Shows this or specific help message for given command",
                   "help [<command name>]",
                   "help", "help list ids")
 
 statusHelpMsg = HelpMsg("status",
-                        "Show general status of the sandbox",
+                        "Shows general status of the sandbox",
                         "status",
                         "status")
 
 licenseHelpMsg = HelpMsg("license",
-                         "Show the license",
+                         "Shows the license",
                          "license",
                          "license")
 
@@ -41,7 +47,7 @@ quitHelpMsg = HelpMsg("quit",
                       "quit")
 
 listHelpMsg = HelpMsg("list",
-                      "Show the list of all commands you can run",
+                      "Shows the list of all commands you can run",
                       "list [sorted]",
                       "list", "list sorted")
 
@@ -81,7 +87,7 @@ clientSendMsgHelpMsg = HelpMsg("client send",
                                "client Alice send {'data':'test'}")
 
 clientShowMsgHelpMsg = HelpMsg("client show request status",
-                               "Show status of a sent request",
+                               "Shows status of a sent request",
                                "client <client-name> show <req-id>",
                                "client Alice show 1486651494426621")
 
