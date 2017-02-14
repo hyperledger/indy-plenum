@@ -6,6 +6,7 @@ from typing import Dict
 
 import pyorient
 import random
+from hashlib import sha256
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -400,6 +401,19 @@ class Cli:
             self._lexers = {**lexers}
         return self._lexers
 
+    def _renameWalletFile(self, oldWalletName, newWalletName):
+        keyringsDir = self.getContextBasedKeyringsBaseDir()
+        oldWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(oldWalletName))
+        if os.path.exists(oldWalletFilePath):
+            newWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(newWalletName))
+            if os.path.exists(newWalletFilePath):
+                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                return False
+            os.rename(oldWalletFilePath, newWalletFilePath)
+        return True
+
     def _renameKeyring(self, matchedVars):
         if matchedVars.get('rename_keyring'):
             fromName = matchedVars.get('from')
@@ -412,9 +426,14 @@ class Cli:
                 if not fromWallet:
                     self.print('Keyring {} not found'.format(fromName))
                     return True
+
+                if not self._renameWalletFile(fromName, toName):
+                    return True
+
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
+
                 self.print('Keyring {} renamed to {}'.format(fromName, toName))
             return True
 
@@ -1738,7 +1757,7 @@ class Cli:
         else:
             return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
-    def getPersistentWalletFileName(self):
+    def getActiveWalletPersitentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
         return Cli._normalizedWalletFileName(fileName)
@@ -1746,7 +1765,7 @@ class Cli:
 
     @property
     def walletFileName(self):
-        return self.getPersistentWalletFileName()
+        return self.getActiveWalletPersitentFileName()
 
     def getNoEnvKeyringsBaseDir(self):
         return os.path.expanduser(
@@ -1771,7 +1790,6 @@ class Cli:
         envKeyringPath = os.path.join(keyringPath, env)
         pattern = "{}/*.{}".format(envKeyringPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
-
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
         files = glob.glob(pattern)
