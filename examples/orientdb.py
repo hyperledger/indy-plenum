@@ -5,7 +5,11 @@ dbName = "test"
 user = "root"
 password = "password"
 session_id = client.connect(user, password)
-client.db_drop(dbName, pyorient.STORAGE_TYPE_MEMORY)
+try:
+    client.db_drop(dbName, pyorient.STORAGE_TYPE_MEMORY)
+except pyorient.exceptions.PyOrientException:
+    pass
+
 client.db_create(dbName, pyorient.DB_TYPE_GRAPH, pyorient.STORAGE_TYPE_MEMORY)
 # client.db_create(dbName, pyorient.DB_TYPE_GRAPH, pyorient.STORAGE_TYPE_PLOCAL)
 client.db_exists(dbName, pyorient.STORAGE_TYPE_MEMORY)
@@ -108,7 +112,7 @@ client.command("create class profile")
 client.command("create property profile.id string")
 client.command("create index profile.id unique")
 client.command("insert into profile set name = 'Luca', age = 21, id = '1'")
-client.command("update profile set name = 'Luca1' upsert where id = '1'")
+client.command("update profile set name = 'Luca1', role = None upsert where id = '1'")
 client.command("update profile set name = 'Luca2' upsert where id = '2'")
 
 client.command("create class Version")
