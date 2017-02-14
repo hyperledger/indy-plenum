@@ -2,11 +2,12 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
+from plenum.common.types import HA
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, TestNode
 
 logger = getlogger()
 
@@ -42,9 +43,9 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
     startTimes = {}
     completionTimes = {}
     for start in starts:
-        startTimes[start.params.get('ledgerType')] = start.endtime
+        startTimes[start.params.get('ledgerId')] = start.endtime
     for comp in completes:
-        completionTimes[comp.params.get('ledgerType')] = comp.endtime
+        completionTimes[comp.params.get('ledgerId')] = comp.endtime
     assert startTimes[0] < completionTimes[0] < \
            startTimes[1] < completionTimes[1]
 
@@ -66,8 +67,9 @@ def testDelayedLedgerStatusNotChangingState():
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
-def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
-                                nodeSetWithNodeAddedAfterSomeTxns):
+def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
+                                nodeSetWithNodeAddedAfterSomeTxns,
+                                tdirWithPoolTxns, allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -78,6 +80,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
     ensureNodeDisconnectedFromPool(looper, txnPoolNodeSet, newNode)
+    looper.removeProdable(newNode)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -88,7 +91,12 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode))
-    newNode.start(looper.loop)
+    # newNode.start(looper.loop)
+    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    newNode = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
+                    ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    looper.add(newNode)
+    txnPoolNodeSet[-1] = newNode
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:4], retryWait=1, timeout=15))

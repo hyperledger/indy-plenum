@@ -49,7 +49,8 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=5))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
                                timeout=10)
-    electMsg = Nomination(nodeX.name, 0, viewNo)
+    electMsg = Nomination(nodeX.name, 0, viewNo,
+                          nodeX.replicas[0].lastOrderdedPPSeqNo)
     threePMsg = PrePrepare(
             0,
             viewNo,

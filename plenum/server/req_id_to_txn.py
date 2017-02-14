@@ -3,6 +3,8 @@ from hashlib import sha256
 import leveldb as leveldb
 from typing import Optional
 
+from plenum.persistence.util import removeLockFiles
+
 
 class ReqIdrToTxn:
     """
@@ -41,3 +43,8 @@ class ReqIdrToTxnLevelDB(ReqIdrToTxn):
             return int(val)
         except (KeyError, ValueError):
             return None
+
+    def close(self):
+        removeLockFiles(self.dbPath)
+        del self.db
+        self.db = None

@@ -27,7 +27,7 @@ class EncryptedWallet:
 Alias = str
 
 
-IdData = HA = NamedTuple("IdData", [
+IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
 

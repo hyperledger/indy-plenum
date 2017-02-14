@@ -1,15 +1,16 @@
 from plenum.common.log import getlogger
 from plenum.common.types import PrePrepare
+from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
+from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs
 from plenum.test.helper import getPrimaryReplica, sendRandomRequests
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
 
 logger = getlogger()
 
 
-def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1, client):
+def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1,
+                                   client):
     """
     A non-primary receives PRE-PREPARE out of order, it receives with ppSeqNo 2
      earlier than it receives the one with ppSeqNo 1 but it stashes the one
@@ -19,7 +20,6 @@ def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1, clien
     """
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
-    primaryNode = pr.node
     otherNodes = [r.node for r in otherR]
     ppsToDelay = 2
     ppDelay = 3
@@ -32,6 +32,7 @@ def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1, clien
         msg, sender = wrappedMsg
         if isinstance(msg, PrePrepare) and delayeds < expectedDelayeds:
             delayeds += 1
+            delayedPpSeqNos.add(msg.ppSeqNo)
             logger.debug('ppSeqNo {} would be delayed'.format(msg.ppSeqNo))
             return ppDelay
 
@@ -40,8 +41,14 @@ def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1, clien
                      format(node))
         node.nodeIbStasher.delay(specificPrePrepares)
 
-    reqs = sendRandomRequests(wallet1, client, 3*tconf.Max3PCBatchSize)
+    reqs = sendRandomRequests(wallet1, client,
+                              (ppsToDelay+1)*tconf.Max3PCBatchSize)
 
-    looper.runFor(10)
+    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
+                                       (ppsToDelay + 1) * tconf.Max3PCBatchWait)
+    checkNodesHaveSameRoots(txnPoolNodeSet)
+
     for r in otherR:
-        logger.debug(getAllArgs(r, r.addToPrePrepares))
+        seqNos = [a['pp'].ppSeqNo for a in getAllArgs(r, r.addToPrePrepares)]
+        seqNos.reverse()
+        assert sorted(seqNos) == seqNos

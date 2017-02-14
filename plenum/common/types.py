@@ -35,6 +35,7 @@ class f:  # provides a namespace for reusable field constants
     RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
     SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
+    ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -51,8 +52,8 @@ class f:  # provides a namespace for reusable field constants
     PP_TIME = Field("ppTime", float)
     REQ_IDR = Field("reqIdr", List[Tuple[str, int]])
     DISCARDED = Field("discarded", int)
-    STATE_ROOT = Field("stateRoot", str)
-    TXN_ROOT = Field("txnRoot", str)
+    STATE_ROOT = Field("stateRootHash", str)
+    TXN_ROOT = Field("txnRootHash", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
@@ -109,7 +110,8 @@ def TaggedTuple(typename, fields) -> NamedTuple:
 Nomination = TaggedTuple(NOMINATE, [
     f.NAME,
     f.INST_ID,
-    f.VIEW_NO])
+    f.VIEW_NO,
+    f.ORD_SEQ_NO])
 
 Batch = TaggedTuple(BATCH, [
     f.MSGS,
@@ -131,7 +133,8 @@ Reelection = TaggedTuple(REELECTION, [
 Primary = TaggedTuple(PRIMARY, [
     f.NAME,
     f.INST_ID,
-    f.VIEW_NO])
+    f.VIEW_NO,
+    f.ORD_SEQ_NO])
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -230,7 +233,7 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO,
+    f.VIEW_NO
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [

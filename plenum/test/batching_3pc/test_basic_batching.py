@@ -4,13 +4,10 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.exceptions import UnauthorizedClientRequest
-from plenum.common.types import DOMAIN_LEDGER_ID
 from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs, \
     checkNodesHaveSameRoots
 from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
-    checkSufficientRepliesRecvd, checkRejectWithReason
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+    checkRejectWithReason
 
 
 def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,

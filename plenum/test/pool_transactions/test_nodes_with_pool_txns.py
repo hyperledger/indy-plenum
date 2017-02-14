@@ -10,7 +10,7 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkReqNackWithReason
+    checkReqNackWithReason, checkRejectWithReason
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
@@ -69,7 +69,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
                    tdirWithPoolTxns, tconf, allPluginsPath)
 
     for node in txnPoolNodeSet:
-        checkReqNackWithReason(client1, 'is not a steward so cannot add a '
+        checkRejectWithReason(client1, 'is not a steward so cannot add a '
                                         'new node', node.clientstack.name)
 
 

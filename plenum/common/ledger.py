@@ -62,7 +62,7 @@ class Ledger(_Ledger):
         """
         The number of txns in `uncommittedTxns` which have to be
         discarded
-        :param count: inclusive
+        :param count:
         :return:
         """
         self.uncommittedTxns = self.uncommittedTxns[:-count]

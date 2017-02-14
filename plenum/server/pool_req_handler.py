@@ -89,9 +89,10 @@ class PoolReqHandler:
         if not isSteward:
             return "{} is not a steward so cannot update a node".format(origin)
         nodeNym = operation.get(TARGET_NYM)
-        if self.isStewardOfNode(origin, nodeNym):
+        if not self.isStewardOfNode(origin, nodeNym):
             return "{} is not a steward of node {}".format(origin, nodeNym)
-        if self.isNodeDataConflicting(operation.get(DATA, {}), isCommitted=False):
+        if self.isNodeDataConflicting(operation.get(DATA, {}), nodeNym,
+                                      isCommitted=False):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))
 

@@ -155,7 +155,7 @@ class PrimaryElector(PrimaryDecider):
         :param instId: the instance id (used to identify the replica on this node)
         """
         return instId in self.primaryDeclarations and \
-               self.replicas[instId].name in self.primaryDeclarations[instId]
+            self.replicas[instId].name in self.primaryDeclarations[instId]
 
     async def serviceQueues(self, limit=None):
         """
@@ -245,11 +245,13 @@ class PrimaryElector(PrimaryDecider):
         """
         replica = self.replicas[instId]
         if not self.didReplicaNominate(instId):
-            self.nominations[instId][replica.name] = replica.name
+            self.nominations[instId][replica.name] = (replica.name,
+                                                      replica.lastOrderdedPPSeqNo)
             logger.info("{} nominating itself for instance {}".
                         format(replica, instId),
                         extra={"cli": "PLAIN"})
-            self.sendNomination(replica.name, instId, self.viewNo)
+            self.sendNomination(replica.name, instId, self.viewNo,
+                                replica.lastOrderdedPPSeqNo)
         else:
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
@@ -281,8 +283,9 @@ class PrimaryElector(PrimaryDecider):
         if not self.didReplicaNominate(instId):
             if instId not in self.nominations:
                 self.setDefaults(instId)
-            self.nominations[instId][replica.name] = nom.name
-            self.sendNomination(nom.name, nom.instId, nom.viewNo)
+            self.nominations[instId][replica.name] = (nom.name, nom.ordSeqNo)
+            self.sendNomination(nom.name, nom.instId, nom.viewNo,
+                                nom.ordSeqNo)
             logger.debug("{} nominating {} for instance {}".
                          format(replica, nom.name, nom.instId),
                          extra={"cli": "PLAIN"})
@@ -291,7 +294,7 @@ class PrimaryElector(PrimaryDecider):
 
         # Nodes should not be able to vote more than once
         if sndrRep not in self.nominations[instId]:
-            self.nominations[instId][sndrRep] = nom.name
+            self.nominations[instId][sndrRep] = (nom.name, nom.ordSeqNo)
             logger.debug("{} attempting to decide primary based on nomination "
                          "request: {} from {}".format(replica, nom, sndrRep))
             self._schedule(partial(self.decidePrimary, instId))
@@ -311,7 +314,8 @@ class PrimaryElector(PrimaryDecider):
     def processPrimary(self, prim: Primary, sender: str) -> None:
         """
         Process a vote from a replica to select a particular replica as primary.
-        Once 2f + 1 primary declarations have been received, decide on a primary replica.
+        Once 2f + 1 primary declarations have been received, decide on a
+        primary replica.
 
         :param prim: a vote
         :param sender: the name of the node from which this message was sent
@@ -326,7 +330,8 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.primaryDeclarations:
             self.setDefaults(instId)
         if sndrRep not in self.primaryDeclarations[instId]:
-            self.primaryDeclarations[instId][sndrRep] = prim.name
+            self.primaryDeclarations[instId][sndrRep] = (prim.name,
+                                                         prim.ordSeqNo)
 
             # If got more than 2f+1 primary declarations then in a position to
             # decide whether it is the primary or not `2f + 1` declarations
@@ -348,12 +353,12 @@ class PrimaryElector(PrimaryDecider):
 
             if self.hasPrimaryQuorum(instId):
                 if replica.isPrimary is None:
-                    primary = mostCommonElement(
+                    primary, seqNo = mostCommonElement(
                         self.primaryDeclarations[instId].values())
                     logger.display("{} selected primary {} for instance {} "
-                                "(view {})".
-                                format(replica, primary, instId, self.viewNo),
-                                extra={"cli": "ANNOUNCE"})
+                                   "(view {})".
+                                   format(replica, primary, instId, self.viewNo),
+                                   extra={"cli": "ANNOUNCE"})
                     logger.debug("{} selected primary on the basis of {}".
                                  format(replica,
                                         self.primaryDeclarations[instId]),
@@ -362,8 +367,11 @@ class PrimaryElector(PrimaryDecider):
                     # If the maximum primary declarations are for this node
                     # then make it primary
                     replica.primaryName = primary
+                    if replica.primaryName == replica.name:
+                        assert replica.lastOrderdedPPSeqNo >= seqNo
+                        replica.lastPrePrepareSeqNo = replica.lastOrderdedPPSeqNo
 
-                    # If this replica has nominated itself and since the
+                        # If this replica has nominated itself and since the
                     # election is over, reset the flag
                     if self.replicaNominatedForItself == instId:
                         self.replicaNominatedForItself = None
@@ -425,7 +433,8 @@ class PrimaryElector(PrimaryDecider):
             return
 
         if sndrRep not in self.reElectionProposals[instId]:
-            self.reElectionProposals[instId][sndrRep] = reelection.tieAmong
+            self.reElectionProposals[instId][sndrRep] = [tuple(_) for _ in
+                                                         reelection.tieAmong]
 
             # Check if got reelection messages from at least 2f + 1 nodes (1
             # more than max faulty nodes). Necessary because some nodes may
@@ -445,7 +454,7 @@ class PrimaryElector(PrimaryDecider):
 
                 # There was a tie among this and some other node(s), so do a
                 # random wait
-                if replica.name in tieAmong:
+                if replica.name in [_[0] for _ in tieAmong]:
                     # Try to nominate self after a random delay but dont block
                     # until that delay and because a nominate from another
                     # node might be sent
@@ -456,8 +465,8 @@ class PrimaryElector(PrimaryDecider):
                     self.nominateReplica(instId)
             else:
                 logger.debug(
-                    "{} does not have re-election quorum yet. Got only {}".format(
-                        replica, len(self.reElectionProposals[instId])))
+                    "{} does not have re-election quorum yet. Got only {}".
+                    format(replica, len(self.reElectionProposals[instId])))
         else:
             self.discard(reelection,
                          "already got re-election proposal from {}".
@@ -548,24 +557,24 @@ class PrimaryElector(PrimaryDecider):
 
             # In case of one clear winner
             if len(primaryCandidates) == 1:
-                primaryName, votes = primaryCandidates.pop()
+                (primaryName, seqNo), votes = primaryCandidates.pop()
                 if self.hasNominationsFromAll(instId) or (
                         self.scheduledPrimaryDecisions[instId] is not None and
                         self.hasPrimaryDecisionTimerExpired(instId)):
                     logger.debug(
                         "{} has nominations from all so sending primary".format(
                             replica))
-                    self.sendPrimary(instId, primaryName)
+                    self.sendPrimary(instId, primaryName, seqNo)
                 else:
                     votesNeeded = math.ceil((self.nodeCount + 1) / 2.0)
                     if votes >= votesNeeded or (
                         self.scheduledPrimaryDecisions[instId] is not None and
-                        self.hasPrimaryDecisionTimerExpired(instId)):
+                                self.hasPrimaryDecisionTimerExpired(instId)):
                         logger.debug(
                             "{} does not have nominations from all but "
                             "has {} votes for {} so sending primary"
                             .format(replica, votes, primaryName))
-                        self.sendPrimary(instId, primaryName)
+                        self.sendPrimary(instId, primaryName, seqNo)
                         return
                     else:
                         logger.debug(
@@ -593,7 +602,8 @@ class PrimaryElector(PrimaryDecider):
         else:
             logger.debug("{} has not got nomination quorum yet".format(replica))
 
-    def sendNomination(self, name: str, instId: int, viewNo: int):
+    def sendNomination(self, name: str, instId: int, viewNo: int,
+                       lastOrderedSeqNo: int):
         """
         Broadcast a nomination message with the given parameters.
 
@@ -601,9 +611,10 @@ class PrimaryElector(PrimaryDecider):
         :param instId: instance id
         :param viewNo: view number
         """
-        self.send(Nomination(name, instId, viewNo))
+        self.send(Nomination(name, instId, viewNo, lastOrderedSeqNo))
 
-    def sendPrimary(self, instId: int, primaryName: str):
+    def sendPrimary(self, instId: int, primaryName: str,
+                    lastOrderedSeqNo: int):
         """
         Declare a primary and broadcast the message.
 
@@ -611,12 +622,14 @@ class PrimaryElector(PrimaryDecider):
         :param primaryName: the name of the primary replica
         """
         replica = self.replicas[instId]
-        self.primaryDeclarations[instId][replica.name] = primaryName
+        self.primaryDeclarations[instId][replica.name] = (primaryName,
+                                                          lastOrderedSeqNo)
         self.scheduledPrimaryDecisions[instId] = None
         logger.debug("{} declaring primary as: {} on the basis of {}".
                      format(replica, primaryName,
                             self.nominations[instId]))
-        self.send(Primary(primaryName, instId, self.viewNo))
+        self.send(Primary(primaryName, instId, self.viewNo,
+                          lastOrderedSeqNo))
 
     def sendReelection(self, instId: int,
                        primaryCandidates: Sequence[str] = None) -> None:
@@ -745,19 +758,18 @@ class PrimaryElector(PrimaryDecider):
         # If a primary for this instance has been selected then send a
         # primary declaration for the selected primary
         if replica.isPrimary is not None:
-            msgs.append(Primary(replica.primaryName, instId, self.viewNo))
+            msgs.append(Primary(replica.primaryName, instId, self.viewNo,
+                                replica.lastOrderdedPPSeqNo))
         else:
             # If a primary for this instance has not been selected then send
             # nomination and primary declaration that this node made for the
             # instance with id `instId`
             if self.didReplicaNominate(instId):
-                msgs.append(Nomination(self.nominations[instId][
-                                           replica.name],
-                                       instId, self.viewNo))
+                nm, seqNo = self.nominations[instId][replica.name]
+                msgs.append(Nomination(nm, instId, self.viewNo, seqNo))
             if self.didReplicaDeclarePrimary(instId):
-                msgs.append(Primary(self.primaryDeclarations[instId][replica.name],
-                                    instId,
-                                    self.viewNo))
+                nm, seqNo = self.primaryDeclarations[instId][replica.name]
+                msgs.append(Primary(nm, instId, self.viewNo, seqNo))
         return msgs
 
     def getElectionMsgsForLaggedNodes(self) -> \

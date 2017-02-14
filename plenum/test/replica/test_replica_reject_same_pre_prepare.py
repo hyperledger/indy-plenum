@@ -59,8 +59,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         1,
         primaryRepl.batchDigest([request2]),
         DOMAIN_LEDGER_ID,
-        primaryRepl.stateRoot(DOMAIN_LEDGER_ID),
-        primaryRepl.txnRoot(DOMAIN_LEDGER_ID)
+        primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
+        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID)
     )
 
     logger.debug("""Checking whether all the non primary replicas have received

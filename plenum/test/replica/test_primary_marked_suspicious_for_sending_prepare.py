@@ -20,8 +20,8 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, preprepared1):
                           viewNo,
                           ppSeqNo,
                           ppReq.digest,
-                          ppReq.stateRoot,
-                          ppReq.txnRoot)
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         primary.doPrepare(prepare)
 
         def chk():

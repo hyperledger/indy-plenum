@@ -60,8 +60,8 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
                           request.viewNo,
                           request.ppSeqNo,
                           request.digest,
-                          request.stateRoot,
-                          request.txnRoot)
+                          request.stateRootHash,
+                          request.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(request, prepare))
         self.addToPrepares(prepare, self.name)
@@ -136,8 +136,8 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                           ppReq.viewNo,
                           ppReq.ppSeqNo,
                           digest,
-                          ppReq.stateRoot,
-                          ppReq.txnRoot)
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
                      format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)

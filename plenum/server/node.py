@@ -365,10 +365,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
         return ReqIdrToTxnLevelDB(dbPath)
 
-    def loadSeqNoDB(self):
-        dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
-        return ReqIdrToTxnLevelDB(dbPath)
-
     # noinspection PyAttributeOutsideInit
     def setF(self):
         nodeNames = set(self.nodeReg.keys())
@@ -587,19 +583,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def closeAllLevelDBs(self):
         # Clear leveldb lock files
+        logger.info("{} closing level dbs".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgers:
             state = self.getState(ledgerId)
             if state:
-                self.removeLockFiles(state.db.db.dbPath)
-            if self.seqNoDB:
-                self.removeLockFiles(self.seqNoDB.dbPath)
-
-    @staticmethod
-    def removeLockFiles(dbPath):
-        if os.path.isdir(dbPath):
-            lockFilePath = os.path.join(dbPath, 'LOCK')
-            if os.path.isfile(lockFilePath):
-                os.remove(lockFilePath)
+                state.close()
+        if self.seqNoDB:
+            self.seqNoDB.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -2012,10 +2002,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #                        reason=InvalidSignature.reason,
         #                        code=InvalidSignature.code)
 
-        if code in self.suspicions:
-            self.blacklistNode(nodeName,
-                               reason=self.suspicions[code],
-                               code=code)
+        # TODO: Consider blacklisting nodes again.
+        # if code in self.suspicions:
+        #     self.blacklistNode(nodeName,
+        #                        reason=self.suspicions[code],
+        #                        code=code)
+
+        if code in (s.code for s in (Suspicions.PPR_DIGEST_WRONG,
+                    Suspicions.PPR_REJECT_WRONG,
+                    Suspicions.PPR_TXN_WRONG,
+                    Suspicions.PPR_STATE_WRONG)):
+            logger.info('{} sending instance change since suspicion code {}'
+                        .format(self, code))
+            self.sendInstanceChange(self.viewNo+1)
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 

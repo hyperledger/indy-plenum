@@ -1,4 +1,4 @@
-from binascii import hexlify
+from binascii import unhexlify
 
 from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles
 from state.db.persistent_db import PeristentDB
@@ -57,7 +57,7 @@ class PruningState(State):
     def __init__(self, dbPath, initState=None):
         db = PeristentDB(dbPath)
         if self.rootHashKey in db:
-            rootHash = db.get(self.rootHashKey)
+            rootHash = bytes(db.get(self.rootHashKey))
         else:
             rootHash = BLANK_ROOT
             db.put(self.rootHashKey, BLANK_ROOT)
@@ -94,10 +94,11 @@ class PruningState(State):
         elif isHex(rootHash):
             if isinstance(rootHash, str):
                 rootHash = rootHash.encode()
-            rootHash = hexlify(rootHash)
+            rootHash = unhexlify(rootHash)
         self.db.db.put(self.rootHashKey, rootHash)
 
-    def revertToHead(self, head):
+    def revertToHead(self, headHash=None):
+        head = self.trie._decode_to_node(headHash)
         self.trie.replace_root_hash(self.trie.root_node, head)
 
     @property
@@ -117,3 +118,6 @@ class PruningState(State):
     def isEmpty(self):
         return self.committedHeadHash == BLANK_ROOT
 
+    def close(self):
+        self.db.db.close()
+        del self.db.kv
