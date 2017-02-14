@@ -9,7 +9,7 @@ logger = getlogger()
 
 class VerkeyStore:
     #TODO: Fix me
-    guardianPrefix = b''
+    guardianPrefix = b'\xf0\x9f\x98\x80'
 
     def __init__(self, basedir: str, name='verkey_store'):
         logger.debug('Initializing verkey {} store at {}'.format(name, basedir))
@@ -22,8 +22,8 @@ class VerkeyStore:
         self._checkDb()
         value = self._db.get(str.encode(did))
         if value:
-            if unpack and (value[0] == VerkeyStore.guardianPrefix):
-                return self.get(bytes.decode(value[1:]))
+            if unpack and (value[:len(VerkeyStore.guardianPrefix)] == VerkeyStore.guardianPrefix):
+                return self.get(bytes.decode(value[len(VerkeyStore.guardianPrefix):]))
             value = bytes.decode(value)
         return value
 
