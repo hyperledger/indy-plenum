@@ -458,7 +458,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return LedgerManager(self, ownedByNode=True)
 
     def getVerkeyStore(self):
-        return VerkeyStore(self.basedirpath)
+        return VerkeyStore(self.dataLocation)
 
     def start(self, loop):
         oldstatus = self.status

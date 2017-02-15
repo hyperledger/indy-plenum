@@ -1,5 +1,5 @@
 import os
-import plyvel
+import leveldb
 
 from plenum.common.exceptions import StorageException
 from plenum.common.log import getlogger
@@ -8,7 +8,6 @@ logger = getlogger()
 
 
 class VerkeyStore:
-    #TODO: Fix me
     guardianPrefix = b'\xf0\x9f\x98\x80'
 
     def __init__(self, basedir: str, name='verkey_store'):
@@ -20,28 +19,22 @@ class VerkeyStore:
 
     def get(self, did, unpack=False):
         self._checkDb()
-        value = self._db.get(str.encode(did))
-        if value:
-            if unpack and (value[:len(VerkeyStore.guardianPrefix)] == VerkeyStore.guardianPrefix):
-                return self.get(bytes.decode(value[len(VerkeyStore.guardianPrefix):]))
-            value = bytes.decode(value)
+        value = self._db.Get(did)
+        if unpack and value.startsWith(self.guardianPrefixDecoded):
+            return self.get(value[len(self.guardianPrefixDecoded):])
         return value
 
     def set(self, did, value, guarded=False):
         self._checkDb()
-        did = str.encode(did)
-        value = str.encode(value)
         if guarded:
-            value = VerkeyStore.guardianPrefix + value
-        self._db.put(did, value)
+            value = self.guardianPrefixDecoded + value
+        self._db.Put(did, value)
 
     def close(self):
-        self._checkDb()
-        self._db.close()
         self._db = None
 
     def open(self):
-        self._db = plyvel.DB(self.dbName(), create_if_missing=True)
+        self._db = leveldb.LevelDB(self.dbName())
 
     def dbName(self):
         return os.path.join(self._basedir, self._name)
@@ -49,5 +42,7 @@ class VerkeyStore:
     def _checkDb(self):
         if not self._db:
             raise StorageException('Db reference is missing!')
-        if self._db.closed:
-            raise StorageException('Db is closed!')
+
+    @property
+    def guardianPrefixDecoded(self):
+        return bytes.decode(VerkeyStore.guardianPrefix)
