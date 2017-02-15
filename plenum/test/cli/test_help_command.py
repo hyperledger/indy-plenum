@@ -22,7 +22,7 @@ def testNewKey(cli):
     cli.enterCmd("help new key")
     newMsg = """new key
 -------
-     description: Adds new key to active keyring
+     title: Adds new key to active keyring
 
      syntax: new key [with seed <32 character seed>] [[as] <alias>]
 
@@ -41,7 +41,7 @@ def testNewNode(cli):
     cli.enterCmd("help new node")
     newMsg = """new node
 --------
-     description: Starts new node
+     title: Starts new node
 
      syntax: new node <name>
 
@@ -58,7 +58,7 @@ def testNewClient(cli):
     cli.enterCmd("help new client")
     newMsg = """new client
 ----------
-     description: Starts new client
+     title: Starts new client
 
      syntax: new client <name>
 
