@@ -2,15 +2,19 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import glob
+from typing import Dict
+
+import pyorient
 import random
 from hashlib import sha256
 import shutil
-from os.path import basename, dirname
-from typing import Dict
-
+from hashlib import sha256
 from jsonpickle import json, encode, decode
-from plenum.common.exceptions import NameAlreadyExists
-from plenum.test.cli.HelpMsg import helpMsg, simpleHelpMsg, \
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.ledger import Ledger
+from ledger.stores.file_hash_store import FileHashStore
+from os.path import basename, dirname
+from plenum.cli.HelpMsg import helpMsg, simpleHelpMsg, \
     licenseHelpMsg, statusHelpMsg, exitHelpMsg, quitHelpMsg, listHelpMsg, \
     newNodeHelpMsg, newClientHelpMsg, statusNodeHelpMsg, statusClientHelpMsg, \
     keyShareHelpMsg, loadPlugingDirHelpMsg, clientSendMsgHelpMsg, \
@@ -19,25 +23,20 @@ from plenum.test.cli.HelpMsg import helpMsg, simpleHelpMsg, \
     createGenesisTxnFileHelpMsg, changePromptHelpMsg, newKeyringHelpMsg, \
     renameKeyringHelpMsg, useKeyringHelpMsg, saveKeyringHelpMsg, \
     listKeyringHelpMsg
-
-from prompt_toolkit.utils import is_windows, is_conemu_ansi
-import pyorient
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
-from ledger.ledger import Ledger
-
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
-    getAllGrams
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
-from plenum.common.signer_simple import SimpleSigner
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
 from plenum.client.wallet import Wallet
+from plenum.common.exceptions import NameAlreadyExists
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -402,6 +401,19 @@ class Cli:
             self._lexers = {**lexers}
         return self._lexers
 
+    def _renameWalletFile(self, oldWalletName, newWalletName):
+        keyringsDir = self.getContextBasedKeyringsBaseDir()
+        oldWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(oldWalletName))
+        if os.path.exists(oldWalletFilePath):
+            newWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(newWalletName))
+            if os.path.exists(newWalletFilePath):
+                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                return False
+            os.rename(oldWalletFilePath, newWalletFilePath)
+        return True
+
     def _renameKeyring(self, matchedVars):
         if matchedVars.get('rename_keyring'):
             fromName = matchedVars.get('from')
@@ -414,9 +426,14 @@ class Cli:
                 if not fromWallet:
                     self.print('Keyring {} not found'.format(fromName))
                     return True
+
+                if not self._renameWalletFile(fromName, toName):
+                    return True
+
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
+
                 self.print('Keyring {} renamed to {}'.format(fromName, toName))
             return True
 
@@ -589,8 +606,15 @@ class Cli:
             self.print(record.msg, Token)
 
     def helpMsgMappings(self):
-        mappings = OrderedDict()
 
+        # The 'key' of 'mappings' dictionary is action handler function name
+        # without leading underscore sign. Each such funcation name should be
+        # mapped here, its other thing that if you don't want to display it
+        # in help, map it to None, but mapping should be present, that way it
+        # will force developer to either write help message for those cli
+        # commands or make a decision to not show it in help message.
+
+        mappings = OrderedDict()
         mappings['helpAction'] = helpMsg
         mappings['listAction'] = listHelpMsg
         mappings['licenseAction'] = licenseHelpMsg
@@ -602,10 +626,9 @@ class Cli:
         mappings['statusClientAction'] = statusClientHelpMsg
         mappings['keyShareAction'] = keyShareHelpMsg
         mappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
-        mappings['clientCommand'] = None
+
         mappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
         mappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
-        mappings['addKeyAction'] = None
         mappings['newKeyAction'] = newKeyHelpMsg
         mappings['newKeyring'] = newKeyringHelpMsg
         mappings['renameKeyring'] = renameKeyringHelpMsg
@@ -620,20 +643,34 @@ class Cli:
         mappings['exitAction'] = exitHelpMsg
         mappings['quitAction'] = quitHelpMsg
 
+        # below action handlers are those who handles multiple commands and so
+        # these will point to 'None' and specific commands will point to their
+        # corresponding help msgs.
+        mappings['clientCommand'] = None
+
+        # TODO: These seems to be obsolete, so either we need to remove these
+        # command handlers or let it point to None
+        mappings['addKeyAction'] = None         # obsolete command
+
+
         return mappings
 
+    def getBasicHelpMsgKeys(self):
+        return ["helpAction", "listAction", "licenseAction",
+         "statusAction", "exitAction"]
+
     def getBasicHelpMsgs(self):
-        basicMsgKeys = ["helpAction", "listAction", "licenseAction",
-                        "statusAction", "exitAction", "quitAction"]
+        basicMsgKeys = self.getBasicHelpMsgKeys()
         basicMsgs = []
-        for k, helpMsg in self.helpMsgMappings().items():
+        for bmk in basicMsgKeys:
+            helpMsg = self.helpMsgMappings().get(bmk)
             if helpMsg:
-                if k in basicMsgKeys:
-                    basicMsgs.append(helpMsg)
+                basicMsgs.append(helpMsg)
         return basicMsgs
 
-    def getOrderedHelpMsgs(self):
-        topHelpMsgsKeys = ['helpAction', 'listAction']
+    def getDefaultOrderedHelpMsgs(self):
+        topHelpMsgsKeys = ['helpAction', 'listAction',
+                           'statusAction', 'licenseAction']
         bottomHelpMsgsKeys = ['exitAction', 'quitAction']
 
         topMsgs = []
@@ -651,8 +688,8 @@ class Cli:
 
         return topMsgs + middleMsgs + bottomMsgs
 
-    def _printGivenHelpMsgs(self, helpMsgs, sort=False, printHeader=True,
-                            showUsageFor=[]):
+    def _printGivenHelpMsgs(self, helpMsgs, gapsInLines=1,
+                            sort=False, printHeader=True, showUsageFor=[]):
         helpMsgStr = ""
         if printHeader:
             helpMsgStr += "{}-CLI, a simple command-line interface for a {}.".\
@@ -666,17 +703,23 @@ class Cli:
         for helpMsg in helpMsgs:
             helpMsgLines = helpMsg.msg.split("\n")
             helpMsgFormattedLine = "\n         ".join(helpMsgLines)
-            helpMsgStr += "\n       {} - {}".format(helpMsg.id,
-                                                    helpMsgFormattedLine)
+
+            helpMsgStr += "{}       {} - {}".format(
+                '\n'*gapsInLines, helpMsg.id, helpMsgFormattedLine)
+
             if helpMsg.id in showUsageFor:
                 helpMsgStr += "\n         Usage:\n            {}".\
                     format(helpMsg.syntax)
 
-        self.print(helpMsgStr)
+        self.print("\n{}\n".format(helpMsgStr))
+
+    def getHelpMsgIdsToShowUsage(self):
+        return ["help", "list"]
 
     def printHelp(self):
         self._printGivenHelpMsgs(self.getBasicHelpMsgs(),
-                                 showUsageFor=["help", "list"])
+                                 gapsInLines = 2,
+                                 showUsageFor= self.getHelpMsgIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1088,7 +1131,7 @@ class Cli:
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
             sorted = True if matchedVars.get('sorted') else False
-            self._printGivenHelpMsgs(self.getOrderedHelpMsgs(), sort=sorted,
+            self._printGivenHelpMsgs(self.getDefaultOrderedHelpMsgs(), sort=sorted,
                                      printHeader=False)
             return True
 
@@ -1714,7 +1757,7 @@ class Cli:
         else:
             return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
-    def getPersistentWalletFileName(self):
+    def getActiveWalletPersitentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
         return Cli._normalizedWalletFileName(fileName)
@@ -1722,7 +1765,7 @@ class Cli:
 
     @property
     def walletFileName(self):
-        return self.getPersistentWalletFileName()
+        return self.getActiveWalletPersitentFileName()
 
     def getNoEnvKeyringsBaseDir(self):
         return os.path.expanduser(
@@ -1747,7 +1790,6 @@ class Cli:
         envKeyringPath = os.path.join(keyringPath, env)
         pattern = "{}/*.{}".format(envKeyringPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
-
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
         files = glob.glob(pattern)
