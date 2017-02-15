@@ -533,6 +533,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
         self.ledgerManager.setLedgerState(1, LedgerState.not_synced)
+        self.verkeyStore.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
