@@ -19,15 +19,20 @@ class VerkeyStore:
 
     def get(self, did, unpack=False):
         self._checkDb()
+        did = str.encode(did)
         value = self._db.Get(did)
-        if unpack and value.startsWith(self.guardianPrefixDecoded):
-            return self.get(value[len(self.guardianPrefixDecoded):])
+        if value:
+            if unpack and (value[:len(VerkeyStore.guardianPrefix)] == VerkeyStore.guardianPrefix):
+                return self.get(bytes.decode(value[len(VerkeyStore.guardianPrefix):]))
+            value = bytes.decode(value)
         return value
 
     def set(self, did, value, guarded=False):
         self._checkDb()
+        value = str.encode(value)
+        did = str.encode(did)
         if guarded:
-            value = self.guardianPrefixDecoded + value
+            value = VerkeyStore.guardianPrefix + value
         self._db.Put(did, value)
 
     def close(self):
