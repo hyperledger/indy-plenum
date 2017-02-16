@@ -12,7 +12,8 @@ from plenum.common.util import adict
 
 plenum.common.log.loggingConfigured = False
 
-from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin
+from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
+    checkCmdValid, doByCtx
 
 
 @pytest.yield_fixture(scope="module")
@@ -43,6 +44,11 @@ def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 
 
 @pytest.fixture("module")
+def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
+        tdirWithNodeKeepInited):
+    return newCLI(cliLooper, tdir)
+
+@pytest.fixture("module")
 def validNodeNames(cli):
     return list(cli.nodeReg.keys())
 
@@ -63,3 +69,31 @@ def createAllNodes(request, cli):
 def loadOpVerificationPlugin(cli):
     loadPlugin(cli, 'name_age_verification')
 
+
+@pytest.fixture("module")
+def ctx():
+    """
+    Provides a simple container for test context. Assists with 'be' and 'do'.
+    """
+    return {}
+
+
+@pytest.fixture("module")
+def be(ctx):
+    """
+    Fixture that is a 'be' function that closes over the test context.
+    'be' allows to change the current cli in the context.
+    """
+    def _(cli):
+        ctx['current_cli'] = cli
+    return _
+
+
+@pytest.fixture("module")
+def do(ctx):
+    """
+    Fixture that is a 'do' function that closes over the test context
+    'do' allows to call the do method of the current cli from the context.
+    """
+
+    return doByCtx(ctx)

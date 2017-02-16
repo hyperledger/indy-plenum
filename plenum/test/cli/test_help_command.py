@@ -4,12 +4,11 @@ def testDefaultHelp(cli):
     """
     cli.enterCmd("help")
     defaultHelpMsgs = [
-        "Plenum-CLI, a simple command-line interface for a Plenum protocol sandbox.",
+        "Plenum-CLI, a simple command-line interface for a Plenum protocol.",
         "Commands:",
-        "help - Shows this or specific help message",
-        "license - Show the license",
-        "exit - Exit the command-line interface ('quit' also works)",
-        "quit - Exit the command-line interface ('exit' also works)"
+        "help - Shows this or specific help message for given command",
+        "license - Shows the license",
+        "exit - Exit the command-line interface ('quit' also works)"
         ]
 
     for dhm in defaultHelpMsgs:
@@ -22,11 +21,16 @@ def testNewKey(cli):
     """
     cli.enterCmd("help new key")
     newMsg = """new key
-   Description = Adds new key to active keyring
-   Syntax = new key [with seed <32 character seed>]
-   Examples:
-      new key
-      new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"""
+-------
+     title: Adds new key to active keyring
+
+     syntax: new key [with seed <32 character seed>] [[as] <alias>]
+
+     examples:
+        new key
+        new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa myalias
+        new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa as myalias"""
     assert newMsg in cli.lastCmdOutput
 
 
@@ -36,11 +40,14 @@ def testNewNode(cli):
     """
     cli.enterCmd("help new node")
     newMsg = """new node
-   Description = Starts new node
-   Syntax = new node <name>
-   Examples:
-      new node Alpha
-      new node all"""
+--------
+     title: Starts new node
+
+     syntax: new node <name>
+
+     examples:
+        new node Alpha
+        new node all"""
     assert newMsg in cli.lastCmdOutput
 
 
@@ -50,8 +57,11 @@ def testNewClient(cli):
     """
     cli.enterCmd("help new client")
     newMsg = """new client
-   Description = Starts new client
-   Syntax = new client <name>
-   Examples:
-      new client Alice"""
+----------
+     title: Starts new client
+
+     syntax: new client <name>
+
+     examples:
+        new client Alice"""
     assert newMsg in cli.lastCmdOutput
