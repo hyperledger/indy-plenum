@@ -61,8 +61,9 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker==0.5.7',
-                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
+    install_requires=['ledger-dev==0.1.17',
+                      'raet', 'jsonpickle', 'portalocker==0.5.7',
+                      'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers', 'psutil'],
     extras_require={
