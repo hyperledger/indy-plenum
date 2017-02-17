@@ -17,6 +17,8 @@ from plenum.test.test_node import checkNodesConnected, \
 whitelist = ['found legacy entry']  # warnings
 
 
+# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-481')
+@pytest.mark.skipif(True, reason='SOV-456')
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,

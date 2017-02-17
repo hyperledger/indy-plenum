@@ -6,7 +6,6 @@ from typing import Dict
 
 import pyorient
 import random
-from hashlib import sha256
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -14,15 +13,17 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
 from os.path import basename, dirname
-from plenum.cli.HelpMsg import helpMsg, simpleHelpMsg, \
-    licenseHelpMsg, statusHelpMsg, exitHelpMsg, quitHelpMsg, listHelpMsg, \
-    newNodeHelpMsg, newClientHelpMsg, statusNodeHelpMsg, statusClientHelpMsg, \
-    keyShareHelpMsg, loadPlugingDirHelpMsg, clientSendMsgHelpMsg, \
-    clientShowMsgHelpMsg, newKeyHelpMsg, \
-    listIdsHelpMsg, useIdHelpMsg, addGenesisTxnHelpMsg, \
-    createGenesisTxnFileHelpMsg, changePromptHelpMsg, newKeyringHelpMsg, \
-    renameKeyringHelpMsg, useKeyringHelpMsg, saveKeyringHelpMsg, \
-    listKeyringHelpMsg
+
+from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
+    keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
+    newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
+    listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
+    createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd
+from plenum.cli.command import licenseCmd
+from plenum.cli.command import listCmd
+from plenum.cli.command import newClientCmd
+from plenum.cli.command import newNodeCmd
+from plenum.cli.command import statusCmd
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
@@ -176,7 +177,7 @@ class Cli:
         new node Alpha
         new node all
         new client Joe
-        client Joe send <msg>
+        client Joe send <Cmd>
         client Joe show 1
         '''
 
@@ -282,7 +283,7 @@ class Cli:
     def checkIfHelpMsgExistsForAllCmds(self):
         for cmdHandlerFunc in self.actions:
             funcName = cmdHandlerFunc.__name__.replace("_","")
-            if funcName not in self.helpMsgMappings().keys():
+            if funcName not in self.cmdHandlerToCmdMappings().keys():
                 raise Exception("\n************\nHelp msg not provided for "
                                 "'{}' command handler. Please add proper "
                                 "mapping for related help msg in function "
@@ -605,7 +606,7 @@ class Cli:
         else:
             self.print(record.msg, Token)
 
-    def helpMsgMappings(self):
+    def cmdHandlerToCmdMappings(self):
 
         # The 'key' of 'mappings' dictionary is action handler function name
         # without leading underscore sign. Each such funcation name should be
@@ -615,38 +616,37 @@ class Cli:
         # commands or make a decision to not show it in help message.
 
         mappings = OrderedDict()
-        mappings['helpAction'] = helpMsg
-        mappings['listAction'] = listHelpMsg
-        mappings['licenseAction'] = licenseHelpMsg
-        mappings['simpleAction'] = simpleHelpMsg
-        mappings['statusAction'] = statusHelpMsg
-        mappings['newNodeAction'] = newNodeHelpMsg
-        mappings['newClientAction'] = newClientHelpMsg
-        mappings['statusNodeAction'] = statusNodeHelpMsg
-        mappings['statusClientAction'] = statusClientHelpMsg
-        mappings['keyShareAction'] = keyShareHelpMsg
-        mappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
-
-        mappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
-        mappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
-        mappings['newKeyAction'] = newKeyHelpMsg
-        mappings['newKeyring'] = newKeyringHelpMsg
-        mappings['renameKeyring'] = renameKeyringHelpMsg
-        mappings['useKeyringAction'] = useKeyringHelpMsg
-        mappings['saveKeyringAction'] = saveKeyringHelpMsg
-        mappings['listKeyringsAction'] = listKeyringHelpMsg
-        mappings['listIdsAction'] = listIdsHelpMsg
-        mappings['useIdentifierAction'] = useIdHelpMsg
-        mappings['addGenesisAction'] = addGenesisTxnHelpMsg
-        mappings['createGenTxnFileAction'] = createGenesisTxnFileHelpMsg
-        mappings['changePrompt'] = changePromptHelpMsg
-        mappings['exitAction'] = exitHelpMsg
-        mappings['quitAction'] = quitHelpMsg
+        mappings['helpAction'] = helpCmd
+        mappings['listAction'] = listCmd
+        mappings['licenseAction'] = licenseCmd
+        mappings['statusAction'] = statusCmd
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        mappings['keyShareAction'] = keyShareCmd
+        mappings['loadPluginDirAction'] = loadPluginsCmd
+        mappings['clientSendMsgCommand'] = clientSendCmd
+        mappings['clientShowMsgCommand'] = clientShowCmd
+        mappings['newKeyAction'] = newKeyCmd
+        mappings['newKeyring'] = newKeyringCmd
+        mappings['renameKeyring'] = renameKeyringCmd
+        mappings['useKeyringAction'] = useKeyringCmd
+        mappings['saveKeyringAction'] = saveKeyringCmd
+        mappings['listKeyringsAction'] = listKeyringCmd
+        mappings['listIdsAction'] = listIdsCmd
+        mappings['useIdentifierAction'] = useIdCmd
+        mappings['addGenesisAction'] = addGenesisTxnCmd
+        mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
+        mappings['changePrompt'] = changePromptCmd
+        mappings['exitAction'] = exitCmd
+        mappings['quitAction'] = quitCmd
 
         # below action handlers are those who handles multiple commands and so
         # these will point to 'None' and specific commands will point to their
         # corresponding help msgs.
         mappings['clientCommand'] = None
+        mappings['simpleAction'] = None
 
         # TODO: These seems to be obsolete, so either we need to remove these
         # command handlers or let it point to None
@@ -655,41 +655,41 @@ class Cli:
 
         return mappings
 
-    def getBasicHelpMsgKeys(self):
+    def getBasicHelpCmdKeys(self):
         return ["helpAction", "listAction", "licenseAction",
          "statusAction", "exitAction"]
 
-    def getBasicHelpMsgs(self):
-        basicMsgKeys = self.getBasicHelpMsgKeys()
+    def getBasicHelpCmds(self):
+        basicMsgKeys = self.getBasicHelpCmdKeys()
         basicMsgs = []
         for bmk in basicMsgKeys:
-            helpMsg = self.helpMsgMappings().get(bmk)
+            helpMsg = self.cmdHandlerToCmdMappings().get(bmk)
             if helpMsg:
                 basicMsgs.append(helpMsg)
         return basicMsgs
 
-    def getDefaultOrderedHelpMsgs(self):
-        topHelpMsgsKeys = ['helpAction', 'listAction',
+    def getDefaultOrderedCmds(self):
+        topCmdKeys = ['helpAction', 'listAction',
                            'statusAction', 'licenseAction']
-        bottomHelpMsgsKeys = ['exitAction', 'quitAction']
+        bottomCmdsKeys = ['exitAction', 'quitAction']
 
-        topMsgs = []
-        middleMsgs = []
-        bottomMsgs = []
+        topCmds = []
+        middleCmds = []
+        bottomCmds = []
 
-        for k, helpMsg in self.helpMsgMappings().items():
-            if helpMsg:
-                if k in topHelpMsgsKeys:
-                    topMsgs.append(helpMsg)
-                elif k in bottomHelpMsgsKeys:
-                    bottomMsgs.append(helpMsg)
+        for k, cmd in self.cmdHandlerToCmdMappings().items():
+            if cmd:
+                if k in topCmdKeys:
+                    topCmds.append(cmd)
+                elif k in bottomCmdsKeys:
+                    bottomCmds.append(cmd)
                 else:
-                    middleMsgs.append(helpMsg)
+                    middleCmds.append(cmd)
 
-        return topMsgs + middleMsgs + bottomMsgs
+        return topCmds + middleCmds + bottomCmds
 
-    def _printGivenHelpMsgs(self, helpMsgs, gapsInLines=1,
-                            sort=False, printHeader=True, showUsageFor=[]):
+    def _printGivenCmdsHelpMsgs(self, cmds, gapsInLines=1,
+                                sort=False, printHeader=True, showUsageFor=[]):
         helpMsgStr = ""
         if printHeader:
             helpMsgStr += "{}-CLI, a simple command-line interface for a {}.".\
@@ -698,28 +698,28 @@ class Cli:
         helpMsgStr += "\n   Commands:"
 
         if sort:
-            helpMsgs = sorted(helpMsgs, key=lambda hm: hm.id)
+            cmds = sorted(cmds, key=lambda hm: hm.id)
 
-        for helpMsg in helpMsgs:
-            helpMsgLines = helpMsg.msg.split("\n")
+        for cmd in cmds:
+            helpMsgLines = cmd.title.split("\n")
             helpMsgFormattedLine = "\n         ".join(helpMsgLines)
 
             helpMsgStr += "{}       {} - {}".format(
-                '\n'*gapsInLines, helpMsg.id, helpMsgFormattedLine)
+                '\n'*gapsInLines, cmd.id, helpMsgFormattedLine)
 
-            if helpMsg.id in showUsageFor:
+            if cmd.id in showUsageFor:
                 helpMsgStr += "\n         Usage:\n            {}".\
-                    format(helpMsg.syntax)
+                    format(cmd.syntax)
 
         self.print("\n{}\n".format(helpMsgStr))
 
-    def getHelpMsgIdsToShowUsage(self):
+    def getHelpCmdIdsToShowUsage(self):
         return ["help", "list"]
 
     def printHelp(self):
-        self._printGivenHelpMsgs(self.getBasicHelpMsgs(),
-                                 gapsInLines = 2,
-                                 showUsageFor= self.getHelpMsgIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(self.getBasicHelpCmds(),
+                                     gapsInLines = 2,
+                                     showUsageFor= self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1118,7 +1118,7 @@ class Cli:
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
             if helpable:
-                matchedHelpMsgs = [hm for hm in self.helpMsgMappings().values() if hm and hm.id == helpable]
+                matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
                 if matchedHelpMsgs:
                     self.print(str(matchedHelpMsgs[0]))
                 else:
@@ -1131,8 +1131,8 @@ class Cli:
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
             sorted = True if matchedVars.get('sorted') else False
-            self._printGivenHelpMsgs(self.getDefaultOrderedHelpMsgs(), sort=sorted,
-                                     printHeader=False)
+            self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(), sort=sorted,
+                                         printHeader=False)
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1563,6 +1563,10 @@ class Cli:
     def _saveKeyringAction(self, matchedVars):
         if matchedVars.get('save_kr') == 'save keyring':
             name = matchedVars.get('keyring')
+            if not self._activeWallet:
+                self.print("No active wallet to be saved.\n")
+                return True
+
             if name:
                 wallet = self._getWalletByName(name)
                 if not wallet:
@@ -1895,7 +1899,8 @@ class Cli:
                 initializer(name.strip())
 
     def invalidCmd(self, cmdText):
-        self.print("Invalid command: '{}'\n".format(cmdText))
+        self.print("Invalid command: '{}'".format(cmdText))
+        self.print("Execute 'list' to see all available commands")
         self.printHelp()
 
     def nextAvailableClientAddr(self, curClientPort=8100):
