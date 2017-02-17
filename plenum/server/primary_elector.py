@@ -357,7 +357,7 @@ class PrimaryElector(PrimaryDecider):
                     logger.debug("{} selected primary on the basis of {}".
                                  format(replica,
                                         self.primaryDeclarations[instId]),
-                                 extra={"cli": "IMPORTANT"})
+                                 extra={"cli": False})
 
                     # If the maximum primary declarations are for this node
                     # then make it primary
