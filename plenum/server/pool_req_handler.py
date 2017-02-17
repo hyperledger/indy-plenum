@@ -1,6 +1,7 @@
 import json
+from binascii import unhexlify
 from functools import lru_cache
-from typing import Tuple
+from typing import Tuple, List
 
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
@@ -12,11 +13,12 @@ from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEWARD, \
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.server.domain_req_handler import DomainReqHandler
+from plenum.server.req_handler import ReqHandler
 
 logger = getlogger()
 
 
-class PoolReqHandler:
+class PoolReqHandler(ReqHandler):
     def __init__(self, ledger: Ledger, state: PruningState,
                  domainState: PruningState):
         self.ledger = ledger
@@ -55,17 +57,14 @@ class PoolReqHandler:
             existingData.update(data)
             self.updateNodeData(nodeNym, existingData)
 
-    def commitReqs(self, count, stateRoot) -> Tuple[int, int]:
+    def commitReqs(self, count, stateRoot, txnRoot) -> List:
         """
         :param count: The number of requests to commit (The actual requests are
         picked up from the uncommitted list from the ledger)
-        :param stateRoot: The state root after the txns are committed
-        :return: a tuple of 2 seqNos indicating the start and end of sequence
-        numbers of the committed txns
+        :param stateRoot: The state trie root after the txns are committed
+        :param txnRoot: The txn merkle root after the txns are committed
         """
-        seqNoRange, _ = self.ledger.commitTxns(count)
-        self.state.commit(rootHash=stateRoot)
-        return seqNoRange
+        return super().commit(self.state, self.ledger, count, stateRoot, txnRoot)
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
@@ -107,14 +106,6 @@ class PoolReqHandler:
 
     def isSteward(self, nym, isCommitted: bool = True):
         return DomainReqHandler.isSteward(self.domainState, nym, isCommitted)
-
-    # def getNodeDataOfSteward(self, stewardNym):
-    #     for txn in self.ledger.getAllTxn().values():
-    #         if txn[TXN_TYPE] == NODE and txn[f.IDENTIFIER.nm] == stewardNym:
-    #             break
-    #     else:
-    #         raise KeyError('Steward {} has no Node'.format(stewardNym))
-    #     return self.getNodeData(txn[TARGET_NYM])
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym):

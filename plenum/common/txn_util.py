@@ -10,8 +10,8 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.request import Request
-from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
-    ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
+from plenum.common.txn import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
+    ALIAS, VERKEY
 from plenum.common.types import f, OPERATION
 from plenum.common.log import getlogger
 

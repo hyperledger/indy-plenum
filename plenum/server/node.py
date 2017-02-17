@@ -1326,6 +1326,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
+        self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
+                                         txn.get(f.REQ_ID.nm)))
+
+        rh = self.postTxnFromCatchup(ledgerId, txn)
+        if rh:
+            rh.updateState([txn])
+            state = self.getState(ledgerId)
+            state.commit(rootHash=state.headHash)
+
+    def postTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
@@ -1334,14 +1344,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
             rh = self.reqHandler
-
-        if rh:
-            rh.updateState([txn])
-            state = self.getState(ledgerId)
-            state.commit(rootHash=state.headHash)
-
-        self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
-                                         txn.get(f.REQ_ID.nm)))
+        return rh
 
     def getLedger(self, ledgerId):
         return self.ledgerManager.ledgers.get(ledgerId, {}).get('ledger')
@@ -1370,19 +1373,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
 
-    def doStaticValidation(self, clientId, reqId, operation):
+    def doStaticValidation(self, identifier, reqId, operation):
         if TXN_TYPE not in operation:
-            raise InvalidClientRequest(clientId, reqId)
+            raise InvalidClientRequest(identifier, reqId)
 
         if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            self.poolManager.doStaticValidation(clientId, reqId, operation)
+            self.poolManager.doStaticValidation(identifier, reqId, operation)
 
         if self.opVerifiers:
             try:
                 for v in self.opVerifiers:
                     v.verify(operation)
             except Exception as ex:
-                raise InvalidClientRequest(clientId, reqId) from ex
+                raise InvalidClientRequest(identifier, reqId) from ex
 
     def doDynamicValidation(self, request: Request):
         """
@@ -1773,24 +1776,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
-        (seqNoStart, seqNoEnd), committedTxns = self.domainLedger.commitTxns(len(reqs))
-        stateRoot = unhexlify(stateRoot.encode())
-        txnRoot = self.domainLedger.hashToStr(unhexlify(txnRoot.encode()))
-        assert self.domainLedger.root_hash == txnRoot
-        self.states[DOMAIN_LEDGER_ID].commit(rootHash=stateRoot)
-        for txn, seqNo in zip(committedTxns,
-                              range(seqNoStart, seqNoEnd + 1)):
-            # TODO: Send txn and state proof to the client
-            txn[F.seqNo.name] = seqNo
-            txn[TXN_TIME] = ppTime
-            self.sendReplyToClient(Reply(txn), (txn[f.IDENTIFIER.nm],
-                                                txn[f.REQ_ID.nm]))
+        committedTxns = self.reqHandler.commitReqs(len(reqs), stateRoot,
+                                                   txnRoot)
+        for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
+        self.sendRepliesToClients(committedTxns, ppTime)
 
     @staticmethod
     def ledgerId(txnType: str):
         return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
+
+    def sendRepliesToClients(self, committedTxns, ppTime):
+        for txn in committedTxns:
+            # TODO: Send txn and state proof to the client
+            txn[TXN_TIME] = ppTime
+            self.sendReplyToClient(Reply(txn), (txn[f.IDENTIFIER.nm],
+                                                txn[f.REQ_ID.nm]))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):

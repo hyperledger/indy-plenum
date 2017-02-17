@@ -18,8 +18,16 @@ def grammar():
 
 def getMatchedVariables(grammar, cmd):
     m = grammar.match(cmd)
-    assert m
+    assert m , "Given command didn't match with any cli reg ex"
     return m.variables()
+
+
+def testListRegEx(grammar):
+    matchedVars = getMatchedVariables(grammar, "list")
+    assertCliTokens(matchedVars, {"command": "list", "sorted": None})
+
+    matchedVars = getMatchedVariables(grammar, "list sorted")
+    assertCliTokens(matchedVars, {"command": "list", "sorted": "sorted"})
 
 
 def testUseKeyringRegEx(grammar):

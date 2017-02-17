@@ -136,24 +136,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param ppTime: PrePrepare request time
         :param reqs: request
         """
-        seqNoStart, seqNoEnd = self.reqHandler.commitReqs(len(reqs), stateRoot)
-        txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
-        assert self.ledger.root_hash == txnRoot
-        for req, seqNo in zip(reqs, range(seqNoStart, seqNoEnd+1)):
-            # TODO: Send txn and state proof to the client
-            # reply = self.node.generateReply(ppTime, req)
-            # op = req.operation
-            # reply.result.update(op)
-            # merkleProof = self.node.appendResultToLedger(reply.result)
-            # txn = deepcopy(reply.result)
-            # txn[F.seqNo.name] = merkleProof[F.seqNo.name]
-            # self.onPoolMembershipChange(txn)
-            # reply.result.update(merkleProof)
-            txn = reqToTxn(req)
-            txn[F.seqNo.name] = seqNo
+        committedTxns = self.reqHandler.commitReqs(len(reqs), stateRoot,
+                                                   txnRoot)
+        for txn in committedTxns:
             self.onPoolMembershipChange(deepcopy(txn))
-            txn[TXN_TIME] = ppTime
-            self.node.sendReplyToClient(Reply(txn), req.key)
+
+        self.node.sendRepliesToClients(committedTxns, ppTime)
 
     # def getReplyFor(self, request):
     #     return self.node.getReplyFromLedger(self.ledger, request)
@@ -279,12 +267,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA][ALIAS]
 
-    def doStaticValidation(self, clientId, reqId, operation):
+    def doStaticValidation(self, identifier, reqId, operation):
         checks = []
         if operation[TXN_TYPE] == NODE:
             checks.append(DATA in operation and isinstance(operation[DATA], dict))
         if not all(checks):
-            raise InvalidClientRequest(clientId, reqId)
+            raise InvalidClientRequest(identifier, reqId)
 
     def doDynamicValidation(self, request: Request):
         self.reqHandler.validateReq(request)

@@ -20,9 +20,12 @@ NODE_OR_CLI = ['node',  'client']
 UTIL_GRAMS_SIMPLE_CMD_REG_EX = "(\s* (?P<simple>{}) \s*) "
 
 UTIL_GRAMS_COMMAND_HELP_REG_EX = \
-    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9 ]+) )? " \
+    "(\s* (?P<command>help) (\s+ (?P<helpable>[a-zA-Z0-9_ ]+) )? " \
     "(\s+ (?P<node_or_cli>{}) )?\s*) "
-UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list) \s*)"
+
+UTIL_GRAMS_COMMAND_LIST_REG_EX = "(\s* (?P<command>list)" \
+                                 "\s? (?P<sorted>sorted)? \s*)"
+
 UTIL_GRAMS_COMMAND_PROMPT_REG_EX = "(\s* (?P<prompt>prompt) " \
                                    "\s+ (?P<name>[a-zA-Z0-9]+)\s*)"
 
@@ -62,7 +65,8 @@ CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
     "\s+ (to\s+(?P<to>[A-Za-z0-9+=/]*))" \
     "\s*) "
 
-CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) \s*) "
+CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) " \
+                               "\s?(?P<with_verkeys>with\s+verkeys)? \s*) "
 
 CLIENT_GRAMS_LIST_KEYRINGS_REG_EX = "(\s* (?P<list_krs>list\skeyrings) \s*) "
 

@@ -1,4 +1,5 @@
 import json
+from typing import Tuple, List
 
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
@@ -7,11 +8,12 @@ from plenum.common.request import Request
 from plenum.common.state import State
 from plenum.common.txn import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.txn_util import reqToTxn
+from plenum.server.req_handler import ReqHandler
 
 logger = getlogger()
 
 
-class DomainReqHandler:
+class DomainReqHandler(ReqHandler):
     def __init__(self, ledger, state, reqProcessors):
         self.ledger = ledger
         self.state = state
@@ -26,9 +28,9 @@ class DomainReqHandler:
                 error = "Only Steward is allowed to do this transactions"
             if req.operation.get(ROLE) == STEWARD:
                 if self.stewardThresholdExceeded(config):
-                    error = "New stewards cannot be added by other stewards as " \
-                           "there are already {} stewards in the system".\
-                        format(config.stewardThreshold)
+                    error = "New stewards cannot be added by other stewards " \
+                            "as there are already {} stewards in the system".\
+                            format(config.stewardThreshold)
             if error:
                 raise UnauthorizedClientRequest(req.identifier,
                                                 req.reqId,
@@ -47,6 +49,10 @@ class DomainReqHandler:
         self.ledger.appendTxns([txn])
         self.updateState([txn])
         return True
+
+    def commitReqs(self, count, stateRoot, txnRoot) -> List:
+        return super().commit(self.state, self.ledger, count, stateRoot,
+                              txnRoot)
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
@@ -75,6 +81,11 @@ class DomainReqHandler:
         existingData = self.getSteward(self.state, nym, isCommitted=isCommitted)
         existingData.update(data)
         self.state.set(nym.encode(), json.dumps(data).encode())
+
+    def hasNym(self, nym, isCommitted: bool = True):
+        key = nym.encode()
+        data = self.state.get(key, isCommitted)
+        return bool(data)
 
     @staticmethod
     def getSteward(state, nym, isCommitted: bool = True):

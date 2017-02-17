@@ -13,6 +13,7 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
 logger = getlogger()
 
 
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTestNodeDelay(tdir_for_func):
     nodeNames = {"testA", "testB"}
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodes:
