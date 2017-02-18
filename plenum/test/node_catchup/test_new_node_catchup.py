@@ -49,8 +49,8 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
            startTimes[1] < completionTimes[1]
 
 
-@pytest.mark.skipif(True, reason="Test implementation pending, "
-                                 "although bug fixed")
+@pytest.mark.skip(reason="SOV-554. "
+                         "Test implementation pending, although bug fixed")
 def testDelayedLedgerStatusNotChangingState():
     """
     Scenario: When a domain `LedgerStatus` arrives when the node is in

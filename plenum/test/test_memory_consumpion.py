@@ -11,8 +11,9 @@ from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
 logger = getlogger()
 
 
-@pytest.mark.skipif(True, reason="Temporary disabling it to check if tests run "
-                                 "on build pipeline")
+@pytest.mark.skip(reason="SOV-537. "
+                         "Temporary disabling it to check if tests run "
+                         "on build pipeline")
 def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
                      tdirWithPoolTxns, poolTxnData, noRetryReq):
     """
