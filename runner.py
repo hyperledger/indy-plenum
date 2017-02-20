@@ -4,12 +4,10 @@ import sys
 import argparse
 
 
-def run(pytestRef):
-    if not pytestRef:
-        pytestRef = 'pytest'
-    log("Preparing test suite with {}".format(pytestRef))
+def run(pytest, output):
+    log("Preparing test suite with {}".format(pytest))
     testListFile = "test_list.txt"
-    os.system('{} --collect-only > {}'.format(pytestRef, testListFile))
+    os.system('{} --collect-only > {}'.format(pytest, testListFile))
     log("Reading collected modules file")
     collectedData = open(testListFile).read()
     os.remove(testListFile)
@@ -40,7 +38,7 @@ def run(pytestRef):
     for test in testList:
         # testRep = '{}.rep'.format(test.split("/")[-1])
         log("Going to run {}".format(test))
-        r = os.system('{} -k "{}" > {}'.format(pytestRef, test, testRep))
+        r = os.system('{} -k "{}" > {}'.format(pytest, test, testRep))
         reportLines = open(testRep).readlines()
         output = ''.join(reportLines)
         pas = passPat.search(output)
@@ -115,7 +113,7 @@ def run(pytestRef):
 
     if failureData:
         log("Writing failure data in Test-Report.txt")
-        with open('../Test-Report.txt', 'w') as f:
+        with open(output, 'w') as f:
             f.write(summaryMsg)
             f.write(''.join(failureData))
 
@@ -131,8 +129,9 @@ def log(msg):
 
 
 if __name__ == "__main__":
-    pytestRef = None
-    if len(sys.argv):
-        pytestRef = sys.argv[1]
-    r = run(pytestRef)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pytest', type=str, help='pytest instance', default='pytest')
+    parser.add_argument('--output', type=str, help='result file', default='../Test-Report.txt')
+    args = parser.parse_args()
+    r = run(pytest=args.pytest, output=args.output)
     sys.exit(0 if r == 0 else 1)
