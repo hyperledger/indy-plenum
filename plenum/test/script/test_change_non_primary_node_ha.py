@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.script.helper import looper, tconf
 from plenum.common.log import getlogger
 from plenum.test.script.helper import changeNodeHa
 
@@ -11,8 +12,7 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'conflicting address', 'unable to send message']
 
 
-#@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
-@pytest.mark.skip(reason='SOV-456') # Uncomment prev line after fix on Ubuntu
+@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
 def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                   poolTxnData, poolTxnStewardNames, tconf):
     changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,

@@ -1,8 +1,10 @@
 import ast
 import os
 import re
+import traceback
 
 import plenum.cli.cli as cli
+import pytest
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
@@ -291,7 +293,7 @@ def assertAllNodesCreated(cli, validNodeNames):
 
 
 def assertNoClient(cli):
-    assert cli.lastCmdOutput == "No such client. See: 'help new' for " \
+    assert cli.lastCmdOutput == "No such client. See: 'help new client' for " \
                                 "more details"
 
 
@@ -376,3 +378,128 @@ def assertCliTokens(matchedVars, tokens):
                        matchedValueLen, matchedValue)
 
 
+def doByCtx(ctx):
+    def _(attempt, expect=None, within=None, mapper=None, not_expect=None):
+        cli = ctx['current_cli']
+
+        # This if was not there earlier, but I felt a need to reuse this
+        # feature (be, do, expect ...) without attempting anything
+        # mostly because there will be something async which will do something,
+        # hence I added the below if check
+
+        if attempt:
+            attempt = attempt.format(**mapper) if mapper else attempt
+            checkCmdValid(cli, attempt)
+
+        def check():
+            nonlocal expect
+            nonlocal not_expect
+
+            def chk(obj, parity=True):
+                if not obj:
+                    return
+                if isinstance(obj, str) or callable(obj):
+                    obj = [obj]
+                for e in obj:
+                    if isinstance(e, str):
+                        e = e.format(**mapper) if mapper else e
+                        try:
+                            if parity:
+                                assert e in cli.lastCmdOutput
+                            else:
+                                assert e not in cli.lastCmdOutput
+                        except AssertionError as e:
+                            extraMsg = ""
+                            if not within:
+                                extraMsg = "NOTE: 'within' parameter was not " \
+                                           "provided, if test should wait for" \
+                                           " sometime before considering this" \
+                                           " check failed, then provide that" \
+                                           " parameter with appropriate value"
+                                separator="-"*len(extraMsg)
+                                extraMsg="\n\n{}\n{}\n{}".format(separator, extraMsg, separator)
+                            raise (AssertionError("{}{}".format(e, extraMsg)))
+                    elif callable(e):
+                        # callables should raise exceptions to signal an error
+                        if parity:
+                            e(cli)
+                        else:
+                            try:
+                                e(cli)
+                            except:
+                                # Since its a test so not using logger is not
+                                # a big deal
+                                traceback.print_exc()
+                                continue
+                            raise RuntimeError("did not expect success")
+                    else:
+                        raise AttributeError("only str, callable, or "
+                                             "collections of str and callable "
+                                             "are allowed")
+            chk(expect)
+            chk(not_expect, False)
+        if within:
+            cli.looper.run(eventually(check, timeout=within))
+        else:
+            check()
+    return _
+
+
+def checkWalletFilePersisted(filePath):
+    assert os.path.exists(filePath)
+
+
+def checkWalletRestored(cli, expectedWalletKeyName,
+                       expectedIdentifiers):
+
+    cli.lastCmdOutput == "Saved keyring {} restored".format(
+        expectedWalletKeyName)
+    assert cli._activeWallet.name == expectedWalletKeyName
+    assert len(cli._activeWallet.identifiers) == \
+           expectedIdentifiers
+
+
+def getOldIdentifiersForActiveWallet(cli):
+    oldIdentifiers = 0
+    if cli._activeWallet:
+        oldIdentifiers = len(cli._activeWallet.identifiers)
+    return oldIdentifiers
+
+
+def createAndAssertNewCreation(do, cli, keyringName):
+    oldIdentifiers = getOldIdentifiersForActiveWallet(cli)
+    do('new key', within=2,
+       expect=["Key created in keyring {}".format(keyringName)])
+    assert len(cli._activeWallet.identifiers) == oldIdentifiers + 1
+
+
+def createAndAssertNewKeyringCreation(do, name, expectedMsgs=None):
+    finalExpectedMsgs = expectedMsgs if expectedMsgs else [
+           'Active keyring set to "{}"'.format(name),
+           'New keyring {} created'.format(name)
+        ]
+    do('new keyring {}'.format(name), expect=finalExpectedMsgs)
+
+
+def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
+    keyringName = expectedName or name
+    finalExpectedMsgs = expectedMsgs or \
+                        ['Active keyring set to "{}"'.format(keyringName)]
+    do('use keyring {}'.format(name),
+       expect=finalExpectedMsgs
+    )
+
+
+def exitFromCli(do):
+    with pytest.raises(cli.Exit):
+        do('exit', expect='Goodbye.')
+
+
+def restartCliAndAssert(cli, do, expectedRestoredWalletName,
+               expectedIdentifiers):
+    do(None, expect=[
+        'Saved keyring "{}" restored'.format(expectedRestoredWalletName),
+        'Active keyring set to "{}"'.format(expectedRestoredWalletName)
+    ], within=5)
+    assert cli._activeWallet is not None
+    assert len(cli._activeWallet.identifiers) == expectedIdentifiers
