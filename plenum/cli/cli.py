@@ -256,8 +256,18 @@ class Cli:
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         self._actions = []
 
-        self.print("Node registry loaded.")
-        self.showNodeRegistry()
+        if nodeReg:
+            self.print("Node registry loaded.")
+            self.showNodeRegistry()
+        else:
+            msg = """
+            The information required to connect this client to the nodes cannot be found.
+            This is an error. To correct the error, get the file containing genesis transactions
+            (the file name is `{}`) from the github repository and place it in directory
+            `{}`. The github url is {}.\n""".format(self.config.poolTransactionsFile,
+                                                    self.config.baseDir,
+                                                    self.githubUrl)
+            self.print(msg)
 
         self.print("Type 'help' for more information.")
         self.print("Running {} {}\n".format(self.properName,
