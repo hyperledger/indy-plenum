@@ -13,6 +13,6 @@ RUN pip3 install -U \
 	pip \ 
 	setuptools \
 	virtualenv
-ADD ci/orientdb.deb orientdb.deb
-RUN apt install -y orientdb.deb
+ADD ci/orientdb.deb /tmp/orientdb.deb
+RUN apt install -y /tmp/orientdb.deb
 RUN systemctl start orientdb
