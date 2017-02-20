@@ -132,8 +132,7 @@ def log(msg):
 
 if __name__ == "__main__":
     pytestRef = None
-    if (len(sys.argv)) {
+    if len(sys.argv):
         pytestRef = sys.argv[2]
-    }
     r = run(pytestRef)
     sys.exit(0 if r == 0 else 1)
