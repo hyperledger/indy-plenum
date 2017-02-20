@@ -20,3 +20,4 @@ RUN pip3 install -U \
 	pip \ 
 	setuptools \
 	virtualenv
+RUN systemctl start orientdb
