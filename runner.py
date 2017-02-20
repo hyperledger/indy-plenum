@@ -111,7 +111,7 @@ def run(pytest, output):
         for fm, fn in allErrorTests:
             log('{}:{}'.format(fm, fn))
 
-    if failureData:
+    if failureData and output:
         log("Writing failure data in Test-Report.txt")
         with open(output, 'w') as f:
             f.write(summaryMsg)

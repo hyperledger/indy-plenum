@@ -24,14 +24,14 @@ parallel 'ubuntu-test':{
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh 'test/bin/python runner.py --pytest "test/bin/python -m pytest" --output "/home/sovrin/test/result.txt"'
+                        sh 'test/bin/python runner.py --pytest "test/bin/python -m pytest" --output ""'
                     }
                 }
             }
         }
         finally {
             stage('Ubuntu Test: Cleanup') {
-                sh 'docker stop ${orientdbContainer}'
+                sh "docker stop ${orientdbContainer}"
                 step([$class: 'WsCleanup'])
             }
         }
