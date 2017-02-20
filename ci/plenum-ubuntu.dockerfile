@@ -8,12 +8,11 @@ RUN apt-get install -y \
 	wget \
 	python3.5 \
 	python3-pip \
-	python-setuptools \
-	gdebi-core
+	python-setuptools
 RUN pip3 install -U \ 
 	pip \ 
 	setuptools \
 	virtualenv
 ADD ci/orientdb.deb orientdb.deb
-RUN gdebi orientdb.deb
+RUN apt install -y orientdb.deb
 RUN systemctl start orientdb
