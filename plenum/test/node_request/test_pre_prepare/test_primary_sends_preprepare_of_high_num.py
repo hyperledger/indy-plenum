@@ -13,9 +13,8 @@ from plenum.test.test_node import getNonPrimaryReplicas
 instId = 0
 
 
-@pytest.mark.skipif(True, reason="Not implemented in replica. Add a check in "
-                                 "replica to check value of preprepare "
-                                 "seq number.")
+@pytest.mark.skip(reason="SOV-555. Not implemented in replica. Add a check in "
+                         "replica to check value of preprepare seq number.")
 def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     def chk():
         for r in getNonPrimaryReplicas(nodeSet, instId):
