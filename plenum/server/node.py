@@ -62,6 +62,7 @@ from plenum.common.ledger import Ledger
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
+from plenum.persistence.verkey_store import VerkeyStore
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
@@ -156,6 +157,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.initDomainState()
 
         self.addGenesisNyms()
+        self.verkeyStore = self.getVerkeyStore()
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -503,6 +505,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         typ = request.operation[TXN_TYPE]
         return Node.ledgerId(typ)
 
+    def getVerkeyStore(self):
+        return VerkeyStore(self.dataLocation)
+
     def start(self, loop):
         oldstatus = self.status
         if oldstatus in Status.going():
@@ -590,6 +595,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        if self.verkeyStore:
+            self.verkeyStore.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -1781,7 +1788,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
+                self.cacheVerkey(txn)
         self.sendRepliesToClients(committedTxns, ppTime)
+
+    def cacheVerkey(self, txn):
+        ddo = txn.get('ddo', None)
+        did = txn.get('dest', None)
+        verkey = txn.get('verkey', '')
+        if ddo:
+            did = ddo.get('id', did)
+            verkey = ddo.get('publicKeyBase64', verkey)
+        if did:
+            self.verkeyStore.set(did, verkey)
 
     @staticmethod
     def ledgerId(txnType: str):
