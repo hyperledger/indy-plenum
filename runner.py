@@ -40,7 +40,7 @@ def run(pytestRef):
     for test in testList:
         # testRep = '{}.rep'.format(test.split("/")[-1])
         log("Going to run {}".format(test))
-        r = os.system('pytest -k "{}" > {}'.format(test, testRep))
+        r = os.system('{} -k "{}" > {}'.format(pytestRef, test, testRep))
         reportLines = open(testRep).readlines()
         output = ''.join(reportLines)
         pas = passPat.search(output)
