@@ -5,9 +5,8 @@ import argparse
 
 
 def run(pytestRef):
-    if not pytestRef {
+    if not pytestRef:
         pytestRef = 'pytest'
-    }
     log("Preparing test suite with {}".format(pytestRef))
     testListFile = "test_list.txt"
     os.system('{} --collect-only > {}'.format(pytestRef, testListFile))
