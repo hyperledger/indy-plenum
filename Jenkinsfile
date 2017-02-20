@@ -21,7 +21,7 @@ parallel 'ubuntu-test':{
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh 'test/bin/python runner.py /home/sovrin/test/bin/pytest'
+                        sh 'test/bin/python runner.py "test/bin/python pytest"'
                     }
                 }
             }
