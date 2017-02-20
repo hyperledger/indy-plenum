@@ -2,6 +2,7 @@
 
 echo 'Plenum test...'
 
+def orientdbContainer = "orientdb${BUILD_NUMBER}"
 parallel 'ubuntu-test':{
     node('ubuntu') {
         try {
@@ -11,7 +12,7 @@ parallel 'ubuntu-test':{
 
             stage('Ubuntu Test: Build docker image') {
                 sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
-                sh 'docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb'
+                sh "docker run -d --name ${orientdbContainer} -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb"
 
                 def testEnv = docker.build 'plenum-test'
                 
@@ -30,7 +31,7 @@ parallel 'ubuntu-test':{
         }
         finally {
             stage('Ubuntu Test: Cleanup') {
-                sh 'docker stop orientdb'
+                sh 'docker stop ${orientdbContainer}'
                 step([$class: 'WsCleanup'])
             }
         }
