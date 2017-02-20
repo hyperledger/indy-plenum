@@ -15,6 +15,8 @@ RUN pip3 install -U \
 	virtualenv
 ADD ci/orientdb.deb /tmp/orientdb.deb
 RUN apt install -y /tmp/orientdb.deb
+ADD ci/raet.deb /tmp/raet.deb
+RUN apt install -y /tmp/raet.deb
 RUN useradd -ms /bin/bash sovrin
 USER sovrin
 WORKDIR /home/sovrin
