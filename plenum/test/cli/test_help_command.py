@@ -24,9 +24,9 @@ def testNewKey(cli):
 -------
      title: Adds new key to active keyring
 
-     syntax: new key [with seed <32 character seed>] [[as] <alias>]
+     usage: new key [with seed <32 character seed>] [[as] <alias>]
 
-     examples:
+     example(s):
         new key
         new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         new key with seed aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa myalias
@@ -43,9 +43,9 @@ def testNewNode(cli):
 --------
      title: Starts new node
 
-     syntax: new node <name>
+     usage: new node <name>
 
-     examples:
+     example(s):
         new node Alpha
         new node all"""
     assert newMsg in cli.lastCmdOutput
@@ -60,8 +60,8 @@ def testNewClient(cli):
 ----------
      title: Starts new client
 
-     syntax: new client <name>
+     usage: new client <name>
 
-     examples:
+     example(s):
         new client Alice"""
     assert newMsg in cli.lastCmdOutput
