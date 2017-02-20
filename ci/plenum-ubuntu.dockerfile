@@ -8,7 +8,8 @@ RUN apt-get install -y \
 	wget \
 	python3.5 \
 	python3-pip \
-	python-setuptools
+	python-setuptools \
+	sudo
 RUN pip3 install -U \ 
 	pip \ 
 	setuptools \
