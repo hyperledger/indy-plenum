@@ -74,8 +74,8 @@ from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, checkPortAvailable, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists
-from plenum.common.log import CliHandler, getlogger, setupLogging, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
+from plenum.common.log import CliHandler, getlogger, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL, Logger
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
@@ -118,7 +118,7 @@ class Cli:
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True):
         self.curClientPort = None
-        logging.root.addHandler(CliHandler(self.out))
+        Logger().enableCliLogging(self.out)
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
@@ -244,13 +244,14 @@ class Cli:
                                                   Console.Wordage.mute,
                                                   self.config)
         RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
+
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
-        setupLogging(TRACE_LOG_LEVEL,
-                     RAETVerbosity,
-                     filename=logFileName,
-                     raet_log_file=RAETLogFile)
+
+        if logFileName:
+            Logger().enableFileLogging(logFileName)
+        Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))

@@ -405,10 +405,12 @@ def doByCtx(ctx):
                         e = e.format(**mapper) if mapper else e
                         try:
                             if parity:
-                                assert e in cli.lastCmdOutput
+                                assert e in cli.lastCmdOutput, \
+                                    '{} not in {}'.format(e, cli.lastCmdOutput)
                             else:
-                                assert e not in cli.lastCmdOutput
-                        except AssertionError as e:
+                                assert e not in cli.lastCmdOutput, \
+                                    '{} in {}'.format(e, cli.lastCmdOutput)
+                        except AssertionError as ae:
                             extraMsg = ""
                             if not within:
                                 extraMsg = "NOTE: 'within' parameter was not " \
@@ -416,9 +418,11 @@ def doByCtx(ctx):
                                            " sometime before considering this" \
                                            " check failed, then provide that" \
                                            " parameter with appropriate value"
-                                separator="-"*len(extraMsg)
-                                extraMsg="\n\n{}\n{}\n{}".format(separator, extraMsg, separator)
-                            raise (AssertionError("{}{}".format(e, extraMsg)))
+                                separator = "-" * len(extraMsg)
+                                extraMsg = "\n\n{}\n{}\n{}".format(separator,
+                                                                   extraMsg,
+                                                                   separator)
+                            raise (AssertionError("{}{}".format(ae, extraMsg)))
                     elif callable(e):
                         # callables should raise exceptions to signal an error
                         if parity:
