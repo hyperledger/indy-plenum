@@ -16,5 +16,8 @@ RUN pip3 install -U \
 ADD ci/orientdb.deb /tmp/orientdb.deb
 RUN apt install -y /tmp/orientdb.deb
 RUN mkdir /.plenum
+RUN chmod 777 /.plenum
 RUN mkdir /.sovrin
+RUN chmod 777 /.sovrin
 RUN mkdir /.raet
+RUN chmod 777 /.raet
