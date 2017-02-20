@@ -18,13 +18,10 @@ parallel 'ubuntu-test':{
                         sh 'virtualenv -p python3.5 test'
                         sh 'test/bin/python setup.py install'
                         sh 'test/bin/pip install pytest'
-                        sh 'su root'
-                        sh 'sudo ln -sf /home/sovrin/test/bin/pytest /usr/local/bin/pytest'
-                        sh 'su sovrin'
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh 'test/bin/python runner.py'
+                        sh 'test/bin/python runner.py /home/sovrin/test/bin/pytest'
                     }
                 }
             }

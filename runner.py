@@ -1,12 +1,16 @@
 import os
 import re
 import sys
+import argparse
 
 
-def run():
-    log("Preparing test suite")
+def run(pytestRef):
+    if not pytestRef {
+        pytestRef = 'pytest'
+    }
+    log("Preparing test suite with {}".format(pytestRef))
     testListFile = "test_list.txt"
-    os.system('pytest --collect-only > {}'.format(testListFile))
+    os.system('{} --collect-only > {}'.format(pytestRef, testListFile))
     log("Reading collected modules file")
     collectedData = open(testListFile).read()
     os.remove(testListFile)
@@ -128,5 +132,9 @@ def log(msg):
 
 
 if __name__ == "__main__":
-    r = run()
+    pytestRef = None
+    if (len(sys.argv)) {
+        pytestRef = sys.argv[2]
+    }
+    r = run(pytestRef)
     sys.exit(0 if r == 0 else 1)
