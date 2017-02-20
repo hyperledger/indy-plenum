@@ -5,6 +5,7 @@ import glob
 from typing import Dict, Iterable
 
 import pyorient
+import random
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -117,7 +118,7 @@ class Cli:
                  output=None, debug=False, logFileName=None, config=None,
                  useNodeReg=False, withNode=True):
         self.curClientPort = None
-        logging.root.addHandler(CliHandler(self.out))
+        Logger().enableCliLogging(self.out)
         self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
         self.nodeRegLoadedFromFile = False
@@ -246,10 +247,10 @@ class Cli:
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
-        setupLogging(TRACE_LOG_LEVEL,
-                     RAETVerbosity,
-                     filename=logFileName,
-                     raet_log_file=RAETLogFile)
+
+        if logFileName:
+            Logger().enableFileLogging(logFileName)
+        Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
@@ -1310,7 +1311,6 @@ class Cli:
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
-
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New keyring {} created".format(nm))

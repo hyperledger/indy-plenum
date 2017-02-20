@@ -431,8 +431,10 @@ def doByCtx(ctx):
                                            " sometime before considering this" \
                                            " check failed, then provide that" \
                                            " parameter with appropriate value"
-                                separator="-"*len(extraMsg)
-                                extraMsg="\n\n{}\n{}\n{}".format(separator, extraMsg, separator)
+                                separator = "-" * len(extraMsg)
+                                extraMsg = "\n\n{}\n{}\n{}".format(separator,
+                                                                   extraMsg,
+                                                                   separator)
                             raise (AssertionError("{}{}".format(e, extraMsg)))
                     elif callable(e):
                         # callables should raise exceptions to signal an error
