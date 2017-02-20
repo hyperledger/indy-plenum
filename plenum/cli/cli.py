@@ -256,8 +256,9 @@ class Cli:
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
         self._actions = []
 
-        self.print("Node registry loaded.")
-        self.showNodeRegistry()
+        if nodeReg:
+            self.print("Node registry loaded.")
+            self.showNodeRegistry()
 
         self.print("Type 'help' for more information.")
         self.print("Running {} {}\n".format(self.properName,
