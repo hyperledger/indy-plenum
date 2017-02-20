@@ -12,8 +12,10 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
 from plenum.common.signing import serializeMsg
+from plenum.common.txn import VERKEY, ROLE
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
+from plenum.server.domain_req_handler import DomainReqHandler
 
 logger = getlogger()
 
@@ -120,21 +122,25 @@ class SimpleAuthNr(NaclAuthNr):
     secure system.
     """
 
-    def __init__(self):
+    def __init__(self, state=None):
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
+        self.state = state
 
     def addClient(self, identifier, verkey, role=None):
         if identifier in self.clients:
             # raise RuntimeError("client already added")
             logger.error("client already added")
         self.clients[identifier] = {
-            "verkey": verkey,
-            "role": role
+            VERKEY: verkey,
+            ROLE: role
         }
 
     def getVerkey(self, identifier):
         nym = self.clients.get(identifier)
         if not nym:
-            raise UnknownIdentifier(identifier)
-        return nym.get("verkey")
+            nym = DomainReqHandler.getNymDetails(self.state,
+                                                 nym, isCommitted=False)
+            if not nym:
+                raise UnknownIdentifier(identifier)
+        return nym.get(VERKEY)

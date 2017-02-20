@@ -62,6 +62,7 @@ from plenum.common.ledger import Ledger
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
+# from plenum.persistence.idr_cache import IdrCache
 from plenum.persistence.storage import Storage, initStorage
 from plenum.server import primary_elector
 from plenum.server import replica
@@ -136,8 +137,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqProcessors = self.getPluginsByType(pluginPaths,
                                                    PLUGIN_TYPE_PROCESSING)
 
-        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
-
         self.requestExecuter = defaultdict(lambda: self.doCustomAction)
 
         Motor.__init__(self)
@@ -155,7 +154,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqHandler = self.getDomainReqHandler()
         self.initDomainState()
 
+        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
+
         self.addGenesisNyms()
+        # self.verkeyStore = self.getVerkeyStore()
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -503,6 +505,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         typ = request.operation[TXN_TYPE]
         return Node.ledgerId(typ)
 
+    # def getVerkeyStore(self):
+    #     return IdrCache(self.dataLocation)
+
     def start(self, loop):
         oldstatus = self.status
         if oldstatus in Status.going():
@@ -590,6 +595,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
+        # if self.verkeyStore:
+        #     self.verkeyStore.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -1781,7 +1788,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
+                # self.cacheVerkey(txn)
         self.sendRepliesToClients(committedTxns, ppTime)
+
+    # def cacheVerkey(self, txn):
+    #     ddo = txn.get('ddo', None)
+    #     did = txn.get('dest', None)
+    #     verkey = txn.get('verkey', '')
+    #     if ddo:
+    #         did = ddo.get('id', did)
+    #         verkey = ddo.get('publicKeyBase64', verkey)
+    #     if did:
+    #         self.verkeyStore.set(did, verkey)
 
     @staticmethod
     def ledgerId(txnType: str):
@@ -1860,7 +1878,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
-                                      self.domainLedger, self.reqHandler)
+                                 self.domainLedger, self.reqHandler)
 
     def addGenesisNyms(self):
         for _, txn in self.domainLedger.getAllTxn().items():
@@ -1884,7 +1902,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     #            self.config.stewardThreshold
 
     def defaultAuthNr(self):
-        return SimpleAuthNr()
+        state = self.getState(DOMAIN_LEDGER_ID)
+        return SimpleAuthNr(state=state)
 
     # def getReplyFor(self, request):
     #     result = self.secondaryStorage.getReply(request.identifier,

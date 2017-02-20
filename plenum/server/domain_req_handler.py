@@ -78,7 +78,8 @@ class DomainReqHandler(ReqHandler):
         return self.countStewards() > config.stewardThreshold
 
     def updateNym(self, nym, data, isCommitted=True):
-        existingData = self.getSteward(self.state, nym, isCommitted=isCommitted)
+        existingData = self.getNymDetails(self.state, nym,
+                                          isCommitted=isCommitted)
         existingData.update(data)
         self.state.set(nym.encode(), json.dumps(data).encode())
 
@@ -89,12 +90,23 @@ class DomainReqHandler(ReqHandler):
 
     @staticmethod
     def getSteward(state, nym, isCommitted: bool = True):
-        key = nym.encode()
-        data = state.get(key, isCommitted)
-        return json.loads(data.decode()) if data else {}
+        nymData = DomainReqHandler.getNymDetails(state, nym, isCommitted)
+        if not nymData:
+            return {}
+        else:
+            if nymData.get(ROLE) == STEWARD:
+                return nymData
+            else:
+                return {}
 
     @staticmethod
     def isSteward(state, nym, isCommitted: bool = True):
-        return DomainReqHandler.getSteward(state,
-                                           nym,
-                                           isCommitted).get(ROLE) == STEWARD
+        return bool(DomainReqHandler.getSteward(state,
+                                                nym,
+                                                isCommitted))
+
+    @staticmethod
+    def getNymDetails(state, nym, isCommitted: bool = True):
+        key = nym.encode()
+        data = state.get(key, isCommitted)
+        return json.loads(data.decode()) if data else {}
