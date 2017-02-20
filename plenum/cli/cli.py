@@ -2,33 +2,42 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import glob
-import random
-from hashlib import sha256
-import shutil
-from os.path import basename, dirname
 from typing import Dict
 
-from jsonpickle import json, encode, decode
-from plenum.common.exceptions import NameAlreadyExists
-
-from prompt_toolkit.utils import is_windows, is_conemu_ansi
 import pyorient
+import random
+import shutil
+from hashlib import sha256
+from jsonpickle import json, encode, decode
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
+from ledger.stores.file_hash_store import FileHashStore
+from os.path import basename, dirname
 
-from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
-    getAllGrams
+from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
+    keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
+    newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
+    listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
+    createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd
+from plenum.cli.command import licenseCmd
+from plenum.cli.command import listCmd
+from plenum.cli.command import newClientCmd
+from plenum.cli.command import newNodeCmd
+from plenum.cli.command import statusCmd
 from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, \
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
-from plenum.common.signer_simple import SimpleSigner
+from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
+    getAllGrams
 from plenum.client.wallet import Wallet
+from plenum.common.exceptions import NameAlreadyExists
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -168,7 +177,7 @@ class Cli:
         new node Alpha
         new node all
         new client Joe
-        client Joe send <msg>
+        client Joe send <Cmd>
         client Joe show 1
         '''
 
@@ -198,8 +207,6 @@ class Cli:
             Token.BoldGreen: '#33aa33 bold',
             Token.BoldOrange: '#ff4f2f bold',
             Token.BoldBlue: '#095cab bold'})
-
-        self.functionMappings = self.createFunctionMappings()
 
         self.voidMsg = "<none>"
 
@@ -270,6 +277,18 @@ class Cli:
         self.logger.debug("total plugins loaded in cli: {}".format(tp))
 
         self.restoreLastActiveWallet()
+
+        self.checkIfHelpMsgExistsForAllCmds()
+
+    def checkIfHelpMsgExistsForAllCmds(self):
+        for cmdHandlerFunc in self.actions:
+            funcName = cmdHandlerFunc.__name__.replace("_","")
+            if funcName not in self.cmdHandlerToCmdMappings().keys():
+                raise Exception("\n************\nHelp msg not provided for "
+                                "'{}' command handler. Please add proper "
+                                "mapping for related help msg in function "
+                                "'helpMsgMappings'\n************\n".
+                                format(funcName))
 
     @staticmethod
     def getCliVersion():
@@ -383,6 +402,19 @@ class Cli:
             self._lexers = {**lexers}
         return self._lexers
 
+    def _renameWalletFile(self, oldWalletName, newWalletName):
+        keyringsDir = self.getContextBasedKeyringsBaseDir()
+        oldWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(oldWalletName))
+        if os.path.exists(oldWalletFilePath):
+            newWalletFilePath = Cli.getWalletFilePath(
+            keyringsDir, Cli._normalizedWalletFileName(newWalletName))
+            if os.path.exists(newWalletFilePath):
+                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                return False
+            os.rename(oldWalletFilePath, newWalletFilePath)
+        return True
+
     def _renameKeyring(self, matchedVars):
         if matchedVars.get('rename_keyring'):
             fromName = matchedVars.get('from')
@@ -395,9 +427,14 @@ class Cli:
                 if not fromWallet:
                     self.print('Keyring {} not found'.format(fromName))
                     return True
+
+                if not self._renameWalletFile(fromName, toName):
+                    return True
+
                 fromWallet.name = toName
                 del self.wallets[fromName]
                 self.wallets[toName] = fromWallet
+
                 self.print('Keyring {} renamed to {}'.format(fromName, toName))
             return True
 
@@ -538,81 +575,6 @@ class Cli:
     def initializeGrammarCompleter(self):
         self.grammarCompleter = GrammarCompleter(self.grammar, self.completers)
 
-    def createFunctionMappings(self):
-
-        def newHelper():
-            self.print("""Is used to create a new node or a client.
-                     Usage: new <node/client> <nodeName/clientName>""")
-
-        def statusHelper():
-            self.print("status command helper")
-
-        def nodeHelper():
-            self.print("It is used to create a new node")
-
-        def clientHelper():
-            self.print("It is used to create a new client")
-
-        def statusNodeHelper():
-            self.print("It is used to check status of a created node")
-
-        def statusClientHelper():
-            self.print("It is used to check status of a created client")
-
-        def listHelper():
-            self.print("List all the commands, you can use in this CLI.")
-
-        def exitHelper():
-            self.print("Exits the CLI")
-
-        def licenseHelper():
-            self.print("""
-                        Copyright 2016 Evernym, Inc.
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
-
-            http://www.apache.org/licenses/LICENSE-2.0
-
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        See the License for the specific language governing permissions and
-        limitations under the License.
-            """)
-
-        def sendHelper():
-            self.print("""Used to send a message from a client to nodes"
-                     Usage: client <clientName> send <{Message}>""")
-
-        def showHelper():
-            self.print("""Used to show status of request sent by the client"
-                     Usage: client <clientName> show <reqID>""")
-
-        def defaultHelper():
-            self.printHelp()
-
-        def pluginHelper():
-            self.print("""Used to load a plugin from a given directory
-                        Usage: load plugins from <dir>""")
-
-        mappings = {
-            'new': newHelper,
-            'status': statusHelper,
-            'list': listHelper,
-            'newnode': nodeHelper,
-            'newclient': clientHelper,
-            'statusnode': statusNodeHelper,
-            'statusclient': statusClientHelper,
-            'license': licenseHelper,
-            'send': sendHelper,
-            'show': showHelper,
-            'exit': exitHelper,
-            'plugins': pluginHelper
-        }
-
-        return defaultdict(lambda: defaultHelper, **mappings)
-
     def print(self, msg, token=None, newline=True):
         if newline:
             msg += "\n"
@@ -644,22 +606,120 @@ class Cli:
         else:
             self.print(record.msg, Token)
 
-    def printHelp(self):
-        self.print("""{}-CLI, a simple command-line interface for a {} sandbox.
-        Commands:
-            help - Shows this help message
-            help <command> - Shows the help message of <command>
-            new - creates one or more new nodes or clients
-            keyshare - manually starts key sharing of a node
-            status - Shows general status of the sandbox
-            status <node_name>|<client_name> - Shows specific status
-            list - Shows the list of commands you can run
-            license - Show the license
-            exit - exit the command-line interface ('quit' also works)""".
-                format(self.properName, self.fullName))
+    def cmdHandlerToCmdMappings(self):
 
-    def printCmdHelper(self, command=None):
-        self.functionMappings[command]()
+        # The 'key' of 'mappings' dictionary is action handler function name
+        # without leading underscore sign. Each such funcation name should be
+        # mapped here, its other thing that if you don't want to display it
+        # in help, map it to None, but mapping should be present, that way it
+        # will force developer to either write help message for those cli
+        # commands or make a decision to not show it in help message.
+
+        mappings = OrderedDict()
+        mappings['helpAction'] = helpCmd
+        mappings['listAction'] = listCmd
+        mappings['licenseAction'] = licenseCmd
+        mappings['statusAction'] = statusCmd
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        mappings['keyShareAction'] = keyShareCmd
+        mappings['loadPluginDirAction'] = loadPluginsCmd
+        mappings['clientSendMsgCommand'] = clientSendCmd
+        mappings['clientShowMsgCommand'] = clientShowCmd
+        mappings['newKeyAction'] = newKeyCmd
+        mappings['newKeyring'] = newKeyringCmd
+        mappings['renameKeyring'] = renameKeyringCmd
+        mappings['useKeyringAction'] = useKeyringCmd
+        mappings['saveKeyringAction'] = saveKeyringCmd
+        mappings['listKeyringsAction'] = listKeyringCmd
+        mappings['listIdsAction'] = listIdsCmd
+        mappings['useIdentifierAction'] = useIdCmd
+        mappings['addGenesisAction'] = addGenesisTxnCmd
+        mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
+        mappings['changePrompt'] = changePromptCmd
+        mappings['exitAction'] = exitCmd
+        mappings['quitAction'] = quitCmd
+
+        # below action handlers are those who handles multiple commands and so
+        # these will point to 'None' and specific commands will point to their
+        # corresponding help msgs.
+        mappings['clientCommand'] = None
+        mappings['simpleAction'] = None
+
+        # TODO: These seems to be obsolete, so either we need to remove these
+        # command handlers or let it point to None
+        mappings['addKeyAction'] = None         # obsolete command
+
+
+        return mappings
+
+    def getBasicHelpCmdKeys(self):
+        return ["helpAction", "listAction", "licenseAction",
+         "statusAction", "exitAction"]
+
+    def getBasicHelpCmds(self):
+        basicMsgKeys = self.getBasicHelpCmdKeys()
+        basicMsgs = []
+        for bmk in basicMsgKeys:
+            helpMsg = self.cmdHandlerToCmdMappings().get(bmk)
+            if helpMsg:
+                basicMsgs.append(helpMsg)
+        return basicMsgs
+
+    def getDefaultOrderedCmds(self):
+        topCmdKeys = ['helpAction', 'listAction',
+                           'statusAction', 'licenseAction']
+        bottomCmdsKeys = ['exitAction', 'quitAction']
+
+        topCmds = []
+        middleCmds = []
+        bottomCmds = []
+
+        for k, cmd in self.cmdHandlerToCmdMappings().items():
+            if cmd:
+                if k in topCmdKeys:
+                    topCmds.append(cmd)
+                elif k in bottomCmdsKeys:
+                    bottomCmds.append(cmd)
+                else:
+                    middleCmds.append(cmd)
+
+        return topCmds + middleCmds + bottomCmds
+
+    def _printGivenCmdsHelpMsgs(self, cmds, gapsInLines=1,
+                                sort=False, printHeader=True, showUsageFor=[]):
+        helpMsgStr = ""
+        if printHeader:
+            helpMsgStr += "{}-CLI, a simple command-line interface for a {}.".\
+                format(self.properName, self.fullName)
+
+        helpMsgStr += "\n   Commands:"
+
+        if sort:
+            cmds = sorted(cmds, key=lambda hm: hm.id)
+
+        for cmd in cmds:
+            helpMsgLines = cmd.title.split("\n")
+            helpMsgFormattedLine = "\n         ".join(helpMsgLines)
+
+            helpMsgStr += "{}       {} - {}".format(
+                '\n'*gapsInLines, cmd.id, helpMsgFormattedLine)
+
+            if cmd.id in showUsageFor:
+                helpMsgStr += "\n         Usage:\n            {}".\
+                    format(cmd.syntax)
+
+        self.print("\n{}\n".format(helpMsgStr))
+
+    def getHelpCmdIdsToShowUsage(self):
+        return ["help", "list"]
+
+    def printHelp(self):
+        self._printGivenCmdsHelpMsgs(self.getBasicHelpCmds(),
+                                     gapsInLines = 2,
+                                     showUsageFor= self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -956,7 +1016,7 @@ class Cli:
         return clientName in self.clients
 
     def printMsgForUnknownClient(self):
-        self.print("No such client. See: 'help new' for more details")
+        self.print("No such client. See: 'help new client' for more details")
 
     def printMsgForUnknownWallet(self, walletName):
         self.print("No such wallet {}.".format(walletName))
@@ -985,7 +1045,7 @@ class Cli:
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help new' for more details")
+            self.print("No such request. See: 'help client send' for more details")
 
     def showDetails(self, clientName, identifier, reqId):
         client = self.clients.get(clientName, None)
@@ -1032,30 +1092,47 @@ class Cli:
             if cmd == 'status':
                 self.getStatus()
             elif cmd == 'license':
-                self.printCmdHelper('license')
+                self._showLicense()
             elif cmd in ['exit', 'quit']:
                 self._saveActiveWallet()
                 raise Exit
             return True
 
+    def _showLicense(self):
+        self.print("""
+                                Copyright 2016 Evernym, Inc.
+                Licensed under the Apache License, Version 2.0 (the "License");
+                you may not use this file except in compliance with the License.
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software
+                distributed under the License is distributed on an "AS IS" BASIS,
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                See the License for the specific language governing permissions and
+                limitations under the License.
+                    """)
+
     def _helpAction(self, matchedVars):
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
-            node_or_cli = matchedVars.get('node_or_cli')
             if helpable:
-                if node_or_cli:
-                    self.printCmdHelper(command="{}{}".
-                                        format(helpable, node_or_cli))
+                matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
+                if matchedHelpMsgs:
+                    self.print(str(matchedHelpMsgs[0]))
                 else:
-                    self.printCmdHelper(command=helpable)
+                    self.print("No such command found: {}\nExecute 'list' to see all available commands\n".format(helpable))
+                    self.printHelp()
             else:
                 self.printHelp()
             return True
 
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
-            for cmd in self.commands:
-                self.print(cmd)
+            sorted = True if matchedVars.get('sorted') else False
+            self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(), sort=sorted,
+                                         printHeader=False)
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1195,15 +1272,21 @@ class Cli:
     def bootstrapClientKeys(idr, verkey, nodes):
         bootstrapClientKeys(idr, verkey, nodes)
 
+    def isValidSeedForNewKey(self, seed):
+        if seed:
+            seed = seed.strip()
+            if len(seed) != 32:
+                self.print('Seed needs to be 32 characters long but is {} '
+                           'characters long'.format(len(seed)), Token.Error)
+                return False
+
+        return True
+
     def _newKeyAction(self, matchedVars):
         if matchedVars.get('new_key') == 'new key':
             seed = matchedVars.get('seed')
-            if seed:
-                seed = seed.strip()
-                if len(seed) != 32:
-                    self.print('Seed needs to be 32 characters long but is {} '
-                               'characters long'.format(len(seed)), Token.Error)
-                    return True
+            if not self.isValidSeedForNewKey(seed):
+                return True
             alias = matchedVars.get('alias')
             if alias:
                 alias = alias.strip()
@@ -1313,8 +1396,16 @@ class Cli:
                            format(self._activeWallet.defaultId), Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
                     self.print("Identifiers:")
-                    for i in self._activeWallet.listIds():
-                        self.print("  {}".format(i))
+                    withVerkeys = matchedVars.get('with_verkeys') == 'with verkeys'
+                    for id in self._activeWallet.listIds():
+                        verKey = ""
+                        if withVerkeys:
+                            aliasId = self._activeWallet.aliasesToIds.get(id)
+                            actualId = aliasId if aliasId else id
+                            signer = self._activeWallet.idsToSigners.get(actualId)
+                            verKey = ", verkey: {}".format(signer.verkey)
+
+                        self.print("  {}{}".format(id, verKey))
                 else:
                     self.print("\nNo identifiers")
 
@@ -1472,6 +1563,10 @@ class Cli:
     def _saveKeyringAction(self, matchedVars):
         if matchedVars.get('save_kr') == 'save keyring':
             name = matchedVars.get('keyring')
+            if not self._activeWallet:
+                self.print("No active wallet to be saved.\n")
+                return True
+
             if name:
                 wallet = self._getWalletByName(name)
                 if not wallet:
@@ -1666,7 +1761,7 @@ class Cli:
         else:
             return currPromptText.rsplit(PROMPT_ENV_SEPARATOR, 1)
 
-    def getPersistentWalletFileName(self):
+    def getActiveWalletPersitentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
         return Cli._normalizedWalletFileName(fileName)
@@ -1674,7 +1769,7 @@ class Cli:
 
     @property
     def walletFileName(self):
-        return self.getPersistentWalletFileName()
+        return self.getActiveWalletPersitentFileName()
 
     def getNoEnvKeyringsBaseDir(self):
         return os.path.expanduser(
@@ -1700,7 +1795,6 @@ class Cli:
         pattern = "{}/*.{}".format(envKeyringPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
-
     def isAnyWalletFileExistsForGivenContext(self, pattern):
         files = glob.glob(pattern)
         if files:
@@ -1719,9 +1813,7 @@ class Cli:
 
     @property
     def getActiveEnv(self):
-        prompt, env = Cli.getPromptAndEnv(self.name,
-                            self.currPromptText)
-        return env
+        return None
 
     def updateEnvNameInWallet(self):
         pass
@@ -1807,8 +1899,9 @@ class Cli:
                 initializer(name.strip())
 
     def invalidCmd(self, cmdText):
-        self.print("Invalid command: '{}'\n".format(cmdText))
-        self.printCmdHelper(command=None)
+        self.print("Invalid command: '{}'".format(cmdText))
+        self.print("Execute 'list' to see all available commands")
+        self.printHelp()
 
     def nextAvailableClientAddr(self, curClientPort=8100):
         self.curClientPort = self.curClientPort or curClientPort

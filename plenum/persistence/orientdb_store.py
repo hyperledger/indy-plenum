@@ -78,7 +78,7 @@ class OrientDbStore:
     def getPlaceHolderQueryStringFromDict(args: Dict, joiner=", "):
         items = []
         for key, val in args.items():
-            valPlaceHolder = "{}" if isinstance(val, (int, float)) else "'{}'"
+            valPlaceHolder = "{}" if (isinstance(val, (int, float)) or val is None) else "'{}'"
             items.append(("{} = " + valPlaceHolder).format(key, val))
         return joiner.join(items)
 
