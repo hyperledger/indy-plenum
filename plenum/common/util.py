@@ -386,6 +386,10 @@ def getCryptonym(identifier):
         if isHexKey(identifier) else identifier
 
 
+def getFriendlyIdentifier(dest):
+    return hexToFriendly(dest) if isHexKey(dest) else dest
+
+
 def hexToFriendly(hx):
     if isinstance(hx, str):
         hx = hx.encode()
