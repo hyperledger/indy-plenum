@@ -2,8 +2,8 @@
 FROM ubuntu:16.04
 
 # Install environment
-ADD ci/orientdb.deb /var/cache/apt/archives/orientdb.deb
 RUN apt-get update -y
+ADD ci/orientdb.deb /var/cache/apt/archives/orientdb.deb
 RUN apt-get install -y \ 
 	git \
 	wget \
