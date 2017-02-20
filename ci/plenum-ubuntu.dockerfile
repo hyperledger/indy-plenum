@@ -3,16 +3,17 @@ FROM ubuntu:16.04
 
 # Install environment
 RUN apt-get update -y
-ADD ci/orientdb.deb /var/cache/apt/archives/orientdb.deb
 RUN apt-get install -y \ 
 	git \
 	wget \
 	python3.5 \
 	python3-pip \
 	python-setuptools \
-	orientdb
+	gdebi-core
 RUN pip3 install -U \ 
 	pip \ 
 	setuptools \
 	virtualenv
+ADD ci/orientdb.deb orientdb.deb
+RUN gdebi orientdb.deb
 RUN systemctl start orientdb
