@@ -11,10 +11,7 @@ parallel 'ubuntu-test':{
 
             stage('Ubuntu Test: Build docker image') {
                 sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
-
-                def orientdb = docker.image('orientdb:latest')
-                orientdb.pull()
-                orientdb.run(['-d', '-p 2424:2424', '-p 2480:2480', '-e ORIENTDB_ROOT_PASSWORD=password'])
+                sh 'docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb'
 
                 def testEnv = docker.build 'plenum-test'
                 
@@ -33,7 +30,7 @@ parallel 'ubuntu-test':{
         }
         finally {
             stage('Ubuntu Test: Cleanup') {
-                orientdb.stop
+                sh 'docker stop orientdb'
                 step([$class: 'WsCleanup'])
             }
         }
