@@ -31,6 +31,7 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists
 from plenum.common.plugin_helper import loadPlugins
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
@@ -978,7 +979,7 @@ class Cli:
         try:
             self.ensureValidClientId(clientName)
             if not isLocalKeepSetup(clientName, self.basedirpath):
-                client_addr = self.nextAvailableClientAddr()
+                client_addr = genHa()
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
@@ -1894,22 +1895,22 @@ class Cli:
         self.print("Execute 'list' to see all available commands")
         self.printHelp()
 
-    def nextAvailableClientAddr(self, curClientPort=8100):
-        self.curClientPort = self.curClientPort or curClientPort
-        # TODO: Find a better way to do this
-        self.curClientPort += random.randint(1, 200)
-        host = "0.0.0.0"
-        try:
-            checkPortAvailable((host, self.curClientPort))
-            assert not isPortUsed(self.basedirpath, self.curClientPort), \
-                "Port used by a remote"
-            return host, self.curClientPort
-        except Exception as ex:
-            tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.\n".
-                       format(self.curClientPort, ex))]
-            self.printTokens(tokens)
-            return self.nextAvailableClientAddr(self.curClientPort)
+    # def nextAvailableClientAddr(self, curClientPort=8100):
+    #     self.curClientPort = self.curClientPort or curClientPort
+    #     # TODO: Find a better way to do this
+    #     self.curClientPort += random.randint(1, 200)
+    #     host = "0.0.0.0"
+    #     try:
+    #         checkPortAvailable((host, self.curClientPort))
+    #         assert not isPortUsed(self.basedirpath, self.curClientPort), \
+    #             "Port used by a remote"
+    #         return host, self.curClientPort
+    #     except Exception as ex:
+    #         tokens = [(Token.Error, "Cannot bind to port {}: {}, "
+    #                                 "trying another port.\n".
+    #                    format(self.curClientPort, ex))]
+    #         self.printTokens(tokens)
+    #         return self.nextAvailableClientAddr(self.curClientPort)
 
     @property
     def hasAnyKey(self):
