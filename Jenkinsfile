@@ -29,7 +29,12 @@ parallel 'ubuntu-test':{
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
+                        try {
+                            sh '/home/sovrin/test/bin/python -m pytest plenum/test/storage --junitxml=test-result.xml'
+                        }
+                        finally {
+                            junit 'test-result.xml'
+                        }
                     }
                 }
             }
