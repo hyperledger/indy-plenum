@@ -21,7 +21,7 @@ parallel 'ubuntu-test':{
 
                 def testEnv = docker.build 'plenum-test'
                 
-                testEnv.inside {
+                testEnv.inside('--network host') {
                     stage('Ubuntu Test: Install dependencies') {
                         sh 'cd /home/sovrin && virtualenv -p python3.5 test'
                         sh '/home/sovrin/test/bin/python setup.py install'
