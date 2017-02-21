@@ -16,7 +16,7 @@ parallel 'ubuntu-test':{
 
                 def testEnv = docker.build 'plenum-test'
                 
-                testEnv.inside {
+                testEnv.inside('-p 2424:2424') {
                     stage('Ubuntu Test: Install dependencies') {
                         sh 'virtualenv -p python3.5 test'
                         sh 'test/bin/python setup.py install'
