@@ -132,6 +132,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--pytest', type=str, help='pytest instance', default='pytest')
     parser.add_argument('--output', type=str, help='result file', default='../Test-Report.txt')
+    parser.add_argument('--nooutput', help='no result file', action="store_true")
     args = parser.parse_args()
-    r = run(pytest=args.pytest, output=args.output)
+    r = run(pytest=args.pytest, output=args.output if not args.nooutput else None)
     sys.exit(0 if r == 0 else 1)

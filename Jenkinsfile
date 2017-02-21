@@ -24,7 +24,7 @@ parallel 'ubuntu-test':{
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh 'test/bin/python runner.py --pytest "test/bin/python -m pytest" --output ""'
+                        sh 'test/bin/python runner.py --pytest "test/bin/python -m pytest" --nooutput'
                     }
                 }
             }
