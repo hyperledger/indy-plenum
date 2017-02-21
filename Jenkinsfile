@@ -1,61 +1,103 @@
-echo 'Plenum build...'
+#!groovy​
 
-stage('Ubuntu testing') {
-    node {
-        stage('Checkout csm') {
-            echo 'Checkout csm...'
-            checkout scm
-            echo 'Checkout csm: done'
-        }
+echo 'Plenum test...'
 
-        docker.image('python:3.5.3').inside {
-            stage('Install deps') {
-                echo 'Install deps...'
-                //sh 'python setup.py install' 
-                echo 'Install deps: done'
+parallel 'ubuntu-test':{
+    node('ubuntu') {
+        try {
+            stage('Ubuntu Test: Checkout csm') {
+                checkout scm
             }
-            
-            stage('Test') {
-                echo 'Testing...'
-                //sh 'python setup.py pytest' 
-                echo 'Testesting: done'
+
+            stage('Ubuntu Test: Build docker image') {
+                sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
+                def dockerContainers = sh(returnStdout: true, script: 'docker ps -a').trim()
+                echo "Existing docker containers: ${dockerContainers}"
+                if (dockerContainers.toLowerCase().contains('orientdb')) {
+                    sh('docker start orientdb')
+                } else {
+                    sh("docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password -e ORIENTDB_OPTS_MEMORY=\"${env.ORIENTDB_OPTS_MEMORY}\" orientdb")
+                }
+
+                def testEnv = docker.build 'plenum-test'
+                
+                testEnv.inside('--network host') {
+                    stage('Ubuntu Test: Install dependencies') {
+                        sh 'cd /home/sovrin && virtualenv -p python3.5 test'
+                        sh '/home/sovrin/test/bin/python setup.py install'
+                        sh '/home/sovrin/test/bin/pip install pytest'
+                    }
+
+                    stage('Ubuntu Test: Test') {
+                        sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
+                    }
+                }
             }
         }
-
-        stage('Cleanup') {
-            echo 'Cleanup workspace...'
-            step([$class: 'WsCleanup'])
-            echo 'Cleanup workspace: done'
+        finally {
+            stage('Ubuntu Test: Cleanup') {
+                sh "docker stop orientdb"
+                step([$class: 'WsCleanup'])
+            }
         }
-    }
+    }   
+}, 
+'windows-test':{
+    echo 'TODO: Implement me'
 }
 
-stage('Publish artifacts') {
-    node {
-        stage('Checkout csm') {
-            echo 'Checkout csm...'
+echo 'Plenum test: done'
+
+if (env.BRANCH_NAME != 'master' && env.BRANCH_NAME != 'stable') {
+    echo "Plenum ${env.BRANCH_NAME}: skip publishing"
+    return
+}
+
+echo 'Plenum build...'
+
+node('ubuntu') {
+    try {
+        stage('Publish: Checkout csm') {
             checkout scm
-            echo 'Checkout csm: done'
+        }
+
+        stage('Publish: Prepare package') {
+        	sh 'chmod -R 777 ci'
+        	sh 'ci/prepare-package.sh . $BUILD_NUMBER'
         }
         
-        stage('Publish pipy') {
-            echo 'Publish to pipy...'
-            //sh './publish_pipy.sh' 
-            echo 'Publish pipy: done'
+        stage('Publish: Publish pipy') {
+            sh 'chmod -R 777 ci'
+            withCredentials([file(credentialsId: 'pypi_credentials', variable: 'FILE')]) {
+                sh 'ln -sf $FILE $HOME/.pypirc' 
+                sh 'ci/upload-pypi-package.sh .'
+                sh 'rm -f $HOME/.pypirc'
+            }
         }
 
-        stage('Publish debs') {
-            echo 'Publish to pipy...'
-            //sh './publish_debs.sh' 
-            echo 'Publish to pipy: done'
+        stage('Publish: Build debs') {
+            withCredentials([usernameColonPassword(credentialsId: 'evernym-githib-user', variable: 'USERPASS')]) {
+                sh 'git clone https://$USERPASS@github.com/evernym/sovrin-packaging.git'
+            }
+            echo 'TODO: Implement me'
+            // sh ./sovrin-packaging/pack-Plenum.sh $BUILD_NUMBER
         }
 
-        stage('Cleanup') {
-            echo 'Cleanup workspace...'
+        stage('Publish: Publish debs') {
+            echo 'TODO: Implement me'
+            // sh ./sovrin-packaging/upload-build.sh $BUILD_NUMBER
+        }
+    }
+    finally {
+        stage('Publish: Cleanup') {
             step([$class: 'WsCleanup'])
-            echo 'Cleanup workspace: done'
         }
     }
 }
 
 echo 'Plenum build: done'
+
+stage('QA notification') {
+    echo 'TODO: Add email sending'
+    // emailext (template: 'qa-deploy-test')
+}
