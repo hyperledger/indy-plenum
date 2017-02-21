@@ -2,7 +2,6 @@
 
 echo 'Plenum test...'
 
-def orientdbContainer = "orientdb${BUILD_NUMBER}"
 parallel 'ubuntu-test':{
     node('ubuntu') {
         try {
@@ -36,7 +35,7 @@ parallel 'ubuntu-test':{
         }
         finally {
             stage('Ubuntu Test: Cleanup') {
-                sh "docker stop ${orientdbContainer}"
+                sh "docker stop orientdb"
                 step([$class: 'WsCleanup'])
             }
         }
