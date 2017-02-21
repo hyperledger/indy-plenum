@@ -18,13 +18,13 @@ parallel 'ubuntu-test':{
                 
                 testEnv.inside('-p 2424:2424') {
                     stage('Ubuntu Test: Install dependencies') {
-                        sh 'virtualenv -p python3.5 test'
-                        sh 'test/bin/python setup.py install'
-                        sh 'test/bin/pip install pytest'
+                        sh 'cd /home/sovrin && virtualenv -p python3.5 test'
+                        sh '/home/sovrin/test/bin/python setup.py install'
+                        sh '/home/sovrin/test/bin/pip install pytest'
                     }
 
                     stage('Ubuntu Test: Test') {
-                        sh 'test/bin/python runner.py --pytest "test/bin/python -m pytest" --nooutput'
+                        sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
                     }
                 }
             }

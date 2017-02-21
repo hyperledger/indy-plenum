@@ -4,7 +4,7 @@ import sys
 import argparse
 
 
-def run(pytest, output):
+def run(pytest, output_file):
     log("Preparing test suite with {}".format(pytest))
     testListFile = "test_list.txt"
     os.system('{} --collect-only > {}'.format(pytest, testListFile))
@@ -111,9 +111,9 @@ def run(pytest, output):
         for fm, fn in allErrorTests:
             log('{}:{}'.format(fm, fn))
 
-    if failureData and output:
+    if failureData and output_file:
         log("Writing failure data in Test-Report.txt")
-        with open(output, 'w') as f:
+        with open(output_file, 'w') as f:
             f.write(summaryMsg)
             f.write(''.join(failureData))
 
@@ -134,5 +134,5 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, help='result file', default='../Test-Report.txt')
     parser.add_argument('--nooutput', help='no result file', action="store_true")
     args = parser.parse_args()
-    r = run(pytest=args.pytest, output=args.output if not args.nooutput else None)
+    r = run(pytest=args.pytest, output_file=args.output if not args.nooutput else None)
     sys.exit(0 if r == 0 else 1)
