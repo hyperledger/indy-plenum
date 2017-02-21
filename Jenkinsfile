@@ -149,7 +149,7 @@ def publishToPypi() {
         echo 'Publish to pypi: Prepare package'
         sh 'chmod -R 777 ci'
         //gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-        version = sh(returnStdout: true, script: 'ci/get-package-version.sh ledger $BUILD_NUMBER').trim()
+        version = sh(returnStdout: true, script: 'ci/get-package-version.sh plenum $BUILD_NUMBER').trim()
 
         sh 'ci/prepare-package.sh . $BUILD_NUMBER'
 
