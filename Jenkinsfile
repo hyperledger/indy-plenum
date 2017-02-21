@@ -30,7 +30,7 @@ parallel 'ubuntu-test':{
 
                     stage('Ubuntu Test: Test') {
                         try {
-                            sh '/home/sovrin/test/bin/python -m pytest --junitxml=test-result.xml plenum/test/storage'
+                            sh '/home/sovrin/test/bin/python -m pytest --junitxml=test-result.xml -k orientdb'
                         }
                         finally {
                             junit 'test-result.xml'
