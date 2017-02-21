@@ -11,12 +11,12 @@ parallel 'ubuntu-test':{
 
             stage('Ubuntu Test: Build docker image') {
                 sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
-                def orientdbContainer = sh(returnStdout: true, script: 'docker ps -a | grep orientdb').trim()
-                echo "${orientdbContainer}"
-                if (orientdbContainer) {
-                    sh('docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
-                } else {
+                def dockerContainers = sh(returnStdout: true, script: 'docker ps -a').trim()
+                echo "Existing docker containers: ${dockerContainers}"
+                if (dockerContainers.toLowerCase().contains('orientdb')) {
                     sh('docker start -d -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
+                } else {
+                    sh('docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
                 }
 
                 def testEnv = docker.build 'plenum-test'
