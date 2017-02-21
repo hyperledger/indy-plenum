@@ -27,7 +27,12 @@ stage('Test') {
                         sh '/home/sovrin/test/bin/pip install pytest'
 
                         echo 'Ubuntu Test: Test'
-                        sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
+                        try {
+                            sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
+                        }
+                        finally {
+                            archiveArtifacts artifacts: '/home/sovrin/test-result.txt'
+                        }
                     }
                 }
                 finally {
