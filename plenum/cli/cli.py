@@ -29,7 +29,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists
+from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData, isPortUsed
@@ -865,13 +865,16 @@ class Cli:
 
         nodes = []
         for name in names:
-            node = self.NodeClass(name,
+            try:
+                node = self.NodeClass(name,
                                   nodeRegistry=None if self.nodeRegLoadedFromFile
                                   else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths,
                                   config=self.config)
-            # sleep(60)
+            except GraphStorageNotAvailable as e:
+                self.print("Graph storage is not available, detailed error: {}".format(str(e)))
+                return
             self.nodes[name] = node
             self.looper.add(node)
             if not self.nodeRegLoadedFromFile:
@@ -1711,6 +1714,7 @@ class Cli:
                     self.print(" ({})".format(walletFilePath)
                                , Token.Gray)
                     self.activeWallet = wallet
+                    self.activeIdentifier = wallet.defaultId
 
                     self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
