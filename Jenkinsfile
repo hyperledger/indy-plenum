@@ -14,7 +14,7 @@ parallel 'ubuntu-test':{
                 def dockerContainers = sh(returnStdout: true, script: 'docker ps -a').trim()
                 echo "Existing docker containers: ${dockerContainers}"
                 if (dockerContainers.toLowerCase().contains('orientdb')) {
-                    sh('docker start -d -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
+                    sh('docker start orientdb')
                 } else {
                     sh('docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
                 }
