@@ -27,11 +27,18 @@ stage('Test') {
                         sh '/home/sovrin/test/bin/pip install pytest'
 
                         echo 'Ubuntu Test: Test'
-                        try {
+                        /* try {
                             sh '/home/sovrin/test/bin/python runner.py --pytest "/home/sovrin/test/bin/python -m pytest" --output "/home/sovrin/test-result.txt"'
                         }
                         finally {
                             archiveArtifacts artifacts: '/home/sovrin/test-result.txt'
+                        }*/
+                        // Run only orientdb test for POC purposes
+                        try {
+                            sh '/home/sovrin/test/bin/python -m pytest -k orientdb --junitxml=test-result.xml'
+                        }
+                        finally {
+                            junit 'test-result.xml'
                         }
                     }
                 }
