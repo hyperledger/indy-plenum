@@ -12,11 +12,16 @@ parallel 'ubuntu-test':{
 
             stage('Ubuntu Test: Build docker image') {
                 sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
-                sh "docker run -d --name ${orientdbContainer} -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb"
+                def orientdbContainer = sh(returnStdout: true, script: 'docker ps -a | grep orientdb').trim()
+                if (orientdbContainer == '') {
+                    sh('docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
+                } else {
+                    sh('docker start -d -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password orientdb')
+                }
 
                 def testEnv = docker.build 'plenum-test'
                 
-                testEnv.inside('-p 2424:2424') {
+                testEnv.inside {
                     stage('Ubuntu Test: Install dependencies') {
                         sh 'cd /home/sovrin && virtualenv -p python3.5 test'
                         sh '/home/sovrin/test/bin/python setup.py install'
