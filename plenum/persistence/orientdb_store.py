@@ -2,6 +2,7 @@ from typing import Dict
 
 import pyorient
 from plenum.common.error import error
+from plenum.common.exceptions import OrientDBNotRunning
 from plenum.common.log import getlogger
 
 logger = getlogger()
@@ -16,7 +17,7 @@ class OrientDbStore:
             self.client = pyorient.OrientDB(host=host, port=port)
             self.session_id = self.client.connect(user, password)
         except pyorient.exceptions.PyOrientConnectionException:
-            error("OrientDB connection failed. Check if DB is running "
+            raise OrientDBNotRunning("OrientDB connection failed. Check if DB is running "
                   "on port {}".format(port))
         if not self.client.db_exists(dbName, storageType):
             self.createDb(dbName, dbType, storageType)
