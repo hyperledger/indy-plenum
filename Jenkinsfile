@@ -119,7 +119,7 @@ try {
     notifyFail()
     throw e
 } finally {
-    if (success) {
+    if (success && (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'stable')) {
         currentBuild.result = "SUCCESS"
         notifySuccess()
     }
