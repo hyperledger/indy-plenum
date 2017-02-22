@@ -30,7 +30,7 @@ def checkNodeNotInNodeReg(nodeOrClient, nodeName):
         raise ValueError("pass a node or client object as first argument")
 
 
-@pytest.mark.skipif(True, reason="SOV-383")
+@pytest.mark.skip(reason="SOV-383")
 def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             tdirWithPoolTxns, tconf,
                             steward1, stewardWallet,

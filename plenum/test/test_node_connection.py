@@ -136,8 +136,9 @@ def testNodeConnection(allPluginsPath, tdirAndLooper):
     looper.run(checkNodesConnected([A, B]))
 
 
-@pytest.mark.skipif(True, reason="Fails due to a bug. Its fixed here "
-                                 "https://github.com/RaetProtocol/raet/pull/9")
+@pytest.mark.skip(reason="SOV-538. "
+                         "Fails due to a bug. Its fixed here "
+                         "https://github.com/RaetProtocol/raet/pull/9")
 def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)

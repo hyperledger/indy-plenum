@@ -89,7 +89,7 @@ CLIENT_GRAMS_SAVE_KEYRING_REG_EX = "(\s* (?P<save_kr>save\s+keyring)" \
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "(\s*(?P<add_gen_txn>add \s+ genesis \s+ transaction)" \
     "\s+ (?P<type>[a-zA-Z0-9_]+)" \
-    "\s+ (for \s+ (?P<dest>[A-Za-z0-9+=/]+))?" \
+    "\s+ (for\s+(?P<dest>[A-Za-z0-9+=/]+))?" \
     "\s? (by\s+(?P<identifier>[A-Za-z0-9+=/]*))?" \
     "\s? (with\s+data\s+(?P<data>\{\s*.*\}))?" \
     "\s? (role\s*=\s*(?P<role>STEWARD))?" \

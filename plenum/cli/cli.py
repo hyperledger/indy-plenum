@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 # noinspection PyUnresolvedReferences
 import glob
-from typing import Dict
+from typing import Dict, Iterable
 
 import pyorient
 import random
@@ -18,7 +18,7 @@ from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
-    createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd
+    createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
 from plenum.cli.command import licenseCmd
 from plenum.cli.command import listCmd
 from plenum.cli.command import newClientCmd
@@ -29,8 +29,9 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists
+from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
 from plenum.common.plugin_helper import loadPlugins
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData, isPortUsed
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
@@ -73,7 +74,7 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, checkPortAvailable, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
-    createDirIfNotExists
+    createDirIfNotExists, getFriendlyIdentifier
 from plenum.common.log import CliHandler, getlogger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL, Logger
 from plenum.server.node import Node
@@ -261,15 +262,6 @@ class Cli:
         if nodeReg:
             self.print("Node registry loaded.")
             self.showNodeRegistry()
-        else:
-            msg = """
-            The information required to connect this client to the nodes cannot be found.
-            This is an error. To correct the error, get the file containing genesis transactions
-            (the file name is `{}`) from the github repository and place it in directory
-            `{}`. The github url is {}.\n""".format(self.config.poolTransactionsFile,
-                                                    self.config.baseDir,
-                                                    self.githubUrl)
-            self.print(msg)
 
         self.print("Type 'help' for more information.")
         self.print("Running {} {}\n".format(self.properName,
@@ -502,7 +494,7 @@ class Cli:
         return self._addOldGenesisCommand(newMatchedVars)
 
     def _addOldGenesisCommand(self, matchedVars):
-        destId = hexToFriendly(matchedVars.get(TARGET_NYM))
+        destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
         typ = matchedVars.get(TXN_TYPE)
         txn = {
             TXN_TYPE: typ,
@@ -510,7 +502,7 @@ class Cli:
             TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
-            txn[IDENTIFIER] = hexToFriendly(matchedVars.get(IDENTIFIER))
+            txn[IDENTIFIER] = getFriendlyIdentifier(matchedVars.get(IDENTIFIER))
 
         if matchedVars.get(DATA):
             txn[DATA] = json.loads(matchedVars.get(DATA))
@@ -690,7 +682,7 @@ class Cli:
 
         return topCmds + middleCmds + bottomCmds
 
-    def _printGivenCmdsHelpMsgs(self, cmds, gapsInLines=1,
+    def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
         helpMsgStr = ""
         if printHeader:
@@ -711,7 +703,7 @@ class Cli:
 
             if cmd.id in showUsageFor:
                 helpMsgStr += "\n         Usage:\n            {}".\
-                    format(cmd.syntax)
+                    format(cmd.usage)
 
         self.print("\n{}\n".format(helpMsgStr))
 
@@ -855,6 +847,9 @@ class Cli:
         if not self.isOkToRunNodeDependentCommands():
             return
 
+        if len(self.clients) > 0 and not self.hasAnyKey:
+            return
+
         if nodeName in self.nodes:
             self.print("Node {} already exists.".format(nodeName))
             return
@@ -872,21 +867,24 @@ class Cli:
 
         nodes = []
         for name in names:
-            node = self.NodeClass(name,
+            try:
+                node = self.NodeClass(name,
                                   nodeRegistry=None if self.nodeRegLoadedFromFile
                                   else self.nodeRegistry,
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths,
                                   config=self.config)
-            # sleep(60)
+            except GraphStorageNotAvailable as e:
+                self.print("Graph storage is not available, detailed error: {}".format(str(e)))
+                return
             self.nodes[name] = node
             self.looper.add(node)
             if not self.nodeRegLoadedFromFile:
                 node.startKeySharing()
-            for client in self.clients.values():
-                # TODO: need a way to specify an identifier for a client with
-                # multiple signers
-                self.bootstrapClientKey(client, node)
+
+            if len(self.clients) > 0:
+                self.bootstrapKey(self.activeWallet, node)
+
             for identifier, verkey in self.externalClientKeys.items():
                 node.clientAuthNr.addClient(identifier, verkey)
             nodes.append(node)
@@ -989,7 +987,7 @@ class Cli:
         try:
             self.ensureValidClientId(clientName)
             if not isLocalKeepSetup(clientName, self.basedirpath):
-                client_addr = self.nextAvailableClientAddr()
+                client_addr = genHa()
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
@@ -1010,8 +1008,7 @@ class Cli:
     @staticmethod
     def bootstrapKey(wallet, node, identifier=None):
         identifier = identifier or wallet.defaultId
-        # TODO: Should not raise an error but should be able to choose a signer
-        assert identifier, "Client has multiple signers, cannot choose one"
+        assert identifier, "Client has no identifier"
         node.clientAuthNr.addClient(identifier, wallet.getVerkey(identifier))
 
     def clientExists(self, clientName):
@@ -1031,9 +1028,15 @@ class Cli:
                 req = wallet.signOp(msg)
                 request, = client.submitReqs(req)
                 self.requests[request.key] = request
+                self.print("Request sent, request id: {}".format(req.reqId), Token.BoldBlue)
             else:
-                self._newWallet(clientName)
-                self.printNoKeyMsg()
+                try:
+                    self._newWallet(clientName)
+                    self.printNoKeyMsg()
+                except NameAlreadyExists:
+                    self.print("Keyring with name {} is not in use, please select it by using 'use keyring {}' command"
+                               .format(clientName, clientName))
+
         else:
             self.printMsgForUnknownClient()
 
@@ -1047,14 +1050,14 @@ class Cli:
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help client send' for more details")
+            self.print("No such request. See: 'help client show request status' for more details")
 
-    def showDetails(self, clientName, identifier, reqId):
-        client = self.clients.get(clientName, None)
-        if client and (identifier, reqId) in self.requests:
-            client.showReplyDetails(identifier, reqId)
-        else:
-            self.printMsgForUnknownClient()
+    # def showDetails(self, clientName, identifier, reqId):
+    #     client = self.clients.get(clientName, None)
+    #     if client and (identifier, reqId) in self.requests:
+    #         client.showReplyDetails(identifier, reqId)
+    #     else:
+    #         self.printMsgForUnknownClient()
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1116,13 +1119,19 @@ class Cli:
                 limitations under the License.
                     """)
 
+    def getMatchedHelpableMsg(self, helpable):
+        matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
+        if matchedHelpMsgs:
+            return matchedHelpMsgs[0]
+        return None
+
     def _helpAction(self, matchedVars):
         if matchedVars.get('command') == 'help':
             helpable = matchedVars.get('helpable')
             if helpable:
-                matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
-                if matchedHelpMsgs:
-                    self.print(str(matchedHelpMsgs[0]))
+                matchedHelpMsg = self.getMatchedHelpableMsg(helpable)
+                if matchedHelpMsg:
+                    self.print(str(matchedHelpMsg))
                 else:
                     self.print("No such command found: {}\nExecute 'list' to see all available commands\n".format(helpable))
                     self.printHelp()
@@ -1183,8 +1192,7 @@ class Cli:
                 return True
             elif client_action == 'show':
                 req_id = matchedVars.get('req_id')
-                wallet = self.wallets[client_name]
-                self.getReply(client_name, wallet.defaultId, req_id)
+                self.getReply(client_name, self.activeWallet.defaultId, req_id)
                 return True
 
     def _loadPluginDirAction(self, matchedVars):
@@ -1321,6 +1329,7 @@ class Cli:
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
+
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New keyring {} created".format(nm))
@@ -1368,13 +1377,13 @@ class Cli:
                                self._activeWallet is not None and \
                                self._activeWallet.name.lower() == pwn.lower() \
                             else False
-                        unSavedChanges = " [may have some unsaved changes]" \
+                        activeKeyringMsg = " [Active keyring, may have some unsaved changes]" \
                             if isThisActiveWallet else ""
                         activeWalletSign = "*  " if isThisActiveWallet \
                             else "   "
 
                         self.print("    {}{}{}".format(
-                            activeWalletSign, pwn, unSavedChanges), newline=False)
+                            activeWalletSign, pwn, activeKeyringMsg), newline=False)
                         self.print(" (last modified at: {})".
                                    format(lastModifiedTime), Token.Gray)
 
@@ -1707,6 +1716,7 @@ class Cli:
                     self.print(" ({})".format(walletFilePath)
                                , Token.Gray)
                     self.activeWallet = wallet
+                    self.activeIdentifier = wallet.defaultId
 
                     self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
@@ -1901,26 +1911,31 @@ class Cli:
                 initializer(name.strip())
 
     def invalidCmd(self, cmdText):
-        self.print("Invalid command: '{}'".format(cmdText))
-        self.print("Execute 'list' to see all available commands")
-        self.printHelp()
+        matchedHelpMsg = self.getMatchedHelpableMsg(cmdText)
+        if matchedHelpMsg:
+            self.print("Invalid syntax: '{}'".format(cmdText))
+            self.print(str(matchedHelpMsg))
+        else:
+            self.print("Invalid command: '{}'".format(cmdText))
+            self.print("Execute 'list' to see all available commands")
+            self.printHelp()
 
-    def nextAvailableClientAddr(self, curClientPort=8100):
-        self.curClientPort = self.curClientPort or curClientPort
-        # TODO: Find a better way to do this
-        self.curClientPort += random.randint(1, 200)
-        host = "0.0.0.0"
-        try:
-            checkPortAvailable((host, self.curClientPort))
-            assert not isPortUsed(self.basedirpath, self.curClientPort), \
-                "Port used by a remote"
-            return host, self.curClientPort
-        except Exception as ex:
-            tokens = [(Token.Error, "Cannot bind to port {}: {}, "
-                                    "trying another port.\n".
-                       format(self.curClientPort, ex))]
-            self.printTokens(tokens)
-            return self.nextAvailableClientAddr(self.curClientPort)
+    # def nextAvailableClientAddr(self, curClientPort=8100):
+    #     self.curClientPort = self.curClientPort or curClientPort
+    #     # TODO: Find a better way to do this
+    #     self.curClientPort += random.randint(1, 200)
+    #     host = "0.0.0.0"
+    #     try:
+    #         checkPortAvailable((host, self.curClientPort))
+    #         assert not isPortUsed(self.basedirpath, self.curClientPort), \
+    #             "Port used by a remote"
+    #         return host, self.curClientPort
+    #     except Exception as ex:
+    #         tokens = [(Token.Error, "Cannot bind to port {}: {}, "
+    #                                 "trying another port.\n".
+    #                    format(self.curClientPort, ex))]
+    #         self.printTokens(tokens)
+    #         return self.nextAvailableClientAddr(self.curClientPort)
 
     @property
     def hasAnyKey(self):
