@@ -21,3 +21,18 @@ def expectedNodeInterconnectionTime(nodeCount):
     logger.debug("wait time for {} nodes and {} connections is {}"
                  .format(nodeCount, c, t))
     return t
+
+
+def expectedTransactionExecutionTime(nodeCount):
+    # TODO: implement
+    pass
+
+
+def expectedCatchupTime():
+    # TODO: implement
+    pass
+
+
+def expectedAgentCommunicationTime():
+    # TODO: implement
+    pass
