@@ -291,7 +291,7 @@ def notifySuccess() {
             [$class: 'RequesterRecipientProvider']
         ],
         replyTo: '$DEFAULT_REPLYTO',
-        subject: "New ${BRANCH_NAME} build 'ledger-$version'",
+        subject: "New ${BRANCH_NAME} build 'plenum-$version'",
         to: '$DEFAULT_RECIPIENTS'
        )
 }
