@@ -116,7 +116,8 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
-                 useNodeReg=False, withNode=True):
+                 useNodeReg=False, withNode=True, unique_name=None):
+        self.unique_name = unique_name
         self.curClientPort = None
         Logger().enableCliLogging(self.out)
         self.looper = looper
@@ -1962,6 +1963,13 @@ class Cli:
             return i
 
         dropdbs()
+
+    def __hash__(self):
+        return hash((self.name, self.unique_name, self.basedirpath))
+
+    def __eq__(self, other):
+        return (self.name, self.unique_name, self.basedirpath) == \
+               (other.name, self.unique_name, other.basedirpath)
 
 
 class Exit(Exception):
