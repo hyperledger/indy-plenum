@@ -52,7 +52,16 @@ try {
 
     // 4. SYSTEM TESTS
     stage('System tests') {
-        systemTests()
+        parallel 'ubuntu-system-tests':{
+            stage('Ubuntu system tests') {
+                ubuntuSystemTests()
+            }
+        },
+        'windows-system-tests':{
+            stage('Windows system tests') {
+                windowsSystemTests()
+            }
+        }
     }
 
 // MASTER ONLY
@@ -75,14 +84,32 @@ try {
         return
     }
 
-    // 6. RELEASE PACKAGES
+    // 7. RELEASE PACKAGES
     stage('Release packages') {
-        echo 'TODO: Implement me'
+        parallel 'ubuntu-release-packages':{
+            stage('Ubuntu release packages') {
+                echo 'TODO: Implement me'
+            }
+        },
+        'windows-release-packages':{
+            stage('Windows release packages') {
+                echo 'TODO: Implement me'
+            }
+        }
     }
 
-    // 7. SYSTEM TESTS FOR RELEASE
-    stage('System tests') {
-        echo 'TODO: Implement me'
+    // 8. SYSTEM TESTS FOR RELEASE
+    stage('Release system tests') {
+        parallel 'ubuntu-system-tests':{
+            stage('Ubuntu system tests') {
+                ubuntuSystemTests()
+            }
+        },
+        'windows-system-tests':{
+            stage('Windows system tests') {
+                windowsSystemTests()
+            }
+        }
     }
 
 } catch(e) {
@@ -192,6 +219,9 @@ def buildDeb() {
     }
     finally {
         echo 'Build deb packages: Cleanup'
+        dir('sovrin-packaging') {
+            deleteDir()
+        }
         step([$class: 'WsCleanup'])
     }
 }
@@ -200,7 +230,11 @@ def buildMsi() {
     echo 'TODO: Implement me'
 }
 
-def systemTests() {
+def ubuntuSystemTests() {
+    echo 'TODO: Implement me'
+}
+
+def windowsSystemTests() {
     echo 'TODO: Implement me'
 }
 
