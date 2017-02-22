@@ -29,7 +29,8 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
+from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
+    RaetKeysNotFoundException
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData, isPortUsed
@@ -872,8 +873,8 @@ class Cli:
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths,
                                   config=self.config)
-            except GraphStorageNotAvailable as e:
-                self.print("Graph storage is not available, detailed error: {}".format(str(e)))
+            except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
+                self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
             self.looper.add(node)
