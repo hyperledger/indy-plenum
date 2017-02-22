@@ -9,6 +9,7 @@ from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
+from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -57,6 +58,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
     # from the other nodes
     create(names[3])
     checkProtocolInstanceSetup(looper, nodes, timeout=10)
+    stopNodes(nodes, looper)
 
 
 def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
@@ -69,6 +71,7 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
         node.startKeySharing()
         nodes.append(node)
     looper.run(checkNodesConnected(nodes))
+    stopNodes(nodes, looper)
 
 
 # @pytest.mark.parametrize("x10", range(1, 11))
@@ -106,6 +109,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
     looper.runFor(3)
     looper.run(checkNodesConnected(nodes,
                                    overrideTimeout=10))
+    stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
     logger.debug("rwaits: {}".format(rwaits))
@@ -134,6 +138,7 @@ def testNodeConnection(allPluginsPath, tdirAndLooper):
     looper.runFor(4)
     B.start(looper.loop)
     looper.run(checkNodesConnected([A, B]))
+    stopNodes([A, B], looper)
 
 
 @pytest.mark.skip(reason="SOV-538. "
@@ -161,6 +166,7 @@ def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
     A.startKeySharing(timeout=timeout)
     B.startKeySharing(timeout=timeout)
     looper.run(checkNodesConnected([A, B]))
+    stopNodes([A, B], looper)
 
 
 def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
@@ -197,3 +203,4 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
         assert C.name not in A.nodestack.nameRemotes
 
     looper.run(eventually(chk, retryWait=2, timeout=5))
+    stopNodes([A, B, C], looper)
