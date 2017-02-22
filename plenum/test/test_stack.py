@@ -11,7 +11,7 @@ from plenum.common.exceptions import NotConnectedToAny
 from plenum.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
-from plenum.test.waits import expectedWait
+from plenum.test.waits import expectedNodeInterconnectionTime
 
 
 logger = getlogger()
@@ -63,7 +63,7 @@ class StackedTester:
             assert connected == totalNodes
 
     async def ensureConnectedToNodes(self, timeout=None):
-        wait = timeout or expectedWait(len(self.nodeReg))
+        wait = timeout or expectedNodeInterconnectionTime(len(self.nodeReg))
         logger.debug(
                 "waiting for {} seconds to check client connections to "
                 "nodes...".format(wait))
