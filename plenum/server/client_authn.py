@@ -42,9 +42,9 @@ class ClientAuthNr:
         """
 
     @abstractmethod
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         """
-        Adding a client should be an auditable and authenticated action.
+        Adding an identifier should be an auditable and authenticated action.
         Robust implementations of ClientAuthNr would authenticate this
         operation.
 
@@ -105,7 +105,7 @@ class NaclAuthNr(ClientAuthNr):
         return identifier
 
     @abstractmethod
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         pass
 
     @abstractmethod
@@ -127,7 +127,7 @@ class SimpleAuthNr(NaclAuthNr):
         self.clients = {}  # type: Dict[str, Dict]
         self.state = state
 
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         if identifier in self.clients:
             # raise RuntimeError("client already added")
             logger.error("client already added")

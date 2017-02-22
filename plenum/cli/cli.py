@@ -886,7 +886,7 @@ class Cli:
                 # multiple signers
                 self.bootstrapClientKey(client, node)
             for identifier, verkey in self.externalClientKeys.items():
-                node.clientAuthNr.addClient(identifier, verkey)
+                node.clientAuthNr.addIdr(identifier, verkey)
             nodes.append(node)
         return nodes
 
@@ -1010,7 +1010,7 @@ class Cli:
         identifier = identifier or wallet.defaultId
         # TODO: Should not raise an error but should be able to choose a signer
         assert identifier, "Client has multiple signers, cannot choose one"
-        node.clientAuthNr.addClient(identifier, wallet.getVerkey(identifier))
+        node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -1239,7 +1239,7 @@ class Cli:
                 return
             self.externalClientKeys[identifier] = verkey
             for n in self.nodes.values():
-                n.clientAuthNr.addClient(identifier, verkey)
+                n.clientAuthNr.addIdr(identifier, verkey)
             return True
 
     def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,

@@ -1855,8 +1855,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if role not in (STEWARD, None):
                     logger.error("Role if present must be STEWARD".format(role))
                     return
-                self.clientAuthNr.addClient(identifier, verkey=v.verkey,
-                                            role=role)
+                self.clientAuthNr.addIdr(identifier, verkey=v.verkey,
+                                         role=role)
 
     def initDomainLedger(self):
         # If the domain ledger file is not present initialize it by copying

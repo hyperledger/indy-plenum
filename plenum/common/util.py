@@ -463,7 +463,7 @@ def updateFieldsWithSeqNo(fields):
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(identifier, verkey)
+        n.clientAuthNr.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):
