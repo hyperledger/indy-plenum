@@ -177,17 +177,18 @@ def buildDeb() {
         sh 'chmod -R 777 ci'
         sh 'ci/prepare-package.sh . $BUILD_NUMBER'
 
-        echo 'Build deb packages: Build debs'
-        withCredentials([usernameColonPassword(credentialsId: 'evernym-githib-user', variable: 'USERPASS')]) {
-            sh 'git clone https://$USERPASS@github.com/evernym/sovrin-packaging.git'
+        dir('sovrin-packaging') {
+            echo 'Build deb packages: get packaging code'
+            git branch: 'jenkins-poc', credentialsId: 'evernym-githib-user', url: 'https://github.com/evernym/sovrin-packaging'
+
+            echo 'Build deb packages: Build debs'
+            def sourcePath = sh(returnStdout: true, script: 'readlink -f ..').trim()
+            sh "./pack-debs $BUILD_NUMBER plenum $sourcePath"
+
+            echo 'Build deb packages: Publish debs'
+            def repo = env.BRANCH_NAME == 'stable' ? 'rc' : 'master'
+            //sh "./upload-debs $BUILD_NUMBER plenum $repo"
         }
-        echo 'TODO: Implement me'
-        // sh ./sovrin-packaging/pack-plenum.sh $BUILD_NUMBER
-
-
-        echo 'Build deb packages: Publish debs'
-        echo 'TODO: Implement me'
-        // sh ./sovrin-packaging/upload-build.sh $BUILD_NUMBER
     }
     finally {
         echo 'Build deb packages: Cleanup'
@@ -206,7 +207,7 @@ def systemTests() {
 def notifyQA(version) {
     emailext (
         subject: "New release candidate 'plenum-$version' is waiting for approval",
-        body: "Please go to ${BUILD_URL} and verify the build",
+        body: "Please go to ${BUILD_URL}console and verify the build",
         to: 'alexander.sherbakov@dsr-company.com'
     )
 }
