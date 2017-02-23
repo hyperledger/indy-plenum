@@ -17,11 +17,15 @@ logger = getlogger()
 
 whitelist = ['discarding message', 'found legacy entry']
 
-nodeReg = {
-    'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
-    'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
-    'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
-    'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
+
+@pytest.fixture()
+def nodeReg():
+    return {
+            'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
+            'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
+            'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
+            'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
+    }
 
 
 # Its a function fixture, deliberately
@@ -33,7 +37,7 @@ def tdirAndLooper():
             yield td, looper
 
 
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper, nodeReg):
     tdir, looper = tdirAndLooper
     nodes = []
     names = list(nodeReg.keys())
@@ -61,7 +65,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
     stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper, nodeReg):
     tdir, looper = tdirAndLooper
     nodes = []
     for name in nodeReg:
@@ -76,7 +80,7 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper, nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
@@ -101,8 +105,8 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
 
-    for n in nodes:
-        n.stop()
+    stopNodes(nodes, looper)
+
     for i, n in enumerate(nodes):
         n.start(looper.loop)
         looper.runFor(rwaits[i])
@@ -115,7 +119,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdirAndLooper):
+def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
@@ -169,7 +173,7 @@ def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
     stopNodes([A, B], looper)
 
 
-def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
+def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
@@ -196,11 +200,11 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
         assert not C.nodestack.isKeySharing
 
     looper.run(eventually(chk, retryWait=2, timeout=21))
-    C.stop()
+    stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
     looper.run(eventually(chk, retryWait=2, timeout=5))
-    stopNodes([A, B, C], looper)
+    stopNodes([A, B], looper)
