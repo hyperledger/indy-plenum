@@ -1,6 +1,7 @@
 #!groovy​
 
 def success = true
+
 try {
 
 // ALL BRANCHES: master, stable, PRs
