@@ -20,7 +20,6 @@ from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
 from plenum.cli.command import licenseCmd
-from plenum.cli.command import listCmd
 from plenum.cli.command import newClientCmd
 from plenum.cli.command import newNodeCmd
 from plenum.cli.command import statusCmd
@@ -298,7 +297,6 @@ class Cli:
     def actions(self):
         if not self._actions:
             self._actions = [self._simpleAction, self._helpAction,
-                             self._listAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
                              self._keyShareAction, self._loadPluginDirAction,
@@ -610,7 +608,6 @@ class Cli:
 
         mappings = OrderedDict()
         mappings['helpAction'] = helpCmd
-        mappings['listAction'] = listCmd
         mappings['licenseAction'] = licenseCmd
         mappings['statusAction'] = statusCmd
         mappings['newNodeAction'] = newNodeCmd
@@ -632,8 +629,8 @@ class Cli:
         mappings['addGenesisAction'] = addGenesisTxnCmd
         mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
         mappings['changePrompt'] = changePromptCmd
-        mappings['exitAction'] = exitCmd
         mappings['quitAction'] = quitCmd
+        mappings['exitAction'] = exitCmd
 
         # below action handlers are those who handles multiple commands and so
         # these will point to 'None' and specific commands will point to their
@@ -664,7 +661,8 @@ class Cli:
     def getDefaultOrderedCmds(self):
         topCmdKeys = ['helpAction', 'listAction',
                            'statusAction', 'licenseAction']
-        bottomCmdsKeys = ['exitAction', 'quitAction']
+        removeCmdKeys = ['quitAction']
+        bottomCmdsKeys = ['exitAction']
 
         topCmds = []
         middleCmds = []
@@ -672,7 +670,9 @@ class Cli:
 
         for k, cmd in self.cmdHandlerToCmdMappings().items():
             if cmd:
-                if k in topCmdKeys:
+                if k in removeCmdKeys:
+                    continue
+                elif k in topCmdKeys:
                     topCmds.append(cmd)
                 elif k in bottomCmdsKeys:
                     bottomCmds.append(cmd)
@@ -710,9 +710,8 @@ class Cli:
         return ["help", "list"]
 
     def printHelp(self):
-        self._printGivenCmdsHelpMsgs(self.getBasicHelpCmds(),
-                                     gapsInLines = 2,
-                                     showUsageFor= self.getHelpCmdIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
+                                     sort=False, printHeader=True)
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1132,17 +1131,10 @@ class Cli:
                 if matchedHelpMsg:
                     self.print(str(matchedHelpMsg))
                 else:
-                    self.print("No such command found: {}\nExecute 'list' to see all available commands\n".format(helpable))
+                    self.print("No such command found: {}\n".format(helpable))
                     self.printHelp()
             else:
                 self.printHelp()
-            return True
-
-    def _listAction(self, matchedVars):
-        if matchedVars.get('command') == 'list':
-            sorted = True if matchedVars.get('sorted') else False
-            self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(), sort=sorted,
-                                         printHeader=False)
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1916,7 +1908,6 @@ class Cli:
             self.print(str(matchedHelpMsg))
         else:
             self.print("Invalid command: '{}'".format(cmdText))
-            self.print("Execute 'list' to see all available commands")
             self.printHelp()
 
     # def nextAvailableClientAddr(self, curClientPort=8100):
