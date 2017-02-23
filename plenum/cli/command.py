@@ -6,20 +6,24 @@ class Command:
         self.title = title          # brief explanation about the command
         self.usage = usage          # syntax with all available clauses
         self.note = note            # any additional description/note
-        self.examples = examples if isinstance(examples, list) else [examples]
+        self.examples = examples if isinstance(examples, list) else [examples] \
+            if examples else examples
 
     def __str__(self):
         detailIndent = "    "
-        examples = '\n{}{}'.format(detailIndent, detailIndent).join(self.examples)
         header = "\n{}\n{}\n".format(self.id, '-'*(len(self.id)))
-        node = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
+        note = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
+        examplesStr = '\n{}{}'.format(detailIndent, detailIndent).join(
+            self.examples) if self.examples else ""
+        examples = "{} example(s):\n{}    {}\n".format(
+            detailIndent, detailIndent, examplesStr) \
+            if len(examplesStr) else ""
+
         helpInfo = "{} title: {}\n\n" \
                    "{} usage: {}\n\n" \
                    "{}" \
-                   "{} example(s):\n" \
-                   "{}    {}\n".format(detailIndent, self.title,
-                                     detailIndent, self.usage, node,
-                                     detailIndent, detailIndent, examples)
+                   "{}".format(detailIndent, self.title,
+                                     detailIndent, self.usage, note, examples)
         return header + helpInfo
 
 helpCmd = Command(
@@ -31,26 +35,22 @@ helpCmd = Command(
 statusCmd = Command(
     id="status",
     title="Shows general status of the sandbox",
-    usage="status",
-    examples="status")
+    usage="status")
 
 licenseCmd = Command(
     id="license",
     title="Shows the license",
-    usage="license",
-    examples="license")
+    usage="license")
 
 exitCmd = Command(
     id="exit",
     title="Exit the command-line interface ('quit' also works)",
-    usage="exit",
-    examples="exit")
+    usage="exit")
 
 quitCmd = Command(
     id="quit",
     title="Exit the command-line interface ('exit' also works)",
-    usage="quit",
-    examples="quit")
+    usage="quit")
 
 listCmd = Command(
     id="list",
@@ -170,7 +170,6 @@ saveKeyringCmd = Command(
     usage="save keyring [<active-keyring-name>]",
     examples=["save keyring", "save keyring mykeyring"])
 
-
 renameKeyringCmd = Command(
     id="rename keyring",
     title="Renames given keyring",
@@ -180,5 +179,4 @@ renameKeyringCmd = Command(
 listKeyringCmd = Command(
     id="list keyrings",
     title="Lists all keyrings",
-    usage="list keyrings",
-    examples="list keyrings")
+    usage="list keyrings")
