@@ -52,12 +52,6 @@ quitCmd = Command(
     title="Exit the command-line interface ('exit' also works)",
     usage="quit")
 
-listCmd = Command(
-    id="list",
-    title="Shows list of all commands you can run",
-    usage="list [sorted]",
-    examples=["list", "list sorted"])
-
 newNodeCmd = Command(
     id="new node",
     title="Starts new node",
