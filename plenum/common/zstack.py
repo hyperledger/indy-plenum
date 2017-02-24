@@ -16,6 +16,8 @@ from plenum.common.network_interface import NetworkInterface
 
 logger = getlogger()
 
+LINGER_TIME = 20
+
 
 class Remote:
     def __init__(self, name, ha, verKey, publicKey, *args, **kwargs):
@@ -41,6 +43,7 @@ class Remote:
         sock.identity = localPubKey
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
+        sock.setsockopt(zmq.LINGER, LINGER_TIME)
         self.socket = sock
 
     def disconnect(self):
@@ -143,6 +146,8 @@ class ZStack(NetworkInterface):
     def stop(self):
         if self.opened:
             self.close()
+        # TODO: Uncommenting this stops hangs the code, setting LINGER_TIME
+        # does not help. Find a solution
         self.ctx.term()
         logger.info("stack {} stopped".format(self.name), extra={"cli": False})
 
@@ -164,6 +169,7 @@ class ZStack(NetworkInterface):
 
     def open(self):
         self.listener = self.ctx.socket(zmq.ROUTER)
+        self.listener.setsockopt(zmq.LINGER, LINGER_TIME)
         self.poller.register(self.listener, zmq.POLLIN)
         public, secret = self.selfEncKeys
         self.listener.curve_secretkey = secret
@@ -174,6 +180,8 @@ class ZStack(NetworkInterface):
 
     def close(self):
         self.listener.close()
+        for r in self.remotes.values():
+            r.socket.close()
 
     @property
     def selfEncKeys(self):

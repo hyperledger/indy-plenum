@@ -65,7 +65,10 @@ def testRestricted2ZStackCommunication(tdirAndLooper):
     looper.runFor(1)
     alpha.connect(beta.name, beta.ha, beta.verKey, beta.publicKey)
     beta.connect(alpha.name, alpha.ha, alpha.verKey, alpha.publicKey)
-    looper.runFor(3)
+    looper.runFor(1.5)
+    alpha.send({'greetings': 'hi'}, beta.name)
+    beta.send({'greetings': 'hello'}, alpha.name)
+    looper.runFor(1.5)
 
 
 def testUnrestricted2ZStackCommunication(tdirAndLooper):
@@ -88,4 +91,7 @@ def testUnrestricted2ZStackCommunication(tdirAndLooper):
     looper.runFor(1)
     alpha.connect(beta.name, beta.ha, beta.verKey, beta.publicKey)
     beta.connect(alpha.name, alpha.ha, alpha.verKey, alpha.publicKey)
-    looper.runFor(3)
+    looper.runFor(1.5)
+    alpha.send({'greetings': 'hi'}, beta.name)
+    beta.send({'greetings': 'hello'}, alpha.name)
+    looper.runFor(1.5)
