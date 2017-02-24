@@ -38,7 +38,13 @@ Messenger.RedoTimeoutMin = 1.0
 Messenger.RedoTimeoutMax = 10.0
 
 
-class Stack(RoadStack):
+class NetworkInterface():
+
+
+class ZStack(NetworkInterface): pass
+
+
+class Stack(NetworkInterface, RoadStack):
     def __init__(self, *args, **kwargs):
         checkPortAvailable(kwargs['ha'])
         basedirpath = kwargs.get('basedirpath')
