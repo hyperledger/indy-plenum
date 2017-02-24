@@ -69,6 +69,9 @@ class ZStack(NetworkInterface):
         self.verifKeyDir = None
         self.sigKeyDir = None
 
+        self.signer = None
+        self.verifiers = {}
+
         self.setupDirs()
         self.setupSigning()
 
@@ -83,9 +86,6 @@ class ZStack(NetworkInterface):
         self.remotes = {}  # type: Dict[str, Remote]
 
         self.remotesByKeys = {}
-
-        self.signer = None
-        self.verifiers = {}
 
     def setupDirs(self):
         self.homeDir = os.path.join(self.basedirpath, self.name)
@@ -301,7 +301,9 @@ class ZStack(NetworkInterface):
         keys = []
         for key_file in os.listdir(self.verifKeyDir):
             if key_file.endswith(".key"):
-                serverPublic, _ = zmq.auth.load_certificate(key_file)
+                serverVerifFile = os.path.join(self.verifKeyDir,
+                                               key_file)
+                serverPublic, _ = zmq.auth.load_certificate(serverVerifFile)
                 keys.append(serverPublic)
         return keys
 

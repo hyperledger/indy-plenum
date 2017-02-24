@@ -48,6 +48,7 @@ def testRestricted2ZStackCommunication(tdirAndLooper):
     looper.add(aMotor)
     looper.add(bMotor)
     looper.runFor(3)
+    looper.shutdownSync()
 
 
 def testUnrestricted2ZStackCommunication():
