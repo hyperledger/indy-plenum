@@ -18,13 +18,14 @@ logger = getlogger()
 
 
 class Remote:
-    def __init__(self, name, ha, publicKey, *args, **kwargs):
+    def __init__(self, name, ha, verKey, publicKey, *args, **kwargs):
         # Every remote has a unique name per stack, the name can be the
         # public key of the other end
         self.name = name
         self.ha = ha
         # self.publicKey is the public key of the other end of the remote
         self.publicKey = publicKey
+        self.verKey = verKey
         self.socket = None
         self.isConnected = False
         # Currently keeping uid field to resemble RAET RemoteEstate
@@ -39,6 +40,13 @@ class Remote:
         sock.identity = localPubKey
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
+        try:
+            sock.send(ZStack.pingMessage, flags=zmq.NOBLOCK)
+            logger.debug('Pinged {} at {}'.format(self.name, self.ha))
+        except zmq.Again:
+            logger.warn('Failed to ping {} at {}'.format(self.name, self.ha))
+            pass
+
         self.socket = sock
 
     def disconnect(self):
@@ -55,7 +63,7 @@ class ZStack(NetworkInterface):
 
     __sigKey__ = '__sig__'
     sigLen = 64
-    pingMessage = '\n'
+    pingMessage = b'\n'
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True):
         self.name = name
@@ -116,7 +124,7 @@ class ZStack(NetworkInterface):
         # verification keys stored at disk, add Verifier
         _, sk = self.selfSigKeys
         self.signer = Signer(z85.decode(sk))
-        for vk in self.getAllVerifKeys():
+        for vk in self.getAllVerKeys():
             self.addVerifier(z85.decode(vk))
 
     def addVerifier(self, verkey):
@@ -243,19 +251,16 @@ class ZStack(NetworkInterface):
             logger.debug("{} is stopped".format(self))
             return 0
 
-    def connect(self, name, ha=None, publicKey=None):
+    def connect(self, name, ha=None, verKey=None, publicKey=None):
         """
         Connect to the node specified by name.
         """
-        # if not self.isKeySharing:
-        #     logger.debug("{} skipping join with {} because not key sharing".
-        #                   format(self, name))
-        #     return None
+
         if name not in self.remotes:
-            if not (ha and publicKey):
-                raise ValueError('{} doesnt know {}. Pass ha and public key'.
-                                 format(ha, publicKey))
-            remote = self.addRemote(name, ha, publicKey)
+            if not (ha and publicKey and verKey):
+                raise ValueError('{} doesnt know {}. Pass ha, public key '
+                                 'and verkey'.format(ha, publicKey))
+            remote = self.addRemote(name, ha, verKey, publicKey)
         else:
             remote = self.remotes[name]
 
@@ -267,8 +272,8 @@ class ZStack(NetworkInterface):
                     extra={"cli": "PLAIN"})
         return remote.uid
 
-    def addRemote(self, name, ha, remotePublicKey):
-        remote = Remote(name, ha, remotePublicKey)
+    def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
+        remote = Remote(name, ha, remoteVerkey, remotePublicKey)
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
@@ -285,19 +290,27 @@ class ZStack(NetworkInterface):
         r = self.verifiers[by].verify(msg[-self.sigLen:], msg[:-self.sigLen])
         return r
 
+    @property
+    def publicKey(self):
+        return self.getPublicKey(self.name)
+
     def getPublicKey(self, name):
         serverPublicFile = os.path.join(self.publicKeysDir,
                                         "{}.key".format(name))
-        serverPublic, _ = zmq.auth.load_certificate(serverPublicFile)
-        return serverPublic
+        publicKey, _ = zmq.auth.load_certificate(serverPublicFile)
+        return publicKey
 
-    def getVerifKey(self, name):
+    @property
+    def verKey(self):
+        return self.getVerKey(self.name)
+
+    def getVerKey(self, name):
         serverVerifFile = os.path.join(self.verifKeyDir,
                                        "{}.key".format(name))
         verkey, _ = zmq.auth.load_certificate(serverVerifFile)
         return verkey
 
-    def getAllVerifKeys(self):
+    def getAllVerKeys(self):
         keys = []
         for key_file in os.listdir(self.verifKeyDir):
             if key_file.endswith(".key"):
