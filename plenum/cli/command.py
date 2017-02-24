@@ -29,7 +29,7 @@ class Command:
 helpCmd = Command(
     id="help",
     title="Shows this or specific help message for given command",
-    usage=" [<command name>]",
+    usage="help [<command name>]",
     examples=["help", "help list ids"])
 
 statusCmd = Command(

@@ -598,7 +598,6 @@ class Cli:
             self.print(record.msg, Token)
 
     def cmdHandlerToCmdMappings(self):
-
         # The 'key' of 'mappings' dictionary is action handler function name
         # without leading underscore sign. Each such funcation name should be
         # mapped here, its other thing that if you don't want to display it
@@ -608,27 +607,32 @@ class Cli:
 
         mappings = OrderedDict()
         mappings['helpAction'] = helpCmd
-        mappings['licenseAction'] = licenseCmd
         mappings['statusAction'] = statusCmd
-        mappings['newNodeAction'] = newNodeCmd
-        mappings['newClientAction'] = newClientCmd
-        mappings['statusNodeAction'] = statusNodeCmd
-        mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
+        mappings['changePrompt'] = changePromptCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
-        mappings['clientSendMsgCommand'] = clientSendCmd
-        mappings['clientShowMsgCommand'] = clientShowCmd
-        mappings['newKeyAction'] = newKeyCmd
+
         mappings['newKeyring'] = newKeyringCmd
         mappings['renameKeyring'] = renameKeyringCmd
         mappings['useKeyringAction'] = useKeyringCmd
         mappings['saveKeyringAction'] = saveKeyringCmd
         mappings['listKeyringsAction'] = listKeyringCmd
-        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newKeyAction'] = newKeyCmd
         mappings['useIdentifierAction'] = useIdCmd
+        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        mappings['keyShareAction'] = keyShareCmd
+        mappings['clientSendMsgCommand'] = clientSendCmd
+        mappings['clientShowMsgCommand'] = clientShowCmd
+
         mappings['addGenesisAction'] = addGenesisTxnCmd
         mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
-        mappings['changePrompt'] = changePromptCmd
+
+        mappings['licenseAction'] = licenseCmd
         mappings['quitAction'] = quitCmd
         mappings['exitAction'] = exitCmd
 
@@ -645,41 +649,28 @@ class Cli:
 
         return mappings
 
-    def getBasicHelpCmdKeys(self):
-        return ["helpAction", "listAction", "licenseAction",
-         "statusAction", "exitAction"]
+    def getTopComdMappingKeysForHelp(self):
+        return ['helpAction', 'statusAction']
 
-    def getBasicHelpCmds(self):
-        basicMsgKeys = self.getBasicHelpCmdKeys()
-        basicMsgs = []
-        for bmk in basicMsgKeys:
-            helpMsg = self.cmdHandlerToCmdMappings().get(bmk)
-            if helpMsg:
-                basicMsgs.append(helpMsg)
-        return basicMsgs
+    def getComdMappingKeysToNotShowInHelp(self):
+        return ['quitAction']
+
+    def getBottomComdMappingKeysForHelp(self):
+        return ['licenseAction', 'exitAction']
 
     def getDefaultOrderedCmds(self):
-        topCmdKeys = ['helpAction', 'listAction',
-                           'statusAction', 'licenseAction']
-        removeCmdKeys = ['quitAction']
-        bottomCmdsKeys = ['exitAction']
+        topCmdKeys = self.getTopComdMappingKeysForHelp()
+        removeCmdKeys = self.getComdMappingKeysToNotShowInHelp()
+        bottomCmdsKeys = self.getBottomComdMappingKeysForHelp()
 
-        topCmds = []
-        middleCmds = []
-        bottomCmds = []
+        topCmds = [self.cmdHandlerToCmdMappings().get(k) for k in topCmdKeys]
+        bottomCmds = [self.cmdHandlerToCmdMappings().get(k) for k in bottomCmdsKeys]
+        middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
+                      if k not in topCmdKeys
+                      and k not in bottomCmdsKeys
+                      and k not in removeCmdKeys]
 
-        for k, cmd in self.cmdHandlerToCmdMappings().items():
-            if cmd:
-                if k in removeCmdKeys:
-                    continue
-                elif k in topCmdKeys:
-                    topCmds.append(cmd)
-                elif k in bottomCmdsKeys:
-                    bottomCmds.append(cmd)
-                else:
-                    middleCmds.append(cmd)
-
-        return topCmds + middleCmds + bottomCmds
+        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -707,11 +698,12 @@ class Cli:
         self.print("\n{}\n".format(helpMsgStr))
 
     def getHelpCmdIdsToShowUsage(self):
-        return ["help", "list"]
+        return ["help"]
 
     def printHelp(self):
         self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
-                                     sort=False, printHeader=True)
+                                     sort=False, printHeader=True,
+                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
