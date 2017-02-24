@@ -129,3 +129,16 @@ def testUnrestricted2ZStackCommunication(tdirAndLooper):
 
     looper.run(eventually(chkPrinted, alphaP, {'greetings': 'hello'}))
     looper.run(eventually(chkPrinted, betaP, {'greetings': 'hi'}))
+
+"""
+TODO:
+* Create ZKitStack, which should maintain a registry and method to check for any
+disconnections and do reconnections if found.
+* Need a way to run current tests against both stack types, or at least a way to
+set a fixture parameter to do so.
+* ZNodeStack
+* ZClientStack
+* test_node_connection needs to work with ZMQ
+* test/pool_transactions package
+
+"""

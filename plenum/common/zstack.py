@@ -7,6 +7,7 @@ import zmq
 import zmq.asyncio
 import zmq.auth
 from raet.nacling import Signer, Verifier
+from zmq.asyncio import Context
 from zmq.utils import z85
 
 from plenum.common.authenticator import AsyncioAuthenticator
@@ -88,7 +89,7 @@ class ZStack(NetworkInterface):
         self.poller = zmq.asyncio.Poller()
         self.restricted = restricted
 
-        self.ctx = None
+        self.ctx = None  # type: Context
         self.listener = None
         self.auth = None
 

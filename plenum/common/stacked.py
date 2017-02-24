@@ -274,6 +274,7 @@ class SimpleStack(Stack):
     def isKeySharing(self):
         return self.keep.auto != AutoMode.never
 
+    # A LOT OF THIS CODE IS MOVED TO NetworkInterface
     # @property
     # def conns(self) -> Set[str]:
     #     """

@@ -1,9 +1,7 @@
 from abc import abstractmethod
 from typing import Set, Tuple, Any, Union, Dict
 
-import zmq
 from raet.nacling import Signer
-from raet.road.estating import RemoteEstate
 
 from plenum.common.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
