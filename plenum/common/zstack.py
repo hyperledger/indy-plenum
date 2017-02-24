@@ -37,17 +37,19 @@ class Remote:
     def connect(self, context, localPubKey, localSecKey, typ=None):
         typ = typ or zmq.DEALER
         sock = context.socket(typ)
+        sock.setsockopt(zmq.LINGER, LINGER_TIME)
         sock.curve_publickey = localPubKey
         sock.curve_secretkey = localSecKey
         sock.curve_serverkey = self.publicKey
         sock.identity = localPubKey
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
-        sock.setsockopt(zmq.LINGER, LINGER_TIME)
         self.socket = sock
 
     def disconnect(self):
         self.socket.close()
+        self.socket = None
+        self.isConnected = False
 
     def __repr__(self):
         return '{}:{}'.format(self.name, self.ha)
@@ -148,7 +150,7 @@ class ZStack(NetworkInterface):
             self.close()
         # TODO: Uncommenting this stops hangs the code, setting LINGER_TIME
         # does not help. Find a solution
-        self.ctx.term()
+        # self.ctx.term()
         logger.info("stack {} stopped".format(self.name), extra={"cli": False})
 
     def removeRemote(self, remote: Remote, clear=True):
@@ -180,8 +182,9 @@ class ZStack(NetworkInterface):
 
     def close(self):
         self.listener.close()
+        self.listener = None
         for r in self.remotes.values():
-            r.socket.close()
+            r.disconnect()
 
     @property
     def selfEncKeys(self):
@@ -195,10 +198,11 @@ class ZStack(NetworkInterface):
                                         "{}.key_secret".format(self.name))
         return zmq.auth.load_certificate(serverSecretFile)
 
-    # Change name after removing raet
     @property
     def isKeySharing(self):
-        restricted = not self.auth.allow_any if self.auth is not None else self.restricted
+        # Change name after removing raet
+        restricted = not self.auth.allow_any if self.auth is not None \
+            else self.restricted
         return not restricted
 
     @staticmethod
