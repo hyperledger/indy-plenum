@@ -17,7 +17,7 @@ def createCertsFromKeys(key_dir, name, public_key, secret_key=None,
     secret_key_file = "{}.{}".format(base_filename, sSuffix)
     public_key_file = "{}.{}".format(base_filename, pSuffix)
     now = datetime.datetime.now()
-
+    print('{} writing {} {} in {}'.format(name, public_key, secret_key, key_dir))
     _write_key_file(public_key_file,
                     _cert_public_banner.format(now),
                     public_key)

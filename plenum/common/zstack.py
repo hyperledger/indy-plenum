@@ -1,5 +1,5 @@
 import json
-from typing import Dict
+from typing import Dict, Mapping
 import os
 import sys
 
@@ -25,6 +25,7 @@ class Remote:
         self.ha = ha
         # self.publicKey is the public key of the other end of the remote
         self.publicKey = publicKey
+        # self.verKey is the verification key of the other end of the remote
         self.verKey = verKey
         self.socket = None
         self.isConnected = False
@@ -40,17 +41,13 @@ class Remote:
         sock.identity = localPubKey
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
-        try:
-            sock.send(ZStack.pingMessage, flags=zmq.NOBLOCK)
-            logger.debug('Pinged {} at {}'.format(self.name, self.ha))
-        except zmq.Again:
-            logger.warn('Failed to ping {} at {}'.format(self.name, self.ha))
-            pass
-
         self.socket = sock
 
     def disconnect(self):
         self.socket.close()
+
+    def __repr__(self):
+        return '{}:{}'.format(self.name, self.ha)
 
 
 class ZStack(NetworkInterface):
@@ -95,6 +92,13 @@ class ZStack(NetworkInterface):
 
         self.remotesByKeys = {}
 
+    @staticmethod
+    def keyDirNames():
+        return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, ZStack.VerifKeyDirName, ZStack.SigKeyDirName
+
+    def __repr__(self):
+        return self.name
+
     def setupDirs(self):
         self.homeDir = os.path.join(self.basedirpath, self.name)
         self.publicKeysDir = os.path.join(self.homeDir,
@@ -125,10 +129,10 @@ class ZStack(NetworkInterface):
         _, sk = self.selfSigKeys
         self.signer = Signer(z85.decode(sk))
         for vk in self.getAllVerKeys():
-            self.addVerifier(z85.decode(vk))
+            self.addVerifier(vk)
 
     def addVerifier(self, verkey):
-        self.verifiers[verkey] = Verifier(verkey)
+        self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
     def start(self, restricted=None):
         self.ctx = zmq.asyncio.Context.instance()
@@ -147,8 +151,10 @@ class ZStack(NetworkInterface):
         Currently not using clear
         """
         name = remote.name
+        key = remote.publicKey
         if name in self.remotes:
             self.remotes.pop(name)
+            self.remotesByKeys.pop(key)
         else:
             logger.warn('No remote named {} present')
 
@@ -181,23 +187,7 @@ class ZStack(NetworkInterface):
                                         "{}.key_secret".format(self.name))
         return zmq.auth.load_certificate(serverSecretFile)
 
-    def send(self, msg, remote: str=None):
-        if remote is None:
-            for uid in self.remotes:
-                self.transmit(msg, uid)
-        else:
-            self.transmit(msg, remote)
-
-    def transmit(self, msg, uid, timeout=None):
-        # Timeout is unused as of now
-        assert uid in self.remotes
-        socket = self.remotes[uid].socket
-        try:
-            socket.send(self.signedMsg(json.dumps(msg).encode()),
-                        flags=zmq.NOBLOCK)
-        except zmq.Again:
-            pass
-
+    # Change name after removing raet
     @property
     def isKeySharing(self):
         restricted = not self.auth.allow_any if self.auth is not None else self.restricted
@@ -227,15 +217,14 @@ class ZStack(NetworkInterface):
                 try:
                     ident, msg = await self.listener.recv_multipart(
                         flags=zmq.NOBLOCK)
-                    ident = ident.decode()
                     if self.verify(msg, ident):
-                        msg = msg[:-self.sigLen].decode()
+                        msg = msg[:-self.sigLen]
                         if ident in self.remotesByKeys:
                             self.remotesByKeys[ident].isConnected = True
                         if msg == self.pingMessage:
                             continue
                         try:
-                            msg = json.loads(msg)
+                            msg = json.loads(msg.decode())
                         except Exception as e:
                             logger.error('Error while converting message {} '
                                          'to JSON from {}'.format(msg, ident))
@@ -270,6 +259,12 @@ class ZStack(NetworkInterface):
         logger.info("{} looking for {} at {}:{}".
                     format(self, name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN"})
+
+        r = self.send(self.pingMessage, remote.name)
+        if r:
+            logger.debug('Pinged {} at {}'.format(self.name, self.ha))
+        else:
+            logger.warn('Failed to ping {} at {}'.format(self.name, self.ha))
         return remote.uid
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
@@ -279,6 +274,31 @@ class ZStack(NetworkInterface):
         self.remotesByKeys[remotePublicKey] = remote
         return remote
 
+    def send(self, msg, remote: str = None):
+        if remote is None:
+            r = []
+            for uid in self.remotes:
+                r.append(self.transmit(msg, uid))
+                return all(r)
+        else:
+            return self.transmit(msg, remote)
+
+    def transmit(self, msg, uid, timeout=None):
+        # Timeout is unused as of now
+        assert uid in self.remotes
+        socket = self.remotes[uid].socket
+        if isinstance(msg, Mapping):
+            msg = json.dumps(msg)
+        if isinstance(msg, str):
+            msg = msg.encode()
+        assert isinstance(msg, bytes)
+
+        try:
+            socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
+            return True
+        except zmq.Again:
+            return False
+
     def signedMsg(self, msg: bytes, signer: Signer=None):
         # Signing even if keysharing is ON since the other part
         sig = self.signer.signature(msg)
@@ -287,7 +307,10 @@ class ZStack(NetworkInterface):
     def verify(self, msg, by):
         if self.isKeySharing:
             return True
-        r = self.verifiers[by].verify(msg[-self.sigLen:], msg[:-self.sigLen])
+        if by not in self.remotesByKeys:
+            return False
+        verKey = self.remotesByKeys[by].verKey
+        r = self.verifiers[verKey].verify(msg[-self.sigLen:], msg[:-self.sigLen])
         return r
 
     @property
