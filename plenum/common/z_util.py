@@ -35,7 +35,7 @@ def createEncAndSigKeys(enc_key_dir, sig_key_dir, name, seed=None):
     seed = seed or randomSeed()
     verif_key, sig_key = crypto_sign_seed_keypair(seed)
     createCertsFromKeys(sig_key_dir, name, z85.encode(verif_key),
-                        z85.encode(sig_key))
+                        z85.encode(sig_key[:32]))
     public_key, secret_key = ep2c(verif_key), es2c(sig_key)
     createCertsFromKeys(enc_key_dir, name, z85.encode(public_key),
                         z85.encode(secret_key))

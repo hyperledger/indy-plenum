@@ -7,6 +7,7 @@ import zmq
 import zmq.asyncio
 import zmq.auth
 from raet.nacling import Signer, Verifier
+from zmq.utils import z85
 
 from plenum.common.authenticator import AsyncioAuthenticator
 from plenum.common.log import getlogger
@@ -61,14 +62,15 @@ class ZStack(NetworkInterface):
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
-
+        self.homeDir = None
         # As of now there would be only one file in secretKeysDir and sigKeyDir
         self.publicKeysDir = None
         self.secretKeysDir = None
         self.verifKeyDir = None
         self.sigKeyDir = None
 
-        self.setupKeyDirs()
+        self.setupDirs()
+        self.setupSigning()
 
         self.poller = zmq.asyncio.Poller()
         self.restricted = restricted
@@ -79,23 +81,25 @@ class ZStack(NetworkInterface):
 
         # Each remote is identified uniquely by the name
         self.remotes = {}  # type: Dict[str, Remote]
+
         self.remotesByKeys = {}
 
         self.signer = None
         self.verifiers = {}
 
-    def setupKeyDirs(self):
-        self.publicKeysDir = os.path.join(self.basedirpath, self.name,
+    def setupDirs(self):
+        self.homeDir = os.path.join(self.basedirpath, self.name)
+        self.publicKeysDir = os.path.join(self.homeDir,
                                           self.PublicKeyDirName)
-        self.secretKeysDir = os.path.join(self.basedirpath, self.name,
+        self.secretKeysDir = os.path.join(self.homeDir,
                                           self.PrivateKeyDirName)
-        self.verifKeyDir = os.path.join(self.basedirpath, self.name,
-                                          self.VerifKeyDirName)
-        self.sigKeyDir = os.path.join(self.basedirpath, self.name,
-                                          self.SigKeyDirName)
+        self.verifKeyDir = os.path.join(self.homeDir,
+                                        self.VerifKeyDirName)
+        self.sigKeyDir = os.path.join(self.homeDir,
+                                      self.SigKeyDirName)
 
-        for d in (self.publicKeysDir, self.secretKeysDir, self.verifKeyDir,
-                  self.sigKeyDir):
+        for d in (self.homeDir, self.publicKeysDir, self.secretKeysDir,
+                  self.verifKeyDir, self.sigKeyDir):
             os.makedirs(d, exist_ok=True)
 
     def setupAuth(self, restricted=True, force=False):
@@ -108,10 +112,15 @@ class ZStack(NetworkInterface):
         self.auth.configure_curve(domain='*', location=location)
 
     def setupSigning(self):
-        pass
+        # Setup its signer from the signing key stored at disk and for all
+        # verification keys stored at disk, add Verifier
+        _, sk = self.selfSigKeys
+        self.signer = Signer(z85.decode(sk))
+        for vk in self.getAllVerifKeys():
+            self.addVerifier(z85.decode(vk))
 
-    def addVerifier(self):
-        pass
+    def addVerifier(self, verkey):
+        self.verifiers[verkey] = Verifier(verkey)
 
     def start(self, restricted=None):
         self.ctx = zmq.asyncio.Context.instance()
@@ -208,7 +217,8 @@ class ZStack(NetworkInterface):
             x = 0
             for x in range(pracLimit):
                 try:
-                    ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
+                    ident, msg = await self.listener.recv_multipart(
+                        flags=zmq.NOBLOCK)
                     ident = ident.decode()
                     if self.verify(msg, ident):
                         msg = msg[:-self.sigLen].decode()
@@ -264,7 +274,7 @@ class ZStack(NetworkInterface):
         self.remotesByKeys[remotePublicKey] = remote
         return remote
 
-    def signedMsg(self, msg: Dict, signer: Signer=None):
+    def signedMsg(self, msg: bytes, signer: Signer=None):
         # Signing even if keysharing is ON since the other part
         sig = self.signer.signature(msg)
         return msg + sig
@@ -274,6 +284,26 @@ class ZStack(NetworkInterface):
             return True
         r = self.verifiers[by].verify(msg[-self.sigLen:], msg[:-self.sigLen])
         return r
+
+    def getPublicKey(self, name):
+        serverPublicFile = os.path.join(self.publicKeysDir,
+                                        "{}.key".format(name))
+        serverPublic, _ = zmq.auth.load_certificate(serverPublicFile)
+        return serverPublic
+
+    def getVerifKey(self, name):
+        serverVerifFile = os.path.join(self.verifKeyDir,
+                                       "{}.key".format(name))
+        verkey, _ = zmq.auth.load_certificate(serverVerifFile)
+        return verkey
+
+    def getAllVerifKeys(self):
+        keys = []
+        for key_file in os.listdir(self.verifKeyDir):
+            if key_file.endswith(".key"):
+                serverPublic, _ = zmq.auth.load_certificate(key_file)
+                keys.append(serverPublic)
+        return keys
 
     # def addListener(self, ha):
     #     pass
