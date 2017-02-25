@@ -58,6 +58,7 @@ from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
 from plenum.common.txn import DATA, ALIAS, NODE_IP
+from plenum.common.zstack import ZStack
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -109,7 +110,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str]=None,
                  storage: Storage=None,
-                 config=None):
+                 config=None,
+                 seed=None):
 
         """
         Create a new node.
@@ -151,15 +153,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.nodeReg = self.poolManager.nodeReg
 
+        kwargs = dict(stackParams=self.poolManager.nstack,
+                      msgHandler=self.handleOneNodeMsg, registry=self.nodeReg)
+        cls = self.nodeStackClass
+        if issubclass(cls, ZStack):
+            kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
-        self.nodestack = self.nodeStackClass(self.poolManager.nstack,
-                                             self.handleOneNodeMsg,
-                                             self.nodeReg)
+        self.nodestack = cls(**kwargs)
+        # self.nodestack = self.nodeStackClass(self.poolManager.nstack,
+        #                                      self.handleOneNodeMsg,
+        #                                      self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
+        kwargs = dict(stackParams=self.poolManager.cstack,
+                      msgHandler=self.handleOneClientMsg)
+        cls = self.clientStackClass
+        if issubclass(cls, ZStack):
+            kwargs.update(seed=seed)
+
         # noinspection PyCallingNonCallable
-        self.clientstack = self.clientStackClass(self.poolManager.cstack,
-                                                 self.handleOneClientMsg)
+        self.clientstack = cls(**kwargs)
+        # self.clientstack = self.clientStackClass(self.poolManager.cstack,
+        #                                          self.handleOneClientMsg)
 
         self.cliNodeReg = self.poolManager.cliNodeReg
 

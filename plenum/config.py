@@ -146,3 +146,5 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
+
+UseZStack = True

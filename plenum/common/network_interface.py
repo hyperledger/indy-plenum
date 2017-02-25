@@ -178,6 +178,10 @@ class NetworkInterface:
         :raises: ValueError if msg cannot be converted to an appropriate format
             for transmission
         """
+
+        # TODO: Remove them once RAET is removed
+        from plenum.common.zstack import ZStack
+
         if isinstance(msg, TaggedTupleBase):
             tmsg = msg.melted()
         elif isinstance(msg, Request):
@@ -187,8 +191,13 @@ class NetworkInterface:
         elif hasattr(msg, "__dict__"):
             tmsg = dict(msg.__dict__)
         else:
-            raise ValueError("Message cannot be converted to an appropriate "
-                             "format for transmission")
+            # TODO: Remove them once RAET is removed
+            if not isinstance(self, ZStack):
+                raise ValueError("Message cannot be converted to an appropriate "
+                                 "format for transmission")
+            else:
+                tmsg = msg
+
         if signer:
             return self.sign(tmsg, signer)
         return tmsg

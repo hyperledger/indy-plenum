@@ -1,3 +1,4 @@
+import inspect
 import json
 import shutil
 from typing import Dict, Mapping, Callable, Any, List
@@ -84,6 +85,9 @@ class ZStack(NetworkInterface):
     sigLen = 64
     pingMessage = b'\n'
 
+    # TODO: This is not implemented, implement this
+    messageTimeout = 3
+
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
                  seed=None, *args, **kwargs):
         # TODO, remove *args, **kwargs after removing raet
@@ -104,7 +108,7 @@ class ZStack(NetworkInterface):
         self.verifiers = {}
 
         self.setupDirs()
-        self.setupKeysIfNeeded()
+        self.setupOwnKeysIfNeeded()
         self.setupSigning()
 
         self.poller = zmq.asyncio.Poller()
@@ -129,22 +133,38 @@ class ZStack(NetworkInterface):
     def __repr__(self):
         return self.name
 
+    @staticmethod
+    def homeDirPath(baseDirPath, name):
+        return os.path.join(baseDirPath, name)
+
+    @staticmethod
+    def publicDirPath(homeDirPath):
+        return os.path.join(homeDirPath, ZStack.PublicKeyDirName)
+
+    @staticmethod
+    def secretDirPath(homeDirPath):
+        return os.path.join(homeDirPath, ZStack.PrivateKeyDirName)
+
+    @staticmethod
+    def verifDirPath(homeDirPath):
+        return os.path.join(homeDirPath, ZStack.VerifKeyDirName)
+
+    @staticmethod
+    def sigDirPath(homeDirPath):
+        return os.path.join(homeDirPath, ZStack.SigKeyDirName)
+
     def setupDirs(self):
-        self.homeDir = os.path.join(self.basedirpath, self.name)
-        self.publicKeysDir = os.path.join(self.homeDir,
-                                          self.PublicKeyDirName)
-        self.secretKeysDir = os.path.join(self.homeDir,
-                                          self.PrivateKeyDirName)
-        self.verifKeyDir = os.path.join(self.homeDir,
-                                        self.VerifKeyDirName)
-        self.sigKeyDir = os.path.join(self.homeDir,
-                                      self.SigKeyDirName)
+        self.homeDir = self.homeDirPath(self.basedirpath, self.name)
+        self.publicKeysDir = self.publicDirPath(self.homeDir)
+        self.secretKeysDir = self.secretDirPath(self.homeDir)
+        self.verifKeyDir = self.verifDirPath(self.homeDir)
+        self.sigKeyDir = self.sigDirPath(self.homeDir)
 
         for d in (self.homeDir, self.publicKeysDir, self.secretKeysDir,
                   self.verifKeyDir, self.sigKeyDir):
             os.makedirs(d, exist_ok=True)
 
-    def setupKeysIfNeeded(self):
+    def setupOwnKeysIfNeeded(self):
         if not os.listdir(self.sigKeyDir):
             # If signing keys are not present, secret (private keys) should
             # not be present since they should be converted keys.
@@ -185,10 +205,10 @@ class ZStack(NetworkInterface):
     def addVerifier(self, verkey):
         self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
-    def start(self, restricted=None):
+    def start(self, restricted=None, reSetupAuth=False):
         self.ctx = zmq.asyncio.Context.instance()
         restricted = self.restricted if restricted is None else restricted
-        self.setupAuth(restricted)
+        self.setupAuth(restricted, force=reSetupAuth)
         self.open()
 
     def stop(self):
@@ -233,11 +253,14 @@ class ZStack(NetworkInterface):
         return zmq.auth.load_certificate(serverSecretFile)
 
     @property
+    def isRestricted(self):
+        return not self.auth.allow_any if self.auth is not None \
+            else self.restricted
+
+    @property
     def isKeySharing(self):
         # Change name after removing raet
-        restricted = not self.auth.allow_any if self.auth is not None \
-            else self.restricted
-        return not restricted
+        return not self.isRestricted
 
     @staticmethod
     def isRemoteConnected(r: Remote) -> bool:
@@ -275,7 +298,9 @@ class ZStack(NetworkInterface):
                             logger.error('Error while converting message {} '
                                          'to JSON from {}'.format(msg, ident))
                             continue
-                        self.msgHandler((msg, ident))
+                        frm = self.remotesByKeys[ident].name if ident in \
+                                                self.remotesByKeys else ident
+                        self.msgHandler((msg, frm))
                     else:
                         logger.error('Error while verifying message {} from {}'
                                      .format(msg, ident))
@@ -321,9 +346,11 @@ class ZStack(NetworkInterface):
 
         r = self.send(self.pingMessage, remote.name)
         if r:
-            logger.debug('Pinged {} at {}'.format(self.name, self.ha))
+            logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
+                                                     self.ha))
         else:
-            logger.warn('Failed to ping {} at {}'.format(self.name, self.ha))
+            logger.warn('{} failed to ping {} at {}'.
+                        format(self.name, remote.name, remote.ha))
         return remote.uid
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
@@ -346,6 +373,7 @@ class ZStack(NetworkInterface):
             logger.warn('No remote named {} present')
 
     def send(self, msg, remote: str = None):
+        # TODO: A ClientZStack wont create remotes for client, handle that
         if remote is None:
             r = []
             for uid in self.remotes:
@@ -418,6 +446,32 @@ class ZStack(NetworkInterface):
                 keys.append(serverPublic)
         return keys
 
+    def setRestricted(self, restricted: bool):
+        if self.isRestricted != restricted:
+            self.stop()
+
+            # TODO: REMOVE, it will make code slow, only doing to allow the
+            # socket to become available again
+            time.sleep(1)
+
+            self.start(restricted, reSetupAuth=True)
+
+    # TODO: Members below are just for the time till RAET replacement is
+    # complete, they need to be removed then.
+    @property
+    def nameRemotes(self):
+        logger.info('{} proxy method used on {}'.
+                    format(inspect.stack()[0][3], self))
+        return self.remotes
+
+    @property
+    def keep(self):
+        logger.info('{} proxy method used on {}'.
+                    format(inspect.stack()[0][3], self))
+        if not hasattr(self, '_keep'):
+            self._keep = DummyKeep(self)
+        return self._keep
+
     # def addListener(self, ha):
     #     pass
     #
@@ -426,8 +480,30 @@ class ZStack(NetworkInterface):
     #     pass
 
 
+class DummyKeep:
+    def __init__(self, stack, *args, **kwargs):
+        self.stack = stack
+        self._auto = 2 if stack.isKeySharing else 0
+
+    @property
+    def auto(self):
+        logger.info('{} proxy method used on {}'.
+                    format(inspect.stack()[0][3], self))
+        return self._auto
+
+    @auto.setter
+    def auto(self, mode):
+        # AutoMode.once whose value is 1 is not used os dont care
+        if mode != self._auto:
+            if mode == 2:
+                self.stack.setRestricted(False)
+            if mode == 0:
+                self.stack.setRestricted(True)
+
+
 class SimpleZStack(ZStack):
-    def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
+    def __init__(self, stackParams: Dict, msgHandler: Callable, seed=None,
+                 sighex: str=None):
         # TODO: sighex is unused as of now, remove once raet is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
 
@@ -445,14 +521,14 @@ class SimpleZStack(ZStack):
         restricted = True if auto == 0 else False
 
         super().__init__(name, ha, basedirpath, msgHandler=self.msgHandler,
-                         restricted=restricted)
+                         restricted=restricted, seed=seed)
 
 
 class KITZStack(SimpleZStack):
     # Stack which maintains connections mentioned in its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA], sighex: str = None):
-        super().__init__(stackParams, msgHandler, sighex)
+                 registry: Dict[str, HA], seed=None, sighex: str = None):
+        super().__init__(stackParams, msgHandler, seed=seed, sighex=sighex)
         self.registry = registry
 
         self.ratchet = Ratchet(a=8, b=0.198, c=-4, base=8, peak=3600)
@@ -487,7 +563,11 @@ class KITZStack(SimpleZStack):
                          format(self, ", ".join(missing)))
 
             for name in missing:
-                self.connect(name, ha=self.registry[name])
+                try:
+                    self.connect(name, ha=self.registry[name])
+                except ValueError as ex:
+                    logger.error('{} cannot connect to {} due to {}'.
+                                 format(self, name, ex))
 
     def reconcileNodeReg(self):
         matches = set()
@@ -498,7 +578,7 @@ class KITZStack(SimpleZStack):
                     logger.debug("{} matched remote is {} {}".
                                  format(self, r.uid, r.ha))
 
-        return set(self.registry.keys()) - matches
+        return set(self.registry.keys()) - matches - {self.name,}
 
     async def service(self, limit=None):
         self.checkConns()
@@ -507,8 +587,8 @@ class KITZStack(SimpleZStack):
 
 
 class ClientZStack(SimpleZStack):
-    def __init__(self, stackParams: dict, msgHandler: Callable):
-        SimpleZStack.__init__(self, stackParams, msgHandler)
+    def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
+        SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed)
         self.connectedClients = set()
 
     def serviceClientStack(self):
@@ -546,12 +626,25 @@ class ClientZStack(SimpleZStack):
 
 class NodeZStack(Batched, KITZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA], sighex: str=None):
+                 registry: Dict[str, HA], seed=None, sighex: str=None):
         Batched.__init__(self)
-        KITZStack.__init__(self, stackParams, msgHandler, registry, sighex)
+        KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
+                           seed=seed, sighex=sighex)
 
-    def start(self, restricted=None):
-        KITZStack.start(self, restricted=restricted)
+    def start(self, restricted=None, reSetupAuth=False):
+        KITZStack.start(self, restricted=restricted, reSetupAuth=reSetupAuth)
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
                     extra={"cli": "LOW_STATUS"})
+
+    # TODO: Members below are just for the time till RAET replacement is
+    # complete, they need to be removed then.
+    async def serviceLifecycle(self) -> None:
+        """
+        Async function that does the following activities if the node is going:
+        (See `Status.going`)
+
+        - check connections (See `checkConns`)
+        - maintain connections (See `maintainConnections`)
+        """
+        pass

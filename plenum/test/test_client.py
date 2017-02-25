@@ -9,6 +9,7 @@ from plenum.common.txn import REQACK, REQNACK, REPLY
 from plenum.common.types import Identifier, HA, OP_FIELD_NAME, f
 from plenum.common.util import bootstrapClientKeys
 from plenum.common.error import error
+from plenum.common.zstack import NodeZStack
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import Spyable
 
@@ -18,9 +19,15 @@ logger = getlogger()
 
 @Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
 class TestClient(Client, StackedTester):
+    def __init__(self, *args, **kwargs):
+        # TODO: Remove them once RAET is removed
+        from plenum.test.conftest import UseZStack
+        self.NodeStackClass = NodeZStack if UseZStack else NodeStack
+        super().__init__(*args, **kwargs)
+
     @property
     def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(NodeStack)
+        return getTestableStack(self.NodeStackClass)
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:
         super().handleOneNodeMsg(wrappedMsg, excludeFromCli=excludeFromCli)

@@ -1,4 +1,5 @@
 import operator
+import os
 import time
 import types
 from collections import OrderedDict
@@ -19,7 +20,9 @@ from plenum.common.port_dispenser import genHa
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
-from plenum.common.util import Seconds, getMaxFailures, adict
+from plenum.common.util import Seconds, getMaxFailures, adict, randomSeed
+from plenum.common.z_util import createCertsFromKeys
+from plenum.common.zstack import NodeZStack, ClientZStack, ZStack
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -203,7 +206,13 @@ class TestNodeCore(StackedTester):
                   Node.checkPerformance
                   ])
 class TestNode(TestNodeCore, Node):
+
     def __init__(self, *args, **kwargs):
+        # TODO: Remove them once RAET is removed
+        from plenum.test.conftest import UseZStack
+        self.NodeStackClass = NodeZStack if UseZStack else NodeStack
+        self.ClientStackClass = ClientZStack if UseZStack else ClientStack
+
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
@@ -218,11 +227,11 @@ class TestNode(TestNodeCore, Node):
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(NodeStack)
+        return getTestableStack(self.NodeStackClass)
 
     @property
     def clientStackClass(self) -> ClientStack:
-        return getTestableStack(ClientStack)
+        return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True)
@@ -273,6 +282,11 @@ class TestNodeSet(ExitStack):
                  primaryDecider=None,
                  pluginPaths:Iterable[str]=None,
                  testNodeClass=TestNode):
+
+        # TODO: Remove them once RAET is removed
+        from plenum.test.conftest import UseZStack
+        self.UseZStack = UseZStack
+
         super().__init__()
         self.tmpdir = tmpdir
         self.primaryDecider = primaryDecider
@@ -304,6 +318,24 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
+        if self.UseZStack:
+            # Write verification and public keys of all existing nodes in this
+            # node's respective directories.
+            seed = randomSeed()
+            homeDir = ZStack.homeDirPath(self.tmpdir, name)
+            verifDirPath = ZStack.verifDirPath(homeDir)
+            pubDirPath = ZStack.publicDirPath(homeDir)
+            for d in (homeDir, verifDirPath, pubDirPath):
+                os.makedirs(d, exist_ok=True)
+            for otherNode in self.nodes.values():
+                for stack in (otherNode.nodestack, otherNode.clientstack):
+                    createCertsFromKeys(verifDirPath, stack.name,
+                                        stack.verKey)
+                    createCertsFromKeys(pubDirPath, stack.name,
+                                        stack.publicKey)
+        else:
+            seed = None
+
         testNodeClass = self.testNodeClass
         node = self.enter_context(
                 testNodeClass(name=name,
@@ -313,7 +345,20 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              pluginPaths=self.pluginPaths))
+                              pluginPaths=self.pluginPaths,
+                              seed=seed))
+        if self.UseZStack:
+            # Write the verification and public key of this node in all
+            # existing node's directories
+            for otherNode in self.nodes.values():
+                for attrName in ('nodestack', 'clientstack'):
+                    stack = getattr(node, attrName)
+                    otherStack = getattr(otherNode, attrName)
+                    createCertsFromKeys(otherStack.verifKeyDir, stack.name,
+                                        stack.verKey)
+                    createCertsFromKeys(otherStack.publicKeysDir, stack.name,
+                                        stack.publicKey)
+
         self.nodes[name] = node
         self.__dict__[name] = node
         return node

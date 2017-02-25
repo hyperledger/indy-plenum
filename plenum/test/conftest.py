@@ -41,6 +41,9 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
+config = getConfig()
+
+UseZStack = config.UseZStack
 
 
 def getValueFromModule(request, name: str, default: Any = None):
