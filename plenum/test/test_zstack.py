@@ -89,10 +89,8 @@ def testRestricted2ZStackCommunication(tdirAndLooper):
     bMotor = SMotor(beta)
     looper.add(aMotor)
     looper.add(bMotor)
-    looper.runFor(.5)
     alpha.connect(beta.name, beta.ha, beta.verKey, beta.publicKey)
     beta.connect(alpha.name, alpha.ha, alpha.verKey, alpha.publicKey)
-    looper.runFor(.5)
     alpha.send({'greetings': 'hi'}, beta.name)
     beta.send({'greetings': 'hello'}, alpha.name)
 
@@ -119,17 +117,13 @@ def testUnrestricted2ZStackCommunication(tdirAndLooper):
     bMotor = SMotor(beta)
     looper.add(aMotor)
     looper.add(bMotor)
-    looper.runFor(.5)
     alpha.connect(beta.name, beta.ha, beta.verKey, beta.publicKey)
     beta.connect(alpha.name, alpha.ha, alpha.verKey, alpha.publicKey)
-    looper.runFor(.5)
     alpha.send({'greetings': 'hi'}, beta.name)
     beta.send({'greetings': 'hello'}, alpha.name)
-    looper.runFor(.5)
 
     looper.run(eventually(chkPrinted, alphaP, {'greetings': 'hello'}))
     looper.run(eventually(chkPrinted, betaP, {'greetings': 'hi'}))
-
 """
 TODO:
 * Create ZKitStack, which should maintain a registry and method to check for any
