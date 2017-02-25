@@ -41,6 +41,24 @@ def createEncAndSigKeys(enc_key_dir, sig_key_dir, name, seed=None):
                         z85.encode(secret_key))
 
 
+def moveKeyFilesToCorrectLocations(keys_dir, pkdir, skdir):
+    for key_file in os.listdir(keys_dir):
+        if key_file.endswith(".key"):
+            try:
+                shutil.move(os.path.join(keys_dir, key_file),
+                            os.path.join(pkdir, key_file))
+            except shutil.Error as ex:
+                # print(ex)
+                pass
+        if key_file.endswith(".key_secret"):
+            try:
+                shutil.move(os.path.join(keys_dir, key_file),
+                            os.path.join(skdir, key_file))
+            except shutil.Error as ex:
+                # print(ex)
+                pass
+
+
 def generate_certificates(base_dir, *peer_names, pubKeyDir=None,
                           secKeyDir=None, sigKeyDir=None,
                           verkeyDir=None, clean=True):
@@ -75,21 +93,10 @@ def generate_certificates(base_dir, *peer_names, pubKeyDir=None,
         (e_keys_dir, public_keys_dir, secret_keys_dir),
         (s_keys_dir, ver_keys_dir, sig_keys_dir)
     ]:
-        for key_file in os.listdir(keys_dir):
-            if key_file.endswith(".key"):
-                try:
-                    shutil.move(os.path.join(keys_dir, key_file),
-                                os.path.join(pkdir, key_file))
-                except shutil.Error as ex:
-                    # print(ex)
-                    pass
-            if key_file.endswith(".key_secret"):
-                try:
-                    shutil.move(os.path.join(keys_dir, key_file),
-                                os.path.join(skdir, key_file))
-                except shutil.Error as ex:
-                    # print(ex)
-                    pass
+        moveKeyFilesToCorrectLocations(keys_dir, pkdir, skdir)
+
+    shutil.rmtree(e_keys_dir)
+    shutil.rmtree(s_keys_dir)
 
     print('Public keys in {}'.format(public_keys_dir))
     print('Private keys in {}'.format(secret_keys_dir))

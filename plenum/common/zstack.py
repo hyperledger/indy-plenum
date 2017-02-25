@@ -1,27 +1,43 @@
 import json
-from typing import Dict, Mapping
+import shutil
+from typing import Dict, Mapping, Callable, Any, List
 import os
 import sys
+from typing import Set
 
+import time
 import zmq
 import zmq.asyncio
 import zmq.auth
+# TODO: Dont use `raet.nacling` as raet needs to be pulled out.
 from raet.nacling import Signer, Verifier
 from zmq.asyncio import Context
 from zmq.utils import z85
 
 from plenum.common.authenticator import AsyncioAuthenticator
+from plenum.common.batched import Batched
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
-
+from plenum.common.ratchet import Ratchet
+from plenum.common.types import HA
+from plenum.common.z_util import createEncAndSigKeys, \
+    moveKeyFilesToCorrectLocations
 
 logger = getlogger()
 
 LINGER_TIME = 20
 
 
+# TODO: Separate directories are maintainer for public keys and verification
+# keys of remote, same direcotry can be used, infact preserve only
+# verification key and generate public key from that. Same concern regarding
+# signing and private keys
+
+
 class Remote:
     def __init__(self, name, ha, verKey, publicKey, *args, **kwargs):
+        # TODO, remove *args, **kwargs after removing raet
+
         # Every remote has a unique name per stack, the name can be the
         # public key of the other end
         self.name = name
@@ -34,6 +50,9 @@ class Remote:
         self.isConnected = False
         # Currently keeping uid field to resemble RAET RemoteEstate
         self.uid = name
+
+    def __repr__(self):
+        return '{}:{}'.format(self.name, self.ha)
 
     def connect(self, context, localPubKey, localSecKey, typ=None):
         typ = typ or zmq.DEALER
@@ -52,9 +71,6 @@ class Remote:
         self.socket = None
         self.isConnected = False
 
-    def __repr__(self):
-        return '{}:{}'.format(self.name, self.ha)
-
 
 class ZStack(NetworkInterface):
     # Assuming only one listener per stack for now.
@@ -68,11 +84,15 @@ class ZStack(NetworkInterface):
     sigLen = 64
     pingMessage = b'\n'
 
-    def __init__(self, name, ha, basedirpath, msgHandler, restricted=True):
+    def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
+                 seed=None, *args, **kwargs):
+        # TODO, remove *args, **kwargs after removing raet
         self.name = name
         self.ha = ha
         self.basedirpath = basedirpath
         self.msgHandler = msgHandler
+        self.seed = seed
+
         self.homeDir = None
         # As of now there would be only one file in secretKeysDir and sigKeyDir
         self.publicKeysDir = None
@@ -84,6 +104,7 @@ class ZStack(NetworkInterface):
         self.verifiers = {}
 
         self.setupDirs()
+        self.setupKeysIfNeeded()
         self.setupSigning()
 
         self.poller = zmq.asyncio.Poller()
@@ -98,9 +119,12 @@ class ZStack(NetworkInterface):
 
         self.remotesByKeys = {}
 
+        self._conns = set()  # type: Set[str]
+
     @staticmethod
     def keyDirNames():
-        return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, ZStack.VerifKeyDirName, ZStack.SigKeyDirName
+        return ZStack.PublicKeyDirName, ZStack.PrivateKeyDirName, \
+               ZStack.VerifKeyDirName, ZStack.SigKeyDirName
 
     def __repr__(self):
         return self.name
@@ -120,8 +144,29 @@ class ZStack(NetworkInterface):
                   self.verifKeyDir, self.sigKeyDir):
             os.makedirs(d, exist_ok=True)
 
+    def setupKeysIfNeeded(self):
+        if not os.listdir(self.sigKeyDir):
+            # If signing keys are not present, secret (private keys) should
+            # not be present since they should be converted keys.
+            assert not os.listdir(self.secretKeysDir)
+            # Seed should be present
+            assert self.seed
+            logger.info("Signing and Encryption keys were not found. "
+                        "Creating them now")
+            tdirS = os.path.join(self.homeDir, '__skeys__')
+            tdirE = os.path.join(self.homeDir, '__ekeys__')
+            os.makedirs(tdirS, exist_ok=True)
+            os.makedirs(tdirE, exist_ok=True)
+            createEncAndSigKeys(tdirE, tdirS, self.name, self.seed)
+            moveKeyFilesToCorrectLocations(tdirE, self.publicKeysDir,
+                                           self.secretKeysDir)
+            moveKeyFilesToCorrectLocations(tdirS, self.verifKeyDir,
+                                           self.sigKeyDir)
+            shutil.rmtree(tdirE)
+            shutil.rmtree(tdirS)
+
     def setupAuth(self, restricted=True, force=False):
-        if self.listener and not force:
+        if self.auth and not force:
             raise RuntimeError('Listener already setup')
         location = self.publicKeysDir if restricted else zmq.auth.CURVE_ALLOW_ANY
         self.auth = AsyncioAuthenticator(self.ctx)
@@ -153,18 +198,6 @@ class ZStack(NetworkInterface):
         # does not help. Find a solution
         # self.ctx.term()
         logger.info("stack {} stopped".format(self.name), extra={"cli": False})
-
-    def removeRemote(self, remote: Remote, clear=True):
-        """
-        Currently not using clear
-        """
-        name = remote.name
-        key = remote.publicKey
-        if name in self.remotes:
-            self.remotes.pop(name)
-            self.remotesByKeys.pop(key)
-        else:
-            logger.warn('No remote named {} present')
 
     @property
     def opened(self):
@@ -257,11 +290,24 @@ class ZStack(NetworkInterface):
         """
         Connect to the node specified by name.
         """
-
         if name not in self.remotes:
+            if not publicKey:
+                try:
+                    publicKey = self.getPublicKey(name)
+                except KeyError:
+                    logger.error("Could not get {}'s public key from disk"
+                                 .format(name))
+            if not verKey:
+                try:
+                    verKey = self.getVerKey(name)
+                except KeyError:
+                    logger.error("Could not get {}'s verification key from disk"
+                                 .format(name))
+
             if not (ha and publicKey and verKey):
-                raise ValueError('{} doesnt know {}. Pass ha, public key '
-                                 'and verkey'.format(ha, publicKey))
+                raise ValueError('{} doesnt have enough info to connect. '
+                                 'Need ha, public key and verkey. {} {} {}'.
+                                 format(name, ha, verKey, publicKey))
             remote = self.addRemote(name, ha, verKey, publicKey)
         else:
             remote = self.remotes[name]
@@ -286,6 +332,18 @@ class ZStack(NetworkInterface):
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
         return remote
+
+    def removeRemote(self, remote: Remote, clear=True):
+        """
+        Currently not using clear
+        """
+        name = remote.name
+        key = remote.publicKey
+        if name in self.remotes:
+            self.remotes.pop(name)
+            self.remotesByKeys.pop(key)
+        else:
+            logger.warn('No remote named {} present')
 
     def send(self, msg, remote: str = None):
         if remote is None:
@@ -326,25 +384,29 @@ class ZStack(NetworkInterface):
         r = self.verifiers[verKey].verify(msg[-self.sigLen:], msg[:-self.sigLen])
         return r
 
+    @staticmethod
+    def loadPubKeyFromDisk(directory, name):
+        filePath = os.path.join(directory,
+                                "{}.key".format(name))
+        try:
+            public, _ = zmq.auth.load_certificate(filePath)
+            return public
+        except (ValueError, IOError) as ex:
+            raise KeyError from ex
+
     @property
     def publicKey(self):
         return self.getPublicKey(self.name)
 
     def getPublicKey(self, name):
-        serverPublicFile = os.path.join(self.publicKeysDir,
-                                        "{}.key".format(name))
-        publicKey, _ = zmq.auth.load_certificate(serverPublicFile)
-        return publicKey
+        return self.loadPubKeyFromDisk(self.publicKeysDir, name)
 
     @property
     def verKey(self):
         return self.getVerKey(self.name)
 
     def getVerKey(self, name):
-        serverVerifFile = os.path.join(self.verifKeyDir,
-                                       "{}.key".format(name))
-        verkey, _ = zmq.auth.load_certificate(serverVerifFile)
-        return verkey
+        return self.loadPubKeyFromDisk(self.verifKeyDir, name)
 
     def getAllVerKeys(self):
         keys = []
@@ -364,5 +426,132 @@ class ZStack(NetworkInterface):
     #     pass
 
 
-class KITZStack(ZStack):
-    pass
+class SimpleZStack(ZStack):
+    def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
+        # TODO: sighex is unused as of now, remove once raet is removed or
+        # maybe use sighex to generate all keys, DECISION DEFERRED
+
+        self.stackParams = stackParams
+        self.msgHandler = msgHandler
+
+        # TODO: Ignoring `main` param as of now which determines
+        # if the stack will have a listener socket or not.
+        name = stackParams['name']
+        ha = stackParams['ha']
+        basedirpath = stackParams['basedirpath']
+
+        # TODO: Change after removing raet
+        auto = stackParams['auto']
+        restricted = True if auto == 0 else False
+
+        super().__init__(name, ha, basedirpath, msgHandler=self.msgHandler,
+                         restricted=restricted)
+
+
+class KITZStack(SimpleZStack):
+    # Stack which maintains connections mentioned in its registry
+    def __init__(self, stackParams: dict, msgHandler: Callable,
+                 registry: Dict[str, HA], sighex: str = None):
+        super().__init__(stackParams, msgHandler, sighex)
+        self.registry = registry
+
+        self.ratchet = Ratchet(a=8, b=0.198, c=-4, base=8, peak=3600)
+
+        # holds the last time we checked remotes
+        self.nextCheck = 0
+
+    def maintainConnections(self, force=False):
+        """
+        Ensure appropriate connections.
+
+        """
+        cur = time.perf_counter()
+        if cur > self.nextCheck or force:
+
+            self.nextCheck = cur + (6 if self.isKeySharing else 15)
+            self.connectToMissing()
+
+            logger.debug("{} next check for retries in {:.2f} seconds".
+                         format(self, self.nextCheck - cur))
+            return True
+        return False
+
+    def connectToMissing(self):
+        """
+        Try to connect to the missing nodes
+
+        """
+        missing = self.reconcileNodeReg()
+        if missing:
+            logger.debug("{} found the following missing connections: {}".
+                         format(self, ", ".join(missing)))
+
+            for name in missing:
+                self.connect(name, ha=self.registry[name])
+
+    def reconcileNodeReg(self):
+        matches = set()
+        for r in self.remotes.values():
+            if r.name in self.registry:
+                if self.sameAddr(r.ha, self.registry[r.name]):
+                    matches.add(r.name)
+                    logger.debug("{} matched remote is {} {}".
+                                 format(self, r.uid, r.ha))
+
+        return set(self.registry.keys()) - matches
+
+    async def service(self, limit=None):
+        self.checkConns()
+        self.maintainConnections()
+        return await super().service(limit)
+
+
+class ClientZStack(SimpleZStack):
+    def __init__(self, stackParams: dict, msgHandler: Callable):
+        SimpleZStack.__init__(self, stackParams, msgHandler)
+        self.connectedClients = set()
+
+    def serviceClientStack(self):
+        newClients = self.connecteds - self.connectedClients
+        self.connectedClients = self.connecteds
+        return newClients
+
+    def newClientsConnected(self, newClients):
+        raise NotImplementedError("{} must implement this method".format(self))
+
+    def transmitToClient(self, msg: Any, remoteName: str):
+        """
+        Transmit the specified message to the remote client specified by `remoteName`.
+
+        :param msg: a message
+        :param remoteName: the name of the remote
+        """
+        # At this time, nodes are not signing messages to clients, beyond what
+        # happens inherently with RAET
+        payload = self.prepForSending(msg)
+        try:
+            self.send(payload, remoteName)
+        except Exception as ex:
+            # TODO: This should not be an error since the client might not have
+            # sent the request to all nodes but only some nodes and other
+            # nodes might have got this request through PROPAGATE and thus
+            # might not have connection with the client.
+            logger.error("{} unable to send message {} to client {}; Exception: {}"
+                         .format(self, msg, remoteName, ex.__repr__()))
+
+    def transmitToClients(self, msg: Any, remoteNames: List[str]):
+        for nm in remoteNames:
+            self.transmitToClient(msg, nm)
+
+
+class NodeZStack(Batched, KITZStack):
+    def __init__(self, stackParams: dict, msgHandler: Callable,
+                 registry: Dict[str, HA], sighex: str=None):
+        Batched.__init__(self)
+        KITZStack.__init__(self, stackParams, msgHandler, registry, sighex)
+
+    def start(self, restricted=None):
+        KITZStack.start(self, restricted=restricted)
+        logger.info("{} listening for other nodes at {}:{}".
+                    format(self, *self.ha),
+                    extra={"cli": "LOW_STATUS"})

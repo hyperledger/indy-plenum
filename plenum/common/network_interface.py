@@ -212,3 +212,16 @@ class NetworkInterface:
         :param msg: the message to sign
         """
         return msg  # don't sign by default
+
+    def remotesByConnected(self):
+        """
+        Partitions the remotes into connected and disconnected
+
+        :return: tuple(connected remotes, disconnected remotes)
+        """
+        conns, disconns = [], []
+        for r in self.remotes.values():
+            array = conns if self.isRemoteConnected(r) else disconns
+            array.append(r)
+        return conns, disconns
+

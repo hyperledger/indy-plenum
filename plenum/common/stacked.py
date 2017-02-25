@@ -68,6 +68,7 @@ class Stack(NetworkInterface, RoadStack):
         except AttributeError:
             # if no timeout is set then message will never timeout
             self.messageTimeout = 0
+        self._conns = set()  # type: Set[str]
 
     def __repr__(self):
         return self.name
@@ -251,6 +252,10 @@ class Stack(NetworkInterface, RoadStack):
     #     self.removeRemote(remote)
     #     return rid
 
+    @property
+    def isKeySharing(self):
+        return self.keep.auto != AutoMode.never
+
     def send(self, msg: Any, remoteName: str):
         """
         Transmit the specified message to the remote specified by `remoteName`.
@@ -267,12 +272,7 @@ class SimpleStack(Stack):
     def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
-        self._conns = set()  # type: Set[str]
         super().__init__(**stackParams, msgHandler=self.msgHandler, sighex=sighex)
-
-    @property
-    def isKeySharing(self):
-        return self.keep.auto != AutoMode.never
 
     # A LOT OF THIS CODE IS MOVED TO NetworkInterface
     # @property
@@ -342,7 +342,6 @@ class SimpleStack(Stack):
 
     def start(self):
         super().start()
-        # super().__init__(**self.stackParams, msgHandler=self.msgHandler)
 
     # def sign(self, msg: Dict, signer: Signer) -> Dict:
     #     """
@@ -691,17 +690,17 @@ class KITStack(SimpleStack):
                 self.removeRemote(l)
         return missing
 
-    def remotesByConnected(self):
-        """
-        Partitions the remotes into connected and disconnected
-
-        :return: tuple(connected remotes, disconnected remotes)
-        """
-        conns, disconns = [], []
-        for r in self.remotes.values():
-            array = conns if Stack.isRemoteConnected(r) else disconns
-            array.append(r)
-        return conns, disconns
+    # def remotesByConnected(self):
+    #     """
+    #     Partitions the remotes into connected and disconnected
+    #
+    #     :return: tuple(connected remotes, disconnected remotes)
+    #     """
+    #     conns, disconns = [], []
+    #     for r in self.remotes.values():
+    #         array = conns if self.isRemoteConnected(r) else disconns
+    #         array.append(r)
+    #     return conns, disconns
 
     def getRemoteName(self, remote):
         """
