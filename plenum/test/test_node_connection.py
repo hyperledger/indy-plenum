@@ -1,6 +1,7 @@
 from random import shuffle, randint
 
 import pytest
+import time
 from ioflo.aid import getConsole
 
 from plenum.common.eventually import eventually
@@ -8,10 +9,11 @@ from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.temp_file_util import SafeTemporaryDirectory
-from plenum.common.types import NodeDetail
+from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
+from plenum.test.zstack_tests.helper import genKeys
 
 logger = getlogger()
 
@@ -30,14 +32,15 @@ def nodeReg():
 
 # Its a function fixture, deliberately
 @pytest.yield_fixture()
-def tdirAndLooper():
+def tdirAndLooper(nodeReg):
     with SafeTemporaryDirectory() as td:
         logger.debug("temporary directory: {}".format(td))
         with Looper() as looper:
             yield td, looper
 
 
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
+                                       nodeReg, conf):
     tdir, looper = tdirAndLooper
     nodes = []
     names = list(nodeReg.keys())
@@ -49,6 +52,10 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper, nodeReg):
         looper.add(node)
         node.startKeySharing()
         nodes.append(node)
+
+    # TODO: This will be moved to a fixture
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
 
     for name in names[:3]:
         create(name)
@@ -65,9 +72,14 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper, nodeReg):
     stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
+                                           nodeReg, conf):
     tdir, looper = tdirAndLooper
     nodes = []
+    if conf.UseZStack:
+        names = list(nodeReg.keys())
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     for name in nodeReg:
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
@@ -80,7 +92,8 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper, nodeRe
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
+                                      nodeReg, conf):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
@@ -88,6 +101,9 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper, nodeReg):
     nodes = []
 
     names = list(nodeReg.keys())
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     shuffle(names)
     waits = [randint(1, 10) for _ in names]
     rwaits = [randint(1, 10) for _ in names]
@@ -107,6 +123,9 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper, nodeReg):
 
     stopNodes(nodes, looper)
 
+    # # Giving some time for sockets to close, use eventually
+    # time.sleep(1)
+
     for i, n in enumerate(nodes):
         n.start(looper.loop)
         looper.runFor(rwaits[i])
@@ -119,11 +138,14 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper, nodeReg):
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg, conf):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     logger.debug(names)
     nrg = {n: nodeReg[n] for n in names}
     A, B = [TestNode(name, nrg, basedirpath=tdir,
@@ -145,16 +167,22 @@ def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg):
     stopNodes([A, B], looper)
 
 
-@pytest.mark.skip(reason="SOV-538. "
-                         "Fails due to a bug. Its fixed here "
-                         "https://github.com/RaetProtocol/raet/pull/9")
-def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
+# The next test was skipped due to an issue in RAET which led to intermittent
+# failures, but running now since it should work with ZStack.
+
+# @pytest.mark.skip(reason="SOV-538. "
+#                          "Fails due to a bug. Its fixed here "
+#                          "https://github.com/RaetProtocol/raet/pull/9")
+def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper,
+                                               nodeReg, conf):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
     timeout = 60
     names = ["Alpha", "Beta"]
     logger.debug(names)
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
     nrg = {n: nodeReg[n] for n in names}
     A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=tdir,
                      pluginPaths=allPluginsPath)
@@ -173,7 +201,7 @@ def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
     stopNodes([A, B], looper)
 
 
-def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg):
+def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
@@ -182,6 +210,11 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg):
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
     logger.debug(names)
+
+    if conf.UseZStack:
+        _names = names + ['Gamma']
+        genKeys(tdir, _names + [_+CLIENT_STACK_SUFFIX for _ in _names])
+
     nrg = {n: nodeReg[n] for n in names}
     A, B = [TestNode(name, nrg, basedirpath=tdir,
                      pluginPaths=allPluginsPath)

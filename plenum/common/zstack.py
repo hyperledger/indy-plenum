@@ -68,9 +68,13 @@ class Remote:
         self.socket = sock
 
     def disconnect(self):
-        self.socket.close()
-        self.socket = None
-        self.isConnected = False
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+            self.isConnected = False
+        else:
+            logger.debug('{} close was closed on a null socket, maybe close is '
+                         'being called twice.'.format(self))
 
 
 class ZStack(NetworkInterface):
@@ -205,7 +209,7 @@ class ZStack(NetworkInterface):
     def addVerifier(self, verkey):
         self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
-    def start(self, restricted=None, reSetupAuth=False):
+    def start(self, restricted=None, reSetupAuth=True):
         self.ctx = zmq.asyncio.Context.instance()
         restricted = self.restricted if restricted is None else restricted
         self.setupAuth(restricted, force=reSetupAuth)
@@ -213,11 +217,12 @@ class ZStack(NetworkInterface):
 
     def stop(self):
         if self.opened:
+            logger.info('stack {} closing its listener'.format(self))
             self.close()
         # TODO: Uncommenting this stops hangs the code, setting LINGER_TIME
         # does not help. Find a solution
         # self.ctx.term()
-        logger.info("stack {} stopped".format(self.name), extra={"cli": False})
+        logger.info("stack {} stopped".format(self), extra={"cli": False})
 
     @property
     def opened(self):
@@ -239,6 +244,16 @@ class ZStack(NetworkInterface):
         self.listener = None
         for r in self.remotes.values():
             r.disconnect()
+            self.remotesByKeys.pop(r.publicKey, None)
+
+        self.remotes = {}
+        if self.remotesByKeys:
+            logger.warn('{} found remotes that were only in remotesByKeys and '
+                        'not in remotes. This is suspicious')
+            for r in self.remotesByKeys.values():
+                r.disconnect()
+            self.remotesByKeys = {}
+        self._conns = set()
 
     @property
     def selfEncKeys(self):
@@ -585,6 +600,14 @@ class KITZStack(SimpleZStack):
         self.maintainConnections()
         return await super().service(limit)
 
+    @property
+    def notConnectedNodes(self) -> Set[str]:
+        """
+        Returns the names of nodes in the registry this node is NOT connected
+        to.
+        """
+        return set(self.registry.keys()) - self.conns
+
 
 class ClientZStack(SimpleZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
@@ -631,7 +654,8 @@ class NodeZStack(Batched, KITZStack):
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
                            seed=seed, sighex=sighex)
 
-    def start(self, restricted=None, reSetupAuth=False):
+    # TODO: Reconsider defaulting `reSetupAuth` to True.
+    def start(self, restricted=None, reSetupAuth=True):
         KITZStack.start(self, restricted=restricted, reSetupAuth=reSetupAuth)
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
