@@ -1,6 +1,7 @@
 import ast
 import os
 import re
+import tempfile
 import traceback
 
 import plenum.cli.cli as cli
@@ -21,6 +22,19 @@ from pygments.token import Token
 
 logger = getlogger()
 
+#
+# Turning LOG_SCRIPT on will write an interleaved log of the CLI session into a temp directory
+# the directory will start with "cli_scripts_ and should contain files for each CLI that was created
+# (eg. earl, pool, etc)
+#
+# This will work best by running only the tests that make up a session.
+#
+# Please do not leave this ON, files are not cleaned up.
+#
+LOG_SCRIPT = False
+LOG_SCRIPT_DIR = None
+if LOG_SCRIPT:
+    LOG_SCRIPT_DIR = tempfile.mkdtemp(prefix="cli_scripts_")
 
 class TestCliCore:
     @property
@@ -65,6 +79,10 @@ class TestCliCore:
     # noinspection PyAttributeOutsideInit
     @lastPrintIndex.setter
     def lastPrintIndex(self, index: int) -> None:
+        if LOG_SCRIPT and  hasattr(self, "_lastPrintIndex"):
+            with open(self.log_script_file, 'a') as f:
+                f.write(self.lastCmdOutput)
+                f.write("\n")
         self._lastPrintIndex = index
 
     # noinspection PyAttributeOutsideInit
@@ -73,6 +91,16 @@ class TestCliCore:
         if not hasattr(self, "_lastPrintedTokenIndex"):
             self._lastPrintedTokenIndex = 0
         return self._lastPrintedTokenIndex
+
+    @property
+    def log_script_file(self):
+        if LOG_SCRIPT:
+            if not hasattr(self, "_log_script_file"):
+                self._log_script_file = tempfile.NamedTemporaryFile(prefix=os.path.basename(self.basedirpath)+"_",
+                                                                    dir=LOG_SCRIPT_DIR, delete=False).name
+            return self._log_script_file
+        else:
+            return None
 
     # noinspection PyAttributeOutsideInit
     @lastPrintedTokenIndex.setter
@@ -84,7 +112,13 @@ class TestCliCore:
         logger.debug('CLI got command: {}'.format(cmd))
         self.lastPrintIndex = len(self.printeds)
         self.lastPrintedTokenIndex = len(self.printedTokens)
+        if LOG_SCRIPT:
+            with open(self.log_script_file, 'a') as f:
+                f.write("> ")
+                f.write(cmd)
+                f.write("\n")
         self.parse(cmd)
+
 
     def lastMsg(self):
         return self.lastPrintArgs['msg']
