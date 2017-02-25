@@ -28,6 +28,9 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
+from plenum.common.z_util import createEncAndSigKeys, \
+    moveKeyFilesToCorrectLocations, initStackLocalKeys, \
+    initNodeKeysForBothStacks
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
@@ -452,7 +455,11 @@ def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
 def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
-        initLocalKeep(nName, tdir, seeds[nName], override=True)
+        seed = seeds[nName]
+        if UseZStack:
+            initNodeKeysForBothStacks(nName, tdir, seed, override=True)
+        else:
+            initLocalKeep(nName, tdir, seed, override=True)
 
 
 @pytest.fixture(scope="module")

@@ -274,7 +274,7 @@ class ZStack(NetworkInterface):
 
     @property
     def isKeySharing(self):
-        # Change name after removing raet
+        # TODO: Change name after removing raet
         return not self.isRestricted
 
     @staticmethod
@@ -335,8 +335,8 @@ class ZStack(NetworkInterface):
                 try:
                     publicKey = self.getPublicKey(name)
                 except KeyError:
-                    logger.error("Could not get {}'s public key from disk"
-                                 .format(name))
+                    logger.error("{} could not get {}'s public key from disk"
+                                 .format(self, name))
             if not verKey:
                 try:
                     verKey = self.getVerKey(name)
@@ -364,6 +364,8 @@ class ZStack(NetworkInterface):
             logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
                                                      self.ha))
         else:
+            # TODO: This fails the first time as socket is not established,
+            # need to make it retriable
             logger.warn('{} failed to ping {} at {}'.
                         format(self.name, remote.name, remote.ha))
         return remote.uid
@@ -463,6 +465,7 @@ class ZStack(NetworkInterface):
 
     def setRestricted(self, restricted: bool):
         if self.isRestricted != restricted:
+            logger.info('{} setting restricted to {}'.format(self, restricted))
             self.stop()
 
             # TODO: REMOVE, it will make code slow, only doing to allow the
@@ -508,6 +511,8 @@ class DummyKeep:
 
     @auto.setter
     def auto(self, mode):
+        logger.info('{} proxy method used on {}'.
+                    format(inspect.stack()[0][3], self))
         # AutoMode.once whose value is 1 is not used os dont care
         if mode != self._auto:
             if mode == 2:
@@ -664,11 +669,4 @@ class NodeZStack(Batched, KITZStack):
     # TODO: Members below are just for the time till RAET replacement is
     # complete, they need to be removed then.
     async def serviceLifecycle(self) -> None:
-        """
-        Async function that does the following activities if the node is going:
-        (See `Status.going`)
-
-        - check connections (See `checkConns`)
-        - maintain connections (See `maintainConnections`)
-        """
         pass

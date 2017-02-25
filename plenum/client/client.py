@@ -24,7 +24,6 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.raet import getHaFromLocalEstate
-from plenum.common.signer import Signer
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
@@ -70,7 +69,7 @@ class Client(Motor,
         self.basedirpath = basedirpath
 
         signer = Signer(sighex)
-        sighex = signer.keyhex
+        sighex = signer.keyraw
         verkey = rawToFriendly(signer.verraw)
 
         self.name = name

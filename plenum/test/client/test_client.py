@@ -89,6 +89,7 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
 
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
+
         ctx.looper.add(client1)
         with pytest.raises(NotConnectedToAny):
             await client1.ensureConnectedToNodes()

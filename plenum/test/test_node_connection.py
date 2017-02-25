@@ -232,7 +232,7 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     def chk():
         assert not C.nodestack.isKeySharing
 
-    looper.run(eventually(chk, retryWait=2, timeout=21))
+    looper.run(eventually(chk, retryWait=2, timeout=22))
     stopNodes([C, ], looper)
 
     def chk():

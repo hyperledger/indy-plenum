@@ -1,6 +1,7 @@
 import os
 import shutil
 import datetime
+from binascii import unhexlify
 
 from libnacl import crypto_sign_seed_keypair
 from zmq.auth.certs import _write_key_file, _cert_public_banner, \
@@ -8,7 +9,11 @@ from zmq.auth.certs import _write_key_file, _cert_public_banner, \
 from zmq.utils import z85
 from plenum.common.crypto import ed25519PkToCurve25519 as ep2c, \
     ed25519SkToCurve25519 as es2c
-from plenum.common.util import randomSeed
+from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.util import randomSeed, isHex
+
+
+# TODO: Contains duplicated code, need to be refactored
 
 
 def createCertsFromKeys(key_dir, name, public_key, secret_key=None,
@@ -102,3 +107,51 @@ def generate_certificates(base_dir, *peer_names, pubKeyDir=None,
     print('Private keys in {}'.format(secret_keys_dir))
     print('Verification keys in {}'.format(ver_keys_dir))
     print('Signing keys in {}'.format(sig_keys_dir))
+
+
+def initStackLocalKeys(name, baseDir, sigseed, override=False):
+    # TODO: Implement override functionality
+    sDir = os.path.join(baseDir, '__sDir')
+    eDir = os.path.join(baseDir, '__eDir')
+    os.makedirs(sDir, exist_ok=True)
+    os.makedirs(eDir, exist_ok=True)
+    createEncAndSigKeys(eDir, sDir, name, seed=sigseed)
+
+    from plenum.common.zstack import ZStack
+    homeDir = ZStack.homeDirPath(baseDir, name)
+    verifDirPath = ZStack.verifDirPath(homeDir)
+    sigDirPath = ZStack.sigDirPath(homeDir)
+    secretDirPath = ZStack.secretDirPath(homeDir)
+    pubDirPath = ZStack.publicDirPath(homeDir)
+    for d in (homeDir, verifDirPath, sigDirPath, secretDirPath, pubDirPath):
+        os.makedirs(d, exist_ok=True)
+
+    moveKeyFilesToCorrectLocations(sDir, verifDirPath, sigDirPath)
+    moveKeyFilesToCorrectLocations(eDir, pubDirPath, secretDirPath)
+
+    shutil.rmtree(sDir)
+    shutil.rmtree(eDir)
+
+
+def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
+    initStackLocalKeys(name, baseDir, sigseed, override=override)
+    initStackLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
+                       override=override)
+
+
+def initRemoteKeys(name, remoteName, baseDir, verkey, override=False):
+    # TODO: Implement override functionality
+
+    from plenum.common.zstack import ZStack
+    homeDir = ZStack.homeDirPath(baseDir, name)
+    verifDirPath = ZStack.verifDirPath(homeDir)
+    pubDirPath = ZStack.publicDirPath(homeDir)
+    for d in (homeDir, verifDirPath, pubDirPath):
+        os.makedirs(d, exist_ok=True)
+
+    if isHex(verkey):
+        verkey = unhexlify(verkey)
+
+    createCertsFromKeys(verifDirPath, remoteName, z85.encode(verkey))
+    public_key = ep2c(verkey)
+    createCertsFromKeys(pubDirPath, remoteName, z85.encode(public_key))

@@ -13,6 +13,7 @@ from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.log import getlogger
+from plenum.common.z_util import initRemoteKeys
 
 logger = getlogger()
 
@@ -187,9 +188,16 @@ class TxnStackManager:
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
-                if self.isNode:
+
+                # TODO: Remove later
+                if self.isNode and not self.node.config.UseZStack:
+                # if self.isNode:
                     initRemoteKeep(self.name, remoteName, self.basedirpath, key,
                                    override=True)
+                else:
+                    initRemoteKeys(self.name, remoteName, self.basedirpath, key,
+                                   override=True)
+
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
