@@ -102,10 +102,6 @@ class TestCliCore:
     # noinspection PyAttributeOutsideInit
     @lastPrintIndex.setter
     def lastPrintIndex(self, index: int) -> None:
-        # if self.log_script_file and hasattr(self, "_lastPrintIndex"):
-        #     with open(self.log_script_file, 'a') as f:
-        #         f.write(self.lastCmdOutput)
-        #         f.write("\n")
         self._lastPrintIndex = index
 
     # noinspection PyAttributeOutsideInit
