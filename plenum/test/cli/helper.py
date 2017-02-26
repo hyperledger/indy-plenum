@@ -1,15 +1,17 @@
 import ast
 import os
 import re
-import tempfile
 import traceback
+from tempfile import gettempdir, mkdtemp
+
+import time
 
 import plenum.cli.cli as cli
 import pytest
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, Singleton
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.helper import checkSufficientRepliesRecvd
@@ -22,21 +24,42 @@ from pygments.token import Token
 
 logger = getlogger()
 
-#
-# Turning LOG_SCRIPT on will write an interleaved log of the CLI session into a temp directory
-# the directory will start with "cli_scripts_ and should contain files for each CLI that was created
-# (eg. earl, pool, etc)
-#
-# This will work best by running only the tests that make up a session.
-#
-# Please do not leave this ON, files are not cleaned up.
-#
-LOG_SCRIPT = False
-LOG_SCRIPT_DIR = None
-if LOG_SCRIPT:
-    LOG_SCRIPT_DIR = tempfile.mkdtemp(prefix="cli_scripts_")
+
+class Recorder:
+    """
+    This class will write an interleaved log of the CLI session into a temp
+    directory. The directory will start with "cli_scripts_ and should contain
+    files for each CLI that was created, e.g., earl, pool, etc.
+    """
+    def __init__(self, partition):
+        basedir = os.path.join(gettempdir(), 'cli_scripts')
+        try:
+            os.mkdir(basedir)
+        except FileExistsError:
+            pass
+        self.directory = mkdtemp(dir=basedir, prefix=time.strftime("%Y%m%d-%H%M%S-"))
+        self.filename = os.path.join(self.directory, partition)
+
+    def write(self, data, newline=False):
+        with open(self.filename, 'a') as f:
+            f.write(data)
+            if newline:
+                f.write("\n")
+
+    def write_cmd(self, cmd, partition):
+        self.write("{}> ".format(partition))
+        self.write(cmd, newline=True)
+
+
+class CombinedRecorder(Recorder, metaclass=Singleton):
+    def __init__(self):
+        super().__init__('combined')
+
 
 class TestCliCore:
+    def __init__(self):
+        self.recorder = None
+
     @property
     def lastPrintArgs(self):
         args = self.printeds
@@ -79,10 +102,10 @@ class TestCliCore:
     # noinspection PyAttributeOutsideInit
     @lastPrintIndex.setter
     def lastPrintIndex(self, index: int) -> None:
-        if LOG_SCRIPT and  hasattr(self, "_lastPrintIndex"):
-            with open(self.log_script_file, 'a') as f:
-                f.write(self.lastCmdOutput)
-                f.write("\n")
+        # if self.log_script_file and hasattr(self, "_lastPrintIndex"):
+        #     with open(self.log_script_file, 'a') as f:
+        #         f.write(self.lastCmdOutput)
+        #         f.write("\n")
         self._lastPrintIndex = index
 
     # noinspection PyAttributeOutsideInit
@@ -91,16 +114,6 @@ class TestCliCore:
         if not hasattr(self, "_lastPrintedTokenIndex"):
             self._lastPrintedTokenIndex = 0
         return self._lastPrintedTokenIndex
-
-    @property
-    def log_script_file(self):
-        if LOG_SCRIPT:
-            if not hasattr(self, "_log_script_file"):
-                self._log_script_file = tempfile.NamedTemporaryFile(prefix=os.path.basename(self.basedirpath)+"_",
-                                                                    dir=LOG_SCRIPT_DIR, delete=False).name
-            return self._log_script_file
-        else:
-            return None
 
     # noinspection PyAttributeOutsideInit
     @lastPrintedTokenIndex.setter
@@ -112,13 +125,9 @@ class TestCliCore:
         logger.debug('CLI got command: {}'.format(cmd))
         self.lastPrintIndex = len(self.printeds)
         self.lastPrintedTokenIndex = len(self.printedTokens)
-        if LOG_SCRIPT:
-            with open(self.log_script_file, 'a') as f:
-                f.write("> ")
-                f.write(cmd)
-                f.write("\n")
+        if self.recorder:
+            self.recorder.write_cmd(cmd, self.unique_name)
         self.parse(cmd)
-
 
     def lastMsg(self):
         return self.lastPrintArgs['msg']
@@ -248,21 +257,30 @@ def checkRequest(cli, operation):
     return client, wallet
 
 
-def newCLI(looper, tdir, cliClass=TestCli,
+def newCLI(looper, basedir, cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient,
-           config=None):
-    mockOutput = MockOutput()
+           config=None,
+           partition: str=None,
+           unique_name=None):
+    if partition:
+        recorder = Recorder(partition)
+    else:
+        recorder = CombinedRecorder()
+    mockOutput = MockOutput(recorder=recorder)
+    recorder.write("~ be {}".format(unique_name))
     newcli = cliClass(looper=looper,
-                      basedirpath=tdir,
+                      basedirpath=basedir,
                       nodeReg=None,
                       cliNodeReg=None,
                       output=mockOutput,
                       debug=True,
-                      config=config)
+                      config=config,
+                      unique_name=unique_name)
+    newcli.recorder = recorder
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
-    newcli.basedirpath = tdir
+    newcli.basedirpath = basedir
     return newcli
 
 
