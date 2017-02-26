@@ -10,7 +10,7 @@ from plenum.common.types import Identifier, HA, OP_FIELD_NAME, f
 from plenum.common.util import bootstrapClientKeys
 from plenum.common.error import error
 from plenum.common.z_util import initRemoteKeys
-from plenum.common.zstack import NodeZStack, ClientZStack
+from plenum.common.zstack import NodeZStack, ClientZStack, ZStack
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import Spyable
 
@@ -73,8 +73,8 @@ def genTestClient(nodes = None,
         for node in nodes:
             stack = node.clientstack
             # TODO: Remove this if condition once raet is removed
-            if isinstance(stack, ClientZStack):
-                initRemoteKeys(tc.name, stack.name, tmpdir, stack.verKey,
+            if isinstance(stack, ZStack):
+                initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
                                override=True)
 
     w = None  # type: Wallet

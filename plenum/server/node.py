@@ -59,7 +59,7 @@ from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
 from plenum.common.txn import DATA, ALIAS, NODE_IP
-from plenum.common.zstack import ZStack
+from plenum.common.zstack import ZStack, ClientZStack, NodeZStack
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -395,11 +395,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return NodeStack
+        # TODO: Remove if condition once raet is removed
+        if self.config:
+            return NodeZStack
+        else:
+            return NodeStack
 
     @property
     def clientStackClass(self) -> ClientStack:
-        return ClientStack
+        # TODO: Remove if condition once raet is removed
+        if self.config:
+            return ClientZStack
+        else:
+            return ClientStack
 
     def getPrimaryStorage(self):
         """

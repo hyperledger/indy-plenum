@@ -172,11 +172,16 @@ def testMultipleRequests(tdir_for_func):
             for n in nodeSet:
                 n.startKeySharing()
 
-            ss0 = snapshotStats(*nodeSet)
+            # TODO: ZStack does not have any mechanism to have stats,
+            # either remove this once raet is removed or implement a `stats`
+            # feature in ZStack
+            if not nodeSet.UseZStack:
+                ss0 = snapshotStats(*nodeSet)
             client, wal = setupNodesAndClient(looper,
                                               nodeSet,
                                               tmpdir=tdir_for_func)
-            ss1 = snapshotStats(*nodeSet)
+            if not nodeSet.UseZStack:
+                ss1 = snapshotStats(*nodeSet)
 
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
@@ -185,12 +190,14 @@ def testMultipleRequests(tdir_for_func):
                         checkSufficientRepliesRecvd, client.inBox,
                         request.reqId, 3,
                         retryWait=1, timeout=3 * len(nodeSet)))
-                ss2 = snapshotStats(*nodeSet)
-                diff = statsDiff(ss2, ss1)
 
-                pprint(ss2)
-                print("----------------------------------------------")
-                pprint(diff)
+                if not nodeSet.UseZStack:
+                    ss2 = snapshotStats(*nodeSet)
+                    diff = statsDiff(ss2, ss1)
+
+                    pprint(ss2)
+                    print("----------------------------------------------")
+                    pprint(diff)
 
             profile_this(x)
 

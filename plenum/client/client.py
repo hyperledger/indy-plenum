@@ -33,6 +33,7 @@ from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, \
     checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.zstack import NodeZStack
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from raet.nacling import Signer
@@ -206,7 +207,11 @@ class Client(Motor,
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return NodeStack
+        # TODO: Remove if condition once raet is removed
+        if self.config:
+            return NodeZStack
+        else:
+            return NodeStack
 
     def start(self, loop):
         oldstatus = self.status

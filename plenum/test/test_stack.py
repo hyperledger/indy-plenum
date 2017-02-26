@@ -81,6 +81,7 @@ def getTestableStack(stack: NetworkInterface):
     :param stack:
     :return:
     """
+    # TODO: Can it be achieved without this mro manipulation?
     mro = stack.__mro__
     newMro = []
     for c in mro[1:]:
