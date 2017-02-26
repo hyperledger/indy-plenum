@@ -164,7 +164,7 @@ class Stack(NetworkInterface, RoadStack):
             l = 0
         return l
 
-    # def _serviceStack(self, age):
+
     async def _serviceStack(self, age):
         """
         Update stacks clock and service all tx and rx messages.
@@ -280,6 +280,22 @@ class Stack(NetworkInterface, RoadStack):
     @property
     def isKeySharing(self):
         return self.keep.auto != AutoMode.never
+
+    @property
+    def verhex(self):
+        return self.local.signer.verhex
+
+    @property
+    def keyhex(self):
+        return self.local.signer.keyhex
+
+    @property
+    def pubhex(self):
+        return self.local.priver.pubhex
+
+    @property
+    def prihex(self):
+        return self.local.priver.keyhex
 
     def send(self, msg: Any, remoteName: str):
         """

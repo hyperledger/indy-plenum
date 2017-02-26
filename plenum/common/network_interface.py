@@ -90,6 +90,13 @@ class NetworkInterface:
         except StopIteration:
             return None
 
+    def hasRemote(self, name):
+        try:
+            self.getRemote(name=name)
+            return True
+        except RemoteNotFound:
+            return False
+
     def removeRemoteByName(self, name: str) -> int:
         """
         Remove the remote by name.

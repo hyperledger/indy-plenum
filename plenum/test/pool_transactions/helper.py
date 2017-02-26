@@ -10,6 +10,7 @@ from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR
 from plenum.common.util import randomString, hexToFriendly
+from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode
@@ -68,7 +69,13 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5 * nodeCount))
-    initLocalKeep(newNodeName, tdir, sigseed, override=True)
+
+    # TODO: Remove once raet it removed
+    if tconf.UseZStack:
+        initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
+    else:
+        initLocalKeep(newNodeName, tdir, sigseed, override=True)
+
     node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
                      ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
                      pluginPaths=allPluginsPath)
@@ -96,7 +103,7 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
 
 def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
-    nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
+    nodeNym = hexToFriendly(node.nodestack.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
         TXN_TYPE: NODE,
@@ -122,7 +129,7 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
-    nodeNym = hexToFriendly(node.nodestack.local.signer.verhex)
+    nodeNym = hexToFriendly(node.nodestack.verhex)
 
     op = {
         TXN_TYPE: NODE,

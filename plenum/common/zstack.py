@@ -1,6 +1,7 @@
 import inspect
 import json
 import shutil
+from binascii import hexlify
 from collections import deque
 from typing import Dict, Mapping, Callable, Any, List
 import os
@@ -21,7 +22,8 @@ from plenum.common.batched import Batched
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
 from plenum.common.ratchet import Ratchet
-from plenum.common.types import HA
+from plenum.common.txn import BATCH
+from plenum.common.types import HA, OP_FIELD_NAME, f
 from plenum.common.z_util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations
 
@@ -37,7 +39,8 @@ LINGER_TIME = 20
 
 
 class Remote:
-    def __init__(self, name, ha, verKey, publicKey, *args, **kwargs):
+    def __init__(self, name, ha, verKey, publicKey,
+                 *args, **kwargs):
         # TODO, remove *args, **kwargs after removing raet
 
         # Every remote has a unique name per stack, the name can be the
@@ -90,13 +93,14 @@ class ZStack(NetworkInterface):
 
     __sigKey__ = '__sig__'
     sigLen = 64
-    pingMessage = b'\n'
+    pingMessage = '\n'
+    pongMessage = '\r'
 
     # TODO: This is not implemented, implement this
     messageTimeout = 3
 
     def __init__(self, name, ha, basedirpath, msgHandler, restricted=True,
-                 seed=None, *args, **kwargs):
+                 seed=None, onlyListener=False, *args, **kwargs):
         # TODO, remove *args, **kwargs after removing raet
         self.name = name
         self.ha = ha
@@ -130,6 +134,11 @@ class ZStack(NetworkInterface):
         self.remotes = {}  # type: Dict[str, Remote]
 
         self.remotesByKeys = {}
+
+        # Indicates if this stack will maintain any remotes or will
+        # communicate simply to listeners. Used in ClientZStack
+        self.onlyListener = onlyListener
+        self.peersWithoutRemotes = set()
 
         self._conns = set()  # type: Set[str]
 
@@ -218,6 +227,8 @@ class ZStack(NetworkInterface):
         self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
     def start(self, restricted=None, reSetupAuth=True):
+        logger.info('{} starting with restricted as {} and reSetupAuth '
+                    'as {}'.format(self, restricted, reSetupAuth))
         # self.ctx = zmq.asyncio.Context.instance()
         self.ctx = zmq.Context.instance()
         restricted = self.restricted if restricted is None else restricted
@@ -245,6 +256,7 @@ class ZStack(NetworkInterface):
         self.listener.curve_secretkey = secret
         self.listener.curve_publickey = public
         self.listener.curve_server = True
+        self.listener.identity = self.publicKey
         self.listener.bind(
             'tcp://*:{}'.format(self.ha[1]))
 
@@ -295,6 +307,25 @@ class ZStack(NetworkInterface):
         """
         return r.isConnected
 
+    def hasRemote(self, name):
+        if self.onlyListener:
+            if name in self.peersWithoutRemotes:
+                return True
+        return super().hasRemote(name)
+
+    def removeRemoteByName(self, name: str):
+        if self.onlyListener:
+            if name in self.peersWithoutRemotes:
+                self.peersWithoutRemotes.remove(name)
+                return True
+        else:
+            return super().removeRemoteByName(name)
+
+    @property
+    def remoteSockets(self):
+        # TODO: Optimize this
+        return [r.socket for r in self.remotes.values()]
+
     async def service(self, limit=None) -> int:
         """
         Service `limit` number of received messages in this stack.
@@ -317,41 +348,83 @@ class ZStack(NetworkInterface):
     async def _serviceStack(self, age):
         # TODO: age is unused
 
+        def verifyAndAppend(msg, ident):
+            if self.verify(msg, ident):
+                self.rxMsgs.append((msg[:-self.sigLen].decode(), ident))
+            else:
+                logger.error('{} got error while verifying message {} from {}'
+                             .format(self, msg, ident))
+
         # TODO: If a stack is being bombarded with messages this can lead to the
         # stack always busy in receiving messages and never getting time to
         # complete processing fo messages.
+        # TODO: Optimize this
         while True:
             try:
                 # ident, msg = await self.listener.recv_multipart(
                 #     flags=zmq.NOBLOCK)
-                ident, msg = self.listener.recv_multipart(
-                    flags=zmq.NOBLOCK)
-                if self.verify(msg, ident):
-                    self.rxMsgs.append((msg[:-self.sigLen], ident))
-                else:
-                    logger.error('Error while verifying message {} from {}'
-                                 .format(msg, ident))
+                ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
+                if self.onlyListener and ident not in self.remotesByKeys:
+                    self.peersWithoutRemotes.add(ident)
+
+                verifyAndAppend(msg, ident)
             except zmq.Again:
                 break
+
+        for ident, remote in self.remotesByKeys.items():
+            if not remote.socket:
+                continue
+            sock = remote.socket
+            while True:
+                try:
+                    # ident, msg = await sock.recv(flags=zmq.NOBLOCK)
+                    msg = sock.recv(flags=zmq.NOBLOCK)
+                    verifyAndAppend(msg, ident)
+                except zmq.Again:
+                    break
+
         return len(self.rxMsgs)
 
     def processReceived(self, limit):
+
+        def handlePingPong(msg, frm):
+            if msg in (self.pingMessage, self.pongMessage):
+                if msg == self.pingMessage:
+                    self.send(self.pongMessage, frm)
+                return True
+            return False
+
         if limit > 0:
             for x in range(limit):
                 try:
                     msg, ident = self.rxMsgs.popleft()
                     if ident in self.remotesByKeys:
                         self.remotesByKeys[ident].isConnected = True
-                    if msg == self.pingMessage:
+                    frm = self.remotesByKeys[ident].name \
+                        if ident in self.remotesByKeys else ident
+                    r = handlePingPong(msg, frm)
+                    if r:
                         continue
                     try:
-                        msg = json.loads(msg.decode())
+                        msg = json.loads(msg)
                     except Exception as e:
                         logger.error('Error while converting message {} '
                                      'to JSON from {}'.format(msg, ident))
                         continue
-                    frm = self.remotesByKeys[ident].name \
-                        if ident in self.remotesByKeys else ident
+
+                    #TODO: Refactor, this should be moved to `Batched`
+                    if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
+                        if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
+                            relevantMsgs = []
+                            for m in msg[f.MSGS.nm]:
+                                r = handlePingPong(m, frm)
+                                if not r:
+                                    relevantMsgs.append(m)
+
+                            if not relevantMsgs:
+                                continue
+                            msg[f.MSGS.nm] = relevantMsgs
+
                     self.msgHandler((msg, frm))
                 except IndexError:
                     break
@@ -407,6 +480,7 @@ class ZStack(NetworkInterface):
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
+        self.addVerifier(remoteVerkey)
         return remote
 
     def removeRemote(self, remote: Remote, clear=True):
@@ -414,38 +488,56 @@ class ZStack(NetworkInterface):
         Currently not using clear
         """
         name = remote.name
-        key = remote.publicKey
+        pkey = remote.publicKey
+        vkey = remote.verKey
         if name in self.remotes:
             self.remotes.pop(name)
-            self.remotesByKeys.pop(key)
+            self.remotesByKeys.pop(pkey, None)
+            self.verifiers.pop(vkey, None)
         else:
             logger.warn('No remote named {} present')
 
     def send(self, msg, remote: str = None):
         # TODO: A ClientZStack wont create remotes for client, handle that
-        if remote is None:
-            r = []
-            for uid in self.remotes:
-                r.append(self.transmit(msg, uid))
-                return all(r)
+        if self.onlyListener:
+            self.transmitThroughListener(msg, remote)
         else:
-            return self.transmit(msg, remote)
+            if remote is None:
+                r = []
+                for uid in self.remotes:
+                    r.append(self.transmit(msg, uid))
+                    return all(r)
+            else:
+                return self.transmit(msg, remote)
 
     def transmit(self, msg, uid, timeout=None):
         # Timeout is unused as of now
         assert uid in self.remotes
         socket = self.remotes[uid].socket
-        if isinstance(msg, Mapping):
-            msg = json.dumps(msg)
-        if isinstance(msg, str):
-            msg = msg.encode()
-        assert isinstance(msg, bytes)
 
+        msg = self.prepMsg(msg)
         try:
             socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
             return True
         except zmq.Again:
             return False
+
+    def transmitThroughListener(self, msg, ident):
+        msg = self.prepMsg(msg)
+        try:
+            self.listener.send_multipart([ident, self.signedMsg(msg)])
+            return True
+        except zmq.Again:
+            return False
+
+    @staticmethod
+    def prepMsg(msg):
+        if isinstance(msg, Mapping):
+            msg = json.dumps(msg)
+        if isinstance(msg, str):
+            msg = msg.encode()
+        assert isinstance(msg, bytes)
+        return msg
 
     def signedMsg(self, msg: bytes, signer: Signer=None):
         # Signing even if keysharing is ON since the other part
@@ -471,6 +563,16 @@ class ZStack(NetworkInterface):
         except (ValueError, IOError) as ex:
             raise KeyError from ex
 
+    @staticmethod
+    def loadSecKeyFromDisk(directory, name):
+        filePath = os.path.join(directory,
+                                "{}.key_secret".format(name))
+        try:
+            _, secret = zmq.auth.load_certificate(filePath)
+            return secret
+        except (ValueError, IOError) as ex:
+            raise KeyError from ex
+
     @property
     def publicKey(self):
         return self.getPublicKey(self.name)
@@ -484,6 +586,31 @@ class ZStack(NetworkInterface):
 
     def getVerKey(self, name):
         return self.loadPubKeyFromDisk(self.verifKeyDir, name)
+
+    @property
+    def verhex(self):
+        return hexlify(z85.decode(self.verKey))
+
+    @property
+    def sigKey(self):
+        return self.loadSecKeyFromDisk(self.sigKeyDir, self.name)
+
+    # TODO: Change name to sighex after removing raet
+    @property
+    def keyhex(self):
+        return hexlify(z85.decode(self.sigKey))
+
+    @property
+    def pubhex(self):
+        return hexlify(z85.decode(self.publicKey))
+
+    @property
+    def priKey(self):
+        return self.loadSecKeyFromDisk(self.secretKeysDir, self.name)
+
+    @property
+    def prihex(self):
+        return hexlify(z85.decode(self.priKey))
 
     def getAllVerKeys(self):
         keys = []
@@ -555,7 +682,7 @@ class DummyKeep:
 
 class SimpleZStack(ZStack):
     def __init__(self, stackParams: Dict, msgHandler: Callable, seed=None,
-                 sighex: str=None):
+                 onlyListener=False, sighex: str=None):
         # TODO: sighex is unused as of now, remove once raet is removed or
         # maybe use sighex to generate all keys, DECISION DEFERRED
 
@@ -573,7 +700,8 @@ class SimpleZStack(ZStack):
         restricted = True if auto == 0 else False
 
         super().__init__(name, ha, basedirpath, msgHandler=self.msgHandler,
-                         restricted=restricted, seed=seed)
+                         restricted=restricted, seed=seed,
+                         onlyListener=onlyListener)
 
 
 class KITZStack(SimpleZStack):
@@ -648,7 +776,8 @@ class KITZStack(SimpleZStack):
 
 class ClientZStack(SimpleZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
-        SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed)
+        SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
+                              onlyListener=True)
         self.connectedClients = set()
 
     def serviceClientStack(self):
@@ -680,7 +809,8 @@ class ClientZStack(SimpleZStack):
                          .format(self, msg, remoteName, ex.__repr__()))
 
     def transmitToClients(self, msg: Any, remoteNames: List[str]):
-        for nm in remoteNames:
+        #TODO: Handle `remoteNames`
+        for nm in self.peersWithoutRemotes:
             self.transmitToClient(msg, nm)
 
 

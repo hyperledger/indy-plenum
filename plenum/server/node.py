@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import time
+from binascii import unhexlify
 from collections import deque, defaultdict
 from functools import partial
 from hashlib import sha256
@@ -347,7 +348,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def wallet(self):
         if not self._wallet:
             wallet = Wallet(self.name)
-            signer = SimpleSigner(seed=self.nodestack.local.signer.keyraw)
+            signer = SimpleSigner(seed=unhexlify(self.nodestack.keyhex))
             wallet.addIdentifier(signer=signer)
             self._wallet = wallet
         return self._wallet
@@ -1931,6 +1932,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.nodeBlacklister.isBlacklisted(nm)}
 
     def transmitToClient(self, msg: Any, remoteName: str):
+        if isinstance(remoteName, str):
+            remoteName = remoteName.encode()
         self.clientstack.transmitToClient(msg, remoteName)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):

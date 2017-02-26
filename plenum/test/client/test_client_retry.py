@@ -21,8 +21,10 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
     """
     alpha = nodeSet.Alpha
 
-    r = alpha.clientstack.getRemote(client1.stackName)
-    alpha.clientstack.removeRemote(r)
+    # r = alpha.clientstack.getRemote(client1.stackName)
+    # alpha.clientstack.removeRemote(r)
+    alpha.clientstack.removeRemoteByName(client1.stackName)
+
     req = sendRandomRequest(wallet1, client1)
 
     def chkAcks():

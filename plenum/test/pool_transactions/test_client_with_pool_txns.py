@@ -33,8 +33,8 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
         newClient.nodestack.local.priver.keyhex,
         newClient.nodestack.local.priver.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
     newClient.stop()
     looper.removeProdable(newClient)
@@ -47,8 +47,8 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
         newClient.nodestack.local.priver.keyhex,
         newClient.nodestack.local.priver.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
 
 

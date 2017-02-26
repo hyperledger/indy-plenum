@@ -456,6 +456,7 @@ def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
+        # TODO: Remove once raet it removed
         if UseZStack:
             initNodeKeysForBothStacks(nName, tdir, seed, override=True)
         else:

@@ -141,6 +141,8 @@ class Propagator:
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.__getstate__() if isinstance(request, Request) else \
             request
+        if isinstance(clientName, bytes):
+            clientName = clientName.decode()
         return Propagate(request, clientName)
 
     # noinspection PyUnresolvedReferences

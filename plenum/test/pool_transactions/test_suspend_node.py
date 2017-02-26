@@ -39,7 +39,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             allPluginsPath):
 
     newSteward, newStewardWallet, newNode = nodeThetaAdded
-    newNodeNym = hexToFriendly(newNode.nodestack.local.signer.verhex)
+    newNodeNym = hexToFriendly(newNode.nodestack.verhex)
     suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)
     # Check suspended node does not exist in any nodeReg or remotes of
     # nodes or clients

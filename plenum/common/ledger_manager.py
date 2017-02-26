@@ -811,15 +811,14 @@ class LedgerManager(HasActionQueue):
 
     def getStack(self, remoteName: str):
         if self.ownedByNode:
-            try:
-                self.clientstack.getRemote(remoteName)
+            if self.clientstack.hasRemote(remoteName):
                 return self.clientstack
-            except RemoteNotFound:
+            else:
                 pass
-        try:
-            self.nodestack.getRemote(remoteName)
+
+        if self.nodestack.hasRemote(remoteName):
             return self.nodestack
-        except RemoteNotFound:
+        else:
             logger.error("{} cannot find remote with name {}".
                          format(self, remoteName))
 
