@@ -443,20 +443,21 @@ class PrimaryElector(PrimaryDecider):
 
                 self.setElectionDefaults(instId)
 
-                # There was a tie among this and some other node(s), so do a
-                # random wait
-                if replica.name in tieAmong:
-                    # Try to nominate self after a random delay but dont block
-                    # until that delay and because a nominate from another
-                    # node might be sent
-                    self._schedule(partial(self.nominateReplica, instId),
-                                   random.randint(1, 3))
-                else:
-                    # Now try to nominate self again as there is a reelection
-                    self.nominateReplica(instId)
+                if not self.hasPrimaryReplica:
+                    # There was a tie among this and some other node(s), so do a
+                    # random wait
+                    if replica.name in tieAmong:
+                        # Try to nominate self after a random delay but dont block
+                        # until that delay and because a nominate from another
+                        # node might be sent
+                        self._schedule(partial(self.nominateReplica, instId),
+                                       random.randint(1, 3))
+                    else:
+                        # Now try to nominate self again as there is a reelection
+                        self.nominateReplica(instId)
             else:
                 logger.debug("ELEC: {} does not have re-election quorum yet. "
-                             "Got only {}".format(replica, len(self.reElectionProposals[instId])))
+                             "Got only {}".format(replica,   len(self.reElectionProposals[instId])))
         else:
             self.discard(reelection,
                          "already got re-election proposal from {} [ELEC]".

@@ -498,7 +498,6 @@ class ZStack(NetworkInterface):
             logger.warn('No remote named {} present')
 
     def send(self, msg, remote: str = None):
-        # TODO: A ClientZStack wont create remotes for client, handle that
         if self.onlyListener:
             self.transmitThroughListener(msg, remote)
         else:
