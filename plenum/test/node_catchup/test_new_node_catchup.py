@@ -8,6 +8,9 @@ from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
+
 logger = getlogger()
 
 txnCount = 5

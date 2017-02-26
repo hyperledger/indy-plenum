@@ -11,6 +11,9 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
+
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):

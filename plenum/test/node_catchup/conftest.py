@@ -11,6 +11,10 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
 
+def whitelist():
+    return ['got error while verifying message']
+
+
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
