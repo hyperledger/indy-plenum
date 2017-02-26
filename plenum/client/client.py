@@ -72,8 +72,11 @@ class Client(Motor,
         sighex = signer.keyraw
         verkey = rawToFriendly(signer.verraw)
 
-        self.name = name
         self.stackName = verkey
+        # TODO: Have a way for a client to have a user friendly name. Does it
+        # matter now, it used to matter in some CLI exampples in the past.
+        # self.name = name
+        self.name = self.stackName
 
         cha = None
         # If client information already exists is RAET then use that

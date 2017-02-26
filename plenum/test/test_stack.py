@@ -4,6 +4,7 @@ from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
 from plenum.common.stacked import Stack
+from plenum.common.zstack import ZStack
 from plenum.common.types import HA
 from plenum.test.exceptions import NotFullyConnected
 from plenum.common.exceptions import NotConnectedToAny
@@ -16,7 +17,13 @@ logger = getlogger()
 config = getConfig()
 
 
-class TestStack(Stack):
+if config.UseZStack:
+    BaseStackClass = ZStack
+else:
+    BaseStackClass = Stack
+
+
+class TestStack(BaseStackClass):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stasher = Stasher(self.rxMsgs,
@@ -24,8 +31,12 @@ class TestStack(Stack):
 
         self.delay = self.stasher.delay
 
-    def _serviceStack(self, age):
-        super()._serviceStack(age)
+    # def _serviceStack(self, age):
+    #     super()._serviceStack(age)
+    #     self.stasher.process(age)
+
+    async def _serviceStack(self, age):
+        await super()._serviceStack(age)
         self.stasher.process(age)
 
     def resetDelays(self):
@@ -39,7 +50,7 @@ class StackedTester:
         for address in self.nodeReg.values():
             for remote in self.nodestack.remotes.values():
                 if HA(*remote.ha) == address:
-                    if Stack.isRemoteConnected(remote):
+                    if BaseStackClass.isRemoteConnected(remote):
                         connected += 1
                         break
         totalNodes = len(self.nodeReg) if count is None else count
@@ -73,7 +84,7 @@ def getTestableStack(stack: NetworkInterface):
     mro = stack.__mro__
     newMro = []
     for c in mro[1:]:
-        if c == Stack:
+        if c == BaseStackClass:
             newMro.append(TestStack)
         newMro.append(c)
     return type(stack.__name__, tuple(newMro), dict(stack.__dict__))

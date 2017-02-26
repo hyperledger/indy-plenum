@@ -79,7 +79,8 @@ class Stack(NetworkInterface, RoadStack):
         logger.info("stack {} starting at {} in {} mode"
                     .format(self, self.ha, self.keep.auto.name),
                     extra={"cli": False})
-        self.coro = self._raetcoro()
+        # self.coro = self._raetcoro()
+        self.coro = self._raetcoro
 
     def stop(self):
         if self.opened:
@@ -97,7 +98,8 @@ class Stack(NetworkInterface, RoadStack):
         """
         pracLimit = limit if limit else sys.maxsize
         if self.coro:
-            x = next(self.coro)
+            # x = next(self.coro)
+            x = await self.coro()
             if x > 0:
                 for x in range(pracLimit):
                     try:
@@ -109,38 +111,61 @@ class Stack(NetworkInterface, RoadStack):
             logger.debug("{} is stopped".format(self))
             return 0
 
-    @property
-    def age(self):
-        """
-        Returns the time elapsed since this stack was created
-        """
-        return time.perf_counter() - self.created
+    # TODO: Remove this as this has been moved to Network Interface
+    # @property
+    # def age(self):
+    #     """
+    #     Returns the time elapsed since this stack was created
+    #     """
+    #     return time.perf_counter() - self.created
 
-    def _raetcoro(self):
-        """
-        Generator to service all messages.
-        Yields the length of rxMsgs queue of this stack.
-        """
-        while True:
-            try:
-                self._serviceStack(self.age)
-                l = len(self.rxMsgs)
-            except Exception as ex:
-                if isinstance(ex, OSError) and \
-                        len(ex.args) > 0 and \
-                        ex.args[0] == 22:
-                    logger.error("Error servicing stack {}: {}. This could be "
-                                 "due to binding to an internal network "
-                                 "and trying to route to an external one.".
-                                 format(self.name, ex), extra={'cli': 'WARNING'})
-                else:
-                    logger.error("Error servicing stack {}: {} {}".
-                                 format(self.name, ex, ex.args),
-                                 extra={'cli': 'WARNING'})
-                l = 0
-            yield l
+    # def _raetcoro(self):
+    #     """
+    #     Generator to service all messages.
+    #     Yields the length of rxMsgs queue of this stack.
+    #     """
+    #     while True:
+    #         try:
+    #             self._serviceStack(self.age)
+    #             l = len(self.rxMsgs)
+    #         except Exception as ex:
+    #             if isinstance(ex, OSError) and \
+    #                     len(ex.args) > 0 and \
+    #                     ex.args[0] == 22:
+    #                 logger.error("Error servicing stack {}: {}. This could be "
+    #                              "due to binding to an internal network "
+    #                              "and trying to route to an external one.".
+    #                              format(self.name, ex), extra={'cli': 'WARNING'})
+    #             else:
+    #                 logger.error("Error servicing stack {}: {} {}".
+    #                              format(self.name, ex, ex.args),
+    #                              extra={'cli': 'WARNING'})
+    #
+    #             l = 0
+    #         yield l
 
-    def _serviceStack(self, age):
+    async def _raetcoro(self):
+        try:
+            await self._serviceStack(self.age)
+            l = len(self.rxMsgs)
+        except Exception as ex:
+            if isinstance(ex, OSError) and \
+                    len(ex.args) > 0 and \
+                    ex.args[0] == 22:
+                logger.error("Error servicing stack {}: {}. This could be "
+                             "due to binding to an internal network "
+                             "and trying to route to an external one.".
+                             format(self.name, ex), extra={'cli': 'WARNING'})
+            else:
+                logger.error("Error servicing stack {}: {} {}".
+                             format(self.name, ex, ex.args),
+                             extra={'cli': 'WARNING'})
+
+            l = 0
+        return l
+
+    # def _serviceStack(self, age):
+    async def _serviceStack(self, age):
         """
         Update stacks clock and service all tx and rx messages.
 

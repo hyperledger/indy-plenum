@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Set, Tuple, Any, Union, Dict
 
+import time
 from raet.nacling import Signer
 
 from plenum.common.exceptions import RemoteNotFound
@@ -13,6 +14,13 @@ logger = getlogger()
 
 class NetworkInterface:
     localips = ['127.0.0.1', '0.0.0.0']
+
+    @property
+    def age(self):
+        """
+        Returns the time elapsed since this stack was created
+        """
+        return time.perf_counter() - self.created
 
     # TODO: Does this serve the same purpose as `conns`, if yes then remove
     @property

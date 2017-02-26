@@ -1,6 +1,7 @@
 import inspect
 import json
 import shutil
+from collections import deque
 from typing import Dict, Mapping, Callable, Any, List
 import os
 import sys
@@ -12,10 +13,10 @@ import zmq.asyncio
 import zmq.auth
 # TODO: Dont use `raet.nacling` as raet needs to be pulled out.
 from raet.nacling import Signer, Verifier
-from zmq.asyncio import Context
 from zmq.utils import z85
 
-from plenum.common.authenticator import AsyncioAuthenticator
+from plenum.common.authenticator import AsyncioAuthenticator, \
+    MyThreadAuthenticator, MyAuthenticator
 from plenum.common.batched import Batched
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
@@ -77,6 +78,8 @@ class Remote:
                          'being called twice.'.format(self))
 
 
+# TODO: Use Async io
+
 class ZStack(NetworkInterface):
     # Assuming only one listener per stack for now.
 
@@ -115,7 +118,8 @@ class ZStack(NetworkInterface):
         self.setupOwnKeysIfNeeded()
         self.setupSigning()
 
-        self.poller = zmq.asyncio.Poller()
+        # self.poller = zmq.asyncio.Poller()
+
         self.restricted = restricted
 
         self.ctx = None  # type: Context
@@ -128,6 +132,9 @@ class ZStack(NetworkInterface):
         self.remotesByKeys = {}
 
         self._conns = set()  # type: Set[str]
+
+        self.rxMsgs = deque()
+        self.created = time.perf_counter()
 
     @staticmethod
     def keyDirNames():
@@ -193,7 +200,8 @@ class ZStack(NetworkInterface):
         if self.auth and not force:
             raise RuntimeError('Listener already setup')
         location = self.publicKeysDir if restricted else zmq.auth.CURVE_ALLOW_ANY
-        self.auth = AsyncioAuthenticator(self.ctx)
+        # self.auth = AsyncioAuthenticator(self.ctx)
+        self.auth = MyAuthenticator(self.ctx)
         self.auth.start()
         self.auth.allow('0.0.0.0')
         self.auth.configure_curve(domain='*', location=location)
@@ -210,7 +218,8 @@ class ZStack(NetworkInterface):
         self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
     def start(self, restricted=None, reSetupAuth=True):
-        self.ctx = zmq.asyncio.Context.instance()
+        # self.ctx = zmq.asyncio.Context.instance()
+        self.ctx = zmq.Context.instance()
         restricted = self.restricted if restricted is None else restricted
         self.setupAuth(restricted, force=reSetupAuth)
         self.open()
@@ -231,7 +240,7 @@ class ZStack(NetworkInterface):
     def open(self):
         self.listener = self.ctx.socket(zmq.ROUTER)
         self.listener.setsockopt(zmq.LINGER, LINGER_TIME)
-        self.poller.register(self.listener, zmq.POLLIN)
+        # self.poller.register(self.listener, zmq.POLLIN)
         public, secret = self.selfEncKeys
         self.listener.curve_secretkey = secret
         self.listener.curve_publickey = public
@@ -294,37 +303,60 @@ class ZStack(NetworkInterface):
         processes all of the messages in rxMsgs.
         :return: the number of messages processed.
         """
-        pracLimit = limit if limit else sys.maxsize
         if self.listener:
-            x = 0
-            for x in range(pracLimit):
-                try:
-                    ident, msg = await self.listener.recv_multipart(
-                        flags=zmq.NOBLOCK)
-                    if self.verify(msg, ident):
-                        msg = msg[:-self.sigLen]
-                        if ident in self.remotesByKeys:
-                            self.remotesByKeys[ident].isConnected = True
-                        if msg == self.pingMessage:
-                            continue
-                        try:
-                            msg = json.loads(msg.decode())
-                        except Exception as e:
-                            logger.error('Error while converting message {} '
-                                         'to JSON from {}'.format(msg, ident))
-                            continue
-                        frm = self.remotesByKeys[ident].name if ident in \
-                                                self.remotesByKeys else ident
-                        self.msgHandler((msg, frm))
-                    else:
-                        logger.error('Error while verifying message {} from {}'
-                                     .format(msg, ident))
-                except zmq.Again:
-                    break
-            return x
+            await self._serviceStack(self.age)
         else:
             logger.debug("{} is stopped".format(self))
-            return 0
+
+        r = len(self.rxMsgs)
+        if r > 0:
+            pracLimit = limit if limit else sys.maxsize
+            return self.processReceived(pracLimit)
+        return 0
+
+    async def _serviceStack(self, age):
+        # TODO: age is unused
+
+        # TODO: If a stack is being bombarded with messages this can lead to the
+        # stack always busy in receiving messages and never getting time to
+        # complete processing fo messages.
+        while True:
+            try:
+                # ident, msg = await self.listener.recv_multipart(
+                #     flags=zmq.NOBLOCK)
+                ident, msg = self.listener.recv_multipart(
+                    flags=zmq.NOBLOCK)
+                if self.verify(msg, ident):
+                    self.rxMsgs.append((msg[:-self.sigLen], ident))
+                else:
+                    logger.error('Error while verifying message {} from {}'
+                                 .format(msg, ident))
+            except zmq.Again:
+                break
+        return len(self.rxMsgs)
+
+    def processReceived(self, limit):
+        if limit > 0:
+            for x in range(limit):
+                try:
+                    msg, ident = self.rxMsgs.popleft()
+                    if ident in self.remotesByKeys:
+                        self.remotesByKeys[ident].isConnected = True
+                    if msg == self.pingMessage:
+                        continue
+                    try:
+                        msg = json.loads(msg.decode())
+                    except Exception as e:
+                        logger.error('Error while converting message {} '
+                                     'to JSON from {}'.format(msg, ident))
+                        continue
+                    frm = self.remotesByKeys[ident].name \
+                        if ident in self.remotesByKeys else ident
+                    self.msgHandler((msg, frm))
+                except IndexError:
+                    break
+            return x
+        return 0
 
     def connect(self, name, ha=None, verKey=None, publicKey=None):
         """

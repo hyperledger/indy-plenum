@@ -38,6 +38,10 @@ def createCertsFromKeys(key_dir, name, public_key, secret_key=None,
 
 def createEncAndSigKeys(enc_key_dir, sig_key_dir, name, seed=None):
     seed = seed or randomSeed()
+    if isinstance(seed, str):
+        seed = seed.encode()
+    # ATTENTION: Passing `seed` encoded to bytes or not in
+    # `crypto_sign_seed_keypair` will generate different keypairs
     verif_key, sig_key = crypto_sign_seed_keypair(seed)
     createCertsFromKeys(sig_key_dir, name, z85.encode(verif_key),
                         z85.encode(sig_key[:32]))
