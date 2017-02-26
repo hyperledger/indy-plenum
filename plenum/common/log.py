@@ -7,7 +7,7 @@ from ioflo.base.consoling import getConsole, Console
 
 from plenum.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
-from plenum.common.util import Singleton
+from plenum.common.util import Singleton, adict
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25
@@ -21,39 +21,62 @@ class CustomAdapter(logging.LoggerAdapter):
         self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
-class CliHandler(logging.Handler):
-    def __init__(self, callback):
+class CallbackHandler(logging.Handler):
+    def __init__(self, typestr, default_tags, callback, override_tags):
         """
         Initialize the handler.
         """
         super().__init__()
         self.callback = callback
+        self.tags = default_tags
+        self.update_tags(override_tags or {})
+        self.typestr = typestr
+
+    def update_tags(self, override_tags):
+        self.tags.update(override_tags)
 
     def emit(self, record):
         """
         Passes the log record back to the CLI for rendering
         """
-        if hasattr(record, "cli"):
+        if hasattr(record, self.typestr):
             if record.cli:
                 self.callback(record, record.cli)
+        elif hasattr(record, 'tags'):
+            found = False
+            for t in record.tags:
+                if t in self.tags:
+                    if self.tags[t]:
+                        found = True
+                        continue
+                    else:
+                        return
+            if found:
+                self.callback(record)
         elif record.levelno >= logging.INFO:
             self.callback(record)
 
 
-class DemoHandler(logging.Handler):
-    def __init__(self, callback):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.callback = callback
+class CliHandler(CallbackHandler):
+    def __init__(self, callback, override_tags=None):
+        default_tags = {
+            "add_replica": True
+        }
+        super().__init__(typestr="cli",
+                         default_tags=default_tags,
+                         callback=callback,
+                         override_tags=override_tags)
 
-    def emit(self, record):
-        if hasattr(record, "demo"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
+
+class DemoHandler(CallbackHandler):
+    def __init__(self, callback, override_tags=None):
+        default_tags = {
+            "add_replica": True
+        }
+        super().__init__(typestr="demo",
+                         default_tags=default_tags,
+                         callback=callback,
+                         override_tags=override_tags)
 
 
 def getlogger(name=None):

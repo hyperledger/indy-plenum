@@ -793,7 +793,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
                        format(self, replica, instId, instDesc),
-                       extra={"cli": True, "demo": True})
+                       extra={"tags": ["add_replica"]})
         return replica
 
     def removeReplica(self):
