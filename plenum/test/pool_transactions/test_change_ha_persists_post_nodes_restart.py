@@ -11,7 +11,8 @@ logger = getlogger()
 
 
 whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
-             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
+             "missing", "conflicts", "matches", "nodeReg",
+             "conflicting address", "got error while verifying message"]
 
 
 def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
