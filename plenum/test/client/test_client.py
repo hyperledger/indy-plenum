@@ -22,7 +22,9 @@ F = getMaxFailures(nodeCount)
 whitelist = ['signer not configured so not signing',
              'for EmptySignature',
              'discarding message',
-             'found legacy entry']  # warnings
+             'found legacy entry',
+             'public key from disk',
+             'verification key from disk']  # warnings
 
 
 def checkResponseRecvdFromNodes(client, expectedCount: int,

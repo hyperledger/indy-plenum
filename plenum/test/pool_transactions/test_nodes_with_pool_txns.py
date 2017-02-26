@@ -9,6 +9,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import CLIENT_STACK_SUFFIX, HA
 from plenum.common.util import getMaxFailures, randomString
+from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
@@ -198,9 +199,15 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
-    initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
-    initLocalKeep(newNode.name+CLIENT_STACK_SUFFIX, tdirWithPoolTxns, sigseed)
+    if tconf.UseZStack:
+        initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
+                                  override=True)
+    else:
+        initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
+        initLocalKeep(newNode.name + CLIENT_STACK_SUFFIX, tdirWithPoolTxns,
+                      sigseed)
     looper.removeProdable(name=newNode.name)
+
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)

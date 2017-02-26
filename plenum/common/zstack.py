@@ -633,6 +633,36 @@ class ZStack(NetworkInterface):
 
             self.start(restricted, reSetupAuth=True)
 
+    def _safeRemove(self, filePath):
+        try:
+            os.remove(filePath)
+        except Exception as ex:
+            logger.info('{} could delete file {} due to {}'.
+                        format(self, filePath, ex))
+
+    def clearLocalRoleKeep(self):
+        for d in (self.secretKeysDir, self.sigKeyDir):
+            filePath = os.path.join(d, "{}.key_secret".format(self.name))
+            self._safeRemove(filePath)
+
+        for d in (self.publicKeysDir, self.verifKeyDir):
+            filePath = os.path.join(d, "{}.key".format(self.name))
+            self._safeRemove(filePath)
+
+    def clearRemoteRoleKeeps(self):
+        for d in (self.secretKeysDir, self.sigKeyDir):
+            for key_file in os.listdir(d):
+                if key_file != '{}.key_secret'.format(self.name):
+                    self._safeRemove(os.path.join(d, key_file))
+
+        for d in (self.publicKeysDir, self.verifKeyDir):
+            for key_file in os.listdir(d):
+                if key_file != '{}.key'.format(self.name):
+                    self._safeRemove(os.path.join(d, key_file))
+
+    def clearAllDir(self):
+        shutil.rmtree(self.homeDir)
+
     # TODO: Members below are just for the time till RAET replacement is
     # complete, they need to be removed then.
     @property
@@ -649,6 +679,11 @@ class ZStack(NetworkInterface):
             self._keep = DummyKeep(self)
         return self._keep
 
+    def clearLocalKeep(self):
+        pass
+
+    def clearRemoteKeeps(self):
+        pass
     # def addListener(self, ha):
     #     pass
     #

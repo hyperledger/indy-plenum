@@ -154,7 +154,6 @@ class TxnStackManager:
     def stackKeysChanged(self, txn, remoteName, nodeOrClientObj):
         logger.debug("{} clearing remote role data in keep of {}".
                      format(nodeOrClientObj.nodestack.name, remoteName))
-        nodeOrClientObj.nodestack.keep.clearRemoteRoleData(remoteName)
         logger.debug(
             "{} removing remote {}".format(nodeOrClientObj, remoteName))
         # Removing remote so that the nodestack will attempt to connect
@@ -163,8 +162,12 @@ class TxnStackManager:
         verkey = txn[VERKEY]
         try:
             # Override any keys found
-            initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
-                           override=True)
+            if self.config.UseZStack:
+                initRemoteKeys(self.name, remoteName, self.basedirpath,
+                               verkey, override=True)
+            else:
+                initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
+                               override=True)
         except Exception as ex:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))

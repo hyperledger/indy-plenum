@@ -122,6 +122,8 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
+
+    # TODO: Not needed in ZStack, remove once raet is removed
     node.nodestack.clearLocalKeep()
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
