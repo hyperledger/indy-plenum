@@ -636,7 +636,6 @@ class Cli:
 
         mappings['addGenesisAction'] = addGenesisTxnCmd
         mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
-
         mappings['licenseAction'] = licenseCmd
         mappings['quitAction'] = quitCmd
         mappings['exitAction'] = exitCmd
@@ -674,7 +673,6 @@ class Cli:
                       if k not in topCmdKeys
                       and k not in bottomCmdsKeys
                       and k not in removeCmdKeys]
-
         return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
