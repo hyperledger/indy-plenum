@@ -322,10 +322,12 @@ class SimpleStack(Stack):
         """
         for o in outs:
             logger.info("{} disconnected from {}".format(self, o),
-                        extra={"cli": "IMPORTANT"})
+                        extra={"cli": "IMPORTANT",
+                               "tags": ["connected"]})
         for i in ins:
             logger.info("{} now connected to {}".format(self, i),
-                        extra={"cli": "IMPORTANT"})
+                        extra={"cli": "IMPORTANT",
+                               "tags": ["connected"]})
 
             # remove remotes for same ha when a connection is made
             remote = self.getRemote(i)
@@ -461,7 +463,7 @@ class KITStack(SimpleStack):
         self.join(uid=remote.uid, cascade=True, timeout=30)
         logger.info("{} looking for {} at {}:{}".
                     format(self, name or remote.name, *remote.ha),
-                    extra={"cli": "PLAIN"})
+                    extra={"cli": "PLAIN", "tags": ["node-looking"]})
         return remote.uid
 
     @property
@@ -863,5 +865,5 @@ class NodeStack(Batched, KITStack):
         KITStack.start(self)
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
-                    extra={"cli": "LOW_STATUS"})
+                    extra={"tags": ["node-listening"]})
 

@@ -39,22 +39,24 @@ class CallbackHandler(logging.Handler):
         """
         Passes the log record back to the CLI for rendering
         """
+        should_cb = None
+        attr_val = None
         if hasattr(record, self.typestr):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif hasattr(record, 'tags'):
-            found = False
+            attr_val = getattr(record, self.typestr)
+            should_cb = bool(attr_val)
+        if should_cb is None and record.levelno >= logging.INFO:
+            should_cb = True
+        if hasattr(record, 'tags'):
             for t in record.tags:
                 if t in self.tags:
                     if self.tags[t]:
-                        found = True
+                        should_cb = True
                         continue
                     else:
-                        return
-            if found:
-                self.callback(record)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
+                        should_cb = False
+                        break
+        if should_cb:
+            self.callback(record, attr_val)
 
 
 class CliHandler(CallbackHandler):
@@ -156,8 +158,8 @@ class Logger(metaclass=Singleton):
         new = logging.StreamHandler(sys.stdout)
         self._setHandler('std', new)
 
-    def enableCliLogging(self, callback):
-        h = CliHandler(callback)
+    def enableCliLogging(self, callback, override_tags=None):
+        h = CliHandler(callback, override_tags)
         self._setHandler('cli', h)
         # assumption is there's never a need to have std logging when in CLI
         self._clearHandler('std')

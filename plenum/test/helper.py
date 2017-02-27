@@ -8,7 +8,6 @@ from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
 
-from plenum.common.config_util import getConfig
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from raet.raeting import TrnsKind, PcktKind
 
