@@ -1789,6 +1789,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas:
             self.send(replica.threePhaseState)
 
+    # TODO: Starting and stopping keysharing should be test code, in the
+    # production systems people would never want a stack to be open for a
+    # short period of time since anybody can get in at that time
     def startKeySharing(self, timeout=60):
         """
         Start key sharing till the timeout is reached.

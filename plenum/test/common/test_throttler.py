@@ -21,6 +21,7 @@ def test_throttler_case1():
             assert windowSize - i % windowSize == round(timeToWait)
         time.sleep(1)
 
+
 def test_throttler_case2():
     '''
     Tests throttler with custom delay function
@@ -29,7 +30,8 @@ def test_throttler_case2():
     testIterations = windowSize - 2
     ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
     throttler = Throttler(windowSize, ratchet.get)
-    cooldowns = [time.sleep(1) or throttler.acquire()[1] for i in range(testIterations)]
+    cooldowns = [time.sleep(1) or throttler.acquire()[1]
+                 for i in range(testIterations)]
     middle = len(cooldowns) // 2
     firstIteration, secondIteration = cooldowns[:middle], cooldowns[middle:]
     for a, b in zip(firstIteration, secondIteration):

@@ -522,6 +522,12 @@ class ZStack(NetworkInterface):
             return False
 
     def transmitThroughListener(self, msg, ident):
+        if ident not in self.peersWithoutRemotes:
+            logger.info('{} not sending message {} to {}'.
+                        format(self, msg, ident))
+            logger.info("This is a temporary workaround for not being able to "
+                        "disconnect a ROUTER's remote")
+            return
         msg = self.prepMsg(msg)
         try:
             self.listener.send_multipart([ident, self.signedMsg(msg)])

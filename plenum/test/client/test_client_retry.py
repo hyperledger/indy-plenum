@@ -11,6 +11,7 @@ from plenum.test.helper import sendRandomRequest, checkReqAck, checkReplyCount
 whitelist = ['AlphaC unable to send message', ]
 
 
+@pytest.mark.skip(reason="SOV-383")
 def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
                                              wallet1, tconf):
     """
@@ -23,7 +24,10 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
 
     # r = alpha.clientstack.getRemote(client1.stackName)
     # alpha.clientstack.removeRemote(r)
-    alpha.clientstack.removeRemoteByName(client1.stackName)
+    if tconf.UseZStack:
+        alpha.clientstack.removeRemoteByName(client1.nodestack.publicKey)
+    else:
+        alpha.clientstack.removeRemoteByName(client1.stackName)
 
     req = sendRandomRequest(wallet1, client1)
 

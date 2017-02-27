@@ -97,6 +97,9 @@ class Client(Motor,
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
 
+        # TODO: Find a proper name
+        self.alias = name
+
         self._ledger = None
 
         if not nodeReg:
@@ -546,7 +549,7 @@ class Client(Motor,
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
-            self.nodestack.join(remote.uid, cascade=True)
+            self.nodestack.connect(name=remote.name, rid=remote.uid)
 
         if keys:
             # Need a delay in case connection has to be established with some
@@ -608,7 +611,7 @@ class Client(Motor,
                 r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
-            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].iteritems()
+            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].items()
                         if k not in
                         [F.auditPath.name, F.seqNo.name, F.rootHash.name])
             result = serializer.serialize(dict(filtered))

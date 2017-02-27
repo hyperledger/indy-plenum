@@ -6,6 +6,9 @@ from plenum.common.types import NodeDetail, HA
 
 
 # noinspection PyIncorrectDocstring
+from plenum.common.zstack import ZStack
+
+
 @pytest.fixture('module')
 def overlapNodePorts(nodeReg):
     """
@@ -27,7 +30,10 @@ def testOverlappingNodePorts(up):
 
 
 def testUsedPortDetection(tdir, client1):
-    port = client1.nodestack.ha[1]
-    assert isPortUsed(tdir, port)
-    newPort = genHa()[1]
-    assert not isPortUsed(tdir, newPort)
+    if isinstance(client1.nodestack, ZStack):
+        pytest.skip("ZStack does not store port numbers on disk")
+    else:
+        port = client1.nodestack.ha[1]
+        assert isPortUsed(tdir, port)
+        newPort = genHa()[1]
+        assert not isPortUsed(tdir, newPort)

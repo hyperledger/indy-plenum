@@ -3,6 +3,7 @@ from raet.raeting import AutoMode
 
 from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
 from plenum.common.exceptions import NotConnectedToAny
+from plenum.common.z_util import initRemoteKeys
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
 from plenum.test.helper import randomOperation, \
@@ -91,6 +92,12 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
 
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
+        if ctx.nodeset.UseZStack:
+            for node in ctx.nodeset:
+                stack = node.nodestack
+                # TODO: Remove this if condition once raet is removed
+                initRemoteKeys(client1.name, stack.name, ctx.tmpdir, stack.verhex,
+                               override=True)
 
         ctx.looper.add(client1)
         with pytest.raises(NotConnectedToAny):
@@ -127,15 +134,15 @@ def testSendRequestWithoutSignatureFails(pool):
         for n in ctx.nodeset:
             params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
             ex = params['ex']
-            _, frm = params['wrappedMsg']
+            msg, _ = params['wrappedMsg']
             assert isinstance(ex, EmptySignature)
-            assert frm == client1.stackName
+            assert msg.get(f.IDENTIFIER.nm) == request.identifier
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
             assert msg == request.__dict__
-            assert frm == client1.stackName
+            assert msg.get(f.IDENTIFIER.nm) == request.identifier
             assert "EmptySignature" in reason
 
     pool.run(go)

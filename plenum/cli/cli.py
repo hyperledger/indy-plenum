@@ -32,7 +32,7 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
-from plenum.common.raet import getLocalEstateData, isPortUsed
+from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
@@ -544,7 +544,7 @@ class Cli:
     @activeClient.setter
     def activeClient(self, client):
         self._activeClient = client
-        self.print("Active client set to " + client.name)
+        self.print("Active client set to " + client.alias)
 
     @staticmethod
     def relist(seq):

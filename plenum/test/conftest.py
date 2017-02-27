@@ -27,7 +27,7 @@ from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances, getMaxFailures
+from plenum.common.util import getNoInstances, getMaxFailures, randomSeed
 from plenum.common.z_util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations, initStackLocalKeys, \
     initNodeKeysForBothStacks
@@ -597,4 +597,4 @@ def testNode(pluginManager, tdir):
     ha, cliname, cliha = nodeReg[name]
     return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
-                    primaryDecider=None, pluginPaths=None)
+                    primaryDecider=None, pluginPaths=None, seed=randomSeed())

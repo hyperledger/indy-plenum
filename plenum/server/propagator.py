@@ -128,7 +128,7 @@ class Propagator:
                 self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], clientName) -> Propagate:
+    def createPropagate(request: Union[Request, dict], identifier) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -141,9 +141,9 @@ class Propagator:
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.__getstate__() if isinstance(request, Request) else \
             request
-        if isinstance(clientName, bytes):
-            clientName = clientName.decode()
-        return Propagate(request, clientName)
+        if isinstance(identifier, bytes):
+            identifier = identifier.decode()
+        return Propagate(request, identifier)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request) -> bool:
