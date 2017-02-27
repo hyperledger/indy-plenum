@@ -50,7 +50,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True, reason="Implementation changed")
+@pytest.mark.skip(reason="SOV-539. Implementation changed")
 def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
     """Test no T-3"""
     nodeNames = genNodeNames(7)

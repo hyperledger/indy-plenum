@@ -33,7 +33,7 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper.run(eventually(stashing, retryWait=1, timeout=20))
 
 
-@pytest.mark.skipif(True, reason="Incomplete")
+@pytest.mark.skip(reason="SOV-552. Incomplete")
 def testNodeNotProcessingOrderedReqsWhileCatchingUp(nodeStashingOrderedRequests):
     """
     Check that node does not execute requests while catching up
@@ -42,7 +42,7 @@ def testNodeNotProcessingOrderedReqsWhileCatchingUp(nodeStashingOrderedRequests)
     pass
 
 
-@pytest.mark.skipif(True, reason="Incomplete")
+@pytest.mark.skip(reason="SOV-553. Incomplete")
 def testExecutedInOrderAfterCatchingUp(txnPoolNodeSet,
                                        nodeStashingOrderedRequests):
     """

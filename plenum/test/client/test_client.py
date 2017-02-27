@@ -48,7 +48,7 @@ def checkResponseRecvdFromNodes(client, expectedCount: int,
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True, reason="Implementation changed")
+@pytest.mark.skip(reason="SOV-550. Implementation changed")
 def testGeneratedRequestSequencing(tdir_for_func):
     """
     Request ids must be generated in an increasing order
