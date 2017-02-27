@@ -4,7 +4,7 @@ from plenum.test.greek import genNodeNames
 
 from plenum.common.looper import Looper
 from plenum.test.helper import msgAll
-from plenum.test.test_stack import RemoteState
+from plenum.test.test_stack import RemoteState, NOT_CONNECTED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
@@ -45,8 +45,7 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
         with Looper(nodes) as looper:
             try:
                 looper.run(
-                        checkNodesConnected(nodes,
-                                            RemoteState(None, None, None)))
+                        checkNodesConnected(nodes, NOT_CONNECTED))
             except RemoteNotFound:
                 pass
             except KeyError as ex:

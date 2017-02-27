@@ -274,13 +274,13 @@ class TestReplica(replica.Replica):
 class TestNodeSet(ExitStack):
 
     def __init__(self,
-                 names: Iterable[str] = None,
-                 count: int = None,
+                 names: Iterable[str]=None,
+                 count: int=None,
                  nodeReg=None,
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 pluginPaths:Iterable[str]=None,
+                 pluginPaths: Iterable[str]=None,
                  testNodeClass=TestNode):
 
         # TODO: Remove them once RAET is removed
