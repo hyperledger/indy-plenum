@@ -391,6 +391,18 @@ def doByCtx(ctx):
             attempt = attempt.format(**mapper) if mapper else attempt
             checkCmdValid(cli, attempt)
 
+        def getAssertErrorMsg(e, cli, exp:bool, actual:bool):
+            length = 80
+            sepLines = "\n" + "*" * length + "\n" + "-" * length
+            commonMsg = "\n{}\n{}".format(
+                cli.lastCmdOutput, sepLines)
+            prefix = ""
+            if exp and not actual:
+                prefix="NOT found "
+            elif not exp and actual:
+                prefix = "FOUND "
+            return "{}\n{}\n\n{} in\n {}".format(sepLines, e, prefix, commonMsg)
+
         def check():
             nonlocal expect
             nonlocal not_expect
@@ -404,10 +416,13 @@ def doByCtx(ctx):
                     if isinstance(e, str):
                         e = e.format(**mapper) if mapper else e
                         try:
+
                             if parity:
-                                assert e in cli.lastCmdOutput
+                                assert e in cli.lastCmdOutput, \
+                                    getAssertErrorMsg(e, cli, exp=True, actual=False)
                             else:
-                                assert e not in cli.lastCmdOutput
+                                assert e not in cli.lastCmdOutput, \
+                                    getAssertErrorMsg(e, cli, exp=False, actual=True)
                         except AssertionError as e:
                             extraMsg = ""
                             if not within:
