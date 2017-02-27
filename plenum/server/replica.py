@@ -27,6 +27,13 @@ from plenum.server.suspicion_codes import Suspicions
 
 logger = getlogger()
 
+LOG_TAGS = {
+    'PREPREPARE': {"tags": ["node-preprepare"]},
+    'PREPARE': {"tags": ["node-prepare"]},
+    'COMMIT': {"tags": ["node-commit"]},
+    'ORDERED': {"tags": ["node-ordered"]}
+}
+
 
 @unique
 class TPCStat(IntEnum):  # TPC => Three-Phase Commit
@@ -517,8 +524,8 @@ class Replica(HasActionQueue, MessageProcessor):
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)
-            logger.info("{} processed incoming PRE-PREPARE{}".
-                        format(self, key))
+            logger.info("{} processed incoming PRE-PREPARE{}".format(self, key),
+                        extra={"tags": ["processing"]})
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -1233,7 +1240,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param msg: the message to send
         """
         logger.display("{} sending {}".format(self, msg.__class__.__name__),
-                       extra={"cli": True})
+                       extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)

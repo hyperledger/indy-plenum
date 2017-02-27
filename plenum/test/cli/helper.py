@@ -264,7 +264,8 @@ def newCLI(looper, basedir, cliClass=TestCli,
     else:
         recorder = CombinedRecorder()
     mockOutput = MockOutput(recorder=recorder)
-    recorder.write("~ be {}".format(unique_name))
+    recorder.write("~ be {}\n".format(unique_name))
+    otags = config.log_override_tags['cli'] if config else None
     newcli = cliClass(looper=looper,
                       basedirpath=basedir,
                       nodeReg=None,
@@ -272,7 +273,8 @@ def newCLI(looper, basedir, cliClass=TestCli,
                       output=mockOutput,
                       debug=True,
                       config=config,
-                      unique_name=unique_name)
+                      unique_name=unique_name,
+                      override_tags=otags)
     newcli.recorder = recorder
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass

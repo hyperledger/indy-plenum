@@ -146,3 +146,4 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
+log_override_tags = dict(cli={}, demo={})

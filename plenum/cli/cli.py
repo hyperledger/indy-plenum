@@ -116,14 +116,17 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
-                 useNodeReg=False, withNode=True, unique_name=None):
+                 useNodeReg=False, withNode=True, unique_name=None,
+                 override_tags=None):
         self.unique_name = unique_name
         self.curClientPort = None
-        Logger().enableCliLogging(self.out)
-        self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        self.nodeRegLoadedFromFile = False
         self._config = config or getConfig(self.basedirpath)
+
+        Logger().enableCliLogging(self.out,
+                                  override_tags=override_tags)
+        self.looper = looper
+        self.nodeRegLoadedFromFile = False
         if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
                 and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
