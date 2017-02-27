@@ -272,8 +272,10 @@ class Cli:
 
     def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
         msg="Command mapping not provided for '{}' command handler. " \
-            "Please add proper mapping for related command in function '{}'".\
+            "Please add proper mapping for that command handler " \
+            "(in function '{}') with corresponding command object".\
             format(cmdHandlerFuncName, mappingFuncName)
+
         sep = "\n" + "*"*len(msg) + "\n"
         msg = sep + msg + sep
         return msg
@@ -283,8 +285,7 @@ class Cli:
             funcName = cmdHandlerFunc.__name__.replace("_","")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
                 raise Exception(self._getCmdMappingError(
-                    cmdHandlerFunc.__name__,
-                    self.cmdHandlerToCmdMappings.__name__))
+                    funcName, self.cmdHandlerToCmdMappings.__name__))
 
     @staticmethod
     def getCliVersion():
@@ -613,7 +614,7 @@ class Cli:
         mappings['helpAction'] = helpCmd
         mappings['statusAction'] = statusCmd
         mappings['changePrompt'] = changePromptCmd
-        #mappings['loadPluginDirAction'] = loadPluginsCmd
+        mappings['loadPluginDirAction'] = loadPluginsCmd
 
         mappings['newKeyring'] = newKeyringCmd
         mappings['renameKeyring'] = renameKeyringCmd
