@@ -5,7 +5,6 @@ import glob
 from typing import Dict, Iterable
 
 import pyorient
-import random
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -32,7 +31,7 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
-from plenum.common.raet import getLocalEstateData, isPortUsed
+from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
@@ -72,7 +71,7 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import getMaxFailures, checkPortAvailable, \
+from plenum.common.util import getMaxFailures, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
 from plenum.common.log import CliHandler, getlogger, setupLogging, \
@@ -81,7 +80,6 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 
@@ -270,17 +268,23 @@ class Cli:
 
         self.restoreLastActiveWallet()
 
-        self.checkIfHelpMsgExistsForAllCmds()
+        self.checkIfCmdHandlerAndCmdMappingExists()
 
-    def checkIfHelpMsgExistsForAllCmds(self):
+    def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
+        msg="Command mapping not provided for '{}' command handler. " \
+            "Please add proper mapping for related command in function '{}'".\
+            format(cmdHandlerFuncName, mappingFuncName)
+        sep = "\n" + "*"*len(msg) + "\n"
+        msg = sep + msg + sep
+        return msg
+
+    def checkIfCmdHandlerAndCmdMappingExists(self):
         for cmdHandlerFunc in self.actions:
             funcName = cmdHandlerFunc.__name__.replace("_","")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
-                raise Exception("\n************\nHelp msg not provided for "
-                                "'{}' command handler. Please add proper "
-                                "mapping for related help msg in function "
-                                "'helpMsgMappings'\n************\n".
-                                format(funcName))
+                raise Exception(self._getCmdMappingError(
+                    cmdHandlerFunc.__name__,
+                    self.cmdHandlerToCmdMappings.__name__))
 
     @staticmethod
     def getCliVersion():
@@ -609,7 +613,7 @@ class Cli:
         mappings['helpAction'] = helpCmd
         mappings['statusAction'] = statusCmd
         mappings['changePrompt'] = changePromptCmd
-        mappings['loadPluginDirAction'] = loadPluginsCmd
+        #mappings['loadPluginDirAction'] = loadPluginsCmd
 
         mappings['newKeyring'] = newKeyringCmd
         mappings['renameKeyring'] = renameKeyringCmd
@@ -1042,12 +1046,6 @@ class Cli:
         else:
             self.print("No such request. See: 'help client show request status' for more details")
 
-    # def showDetails(self, clientName, identifier, reqId):
-    #     client = self.clients.get(clientName, None)
-    #     if client and (identifier, reqId) in self.requests:
-    #         client.showReplyDetails(identifier, reqId)
-    #     else:
-    #         self.printMsgForUnknownClient()
 
     async def shell(self, *commands, interactive=True):
         """
