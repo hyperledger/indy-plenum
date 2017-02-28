@@ -36,7 +36,7 @@ def genTestClient(nodes = None,
                   ha=None,
                   usePoolLedger=False,
                   name=None,
-                  sighex=None) -> TestClient:
+                  sighex=None) -> (TestClient, Wallet):
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:
