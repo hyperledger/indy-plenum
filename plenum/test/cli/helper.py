@@ -258,7 +258,8 @@ def newCLI(looper, basedir, cliClass=TestCli,
            clientClass=TestClient,
            config=None,
            partition: str=None,
-           unique_name=None):
+           unique_name=None,
+           logFileName=None):
     if partition:
         recorder = Recorder(partition)
     else:
@@ -274,7 +275,8 @@ def newCLI(looper, basedir, cliClass=TestCli,
                       debug=True,
                       config=config,
                       unique_name=unique_name,
-                      override_tags=otags)
+                      override_tags=otags,
+                      logFileName=logFileName)
     newcli.recorder = recorder
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
