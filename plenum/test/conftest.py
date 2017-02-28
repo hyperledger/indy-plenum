@@ -125,7 +125,12 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'not trying any more because',
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
-                     "because field viewNo has incorrect type: <class 'str'>"
+                     "because field viewNo has incorrect type: <class 'str'>",
+
+                     # TODO: Remove these once the relevant bugs are fixed
+                     '.+ failed to ping .+ at',
+                     'discarding message (NOMINATE|PRIMARY)',
+                     '.+ rid .+ has been removed'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 

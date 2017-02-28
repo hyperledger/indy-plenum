@@ -396,7 +396,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def nodeStackClass(self) -> NodeStack:
         # TODO: Remove if condition once raet is removed
-        if self.config:
+        if self.config.UseZStack:
             return NodeZStack
         else:
             return NodeStack
@@ -404,7 +404,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def clientStackClass(self) -> ClientStack:
         # TODO: Remove if condition once raet is removed
-        if self.config:
+        if self.config.UseZStack:
             return ClientZStack
         else:
             return ClientStack

@@ -211,7 +211,7 @@ class Client(Motor,
     @property
     def nodeStackClass(self) -> NodeStack:
         # TODO: Remove if condition once raet is removed
-        if self.config:
+        if self.config.UseZStack:
             return NodeZStack
         else:
             return NodeStack
@@ -549,7 +549,7 @@ class Client(Motor,
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
-            self.nodestack.connect(name=remote.name, rid=remote.uid)
+            self.nodestack.connect(name=remote.name)
 
         if keys:
             # Need a delay in case connection has to be established with some

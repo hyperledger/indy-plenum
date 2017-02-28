@@ -1,6 +1,7 @@
 import os
 
 from jsonpickle import json
+from plenum.common.z_util import initStackLocalKeys
 
 from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
@@ -100,8 +101,15 @@ def storeGenTxns(baseDir, txn):
                 isLineNoKey=True)
 
 
-def initKeep(baseDir, name, sigseed, override=False):
-    pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
+def initKeys(baseDir, name, sigseed, override=False, config=None):
+    if not config:
+        from plenum.common.config_util import getConfig
+        config = getConfig()
+    if config.UseZStack:
+        pubkey, verkey = initStackLocalKeys(name, baseDir, sigseed,
+                                            override=override)
+    else:
+        pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
     return pubkey, verkey

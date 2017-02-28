@@ -101,11 +101,11 @@ def step2(step1, looper):
 def step3(step2):
 
     # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
-    def by3IfPrePrepare(msg):
+    def ifPrePrepare(msg):
         if isinstance(msg, PrePrepare):
-            return 3
+            return 5
 
-    step2.P.outBoxTestStasher.delay(by3IfPrePrepare)
+    step2.P.outBoxTestStasher.delay(ifPrePrepare)
     # send requests to client
     return step2
 

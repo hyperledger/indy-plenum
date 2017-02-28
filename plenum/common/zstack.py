@@ -227,11 +227,11 @@ class ZStack(NetworkInterface):
         self.verifiers[verkey] = Verifier(z85.decode(verkey))
 
     def start(self, restricted=None, reSetupAuth=True):
-        logger.info('{} starting with restricted as {} and reSetupAuth '
-                    'as {}'.format(self, restricted, reSetupAuth))
         # self.ctx = zmq.asyncio.Context.instance()
         self.ctx = zmq.Context.instance()
         restricted = self.restricted if restricted is None else restricted
+        logger.info('{} starting with restricted as {} and reSetupAuth '
+                    'as {}'.format(self, restricted, reSetupAuth))
         self.setupAuth(restricted, force=reSetupAuth)
         self.open()
 
@@ -320,11 +320,6 @@ class ZStack(NetworkInterface):
                 return True
         else:
             return super().removeRemoteByName(name)
-
-    @property
-    def remoteSockets(self):
-        # TODO: Optimize this
-        return [r.socket for r in self.remotes.values()]
 
     async def service(self, limit=None) -> int:
         """
@@ -464,6 +459,7 @@ class ZStack(NetworkInterface):
                     format(self, name or remote.name, *remote.ha),
                     extra={"cli": "PLAIN"})
 
+        # This should be scheduled as an async task
         r = self.send(self.pingMessage, remote.name)
         if r:
             logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
@@ -689,6 +685,7 @@ class ZStack(NetworkInterface):
 
     def clearRemoteKeeps(self):
         pass
+
     # def addListener(self, ha):
     #     pass
     #

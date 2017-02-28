@@ -1,7 +1,7 @@
 import os
 import shutil
 import datetime
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 
 from libnacl import crypto_sign_seed_keypair
 from zmq.auth.certs import _write_key_file, _cert_public_banner, \
@@ -48,6 +48,7 @@ def createEncAndSigKeys(enc_key_dir, sig_key_dir, name, seed=None):
     public_key, secret_key = ep2c(verif_key), es2c(sig_key)
     createCertsFromKeys(enc_key_dir, name, z85.encode(public_key),
                         z85.encode(secret_key))
+    return (public_key, secret_key), (verif_key, sig_key)
 
 
 def moveKeyFilesToCorrectLocations(keys_dir, pkdir, skdir):
@@ -119,7 +120,10 @@ def initStackLocalKeys(name, baseDir, sigseed, override=False):
     eDir = os.path.join(baseDir, '__eDir')
     os.makedirs(sDir, exist_ok=True)
     os.makedirs(eDir, exist_ok=True)
-    createEncAndSigKeys(eDir, sDir, name, seed=sigseed)
+    (public_key, secret_key), (verif_key, sig_key) = createEncAndSigKeys(eDir,
+                                                                         sDir,
+                                                                         name,
+                                                                         seed=sigseed)
 
     from plenum.common.zstack import ZStack
     homeDir = ZStack.homeDirPath(baseDir, name)
@@ -135,6 +139,7 @@ def initStackLocalKeys(name, baseDir, sigseed, override=False):
 
     shutil.rmtree(sDir)
     shutil.rmtree(eDir)
+    return hexlify(public_key).decode(), hexlify(verif_key).decode()
 
 
 def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):

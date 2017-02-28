@@ -401,7 +401,7 @@ def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
-def friendlyToRaw(f ):
+def friendlyToRaw(f):
     return base58.b58decode(f)
 
 
