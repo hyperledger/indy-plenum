@@ -35,6 +35,8 @@ from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs,
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
     checkPoolReady, checkNodesConnected, ensureElectionsDone, NodeRef
+from plenum.test import waits
+
 
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
@@ -74,17 +76,29 @@ def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
     # TODO add test case for what happens when replies don't have the same data
 
 
-def checkSufficientRepliesForRequests(looper, client, requests, fVal=None,
+def checkSufficientRepliesForRequests(looper,
+                                      client,
+                                      requests,
+                                      fVal=None,
                                       timeoutPerReq=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
-    timeoutPerReq = timeoutPerReq or 5 * nodeCount
+
+    if timeoutPerReq is None:
+        timeoutPerReq = waits.expectedTransactionExecutionTime(nodeCount)
+
+    totalTimeout = timeoutPerReq * len(requests)
+
     coros = []
     for request in requests:
-        coros.append(partial(checkSufficientRepliesRecvd, client.inBox,
-                             request.reqId, fVal))
-    looper.run(eventuallyAll(*coros, retryWait=1,
-                             totalTimeout=timeoutPerReq * len(requests)))
+        coros.append(partial(checkSufficientRepliesRecvd,
+                             client.inBox,
+                             request.reqId,
+                             fVal))
+
+    looper.run(eventuallyAll(*coros,
+                             retryWait=1,
+                             totalTimeout=totalTimeout))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
@@ -249,19 +263,16 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
                           frm: NodeRef,
                           to: NodeRef,
                           msg: Optional[Tuple]=None,
-                          timeout: Optional[int]=15
-                          ):
-    msg = msg if msg else randomMsg()
-    sendMsg(nodes, frm, to, msg)
-    await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
-                     ratchetSteps=10)
-
-
-def sendMsg(nodes: TestNodeSet, frm: NodeRef, to: NodeRef, msg):
+                          timeout: Optional[int]=15):
     logger.debug("Sending msg from {} to {}".format(frm, to))
-    frmnode = nodes.getNode(frm)
-    rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
-    frmnode.nodestack.send(msg, rid)
+    msg = msg if msg else randomMsg()
+    sender = nodes.getNode(frm)
+    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    sender.nodestack.send(msg, rid)
+    await eventually(checkMsg, msg, nodes, to,
+                     retryWait=.1,
+                     timeout=timeout,
+                     ratchetSteps=10)
 
 
 def checkMsg(msg, nodes, to, method: str = None):
