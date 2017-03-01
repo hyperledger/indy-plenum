@@ -29,7 +29,7 @@ class Command:
 helpCmd = Command(
     id="help",
     title="Shows this or specific help message for given command",
-    usage=" [<command name>]",
+    usage="help [<command name>]",
     examples=["help", "help list ids"])
 
 statusCmd = Command(
@@ -51,12 +51,6 @@ quitCmd = Command(
     id="quit",
     title="Exit the command-line interface ('exit' also works)",
     usage="quit")
-
-listCmd = Command(
-    id="list",
-    title="Shows list of all commands you can run",
-    usage="list [sorted]",
-    examples=["list", "list sorted"])
 
 newNodeCmd = Command(
     id="new node",
