@@ -432,6 +432,8 @@ def assertCliTokens(matchedVars, tokens):
 
 def doByCtx(ctx):
     def _(attempt, expect=None, within=None, mapper=None, not_expect=None):
+        assert expect is not None or within is None, \
+            "'within' not applicable without 'expect'"
         cli = ctx['current_cli']
 
         # This if was not there earlier, but I felt a need to reuse this
