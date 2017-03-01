@@ -7,12 +7,12 @@ from plenum.common.util import totalConnections
 logger = getlogger()
 
 
-def _expectedNodeInterconnectionTime(count) -> int:
+def _expectedNodeInterconnectionTime(count) -> float:
     conf = getConfig()
     return count * conf.ExpectedConnectTime + 4
 
 
-def expectedNodeInterconnectionTime(nodeCount) -> int:
+def expectedNodeInterconnectionTime(nodeCount) -> float:
     c = totalConnections(nodeCount)
     t = _expectedNodeInterconnectionTime(c)
     logger.debug("wait time for {} nodes and {} connections is {}"
@@ -20,38 +20,38 @@ def expectedNodeInterconnectionTime(nodeCount) -> int:
     return t
 
 
-def expectedTransactionExecutionTime(nodeCount) -> int:
+def expectedTransactionExecutionTime(nodeCount) -> float:
     # TODO: maybe it should depend on transaction type?
     # TODO: implement
 
     return int(7.5 * nodeCount)
 
 
-def expectedCatchupTime() -> int:
+def expectedCatchupTime() -> float:
     # TODO: implement
     pass
 
 
-def expectedAgentCommunicationTime() -> int:
+def expectedAgentCommunicationTime() -> float:
     # TODO: implement
     pass
 
 
-def expectedClientRequestPropagationTime(nodeCount) -> int:
+def expectedClientRequestPropagationTime(nodeCount) -> float:
     # TODO: move 1.4 to config
     # Also what if we have own config for tests?
     return int(2.5 * nodeCount)
 
 
-def expectedReqAckQuorumTime(nodeCount) -> int:
+def expectedReqAckQuorumTime(nodeCount) -> float:
     return int(1.25 * nodeCount)
 
 
-def expectedViewChangeTime(nodeCount) -> int:
+def expectedViewChangeTime(nodeCount) -> float:
     return int(0.75 * nodeCount)
 
 
-def expectedOrderingTime(numInstances) -> int:
+def expectedOrderingTime(numInstances) -> float:
     # TODO: should not be less than one second
     return int(2.14 * numInstances)
 
