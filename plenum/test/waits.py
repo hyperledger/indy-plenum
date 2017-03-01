@@ -46,9 +46,15 @@ def expectedClientRequestPropagationTime(nodeCount) -> int:
 def expectedReqAckQuorumTime(nodeCount) -> int:
     return int(1.25 * nodeCount)
 
+
 def expectedViewChangeTime(nodeCount) -> int:
     return int(0.75 * nodeCount)
+
 
 def expectedOrderingTime(numInstances) -> int:
     # TODO: should not be less than one second
     return int(2.14 * numInstances)
+
+
+def expectedElectionTimeout(nodeCount) -> float:
+    return 20  # seconds

@@ -41,7 +41,7 @@ from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
 from plenum.test.testable import Spyable
-from plenum.test.waits import expectedNodeInterconnectionTime
+from plenum.test import waits
 
 logger = getlogger()
 
@@ -481,7 +481,7 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               overrideTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
-    wait = overrideTimeout if overrideTimeout else expectedNodeInterconnectionTime(len(stacks))
+    wait = overrideTimeout if overrideTimeout else waits.expectedNodeInterconnectionTime(len(stacks))
     logger.debug("waiting for {} seconds to check connections...".format(wait))
     # verify every node can see every other as a remote
     funcs = [
@@ -611,21 +611,32 @@ def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
 
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
-                        retryWait: float = None,
+                        retryWait: float = None,  # seconds
                         timeout: float = None) -> Sequence[TestNode]:
-    # Wait for elections to be complete and returns the primary replica for
-    # each protocol instance
+    """
+    Wait for elections to be complete
 
-    kwargs = dict(looper=looper, nodes=nodes)
-    if timeout:
-        kwargs.update(timeout=timeout / 3)
-    checkPoolReady(**kwargs)
+    :param retryWait:
+    :param timeout: specific timeout
+    :return: primary replica for each protocol instance
+    """
 
-    kwargs = dict(looper=looper, nodes=nodes, retryWait=retryWait)
-    if timeout:
-        kwargs.update(timeout=2*timeout / 3)
+    if retryWait is None:
+        retryWait = 1
 
-    return checkProtocolInstanceSetup(**kwargs)
+    if timeout is None:
+        timeout = waits.expectedElectionTimeout(nodes)
+
+    poolReadyTimeout = 1/3 * timeout
+    setupCheckTimeout = 2/3 * timeout
+
+    checkPoolReady(looper=looper, nodes=nodes, timeout=poolReadyTimeout)
+
+    return checkProtocolInstanceSetup(
+        looper=looper,
+        nodes=nodes,
+        retryWait=retryWait,
+        timeout=setupCheckTimeout)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:

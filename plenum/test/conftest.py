@@ -603,8 +603,7 @@ def txnPoolNodeSet(patchPluginManager,
         txnPoolNodesLooper.add(node)
         nodes.append(node)
     txnPoolNodesLooper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=20)
+    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
     return nodes
 
 
