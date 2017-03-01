@@ -9,6 +9,7 @@ import warnings
 from copy import copy
 from functools import partial
 from typing import Dict, Any
+from plenum.test import waits
 
 import gc
 import pip
@@ -297,7 +298,10 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-    return looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    timeout = waits.expectedViewChangeTime(len(nodeSet))
+    return looper.run(eventually(checkViewNoForNodes,
+                                 nodeSet,
+                                 timeout=timeout))
 
 
 @pytest.fixture("module")
@@ -339,18 +343,24 @@ def sent1(client1, request1):
 
 @pytest.fixture(scope="module")
 def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
+
+    numerOfNodes = len(nodeSet)
+
+    # Wait until request received by all nodes
+    propTimeout = waits.expectedClientRequestPropagationTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,
-                             totalTimeout=10,
+                             totalTimeout=propTimeout,
                              acceptableFails=faultyNodes))
 
+    # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
+    ackTimeout = waits.expectedReqAckQuorumTime(numerOfNodes)
     looper.run(eventuallyAll(*coros2,
-                             totalTimeout=5,
+                             totalTimeout=ackTimeout,
                              acceptableFails=faultyNodes))
-
     return sent1
 
 
@@ -417,21 +427,30 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 @pytest.fixture(scope="module")
 def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
+    numOfNodes = len(nodeSet)
+    numOfInstances = getNoInstances(numOfNodes)
+    quorum = numOfInstances * (numOfNodes - faultyNodes)
     def checkOrderedCount():
-        instances = getNoInstances(len(nodeSet))
-        resp = [requestReturnedToNode(node, wallet1.defaultId,
-                                      committed1.reqId, instId) for
-                node in nodeSet for instId in range(instances)]
-        assert resp.count(True) >= (len(nodeSet) - faultyNodes)*instances
+        resp = [requestReturnedToNode(node,
+                                      wallet1.defaultId,
+                                      committed1.reqId,
+                                      instId)
+                for node in nodeSet for instId in range(numOfInstances)]
+        assert resp.count(True) >= quorum
 
-    looper.run(eventually(checkOrderedCount, retryWait=1, timeout=30))
+    orderingTimeout = waits.expectedOrderingTime(numOfInstances)
+    looper.run(eventually(checkOrderedCount,
+                          retryWait=1,
+                          timeout=orderingTimeout))
+
+    executionTimeout = waits.expectedTransactionExecutionTime(numOfNodes)
     looper.run(eventually(
         checkSufficientRepliesRecvd,
         client1.inBox,
         committed1.reqId,
         getMaxFailures(len(nodeSet)),
         retryWait=2,
-        timeout=30))
+        timeout=executionTimeout))
     return committed1
 
 
