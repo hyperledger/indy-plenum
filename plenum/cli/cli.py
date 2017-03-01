@@ -5,7 +5,6 @@ import glob
 from typing import Dict, Iterable
 
 import pyorient
-import random
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -20,7 +19,6 @@ from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
 from plenum.cli.command import licenseCmd
-from plenum.cli.command import listCmd
 from plenum.cli.command import newClientCmd
 from plenum.cli.command import newNodeCmd
 from plenum.cli.command import statusCmd
@@ -29,10 +27,11 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
+from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
+    RaetKeysNotFoundException
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
-from plenum.common.raet import getLocalEstateData, isPortUsed
+from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
@@ -72,7 +71,7 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import getMaxFailures, checkPortAvailable, \
+from plenum.common.util import getMaxFailures, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
 from plenum.common.log import CliHandler, getlogger, \
@@ -81,7 +80,6 @@ from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 
@@ -275,17 +273,24 @@ class Cli:
 
         self.restoreLastActiveWallet()
 
-        self.checkIfHelpMsgExistsForAllCmds()
+        self.checkIfCmdHandlerAndCmdMappingExists()
 
-    def checkIfHelpMsgExistsForAllCmds(self):
+    def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
+        msg="Command mapping not provided for '{}' command handler. " \
+            "Please add proper mapping for that command handler " \
+            "(in function '{}') with corresponding command object".\
+            format(cmdHandlerFuncName, mappingFuncName)
+
+        sep = "\n" + "*"*len(msg) + "\n"
+        msg = sep + msg + sep
+        return msg
+
+    def checkIfCmdHandlerAndCmdMappingExists(self):
         for cmdHandlerFunc in self.actions:
             funcName = cmdHandlerFunc.__name__.replace("_","")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
-                raise Exception("\n************\nHelp msg not provided for "
-                                "'{}' command handler. Please add proper "
-                                "mapping for related help msg in function "
-                                "'helpMsgMappings'\n************\n".
-                                format(funcName))
+                raise Exception(self._getCmdMappingError(
+                    funcName, self.cmdHandlerToCmdMappings.__name__))
 
     @staticmethod
     def getCliVersion():
@@ -302,7 +307,6 @@ class Cli:
     def actions(self):
         if not self._actions:
             self._actions = [self._simpleAction, self._helpAction,
-                             self._listAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
                              self._keyShareAction, self._loadPluginDirAction,
@@ -604,7 +608,6 @@ class Cli:
             self.print(record.msg, Token)
 
     def cmdHandlerToCmdMappings(self):
-
         # The 'key' of 'mappings' dictionary is action handler function name
         # without leading underscore sign. Each such funcation name should be
         # mapped here, its other thing that if you don't want to display it
@@ -614,30 +617,33 @@ class Cli:
 
         mappings = OrderedDict()
         mappings['helpAction'] = helpCmd
-        mappings['listAction'] = listCmd
-        mappings['licenseAction'] = licenseCmd
         mappings['statusAction'] = statusCmd
-        mappings['newNodeAction'] = newNodeCmd
-        mappings['newClientAction'] = newClientCmd
-        mappings['statusNodeAction'] = statusNodeCmd
-        mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
+        mappings['changePrompt'] = changePromptCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
-        mappings['clientSendMsgCommand'] = clientSendCmd
-        mappings['clientShowMsgCommand'] = clientShowCmd
-        mappings['newKeyAction'] = newKeyCmd
+
         mappings['newKeyring'] = newKeyringCmd
         mappings['renameKeyring'] = renameKeyringCmd
         mappings['useKeyringAction'] = useKeyringCmd
         mappings['saveKeyringAction'] = saveKeyringCmd
         mappings['listKeyringsAction'] = listKeyringCmd
-        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newKeyAction'] = newKeyCmd
         mappings['useIdentifierAction'] = useIdCmd
+        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        mappings['keyShareAction'] = keyShareCmd
+        mappings['clientSendMsgCommand'] = clientSendCmd
+        mappings['clientShowMsgCommand'] = clientShowCmd
+
         mappings['addGenesisAction'] = addGenesisTxnCmd
         mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
-        mappings['changePrompt'] = changePromptCmd
-        mappings['exitAction'] = exitCmd
+        mappings['licenseAction'] = licenseCmd
         mappings['quitAction'] = quitCmd
+        mappings['exitAction'] = exitCmd
 
         # below action handlers are those who handles multiple commands and so
         # these will point to 'None' and specific commands will point to their
@@ -652,38 +658,27 @@ class Cli:
 
         return mappings
 
-    def getBasicHelpCmdKeys(self):
-        return ["helpAction", "listAction", "licenseAction",
-         "statusAction", "exitAction"]
+    def getTopComdMappingKeysForHelp(self):
+        return ['helpAction', 'statusAction']
 
-    def getBasicHelpCmds(self):
-        basicMsgKeys = self.getBasicHelpCmdKeys()
-        basicMsgs = []
-        for bmk in basicMsgKeys:
-            helpMsg = self.cmdHandlerToCmdMappings().get(bmk)
-            if helpMsg:
-                basicMsgs.append(helpMsg)
-        return basicMsgs
+    def getComdMappingKeysToNotShowInHelp(self):
+        return ['quitAction']
+
+    def getBottomComdMappingKeysForHelp(self):
+        return ['licenseAction', 'exitAction']
 
     def getDefaultOrderedCmds(self):
-        topCmdKeys = ['helpAction', 'listAction',
-                           'statusAction', 'licenseAction']
-        bottomCmdsKeys = ['exitAction', 'quitAction']
+        topCmdKeys = self.getTopComdMappingKeysForHelp()
+        removeCmdKeys = self.getComdMappingKeysToNotShowInHelp()
+        bottomCmdsKeys = self.getBottomComdMappingKeysForHelp()
 
-        topCmds = []
-        middleCmds = []
-        bottomCmds = []
-
-        for k, cmd in self.cmdHandlerToCmdMappings().items():
-            if cmd:
-                if k in topCmdKeys:
-                    topCmds.append(cmd)
-                elif k in bottomCmdsKeys:
-                    bottomCmds.append(cmd)
-                else:
-                    middleCmds.append(cmd)
-
-        return topCmds + middleCmds + bottomCmds
+        topCmds = [self.cmdHandlerToCmdMappings().get(k) for k in topCmdKeys]
+        bottomCmds = [self.cmdHandlerToCmdMappings().get(k) for k in bottomCmdsKeys]
+        middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
+                      if k not in topCmdKeys
+                      and k not in bottomCmdsKeys
+                      and k not in removeCmdKeys]
+        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -711,12 +706,12 @@ class Cli:
         self.print("\n{}\n".format(helpMsgStr))
 
     def getHelpCmdIdsToShowUsage(self):
-        return ["help", "list"]
+        return ["help"]
 
     def printHelp(self):
-        self._printGivenCmdsHelpMsgs(self.getBasicHelpCmds(),
-                                     gapsInLines = 2,
-                                     showUsageFor= self.getHelpCmdIdsToShowUsage())
+        self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
+                                     sort=False, printHeader=True,
+                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -877,8 +872,8 @@ class Cli:
                                   basedirpath=self.basedirpath,
                                   pluginPaths=self.pluginPaths,
                                   config=self.config)
-            except GraphStorageNotAvailable as e:
-                self.print("Graph storage is not available, detailed error: {}".format(str(e)))
+            except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
+                self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
             self.looper.add(node)
@@ -1055,12 +1050,6 @@ class Cli:
         else:
             self.print("No such request. See: 'help client show request status' for more details")
 
-    # def showDetails(self, clientName, identifier, reqId):
-    #     client = self.clients.get(clientName, None)
-    #     if client and (identifier, reqId) in self.requests:
-    #         client.showReplyDetails(identifier, reqId)
-    #     else:
-    #         self.printMsgForUnknownClient()
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1136,17 +1125,10 @@ class Cli:
                 if matchedHelpMsg:
                     self.print(str(matchedHelpMsg))
                 else:
-                    self.print("No such command found: {}\nExecute 'list' to see all available commands\n".format(helpable))
+                    self.print("No such command found: {}\n".format(helpable))
                     self.printHelp()
             else:
                 self.printHelp()
-            return True
-
-    def _listAction(self, matchedVars):
-        if matchedVars.get('command') == 'list':
-            sorted = True if matchedVars.get('sorted') else False
-            self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(), sort=sorted,
-                                         printHeader=False)
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1920,7 +1902,6 @@ class Cli:
             self.print(str(matchedHelpMsg))
         else:
             self.print("Invalid command: '{}'".format(cmdText))
-            self.print("Execute 'list' to see all available commands")
             self.printHelp()
 
     # def nextAvailableClientAddr(self, curClientPort=8100):
