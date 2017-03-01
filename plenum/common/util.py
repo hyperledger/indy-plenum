@@ -198,6 +198,13 @@ def getNoInstances(nodeCount: int) -> int:
     return getMaxFailures(nodeCount) + 1
 
 
+def totalConnections(nodeCount: int) -> int:
+    """
+    :return: number of connections between nodes
+    """
+    return math.ceil((nodeCount * (nodeCount - 1)) / 2)
+
+
 def prime_gen() -> int:
     # credit to David Eppstein, Wolfgang Beneicke, Paul Hofstra
     """

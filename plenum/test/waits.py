@@ -2,13 +2,9 @@ import math
 
 from plenum.common.log import getlogger
 from plenum.common.config_util import getConfig
+from plenum.common.util import totalConnections
 
 logger = getlogger()
-
-
-def totalConnections(nodeCount: int) -> int:
-    # TODO: move to utils
-    return math.ceil((nodeCount * (nodeCount - 1)) / 2)
 
 
 def _expectedNodeInterconnectionTime(count) -> int:
