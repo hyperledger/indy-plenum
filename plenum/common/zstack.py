@@ -3,7 +3,7 @@ import json
 import shutil
 from binascii import hexlify
 from collections import deque
-from typing import Dict, Mapping, Callable, Any, List
+from typing import Dict, Mapping, Callable, Any, List, Tuple
 import os
 import sys
 from typing import Set
@@ -91,7 +91,6 @@ class ZStack(NetworkInterface):
     VerifKeyDirName = 'verif_keys'
     SigKeyDirName = 'sig_keys'
 
-    __sigKey__ = '__sig__'
     sigLen = 64
     pingMessage = '\n'
     pongMessage = '\r'
@@ -307,8 +306,15 @@ class ZStack(NetworkInterface):
         """
         return r.isConnected
 
+    def isConnectedTo(self, name: str = None, ha: Tuple = None):
+        if self.onlyListener:
+            return self.hasRemote(name)
+        return super().isConnectedTo(name, ha)
+
     def hasRemote(self, name):
         if self.onlyListener:
+            if isinstance(name, str):
+                name = name.encode()
             if name in self.peersWithoutRemotes:
                 return True
         return super().hasRemote(name)
@@ -320,6 +326,15 @@ class ZStack(NetworkInterface):
                 return True
         else:
             return super().removeRemoteByName(name)
+
+    def getHa(self, name):
+        # Return HA as None when its a `peersWithoutRemote`
+        if self.onlyListener:
+            if isinstance(name, str):
+                name = name.encode()
+            if name in self.peersWithoutRemotes:
+                return None
+        return super().getHa(name)
 
     async def service(self, limit=None) -> int:
         """
@@ -373,7 +388,8 @@ class ZStack(NetworkInterface):
             while True:
                 try:
                     # ident, msg = await sock.recv(flags=zmq.NOBLOCK)
-                    msg = sock.recv(flags=zmq.NOBLOCK)
+                    # msg = sock.recv(flags=zmq.NOBLOCK)
+                    msg, = sock.recv_multipart(flags=zmq.NOBLOCK)
                     verifyAndAppend(msg, ident)
                 except zmq.Again:
                     break
@@ -441,10 +457,11 @@ class ZStack(NetworkInterface):
                 try:
                     verKey = self.getVerKey(name)
                 except KeyError:
-                    logger.error("Could not get {}'s verification key from disk"
-                                 .format(name))
+                    if self.isRestricted:
+                        logger.error("Could not get {}'s verification key "
+                                     "from disk".format(name))
 
-            if not (ha and publicKey and verKey):
+            if not (ha and publicKey and (not self.isRestricted or verKey)):
                 raise ValueError('{} doesnt have enough info to connect. '
                                  'Need ha, public key and verkey. {} {} {}'.
                                  format(name, ha, verKey, publicKey))
@@ -476,7 +493,11 @@ class ZStack(NetworkInterface):
         self.remotes[name] = remote
         # TODO: Use weakref to remote below instead
         self.remotesByKeys[remotePublicKey] = remote
-        self.addVerifier(remoteVerkey)
+        if remoteVerkey:
+            self.addVerifier(remoteVerkey)
+        else:
+            logger.debug('{} adding a remote {}({}) without a verkey'.
+                         format(self, name, ha))
         return remote
 
     def removeRemote(self, remote: Remote, clear=True):
@@ -518,6 +539,8 @@ class ZStack(NetworkInterface):
             return False
 
     def transmitThroughListener(self, msg, ident):
+        if isinstance(ident, str):
+            ident = ident.encode()
         if ident not in self.peersWithoutRemotes:
             logger.info('{} not sending message {} to {}'.
                         format(self, msg, ident))
@@ -526,7 +549,8 @@ class ZStack(NetworkInterface):
             return
         msg = self.prepMsg(msg)
         try:
-            self.listener.send_multipart([ident, self.signedMsg(msg)])
+            r = self.listener.send_multipart([ident, self.signedMsg(msg)],
+                                             flags=zmq.NOBLOCK)
             return True
         except zmq.Again:
             return False

@@ -130,7 +130,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      # TODO: Remove these once the relevant bugs are fixed
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
-                     '.+ rid .+ has been removed'
+                     '.+ rid .+ has been removed',
+                     'last try...'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 

@@ -42,9 +42,9 @@ class NetworkInterface:
         raise NotImplementedError
 
     def isConnectedTo(self, name: str = None, ha: Tuple = None):
-        assert (name, ha).count(None) == 1, "One and only one of name or ha " \
-                                            "should be passed. Passed " \
-                                            "name: {}, ha: {}".format(name, ha)
+        # assert (name, ha).count(None) == 1, "One and only one of name or ha " \
+        #                                     "should be passed. Passed " \
+        #                                     "name: {}, ha: {}".format(name, ha)
         try:
             remote = self.getRemote(name, ha)
         except RemoteNotFound:
@@ -59,9 +59,9 @@ class NetworkInterface:
         :param ha: host address pair the remote to find
         :raises: RemoteNotFound
         """
-        assert (name, ha).count(None) == 1, "One and only one of name or ha " \
-                                            "should be passed. Passed " \
-                                            "name: {}, ha: {}".format(name, ha)
+        # assert (name, ha).count(None) == 1, "One and only one of name or ha " \
+        #                                     "should be passed. Passed " \
+        #                                     "name: {}, ha: {}".format(name, ha)
         remote = self.findInRemotesByName(name) if name else \
             self.findInRemotesByHA(ha)
         if not remote:
@@ -108,6 +108,13 @@ class NetworkInterface:
         rid = remote.uid
         self.removeRemote(remote)
         return rid
+
+    def getHa(self, name):
+        try:
+            remote = self.getRemote(name)
+        except RemoteNotFound:
+            return None
+        return remote.ha
 
     # def send(self, msg: Any, remoteName: str):
     #     """

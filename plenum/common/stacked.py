@@ -164,7 +164,6 @@ class Stack(NetworkInterface, RoadStack):
             l = 0
         return l
 
-
     async def _serviceStack(self, age):
         """
         Update stacks clock and service all tx and rx messages.
