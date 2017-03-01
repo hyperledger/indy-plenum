@@ -76,8 +76,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.add(node)
         txnPoolNodeSet.append(node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
-                        timeout=10)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     def chk():
         for node in txnPoolNodeSet:

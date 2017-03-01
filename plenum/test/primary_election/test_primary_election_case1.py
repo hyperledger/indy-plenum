@@ -86,8 +86,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
             Replica.generateName(nodeD.name, instId)) \
                <= 1
 
-    primaryReplicas = ensureElectionsDone(looper=looper, nodes=nodes,
-                                          retryWait=1, timeout=30)
+    primaryReplicas = ensureElectionsDone(looper=looper, nodes=nodes)
 
     for node in nodes:
         logger.debug(

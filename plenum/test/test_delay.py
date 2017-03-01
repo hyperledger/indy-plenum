@@ -74,7 +74,10 @@ def testSelfNominationDelay(tdir_for_func):
                                timeout=5))
 
             # Elections should be done
-            ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1,
+            # TODO: can default election timeout be used?
+            ensureElectionsDone(looper=looper,
+                                nodes=nodeSet,
+                                retryWait=1,
                                 timeout=10)
 
             # node A should not have any primary replica

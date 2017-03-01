@@ -436,8 +436,8 @@ class Pool:
                 #     n.startKeySharing()
                 ctx = adict(looper=looper, nodeset=nodeset, tmpdir=tmpdir)
                 looper.run(checkNodesConnected(nodeset))
-                ensureElectionsDone(looper=looper, nodes=nodeset, retryWait=1,
-                                    timeout=30)
+                ensureElectionsDone(looper=looper,
+                                    nodes=nodeset)
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):

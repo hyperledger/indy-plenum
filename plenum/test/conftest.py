@@ -289,7 +289,7 @@ def ready(looper, keySharedNodes):
 
 @pytest.fixture(scope="module")
 def up(looper, ready):
-    ensureElectionsDone(looper=looper, nodes=ready, retryWait=1, timeout=30)
+    ensureElectionsDone(looper=looper, nodes=ready)
 
 
 # noinspection PyIncorrectDocstring
@@ -598,8 +598,10 @@ def txnPoolNodeSet(patchPluginManager,
                    testNodeClass):
     nodes = []
     for nm in poolTxnNodeNames:
-        node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                             config=tconf, pluginPaths=allPluginsPath)
+        node = testNodeClass(nm,
+                             basedirpath=tdirWithPoolTxns,
+                             config=tconf,
+                             pluginPaths=allPluginsPath)
         txnPoolNodesLooper.add(node)
         nodes.append(node)
     txnPoolNodesLooper.run(checkNodesConnected(nodes))

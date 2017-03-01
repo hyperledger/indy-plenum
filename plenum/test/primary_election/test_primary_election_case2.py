@@ -63,7 +63,7 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     B.send(Nomination(DRep, instId, B.viewNo))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1, timeout=45)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so
     # not considering it) should have nomination for node C from node B since

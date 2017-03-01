@@ -70,8 +70,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
                 delayerMsgTuple(120, PrePrepare, nodeA.name))
 
             # Ensure elections are done
-            ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1,
-                                timeout=30)
+            ensureElectionsDone(looper=looper, nodes=nodeSet)
             assert nodeA.hasPrimary
 
             instNo = nodeA.primaryReplicaNo

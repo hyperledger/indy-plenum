@@ -156,9 +156,7 @@ def checkNodesReadyForRequest(looper: Looper, nodes: Sequence[TestNode],
 def setupNodesAndClient(looper: Looper, nodes: Sequence[TestNode], nodeReg=None,
                         tmpdir=None):
     looper.run(checkNodesConnected(nodes))
-    timeout = 15 + 2 * (len(nodes))
-    ensureElectionsDone(looper=looper, nodes=nodes, retryWait=1,
-                        timeout=timeout)
+    ensureElectionsDone(looper=looper, nodes=nodes)
     return setupClient(looper, nodes, nodeReg=nodeReg, tmpdir=tmpdir)
 
 

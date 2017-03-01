@@ -63,8 +63,7 @@ def testPrimaryElectionCase4(case4Setup, looper):
     for node in (A, C, D):
         looper.run(eventually(x, retryWait=.5, timeout=2))
 
-    ensureElectionsDone(looper=looper, nodes=allNodes,
-                        retryWait=1, timeout=45)
+    ensureElectionsDone(looper=looper, nodes=allNodes)
 
     # Node D should not have any primary replica
     assert not D.hasPrimary
