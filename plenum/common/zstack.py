@@ -191,7 +191,7 @@ class ZStack(NetworkInterface):
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
             logger.info("Signing and Encryption keys were not found. "
-                        "Creating them now")
+                        "Creating them now", extra={"cli": False})
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
             os.makedirs(tdirS, exist_ok=True)
@@ -236,7 +236,8 @@ class ZStack(NetworkInterface):
 
     def stop(self):
         if self.opened:
-            logger.info('stack {} closing its listener'.format(self))
+            logger.info('stack {} closing its listener'.format(self),
+                        extra={"cli": False})
             self.close()
         # TODO: Uncommenting this stops hangs the code, setting LINGER_TIME
         # does not help. Find a solution
@@ -485,7 +486,8 @@ class ZStack(NetworkInterface):
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
             logger.warn('{} failed to ping {} at {}'.
-                        format(self.name, remote.name, remote.ha))
+                        format(self.name, remote.name, remote.ha),
+                        extra={"cli": False})
         return remote.uid
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
