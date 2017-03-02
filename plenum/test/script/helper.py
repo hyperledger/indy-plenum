@@ -84,7 +84,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(restartedNode)
 
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=70))
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
     ensureElectionsDone(looper, txnPoolNodeSet)
 
     # start client and check the node HA

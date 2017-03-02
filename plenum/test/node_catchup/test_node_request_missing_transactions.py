@@ -39,6 +39,6 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, txnPoolNodeSet[0].ledgerManager)
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=90))

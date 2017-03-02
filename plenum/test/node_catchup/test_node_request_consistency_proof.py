@@ -61,7 +61,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         'Domain Ledger status sender of {} patched'.format(newNode))
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
 
     # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
     # 60 sec.

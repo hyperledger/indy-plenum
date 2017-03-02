@@ -115,7 +115,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
         nodes.append(node)
         looper.runFor(waits[i])
     looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+                                   customTimeout=10))
     logger.debug("connects")
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
@@ -130,7 +130,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
         looper.runFor(rwaits[i])
     looper.runFor(3)
     looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+                                   customTimeout=10))
     stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))

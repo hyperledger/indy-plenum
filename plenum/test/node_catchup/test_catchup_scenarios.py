@@ -23,7 +23,7 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet[:-1])
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=15))
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=15))
 
     def stashing():
         assert newNode.mode != Mode.participating
