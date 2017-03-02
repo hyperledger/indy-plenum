@@ -4,17 +4,19 @@ from prompt_toolkit.completion import Completer
 from prompt_toolkit.contrib.completers.base import WordCompleter
 
 
-class OrderedWordCompleter(Completer):
+class PhraseWordCompleter(Completer):
 
     class Rule:
         def __init__(self, prefix_regex, completer):
             self.prefix_regex = prefix_regex
             self.completer = completer
 
-    def __init__(self, words):
+    def __init__(self, phrase):
         """Autocompletion for a current word in a given ordered list of words.
-        :param words: Ordered list of words.
+        :param phrase: Phrase consisting of multiple words.
         """
+        self.phrase = phrase
+        words = phrase.split()
         self.rules = []
         prev_words = '^\s*'
         any_last_word = '\w*$'

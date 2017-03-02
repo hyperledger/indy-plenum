@@ -26,7 +26,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
-from plenum.cli.ordered_word_completer import OrderedWordCompleter
+from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
@@ -341,28 +341,26 @@ class Cli:
                 'node_name': WordCompleter(self.nodeNames),
                 'more_nodes': WordCompleter(self.nodeNames),
                 'helpable': WordCompleter(self.helpablesCommands),
-                'load_plugins': OrderedWordCompleter(
-                    ['load', 'plugins', 'from']),
+                'load_plugins': PhraseWordCompleter('load plugins from'),
                 'client_name': self.clientWC,
                 'second_client_name': self.clientWC,
                 'cli_action': WordCompleter(self.cliActions),
                 'simple': WordCompleter(self.simpleCmds),
-                'add_key': OrderedWordCompleter(['add', 'key']),
-                'for_client': OrderedWordCompleter(['for', 'client']),
-                'new_key': OrderedWordCompleter(['new', 'key']),
-                'new_keyring': OrderedWordCompleter(['new', 'keyring']),
-                'rename_keyring': OrderedWordCompleter(['rename', 'keyring']),
-                'list_ids': OrderedWordCompleter(['list', 'ids']),
-                'list_krs': OrderedWordCompleter(['list', 'keyrings']),
+                'add_key': PhraseWordCompleter('add key'),
+                'for_client': PhraseWordCompleter('for client'),
+                'new_key': PhraseWordCompleter('new key'),
+                'new_keyring': PhraseWordCompleter('new keyring'),
+                'rename_keyring': PhraseWordCompleter('rename keyring'),
+                'list_ids': PhraseWordCompleter('list ids'),
+                'list_krs': PhraseWordCompleter('list keyrings'),
                 'become': WordCompleter(['become']),
-                'use_id': OrderedWordCompleter(['use', 'identifier']),
-                'use_kr': OrderedWordCompleter(['use', 'keyring']),
-                'save_kr': OrderedWordCompleter(['save', 'keyring']),
-                'add_gen_txn': OrderedWordCompleter(
-                    ['add', 'genesis', 'transaction']),
+                'use_id': PhraseWordCompleter('use identifier'),
+                'use_kr': PhraseWordCompleter('use keyring'),
+                'save_kr': PhraseWordCompleter('save keyring'),
+                'add_gen_txn': PhraseWordCompleter('add genesis transaction'),
                 'prompt': WordCompleter(['prompt']),
-                'create_gen_txn_file': OrderedWordCompleter(
-                    ['create', 'genesis', 'transaction', 'file'])
+                'create_gen_txn_file': PhraseWordCompleter(
+                    'create genesis transaction file')
             }
         return self._completers
 
