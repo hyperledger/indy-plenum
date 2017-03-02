@@ -29,7 +29,11 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
         assert node.monitor.highResThroughput == 0
         assert node.monitor.totalRequests == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount, nodeSet.f,
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        reqCount,
+                                        nodeSet.f,
                                         customTimeoutPerReq=20)
 
     for node in nodeSet:
@@ -76,7 +80,10 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
         assert node.monitor.masterLatency == 0
         assert node.monitor.avgBackupLatency == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount,
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        reqCount,
                                         nodeSet.f,
                                         customTimeoutPerReq=20)
 

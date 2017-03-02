@@ -33,12 +33,13 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     nonPrimReps = getNonPrimaryReplicas(nodeSet, 0)
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's throughput falls and view changes
-    ppDelayer = ppDelay(5, 0)
+    delay = 5
+    ppDelayer = ppDelay(delay, 0)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelayer)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4,
-                                        customTimeoutPerReq=5 * nodeCount)
+                                        customTimeoutPerReq=delay * nodeCount)
 
     # Every node except Node A should have a view change
     for node in nodeSet:

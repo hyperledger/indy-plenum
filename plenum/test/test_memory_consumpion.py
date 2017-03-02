@@ -32,15 +32,13 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
 
     numRequests = 250
     fVal = 1
-    timeOutPerReq = 3
     for (client, wallet) in clients:
         logger.debug("{} sending {} requests".format(client, numRequests))
         sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
                                             wallet,
                                             client,
                                             numRequests,
-                                            fVal,
-                                            timeOutPerReq)
+                                            fVal)
         logger.debug("{} sent {} requests".format(client, numRequests))
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".
