@@ -279,19 +279,22 @@ async def msgAll(nodes: TestNodeSet):
     # test sending messages from every node to every other node
     # TODO split send and check so that the messages can be sent concurrently
     for p in permutations(nodes.nodeNames, 2):
-        await sendMsgAndCheck(nodes, p[0], p[1], timeout=3)
+        await sendMsgAndCheck(nodes, p[0], p[1])
 
 
 async def sendMsgAndCheck(nodes: TestNodeSet,
                           frm: NodeRef,
                           to: NodeRef,
                           msg: Optional[Tuple]=None,
-                          timeout: Optional[int]=15):
+                          customTimeout=None):
     logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
     sender = nodes.getNode(frm)
     rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
     sender.nodestack.send(msg, rid)
+
+    timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
+
     await eventually(checkMsg, msg, nodes, to,
                      retryWait=.1,
                      timeout=timeout,

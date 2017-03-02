@@ -20,6 +20,10 @@ def expectedNodeInterconnectionTime(nodeCount) -> float:
     return t
 
 
+def expectedNodeToNodeMessageDeliveryTime() -> float:
+    return 5
+
+
 def expectedTransactionExecutionTime(nodeCount) -> float:
     # TODO: maybe it should depend on transaction type?
     # TODO: implement

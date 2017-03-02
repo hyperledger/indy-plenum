@@ -29,7 +29,7 @@ def testTestNodeDelay(tdir_for_func):
             looper.run(checkNodesConnected(nodes))
             logger.debug("send one message, without delay")
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, timeout=1))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=1))
             logger.debug("set delay, then send another message and find that "
                           "it doesn't arrive")
             msg = randomMsg()
@@ -38,15 +38,15 @@ def testTestNodeDelay(tdir_for_func):
 
             sendMsg(nodes, nodeA, nodeB, msg)
             with pytest.raises(AssertionError):
-                looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, timeout=3))
+                looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=3))
             logger.debug("but then find that it arrives after the delay "
                           "duration has passed")
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, timeout=4))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=4))
             logger.debug(
                     "reset the delay, and find another message comes quickly")
             nodeB.nodeIbStasher.resetDelays()
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, timeout=1))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=1))
 
 
 def testSelfNominationDelay(tdir_for_func):
