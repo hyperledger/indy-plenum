@@ -66,6 +66,8 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     Checks number of replies for request with specified id in given inbox and
     if this number is lower than number of malicious nodes (fValue) -
     raises exception
+
+    :returns: response for request
     """
 
     receivedReplies = getRepliesFromClientInbox(inbox=receivedMsgs,
@@ -91,6 +93,8 @@ def waitForSufficientRepliesForRequests(looper,
                                         customTimeoutPerReq=None):
     """
     Checks number of replies for given requests of specific client
+
+    :returns: nothing
     """
 
     nodeCount = len(client.nodeReg)
