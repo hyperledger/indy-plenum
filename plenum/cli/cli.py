@@ -866,12 +866,13 @@ class Cli:
         nodes = []
         for name in names:
             try:
+                nodeRegistry = None if self.nodeRegLoadedFromFile \
+                    else self.nodeRegistry
                 node = self.NodeClass(name,
-                                  nodeRegistry=None if self.nodeRegLoadedFromFile
-                                  else self.nodeRegistry,
-                                  basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths,
-                                  config=self.config)
+                                      nodeRegistry=nodeRegistry,
+                                      basedirpath=self.basedirpath,
+                                      pluginPaths=self.pluginPaths,
+                                      config=self.config)
             except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
                 self.print(str(e), Token.BoldOrange)
                 return

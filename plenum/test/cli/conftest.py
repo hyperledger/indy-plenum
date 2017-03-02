@@ -48,6 +48,7 @@ def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited):
     return newCLI(cliLooper, tdir)
 
+
 @pytest.fixture("module")
 def validNodeNames(cli):
     return list(cli.nodeReg.keys())

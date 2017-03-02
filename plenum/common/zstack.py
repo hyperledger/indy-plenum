@@ -189,7 +189,7 @@ class ZStack(NetworkInterface):
             # not be present since they should be converted keys.
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
-            assert self.seed
+            assert self.seed, 'Keys are not setup for {}'.format(self)
             logger.info("Signing and Encryption keys were not found. "
                         "Creating them now")
             tdirS = os.path.join(self.homeDir, '__skeys__')
@@ -833,6 +833,21 @@ class KITZStack(SimpleZStack):
         to.
         """
         return set(self.registry.keys()) - self.conns
+
+    # The next method is copied from KITStack from stacked.py
+    def findInNodeRegByHA(self, remoteHa):
+        """
+        Returns the name of the remote by HA if found in the node registry, else
+        returns None
+        """
+        regName = [nm for nm, ha in self.registry.items()
+                   if self.sameAddr(ha, remoteHa)]
+        if len(regName) > 1:
+            raise RuntimeError("more than one node registry entry with the "
+                               "same ha {}: {}".format(remoteHa, regName))
+        if regName:
+            return regName[0]
+        return None
 
 
 class ClientZStack(SimpleZStack):

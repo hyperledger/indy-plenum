@@ -4,8 +4,9 @@ import argparse
 
 from sys import argv
 
-from plenum.common.script_helper import getStewardKeyFromName, initKeys, \
+from plenum.common.script_helper import getStewardKeyFromName, \
     generateNodeGenesisTxn, buildKeepDirIfNotExists
+from plenum.common.keygen_utils import initKeys
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import isHexKey
 from plenum.common.config_util import getConfig
@@ -51,7 +52,7 @@ if __name__ == "__main__":
     # Initialize node stack
     print("For node stack, stack name is", args.name)
     try:
-        pubkey, verkey = initKeys(config.baseDir, args.name, args.seed,
+        pubkey, verkey = initKeys(args.name, config.baseDir, args.seed,
                                   args.force, config=config)
     except Exception as ex:
         print(ex)
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeys(config.baseDir, args.name + CLIENT_STACK_SUFFIX, args.seed,
+        initKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
                  args.force, config=config)
     except Exception as ex:
         print(ex)

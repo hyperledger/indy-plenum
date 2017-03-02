@@ -2,8 +2,9 @@
 
 import argparse
 
-from plenum.common.script_helper import initKeys, getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
+from plenum.common.script_helper import getOldAddNewGenStewardCommand, getOldAddNewGenNodeCommand, \
     buildKeepDirIfNotExists
+from plenum.common.keygen_utils import initKeys
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
@@ -52,7 +53,7 @@ if __name__ == "__main__":
         args.seed = randomString(32)
         print("Generating a random seed for the keypair {}".format(args.seed))
     try:
-        verkey = initKeys(config.baseDir, args.name, args.seed, args.force,
+        verkey = initKeys(args.name, config.baseDir, args.seed, args.force,
                           config=config)
     except Exception as ex:
         print(ex)
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeys(config.baseDir, args.name + CLIENT_STACK_SUFFIX, args.seed,
+        initKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
                  args.force, config=config)
     except Exception as ex:
         print(ex)

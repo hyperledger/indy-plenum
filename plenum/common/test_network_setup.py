@@ -8,12 +8,12 @@ from raet.nacling import Signer
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 
-from plenum.common.raet import initLocalKeep
+from plenum.common.keygen_utils import initKeys
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
     ROLE, SERVICES, VALIDATOR
-from plenum.common.types import f
+from plenum.common.types import f, CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 
 
@@ -42,7 +42,6 @@ class TestNetworkSetup:
                                domainTxnFieldOrder,
                                ips, nodeCount, clientCount,
                                nodeNum, startingPort):
-
         baseDir = config.baseDir
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
@@ -119,7 +118,10 @@ class TestNetworkSetup:
             ip = ips[num - 1]
             sigseed = TestNetworkSetup.getSigningSeed(nodeName)
             if nodeNum == num:
-                _, verkey = initLocalKeep(nodeName, baseDir, sigseed, True)
+                _, verkey = initKeys(nodeName, baseDir, sigseed, True,
+                                     config=config)
+                _, verkey = initKeys(nodeName+CLIENT_STACK_SUFFIX, baseDir,
+                                     sigseed, True, config=config)
                 verkey = verkey.encode()
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"

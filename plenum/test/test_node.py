@@ -180,8 +180,7 @@ class TestNodeCore(StackedTester):
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
 
-    @classmethod
-    def ensureKeysAreSetup(cls, name, baseDir):
+    def ensureKeysAreSetup(self):
         pass
 
 

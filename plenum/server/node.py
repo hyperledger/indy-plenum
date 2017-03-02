@@ -29,6 +29,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp, \
     UnauthorizedClientRequest
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
 from plenum.common.motor import Motor
@@ -132,7 +133,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
-        self.__class__.ensureKeysAreSetup(name, basedirpath)
+        self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
@@ -1840,14 +1841,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             extra={"cli": "STATUS"})
             self.nodestack.keep.auto = AutoMode.never
 
-    @classmethod
-    def ensureKeysAreSetup(cls, name, baseDir):
+    def ensureKeysAreSetup(self):
         """
         Check whether the keys are setup in the local RAET keep.
         Raises RaetKeysNotFoundException if not found.
         """
-        if not isLocalKeepSetup(name, baseDir):
-            raise REx(REx.reason.format(name) + cls.keygenScript)
+        name, baseDir = self.name, self.basedirpath
+        if not areKeysSetup(name, baseDir, self.config):
+            raise REx(REx.reason.format(name) + self.keygenScript)
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """

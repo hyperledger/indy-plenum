@@ -6,7 +6,7 @@ from ioflo.base.consoling import getConsole
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
-from plenum.common.script_helper import initKeys
+from plenum.common.keygen_utils import initKeys
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import HA, NodeDetail
 from plenum.common.util import randomString
@@ -31,14 +31,14 @@ with SafeTemporaryDirectory() as tmpdir:
         """
         The nodes need to have the their keys initialized
         """
-        initKeys(tmpdir, 'Alpha', randomString(32), override=True)
-        initKeys(tmpdir, 'AlphaC', randomString(32), override=True)
-        initKeys(tmpdir, 'Beta', randomString(32), override=True)
-        initKeys(tmpdir, 'BetaC', randomString(32), override=True)
-        initKeys(tmpdir, 'Gamma', randomString(32), override=True)
-        initKeys(tmpdir, 'GammaC', randomString(32), override=True)
-        initKeys(tmpdir, 'Delta', randomString(32), override=True)
-        initKeys(tmpdir, 'DeltaC', randomString(32), override=True)
+        initKeys('Alpha', tmpdir, randomString(32), override=True)
+        initKeys('AlphaC', tmpdir, randomString(32), override=True)
+        initKeys('Beta', tmpdir, randomString(32), override=True)
+        initKeys('BetaC', tmpdir, randomString(32), override=True)
+        initKeys('Gamma', tmpdir, randomString(32), override=True)
+        initKeys('GammaC', tmpdir, randomString(32), override=True)
+        initKeys('Delta', tmpdir, randomString(32), override=True)
+        initKeys('DeltaC', tmpdir, randomString(32), override=True)
 
         """
         A node registry is a dictionary of Node names and their IP addresses
