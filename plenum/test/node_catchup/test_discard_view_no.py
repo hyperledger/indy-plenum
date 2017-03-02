@@ -8,7 +8,7 @@ from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkViewNoForNodes, checkDiscardMsg
+    waitForViewChange, checkDiscardMsg
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
@@ -34,8 +34,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, 10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
-    looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet,
-                                  viewNo + 1), retryWait=1, timeout=20))
+    waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo+1)
 
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"

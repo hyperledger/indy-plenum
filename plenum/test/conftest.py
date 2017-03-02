@@ -296,10 +296,10 @@ def up(looper, ready):
 @pytest.fixture(scope="module")
 def ensureView(nodeSet, looper, up):
     """
-    Ensure that all the nodes in the nodeSet are in the same view
+    Ensure that all the nodes in the nodeSet are in the same view.
     """
 
-    waitForViewChange(looper, nodeSet)
+    return waitForViewChange(looper, nodeSet)
 
 
 @pytest.fixture("module")

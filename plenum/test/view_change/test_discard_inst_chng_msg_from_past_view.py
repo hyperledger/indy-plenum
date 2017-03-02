@@ -1,7 +1,7 @@
 from stp_core.loop.eventually import eventually
 from plenum.common.types import InstanceChange
 from plenum.server.node import Node
-from plenum.test.helper import checkDiscardMsg, checkViewNoForNodes
+from plenum.test.helper import checkDiscardMsg, waitForViewChange
 
 
 # noinspection PyIncorrectDocstring
@@ -22,7 +22,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
                           'less than its view no', nodeSet.Alpha, timeout=5))
 
     # Check that that message is discarded.
-    looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    waitForViewChange(looper, nodeSet)
 
 
 # noinspection PyIncorrectDocstring
@@ -47,7 +47,7 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.
-    looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+    waitForViewChange(looper, nodeSet)
     # No node should have sent a view change and thus must not have called
     # `sendInstanceChange`
     for n in nodeSet:

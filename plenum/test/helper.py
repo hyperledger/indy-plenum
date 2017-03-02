@@ -441,7 +441,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     return vNo
 
 
-def waitForViewChange(looper, nodeSet, customTimeout = None):
+def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None):
     """
     Waits for nodes to come to same view.
     Raises exception when time is out
@@ -450,6 +450,7 @@ def waitForViewChange(looper, nodeSet, customTimeout = None):
     timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
     return looper.run(eventually(checkViewNoForNodes,
                                  nodeSet,
+                                 expectedViewNo,
                                  timeout=timeout))
 
 
