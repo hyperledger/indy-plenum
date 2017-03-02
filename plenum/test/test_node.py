@@ -625,7 +625,7 @@ def ensureElectionsDone(looper: Looper,
         retryWait = 1
 
     if timeout is None:
-        timeout = waits.expectedElectionTimeout(nodes)
+        timeout = waits.expectedElectionTimeout(len(nodes))
 
     poolReadyTimeout = 1/3 * timeout
     setupCheckTimeout = 2/3 * timeout
