@@ -184,12 +184,6 @@ def assertEquality(observed: Any, expected: Any):
                                  "was {}".format(observed, expected)
 
 
-def checkNodesReadyForRequest(looper: Looper, nodes: Sequence[TestNode],
-                              timeout: int = 20):
-    checkPoolReady(looper, nodes, timeout)
-    # checkNodesCanRespondToClients(nodes)
-
-
 def setupNodesAndClient(looper: Looper, nodes: Sequence[TestNode], nodeReg=None,
                         tmpdir=None):
     looper.run(checkNodesConnected(nodes))
