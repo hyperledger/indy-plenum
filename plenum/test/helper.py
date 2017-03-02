@@ -423,10 +423,12 @@ def checkReqNackWithReason(client, reason: str, sender: str):
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no
+
     :param nodes: The nodes to check for
     :param expectedViewNo: the view no that the nodes are expected to have
     :return:
     """
+
     viewNos = set()
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
@@ -437,6 +439,18 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
         assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
             node.name, node.monitor.masterThroughputRatio()) for node in nodes])
     return vNo
+
+
+def waitForViewChange(looper, nodeSet, customTimeout = None):
+    """
+    Waits for nodes to come to same view.
+    Raises exception when time is out
+    """
+
+    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    return looper.run(eventually(checkViewNoForNodes,
+                                 nodeSet,
+                                 timeout=timeout))
 
 
 def getNodeSuspicions(node: TestNode, code: int = None):

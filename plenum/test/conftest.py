@@ -36,7 +36,7 @@ from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
-    checkViewNoForNodes, requestReturnedToNode, randomText, \
+    waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
@@ -296,12 +296,10 @@ def up(looper, ready):
 @pytest.fixture(scope="module")
 def ensureView(nodeSet, looper, up):
     """
-    Ensure that all the nodes in the nodeSet are in the same view.
+    Ensure that all the nodes in the nodeSet are in the same view
     """
-    timeout = waits.expectedViewChangeTime(len(nodeSet))
-    return looper.run(eventually(checkViewNoForNodes,
-                                 nodeSet,
-                                 timeout=timeout))
+
+    waitForViewChange(looper, nodeSet)
 
 
 @pytest.fixture("module")
