@@ -62,7 +62,14 @@ def ordinal(n):
 def checkSufficientRepliesRecvd(receivedMsgs: Iterable,
                                 reqId: int,
                                 fValue: int):
-    receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
+    """
+    Checks number of replies for request with specified id in given inbox and
+    if this number is lower than number of malicious nodes (fValue) -
+    raises exception
+    """
+
+    receivedReplies = getRepliesFromClientInbox(inbox=receivedMsgs,
+                                                reqId=reqId)
     logger.debug("received replies for reqId {}: {}".
                  format(reqId, receivedReplies))
     assert len(receivedReplies) > fValue, "Received {} replies but expected " \
@@ -82,6 +89,10 @@ def checkSufficientRepliesForRequests(looper,
                                       requests,
                                       fVal=None,
                                       customTimeoutPerReq=None):
+    """
+    Checks number of replies for given requests of specific client
+    """
+
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
 
