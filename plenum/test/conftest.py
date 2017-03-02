@@ -417,6 +417,9 @@ def poolTxnData(nodeAndClientInfoFilePath):
 
 @pytest.fixture(scope="module")
 def tdirWithPoolTxns(poolTxnData, tdir, tconf):
+    import getpass
+    logging.debug("current user when creating new pool txn file: {}".
+                  format(getpass.getuser()))
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)
