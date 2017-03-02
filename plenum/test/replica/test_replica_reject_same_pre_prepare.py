@@ -9,7 +9,8 @@ from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd
+
+from plenum.test.helper import sendRandomRequest, checkSufficientRepliesReceived
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
@@ -32,7 +33,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     fValue = getMaxFailures(numOfNodes)
     request1 = sendRandomRequest(wallet1, client1)
     result1 = looper.run(
-        eventually(checkSufficientRepliesRecvd, client1.inBox,
+        eventually(checkSufficientRepliesReceived, client1.inBox,
                    request1.reqId, fValue,
                    retryWait=1, timeout=5))
     logger.debug("request {} gives result {}".format(request1, result1))

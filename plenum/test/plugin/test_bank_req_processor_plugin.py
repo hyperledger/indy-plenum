@@ -3,7 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA
-from plenum.test.helper import checkSufficientRepliesRecvd, \
+from plenum.test.helper import checkSufficientRepliesReceived, \
     checkReqNack, setupClients
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
     BALANCE, ALL_TXNS
@@ -69,7 +69,7 @@ class AccountApp(App):
                 AMOUNT: amount
             }})
         if expected:
-            self.looper.run(eventually(checkSufficientRepliesRecvd,
+            self.looper.run(eventually(checkSufficientRepliesReceived,
                                        self.client.inBox, req.reqId, 1,
                                        retryWait=1, timeout=5))
         else:
@@ -84,7 +84,7 @@ class AccountApp(App):
             TXN_TYPE: GET_BAL,
             TARGET_NYM: self.wallet.defaultId
         })
-        self.looper.run(eventually(checkSufficientRepliesRecvd,
+        self.looper.run(eventually(checkSufficientRepliesReceived,
                                    self.client.inBox, req.reqId,
                                    1, retryWait=1, timeout=10))
         return self.client.hasConsensus(*req.key)[BALANCE]
@@ -95,7 +95,7 @@ class AccountApp(App):
             TARGET_NYM: self.wallet.defaultId
         })
         self.looper.run(
-            eventually(checkSufficientRepliesRecvd, self.client.inBox,
+            eventually(checkSufficientRepliesReceived, self.client.inBox,
                        req.reqId, 1, retryWait=1, timeout=5))
         return req
 

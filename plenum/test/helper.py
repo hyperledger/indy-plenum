@@ -59,9 +59,9 @@ def ordinal(n):
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
-def checkSufficientRepliesRecvd(receivedMsgs: Iterable,
-                                reqId: int,
-                                fValue: int):
+def checkSufficientRepliesReceived(receivedMsgs: Iterable,
+                                   reqId: int,
+                                   fValue: int):
     """
     Checks number of replies for request with specified id in given inbox and
     if this number is lower than number of malicious nodes (fValue) -
@@ -103,7 +103,7 @@ def checkSufficientRepliesForRequests(looper,
 
     coros = []
     for request in requests:
-        coros.append(partial(checkSufficientRepliesRecvd,
+        coros.append(partial(checkSufficientRepliesReceived,
                              client.inBox,
                              request.reqId,
                              fVal))

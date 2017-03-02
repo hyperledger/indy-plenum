@@ -3,7 +3,7 @@ from plenum.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node
 from plenum.test.helper import sendRandomRequest, \
-    checkSufficientRepliesRecvd
+    checkSufficientRepliesReceived
 from plenum.test.test_node import TestNodeSet
 
 nodeCount = 4
@@ -20,7 +20,7 @@ def testAvgReqLatency(looper: Looper, nodeSet: TestNodeSet, wallet1, client1):
 
     for i in range(5):
         req = sendRandomRequest(wallet1, client1)
-        looper.run(eventually(checkSufficientRepliesRecvd,
+        looper.run(eventually(checkSufficientRepliesReceived,
                               client1.inBox, req.reqId, 1,
                               retryWait=1, timeout=5))
 

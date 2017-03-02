@@ -8,7 +8,7 @@ from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader
 from plenum.test.helper import setupClient, \
-    checkReqNack, checkSufficientRepliesRecvd
+    checkReqNack, checkSufficientRepliesReceived
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
     AMOUNT, CREDIT
 from plenum.test.plugin.conftest import BANK_REQ_VALIDATION_PLUGIN_PATH_VALUE
@@ -114,7 +114,7 @@ def testBankReqValidationPlugin(looper, nodeSet, client1, wallet1, tdir,
         DATA: {
             AMOUNT: 30
         }})
-    looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox,
+    looper.run(eventually(checkSufficientRepliesReceived, client1.inBox,
                           req.reqId, 1,
                           retryWait=1, timeout=5))
     for n in nodeSet:  # type: Node

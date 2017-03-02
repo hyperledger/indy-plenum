@@ -12,7 +12,7 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import setupNodesAndClient, \
     sendRandomRequest, setupClient, \
-    assertLength, addNodeBack, checkSufficientRepliesRecvd, \
+    assertLength, addNodeBack, checkSufficientRepliesReceived, \
     getPendingRequestsForReplica, checkRequestReturnedToNode
 from plenum.test.profiler import profile_this
 from plenum.test.test_node import TestNode, TestNodeSet, checkPoolReady, \
@@ -29,7 +29,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
-            looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox,
+            looper.run(eventually(checkSufficientRepliesReceived, client1.inBox,
                                   req.reqId, 1,
                                   retryWait=1, timeout=15))
             async def chk():
@@ -184,7 +184,7 @@ def testMultipleRequests(tdir_for_func):
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
                 for request in requests:
                     looper.run(eventually(
-                        checkSufficientRepliesRecvd, client.inBox,
+                        checkSufficientRepliesReceived, client.inBox,
                         request.reqId, 3,
                         retryWait=1, timeout=3 * len(nodeSet)))
 
@@ -207,7 +207,7 @@ def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
     client1.submitReqs(req)
     f = getMaxFailures(len(nodeSet))
     looper.run(eventually(
-        checkSufficientRepliesRecvd, client1.inBox,
+        checkSufficientRepliesReceived, client1.inBox,
         req.reqId, f, retryWait=1, timeout=3 * len(nodeSet)))
     # Only REQACK will be sent twice by the node but not REPLY
     assert len(client1.inBox) == size + 12

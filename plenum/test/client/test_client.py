@@ -10,7 +10,7 @@ from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
-    sendRandomRequest, checkSufficientRepliesRecvd, assertLength,  \
+    sendRandomRequest, checkSufficientRepliesReceived, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 
@@ -198,7 +198,7 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     for a repeated request.
     """
     # Since view no is always zero in the current setup
-    looper.run(eventually(checkSufficientRepliesRecvd,
+    looper.run(eventually(checkSufficientRepliesReceived,
                           client1.inBox,
                           sent1.reqId,
                           2,
