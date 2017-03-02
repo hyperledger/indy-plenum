@@ -287,6 +287,17 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
                                       to: NodeRef,
                                       msg: Optional[Tuple]=None,
                                       customTimeout=None):
+    """
+    Sends message from one node to another and checks that it was delivered
+
+    :param nodes:
+    :param frm: sender
+    :param to: recepient
+    :param msg: optional message - by default random one generated
+    :param customTimeout:
+    :return:
+    """
+
     logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
     sender = nodes.getNode(frm)
