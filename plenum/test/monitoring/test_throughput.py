@@ -4,7 +4,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.helper import sendRandomRequest, \
-    checkSufficientRepliesReceived
+    waitForSufficientRepliesForRequests
 
 
 nodeCount = 4
@@ -18,9 +18,7 @@ def testThroughput(looper, nodeSet: Iterable[Node], wallet1, client1):
     """
     for i in range(5):
         req = sendRandomRequest(wallet1, client1)
-        looper.run(eventually(checkSufficientRepliesReceived,
-                              client1.inBox, req.reqId, 1,
-                              retryWait=1, timeout=5))
+        waitForSufficientRepliesForRequests(looper, client1, [req], fVal=1)
 
     for node in nodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(node.instances.masterId)

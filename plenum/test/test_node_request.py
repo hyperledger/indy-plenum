@@ -12,7 +12,7 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import setupNodesAndClient, \
     sendRandomRequest, setupClient, \
-    assertLength, addNodeBack, checkSufficientRepliesReceived, \
+    assertLength, addNodeBack, waitForSufficientRepliesForRequests, \
     getPendingRequestsForReplica, checkRequestReturnedToNode
 from plenum.test.profiler import profile_this
 from plenum.test.test_node import TestNode, TestNodeSet, checkPoolReady, \
@@ -29,9 +29,8 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
-            looper.run(eventually(checkSufficientRepliesReceived, client1.inBox,
-                                  req.reqId, 1,
-                                  retryWait=1, timeout=15))
+            waitForSufficientRepliesForRequests(looper, client1, [req], fVal=1)
+
             async def chk():
                 for node in nodeSet:
                     entries = node.spylog.getAll(
@@ -182,11 +181,10 @@ def testMultipleRequests(tdir_for_func):
 
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
-                for request in requests:
-                    looper.run(eventually(
-                        checkSufficientRepliesReceived, client.inBox,
-                        request.reqId, 3,
-                        retryWait=1, timeout=3 * len(nodeSet)))
+                waitForSufficientRepliesForRequests(looper, client, requests, fVal=3)
+
+                ss2 = snapshotStats(*nodeSet)
+                diff = statsDiff(ss2, ss1)
 
                 if not nodeSet.UseZStack:
                     ss2 = snapshotStats(*nodeSet)
@@ -205,10 +203,7 @@ def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
     size = len(client1.inBox)
     req = sendRandomRequest(wallet1, client1)
     client1.submitReqs(req)
-    f = getMaxFailures(len(nodeSet))
-    looper.run(eventually(
-        checkSufficientRepliesReceived, client1.inBox,
-        req.reqId, f, retryWait=1, timeout=3 * len(nodeSet)))
+    waitForSufficientRepliesForRequests(looper, client1, [req])
     # Only REQACK will be sent twice by the node but not REPLY
     assert len(client1.inBox) == size + 12
 

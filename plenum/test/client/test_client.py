@@ -10,8 +10,9 @@ from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
-    sendRandomRequest, checkSufficientRepliesReceived, assertLength,  \
+    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
+
 from plenum.test.test_client import genTestClient
 
 nodeCount = 7
@@ -197,13 +198,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     will be sent again to the client. An acknowledgement will not be sent
     for a repeated request.
     """
-    # Since view no is always zero in the current setup
-    looper.run(eventually(checkSufficientRepliesReceived,
-                          client1.inBox,
-                          sent1.reqId,
-                          2,
-                          retryWait=.5,
-                          timeout=5))
+    waitForSufficientRepliesForRequests(looper, client1, [sent1], fVal=2)
+
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
     client1.nodestack._enqueueIntoAllRemotes(sent1, None)
