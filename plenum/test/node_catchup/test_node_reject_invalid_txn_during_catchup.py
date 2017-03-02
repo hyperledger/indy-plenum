@@ -63,7 +63,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         'Catchup request processor of {} patched'.format(txnPoolNodeSet[0]))
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=45))
 

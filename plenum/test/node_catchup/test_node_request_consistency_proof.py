@@ -19,7 +19,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
+# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
@@ -61,7 +61,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         'Domain Ledger status sender of {} patched'.format(newNode))
 
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
     # 60 sec.
