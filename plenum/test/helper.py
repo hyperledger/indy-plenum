@@ -295,13 +295,13 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMsg, msg, nodes, to,
+    await eventually(checkMessageReceived, msg, nodes, to,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)
 
 
-def checkMsg(msg, nodes, to, method: str = None):
+def checkMessageReceived(msg, nodes, to, method: str = None):
     allMsgs = nodes.getAllMsgReceived(to, method)
     assert msg in allMsgs
 
