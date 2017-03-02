@@ -2,7 +2,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    sendRandomRequest, checkSufficientRepliesForRequests
+    sendRandomRequest, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.test_client import genTestClient
@@ -87,7 +87,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
 
     req = sendRandomRequest(w, newClient)
-    checkSufficientRepliesForRequests(looper, newClient, [req, ])
+    waitForSufficientRepliesForRequests(looper, newClient, [req, ])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 

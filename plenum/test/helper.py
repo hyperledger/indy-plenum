@@ -84,11 +84,11 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     # TODO add test case for what happens when replies don't have the same data
 
 
-def checkSufficientRepliesForRequests(looper,
-                                      client,
-                                      requests,
-                                      fVal=None,
-                                      customTimeoutPerReq=None):
+def waitForSufficientRepliesForRequests(looper,
+                                        client,
+                                        requests,
+                                        fVal=None,
+                                        customTimeoutPerReq=None):
     """
     Checks number of replies for given requests of specific client
     """
@@ -122,11 +122,11 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
-    checkSufficientRepliesForRequests(looper,
-                                      client,
-                                      requests,
-                                      fVal,
-                                      customTimeoutPerReq)
+    waitForSufficientRepliesForRequests(looper,
+                                        client,
+                                        requests,
+                                        fVal,
+                                        customTimeoutPerReq)
     return requests
 
 
