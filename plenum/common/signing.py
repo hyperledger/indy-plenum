@@ -83,5 +83,6 @@ def serializeMsg(msg: Mapping):
     :return: a uft-8 encoded version of `msg`
     """
     ser = serialize(msg)
-    logger.trace("serialized msg {} into {}".format(msg, ser))
+    # Uncommenting next line makes some tests run slow which send large requests
+    # logger.trace("serialized msg {} into {}".format(msg, ser))
     return ser.encode('utf-8')

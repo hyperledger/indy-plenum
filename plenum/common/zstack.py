@@ -549,7 +549,7 @@ class ZStack(NetworkInterface):
             return
         msg = self.prepMsg(msg)
         try:
-            r = self.listener.send_multipart([ident, self.signedMsg(msg)],
+            self.listener.send_multipart([ident, self.signedMsg(msg)],
                                              flags=zmq.NOBLOCK)
             return True
         except zmq.Again:
