@@ -5,8 +5,7 @@ from plenum.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node
 from plenum.test.delayers import delayerMsgTuple
-from plenum.test.helper import sendMsgAndCheck, addNodeBack, assertExp, sendMsg, \
-    checkMsg
+from plenum.test.helper import sendMessageAndCheckDelivery, addNodeBack, assertExp
 from plenum.test.msgs import randomMsg
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone, prepareNodeSet
@@ -29,24 +28,24 @@ def testTestNodeDelay(tdir_for_func):
             looper.run(checkNodesConnected(nodes))
             logger.debug("send one message, without delay")
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=1))
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB, msg, customTimeout=1))
             logger.debug("set delay, then send another message and find that "
                           "it doesn't arrive")
             msg = randomMsg()
 
             nodeB.nodeIbStasher.delay(delayerMsgTuple(10 * slowFactor, type(msg), nodeA.name))
 
-            sendMsg(nodes, nodeA, nodeB, msg)
+            # sendMsg(nodes, nodeA, nodeB, msg) do we need this send?
             with pytest.raises(AssertionError):
-                looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=3))
+                looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB, msg, customTimeout=3))
             logger.debug("but then find that it arrives after the delay "
                           "duration has passed")
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=4))
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB, msg, customTimeout=4))
             logger.debug(
                     "reset the delay, and find another message comes quickly")
             nodeB.nodeIbStasher.resetDelays()
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, customTimeout=1))
+            looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB, msg, customTimeout=1))
 
 
 def testSelfNominationDelay(tdir_for_func):

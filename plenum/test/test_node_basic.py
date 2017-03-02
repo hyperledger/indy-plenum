@@ -3,7 +3,7 @@ import pytest
 from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
 from plenum.common.util import getMaxFailures, adict
-from plenum.test.helper import checkNodesConnected, sendMsgAndCheck, msgAll
+from plenum.test.helper import checkNodesConnected, sendMessageAndCheckDelivery, msgAll
 from plenum.test.msgs import randomMsg
 
 nodeCount = 4
@@ -36,11 +36,11 @@ def testMsgSendingTime(pool, nodeReg):
     nodeNames = list(nodeReg.keys())
     msg = randomMsg()
     pool.looper.run(
-            sendMsgAndCheck(pool.nodeset,
-                            nodeNames[0],
-                            nodeNames[1],
-                            msg,
-                            customTimeout=1))
+            sendMessageAndCheckDelivery(pool.nodeset,
+                                        nodeNames[0],
+                                        nodeNames[1],
+                                        msg,
+                                        customTimeout=1))
 
 
 def testCorrectNumOfProtocolInstances(pool):
