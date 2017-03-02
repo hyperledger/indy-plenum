@@ -48,7 +48,7 @@ def setup(looper, startedNodes, up, wallet1, client1):
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=5, timeoutPerReq=80)
+                                        numReqs=5, customTimeoutPerReq=80)
 
     return adict(nodes=startedNodes)
 

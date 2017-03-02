@@ -36,8 +36,8 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                        txnCount, timeoutPerReq=25)
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
+                                        txnCount, customTimeoutPerReq=25)
 
     logger.debug('Going to add new node, ledger sizes of existing nodes {}'.
                  format(','.join(['{}:{}'.format(n.name, n.primaryStorage.size)

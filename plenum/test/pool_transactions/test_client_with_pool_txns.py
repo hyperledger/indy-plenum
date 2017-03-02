@@ -88,7 +88,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
     req = sendRandomRequest(w, newClient)
     checkSufficientRepliesForRequests(looper, newClient, [req, ],
-                                      timeoutPerReq=10)
+                                      customTimeoutPerReq=10)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 

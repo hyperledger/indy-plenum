@@ -59,7 +59,8 @@ def ordinal(n):
         n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
-def checkSufficientRepliesRecvd(receivedMsgs: Iterable, reqId: int,
+def checkSufficientRepliesRecvd(receivedMsgs: Iterable,
+                                reqId: int,
                                 fValue: int):
     receivedReplies = getRepliesFromClientInbox(receivedMsgs, reqId)
     logger.debug("received replies for reqId {}: {}".
@@ -80,14 +81,14 @@ def checkSufficientRepliesForRequests(looper,
                                       client,
                                       requests,
                                       fVal=None,
-                                      timeoutPerReq=None):
+                                      customTimeoutPerReq=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
 
-    if timeoutPerReq is None:
-        timeoutPerReq = waits.expectedTransactionExecutionTime(nodeCount)
+    timeoutPerRequest = customTimeoutPerReq or \
+                        waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerReq * len(requests)
+    totalTimeout = timeoutPerRequest * len(requests)
 
     coros = []
     for request in requests:
@@ -101,17 +102,20 @@ def checkSufficientRepliesForRequests(looper,
                              totalTimeout=totalTimeout))
 
 
-def sendReqsToNodesAndVerifySuffReplies(looper: Looper, wallet: Wallet,
+def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
+                                        wallet: Wallet,
                                         client: TestClient,
-                                        numReqs: int, fVal: int=None,
-                                        timeoutPerReq: float=None):
+                                        numReqs: int,
+                                        fVal: int=None,
+                                        customTimeoutPerReq: float=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
-    timeoutPerReq = timeoutPerReq or 5 * nodeCount
-
     requests = sendRandomRequests(wallet, client, numReqs)
-    checkSufficientRepliesForRequests(looper, client, requests, fVal,
-                                      timeoutPerReq)
+    checkSufficientRepliesForRequests(looper,
+                                      client,
+                                      requests,
+                                      fVal,
+                                      customTimeoutPerReq)
     return requests
 
 

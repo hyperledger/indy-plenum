@@ -38,7 +38,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
         r.node.nodeIbStasher.delay(ppDelayer)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4,
-                                        timeoutPerReq=5 * nodeCount)
+                                        customTimeoutPerReq=5 * nodeCount)
 
     # Every node except Node A should have a view change
     for node in nodeSet:
