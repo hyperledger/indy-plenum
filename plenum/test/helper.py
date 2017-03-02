@@ -67,6 +67,9 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     if this number is lower than number of malicious nodes (fValue) -
     raises exception
 
+    If you do not need response ponder on using
+    waitForSufficientRepliesForRequests instead
+
     :returns: response for request
     """
 
@@ -92,7 +95,8 @@ def waitForSufficientRepliesForRequests(looper,
                                         fVal=None,
                                         customTimeoutPerReq=None):
     """
-    Checks number of replies for given requests of specific client
+    Checks number of replies for given requests of specific client and
+    raises exception if quorum not reached at least for one
 
     :returns: nothing
     """
