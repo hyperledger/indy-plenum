@@ -411,7 +411,8 @@ class Cli:
             newWalletFilePath = Cli.getWalletFilePath(
             keyringsDir, Cli._normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
-                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                self.print("A persistent wallet file already exists for "
+                           "new wallet name. Please choose new wallet name.")
                 return False
             os.rename(oldWalletFilePath, newWalletFilePath)
         return True
@@ -535,10 +536,9 @@ class Cli:
     def activeWallet(self) -> Wallet:
         if not self._activeWallet:
             if self.wallets:
-                return firstValue(self.wallets)
+                self._activeWallet = firstValue(self.wallets)
             else:
                 self._activeWallet = self._newWallet()
-                return self._activeWallet
         return self._activeWallet
 
     @activeWallet.setter
@@ -1408,6 +1408,14 @@ class Cli:
                 self.print("No active keyring found.")
             return True
 
+    def checkIfPersistentWalletExists(self, name, inContextDir=None):
+        toBeWalletFileName = Cli._normalizedWalletFileName(name)
+        contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
+        toBeWalletFilePath = Cli.getWalletFilePath(
+            contextDir, toBeWalletFileName)
+        if os.path.exists(toBeWalletFilePath):
+            return toBeWalletFilePath
+
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True,
                                     printAppropriateMsg=True,
@@ -1439,10 +1447,8 @@ class Cli:
                     return True, 'identifier'
 
                 if checkPersistedFile:
-                    toBeWalletFileName = Cli._normalizedWalletFileName(origName)
-                    toBeWalletFilePath = Cli.getWalletFilePath(
-                        self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
-                    if os.path.exists(toBeWalletFilePath):
+                    toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
+                    if toBeWalletFilePath:
                         return True, 'keyring (stored at: {})'.\
                             format(toBeWalletFilePath)
 
@@ -1827,40 +1833,42 @@ class Cli:
             return False
         return True
 
+    def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
+        try:
+            createDirIfNotExists(contextDir)
+            walletFilePath = Cli.getWalletFilePath(
+                contextDir, self.walletFileName)
+            with open(walletFilePath, "w+") as walletFile:
+                try:
+                    encodedWallet = encode(self._activeWallet)
+                    walletFile.write(encodedWallet)
+                    if printMsgs:
+                        self.print('Active keyring "{}" saved'.format(
+                            self._activeWallet.name), newline=False)
+                        self.print(' ({})'.format(walletFilePath), Token.Gray)
+                except ValueError as ex:
+                    self.logger.info("ValueError: " +
+                                     "Could not save wallet while exiting\n {}"
+                                     .format(ex))
+                except IOError:
+                    self.logger.info(
+                        "IOError while writing data to wallet file"
+                    )
+        except IOError as ex:
+            self.logger.info("Error occurred while creating wallet. " +
+                             "error no.{}, error.{}"
+                             .format(ex.errno, ex.strerror))
+
     def _saveActiveWallet(self):
         if self._activeWallet:
             # We would save wallet only if user already has a wallet
             # otherwise our access for `activeWallet` property
             # will create a wallet
             self.updateEnvNameInWallet()
-
             if not self.performCompatibilityCheckBeforeSave():
                 return False
-
-            encodedWallet = encode(self._activeWallet)
-            try:
-                keyringsDir = self.getContextBasedKeyringsBaseDir()
-                createDirIfNotExists(keyringsDir)
-                walletFilePath = Cli.getWalletFilePath(
-                        keyringsDir, self.walletFileName)
-                with open(walletFilePath, "w+") as walletFile:
-                    try:
-                        walletFile.write(encodedWallet)
-                        self.print('Active keyring "{}" saved'.format(
-                            self._activeWallet.name), newline=False)
-                        self.print(' ({})'.format(walletFilePath), Token.Gray)
-                    except ValueError as ex:
-                        self.logger.info("ValueError: " +
-                                         "Could not save wallet while exiting\n {}"
-                                         .format(ex))
-                    except IOError:
-                        self.logger.info(
-                            "IOError while writing data to wallet file"
-                        )
-            except IOError as ex:
-                self.logger.info("Error occurred while creating wallet. " +
-                                 "error no.{}, error.{}"
-                                 .format(ex.errno, ex.strerror))
+            keyringsDir = self.getContextBasedKeyringsBaseDir()
+            self._saveActiveWalletInDir(keyringsDir, printMsgs=True)
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
