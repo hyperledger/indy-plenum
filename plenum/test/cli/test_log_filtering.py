@@ -3,7 +3,8 @@ import types
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import checkRequest
-from plenum.test.helper import checkSufficientRepliesReceived
+from plenum.test.helper import checkSufficientRepliesReceived, \
+    waitForSufficientRepliesForRequests
 
 
 def testLogFiltering(cli, validNodeNames, createAllNodes):
@@ -19,6 +20,9 @@ def testLogFiltering(cli, validNodeNames, createAllNodes):
     client.nodestack.msgHandler = client.handleOneNodeMsg
     msg = '{"Hello": "Where", "type": "greeting"}'
     cli.enterCmd('client {} send {}'.format(client.name, msg))
+
+
+
     cli.looper.run(eventually(
         checkSufficientRepliesReceived,
         client.inBox,

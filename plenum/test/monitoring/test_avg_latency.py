@@ -20,7 +20,8 @@ def testAvgReqLatency(looper: Looper, nodeSet: TestNodeSet, wallet1, client1):
 
     for i in range(5):
         req = sendRandomRequest(wallet1, client1)
-        waitForSufficientRepliesForRequests(looper, client1, [req], fVal=1)
+        waitForSufficientRepliesForRequests(looper, client1,
+                                            requests=[req], fVal=1)
 
     for node in nodeSet:  # type: Node
         mLat = node.monitor.getAvgLatencyForClient(wallet1.defaultId,

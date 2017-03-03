@@ -68,10 +68,8 @@ class AccountApp(App):
                 AMOUNT: amount
             }})
         if expected:
-            waitForSufficientRepliesForRequests(self.looper,
-                                                self.client,
-                                                [req],
-                                                fVal=1)
+            waitForSufficientRepliesForRequests(self.looper, self.client,
+                                                requests=[req], fVal=1)
         else:
             for node in nodes:
                 self.looper.run(eventually(checkReqNack, self.client, node,
@@ -84,10 +82,8 @@ class AccountApp(App):
             TXN_TYPE: GET_BAL,
             TARGET_NYM: self.wallet.defaultId
         })
-        waitForSufficientRepliesForRequests(self.looper,
-                                            self.client,
-                                            [req],
-                                            fVal=1)
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
 
         return self.client.hasConsensus(*req.key)[BALANCE]
 
@@ -96,10 +92,8 @@ class AccountApp(App):
             TXN_TYPE: GET_ALL_TXNS,
             TARGET_NYM: self.wallet.defaultId
         })
-        waitForSufficientRepliesForRequests(self.looper,
-                                            self.client,
-                                            [req],
-                                            fVal=1)
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
 
         return req
 

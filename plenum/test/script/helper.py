@@ -71,7 +71,8 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
                                   nodeStackNewHA, stewardName, stewardsSeed)
 
-    waitForSufficientRepliesForRequests(looper, stewardClient, [req])
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req])
 
     # stop node for which HA will be changed
     subjectedNode.stop()

@@ -62,7 +62,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         node.nodeIbStasher.delay(specificCommits)
 
     requests = sendRandomRequests(wallet1, client1, requestCount)
-    waitForSufficientRepliesForRequests(looper, client1, requests)
+    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
 
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2

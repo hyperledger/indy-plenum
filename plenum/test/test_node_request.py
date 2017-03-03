@@ -29,7 +29,8 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
-            waitForSufficientRepliesForRequests(looper, client1, [req], fVal=1)
+            waitForSufficientRepliesForRequests(looper, client1,
+                                                requests=[req], fVal=1)
 
             async def chk():
                 for node in nodeSet:
@@ -181,7 +182,8 @@ def testMultipleRequests(tdir_for_func):
 
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
-                waitForSufficientRepliesForRequests(looper, client, requests, fVal=3)
+                waitForSufficientRepliesForRequests(looper, client,
+                                                    requests=requests, fVal=3)
 
                 ss2 = snapshotStats(*nodeSet)
                 diff = statsDiff(ss2, ss1)
@@ -203,7 +205,7 @@ def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
     size = len(client1.inBox)
     req = sendRandomRequest(wallet1, client1)
     client1.submitReqs(req)
-    waitForSufficientRepliesForRequests(looper, client1, [req])
+    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
     # Only REQACK will be sent twice by the node but not REPLY
     assert len(client1.inBox) == size + 12
 

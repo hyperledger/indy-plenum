@@ -51,7 +51,8 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
 
     # Check a client can send request and receive replies
     req = sendRandomRequest(newStewardWallet, newSteward)
-    waitForSufficientRepliesForRequests(looper, newSteward, [req, ])
+    waitForSufficientRepliesForRequests(looper, newSteward,
+                                        requests=[req])
 
     # Check that a restarted client or node does not connect to the suspended
     # node

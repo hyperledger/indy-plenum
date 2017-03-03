@@ -87,7 +87,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
 
     req = sendRandomRequest(w, newClient)
-    waitForSufficientRepliesForRequests(looper, newClient, [req, ])
+    waitForSufficientRepliesForRequests(looper, newClient, requests=[req])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 

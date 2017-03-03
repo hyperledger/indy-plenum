@@ -91,7 +91,9 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
 
 def waitForSufficientRepliesForRequests(looper,
                                         client,
-                                        requests,
+                                        *,  # To force usage of names
+                                        requests = None,
+                                        requestIds = None,
                                         fVal=None,
                                         customTimeoutPerReq=None):
     """
@@ -100,6 +102,11 @@ def waitForSufficientRepliesForRequests(looper,
 
     :returns: nothing
     """
+
+    if requests is not None and requestIds is not None:
+        raise ValueError("Args 'requests' and 'requestIds' are "
+                         "mutually exclusive")
+    requestIds = requestIds or [request.reqId for request in requests]
 
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
@@ -130,11 +137,10 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
-    waitForSufficientRepliesForRequests(looper,
-                                        client,
-                                        requests,
-                                        fVal,
-                                        customTimeoutPerReq)
+    waitForSufficientRepliesForRequests(looper, client,
+                                        requests=requests,
+                                        customTimeoutPerReq=customTimeoutPerReq,
+                                        fVal=fVal)
     return requests
 
 

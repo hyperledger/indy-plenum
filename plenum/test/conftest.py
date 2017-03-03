@@ -441,7 +441,7 @@ def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
                           retryWait=1,
                           timeout=orderingTimeout))
 
-    waitForSufficientRepliesForRequests(looper, client1, [committed1])
+    waitForSufficientRepliesForRequests(looper, client1, requests=[committed1])
     return committed1
 
 
