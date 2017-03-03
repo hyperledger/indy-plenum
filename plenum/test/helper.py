@@ -100,6 +100,8 @@ def waitForSufficientRepliesForRequests(looper,
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
 
+    :requests: list of requests; mutually exclusive with 'requestIds'
+    :requestIds:  list of request ids; mutually exclusive with 'requests'
     :returns: nothing
     """
 
