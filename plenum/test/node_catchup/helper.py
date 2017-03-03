@@ -5,7 +5,8 @@ from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode
-
+from plenum.test import waits
+from plenum.common import util
 
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
@@ -28,9 +29,13 @@ def checkClientPoolLedgerSameAsNodes(client: TestClient,
         checkLedgerEquality(client.ledger, n.poolLedger)
 
 
-def ensureClientConnectedToNodesAndPoolLedgerSame(looper, client: TestClient,
+def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
+                                                  client: TestClient,
                                                   *nodes:Iterable[TestNode]):
-    looper.run(eventually(checkClientPoolLedgerSameAsNodes, client,
-                          *nodes, retryWait=1,
-                          timeout=3*len(nodes)))
+    fVal = util.getMaxFailures(len(nodes))
+    poolCheckTimeout = waits.expectedPoolLedgerCheck(fVal)
+    looper.run(eventually(checkClientPoolLedgerSameAsNodes,
+                          client,
+                          *nodes,
+                          timeout=poolCheckTimeout))
     looper.run(client.ensureConnectedToNodes())

@@ -3,7 +3,7 @@ import math
 from plenum.common.log import getlogger
 from plenum.common.config_util import getConfig
 from plenum.common.util import totalConnections
-
+from plenum.common import util
 logger = getlogger()
 
 
@@ -66,3 +66,16 @@ def expectedElectionTimeout(nodeCount) -> float:
 
 def expectedGetReadyTimeout(nodeCount) -> float:
     return 5 * nodeCount
+
+
+def expectedClientConnectionTimeout(fVal) -> float:
+    return 3 * fVal
+
+
+def expectedPoolLedgerCheck(nodeCount) -> float:
+    """
+    Expected time required for checking that 'pool ledger' on nodes and client
+    is the same
+    """
+
+    return 3 * nodeCount
