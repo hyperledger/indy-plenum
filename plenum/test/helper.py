@@ -425,6 +425,11 @@ def checkReplyCount(client, idr, reqId, count):
             senders.add(sdr)
     assertLength(senders, count)
 
+def waitReplyCount(looper, client, idr, reqId, count):
+    numOfNodes = len(client.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(checkReplyCount, client, idr, reqId, count,
+                          timeout=timeout))
 
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False

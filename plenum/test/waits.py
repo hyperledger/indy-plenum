@@ -27,6 +27,7 @@ def expectedNodeToNodeMessageDeliveryTime() -> float:
 def expectedTransactionExecutionTime(nodeCount) -> float:
     # TODO: maybe it should depend on transaction type?
     # TODO: implement
+    # CLIENT_REPLY_TIMEOUT
 
     return int(7.5 * nodeCount)
 
@@ -48,6 +49,7 @@ def expectedClientRequestPropagationTime(nodeCount) -> float:
 
 
 def expectedReqAckQuorumTime(nodeCount) -> float:
+    # CLIENT_REQACK_TIMEOUT
     return int(1.25 * nodeCount)
 
 
