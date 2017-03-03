@@ -470,7 +470,6 @@ def doByCtx(ctx):
                     if isinstance(e, str):
                         e = e.format(**mapper) if mapper else e
                         try:
-
                             if parity:
                                 assert e in cli.lastCmdOutput, \
                                     getAssertErrorMsg(e, cli, exp=True, actual=False)

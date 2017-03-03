@@ -74,8 +74,8 @@ from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
-from plenum.common.log import CliHandler, getlogger, Logger, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
+from plenum.common.log import CliHandler, getlogger, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL, Logger
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
