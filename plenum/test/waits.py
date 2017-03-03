@@ -64,7 +64,7 @@ def expectedElectionTimeout(nodeCount) -> float:
     return 15 + 2 * nodeCount
 
 
-def expectedGetReadyTimeout(nodeCount) -> float:
+def expectedPoolGetReadyTimeout(nodeCount) -> float:
     return 5 * nodeCount
 
 

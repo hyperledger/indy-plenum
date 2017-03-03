@@ -461,7 +461,7 @@ def checkPoolReady(looper: Looper,
     Check that pool is in Ready state
     """
 
-    timeout = customTimeout or waits.expectedGetReadyTimeout(len(nodes))
+    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(len(nodes))
     looper.run(
             eventually(checkNodesAreReady, nodes,
                        retryWait=.25,
