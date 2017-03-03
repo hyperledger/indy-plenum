@@ -79,3 +79,7 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
     """
 
     return 3 * nodeCount
+
+
+def expectedNodeStartUpTimeout() -> float:
+    return 5

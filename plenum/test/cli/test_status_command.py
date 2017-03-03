@@ -3,7 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, \
-    checkNodeStarted, \
+    waitNodeStarted, \
     checkActiveIdrPrinted
 from plenum.test import waits
 from plenum.common import util
@@ -46,7 +46,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     nodeName = validNodeNames[0]
     cli.enterCmd("new node {}".format(nodeName))
     # Let the node start up
-    checkNodeStarted(cli, nodeName)
+    waitNodeStarted(cli, nodeName)
 
     cli.enterCmd("status")
     startedNodeToken = cli.printedTokens[1]

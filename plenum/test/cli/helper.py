@@ -155,7 +155,7 @@ def isNameToken(token: Token):
     return token == Token.Name
 
 
-def checkNodeStarted(cli, nodeName):
+def waitNodeStarted(cli, nodeName):
     # Node name should be in cli.nodes
     assert nodeName in cli.nodes
 
@@ -170,12 +170,13 @@ def checkNodeStarted(cli, nodeName):
         assert "{} listening for other nodes at {}:{}" \
                    .format(nodeName, *cli.nodes[nodeName].nodestack.ha) in msgs
 
-    cli.looper.run(eventually(chk, retryWait=1, timeout=2))
+    startUpTimeout = waits.expectedNodeStartUpTimeout()
+    cli.looper.run(eventually(chk, timeout=startUpTimeout))
 
 
 def checkAllNodesStarted(cli, *nodeNames):
     for name in nodeNames:
-        checkNodeStarted(cli, name)
+        waitNodeStarted(cli, name)
 
 
 def checkAllNodesUp(cli):
