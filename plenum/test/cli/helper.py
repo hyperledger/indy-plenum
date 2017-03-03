@@ -488,7 +488,7 @@ def doByCtx(ctx):
                                 extraMsg = "\n\n{}\n{}\n{}".format(separator,
                                                                    extraMsg,
                                                                    separator)
-                            raise (AssertionError("{}{}".format(ae, extraMsg)))
+                            raise (AssertionError("{}{}".format(e, extraMsg)))
                     elif callable(e):
                         # callables should raise exceptions to signal an error
                         if parity:
