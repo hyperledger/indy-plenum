@@ -38,15 +38,27 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
+    def writeNodeParamsFile(filePath, name, nPort, cPort):
+        contents = [
+            'NODE_NAME={}'.format(name),
+            'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_PORT={}'.format(cPort)
+        ]
+        with open(filePath, 'w') as f:
+            f.writelines(os.linesep.join(contents))
+
+    @staticmethod
     def bootstrapTestNodesCore(config, envName, appendToLedgers,
                                domainTxnFieldOrder,
                                ips, nodeCount, clientCount,
-                               nodeNum, startingPort):
+                               nodeNum, startingPort, nodeParamsFileName):
         baseDir = config.baseDir
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
 
-        if not ips:
+        localNodes = not ips
+
+        if localNodes:
             ips = ['127.0.0.1'] * nodeCount
         else:
             ips = ips.split(",")
@@ -126,6 +138,14 @@ class TestNetworkSetup:
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"
                       .format(nodeName, nodePort, clientPort))
+
+                if not localNodes:
+                    paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
+                    print('Nodes will not run locally, so writing '
+                          '{}'.format(paramsFilePath))
+                    TestNetworkSetup.writeNodeParamsFile(
+                        paramsFilePath, nodeName, nodePort, clientPort)
+
             else:
                 verkey = Signer(sigseed).verhex
             txn = {
@@ -161,14 +181,15 @@ class TestNetworkSetup:
         domainLedger.stop()
 
     @staticmethod
-    def bootstrapTestNodes(config, startingPort, domainTxnFieldOrder):
+    def bootstrapTestNodes(config, startingPort, nodeParamsFileName,
+                           domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
 
         parser.add_argument('--nodes', required=True, type=int,
                             help='node count, '
-                                 'should be less than 20')
+                                 'should be less than 100')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
         parser.add_argument('--nodeNum', type=int,
@@ -194,12 +215,12 @@ class TestNetworkSetup:
                             action='store_true')
 
         args = parser.parse_args()
-        if args.nodes > 20:
+        if args.nodes > 100:
             print("Cannot run {} nodes for testing purposes as of now. "
                   "This is not a problem with the protocol but some placeholder"
                   " rules we put in place which will be replaced by our "
-                  "Governance model. Going to run only 20".format(args.nodes))
-            nodeCount = 20
+                  "Governance model. Going to run only 100".format(args.nodes))
+            nodeCount = 100
         else:
             nodeCount = args.nodes
         clientCount = args.clients
@@ -214,4 +235,5 @@ class TestNetworkSetup:
         TestNetworkSetup.bootstrapTestNodesCore(config, envName, appendToLedgers,
                                                 domainTxnFieldOrder,
                                                 ips, nodeCount, clientCount,
-                                                nodeNum, startingPort)
+                                                nodeNum, startingPort,
+                                                nodeParamsFileName)
