@@ -1,10 +1,7 @@
 import types
 
-from stp_core.loop.eventually import eventually
-from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import checkRequest
-from plenum.test.helper import checkSufficientRepliesReceived, \
-    waitForSufficientRepliesForRequests
+from plenum.test.helper import waitForSufficientRepliesForRequests
 
 
 def testLogFiltering(cli, validNodeNames, createAllNodes):
