@@ -180,6 +180,9 @@ def waitAllNodesStarted(cli, *nodeNames):
 
 
 def checkAllNodesUp(cli):
+    # TODO: can assertAllNodesCreated be used instead?
+    # TODO: can waitAllNodesStarted be used instead?
+
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = "{nm}:{inst} selected primary {pri} " \
                "for instance {inst} (view 0)"
@@ -191,6 +194,11 @@ def checkAllNodesUp(cli):
             assert rep
             pri = rep.primaryNames[0]
             assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
+
+def waitAllNodesUp(cli):
+    timeout=waits.expectedPoolGetReadyTimeout(len(cli.nodeReg))
+    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=timeout))
+
 
 
 def checkClientConnected(cli, nodeNames, clientName):
