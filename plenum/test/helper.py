@@ -116,13 +116,13 @@ def waitForSufficientRepliesForRequests(looper,
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerRequest * len(requests)
+    totalTimeout = timeoutPerRequest * len(requestIds)
 
     coros = []
-    for request in requests:
+    for requestId in requestIds:
         coros.append(partial(checkSufficientRepliesReceived,
                              client.inBox,
-                             request.reqId,
+                             requestId,
                              fVal))
 
     looper.run(eventuallyAll(*coros,
