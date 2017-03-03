@@ -193,6 +193,13 @@ def checkAllNodesUp(cli):
 
 
 def checkClientConnected(cli, nodeNames, clientName):
+    """
+    Checks whether client connected to nodes.
+
+    If you do not know the moment when it exactly happens consider using
+    'waitClientConnected' instead
+    """
+
     printedMsgs = set()
     stackName = cli.clients[clientName].stackName
     expectedMsgs = {'{} now connected to {}C'.format(stackName, nodeName)
@@ -206,6 +213,10 @@ def checkClientConnected(cli, nodeNames, clientName):
 
 
 def waitClientConnected(cli, nodeNames, clientName):
+    """
+    Wait for moment when client connected to pool
+    """
+
     fVal = util.getMaxFailures(len(nodeNames))
     timeout = waits.expectedClientConnectionTimeout(fVal)
     cli.looper.run(eventually(checkClientConnected, cli,
