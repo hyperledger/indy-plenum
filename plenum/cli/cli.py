@@ -247,7 +247,6 @@ class Cli:
                                                   Console.Wordage.mute,
                                                   self.config)
         RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
-
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
@@ -1315,7 +1314,6 @@ class Cli:
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
-
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New keyring {} created".format(nm))
