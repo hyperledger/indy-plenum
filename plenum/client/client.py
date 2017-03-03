@@ -252,6 +252,7 @@ class Client(Motor,
         requests = []
         for request in reqs:
             if self.mode == Mode.discovered and self.hasSufficientConnections:
+                logger.debug('Client {} sending request {}'.format(self, request))
                 self.nodestack.send(request)
                 self.expectingFor(request)
             else:

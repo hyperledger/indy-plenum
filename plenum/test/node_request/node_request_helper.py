@@ -80,7 +80,8 @@ def checkPrePrepared(looper,
                     propagated1.identifier,
                     propagated1.reqId,
                     propagated1.digest,
-                    time.time())
+                    time.time()
+            )
 
             passes = 0
             for npr in nonPrimaryReplicas:

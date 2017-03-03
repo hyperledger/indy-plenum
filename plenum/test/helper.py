@@ -121,7 +121,7 @@ def getRepliesFromClientInbox(inbox, reqId) -> list:
 def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
     recvRequest = getLastClientReqReceivedForNode(node)
     assert recvRequest
-    assert expectedRequest.__dict__ == recvRequest.__dict__
+    assert expectedRequest.as_dict == recvRequest.as_dict
 
 
 # noinspection PyIncorrectDocstring

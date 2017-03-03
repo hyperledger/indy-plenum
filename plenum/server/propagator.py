@@ -139,7 +139,7 @@ class Propagator:
             logger.error("Request not formatted properly to create propagate")
             return
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
-        request = request.__getstate__() if isinstance(request, Request) else \
+        request = request.as_dict if isinstance(request, Request) else \
             request
         if isinstance(identifier, bytes):
             identifier = identifier.decode()

@@ -207,7 +207,7 @@ class NetworkInterface:
         if isinstance(msg, TaggedTupleBase):
             tmsg = msg.melted()
         elif isinstance(msg, Request):
-            tmsg = msg.__getstate__()
+            tmsg = msg.as_dict
         elif hasattr(msg, "_asdict"):
             tmsg = dict(msg._asdict())
         elif hasattr(msg, "__dict__"):

@@ -1191,7 +1191,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             cMsg = cls(**msg)
         except Exception as ex:
-            raise InvalidClientRequest from ex
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm)) from ex
 
         if self.isSignatureVerificationNeeded(msg):
             self.verifySignature(cMsg)
@@ -1606,12 +1607,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg
 
         if not isinstance(req, Mapping):
-            req = msg.__getstate__()
+            # req = msg.__getstate__()
+            req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
-                     format(self, identifier, typ, req['reqId']),
-                     extra={"cli": True})
+                       format(self, identifier, typ, req['reqId']),
+                       extra={"cli": True})
 
     def authNr(self, req):
         return self.clientAuthNr
