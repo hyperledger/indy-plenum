@@ -4,7 +4,8 @@ from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
     checkClientConnected, checkActiveIdrPrinted
-
+from plenum.test import waits
+from plenum.common import util
 
 def checkForNamedTokens(printedTokens, expectedNames):
     # Looking for the expected names in given tokens
@@ -107,18 +108,23 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 
 # This test fails intermittently when the whole test package is run, fails
 # because the fixture `createAllNodes` fails
-@pytest.mark.skip(reason="SOV-549. "
-                         "Intermittently fails due to a bug mentioned "
-                         "in the above comment")
+# @pytest.mark.skip(reason="SOV-549. "
+#                          "Intermittently fails due to a bug mentioned "
+#                          "in the above comment")
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
-    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
-                              clientName, retryWait=1, timeout=3))
+
+    fVal = util.getMaxFailures(len(validNodeNames))
+    connectionTimeout=waits.expectedClientConnectionTimeout(fVal)
+
+    cli.looper.run(eventually(checkClientConnected, cli,
+                              validNodeNames, clientName,
+                              timeout=connectionTimeout))
     cli.enterCmd("new key")
     cli.enterCmd("status client {}".format(clientName))
-    cli.looper.run(eventually(checkActiveIdrPrinted, cli, retryWait=1,
-                              timeout=3))
+    cli.looper.run(eventually(checkActiveIdrPrinted, cli,
+                              retryWait=1, timeout=3))
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
         # the node status here after the client is connected
