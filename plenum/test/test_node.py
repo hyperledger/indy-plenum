@@ -555,6 +555,7 @@ def checkNodesAreReady(nodes: Sequence[TestNode]):
 
 
 async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
+    # TODO is this used? If so - add timeout for it to plenum.test.waits
     if not timeout:
         timeout = .75 * len(nodes)
 
