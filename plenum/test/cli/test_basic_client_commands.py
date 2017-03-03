@@ -1,6 +1,8 @@
 from stp_core.loop.eventually import eventually
 from plenum.common.util import randomString
 from plenum.test.cli.helper import checkClientConnected
+from plenum.test import waits
+from plenum.common.util import getMaxFailures
 
 
 def testClientNames(cli, validNodeNames, createAllNodes):
@@ -29,8 +31,11 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     # Client name should be in cli.client
     assert cName in cli.clients
 
-    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames, cName,
-                              retryWait=1, timeout=5))
+    fVal = getMaxFailures(len(validNodeNames))
+    connectTimeout = waits.expectedClientConnectionTimeout(fVal)
+    cli.looper.run(eventually(checkClientConnected, cli,
+                              validNodeNames, cName,
+                              timeout=connectTimeout))
 
     # Add clients with name same as a node name or starting with a node name
     for i, nm in enumerate(validNodeNames):
