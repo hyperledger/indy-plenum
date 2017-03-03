@@ -15,7 +15,6 @@ from plenum.client.wallet import Wallet
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.helper import waitForSufficientRepliesForRequests
@@ -26,7 +25,7 @@ from plenum.test.testable import Spyable
 from pygments.token import Token
 from functools import partial
 from plenum.test import waits
-
+from plenum.common import util
 
 logger = getlogger()
 
@@ -206,6 +205,13 @@ def checkClientConnected(cli, nodeNames, clientName):
     assert printedMsgs == expectedMsgs
 
 
+def waitClientConnected(cli, nodeNames, clientName):
+    fVal = util.getMaxFailures(len(nodeNames))
+    timeout = waits.expectedClientConnectionTimeout(fVal)
+    cli.looper.run(eventually(checkClientConnected, cli,
+                              nodeNames, clientName,
+                              timeout=timeout))
+
 def checkActiveIdrPrinted(cli):
     assert 'Identifier:' in cli.lastCmdOutput
     assert 'Verification key:' in cli.lastCmdOutput
@@ -215,16 +221,23 @@ def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
     createNewKeyring(clientName, cli)
     cli.enterCmd("new key clientName{}".format("key"))
-    cli.looper.run(eventually(checkClientConnected, cli, nodeNames,
-                              clientName, retryWait=1, timeout=3))
+
+    from plenum.common import util
+
+    fVal = util.getMaxFailures(len(cli.nodeReg))
+    timeout = waits.expectedClientConnectionTimeout(fVal)
+
+    waitClientConnected(cli, nodeNames, clientName)
 
 
 def checkRequest(cli, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
-    cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
-                              cName, retryWait=1, timeout=5))
+
+    nodeNames = list(cli.nodes.keys())
+    waitClientConnected(cli, nodeNames, cName)
+
     # Send request to all nodes
 
     createNewKeyring(cName, cli)
