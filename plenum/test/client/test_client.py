@@ -96,11 +96,13 @@ def testSendRequestWithoutSignatureFails(pool):
         request = wallet.signOp(op=randomOperation())
         request.signature = None
         request = client1.submitReqs(request)[0]
+        timeout = waits.expectedClientRequestPropagationTime(nodeCount)
+
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
                 await eventually(
                         checkLastClientReqForNode, node, request,
-                        retryWait=1, timeout=10)
+                        retryWait=1, timeout=timeout)
 
         for n in ctx.nodeset:
             params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
@@ -155,10 +157,11 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     nodes.
     """
     request = sendRandomRequest(wallet1, client1)
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
                        nodeCount, request.reqId,
-                       retryWait=1, timeout=20))
+                       retryWait=1, timeout=responseTimeout))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
@@ -174,10 +177,11 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # exactly f + 1 => (3) nodes have correct responses
     # modify some (numOfResponses of type REPLY - (f + 1)) => 4 responses to
     # have a different operations
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
                        nodeCount, request.reqId,
-                       retryWait=1, timeout=20))
+                       retryWait=1, timeout=responseTimeout))
 
     replies = (msg for msg, frm in client1.inBox
                if msg[OP_FIELD_NAME] == REPLY and
@@ -213,10 +217,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                        response[0].get(f.REQ_ID.nm) == sent1.reqId)],
                      originalRequestResponsesLen + duplicateRequestRepliesLen)
 
-    looper.run(eventually(
-            chk,
-            retryWait=1,
-            timeout=20))
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
+    looper.run(eventually( chk, retryWait=1, timeout=responseTimeout))
 
 
 # noinspection PyIncorrectDocstring
@@ -258,13 +260,14 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
+        responseTimeout =waits.expectedTransactionExecutionTime(nodeCount)
         for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
                                   nodeCount,
                                   reqId,
                                   retryWait=1,
-                                  timeout=25))
+                                  timeout=responseTimeout))
 
             print("Expected amount for request {} is {}".
                   format(reqId, sentAmount))
