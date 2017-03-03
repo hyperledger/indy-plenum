@@ -24,6 +24,8 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
 from plenum.test.testable import Spyable
 from pygments.token import Token
+from functools import partial
+from plenum.test import waits
 
 
 logger = getlogger()
@@ -404,6 +406,7 @@ def checkReply(cli, count, clbk):
             result = ast.literal_eval(m.groups(0)[0].strip())
             if clbk(result):
                 done += 1
+    logger.warn("Done = {}, Count = {}".format(done, count))
     assert done == count
 
 
@@ -416,6 +419,23 @@ def checkBalance(balance, data):
     if checkSuccess(data):
         result = data.get('result')
         return result.get('balance') == balance
+
+
+def waitForReply(cli, nodeCount, replyChecker, customTimeout=None):
+    timeout = customTimeout or \
+              waits.expectedTransactionExecutionTime(nodeCount)
+    cli.looper.run(eventually(checkReply, cli,
+                          nodeCount, replyChecker,
+                          timeout=timeout))
+
+
+def waitRequestSuccess(cli, nodeCount, customTimeout=None):
+    waitForReply(cli, nodeCount, checkSuccess, customTimeout)
+
+
+def waitBalanceChange(cli, nodeCount, balanceValue, customTimeout=None):
+    waitForReply(cli, nodeCount,
+                 partial(checkBalance, balanceValue), customTimeout)
 
 
 def loadPlugin(cli, pluginPkgName):
