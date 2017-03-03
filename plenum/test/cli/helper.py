@@ -174,7 +174,7 @@ def waitNodeStarted(cli, nodeName):
     cli.looper.run(eventually(chk, timeout=startUpTimeout))
 
 
-def checkAllNodesStarted(cli, *nodeNames):
+def waitAllNodesStarted(cli, *nodeNames):
     for name in nodeNames:
         waitNodeStarted(cli, name)
 
