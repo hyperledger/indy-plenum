@@ -74,7 +74,9 @@ class StackedTester:
                             totalTimeout=timeout)
 
     async def ensureDisconnectedToNodes(self, timeout):
-        await eventually(self.checkIfConnectedTo, 0, retryWait=.5,
+        # TODO is this used? If so - add timeout for it to plenum.test.waits
+        await eventually(self.checkIfConnectedTo, 0,
+                         retryWait=.5,
                          timeout=timeout)
 
 
