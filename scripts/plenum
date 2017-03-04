@@ -13,8 +13,7 @@ or supply a command to be executed first
 $ scripts/plenum "new nodes all"
 
 """
-# Do not remove this import
-import plenum.cli.ensure_logging_not_setup
+import logging
 
 # NOTE: Loading of plugin should happen as early as possible
 # So put all other required imports after loadPlugins function call below
@@ -22,6 +21,12 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
 from plenum.common.plugin_helper import loadPlugins
+
+logging.root.handlers = []
+logger = logging.getLogger()
+logger.propagate = False
+logger.disabled = True
+
 config = getConfig()
 basedirpath = config.baseDir
 loadPlugins(basedirpath)
