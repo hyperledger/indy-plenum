@@ -536,15 +536,19 @@ class Cli:
     def activeWallet(self) -> Wallet:
         if not self._activeWallet:
             if self.wallets:
-                self._activeWallet = firstValue(self.wallets)
+                self.activeWallet = firstValue(self.wallets)
             else:
-                self._activeWallet = self._newWallet()
+                self.activeWallet = self._newWallet()
         return self._activeWallet
 
     @activeWallet.setter
     def activeWallet(self, wallet):
         self._activeWallet = wallet
+        self.postActiveWalletChange()
         self.print('Active keyring set to "{}"'.format(wallet.name))
+
+    def postActiveWalletChange(self):
+        pass
 
     @property
     def activeClient(self):
