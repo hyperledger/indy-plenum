@@ -544,11 +544,7 @@ class Cli:
     @activeWallet.setter
     def activeWallet(self, wallet):
         self._activeWallet = wallet
-        self.postActiveWalletChange()
         self.print('Active keyring set to "{}"'.format(wallet.name))
-
-    def postActiveWalletChange(self):
-        pass
 
     @property
     def activeClient(self):
