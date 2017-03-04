@@ -414,19 +414,22 @@ class ZStack(NetworkInterface):
                     msg, ident = self.rxMsgs.popleft()
                     if ident in self.remotesByKeys:
                         self.remotesByKeys[ident].isConnected = True
+
                     frm = self.remotesByKeys[ident].name \
                         if ident in self.remotesByKeys else ident
+
                     r = handlePingPong(msg, frm)
                     if r:
                         continue
+
                     try:
                         msg = json.loads(msg)
                     except Exception as e:
-                        logger.error('Error while converting message {} '
-                                     'to JSON from {}'.format(msg, ident))
+                        logger.error('Error {} while converting message {} '
+                                     'to JSON from {}'.format(e, msg, ident))
                         continue
 
-                    #TODO: Refactor, this should be moved to `Batched`
+                    # TODO: Refactor, this should be moved to `Batched`
                     if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
                         if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
                             relevantMsgs = []
