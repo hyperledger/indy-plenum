@@ -226,3 +226,7 @@ class GraphStorageNotAvailable(Exception):
 
 class OrientDBNotRunning(GraphStorageNotAvailable):
     pass
+
+
+class InvalidEndpoint(Exception):
+    pass

@@ -578,3 +578,13 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+def isValidEndpoint(endpoint):
+    import ipaddress
+    ip, port = endpoint.split(':')
+    try:
+        ipaddress.ip_address(ip)
+        return port.isdigit()
+    except Exception:
+        return False
