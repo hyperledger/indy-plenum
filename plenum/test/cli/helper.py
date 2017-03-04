@@ -7,7 +7,6 @@ from tempfile import gettempdir, mkdtemp
 import time
 
 import plenum.cli.cli as cli
-import pytest
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
@@ -562,6 +561,7 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
 
 
 def exitFromCli(do):
+    import pytest
     with pytest.raises(cli.Exit):
         do('exit', expect='Goodbye.')
 
