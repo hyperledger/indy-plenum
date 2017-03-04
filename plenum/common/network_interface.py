@@ -171,10 +171,12 @@ class NetworkInterface:
         """
         for o in outs:
             logger.info("{} disconnected from {}".format(self, o),
-                        extra={"cli": "IMPORTANT"})
+                        extra={"cli": "IMPORTANT",
+                               "tags": ["connected"]})
         for i in ins:
             logger.info("{} now connected to {}".format(self, i),
-                        extra={"cli": "IMPORTANT"})
+                        extra={"cli": "IMPORTANT",
+                               "tags": ["connected"]})
 
             # remove remotes for same ha when a connection is made
             remote = self.getRemote(i)

@@ -2,10 +2,12 @@ import inspect
 import logging
 import os
 import sys
-from plenum.common.logging.TimeAndSizeRotatingFileHandler \
-    import TimeAndSizeRotatingFileHandler
 
 from ioflo.base.consoling import getConsole, Console
+
+from plenum.common.logging.TimeAndSizeRotatingFileHandler \
+    import TimeAndSizeRotatingFileHandler
+from plenum.common.util import Singleton, adict
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25
@@ -19,53 +21,68 @@ class CustomAdapter(logging.LoggerAdapter):
         self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
-class CliHandler(logging.Handler):
-    def __init__(self, callback):
+class CallbackHandler(logging.Handler):
+    def __init__(self, typestr, default_tags, callback, override_tags):
         """
         Initialize the handler.
         """
         super().__init__()
         self.callback = callback
+        self.tags = default_tags
+        self.update_tags(override_tags or {})
+        self.typestr = typestr
+
+    def update_tags(self, override_tags):
+        self.tags.update(override_tags)
 
     def emit(self, record):
         """
         Passes the log record back to the CLI for rendering
         """
-        if hasattr(record, "cli"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
+        should_cb = None
+        attr_val = None
+        if hasattr(record, self.typestr):
+            attr_val = getattr(record, self.typestr)
+            should_cb = bool(attr_val)
+        if should_cb is None and record.levelno >= logging.INFO:
+            should_cb = True
+        if hasattr(record, 'tags'):
+            for t in record.tags:
+                if t in self.tags:
+                    if self.tags[t]:
+                        should_cb = True
+                        continue
+                    else:
+                        should_cb = False
+                        break
+        if should_cb:
+            self.callback(record, attr_val)
 
 
-class DemoHandler(logging.Handler):
-    def __init__(self, callback):
-        """
-        Initialize the handler.
-        """
-        super().__init__()
-        self.callback = callback
-
-    def emit(self, record):
-        if hasattr(record, "demo"):
-            if record.cli:
-                self.callback(record, record.cli)
-        elif record.levelno >= logging.INFO:
-            self.callback(record)
+class CliHandler(CallbackHandler):
+    def __init__(self, callback, override_tags=None):
+        default_tags = {
+            "add_replica": True
+        }
+        super().__init__(typestr="cli",
+                         default_tags=default_tags,
+                         callback=callback,
+                         override_tags=override_tags)
 
 
-loggingConfigured = False
+class DemoHandler(CallbackHandler):
+    def __init__(self, callback, override_tags=None):
+        default_tags = {
+            "add_replica": True
+        }
+        super().__init__(typestr="demo",
+                         default_tags=default_tags,
+                         callback=callback,
+                         override_tags=override_tags)
 
 
 def getlogger(name=None):
-    if not loggingConfigured:
-        setupLogging(TRACE_LOG_LEVEL)
-    if not name:
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        name = inspect.getmodule(calframe[1][0]).__name__
-    logger = logging.getLogger(name)
-    return logger
+    return Logger().getlogger(name)
 
 
 class TestingHandler(logging.Handler):
@@ -83,58 +100,117 @@ class TestingHandler(logging.Handler):
         self.tester(record)
 
 
-def setupLogging(log_level, raet_log_level=None, filename=None,
-                 raet_log_file=None):
-    """
-    Setup for logging.
-    log level is TRACE by default.
-    """
+class Logger(metaclass=Singleton):
+    def __init__(self):
+        from plenum.common.config_util import getConfig
+        # TODO: This should take directory
+        self._config = getConfig()
+        self._addTraceToLogging()
+        self._addDisplayToLogging()
 
-    from plenum.common.config_util import getConfig
-    # TODO: This should take directory
-    config = getConfig()
-    addTraceToLogging()
-    addDisplayToLogging()
+        self._handlers = {}
+        self._format = logging.Formatter(fmt=self._config.logFormat,
+                                         style=self._config.logFormatStyle)
 
-    logHandlers = []
-    if filename:
+        self._default_raet_verbosity = \
+            getRAETLogLevelFromConfig("RAETLogLevel",
+                                      Console.Wordage.terse,
+                                      self._config)
+
+        self._default_raet_log_file = \
+            getRAETLogFilePath("RAETLogFilePath", self._config)
+
+        self.enableStdLogging()
+
+        self.setLogLevel(TRACE_LOG_LEVEL)
+
+    @staticmethod
+    def getlogger(name=None):
+        if not name:
+            curframe = inspect.currentframe()
+            calframe = inspect.getouterframes(curframe, 2)
+            name = inspect.getmodule(calframe[1][0]).__name__
+        logger = logging.getLogger(name)
+        return logger
+
+    @staticmethod
+    def setLogLevel(log_level):
+        logging.root.setLevel(log_level)
+
+    def setupRaet(self, raet_log_level=None, raet_log_file=None):
+        console = getConsole()
+
+        verbosity = raet_log_level \
+            if raet_log_level is not None \
+            else self._default_raet_verbosity
+        file = raet_log_file or self._default_raet_log_file
+
+        logging.info("Setting RAET log level {}".format(verbosity),
+                     extra={"cli": False})
+
+        console.reinit(verbosity=verbosity, path=file, flushy=True)
+
+    def enableStdLogging(self):
+        # only enable if CLI is not
+        if 'cli' in self._handlers:
+            raise RuntimeError('cannot configure STD logging '
+                               'when CLI logging is enabled')
+        new = logging.StreamHandler(sys.stdout)
+        self._setHandler('std', new)
+
+    def enableCliLogging(self, callback, override_tags=None):
+        h = CliHandler(callback, override_tags)
+        self._setHandler('cli', h)
+        # assumption is there's never a need to have std logging when in CLI
+        self._clearHandler('std')
+
+    def enableFileLogging(self, filename):
         d = os.path.dirname(filename)
         if not os.path.exists(d):
             os.makedirs(d)
-        fileHandler = TimeAndSizeRotatingFileHandler(
+        new = TimeAndSizeRotatingFileHandler(
             filename,
-            when=config.logRotationWhen,
-            interval=config.logRotationInterval,
-            backupCount=config.logRotationBackupCount,
+            when=self._config.logRotationWhen,
+            interval=self._config.logRotationInterval,
+            backupCount=self._config.logRotationBackupCount,
             utc=True,
-            maxBytes=config.logRotationMaxBytes)
-        logHandlers.append(fileHandler)
-    else:
-        logHandlers.append(logging.StreamHandler(sys.stdout))
+            maxBytes=self._config.logRotationMaxBytes)
+        self._setHandler('file', new)
 
-    fmt = logging.Formatter(fmt=config.logFormat, style=config.logFormatStyle)
+    def _setHandler(self, typ: str, new_handler):
+        if new_handler.formatter is None:
+            new_handler.setFormatter(self._format)
 
-    for h in logHandlers:
-        if h.formatter is None:
-            h.setFormatter(fmt)
-        logging.root.addHandler(h)
+        # assuming indempotence and removing old one first
+        self._clearHandler(typ)
 
-    logging.root.setLevel(log_level)
+        self._handlers[typ] = new_handler
+        logging.root.addHandler(new_handler)
 
-    console = getConsole()
+    def _clearHandler(self, typ: str):
+        old = self._handlers.get(typ)
+        if old:
+            logging.root.removeHandler(old)
 
-    defaultVerbosity = getRAETLogLevelFromConfig("RAETLogLevel",
-                                                 Console.Wordage.terse, config)
-    logging.info("Choosing RAET log level {}".format(defaultVerbosity),
-                 extra={"cli": False})
-    verbosity = raet_log_level \
-        if raet_log_level is not None \
-        else defaultVerbosity
-    raetLogFilePath = raet_log_file or getRAETLogFilePath("RAETLogFilePath",
-                                                          config)
-    console.reinit(verbosity=verbosity, path=raetLogFilePath, flushy=True)
-    global loggingConfigured
-    loggingConfigured = True
+    @staticmethod
+    def _addTraceToLogging():
+        logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
+
+        def trace(self, message, *args, **kwargs):
+            if self.isEnabledFor(TRACE_LOG_LEVEL):
+                self._log(TRACE_LOG_LEVEL, message, args, **kwargs)
+
+        logging.Logger.trace = trace
+
+    @staticmethod
+    def _addDisplayToLogging():
+        logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
+
+        def display(self, message, *args, **kwargs):
+            if self.isEnabledFor(DISPLAY_LOG_LEVEL):
+                self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
+
+        logging.Logger.display = display
 
 
 def getRAETLogLevelFromConfig(paramName, defaultValue, config):
@@ -156,21 +232,3 @@ def getRAETLogFilePath(paramName, config):
     return filePath
 
 
-def addTraceToLogging():
-    logging.addLevelName(TRACE_LOG_LEVEL, "TRACE")
-
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LOG_LEVEL):
-            self._log(TRACE_LOG_LEVEL, message, args, **kwargs)
-
-    logging.Logger.trace = trace
-
-
-def addDisplayToLogging():
-    logging.addLevelName(DISPLAY_LOG_LEVEL, "DISPLAY")
-
-    def display(self, message, *args, **kwargs):
-        if self.isEnabledFor(DISPLAY_LOG_LEVEL):
-            self._log(DISPLAY_LOG_LEVEL, message, args, **kwargs)
-
-    logging.Logger.display = display

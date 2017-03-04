@@ -5,7 +5,6 @@ import glob
 from typing import Dict, Iterable
 
 import pyorient
-import random
 import shutil
 from hashlib import sha256
 from jsonpickle import json, encode, decode
@@ -72,16 +71,15 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from plenum.common.util import getMaxFailures, checkPortAvailable, \
+from plenum.common.util import getMaxFailures, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
-from plenum.common.log import CliHandler, getlogger, setupLogging, \
+from plenum.common.log import CliHandler, getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
-from plenum.common.util import hexToFriendly
 from plenum.common.config_util import getConfig
 from plenum.__metadata__ import __version__
 
@@ -117,13 +115,17 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
-                 useNodeReg=False, withNode=True):
+                 useNodeReg=False, withNode=True, unique_name=None,
+                 override_tags=None):
+        self.unique_name = unique_name
         self.curClientPort = None
-        logging.root.addHandler(CliHandler(self.out))
-        self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        self.nodeRegLoadedFromFile = False
         self._config = config or getConfig(self.basedirpath)
+
+        Logger().enableCliLogging(self.out,
+                                  override_tags=override_tags)
+        self.looper = looper
+        self.nodeRegLoadedFromFile = False
         if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
                 and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
@@ -248,10 +250,10 @@ class Cli:
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
-        setupLogging(TRACE_LOG_LEVEL,
-                     RAETVerbosity,
-                     filename=logFileName,
-                     raet_log_file=RAETLogFile)
+
+        if logFileName:
+            Logger().enableFileLogging(logFileName)
+        Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
@@ -270,17 +272,25 @@ class Cli:
 
         self.restoreLastActiveWallet()
 
-        self.checkIfHelpMsgExistsForAllCmds()
+        self.checkIfCmdHandlerAndCmdMappingExists()
 
-    def checkIfHelpMsgExistsForAllCmds(self):
+    def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
+        msg="Command mapping not provided for '{}' command handler. " \
+            "\nPlease add proper mapping for that command handler " \
+            "(in function '{}') with corresponding command object.".\
+            format(cmdHandlerFuncName, mappingFuncName)
+
+        sep = "\n" + "*"*125 + "\n"
+        msg = sep + msg + sep
+        return msg
+
+    def checkIfCmdHandlerAndCmdMappingExists(self):
         for cmdHandlerFunc in self.actions:
             funcName = cmdHandlerFunc.__name__.replace("_","")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
-                raise Exception("\n************\nHelp msg not provided for "
-                                "'{}' command handler. Please add proper "
-                                "mapping for related help msg in function "
-                                "'helpMsgMappings'\n************\n".
-                                format(funcName))
+                raise Exception(self._getCmdMappingError(
+                    cmdHandlerFunc.__name__,
+                    self.cmdHandlerToCmdMappings.__name__))
 
     @staticmethod
     def getCliVersion():
@@ -401,7 +411,8 @@ class Cli:
             newWalletFilePath = Cli.getWalletFilePath(
             keyringsDir, Cli._normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
-                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                self.print("A persistent wallet file already exists for "
+                           "new wallet name. Please choose new wallet name.")
                 return False
             os.rename(oldWalletFilePath, newWalletFilePath)
         return True
@@ -525,10 +536,9 @@ class Cli:
     def activeWallet(self) -> Wallet:
         if not self._activeWallet:
             if self.wallets:
-                return firstValue(self.wallets)
+                self.activeWallet = firstValue(self.wallets)
             else:
-                self._activeWallet = self._newWallet()
-                return self._activeWallet
+                self.activeWallet = self._newWallet()
         return self._activeWallet
 
     @activeWallet.setter
@@ -598,7 +608,6 @@ class Cli:
             self.print(record.msg, Token)
 
     def cmdHandlerToCmdMappings(self):
-
         # The 'key' of 'mappings' dictionary is action handler function name
         # without leading underscore sign. Each such funcation name should be
         # mapped here, its other thing that if you don't want to display it
@@ -608,27 +617,31 @@ class Cli:
 
         mappings = OrderedDict()
         mappings['helpAction'] = helpCmd
-        mappings['licenseAction'] = licenseCmd
         mappings['statusAction'] = statusCmd
-        mappings['newNodeAction'] = newNodeCmd
-        mappings['newClientAction'] = newClientCmd
-        mappings['statusNodeAction'] = statusNodeCmd
-        mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
+        mappings['changePrompt'] = changePromptCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
-        mappings['clientSendMsgCommand'] = clientSendCmd
-        mappings['clientShowMsgCommand'] = clientShowCmd
-        mappings['newKeyAction'] = newKeyCmd
+
         mappings['newKeyring'] = newKeyringCmd
         mappings['renameKeyring'] = renameKeyringCmd
         mappings['useKeyringAction'] = useKeyringCmd
         mappings['saveKeyringAction'] = saveKeyringCmd
         mappings['listKeyringsAction'] = listKeyringCmd
-        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newKeyAction'] = newKeyCmd
         mappings['useIdentifierAction'] = useIdCmd
+        mappings['listIdsAction'] = listIdsCmd
+
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        mappings['keyShareAction'] = keyShareCmd
+        mappings['clientSendMsgCommand'] = clientSendCmd
+        mappings['clientShowMsgCommand'] = clientShowCmd
+
         mappings['addGenesisAction'] = addGenesisTxnCmd
         mappings['createGenTxnFileAction'] = createGenesisTxnFileCmd
-        mappings['changePrompt'] = changePromptCmd
+        mappings['licenseAction'] = licenseCmd
         mappings['quitAction'] = quitCmd
         mappings['exitAction'] = exitCmd
 
@@ -645,41 +658,27 @@ class Cli:
 
         return mappings
 
-    def getBasicHelpCmdKeys(self):
-        return ["helpAction", "listAction", "licenseAction",
-         "statusAction", "exitAction"]
+    def getTopComdMappingKeysForHelp(self):
+        return ['helpAction', 'statusAction']
 
-    def getBasicHelpCmds(self):
-        basicMsgKeys = self.getBasicHelpCmdKeys()
-        basicMsgs = []
-        for bmk in basicMsgKeys:
-            helpMsg = self.cmdHandlerToCmdMappings().get(bmk)
-            if helpMsg:
-                basicMsgs.append(helpMsg)
-        return basicMsgs
+    def getComdMappingKeysToNotShowInHelp(self):
+        return ['quitAction']
+
+    def getBottomComdMappingKeysForHelp(self):
+        return ['licenseAction', 'exitAction']
 
     def getDefaultOrderedCmds(self):
-        topCmdKeys = ['helpAction', 'listAction',
-                           'statusAction', 'licenseAction']
-        removeCmdKeys = ['quitAction']
-        bottomCmdsKeys = ['exitAction']
+        topCmdKeys = self.getTopComdMappingKeysForHelp()
+        removeCmdKeys = self.getComdMappingKeysToNotShowInHelp()
+        bottomCmdsKeys = self.getBottomComdMappingKeysForHelp()
 
-        topCmds = []
-        middleCmds = []
-        bottomCmds = []
-
-        for k, cmd in self.cmdHandlerToCmdMappings().items():
-            if cmd:
-                if k in removeCmdKeys:
-                    continue
-                elif k in topCmdKeys:
-                    topCmds.append(cmd)
-                elif k in bottomCmdsKeys:
-                    bottomCmds.append(cmd)
-                else:
-                    middleCmds.append(cmd)
-
-        return topCmds + middleCmds + bottomCmds
+        topCmds = [self.cmdHandlerToCmdMappings().get(k) for k in topCmdKeys]
+        bottomCmds = [self.cmdHandlerToCmdMappings().get(k) for k in bottomCmdsKeys]
+        middleCmds = [v for k, v in self.cmdHandlerToCmdMappings().items()
+                      if k not in topCmdKeys
+                      and k not in bottomCmdsKeys
+                      and k not in removeCmdKeys]
+        return [c for c in (topCmds + middleCmds + bottomCmds) if c is not None]
 
     def _printGivenCmdsHelpMsgs(self, cmds: Iterable[Command], gapsInLines=1,
                                 sort=False, printHeader=True, showUsageFor=[]):
@@ -707,11 +706,12 @@ class Cli:
         self.print("\n{}\n".format(helpMsgStr))
 
     def getHelpCmdIdsToShowUsage(self):
-        return ["help", "list"]
+        return ["help"]
 
     def printHelp(self):
         self._printGivenCmdsHelpMsgs(self.getDefaultOrderedCmds(),
-                                     sort=False, printHeader=True)
+                                     sort=False, printHeader=True,
+                                     showUsageFor=self.getHelpCmdIdsToShowUsage())
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -1051,12 +1051,6 @@ class Cli:
         else:
             self.print("No such request. See: 'help client show request status' for more details")
 
-    # def showDetails(self, clientName, identifier, reqId):
-    #     client = self.clients.get(clientName, None)
-    #     if client and (identifier, reqId) in self.requests:
-    #         client.showReplyDetails(identifier, reqId)
-    #     else:
-    #         self.printMsgForUnknownClient()
 
     async def shell(self, *commands, interactive=True):
         """
@@ -1321,7 +1315,6 @@ class Cli:
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
-
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New keyring {} created".format(nm))
@@ -1416,6 +1409,14 @@ class Cli:
                 self.print("No active keyring found.")
             return True
 
+    def checkIfPersistentWalletExists(self, name, inContextDir=None):
+        toBeWalletFileName = Cli._normalizedWalletFileName(name)
+        contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
+        toBeWalletFilePath = Cli.getWalletFilePath(
+            contextDir, toBeWalletFileName)
+        if os.path.exists(toBeWalletFilePath):
+            return toBeWalletFilePath
+
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True,
                                     printAppropriateMsg=True,
@@ -1447,10 +1448,8 @@ class Cli:
                     return True, 'identifier'
 
                 if checkPersistedFile:
-                    toBeWalletFileName = Cli._normalizedWalletFileName(origName)
-                    toBeWalletFilePath = Cli.getWalletFilePath(
-                        self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
-                    if os.path.exists(toBeWalletFilePath):
+                    toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
+                    if toBeWalletFilePath:
                         return True, 'keyring (stored at: {})'.\
                             format(toBeWalletFilePath)
 
@@ -1835,40 +1834,42 @@ class Cli:
             return False
         return True
 
+    def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
+        try:
+            createDirIfNotExists(contextDir)
+            walletFilePath = Cli.getWalletFilePath(
+                contextDir, self.walletFileName)
+            with open(walletFilePath, "w+") as walletFile:
+                try:
+                    encodedWallet = encode(self._activeWallet)
+                    walletFile.write(encodedWallet)
+                    if printMsgs:
+                        self.print('Active keyring "{}" saved'.format(
+                            self._activeWallet.name), newline=False)
+                        self.print(' ({})'.format(walletFilePath), Token.Gray)
+                except ValueError as ex:
+                    self.logger.info("ValueError: " +
+                                     "Could not save wallet while exiting\n {}"
+                                     .format(ex))
+                except IOError:
+                    self.logger.info(
+                        "IOError while writing data to wallet file"
+                    )
+        except IOError as ex:
+            self.logger.info("Error occurred while creating wallet. " +
+                             "error no.{}, error.{}"
+                             .format(ex.errno, ex.strerror))
+
     def _saveActiveWallet(self):
         if self._activeWallet:
             # We would save wallet only if user already has a wallet
             # otherwise our access for `activeWallet` property
             # will create a wallet
             self.updateEnvNameInWallet()
-
             if not self.performCompatibilityCheckBeforeSave():
                 return False
-
-            encodedWallet = encode(self._activeWallet)
-            try:
-                keyringsDir = self.getContextBasedKeyringsBaseDir()
-                createDirIfNotExists(keyringsDir)
-                walletFilePath = Cli.getWalletFilePath(
-                        keyringsDir, self.walletFileName)
-                with open(walletFilePath, "w+") as walletFile:
-                    try:
-                        walletFile.write(encodedWallet)
-                        self.print('Active keyring "{}" saved'.format(
-                            self._activeWallet.name), newline=False)
-                        self.print(' ({})'.format(walletFilePath), Token.Gray)
-                    except ValueError as ex:
-                        self.logger.info("ValueError: " +
-                                         "Could not save wallet while exiting\n {}"
-                                         .format(ex))
-                    except IOError:
-                        self.logger.info(
-                            "IOError while writing data to wallet file"
-                        )
-            except IOError as ex:
-                self.logger.info("Error occurred while creating wallet. " +
-                                 "error no.{}, error.{}"
-                                 .format(ex.errno, ex.strerror))
+            keyringsDir = self.getContextBasedKeyringsBaseDir()
+            self._saveActiveWalletInDir(keyringsDir, printMsgs=True)
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
@@ -1973,6 +1974,13 @@ class Cli:
             return i
 
         dropdbs()
+
+    def __hash__(self):
+        return hash((self.name, self.unique_name, self.basedirpath))
+
+    def __eq__(self, other):
+        return (self.name, self.unique_name, self.basedirpath) == \
+               (other.name, self.unique_name, other.basedirpath)
 
 
 class Exit(Exception):

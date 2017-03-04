@@ -146,5 +146,7 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
+log_override_tags = dict(cli={}, demo={})
 
+# TODO needs to be refactored to use a transport protocol abstraction
 UseZStack = True

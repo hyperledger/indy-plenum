@@ -1,4 +1,5 @@
 from typing import Dict, Tuple
+from functools import lru_cache
 
 from copy import deepcopy
 from ledger.util import F
@@ -277,31 +278,59 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         origin = request.identifier
         operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
+        data = operation.get(DATA, {})
+        invalidData = self._validateNodeData(data)
+        if invalidData:
+            return invalidData
+
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
+
         for txn in self.ledger.getAllTxn().values():
             if txn[TXN_TYPE] == NODE:
                 if txn[f.IDENTIFIER.nm] == origin:
-                    return "{} already has a node with name {}".\
+                    return "{} already has a node with name {}". \
                         format(origin, txn[DATA][ALIAS])
-                if txn[DATA] == operation.get(DATA):
-                    return "transaction data {} has conflicts with " \
-                           "request data {}".format(txn[DATA],
-                                                    operation.get(DATA))
+
+        if self.isNodeDataConflicting(data, operation.get(TARGET_NYM)):
+            return "existing data has conflicts with " \
+                   "request data {}".format(operation.get(DATA))
+
+    @lru_cache(maxsize=64)
+    def isStewardOfNode(self, stewardNym, nodeNym):
+        for txn in self.ledger.getAllTxn().values():
+            if txn[TXN_TYPE] == NODE and \
+                            txn[TARGET_NYM] == nodeNym and \
+                            txn[f.IDENTIFIER.nm] == stewardNym:
+                return True
+        return False
+
+    @staticmethod
+    def _validateNodeData(data):
+        if data.get(NODE_IP, "nodeip") == data.get(CLIENT_IP, "clientip") and \
+                        data.get(NODE_PORT, "nodeport") == data.get(CLIENT_PORT, "clientport"):
+            return "node and client ha can't be same"
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
         operation = request.operation
         isSteward = self.node.secondaryStorage.isSteward(origin)
+        data = operation.get(DATA, {})
+        invalidData = self._validateNodeData(data)
+        if invalidData:
+            return invalidData
         if not isSteward:
             return "{} is not a steward so cannot update a node".format(origin)
+        nodeNym = operation.get(TARGET_NYM)
+        if not self.isStewardOfNode(origin, nodeNym):
+            return "{} is not a steward of node {}".format(origin, nodeNym)
         for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == operation.get(TARGET_NYM) and \
-                            txn[f.IDENTIFIER.nm] == origin:
-                return
-        return "{} is not a steward of node {}".\
-            format(origin, operation.get(TARGET_NYM))
+            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]:
+                if txn[DATA] == operation.get(DATA, {}):
+                    return "node already has the same data as requested"
+        if self.isNodeDataConflicting(data, nodeNym):
+            return "existing data has conflicts with " \
+                   "request data {}".format(operation.get(DATA))
 
     @property
     def merkleRootHash(self):
@@ -311,6 +340,37 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def txnSeqNo(self):
         return self.ledger.seqNo
 
+    def getNodeData(self, nym):
+        _, nodeTxn = self.getNodeInfoFromLedger(nym)
+        return nodeTxn[DATA]
+
+    def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
+        otherNodeData = existingNodeTxn[DATA]
+        for (ip, port) in [(NODE_IP, NODE_PORT),
+                           (CLIENT_IP, CLIENT_PORT)]:
+            if (otherNodeData.get(ip), otherNodeData.get(port)) == (
+            data.get(ip), data.get(port)):
+                return True
+
+        if otherNodeData.get(ALIAS) == data.get(ALIAS):
+            return True
+
+    def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
+        sameNodeData = existingNodeTxn[DATA]
+        if sameNodeData.get(ALIAS) != data.get(ALIAS):
+            return True
+
+    def isNodeDataConflicting(self, data, nodeNym=None):
+        for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
+                    if t[TXN_TYPE] == NODE]:
+            if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
+                conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
+                if conflictFound:
+                    return conflictFound
+            if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
+                conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
+                if conflictFound:
+                    return conflictFound
 
 class RegistryPoolManager(PoolManager):
     def __init__(self, name, basedirpath, nodeRegistry, ha, cliname, cliha):
