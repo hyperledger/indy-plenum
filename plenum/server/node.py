@@ -1797,56 +1797,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas:
             self.send(replica.threePhaseState)
 
+    # TODO: Start and stop key sharing need to be removed
     # TODO: Starting and stopping keysharing should be test code, in the
     # production systems people would never want a stack to be open for a
     # short period of time since anybody can get in at that time
-    def startKeySharing(self, timeout=60):
-        """
-        Start key sharing till the timeout is reached.
-        Other nodes will be able to join this node till the timeout is reached.
-
-        :param timeout: the time till which key sharing is active
-        """
-        if self.nodestack.isKeySharing:
-            logger.info("{} already key sharing".format(self),
-                        extra={"cli": "LOW_STATUS"})
-        else:
-            logger.info("{} starting key sharing".format(self),
-                        extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.always
-            self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
-
-            # remove any unjoined remotes
-            for name, r in self.nodestack.nameRemotes.items():
-                if not r.joined:
-                    logger.debug("{} removing unjoined remote {}"
-                                 .format(self, r.name))
-                    # This is a bug in RAET where the `removeRemote`
-                    # of `raet/stacking.py` does not consider the fact that
-                    # renaming of remote might not have happened. Fixed here
-                    # https://github.com/RaetProtocol/raet/pull/9
-                    self.nodestack.removeRemote(r)
-
-            # if just starting, then bootstrap
-            force = time.time() - self.created > 5
-            self.nodestack.maintainConnections(force=force)
-
-    def stopKeySharing(self, timedOut=False):
-        """
-        Stop key sharing, i.e don't allow any more nodes to join this node.
-        """
-        if self.nodestack.isKeySharing:
-            if timedOut and self.nodestack.notConnectedNodes:
-                logger.info("{} key sharing timed out; was not able to "
-                            "connect to {}".
-                            format(self,
-                                   ", ".join(
-                                       self.nodestack.notConnectedNodes)),
-                            extra={"cli": "WARNING"})
-            else:
-                logger.info("{} completed key sharing".format(self),
-                            extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.never
+    # def startKeySharing(self, timeout=60):
+    #     """
+    #     Start key sharing till the timeout is reached.
+    #     Other nodes will be able to join this node till the timeout is reached.
+    #
+    #     :param timeout: the time till which key sharing is active
+    #     """
+    #     if self.nodestack.isKeySharing:
+    #         logger.info("{} already key sharing".format(self),
+    #                     extra={"cli": "LOW_STATUS"})
+    #     else:
+    #         logger.info("{} starting key sharing".format(self),
+    #                     extra={"cli": "STATUS"})
+    #         self.nodestack.keep.auto = AutoMode.always
+    #         self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
+    #
+    #         # remove any unjoined remotes
+    #         for name, r in self.nodestack.nameRemotes.items():
+    #             if not r.joined:
+    #                 logger.debug("{} removing unjoined remote {}"
+    #                              .format(self, r.name))
+    #                 # This is a bug in RAET where the `removeRemote`
+    #                 # of `raet/stacking.py` does not consider the fact that
+    #                 # renaming of remote might not have happened. Fixed here
+    #                 # https://github.com/RaetProtocol/raet/pull/9
+    #                 self.nodestack.removeRemote(r)
+    #
+    #         # if just starting, then bootstrap
+    #         force = time.time() - self.created > 5
+    #         self.nodestack.maintainConnections(force=force)
+    #
+    # def stopKeySharing(self, timedOut=False):
+    #     """
+    #     Stop key sharing, i.e don't allow any more nodes to join this node.
+    #     """
+    #     if self.nodestack.isKeySharing:
+    #         if timedOut and self.nodestack.notConnectedNodes:
+    #             logger.info("{} key sharing timed out; was not able to "
+    #                         "connect to {}".
+    #                         format(self,
+    #                                ", ".join(
+    #                                    self.nodestack.notConnectedNodes)),
+    #                         extra={"cli": "WARNING"})
+    #         else:
+    #             logger.info("{} completed key sharing".format(self),
+    #                         extra={"cli": "STATUS"})
+    #         self.nodestack.keep.auto = AutoMode.never
 
     def ensureKeysAreSetup(self):
         """
