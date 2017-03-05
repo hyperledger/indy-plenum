@@ -137,7 +137,7 @@ CLIENT_MAX_RETRY_REPLY = 5
 # to True. This option is overwritten by default for tests to keep multiple
 # clients from reading an updated pool transaction file, this helps us
 # emulate clients on different machines.
-UpdateGenesisPoolTxnFile = True
+UpdateGenesisPoolTxnFile = False
 
 
 # Since the ledger is stored in a flat file, this makes the ledger do
