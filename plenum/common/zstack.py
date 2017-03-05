@@ -230,19 +230,21 @@ class ZStack(NetworkInterface):
         self.ctx = zmq.Context.instance()
         restricted = self.restricted if restricted is None else restricted
         logger.info('{} starting with restricted as {} and reSetupAuth '
-                    'as {}'.format(self, restricted, reSetupAuth))
+                    'as {}'.format(self, restricted, reSetupAuth),
+                    extra={"cli": False, "demo": False})
         self.setupAuth(restricted, force=reSetupAuth)
         self.open()
 
     def stop(self):
         if self.opened:
             logger.info('stack {} closing its listener'.format(self),
-                        extra={"cli": False})
+                        extra={"cli": False, "demo": False})
             self.close()
         # TODO: Uncommenting this stops hangs the code, setting LINGER_TIME
         # does not help. Find a solution
         # self.ctx.term()
-        logger.info("stack {} stopped".format(self), extra={"cli": False})
+        logger.info("stack {} stopped".format(self),
+                    extra={"cli": False, "demo": False})
 
     @property
     def opened(self):
