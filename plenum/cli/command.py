@@ -76,11 +76,12 @@ statusClientCmd = Command(
     usage="status client <name>",
     examples="status client Alice")
 
-keyShareCmd = Command(
-    id="keyshare",
-    title="Manually starts key sharing of a node",
-    usage="keyshare node <name>",
-    examples="keyshare node Alpha")
+# TODO: Obsolete, Needs to be removed
+# keyShareCmd = Command(
+#     id="keyshare",
+#     title="Manually starts key sharing of a node",
+#     usage="keyshare node <name>",
+#     examples="keyshare node Alpha")
 
 loadPluginsCmd = Command(
     id="load plugins",

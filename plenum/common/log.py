@@ -81,7 +81,7 @@ class DemoHandler(CallbackHandler):
                          override_tags=override_tags)
 
 
-def getlogger(name=None):
+def getlogger(name: object = None) -> object:
     return Logger().getlogger(name)
 
 

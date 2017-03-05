@@ -21,8 +21,8 @@ def testTestNodeDelay(tdir_for_func):
         nodeB = nodes.getNode("testB")
 
         with Looper(nodes) as looper:
-            for n in nodes:
-                n.startKeySharing()
+            # for n in nodes:
+            #     n.startKeySharing()
 
             logger.debug("connect")
             looper.run(checkNodesConnected(nodes))

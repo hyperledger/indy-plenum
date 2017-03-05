@@ -10,6 +10,10 @@ from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 logger = getlogger()
 
 
+whitelist = ['public key from disk', 'verification key from disk',
+             'doesnt have enough info to connect']
+
+
 # noinspection PyIncorrectDocstring
 def testKeyShareParty(tdir_for_func):
     """
@@ -22,8 +26,8 @@ def testKeyShareParty(tdir_for_func):
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
             looper.run(checkNodesConnected(nodeSet))
 
     logger.debug("-----key sharing done, connect after key sharing-----")

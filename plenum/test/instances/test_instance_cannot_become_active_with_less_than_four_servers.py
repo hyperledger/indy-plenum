@@ -31,8 +31,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
 
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
 
             # helpers
 

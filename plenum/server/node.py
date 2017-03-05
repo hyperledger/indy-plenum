@@ -653,7 +653,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
-                self.stopKeySharing()
+                # self.stopKeySharing()
             elif self.connectedNodeCount >= self.minimumNodes:
                 self.status = Status.started_hungry
             else:

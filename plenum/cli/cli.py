@@ -14,7 +14,7 @@ from ledger.stores.file_hash_store import FileHashStore
 from os.path import basename, dirname
 
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
-    keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
+    loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
@@ -29,6 +29,7 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData
@@ -309,7 +310,7 @@ class Cli:
             self._actions = [self._simpleAction, self._helpAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
-                             self._keyShareAction, self._loadPluginDirAction,
+                             self._loadPluginDirAction,
                              self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
@@ -619,6 +620,11 @@ class Cli:
         mappings['helpAction'] = helpCmd
         mappings['statusAction'] = statusCmd
         mappings['changePrompt'] = changePromptCmd
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        # mappings['keyShareAction'] = keyShareCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
 
         mappings['newKeyring'] = newKeyringCmd
@@ -635,7 +641,6 @@ class Cli:
         mappings['newClientAction'] = newClientCmd
         mappings['statusNodeAction'] = statusNodeCmd
         mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
         mappings['clientSendMsgCommand'] = clientSendCmd
         mappings['clientShowMsgCommand'] = clientShowCmd
 
@@ -803,21 +808,21 @@ class Cli:
             self.print("Instances: "
                        "Not enough nodes to create protocol instances")
 
-    def keyshare(self, nodeName):
-        node = self.nodes.get(nodeName, None)
-        if node is not None:
-            node = self.nodes[nodeName]
-            node.startKeySharing()
-        elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showValidNodes()
-            return
-        else:
-            tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showStartedNodes()
-            return
+    # def keyshare(self, nodeName):
+    #     node = self.nodes.get(nodeName, None)
+    #     if node is not None:
+    #         node = self.nodes[nodeName]
+    #         node.startKeySharing()
+    #     elif nodeName not in self.nodeReg:
+    #         tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showValidNodes()
+    #         return
+    #     else:
+    #         tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showStartedNodes()
+    #         return
 
     def showStartedNodes(self):
         self.printTokens([(Token, "Started nodes are: ")])
@@ -868,6 +873,7 @@ class Cli:
             try:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
+                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
@@ -879,7 +885,8 @@ class Cli:
             self.nodes[name] = node
             self.looper.add(node)
             if not self.nodeRegLoadedFromFile:
-                node.startKeySharing()
+                # node.startKeySharing()
+                tellKeysToOthers(node, self.nodes.values())
 
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
@@ -1156,11 +1163,11 @@ class Cli:
             self.statusClient(client)
             return True
 
-    def _keyShareAction(self, matchedVars):
-        if matchedVars.get('node_command') == 'keyshare':
-            name = matchedVars.get('node_name')
-            self.keyshare(name)
-            return True
+    # def _keyShareAction(self, matchedVars):
+    #     if matchedVars.get('node_command') == 'keyshare':
+    #         name = matchedVars.get('node_name')
+    #         self.keyshare(name)
+    #         return True
 
     def _clientCommand(self, matchedVars):
         if matchedVars.get('client') == 'client':

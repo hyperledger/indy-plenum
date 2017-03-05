@@ -25,8 +25,8 @@ logger = getlogger()
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
@@ -169,8 +169,8 @@ def testMultipleRequests(tdir_for_func):
     """
     with TestNodeSet(count=7, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
 
             # TODO: ZStack does not have any mechanism to have stats,
             # either remove this once raet is removed or implement a `stats`

@@ -14,6 +14,7 @@ import plenum.test.delayers as delayers
 from plenum.common.error import error
 from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import RemoteNotFound
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
@@ -288,6 +289,7 @@ class TestNodeSet(ExitStack):
 
         super().__init__()
         self.tmpdir = tmpdir
+        self.keyshare = keyshare
         self.primaryDecider = primaryDecider
         self.pluginPaths = pluginPaths
 
@@ -318,20 +320,22 @@ class TestNodeSet(ExitStack):
         ha, cliname, cliha = self.nodeReg[name]
 
         if self.UseZStack:
-            # Write verification and public keys of all existing nodes in this
-            # node's respective directories.
             seed = randomSeed()
-            homeDir = ZStack.homeDirPath(self.tmpdir, name)
-            verifDirPath = ZStack.verifDirPath(homeDir)
-            pubDirPath = ZStack.publicDirPath(homeDir)
-            for d in (homeDir, verifDirPath, pubDirPath):
-                os.makedirs(d, exist_ok=True)
-            for otherNode in self.nodes.values():
-                for stack in (otherNode.nodestack, otherNode.clientstack):
-                    createCertsFromKeys(verifDirPath, stack.name,
-                                        stack.verKey)
-                    createCertsFromKeys(pubDirPath, stack.name,
-                                        stack.publicKey)
+            if self.keyshare:
+                # Write verification and public keys of all existing nodes in this
+                # node's respective directories.
+                # homeDir = ZStack.homeDirPath(self.tmpdir, name)
+                # verifDirPath = ZStack.verifDirPath(homeDir)
+                # pubDirPath = ZStack.publicDirPath(homeDir)
+                # for d in (homeDir, verifDirPath, pubDirPath):
+                #     os.makedirs(d, exist_ok=True)
+                # for otherNode in self.nodes.values():
+                #     for stack in (otherNode.nodestack, otherNode.clientstack):
+                #         createCertsFromKeys(verifDirPath, stack.name,
+                #                             stack.verKey)
+                #         createCertsFromKeys(pubDirPath, stack.name,
+                #                             stack.publicKey)
+                learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
         else:
             seed = None
 
@@ -346,17 +350,19 @@ class TestNodeSet(ExitStack):
                               primaryDecider=self.primaryDecider,
                               pluginPaths=self.pluginPaths,
                               seed=seed))
-        if self.UseZStack:
+
+        if self.UseZStack and self.keyshare:
             # Write the verification and public key of this node in all
             # existing node's directories
-            for otherNode in self.nodes.values():
-                for attrName in ('nodestack', 'clientstack'):
-                    stack = getattr(node, attrName)
-                    otherStack = getattr(otherNode, attrName)
-                    createCertsFromKeys(otherStack.verifKeyDir, stack.name,
-                                        stack.verKey)
-                    createCertsFromKeys(otherStack.publicKeysDir, stack.name,
-                                        stack.publicKey)
+            # for otherNode in self.nodes.values():
+            #     for attrName in ('nodestack', 'clientstack'):
+            #         stack = getattr(node, attrName)
+            #         otherStack = getattr(otherNode, attrName)
+            #         createCertsFromKeys(otherStack.verifKeyDir, stack.name,
+            #                             stack.verKey)
+            #         createCertsFromKeys(otherStack.publicKeysDir, stack.name,
+            #                             stack.publicKey)
+            tellKeysToOthers(node, self.nodes.values())
 
         self.nodes[name] = node
         self.__dict__[name] = node
@@ -460,8 +466,8 @@ class Pool:
         tmpdir = self.fresh_tdir()
         with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
-                for n in nodeset:
-                    n.startKeySharing()
+                # for n in nodeset:
+                #     n.startKeySharing()
                 ctx = adict(looper=looper, nodeset=nodeset, tmpdir=tmpdir)
                 looper.run(checkNodesConnected(nodeset))
                 ensureElectionsDone(looper=looper, nodes=nodeset, retryWait=1,
@@ -676,8 +682,8 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
 
-    for n in nodeSet:
-        n.startKeySharing()
+    # for n in nodeSet:
+    #     n.startKeySharing()
 
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))

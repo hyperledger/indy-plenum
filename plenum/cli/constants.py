@@ -103,7 +103,7 @@ CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX = \
 # commands
 SIMPLE_CMDS = {'status', 'exit', 'quit', 'license'}
 CLI_CMDS = {'status', 'new'}
-NODE_CMDS = CLI_CMDS | {'keyshare'}
+NODE_CMDS = CLI_CMDS
 
 
 # command formatted reg exs

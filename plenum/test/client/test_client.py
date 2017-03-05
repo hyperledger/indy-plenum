@@ -3,6 +3,7 @@ from raet.raeting import AutoMode
 
 from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
 from plenum.common.exceptions import NotConnectedToAny
+from plenum.common.raet import initRemoteKeep
 from plenum.common.z_util import initRemoteKeys
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
@@ -15,6 +16,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
 from plenum.common.crypto import Signer
+from plenum.common.log import getlogger
+
 
 nodeCount = 7
 
@@ -25,7 +28,11 @@ whitelist = ['signer not configured so not signing',
              'discarding message',
              'found legacy entry',
              'public key from disk',
-             'verification key from disk']  # warnings
+             'verification key from disk',
+             'got error while verifying message']  # warnings
+
+
+logger = getlogger()
 
 
 def checkResponseRecvdFromNodes(client, expectedCount: int,
@@ -87,17 +94,17 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
 
     async def go(ctx):
-        for n in ctx.nodeset:
-            n.nodestack.keep.auto = AutoMode.never
+        # for n in ctx.nodeset:
+        #     n.nodestack.keep.auto = AutoMode.never
 
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
-        if ctx.nodeset.UseZStack:
-            for node in ctx.nodeset:
-                stack = node.nodestack
-                # TODO: Remove this if condition once raet is removed
-                initRemoteKeys(client1.name, stack.name, ctx.tmpdir, stack.verhex,
-                               override=True)
+        for node in ctx.nodeset:
+            stack = node.nodestack
+            args = (client1.name, stack.name, ctx.tmpdir, stack.verhex, True)
+            # TODO: Remove this if condition once raet is removed
+            ik = initRemoteKeys if ctx.nodeset.UseZStack else initRemoteKeep
+            ik(*args)
 
         ctx.looper.add(client1)
         with pytest.raises(NotConnectedToAny):
@@ -281,7 +288,6 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
         clients.add(client)
 
     for i in range(1, numOfRequests + 1):
-
         # sending requests
         requests = {}
         for client in clients:
@@ -303,10 +309,19 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             print("Expected amount for request {} is {}".
                   format(reqId, sentAmount))
 
-            replies = [r[0]['result']['amount']
-                       for r in client.inBox
-                       if r[0]['op'] == 'REPLY'
-                       and r[0]['result']['reqId'] == reqId]
+            # This looks like it fails on some python versions
+            # replies = [r[0]['result']['amount']
+            #            for r in client.inBox
+            #            if r[0]['op'] == 'REPLY'
+            #            and r[0]['result']['reqId'] == reqId]
+
+            replies = []
+            for r in client.inBox:
+                if r[0]['op'] == 'REPLY' and r[0]['result']['reqId'] == reqId:
+                    if 'amount' not in r[0]['result']:
+                        logger.debug('{} cannot find amount in {}'.
+                                     format(client, r[0]['result']))
+                    replies.append(r[0]['result']['amount'])
 
             assert all(replies[0] == r for r in replies)
             assert replies[0] == sentAmount

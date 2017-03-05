@@ -48,13 +48,13 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                 if txns[seqNo].get(TXN_TYPE) == "buy":
                     txns[seqNo][TXN_TYPE] = "randomtype"
             consProof = [b64encode(p).decode() for p in
-                     ledger.tree.consistency_proof(end, ledger.size)]
+                         ledger.tree.consistency_proof(end, ledger.size)]
             self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns,
                                        consProof), to=frm)
         else:
             self.processCatchupReq(req, frm)
 
-    # One of the node does not process catchup request.
+    # One of the node sends incorrect txns in catchup reply.
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
 
