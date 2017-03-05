@@ -985,7 +985,7 @@ class Cli:
         try:
             self.ensureValidClientId(clientName)
             if not isLocalKeepSetup(clientName, self.basedirpath):
-                client_addr = genHa()
+                client_addr = genHa(ip='0.0.0.0')
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
