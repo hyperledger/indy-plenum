@@ -588,11 +588,12 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
 def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                                       nodes: Sequence[TestNode],
                                       retryWait: float = None,
-                                      timeout: float = None):
+                                      customTimeout: float = None):
     def checkAtMostOnePrim(node):
         prims = [r for r in node.replicas if r.isPrimary]
         assert len(prims) <= 1
 
+    timeout = customTimeout or waits.expectedElectionTimeout(len(nodes))
     for node in nodes:
         looper.run(eventually(checkAtMostOnePrim,
                               node,
@@ -608,7 +609,7 @@ def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
         timeout=timeout if timeout else None)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper, nodes=nodes,
-                                      retryWait=retryWait, timeout=timeout / 5)
+                                      retryWait=retryWait, customTimeout=timeout / 5)
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
