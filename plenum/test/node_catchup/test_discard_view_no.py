@@ -65,8 +65,12 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     nodeX.send(electMsg, ridTheta)
     nodeX.send(threePMsg, ridTheta)
     nodeX.send(electMsg, ridTheta)
+
+    from plenum.test import waits
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime()
+
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], electMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=5))
+                          'un-acceptable viewNo', retryWait=1, timeout=timeout))
     nodeX.send(threePMsg, ridTheta)
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], threePMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=5))
+                          'un-acceptable viewNo', retryWait=1, timeout=timeout))
