@@ -25,6 +25,8 @@ from libnacl import crypto_hash_sha256
 from plenum.common.error import error
 from six import iteritems, string_types
 
+from plenum.common.exceptions import AddressAlreadyInUse
+
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
 
@@ -253,13 +255,24 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
 
 def checkPortAvailable(ha):
     """Checks whether the given port is available"""
+    def logErrorAndRaise(e, msg=None):
+        erroMsg = msg or "Checked port availability for opening and address, " \
+              "got error: {}".format(str(e))
+        logging.warning(erroMsg)
+        raise e
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
+    except OSError as oe:
+        if oe.args[0] == 98:
+            msg = "Checked port availability for opening and address " \
+              "was already in use: {}".format(ha)
+            logErrorAndRaise(AddressAlreadyInUse(msg), msg)
+        else:
+            logErrorAndRaise(oe)
     except BaseException as ex:
-        logging.warning("Checked port availability for opening "
-                        "and address was already in use: {}".format(ha))
-        raise ex
+        logErrorAndRaise(ex)
     finally:
         sock.close()
 
@@ -588,3 +601,9 @@ def isValidEndpoint(endpoint):
         return port.isdigit()
     except Exception:
         return False
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"

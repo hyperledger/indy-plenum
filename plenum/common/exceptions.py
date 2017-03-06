@@ -230,3 +230,7 @@ class OrientDBNotRunning(GraphStorageNotAvailable):
 
 class InvalidEndpoint(Exception):
     pass
+
+
+class AddressAlreadyInUse(BaseException):
+    pass
