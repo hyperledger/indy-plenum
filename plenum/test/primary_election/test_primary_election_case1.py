@@ -11,6 +11,8 @@ from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
+from plenum.test import waits
+
 
 nodeCount = 4
 whitelist = ['already got nomination',
@@ -68,8 +70,10 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     # Node B sends multiple NOMINATE msgs for Node D but only after A has
     # nominated itself
-    looper.run(eventually(checkNomination, nodeA, nodeA.name, retryWait=.25,
-                          timeout=1))
+    timeout = waits.expectedNominationTimeout(nodeCount=1)
+    looper.run(eventually(checkNomination, nodeA, nodeA.name,
+                          retryWait=.25,
+                          timeout=timeout))
 
     instId = getSelfNominationByNode(nodeA)
 

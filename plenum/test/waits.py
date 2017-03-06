@@ -64,7 +64,11 @@ def expectedOrderingTime(numInstances) -> float:
 
 
 def expectedElectionTimeout(nodeCount) -> float:
-    return 15 + 2 * nodeCount
+    return expectedNominationTimeout(nodeCount) + 2 * nodeCount
+
+
+def expectedNominationTimeout(nodeCount) -> float:
+    return nodeCount * 3
 
 
 def expectedPoolGetReadyTimeout(nodeCount) -> float:

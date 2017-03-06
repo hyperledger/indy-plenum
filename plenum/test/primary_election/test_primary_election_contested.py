@@ -7,6 +7,8 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
+from plenum.test import waits
+
 
 nodeCount = 4
 
@@ -53,18 +55,22 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     checkPoolReady(looper, nodeSet)
 
     logger.debug("Check nomination")
+    timeout = waits.expectedNominationTimeout(nodeCount)
+
     # Checking whether Node A nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, A, A.name,
+                          retryWait=1, timeout=timeout))
 
     # Checking whether Node B nominated itself
-    looper.run(eventually(checkNomination, B, B.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, B, B.name,
+                          retryWait=1, timeout=timeout))
 
     for n in [C, D]:
         # Checking whether Node C and Node D nominated Node A
-        looper.run(eventually(checkNomination, n, A.name, retryWait=1, timeout=10))
+        looper.run(eventually(checkNomination, n, A.name,
+                              retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet,
-                               retryWait=1, customTimeout=45)
+    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
 
     # Node D should not be primary
     assert not D.hasPrimary

@@ -7,6 +7,8 @@ from plenum.test.delayers import delay
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
+from plenum.test import waits
+
 
 nodeCount = 4
 
@@ -66,18 +68,23 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
                           format(replica.name, replica.instId,
                                  node.elector.nominations.get(instId, {})))
 
+    nominationTimeout = waits.expectedNominationTimeout(len(nodeSet))
     logger.debug("Check nomination")
     # Checking whether Node A nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, A, A.name,
+                          retryWait=1, timeout=nominationTimeout))
 
     # Checking whether Node B nominated itself
-    looper.run(eventually(checkNomination, B, B.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, B, B.name,
+                          retryWait=1, timeout=nominationTimeout))
 
     # Checking whether Node C nominated Node A
-    looper.run(eventually(checkNomination, C, A.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, C, A.name,
+                          retryWait=1, timeout=nominationTimeout))
 
     # Checking whether Node D nominated Node D
-    looper.run(eventually(checkNomination, D, B.name, retryWait=1, timeout=10))
+    looper.run(eventually(checkNomination, D, B.name,
+                          retryWait=1, timeout=nominationTimeout))
 
     # No node should be primary
     for node in nodeSet.nodes.values():
@@ -86,5 +93,4 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
     for node in nodeSet.nodes.values():
         node.resetDelays()
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
-                               customTimeout=60)
+    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
