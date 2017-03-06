@@ -10,6 +10,7 @@ from plenum.common.types import CatchupReq, f, CatchupRep
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.test_node import checkNodesConnected
+from plenum.test import waits
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -64,7 +65,9 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet))
+
+    timeout = waits.expectedCatchupTime()
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=45))
+                          *txnPoolNodeSet[:-1], retryWait=1, timeout=timeout))
 
     assert newNode.isNodeBlacklisted(txnPoolNodeSet[0].name)

@@ -34,7 +34,7 @@ def expectedTransactionExecutionTime(nodeCount) -> float:
 
 def expectedCatchupTime() -> float:
     # TODO: implement
-    pass
+    return 90
 
 
 def expectedAgentCommunicationTime() -> float:
