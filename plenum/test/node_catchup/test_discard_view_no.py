@@ -13,6 +13,8 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
+from plenum.test import waits
+
 
 whitelist = ['found legacy entry']  # warnings
 
@@ -47,10 +49,13 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     txnPoolNodeSet.append(nodeTheta)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())
+
+    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
+
     looper.run(eventually(checkNodeLedgersForEquality, nodeTheta,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=5))
-    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
-                               timeout=10)
+                          *txnPoolNodeSet[:-1],
+                          retryWait=1, timeout=messageTimeout))
+    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     electMsg = Nomination(nodeX.name, 0, viewNo)
     threePMsg = PrePrepare(
             0,
@@ -66,11 +71,10 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     nodeX.send(threePMsg, ridTheta)
     nodeX.send(electMsg, ridTheta)
 
-    from plenum.test import waits
-    timeout = waits.expectedNodeToNodeMessageDeliveryTime()
-
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], electMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=timeout))
+                          'un-acceptable viewNo',
+                          retryWait=1, timeout=messageTimeout))
     nodeX.send(threePMsg, ridTheta)
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], threePMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=timeout))
+                          'un-acceptable viewNo',
+                          retryWait=1, timeout=messageTimeout))
