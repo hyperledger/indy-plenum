@@ -256,7 +256,7 @@ class Cli:
         Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
-        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
+        self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
         self._actions = []
 
         if nodeReg:
