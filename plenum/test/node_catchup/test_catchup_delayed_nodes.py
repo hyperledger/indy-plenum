@@ -4,7 +4,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.test.delayers import cpDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected
 
@@ -62,7 +62,5 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
                                                                   nodeY.name))
     nodeX.start(looper.loop)
     nodeY.start(looper.loop)
-    looper.run(eventually(checkNodeLedgersForEquality, nodeX,
-                          *txnPoolNodeSet[:5], retryWait=1, timeout=15))
-    looper.run(eventually(checkNodeLedgersForEquality, nodeY,
-                          *txnPoolNodeSet[:5], retryWait=1, timeout=15))
+    waitNodeLedgersEquality(looper, nodeX, *txnPoolNodeSet[:5])
+    waitNodeLedgersEquality(looper, nodeY, *txnPoolNodeSet[:5])

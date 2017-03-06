@@ -6,7 +6,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import CatchupReq
 from plenum.test.helper import sendRandomRequests
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.test_node import checkNodesConnected
 from plenum.test import waits
 
@@ -42,6 +42,4 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    timeout = waits.expectedCatchupTime()
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=timeout))
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])

@@ -8,7 +8,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import LedgerStatus
 from plenum.test.helper import sendRandomRequests
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 from plenum.test import waits
@@ -67,9 +67,8 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here
 
-    timeout = waits.expectedCatchupTime()
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=timeout))
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+
     for node in txnPoolNodeSet[:-1]:
         assert node.ledgerManager.spylog.count(
             TestLedgerManager.processConsistencyProofReq.__name__) > 0

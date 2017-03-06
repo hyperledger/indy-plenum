@@ -17,6 +17,24 @@ def checkNodeLedgersForEquality(node: TestNode,
         checkLedgerEquality(node.poolLedger, n.poolLedger)
 
 
+def waitNodeLedgersEquality(looper,
+                            referenceNode: TestNode,
+                            *otherNodes: Iterable[TestNode],
+                            customTimeout = None):
+    """
+    Wait for node ledger to become equal
+
+    :param referenceNode: node whose ledger used as a reference
+    """
+
+    # waits.expectedNodeToNodeMessageDeliveryTime()
+    # waits.expectedCatchupTime()
+    looper.run(eventually(checkNodeLedgersForEquality,
+                          referenceNode,
+                          otherNodes,
+                          retryWait=1, timeout=10))
+
+
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
     stackParams = node.clientStackParams
     client.nodeReg[stackParams['name']] = HA('127.0.0.1', stackParams['ha'][1])

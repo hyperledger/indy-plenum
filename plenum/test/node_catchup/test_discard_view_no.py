@@ -9,7 +9,7 @@ from plenum.common.util import randomString
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitForViewChange, checkDiscardMsg
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
@@ -50,11 +50,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())
 
-    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
-
-    looper.run(eventually(checkNodeLedgersForEquality, nodeTheta,
-                          *txnPoolNodeSet[:-1],
-                          retryWait=1, timeout=messageTimeout))
+    waitNodeLedgersEquality(looper, nodeTheta, *txnPoolNodeSet[:-1])
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     electMsg = Nomination(nodeX.name, 0, viewNo)
     threePMsg = PrePrepare(
@@ -71,6 +67,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     nodeX.send(threePMsg, ridTheta)
     nodeX.send(electMsg, ridTheta)
 
+    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], electMsg,
                           'un-acceptable viewNo',
                           retryWait=1, timeout=messageTimeout))

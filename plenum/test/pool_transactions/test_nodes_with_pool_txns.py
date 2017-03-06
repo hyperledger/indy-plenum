@@ -12,7 +12,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeHa, addNewStewardAndNode, changeNodeKeys
@@ -124,8 +124,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
         txnPoolNodeSet.append(newNode)
         looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
         logger.debug("{} connected to the pool".format(newNode))
-        looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                              *txnPoolNodeSet[:-1], retryWait=1, timeout=7))
+        waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     f = getMaxFailures(len(txnPoolNodeSet))
 
@@ -178,8 +177,9 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # stopped
     txnPoolNodeSet[-1] = node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=10))
+
+    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
+
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
@@ -212,9 +212,8 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # The last element of `txnPoolNodeSet` is the node Theta that was just
     # stopped
     txnPoolNodeSet[-1] = node
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=40))
-    looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=10))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
