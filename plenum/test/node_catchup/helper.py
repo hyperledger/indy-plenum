@@ -27,8 +27,8 @@ def waitNodeLedgersEquality(looper,
     :param referenceNode: node whose ledger used as a reference
     """
 
-    # waits.expectedNodeToNodeMessageDeliveryTime()
-    # waits.expectedCatchupTime()
+    numOfNodes = len(otherNodes) + 1
+    timeout = customTimeout or waits.expectedPoolLedgerCheck(numOfNodes)
     looper.run(eventually(checkNodeLedgersForEquality,
                           referenceNode,
                           otherNodes,
