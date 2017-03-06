@@ -69,7 +69,10 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    looper.run(eventually(ensureSlowNodesHaveAllTxns, retryWait=1, timeout=15))
+    from plenum.test import waits
+    timeout = waits.expectedCatchupTime()
+    looper.run(eventually(ensureSlowNodesHaveAllTxns,
+                          retryWait=1, timeout=timeout))
 
     checkAllLedgersEqual((n.domainLedger for n in (node0, node3, node4,
                                                    node5, node6)))
