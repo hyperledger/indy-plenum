@@ -7,6 +7,7 @@ from plenum.common import util
 logger = getlogger()
 config = getConfig()
 
+
 def _expectedNodeInterconnectionTime(count) -> float:
     conf = getConfig()
     return count * conf.ExpectedConnectTime + 4
@@ -84,12 +85,12 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
     Expected time required for checking that 'pool ledger' on nodes and client
     is the same
     """
-
     return 3 * nodeCount
 
 
 def expectedNodeStartUpTimeout() -> float:
     return 5
+
 
 def expectedRequestStashingTime() -> float:
     return 20
