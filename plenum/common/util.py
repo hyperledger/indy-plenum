@@ -585,6 +585,6 @@ def isValidEndpoint(endpoint):
     ip, port = endpoint.split(':')
     try:
         ipaddress.ip_address(ip)
-        return port.isdigit() and int(port) in range(1, 65535)
+        return port.isdigit() and int(port) in range(1, 65536)
     except Exception:
         return False
