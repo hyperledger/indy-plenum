@@ -585,8 +585,11 @@ class Singleton(type):
 
 
 def check_endpoint_valid(endpoint, required: bool=True):
-    if not endpoint and required:
-        raise InvalidEndpointMissing(endpoint)
+    if not endpoint:
+        if required:
+            raise InvalidEndpointMissing(endpoint)
+        else:
+            return
     ip, port = endpoint.split(':')
     try:
         ipaddress.ip_address(ip)
