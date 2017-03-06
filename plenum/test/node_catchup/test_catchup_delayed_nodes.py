@@ -49,6 +49,8 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     txnPoolNodeSet.append(nodeX)
     txnPoolNodeSet.append(nodeY)
 
+    # TODO: use named timeouts when implementation complete
+
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
     logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
                                                              nodeY.name))
