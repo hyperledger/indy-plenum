@@ -33,4 +33,4 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper,
 
     # Ensure elections are done again and pool is setup again with appropriate
     # protocol instances and each protocol instance is setup properly too
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=30)
+    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=30)

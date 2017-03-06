@@ -87,4 +87,4 @@ def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
         node.resetDelays()
 
     checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
-                               timeout=60)
+                               customTimeout=60)

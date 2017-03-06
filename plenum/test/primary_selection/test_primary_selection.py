@@ -59,7 +59,7 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
     looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=10))
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=5)
 
 
 # noinspection PyIncorrectDocstring
@@ -81,4 +81,4 @@ def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
     for br, ar in zip(prBeforeVC, prAfterVC):
         assert ar.node.rank - br.node.rank == 1
 
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, timeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=5)

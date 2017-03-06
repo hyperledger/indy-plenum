@@ -65,5 +65,5 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
                               timeout=10))
 
     checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
-                               timeout=10)
+                               customTimeout=10)
     assert A.hasPrimary

@@ -136,7 +136,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
 
     looper.run(eventually(checkFValue, retryWait=1, timeout=5))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
-                               timeout=5)
+                               customTimeout=5)
 
 
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,

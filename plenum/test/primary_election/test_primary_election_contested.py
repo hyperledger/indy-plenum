@@ -64,7 +64,7 @@ def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
         looper.run(eventually(checkNomination, n, A.name, retryWait=1, timeout=10))
 
     checkProtocolInstanceSetup(looper=looper, nodes=nodeSet,
-                                                 retryWait=1, timeout=45)
+                               retryWait=1, customTimeout=45)
 
     # Node D should not be primary
     assert not D.hasPrimary

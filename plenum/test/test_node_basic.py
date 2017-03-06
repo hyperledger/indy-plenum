@@ -20,7 +20,7 @@ def pool(looper, nodeSet):
     # for n in nodeSet:  # type: TestNode
     #     n.startKeySharing()
     looper.run(checkNodesConnected(nodeSet))
-    checkProtocolInstanceSetup(looper, nodeSet, timeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet, customTimeout=5)
     return adict(looper=looper, nodeset=nodeSet)
 
 

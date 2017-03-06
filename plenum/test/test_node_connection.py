@@ -69,7 +69,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     # create the fourth and see that it learns who the primaries are
     # from the other nodes
     create(names[3])
-    checkProtocolInstanceSetup(looper, nodes, timeout=10)
+    checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
     stopNodes(nodes, looper)
 
 
