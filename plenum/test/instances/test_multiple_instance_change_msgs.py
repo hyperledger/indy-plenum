@@ -7,6 +7,8 @@ from plenum.server.node import Node
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
+from plenum.test import waits
+
 
 nodeCount = 7
 
@@ -25,8 +27,11 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
                 for arg in args:
                     assert arg['frm'] == maliciousNode.name
 
+    numOfNodes = len(nodeSet)
+    instanceChangeTimeout = waits.expectedViewChangeTime(numOfNodes)
+
     for i in range(0, 5):
-        looper.run(eventually(chk, i, retryWait=1, timeout=20))
+        looper.run(eventually(chk, i, retryWait=1, timeout=instanceChangeTimeout))
 
     def g():
         for node in nodeSet:
@@ -34,7 +39,10 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
                 frm, reason, code = getAllArgs(node, Node.reportSuspiciousNode)
                 assert frm == maliciousNode.name
                 assert isinstance(reason, SuspiciousNode)
-                assert len(getNodeSuspicions(node,
-                                             Suspicions.FREQUENT_INST_CHNG.code)) == 13
+                suspectingNodes = \
+                    getNodeSuspicions(node,
+                                      Suspicions.FREQUENT_INST_CHNG.code)
+                assert len(suspectingNodes) == 13
 
-    looper.run(eventually(g, retryWait=1, timeout=20))
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(g, retryWait=1, timeout=timeout))

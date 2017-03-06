@@ -5,6 +5,8 @@ from plenum.common.types import Commit
 from plenum.server.replica import Replica
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.test_node import TestNode
+from plenum.test import waits
+
 
 nodeCount = 4
 
@@ -39,4 +41,6 @@ def testMsgFromInstanceDelay(configNodeSet, looper, prepared1):
             assert len(commReqs) > 0
             assert Replica.generateName(A.name, 1) in commReqs[0][0]
 
-    looper.run(eventually(checkPresence, retryWait=.5, timeout=10))
+    numOfNodes = len(configNodeSet.nodes)
+    timeout = waits.expectedClientRequestPropagationTime(numOfNodes)
+    looper.run(eventually(checkPresence, retryWait=.5, timeout=timeout))

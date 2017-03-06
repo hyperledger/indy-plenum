@@ -10,6 +10,8 @@ from plenum.test.helper import getNodeSuspicions
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
              'Invalid prepare message received',
@@ -54,4 +56,6 @@ def testPrepareDigest(setup, looper, sent1):
                 assert len(getNodeSuspicions(r.node,
                                              Suspicions.PR_DIGEST_WRONG.code)) == 1
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))
