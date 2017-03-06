@@ -6,6 +6,8 @@ from plenum.test.delayers import delay
 from plenum.test.helper import assertLength
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate, forwardedRequest
+from plenum.test import waits
+
 
 nodeCount = 4
 
@@ -42,4 +44,5 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should have forwarded the request
         assertLength(forwardedRequest(A), 1)
 
-    looper.run(eventually(chk, retryWait=1, timeout=15))
+    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
