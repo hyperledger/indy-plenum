@@ -412,7 +412,13 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     assert len(viewNos) == 1
     vNo, = viewNos
     if expectedViewNo:
-        assert vNo == expectedViewNo
+        assert vNo == expectedViewNo, ','.join(['{}->Delta: {}, Lambda: {}, '
+                                                'Omega: {}'.
+                                               format(node.name,
+                                                      node.monitor.Delta,
+                                                      node.monitor.Gamma,
+                                                      node.monitor.Lambda)
+                                                for node in nodes])
     return vNo
 
 

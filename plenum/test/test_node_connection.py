@@ -17,7 +17,8 @@ from plenum.test.zstack_tests.helper import genKeys
 
 logger = getlogger()
 
-whitelist = ['discarding message', 'found legacy entry']
+whitelist = ['discarding message', 'found legacy entry',
+             'error while verifying message']
 
 
 @pytest.fixture()
@@ -50,7 +51,6 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
 
     # TODO: This will be moved to a fixture
@@ -84,7 +84,6 @@ def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
     looper.run(checkNodesConnected(nodes))
     stopNodes(nodes, looper)
@@ -112,7 +111,6 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
         looper.runFor(waits[i])
     looper.run(checkNodesConnected(nodes,
@@ -152,51 +150,15 @@ def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg, conf):
                      pluginPaths=allPluginsPath)
             for name in names]
     looper.add(A)
-    A.startKeySharing()
     looper.runFor(4)
     logger.debug("wait done")
     looper.add(B)
-    B.startKeySharing()
     looper.runFor(4)
     looper.run(checkNodesConnected([A, B]))
     looper.stopall()
     A.start(looper.loop)
     looper.runFor(4)
     B.start(looper.loop)
-    looper.run(checkNodesConnected([A, B]))
-    stopNodes([A, B], looper)
-
-
-# The next test was skipped due to an issue in RAET which led to intermittent
-# failures, but running now since it should work with ZStack.
-
-# @pytest.mark.skip(reason="SOV-538. "
-#                          "Fails due to a bug. Its fixed here "
-#                          "https://github.com/RaetProtocol/raet/pull/9")
-def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper,
-                                               nodeReg, conf):
-    console = getConsole()
-    console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    tdir, looper = tdirAndLooper
-    timeout = 60
-    names = ["Alpha", "Beta"]
-    logger.debug(names)
-    if conf.UseZStack:
-        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
-    nrg = {n: nodeReg[n] for n in names}
-    A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=tdir,
-                     pluginPaths=allPluginsPath)
-            for name in names]
-    looper.add(A)
-    A.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for A's timeout")
-    looper.add(B)
-    B.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for B's timeout")
-    A.startKeySharing(timeout=timeout)
-    B.startKeySharing(timeout=timeout)
     looper.run(checkNodesConnected([A, B]))
     stopNodes([A, B], looper)
 
@@ -221,13 +183,11 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
             for name in names]
     for node in (A, B):
         looper.add(node)
-        node.startKeySharing()
     looper.run(checkNodesConnected([A, B]))
 
     C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
                  basedirpath=tdir, pluginPaths=allPluginsPath)
     looper.add(C)
-    C.startKeySharing(timeout=20)
 
     def chk():
         assert not C.nodestack.isKeySharing

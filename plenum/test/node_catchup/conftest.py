@@ -35,7 +35,7 @@ def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
         txnPoolNodesLooper, client, wallet, newStewardName, newNodeName,
         tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
     yield txnPoolNodesLooper, newNode, client, wallet, newStewardClient, \
-          newStewardWallet
+        newStewardWallet
 
 
 @pytest.fixture("module")

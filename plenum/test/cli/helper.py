@@ -442,7 +442,9 @@ def doByCtx(ctx):
 
         if attempt:
             attempt = attempt.format(**mapper) if mapper else attempt
-            checkCmdValid(cli, attempt)  # TODO this needs to be renamed, because it's not clear that here is where we are actually calling the cli command
+            # TODO this needs to be renamed, because it's not clear that here
+            # is where we are actually calling the cli command
+            checkCmdValid(cli, attempt)
 
         def getAssertErrorMsg(e, cli, exp:bool, actual:bool):
             length = 80

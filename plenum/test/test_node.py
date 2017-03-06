@@ -322,19 +322,6 @@ class TestNodeSet(ExitStack):
         if self.UseZStack:
             seed = randomSeed()
             if self.keyshare:
-                # Write verification and public keys of all existing nodes in this
-                # node's respective directories.
-                # homeDir = ZStack.homeDirPath(self.tmpdir, name)
-                # verifDirPath = ZStack.verifDirPath(homeDir)
-                # pubDirPath = ZStack.publicDirPath(homeDir)
-                # for d in (homeDir, verifDirPath, pubDirPath):
-                #     os.makedirs(d, exist_ok=True)
-                # for otherNode in self.nodes.values():
-                #     for stack in (otherNode.nodestack, otherNode.clientstack):
-                #         createCertsFromKeys(verifDirPath, stack.name,
-                #                             stack.verKey)
-                #         createCertsFromKeys(pubDirPath, stack.name,
-                #                             stack.publicKey)
                 learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
         else:
             seed = None
@@ -352,16 +339,6 @@ class TestNodeSet(ExitStack):
                               seed=seed))
 
         if self.UseZStack and self.keyshare:
-            # Write the verification and public key of this node in all
-            # existing node's directories
-            # for otherNode in self.nodes.values():
-            #     for attrName in ('nodestack', 'clientstack'):
-            #         stack = getattr(node, attrName)
-            #         otherStack = getattr(otherNode, attrName)
-            #         createCertsFromKeys(otherStack.verifKeyDir, stack.name,
-            #                             stack.verKey)
-            #         createCertsFromKeys(otherStack.publicKeysDir, stack.name,
-            #                             stack.publicKey)
             tellKeysToOthers(node, self.nodes.values())
 
         self.nodes[name] = node

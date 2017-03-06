@@ -101,7 +101,7 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
                                                     self.delimiter))
         result = {}
         for line in nackLines:
-            sender, reason = line[2:].split(":", 1)
+            sender, reason = line[2:].split(self.delimiter, 1)
             result[sender] = reason
         return result
 

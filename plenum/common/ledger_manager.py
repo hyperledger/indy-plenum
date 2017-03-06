@@ -445,7 +445,7 @@ class LedgerManager(HasActionQueue):
                     self._removePrcdCatchupReply(ledgerType, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerType, ledger,
-                                                catchUpReplies[toBeProcessed:])
+                                                    catchUpReplies[toBeProcessed:])
                 else:
                     if self.ownedByNode:
                         self.owner.blacklistNode(nodeName,
