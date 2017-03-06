@@ -7,6 +7,7 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
+from plenum.test import waits
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -92,9 +93,10 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode))
     newNode.start(looper.loop)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    timeout = waits.expectedCatchupTime()
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=75))
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=timeout))
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
