@@ -229,4 +229,17 @@ class OrientDBNotRunning(GraphStorageNotAvailable):
 
 
 class InvalidEndpoint(Exception):
+    def __init__(self, endpoint):
+        super().__init__('invalid endpoint: {}'.format(endpoint))
+
+
+class InvalidEndpointMissing(InvalidEndpoint):
+    pass
+
+
+class InvalidEndpointIpAddress(InvalidEndpoint):
+    pass
+
+
+class InvalidEndpointPort(InvalidEndpoint):
     pass
