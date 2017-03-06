@@ -404,7 +404,9 @@ class ZStack(NetworkInterface):
         def handlePingPong(msg, frm):
             if msg in (self.pingMessage, self.pongMessage):
                 if msg == self.pingMessage:
+                    logger.trace('{} got ping from {}'.format(self, frm))
                     self.send(self.pongMessage, frm)
+                    logger.trace('{} sent pong to {}'.format(self, frm))
                 return True
             return False
 
