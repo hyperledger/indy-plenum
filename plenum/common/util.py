@@ -386,6 +386,10 @@ def getCryptonym(identifier):
         if isHexKey(identifier) else identifier
 
 
+def getFriendlyIdentifier(dest):
+    return hexToFriendly(dest) if isHexKey(dest) else dest
+
+
 def hexToFriendly(hx):
     if isinstance(hx, str):
         hx = hx.encode()
@@ -565,3 +569,22 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
 def createDirIfNotExists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+def isValidEndpoint(endpoint):
+    import ipaddress
+    ip, port = endpoint.split(':')
+    try:
+        ipaddress.ip_address(ip)
+        return port.isdigit()
+    except Exception:
+        return False

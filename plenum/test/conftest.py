@@ -72,7 +72,8 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UpdateGenesisPoolTxnFile': False
+    'UpdateGenesisPoolTxnFile': False,
+    'EnsureLedgerDurability': False
 }
 
 
@@ -416,6 +417,9 @@ def poolTxnData(nodeAndClientInfoFilePath):
 
 @pytest.fixture(scope="module")
 def tdirWithPoolTxns(poolTxnData, tdir, tconf):
+    import getpass
+    logging.debug("current user when creating new pool txn file: {}".
+                  format(getpass.getuser()))
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
                     fileName=tconf.poolTransactionsFile)

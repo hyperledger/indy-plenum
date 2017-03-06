@@ -64,8 +64,9 @@ class PortDispenser:
                         raise
             return ports
 
-    def getNext(self, count: int=1):
-        has = [HA(self.ip, port) for port in self.get(count)]
+    def getNext(self, count: int=1, ip=None):
+        ip = ip or self.ip
+        has = [HA(ip, port) for port in self.get(count)]
         if len(has) == 1:
             return has[0]
         else:

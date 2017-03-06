@@ -1,12 +1,19 @@
 import os
 import random
 import string
+from _signal import SIGINT
 from functools import partial
 from itertools import permutations
 from shutil import copyfile
+from sys import executable
+from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
+
+import itertools
+
+from psutil import Popen
 
 from plenum.common.config_util import getConfig
 from plenum.config import poolTransactionsFile, domainTransactionsFile
@@ -22,7 +29,7 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems
+    checkIfMoreThanFSameItems, checkPortAvailable
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
@@ -521,3 +528,30 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
         copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
                  os.path.join(dirName, tconf.domainTransactionsFile))
 
+
+def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
+    if ensurePortsFreedUp:
+        assert looper, 'Need a looper to make sure ports are freed up'
+    for node in nodes:
+        node.stop()
+    if ensurePortsFreedUp:
+        ports = itertools.chain(*[[n.nodestack.ha[1], n.clientstack.ha[1]]
+                                  for n in nodes])
+
+        def chk():
+            for port in ports:
+                checkPortAvailable(("", port))
+
+        looper.run(eventually(chk, retryWait=.5))
+
+
+def run_script(script, *args):
+    s = os.path.join(os.path.dirname(__file__), '../../scripts/' + script)
+    command = [executable, s]
+    command.extend(args)
+
+    with Popen([executable, s]) as p:
+        sleep(4)
+        p.send_signal(SIGINT)
+        p.wait(timeout=1)
+        assert p.poll() == 0, 'script failed'

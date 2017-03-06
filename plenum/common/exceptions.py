@@ -218,3 +218,15 @@ class NotConnectedToAny(Exception):
 
 class NameAlreadyExists(Exception):
     pass
+
+
+class GraphStorageNotAvailable(Exception):
+    pass
+
+
+class OrientDBNotRunning(GraphStorageNotAvailable):
+    pass
+
+
+class InvalidEndpoint(Exception):
+    pass

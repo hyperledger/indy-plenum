@@ -118,7 +118,7 @@ logFormatStyle='{'
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.1
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.4
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
 CHK_FREQ = 100
@@ -137,7 +137,7 @@ CLIENT_MAX_RETRY_REPLY = 5
 # to True. This option is overwritten by default for tests to keep multiple
 # clients from reading an updated pool transaction file, this helps us
 # emulate clients on different machines.
-UpdateGenesisPoolTxnFile = True
+UpdateGenesisPoolTxnFile = False
 
 
 # Since the ledger is stored in a flat file, this makes the ledger do
@@ -146,3 +146,4 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
+log_override_tags = dict(cli={}, demo={})
