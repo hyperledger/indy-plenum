@@ -86,3 +86,6 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
 
 def expectedNodeStartUpTimeout() -> float:
     return 5
+
+def expectedRequestStashingTime() -> float:
+    return 20
