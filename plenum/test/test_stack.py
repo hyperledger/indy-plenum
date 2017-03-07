@@ -20,7 +20,6 @@ class TestStack(Stack):
                                "TestStack~" + self.name)
 
         self.delay = self.stasher.delay
-        self.declinedJoins = 0
 
     def _serviceStack(self, age):
         super()._serviceStack(age)
