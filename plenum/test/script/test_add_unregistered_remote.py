@@ -32,7 +32,7 @@ def testAddUnregisteredRemote(tdir_for_func):
             loop.run(checkNodesConnected(nodeSet),
                      msgAll(nodeSet))
         for nodeName, node in nodeSet.nodes.items():
-            assert node.nodestack.declinedJoins == 0
+            assert len(node.nodestack.spylog) == 0
 
     name = randomText(20)
     ha = genHa()
@@ -52,4 +52,4 @@ def testAddUnregisteredRemote(tdir_for_func):
                 loop.run(checkNodesConnected(nodeSet), msgAll(nodeSet))
             for nodeName, node in nodeSet.nodes.items():
                 if node.name != unregisteredNode.name:
-                    assert node.nodestack.declinedJoins > 0
+                    assert len(node.nodestack.spylog) > 0

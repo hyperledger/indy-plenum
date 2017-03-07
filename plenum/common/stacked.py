@@ -453,10 +453,13 @@ class KITStack(SimpleStack):
         if tk in [TrnsKind.join]: # join transaction
             sha = (packet.data['sh'],  packet.data['sp'])
             if not self.findInNodeRegByHA(sha):
-                logger.debug('Remote with HA {} not added -> not found in registry'.format(sha))
-                return
+                return self.handleJoinFromUnregisteredRemote(sha)
 
         return super(KITStack, self).processRx(packet)
+
+    def handleJoinFromUnregisteredRemote(self, sha):
+        logger.debug('Remote with HA {} not added -> not found in registry'.format(sha))
+        return None
 
     def connect(self, name, rid: Optional[int]=None) -> Optional[int]:
         """
