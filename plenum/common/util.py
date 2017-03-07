@@ -24,8 +24,11 @@ from ledger.util import F
 from libnacl import crypto_hash_sha256
 from plenum.common.error import error
 from six import iteritems, string_types
+import ipaddress
 
 from plenum.common.exceptions import AddressAlreadyInUse
+from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+    InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -593,17 +596,16 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-def isValidEndpoint(endpoint):
-    import ipaddress
+def check_endpoint_valid(endpoint, required: bool=True):
+    if not endpoint:
+        if required:
+            raise MissingEndpoint()
+        else:
+            return
     ip, port = endpoint.split(':')
     try:
         ipaddress.ip_address(ip)
-        return port.isdigit()
-    except Exception:
-        return False
-
-
-def getFormattedErrorMsg(msg):
-    msgHalfLength = int(len(msg) / 2)
-    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
-    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
+    except Exception as exc:
+        raise InvalidEndpointIpAddress(endpoint) from exc
+    if not (port.isdigit() and int(port) in range(1, 65536)):
+        raise InvalidEndpointPort(endpoint)

@@ -26,6 +26,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
+from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
@@ -256,7 +257,7 @@ class Cli:
         Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
-        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
+        self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
         self._actions = []
 
         if nodeReg:
@@ -345,26 +346,26 @@ class Cli:
                 'node_name': WordCompleter(self.nodeNames),
                 'more_nodes': WordCompleter(self.nodeNames),
                 'helpable': WordCompleter(self.helpablesCommands),
-                'load_plugins': WordCompleter(['load plugins from']),
+                'load_plugins': PhraseWordCompleter('load plugins from'),
                 'client_name': self.clientWC,
                 'second_client_name': self.clientWC,
                 'cli_action': WordCompleter(self.cliActions),
                 'simple': WordCompleter(self.simpleCmds),
-                'add_key': WordCompleter(['add key']),
-                'for_client': WordCompleter(['for client']),
-                'new_key': WordCompleter(['new', 'key']),
-                'new_keyring': WordCompleter(['new', 'keyring']),
-                'rename_keyring': WordCompleter(['rename', 'keyring']),
-                'list_ids': WordCompleter(['list', 'ids']),
-                'list_krs': WordCompleter(['list', 'keyrings']),
+                'add_key': PhraseWordCompleter('add key'),
+                'for_client': PhraseWordCompleter('for client'),
+                'new_key': PhraseWordCompleter('new key'),
+                'new_keyring': PhraseWordCompleter('new keyring'),
+                'rename_keyring': PhraseWordCompleter('rename keyring'),
+                'list_ids': PhraseWordCompleter('list ids'),
+                'list_krs': PhraseWordCompleter('list keyrings'),
                 'become': WordCompleter(['become']),
-                'use_id': WordCompleter(['use', 'identifier']),
-                'use_kr': WordCompleter(['use', 'keyring']),
-                'save_kr': WordCompleter(['save', 'keyring']),
-                'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'use_id': PhraseWordCompleter('use identifier'),
+                'use_kr': PhraseWordCompleter('use keyring'),
+                'save_kr': PhraseWordCompleter('save keyring'),
+                'add_gen_txn': PhraseWordCompleter('add genesis transaction'),
                 'prompt': WordCompleter(['prompt']),
-                'create_gen_txn_file': WordCompleter(
-                    ['create', 'genesis', 'transaction', 'file'])
+                'create_gen_txn_file': PhraseWordCompleter(
+                    'create genesis transaction file')
             }
         return self._completers
 
