@@ -437,13 +437,13 @@ class KITStack(SimpleStack):
         if not self.findInNodeRegByHA(remote.ha):
             logger.debug('Remote {} with HA {} not added -> not found in registry'.format(remote.name, remote.ha))
             return
-        super(KITStack, self).addRemote(remote, dump)
+        return super(KITStack, self).addRemote(remote, dump)
 
     def createRemote(self, ha):
         if ha and not self.findInNodeRegByHA(ha):
             logger.debug('Remote with HA {} not added -> not found in registry'.format(ha))
             return
-        super(KITStack, self).createRemote(ha)
+        return super(KITStack, self).createRemote(ha)
 
     def processRx(self, packet):
         # Override to add check that in case of join new remote is in registry. This is done to avoid creation
