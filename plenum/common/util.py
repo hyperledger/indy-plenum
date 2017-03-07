@@ -26,7 +26,7 @@ from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
 
-from plenum.common.exceptions import InvalidEndpoint, InvalidEndpointMissing, \
+from plenum.common.exceptions import EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
@@ -587,7 +587,7 @@ class Singleton(type):
 def check_endpoint_valid(endpoint, required: bool=True):
     if not endpoint:
         if required:
-            raise InvalidEndpointMissing(endpoint)
+            raise MissingEndpoint()
         else:
             return
     ip, port = endpoint.split(':')
@@ -595,5 +595,5 @@ def check_endpoint_valid(endpoint, required: bool=True):
         ipaddress.ip_address(ip)
     except Exception as exc:
         raise InvalidEndpointIpAddress(endpoint) from exc
-    if not port.isdigit():
+    if not (port.isdigit() and int(port) in range(1, 65536)):
         raise InvalidEndpointPort(endpoint)
