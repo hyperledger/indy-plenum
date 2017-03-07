@@ -2,12 +2,13 @@ from typing import Any, Optional, NamedTuple
 
 from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.log import getlogger
-from plenum.common.stacked import Stack
+from plenum.common.stacked import Stack, KITStack
 from plenum.common.types import HA
 from plenum.test.exceptions import NotFullyConnected
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.stasher import Stasher
 from plenum.test.waits import expectedWait
+from raet.raeting import TrnsKind
 
 
 logger = getlogger()
@@ -20,6 +21,7 @@ class TestStack(Stack):
                                "TestStack~" + self.name)
 
         self.delay = self.stasher.delay
+        self.declinedJoins = 0
 
     def _serviceStack(self, age):
         super()._serviceStack(age)
@@ -27,6 +29,26 @@ class TestStack(Stack):
 
     def resetDelays(self):
         self.stasher.resetDelays()
+
+
+class TestKITStack(KITStack):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.declinedJoins = 0
+
+    def processRx(self, packet):
+        # Override to add check that in case of join new remote is in registry. This is done to avoid creation
+        # of unnecessary JSON files for remotes
+        tk = packet.data['tk']
+
+        if tk in [TrnsKind.join]:  # join transaction
+            sha = (packet.data['sh'], packet.data['sp'])
+            if not super().findInNodeRegByHA(sha):
+                logger.debug('Remote with HA {} not found in registry'.format(sha))
+                self.declinedJoins += 1
+                return
+
+        return super().processRx(packet)
 
 
 class StackedTester:
@@ -72,6 +94,8 @@ def getTestableStack(stack: Stack):
     for c in mro[1:]:
         if c == Stack:
             newMro.append(TestStack)
+        if c == KITStack:
+            newMro.append(TestKITStack)
         newMro.append(c)
     return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
 

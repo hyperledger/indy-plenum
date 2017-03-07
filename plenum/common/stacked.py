@@ -6,7 +6,7 @@ from typing import Any, Set, Optional, List, Iterable
 from typing import Dict
 from typing import Tuple
 
-from raet.raeting import AutoMode
+from raet.raeting import AutoMode, TrnsKind
 from raet.road.estating import RemoteEstate
 from raet.road.keeping import RoadKeep
 from raet.road.stacking import RoadStack
@@ -398,8 +398,9 @@ class KITStack(SimpleStack):
     # its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], sighex: str=None):
-        super().__init__(stackParams, msgHandler, sighex)
         self.registry = registry
+
+        super().__init__(stackParams, msgHandler, sighex)
         # self.bootstrapped = False
 
         self.lastcheck = {}  # type: Dict[int, Tuple[int, float]]
@@ -431,6 +432,31 @@ class KITStack(SimpleStack):
         """
         self.checkConns()
         self.maintainConnections()
+
+    def addRemote(self, remote, dump=False):
+        if not self.findInNodeRegByHA(remote.ha):
+            logger.debug('Remote {} with HA {} not added -> not found in registry'.format(remote.name, remote.ha))
+            return
+        super(KITStack, self).addRemote(remote, dump)
+
+    def createRemote(self, ha):
+        if ha and not self.findInNodeRegByHA(ha):
+            logger.debug('Remote with HA {} not added -> not found in registry'.format(ha))
+            return
+        super(KITStack, self).createRemote(ha)
+
+    def processRx(self, packet):
+        # Override to add check that in case of join new remote is in registry. This is done to avoid creation
+        # of unnecessary JSON files for remotes
+        tk = packet.data['tk']
+
+        if tk in [TrnsKind.join]: # join transaction
+            sha = (packet.data['sh'],  packet.data['sp'])
+            if not self.findInNodeRegByHA(sha):
+                logger.debug('Remote with HA {} not added -> not found in registry'.format(sha))
+                return
+
+        return super(KITStack, self).processRx(packet)
 
     def connect(self, name, rid: Optional[int]=None) -> Optional[int]:
         """
