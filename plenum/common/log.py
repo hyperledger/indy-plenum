@@ -152,9 +152,10 @@ class Logger(metaclass=Singleton):
 
     def enableStdLogging(self):
         # only enable if CLI is not
-        if 'cli' in self._handlers:
-            raise RuntimeError('cannot configure STD logging '
-                               'when CLI logging is enabled')
+        # DONT COMMIT
+        # if 'cli' in self._handlers:
+        #     raise RuntimeError('cannot configure STD logging '
+        #                        'when CLI logging is enabled')
         new = logging.StreamHandler(sys.stdout)
         self._setHandler('std', new)
 

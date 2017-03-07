@@ -482,7 +482,7 @@ class ZStack(NetworkInterface):
 
         logger.info("{} looking for {} at {}:{}".
                     format(self, name or remote.name, *remote.ha),
-                    extra={"cli": "PLAIN"})
+                    extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
         # This should be scheduled as an async task
         r = self.send(self.pingMessage, remote.name)
@@ -911,7 +911,7 @@ class NodeZStack(Batched, KITZStack):
         KITZStack.start(self, restricted=restricted, reSetupAuth=reSetupAuth)
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
-                    extra={"cli": "LOW_STATUS"})
+                    extra={"tags": ["node-listening"]})
 
     # TODO: Members below are just for the time till RAET replacement is
     # complete, they need to be removed then.
