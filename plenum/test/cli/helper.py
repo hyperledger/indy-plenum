@@ -134,10 +134,11 @@ class TestCliCore:
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        new = logging.StreamHandler(sys.stdout)
-        self._setHandler('std', new)
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     new = logging.StreamHandler(sys.stdout)
+    #     self._setHandler('std', new)
+    pass
 
 
 def isErrorToken(token: Token):
