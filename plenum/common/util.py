@@ -28,11 +28,7 @@ from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
 
-<<<<<<< HEAD
-from plenum.common.exceptions import AddressAlreadyInUse
-=======
 from plenum.common.exceptions import PortNotAvailable
->>>>>>> 88033fc... refactored existing helper method to be usable in other places, modified checkPortAvailable to throw approprite exceptions
 from plenum.common.exceptions import EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
@@ -272,19 +268,7 @@ def checkPortAvailable(ha):
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        print("########### check for pa: {}".format(ha))
         sock.bind(ha)
-<<<<<<< HEAD
-    except OSError as oe:
-        if oe.args[0] == 98:
-            msg = "Checked port availability for opening and address " \
-              "was already in use: {}".format(ha)
-            logErrorAndRaise(AddressAlreadyInUse(msg), msg)
-        else:
-            logErrorAndRaise(oe)
-    except BaseException as ex:
-        logErrorAndRaise(ex)
-=======
     except OSError as exc:
         if exc.args[0] == SOCKET_BIND_ERROR_ALREADY_IN_USE:
             raise PortNotAvailable(ha)
@@ -292,7 +276,6 @@ def checkPortAvailable(ha):
             raise exc
     except BaseException as exc:
         raise exc
->>>>>>> 88033fc... refactored existing helper method to be usable in other places, modified checkPortAvailable to throw approprite exceptions
     finally:
         sock.close()
 
