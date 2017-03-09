@@ -262,12 +262,6 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
 
 def checkPortAvailable(ha):
     """Checks whether the given port is available"""
-    def logErrorAndRaise(e, msg=None):
-        erroMsg = msg or "Checked port availability for opening and address, " \
-              "got error: {}".format(str(e))
-        logging.warning(erroMsg)
-        raise e
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
@@ -611,3 +605,9 @@ def check_endpoint_valid(endpoint, required: bool=True):
         raise InvalidEndpointIpAddress(endpoint) from exc
     if not (port.isdigit() and int(port) in range(1, 65536)):
         raise InvalidEndpointPort(endpoint)
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
