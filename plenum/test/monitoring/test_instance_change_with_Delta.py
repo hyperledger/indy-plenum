@@ -51,7 +51,7 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
         return cur
 
     perfCheckFreq = max(n.perfCheckFreq for n in nodes)
-
+    # TODO[slow-factor]: add ???
     newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
                                           retryWait=1,
                                           timeout=perfCheckFreq + 1))

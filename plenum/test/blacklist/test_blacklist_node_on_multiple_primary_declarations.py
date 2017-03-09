@@ -29,4 +29,5 @@ def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
+    # TODO[slow-factor]: add expectedNominationTimeout
     looper.run(eventually(chk, retryWait=1, timeout=3))

@@ -31,6 +31,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     req = propagated1.reqDigest
     primary.doPrePrepare(req)
     for np in nonPrimaryReplicas:
+        # TODO[slow-factor]: add expectedPrePrepareTime
         looper.run(
                 eventually(checkPreprepare, np, primary.viewNo,
                            primary.lastPrePrepareSeqNo - 1, req, 1,
@@ -42,5 +43,6 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
                                         primary.lastPrePrepareSeqNo + 2,
                                         *newReqDigest,
                                         time.time())
-    primary.send(incorrectPrePrepareReq,TPCStat.PrePrepareSent)
+    primary.send(incorrectPrePrepareReq, TPCStat.PrePrepareSent)
+    # TODO[slow-factor]: add ???
     looper.run(eventually(chk, retryWait=1, timeout=50))

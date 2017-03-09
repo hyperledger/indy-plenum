@@ -72,6 +72,7 @@ class AccountApp(App):
                                                 requests=[req], fVal=1)
         else:
             for node in nodes:
+                # TODO[slow-factor]: add expectedReqNAckQuorumTime
                 self.looper.run(eventually(checkReqNack, self.client, node,
                                            req.identifier, req.reqId, None,
                                            retryWait=1, timeout=5))

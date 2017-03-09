@@ -27,6 +27,7 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         # A should have sent a PROPAGATE
         assert len(sentPropagate(A)) == 1
 
+    # TODO[slow-factor]: add ???
     looper.run(eventually(x, retryWait=.5, timeout=3))
 
     def y():
@@ -39,4 +40,5 @@ def testPropagateRecvdAfterRequest(setup, looper, nodeSet, up, sent1):
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
+    # TODO[slow-factor]: add ???
     looper.run(eventually(y, retryWait=.5, timeout=7))

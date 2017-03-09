@@ -56,6 +56,7 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
                 assert node.replicas[2].isPrimary
 
     # Check if the primary is on the correct node
+    # TODO[slow-factor]: add expectedElectionTimeout
     looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=10))
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary

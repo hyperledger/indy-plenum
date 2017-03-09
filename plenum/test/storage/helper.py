@@ -12,4 +12,5 @@ def checkReplyIsPersisted(nodes, lpr, reply1):
         assert result.get(TXN_TYPE) == reply1.operation.get(TXN_TYPE)
 
     for node in nodes:
+        # TODO[slow-factor]: add expectedPoolLedgerCheck
         lpr.run(eventually(chk, node, retryWait=1, timeout=5))

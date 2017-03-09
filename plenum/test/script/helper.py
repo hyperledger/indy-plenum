@@ -96,6 +96,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
+    # TODO[slow-factor]: add expectedPoolLedgerCheck
     looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
                           stewardClient, anotherClient, retryWait=1,
                           timeout=10))

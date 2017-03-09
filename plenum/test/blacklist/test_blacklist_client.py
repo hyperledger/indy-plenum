@@ -21,4 +21,5 @@ def testDoNotBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
         for node in nodeSet:
             assert not node.isClientBlacklisted(client1.name)
 
+    # TODO[slow-factor]: add expectedClientConnectionTimeout
     looper.run(eventually(chk, retryWait=1, timeout=3))

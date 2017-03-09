@@ -59,6 +59,7 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
             assert node.monitor.highResThroughput == 0
             assert node.monitor.totalRequests == reqCount
 
+    # TODO[slow-factor]: add config.ThroughputWindowSize
     looper.run(eventually(chk, retryWait=1, timeout=10))
 
 
@@ -105,4 +106,5 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
             assert node.monitor.masterLatency == 0
             assert node.monitor.avgBackupLatency == 0
 
+    # TODO[slow-factor]: add config.LatencyWindowSize
     looper.run(eventually(chk, retryWait=1, timeout=10))

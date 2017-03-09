@@ -43,7 +43,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                             assert result
                         else:
                             assert result is None
-
+            # TODO[slow-factor]: add expectedOrderingTime
             looper.run(eventually(chk, timeout=3))
 
 
@@ -78,6 +78,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
             req = sendRandomRequest(wallet1, client1)
 
             # All nodes including B should return their ordered requests
+            # TODO[slow-factor]: add ???
             for node in nodeSet:
                 looper.run(eventually(checkRequestReturnedToNode, node,
                                       wallet1.defaultId, req.reqId,
@@ -122,6 +123,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 node = nodeSet.getNode(nodeNames[i])
                 # Nodes A, B and C should have received PROPAGATE request
                 # from Node D
+                # TODO[slow-factor]: add expectedClientRequestPropagationTime
                 looper.run(
                     eventually(checkIfPropagateRecvdFromNode, node, nodeD,
                                request.identifier,
@@ -132,6 +134,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                         PrePrepare)) == 1
 
+            # TODO[slow-factor]: add expectedPrePrepareTime
             looper.run(eventually(assertOnePrePrepare, retryWait=1, timeout=10))
 
             # Node D should have 2 pending PREPARE requests(from node B and C)
@@ -140,6 +143,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                         Prepare)) == 2
 
+            # TODO[slow-factor]: add expectedPrePrepareTime
             looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=10))
 
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT

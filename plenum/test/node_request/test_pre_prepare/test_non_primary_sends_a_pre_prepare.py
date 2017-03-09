@@ -62,6 +62,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1
 
+    # TODO[slow-factor]: add expectedClientRequestPropagationTime
     looper.run(eventually(chk,
                           retryWait=.5, timeout=5))
 

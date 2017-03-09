@@ -18,6 +18,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
+    # TODO[slow-factor]: add expectedViewChangeTime
     looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
                           'less than its view no', nodeSet.Alpha, timeout=5))
 

@@ -57,4 +57,5 @@ def testOneNodeAltersAClientRequest(looper,
             for good in goodNodes:
                 assert good.name in props
 
+    # TODO[slow-factor]: add expectedClientRequestPropagationTime
     looper.run(eventually(check, retryWait=1, timeout=10))

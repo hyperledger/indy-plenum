@@ -192,13 +192,14 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
 
     def chk():
         assert not C.nodestack.isKeySharing
-
-    looper.run(eventually(chk, retryWait=2, timeout=22))
+    # TODO[slow-factor]: add expectedPoolGetReadyTimeout
+    looper.run(eventually(chk, retryWait=2, timeout=21))
     stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
+    # TODO[slow-factor]: add expectedNodeInterconnectionTime
     looper.run(eventually(chk, retryWait=2, timeout=5))
     stopNodes([A, B], looper)

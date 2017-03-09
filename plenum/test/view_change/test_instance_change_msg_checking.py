@@ -21,4 +21,5 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
         assert isinstance(params['msg'], InstanceChange)
         assert DISCARD_REASON in params['reason']
 
+    # TODO[slow-factor]: add expectedNodeToNodeMessageDeliveryTime
     looper.run(eventually(chk, timeout=5))

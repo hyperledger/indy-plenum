@@ -32,6 +32,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
     request1 = sendRandomRequest(wallet1, client1)
+    # TODO[slow-factor]: add expectedReqAckQuorumTime
     result1 = looper.run(
         eventually(checkSufficientRepliesReceived, client1.inBox,
                    request1.reqId, fValue,
@@ -44,6 +45,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         "one...")
     primaryRepl.lastPrePrepareSeqNo -= 1
     request2 = sendRandomRequest(wallet1, client1)
+    # TODO[slow-factor]: add expectedPrePrepareTime
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=10))
 
@@ -61,6 +63,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     logger.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
+    # TODO[slow-factor]: add expectedPrePrepareTime
     looper.run(eventually(checkPrePrepareReqRecvd,
                           nonPrimaryReplicas,
                           prePrepareReq,
@@ -71,6 +74,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                              in response to the pre-prepare message""")
     for npr in nonPrimaryReplicas:
         with pytest.raises(AssertionError):
+            # TODO[slow-factor]: add expectedPrePrepareTime
             looper.run(eventually(checkPrepareReqSent,
                                   npr,
                                   wallet1.defaultId,
