@@ -407,12 +407,13 @@ def nodeAndClientInfoFilePath(dirName):
 
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
-    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
-    for txn in data["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            txn[DATA][NODE_PORT] = genHa()[1]
-            txn[DATA][CLIENT_PORT] = genHa()[1]
-    return data
+    with open(nodeAndClientInfoFilePath) as f:
+        data = json.loads(f.read().strip())
+        for txn in data["txns"]:
+            if txn[TXN_TYPE] == NODE:
+                txn[DATA][NODE_PORT] = genHa()[1]
+                txn[DATA][CLIENT_PORT] = genHa()[1]
+        return data
 
 
 @pytest.fixture(scope="module")

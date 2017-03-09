@@ -131,14 +131,18 @@ async def eventually(coroFunc: FlexFunc,
                                extra={"cli": False})
             # noinspection PyCallingNonCallable
             res = coroFunc(*args)
+
             if isawaitable(res):
-                res = await res
+                result = await res
+            else:
+                result = res
+
             if verbose:
                 recordSuccess(fname, timeout, timeout*slowFactor, remain)
 
                 logger.debug("{} succeeded with {:.2f} seconds to spare".
                              format(fname, remain))
-            return res
+            return result
         except Exception as ex:
             if acceptableExceptions and type(ex) not in acceptableExceptions:
                 raise
