@@ -14,7 +14,11 @@ from plenum.test.cli.HelpMsg import helpMsg, simpleHelpMsg, \
     licenseHelpMsg, statusHelpMsg, exitHelpMsg, quitHelpMsg, listHelpMsg, \
     newNodeHelpMsg, newClientHelpMsg, statusNodeHelpMsg, statusClientHelpMsg, \
     keyShareHelpMsg, loadPlugingDirHelpMsg, clientSendMsgHelpMsg, \
+<<<<<<< HEAD
     clientCommandMsgHelpMsg, clientShowMsgHelpMsg, addKeyHelpMsg, newKeyHelpMsg, \
+=======
+    clientShowMsgHelpMsg, newKeyHelpMsg, \
+>>>>>>> master
     listIdsHelpMsg, useIdHelpMsg, addGenesisTxnHelpMsg, \
     createGenesisTxnFileHelpMsg, changePromptHelpMsg, newKeyringHelpMsg, \
     renameKeyringHelpMsg, useKeyringHelpMsg, saveKeyringHelpMsg, \
@@ -601,10 +605,17 @@ class Cli:
         helpMsgMappings['statusClientAction'] = statusClientHelpMsg
         helpMsgMappings['keyShareAction'] = keyShareHelpMsg
         helpMsgMappings['loadPluginDirAction'] = loadPlugingDirHelpMsg
+<<<<<<< HEAD
         helpMsgMappings['clientCommand'] = clientCommandMsgHelpMsg
         helpMsgMappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
         helpMsgMappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
         helpMsgMappings['addKeyAction'] = addKeyHelpMsg
+=======
+        helpMsgMappings['clientCommand'] = None
+        helpMsgMappings['clientSendMsgCommand'] = clientSendMsgHelpMsg
+        helpMsgMappings['clientShowMsgCommand'] = clientShowMsgHelpMsg
+        helpMsgMappings['addKeyAction'] = None
+>>>>>>> master
         helpMsgMappings['newKeyAction'] = newKeyHelpMsg
         helpMsgMappings['newKeyring'] = newKeyringHelpMsg
         helpMsgMappings['renameKeyring'] = renameKeyringHelpMsg
@@ -621,6 +632,19 @@ class Cli:
 
         return helpMsgMappings
 
+<<<<<<< HEAD
+=======
+    def getBasicHelpMsgs(self):
+        basicMsgKeys = ["helpAction","statusAction","licenseAction",
+                        "listAction", "exitAction", "quitAction"]
+        basicMsgs = []
+        for k, helpMsg in self.helpMsgs().items():
+            if helpMsg:
+                if k in basicMsgKeys:
+                    basicMsgs.append(helpMsg)
+        return basicMsgs
+
+>>>>>>> master
     def getOrderedHelpMsgs(self):
         topHelpMsgsKeys = ['helpAction']
         bottomHelpMsgsKeys = ['exitAction', 'quitAction']
@@ -640,6 +664,7 @@ class Cli:
 
         return topMsgs + middleMsgs + bottomMsgs
 
+<<<<<<< HEAD
     def printHelp(self):
         helpMsgStr = "{}-CLI, a simple command-line interface for a {} sandbox." \
                   "\n   Commands:".format(self.properName, self.fullName)
@@ -648,6 +673,29 @@ class Cli:
             helpMsgStr += "\n       {} - {}".format(helpMsg.id, helpMsg.msg)
 
         self.print(helpMsgStr)
+=======
+    def _printGivenHelpMsgs(self, helpMsgs, printHeader=True,
+                            showUsageFor=[]):
+        helpMsgStr = ""
+        if printHeader:
+            helpMsgStr += "{}-CLI, a simple command-line interface for a {}.".\
+                format(self.properName, self.fullName)
+
+        helpMsgStr += "\n   Commands:"
+        for helpMsg in helpMsgs:
+            helpMsgLines = helpMsg.msg.split("\n")
+            helpMsgFormattedLine = "\n         ".join(helpMsgLines)
+            helpMsgStr += "\n       {} - {}".format(helpMsg.id,
+                                                    helpMsgFormattedLine)
+            if helpMsg.id in showUsageFor:
+                helpMsgStr += "\n         Usage:\n            {}".\
+                    format(helpMsg.syntax)
+
+        self.print(helpMsgStr)
+
+    def printHelp(self):
+        self._printGivenHelpMsgs(self.getBasicHelpMsgs(), showUsageFor=["help"])
+>>>>>>> master
 
     @staticmethod
     def joinTokens(tokens, separator=None, begin=None, end=None):
@@ -944,7 +992,7 @@ class Cli:
         return clientName in self.clients
 
     def printMsgForUnknownClient(self):
-        self.print("No such client. See: 'help new' for more details")
+        self.print("No such client. See: 'help new client' for more details")
 
     def printMsgForUnknownWallet(self, walletName):
         self.print("No such wallet {}.".format(walletName))
@@ -973,7 +1021,7 @@ class Cli:
         elif not client:
             self.printMsgForUnknownClient()
         else:
-            self.print("No such request. See: 'help new' for more details")
+            self.print("No such request. See: 'help client send' for more details")
 
     def showDetails(self, clientName, identifier, reqId):
         client = self.clients.get(clientName, None)
@@ -1050,6 +1098,10 @@ class Cli:
                 if matchedHelpMsgs:
                     self.print(str(matchedHelpMsgs[0]))
                 else:
+<<<<<<< HEAD
+=======
+                    self.print("No such command found: {}\nExecute 'list' to see all available commands\n".format(helpable))
+>>>>>>> master
                     self.printHelp()
             else:
                 self.printHelp()
@@ -1057,8 +1109,12 @@ class Cli:
 
     def _listAction(self, matchedVars):
         if matchedVars.get('command') == 'list':
+<<<<<<< HEAD
             for helpMsg in self.getOrderedHelpMsgs():
                 print("{}".format(helpMsg.id))
+=======
+            self._printGivenHelpMsgs(self.getOrderedHelpMsgs(), printHeader=False)
+>>>>>>> master
             return True
 
     def _newNodeAction(self, matchedVars):
@@ -1722,9 +1778,7 @@ class Cli:
 
     @property
     def getActiveEnv(self):
-        prompt, env = Cli.getPromptAndEnv(self.name,
-                            self.currPromptText)
-        return env
+        return None
 
     def updateEnvNameInWallet(self):
         pass
