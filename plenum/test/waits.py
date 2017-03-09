@@ -41,7 +41,7 @@ def expectedCatchupTime(customConsistencyProofsTimeout = None) -> float:
 
 def expectedAgentCommunicationTime() -> float:
     # TODO: implement
-    pass
+    raise NotImplementedError()
 
 
 def expectedClientRequestPropagationTime(nodeCount) -> float:
@@ -50,9 +50,19 @@ def expectedClientRequestPropagationTime(nodeCount) -> float:
     return int(2.5 * nodeCount)
 
 
+def expectedPrePrepareTime(nodeCount) -> float:
+    # TODO: move 1.4 to config
+    # Also what if we have own config for tests?
+    return int(2.5 * nodeCount)
+
+
 def expectedReqAckQuorumTime(nodeCount) -> float:
     # CLIENT_REQACK_TIMEOUT
-    return int(1.25 * nodeCount)
+    return 5
+
+
+def expectedReqNAckQuorumTime(nodeCount) -> float:
+    return 5
 
 
 def expectedViewChangeTime(nodeCount) -> float:
