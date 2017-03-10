@@ -250,3 +250,8 @@ class InvalidEndpointPort(EndpointException):
 class PortNotAvailable(Exception):
     def __init__(self, port):
         super().__init__("port not available: {}".format(port))
+
+
+class OperationError(Exception):
+    def __init__(self, error):
+        super().__init__("error occurred during operation: {}".format(error))
