@@ -270,8 +270,6 @@ def checkPortAvailable(ha):
             raise PortNotAvailable(ha)
         else:
             raise exc
-    except BaseException as exc:
-        raise exc
     finally:
         sock.close()
 
