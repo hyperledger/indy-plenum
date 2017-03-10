@@ -6,6 +6,10 @@ from tempfile import gettempdir, mkdtemp
 
 import time
 
+import logging
+
+import sys
+
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
@@ -130,6 +134,10 @@ class TestCliCore:
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     new = logging.StreamHandler(sys.stdout)
+    #     self._setHandler('std', new)
     pass
 
 
@@ -317,7 +325,6 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     assert needle in cli.lastCmdOutput
     return pubKey
-
 
 
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
