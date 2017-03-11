@@ -211,7 +211,7 @@ class TestNetworkSetup:
 
         parser.add_argument('--appendToLedgers',
                             help="Determine if ledger files needs to be erased "
-                                 "before writting new information or not.",
+                                 "before writing new information or not.",
                             action='store_true')
 
         args = parser.parse_args()

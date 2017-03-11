@@ -9,12 +9,15 @@ import sys
 from typing import Set
 
 import time
+
+import asyncio
 import zmq
 import zmq.asyncio
 import zmq.auth
 # TODO: Dont use `raet.nacling` as raet needs to be pulled out.
 from raet.nacling import Signer, Verifier
 from zmq.utils import z85
+from zmq.utils.monitor import recv_monitor_message
 
 from plenum.common.authenticator import AsyncioAuthenticator, \
     MyThreadAuthenticator, MyAuthenticator
@@ -24,6 +27,7 @@ from plenum.common.network_interface import NetworkInterface
 from plenum.common.ratchet import Ratchet
 from plenum.common.txn import BATCH
 from plenum.common.types import HA, OP_FIELD_NAME, f
+from plenum.common.util import randomString
 from plenum.common.z_util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations
 
@@ -52,6 +56,11 @@ class Remote:
         # self.verKey is the verification key of the other end of the remote
         self.verKey = verKey
         self.socket = None
+        # TODO: A stack should have a monitor and it should identify remote
+        # by endpoint
+        # Helps to see if socket got disconnected
+        self.monitorSock = None
+
         self.isConnected = False
         # Currently keeping uid field to resemble RAET RemoteEstate
         self.uid = name
@@ -67,18 +76,31 @@ class Remote:
         sock.curve_secretkey = localSecKey
         sock.curve_serverkey = self.publicKey
         sock.identity = localPubKey
+        sock.setsockopt(zmq.PROBE_ROUTER, 1)
+
+        monitorLoc = 'inproc://monitor.{}{}'.format(self.uid, randomString(10))
+        monitorSock = context.socket(zmq.PAIR)
+        monitorSock.connect(monitorLoc)
+        monitorSock.linger = 0
+        sock.monitor(monitorLoc, zmq.EVENT_ALL)
+
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
         self.socket = sock
+        self.monitorSock = monitorSock
 
     def disconnect(self):
+        if self.monitorSock:
+            self.monitorSock.close()
+            self.monitorSock = None
+
         if self.socket:
             self.socket.close()
             self.socket = None
-            self.isConnected = False
         else:
             logger.debug('{} close was closed on a null socket, maybe close is '
                          'being called twice.'.format(self))
+        self.isConnected = False
 
 
 # TODO: Use Async io
@@ -92,8 +114,8 @@ class ZStack(NetworkInterface):
     SigKeyDirName = 'sig_keys'
 
     sigLen = 64
-    pingMessage = '\n'
-    pongMessage = '\r'
+    pingMessage = 'pi'
+    pongMessage = 'po'
 
     # TODO: This is not implemented, implement this
     messageTimeout = 3
@@ -251,7 +273,9 @@ class ZStack(NetworkInterface):
         return self.listener is not None
 
     def open(self):
+        # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
+        # noinspection PyUnresolvedReferences
         self.listener.setsockopt(zmq.LINGER, LINGER_TIME)
         # self.poller.register(self.listener, zmq.POLLIN)
         public, secret = self.selfEncKeys
@@ -259,10 +283,14 @@ class ZStack(NetworkInterface):
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
+        logger.debug('{} will bind its listener at {}'.format(self, self.ha[1]))
+        self.listener.setsockopt(zmq.ROUTER_MANDATORY, 1)
+        self.listener.setsockopt(zmq.PROBE_ROUTER, 1)
         self.listener.bind(
             'tcp://*:{}'.format(self.ha[1]))
 
     def close(self):
+        self.listener.unbind(self.listener.LAST_ENDPOINT)
         self.listener.close()
         self.listener = None
         for r in self.remotes.values():
@@ -372,41 +400,68 @@ class ZStack(NetworkInterface):
         # stack always busy in receiving messages and never getting time to
         # complete processing fo messages.
         # TODO: Optimize this
+        i = 0
         while True:
             try:
                 # ident, msg = await self.listener.recv_multipart(
                 #     flags=zmq.NOBLOCK)
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
+                if not msg:
+                    # Router probing sends empty message on connection
+                    continue
                 if self.onlyListener and ident not in self.remotesByKeys:
                     self.peersWithoutRemotes.add(ident)
-
+                i += 1
                 verifyAndAppend(msg, ident)
             except zmq.Again:
+                if i > 0:
+                    logger.trace('{} got {} messages through listener'.
+                                 format(self, i))
                 break
 
         for ident, remote in self.remotesByKeys.items():
             if not remote.socket:
                 continue
+
+            if self.shouldReconnect(remote):
+                self.reconnectRemote(remote)
+                # This connect wont be done immediately so service this socket
+                # sometime later
+                continue
+
             sock = remote.socket
+
+            i = 0
             while True:
                 try:
                     # ident, msg = await sock.recv(flags=zmq.NOBLOCK)
                     # msg = sock.recv(flags=zmq.NOBLOCK)
                     msg, = sock.recv_multipart(flags=zmq.NOBLOCK)
+                    if not msg:
+                        # Router probing sends empty message on connection
+                        continue
+                    i += 1
                     verifyAndAppend(msg, ident)
                 except zmq.Again:
+                    if i > 0:
+                        logger.trace('{} got {} messages through remote {}'.
+                                     format(self, i, remote))
                     break
 
         return len(self.rxMsgs)
 
     def processReceived(self, limit):
 
-        def handlePingPong(msg, frm):
+        def handlePingPong(msg, frm, ident):
             if msg in (self.pingMessage, self.pongMessage):
                 if msg == self.pingMessage:
                     logger.trace('{} got ping from {}'.format(self, frm))
                     self.send(self.pongMessage, frm)
                     logger.trace('{} sent pong to {}'.format(self, frm))
+                if msg == self.pongMessage:
+                    if ident in self.remotesByKeys:
+                        self.remotesByKeys[ident].isConnected = True
+                    logger.trace('{} got pong from {}'.format(self, frm))
                 return True
             return False
 
@@ -414,13 +469,11 @@ class ZStack(NetworkInterface):
             for x in range(limit):
                 try:
                     msg, ident = self.rxMsgs.popleft()
-                    if ident in self.remotesByKeys:
-                        self.remotesByKeys[ident].isConnected = True
 
                     frm = self.remotesByKeys[ident].name \
                         if ident in self.remotesByKeys else ident
 
-                    r = handlePingPong(msg, frm)
+                    r = handlePingPong(msg, frm, ident)
                     if r:
                         continue
 
@@ -436,7 +489,7 @@ class ZStack(NetworkInterface):
                         if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
                             relevantMsgs = []
                             for m in msg[f.MSGS.nm]:
-                                r = handlePingPong(m, frm)
+                                r = handlePingPong(m, frm, ident)
                                 if not r:
                                     relevantMsgs.append(m)
 
@@ -485,17 +538,50 @@ class ZStack(NetworkInterface):
                     extra={"cli": "PLAIN", "tags": ["node-looking"]})
 
         # This should be scheduled as an async task
-        r = self.send(self.pingMessage, remote.name)
-        if r:
-            logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
-                                                     self.ha))
-        else:
-            # TODO: This fails the first time as socket is not established,
-            # need to make it retriable
-            logger.warn('{} failed to ping {} at {}'.
-                        format(self.name, remote.name, remote.ha),
-                        extra={"cli": False})
+        self.sendPing(remote)
         return remote.uid
+
+    def shouldReconnect(self, remote):
+        monitor = remote.monitorSock
+        events = []
+        while True:
+            try:
+                # noinspection PyUnresolvedReferences
+                m = recv_monitor_message(monitor, flags=zmq.NOBLOCK)
+                events.append(m['event'])
+            except zmq.Again:
+                break
+
+        if events:
+            logger.trace('{} has monitor events for remote {}: {}'.
+                         format(self, remote, events))
+        # noinspection PyUnresolvedReferences
+        if zmq.EVENT_DISCONNECTED in events:
+            logger.debug('{} found disconnected event on monitor of remote'
+                         ' {}'.format(self, remote))
+            events.reverse()
+            # noinspection PyUnresolvedReferences
+            d = events.index(zmq.EVENT_DISCONNECTED)
+            # noinspection PyUnresolvedReferences
+            c = events.index(
+                zmq.EVENT_CONNECTED) if zmq.EVENT_CONNECTED in events else sys.maxsize
+            # noinspection PyUnresolvedReferences
+            p = events.index(
+                zmq.EVENT_CONNECT_DELAYED) if zmq.EVENT_CONNECT_DELAYED in events else sys.maxsize
+            if d < c and d < p:
+                # If no connected event
+                return True
+        return False
+
+    def reconnectRemote(self, remote):
+        logger.debug('{} reconnecting to {}'.format(self, remote))
+        public, secret = self.selfEncKeys
+        remote.disconnect()
+        remote.connect(self.ctx, public, secret)
+        # from threading import Timer
+        # r = Timer(0.5, self.sendPing, (remote, ))
+        # r.start()
+        self.sendPing(remote)
 
     def addRemote(self, name, ha, remoteVerkey, remotePublicKey):
         remote = Remote(name, ha, remoteVerkey, remotePublicKey)
@@ -523,6 +609,18 @@ class ZStack(NetworkInterface):
         else:
             logger.warn('No remote named {} present')
 
+    def sendPing(self, remote):
+        r = self.send(self.pingMessage, remote.name)
+        if r:
+            logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
+                                                     self.ha))
+        else:
+            # TODO: This fails the first time as socket is not established,
+            # need to make it retriable
+            logger.warn('{} failed to ping {} at {}'.
+                        format(self.name, remote.name, remote.ha),
+                        extra={"cli": False})
+
     def send(self, msg, remote: str = None):
         if self.onlyListener:
             self.transmitThroughListener(msg, remote)
@@ -539,13 +637,20 @@ class ZStack(NetworkInterface):
         # Timeout is unused as of now
         assert uid in self.remotes
         socket = self.remotes[uid].socket
-
-        msg = self.prepMsg(msg)
-        try:
-            socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
-            return True
-        except zmq.Again:
-            return False
+        if socket:
+            msg = self.prepMsg(msg)
+            try:
+                # noinspection PyUnresolvedReferences
+                socket.send(self.signedMsg(msg), flags=zmq.NOBLOCK)
+                logger.debug(
+                    '{} transmitted message {} to {}'.format(self, msg, uid))
+                return True
+            except zmq.Again as ex:
+                logger.debug('{} could not transmit message to {}'.format(self, uid))
+                return False
+        else:
+            logger.warn('{} has uninitialised socket for remote {}'.
+                        format(self, self.remotes[uid]))
 
     def transmitThroughListener(self, msg, ident):
         if isinstance(ident, str):
@@ -558,8 +663,9 @@ class ZStack(NetworkInterface):
             return
         msg = self.prepMsg(msg)
         try:
+            # noinspection PyUnresolvedReferences
             self.listener.send_multipart([ident, self.signedMsg(msg)],
-                                             flags=zmq.NOBLOCK)
+                                         flags=zmq.NOBLOCK)
             return True
         except zmq.Again:
             return False
@@ -795,12 +901,18 @@ class KITZStack(SimpleZStack):
         if cur > self.nextCheck or force:
 
             self.nextCheck = cur + (6 if self.isKeySharing else 15)
-            self.connectToMissing()
-
+            missing = self.connectToMissing()
+            self.retryDisconnected(exclude=missing)
             logger.debug("{} next check for retries in {:.2f} seconds".
                          format(self, self.nextCheck - cur))
             return True
         return False
+
+    def retryDisconnected(self, exclude=None):
+        exclude = exclude or {}
+        for r in self.remotes.values():
+            if r.name not in exclude and not r.isConnected:
+                self.reconnectRemote(r)
 
     def connectToMissing(self):
         """
@@ -811,13 +923,13 @@ class KITZStack(SimpleZStack):
         if missing:
             logger.debug("{} found the following missing connections: {}".
                          format(self, ", ".join(missing)))
-
             for name in missing:
                 try:
                     self.connect(name, ha=self.registry[name])
                 except ValueError as ex:
                     logger.error('{} cannot connect to {} due to {}'.
                                  format(self, name, ex))
+        return missing
 
     def reconcileNodeReg(self):
         matches = set()

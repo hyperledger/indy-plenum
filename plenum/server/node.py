@@ -1502,7 +1502,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendInstanceChange(self.viewNo+1)
                 return False
             else:
-                logger.debug("{}s master has higher performance than backups".
+                logger.debug("{}'s master has higher performance than backups".
                              format(self))
         return True
 

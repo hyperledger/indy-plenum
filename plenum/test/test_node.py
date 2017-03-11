@@ -556,7 +556,7 @@ def checkIfSameReplicaIPrimary(looper: Looper,
 
 def checkNodesAreReady(nodes: Sequence[TestNode]):
     for node in nodes:
-        assert node.isReady()
+        assert node.isReady(), '{} has status {}'.format(node, node.status)
 
 
 async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
@@ -606,7 +606,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
 
 def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
                                retryWait: float = 1,
-                               timeout: float = None):
+                               timeout: float = 20):
     checkEveryProtocolInstanceHasOnlyOnePrimary(
         looper=looper, nodes=nodes, retryWait=retryWait,
         timeout=timeout if timeout else None)
@@ -628,12 +628,16 @@ def ensureElectionsDone(looper: Looper,
     # Wait for elections to be complete and returns the primary replica for
     # each protocol instance
 
-    checkPoolReady(looper=looper, nodes=nodes,
-                   timeout=timeout / 3 if timeout else None)
+    kwargs = dict(looper=looper, nodes=nodes)
+    if timeout:
+        kwargs.update(timeout=timeout / 3)
+    checkPoolReady(**kwargs)
 
-    return checkProtocolInstanceSetup(
-        looper=looper, nodes=nodes, retryWait=retryWait,
-        timeout=2 * timeout / 3 if timeout else None)
+    kwargs = dict(looper=looper, nodes=nodes, retryWait=retryWait)
+    if timeout:
+        kwargs.update(timeout=2*timeout / 3)
+
+    return checkProtocolInstanceSetup(**kwargs)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:

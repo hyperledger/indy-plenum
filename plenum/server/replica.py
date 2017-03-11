@@ -682,8 +682,8 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # A PRE-PREPARE is sent that has already been received
-        if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
-            raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
+        # if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
+        #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         key = (pp.identifier, pp.reqId)
         if not self.requests.isFinalised(key):
@@ -748,8 +748,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # If non primary replica
         if primaryStatus is False:
-            if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            # if self.prepares.hasPrepareFrom(prepare, sender):
+            #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if key not in ppReqs:
                 self.enqueuePrepare(prepare, sender)
@@ -763,11 +763,11 @@ class Replica(HasActionQueue, MessageProcessor):
                 return True
         # If primary replica
         else:
-            if self.prepares.hasPrepareFrom(prepare, sender):
-                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            # if self.prepares.hasPrepareFrom(prepare, sender):
+            #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
-            elif key not in ppReqs:
+            if key not in ppReqs:
                 raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
             elif prepare.digest != self.requests.digest(ppReqs[key][0]):
                 raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
