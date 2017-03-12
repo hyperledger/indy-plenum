@@ -294,6 +294,9 @@ class adict(dict):
     """Dict with attr access to keys."""
     marker = object()
 
+    def copy(self):
+        return adict(**super().copy())
+
     def __init__(self, **kwargs):
         super().__init__()
         for key in kwargs:

@@ -9,6 +9,18 @@ from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from plenum.common.util import hasKeys, hexToFriendly
 
 
+def initialize_node_keys(name, base_dir, sigseed=None, override=False):
+    """
+    transport-agnostic method; in the future when the transport protocol is
+    abstracted a bit more, this function and the one below will be the same
+    and likely a method of an interface
+    """
+    _, vk = initLocalKeep(name=name, baseDir=base_dir, sigseed=sigseed, override=override)
+    # returning just the verification key, since the pubkey can computed
+    # deterministically
+    return vk
+
+
 def initLocalKeep(name, baseDir, sigseed, override=False):
     """
     Initialize RAET local keep. Write local role data to file.

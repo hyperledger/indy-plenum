@@ -245,3 +245,15 @@ class InvalidEndpointIpAddress(EndpointException):
 class InvalidEndpointPort(EndpointException):
     def __init__(self, endpoint):
         super().__init__("invalid endpoint port: '{}'".format(endpoint))
+
+
+class WalletError(Exception):
+    pass
+
+
+class WalletNotSet(WalletError):
+    pass
+
+
+class WalletNotInitialized(WalletError):
+    pass
