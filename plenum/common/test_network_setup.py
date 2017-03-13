@@ -60,8 +60,9 @@ class TestNetworkSetup:
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            node_txn = Member.nym_txn(sd.nym, sd.name, STEWARD, trustee_def.nym)
-            domainLedger.add(node_txn)
+            nym_txn = Member.nym_txn(sd.nym, sd.name, role=STEWARD,
+                                     creator=trustee_def.nym)
+            domainLedger.add(nym_txn)
 
         for nd in node_defs:
 
@@ -213,7 +214,7 @@ class TestNetworkSetup:
             d.name = "Steward" + str(i)
             s_sigseed = cls.getSigningSeed(d.name)
             s_verkey = Signer(s_sigseed).verhex
-            d.steward_nym = cls.getNymFromVerkey(s_verkey)
+            d.nym = cls.getNymFromVerkey(s_verkey)
             steward_defs.append(d)
 
             name = "Node" + str(i)
@@ -226,7 +227,7 @@ class TestNetworkSetup:
                 idx=i,
                 sigseed=sigseed,
                 verkey=Signer(sigseed).verhex,
-                steward_nym=d.steward_nym))
+                steward_nym=d.nym))
         return steward_defs, node_defs
 
     @classmethod

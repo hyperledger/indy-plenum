@@ -41,7 +41,9 @@ class Steward(Member):
         return [nym_txn, node_txn]
 
     def _nym_txn(self, creator=None):
-        return self.nym_txn(self.nym, self.name, STEWARD, creator)
+        return self.nym_txn(self.nym, self.name,
+                            verkey=self.wallet.getVerkey(self.nym),
+                            role=STEWARD, creator=creator)
 
     def _node_txn(self):
         node_nym = hexToFriendly(self.node.verkey)
