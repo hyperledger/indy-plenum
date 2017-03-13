@@ -249,6 +249,7 @@ class InvalidEndpointPort(EndpointException):
 
 class PortNotAvailable(Exception):
     def __init__(self, port):
+        self.port = port
         super().__init__("port not available: {}".format(port))
 
 

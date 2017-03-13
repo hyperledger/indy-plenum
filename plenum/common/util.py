@@ -23,7 +23,7 @@ import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
 
-from plenum.common.constants import SOCKET_BIND_ERROR_ALREADY_IN_USE
+from plenum.common.error_codes import SOCKET_BIND_ERROR_ALREADY_IN_USE
 from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
@@ -590,6 +590,10 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+def is_valid_port(port):
+    return port.isdigit() and int(port) in range(1, 65536)
+
+
 def check_endpoint_valid(endpoint, required: bool=True):
     if not endpoint:
         if required:
@@ -601,7 +605,7 @@ def check_endpoint_valid(endpoint, required: bool=True):
         ipaddress.ip_address(ip)
     except Exception as exc:
         raise InvalidEndpointIpAddress(endpoint) from exc
-    if not (port.isdigit() and int(port) in range(1, 65536)):
+    if not is_valid_port(port):
         raise InvalidEndpointPort(endpoint)
 
 

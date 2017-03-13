@@ -71,7 +71,7 @@ class f:  # provides a namespace for reusable field constants
     DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
 
 
-# TODO: Move this to `txn.py` which should be renamed to constants.py
+# TODO: Move this to `txn.py` which should be renamed to error_codes.py
 OP_FIELD_NAME = "op"
 
 
