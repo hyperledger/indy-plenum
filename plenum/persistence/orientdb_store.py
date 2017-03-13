@@ -83,6 +83,17 @@ class OrientDbStore:
             items.append(("{} = " + valPlaceHolder).format(key, val))
         return joiner.join(items)
 
+    def wipe_db(self):
+        """
+        IMPORTANT: this is destructive; use at your own risk
+        """
+        try:
+            self.client.db_drop(self.dbName)
+            logger.debug("Dropped db {}".format(self.dbName))
+        except Exception as ex:
+            logger.debug("Error while dropping db {}: {}".format(self.dbName,
+                                                                 ex))
+
 
 def createOrientDbInMemStore(config, name, dbType):
     """

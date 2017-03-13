@@ -1,5 +1,11 @@
 import os
 
+import shutil
+
+from plenum.common.log import getlogger
+
+logger = getlogger()
+
 
 class HasFileStorage:
 
@@ -17,3 +23,15 @@ class HasFileStorage:
 
     def hasFile(self, fileName):
         return os.path.isfile(os.path.join(self.dataLocation, fileName))
+
+    def wipe(self):
+        """
+        IMPORTANT: calling this method will destroy local data
+        :return:
+        """
+        loc = self.dataLocation
+        try:
+            shutil.rmtree(loc)
+        except Exception as ex:
+            logger.debug("Error while removing temporary directory {}".format(
+                ex))
