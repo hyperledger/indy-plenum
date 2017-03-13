@@ -1,5 +1,4 @@
-from _sha256 import sha256
-from copy import copy
+from hashlib import sha256
 
 from plenum.common.exceptions import WalletNotSet, WalletNotInitialized
 from plenum.common.member.member import Member

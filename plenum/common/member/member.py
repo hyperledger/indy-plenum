@@ -1,4 +1,4 @@
-from _sha256 import sha256
+from hashlib import sha256
 
 from plenum.common.txn import TXN_TYPE, NYM, TARGET_NYM, TXN_ID, ROLE
 from plenum.common.types import f

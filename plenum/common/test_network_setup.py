@@ -42,7 +42,7 @@ class TestNetworkSetup:
 
         try:
             if isinstance(localNodes, int):
-                _localNodes = [localNodes]
+                _localNodes = {localNodes}
             else:
                 _localNodes = {int(_) for _ in localNodes}
         except BaseException as exc:
