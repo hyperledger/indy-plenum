@@ -19,7 +19,11 @@ class HasFileStorage:
 
     @property
     def dataLocation(self):
-        return os.path.join(self.basePath, self.dataDir, self.name)
+        return self.getDataLocation(self.name, self.basePath, self.dataDir)
+
+    @staticmethod
+    def getDataLocation(name, basePath, dataDir=""):
+        return os.path.join(basePath, dataDir, name)
 
     def hasFile(self, fileName):
         return os.path.isfile(os.path.join(self.dataLocation, fileName))
@@ -29,9 +33,12 @@ class HasFileStorage:
         IMPORTANT: calling this method will destroy local data
         :return:
         """
-        loc = self.dataLocation
+        self.wipeDataLocation(self.dataLocation)
+
+    @staticmethod
+    def wipeDataLocation(dataLocation):
         try:
-            shutil.rmtree(loc)
+            shutil.rmtree(dataLocation)
         except Exception as ex:
             logger.debug("Error while removing temporary directory {}".format(
                 ex))

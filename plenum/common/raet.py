@@ -11,21 +11,6 @@ from plenum.common.util import hasKeys, hexToFriendly
 from plenum.persistence.orientdb_store import OrientDbStore
 
 
-def initialize_node_environment(name, base_dir, sigseed=None, override=False):
-    """
-    transport-agnostic method; in the future when the transport protocol is
-    abstracted a bit more, this function and the one below will be the same
-    and likely a method of an interface
-    """
-    _, vk = initLocalKeep(name=name, baseDir=base_dir, sigseed=sigseed, override=override)
-    HasFileStorage(name, base_dir, dataDir=None).wipe()
-    OrientDbStore(user, password, name).store.wipe_db(self.name)
-
-    # returning just the verification key, since the pubkey can computed
-    # deterministically
-    return vk
-
-
 def initLocalKeep(name, baseDir, sigseed, override=False):
     """
     Initialize RAET local keep. Write local role data to file.
