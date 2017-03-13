@@ -52,7 +52,7 @@ class Client(Motor,
              HasPoolManager,
              HasActionQueue):
     def __init__(self,
-                 name: str,
+                 name: str=None,
                  nodeReg: Dict[str, HA]=None,
                  ha: Union[HA, Tuple[str, int]]=None,
                  basedirpath: str=None,
@@ -73,7 +73,7 @@ class Client(Motor,
         sighex = signer.keyhex
         verkey = rawToFriendly(signer.verraw)
 
-        self.name = name
+        self.name = name or 'Client~' + str(id(self))
         self.stackName = verkey
 
         cha = None

@@ -84,8 +84,10 @@ class Looper:
         #     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         if loop:
+            self.manage_loop = False
             self.loop = loop
         else:
+            self.manage_loop = True
             try:
                 #if sys.platform == 'win32':
                 #    loop = asyncio.ProactorEventLoop()
@@ -274,7 +276,8 @@ class Looper:
         return self
 
     def shutdownSync(self):
-        self.loop.run_until_complete(self.shutdown())
+        if self.manage_loop:
+            self.loop.run_until_complete(self.shutdown())
 
     # noinspection PyUnusedLocal
     def __exit__(self, exc_type, exc_val, exc_tb):
