@@ -1,13 +1,13 @@
 import os
 
 from jsonpickle import json
-
 from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
+from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE
@@ -129,10 +129,10 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     clientAddr = vclientip + ":" + vclientport
 
     return 'add genesis transaction NODE with data {"' + name + '": {' \
-                                                                    '"verkey": ' + verkey + \
+                                                                '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
            clientAddr + '"},' \
-                                                                                    '"by": "' + stewardkey + '"}'
+                        '"by": "' + stewardkey + '"}'
 
 
 def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
@@ -160,14 +160,15 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 def getAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction NYM with data {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
+                                                               '"verkey": "' + verkey + '"}} role={role}'.format(
+        role=Roles.STEWARD.name)
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction NYM for ' + verkey + ' with data ' \
-                                                                 '{"alias": ' \
-                                                                 '"' + name +\
-           '"} role=STEWARD'
+                                                         '{"alias": ' \
+                                                         '"' + name + \
+           '"} role={role}'.format(role=Roles.STEWARD.name)
 
 
 def generateStewardGenesisTxn(baseDir, displayTxn, name, verkey):
@@ -197,11 +198,11 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
     clientAddr = nodeInfo.get('clientAddr')
 
     txn = 'add genesis transaction NODE with data {"' + name + '": {' \
-                                                                   '"verkey":' \
-                                                                   ' "' + \
+                                                               '"verkey":' \
+                                                               ' "' + \
           nodeVerKey + \
           '", "node_address": "' + nodeAddr + \
-          '", "client_address": "' + clientAddr + '"}, "by":"' + stewardKey +\
+          '", "client_address": "' + clientAddr + '"}, "by":"' + stewardKey + \
           '"}'
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)
@@ -210,7 +211,8 @@ def exportNodeGenTxn(baseDir, displayTxn, name):
 def exportStewardGenTxn(baseDir, displayTxn, name):
     verkey = getLocalVerKey(name, baseDir)
     txn = 'add genesis transaction NYM with data  {"' + name + '": {' \
-                                                                       '"verkey": "' + verkey + '"}} role=STEWARD'
+                                                               '"verkey": "' + verkey + '"}} role={role}'.format(
+        role=Roles.STEWARD.name)
     storeExportedTxns(baseDir, txn)
     printGenTxn(txn, displayTxn)
 
@@ -240,7 +242,6 @@ def __checkClientConnected(cli, ):
 
 def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
              stewardName, stewardsSeed, newClientHA=None):
-
     if not newClientHA:
         newClientHA = HA(newNodeHA.host, newNodeHA.port + 1)
 
