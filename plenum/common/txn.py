@@ -3,6 +3,8 @@
 # inter-node communication
 from enum import IntEnum
 
+from plenum.common.roles import Roles
+
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"
 PRIMARY = "PRIMARY"
@@ -68,7 +70,6 @@ NODE = "NODE"
 # CHANGE_KEYS = "CHANGE_KEYS"
 SERVICES = "services"
 VALIDATOR = "VALIDATOR"
-STEWARD = "STEWARD"
 CLIENT = "CLIENT"
 NYM = "NYM"
 ROLE = 'role'
@@ -80,6 +81,10 @@ TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 
+STEWARD = Roles.STEWARD.value
+TRUST_ANCHOR = Roles.TRUST_ANCHOR.value
+TRUSTEE = Roles.TRUSTEE.value
+TGB = Roles.TGB.value
 
 BY = "by"
 

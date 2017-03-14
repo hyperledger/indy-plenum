@@ -12,7 +12,7 @@ from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
-    ROLE, SERVICES, VALIDATOR
+    ROLE, SERVICES, VALIDATOR, TRUSTEE
 from plenum.common.types import f
 from plenum.common.util import hexToFriendly
 
@@ -87,7 +87,7 @@ class TestNetworkSetup:
             TXN_TYPE: NYM,
             # TODO: Trustees dont exist in Plenum, but only in Sovrin.
             # This should be moved to Sovrin
-            ROLE: 'TRUSTEE',
+            ROLE: TRUSTEE,
             ALIAS: trusteeName,
             TXN_ID: sha256(trusteeName.encode()).hexdigest()
         }

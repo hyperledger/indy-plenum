@@ -1,6 +1,8 @@
 import os
 import re
 
+from plenum.common.roles import Roles
+
 
 def relist(seq):
     return '(' + '|'.join(seq) + ')'
@@ -91,9 +93,9 @@ CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
     "\s+ (?P<type>[a-zA-Z0-9_]+)" \
     "\s+ (for\s+(?P<dest>[A-Za-z0-9+=/]+))?" \
     "\s? (by\s+(?P<identifier>[A-Za-z0-9+=/]*))?" \
-    "\s? (with\s+data\s+(?P<data>\{\s*.*\}))?" \
-    "\s? (role\s*=\s*(?P<role>STEWARD))?" \
-    "\s*) "
+    "\s? (with\s+data\s+(?P<data>\{{\s*.*\}}))?" \
+    "\s? (role\s*=\s*(?P<role>{role}))?" \
+    "\s*) ".format(role=Roles.STEWARD.name)
 
 
 CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX = \
