@@ -7,6 +7,7 @@ from plenum.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies, sendRandomRequests, \
     checkViewNoForNodes
@@ -50,11 +51,10 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
                 assert cur[c].endtime > previousPerfChecks[c].endtime
         return cur
 
-    perfCheckFreq = max(n.perfCheckFreq for n in nodes)
-    # TODO[slow-factor]: add ???
+    timeout = waits.expectedNextPerfCheck(nodes)
     newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
                                           retryWait=1,
-                                          timeout=perfCheckFreq + 1))
+                                          timeout=timeout))
     return newPerfChecks
 
 

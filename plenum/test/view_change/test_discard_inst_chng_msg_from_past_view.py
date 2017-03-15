@@ -1,6 +1,7 @@
 from stp_core.loop.eventually import eventually
 from plenum.common.types import InstanceChange
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.helper import checkDiscardMsg, waitForViewChange
 
 
@@ -18,9 +19,9 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
-    # TODO[slow-factor]: add expectedViewChangeTime
+    timeout = waits.expectedViewChangeTime(len(nodeSet))
     looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
-                          'less than its view no', nodeSet.Alpha, timeout=5))
+                          'less than its view no', nodeSet.Alpha, timeout=timeout))
 
     # Check that that message is discarded.
     waitForViewChange(looper, nodeSet)

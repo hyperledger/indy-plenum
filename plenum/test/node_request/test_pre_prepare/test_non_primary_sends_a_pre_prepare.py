@@ -9,6 +9,7 @@ from plenum.common.request import ReqDigest
 from plenum.common.types import PrePrepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
+from plenum.test import waits
 from plenum.test.instances.helper import recvdPrePrepare
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
@@ -62,9 +63,9 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1
 
-    # TODO[slow-factor]: add expectedClientRequestPropagationTime
+    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
     looper.run(eventually(chk,
-                          retryWait=.5, timeout=5))
+                          retryWait=.5, timeout=timeout))
 
     # TODO Why is this here? Why would a suspicious PRE-PREPARE from a
     # non-primary warrant a view change? Need more of a story about the scenario

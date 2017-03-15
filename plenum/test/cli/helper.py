@@ -196,8 +196,9 @@ def checkAllNodesUp(cli):
             assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
 
 def waitAllNodesUp(cli):
-    timeout=waits.expectedPoolGetReadyTimeout(len(cli.nodeReg))
-    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=timeout))
+    timeout = waits.expectedPoolGetReadyTimeout(len(cli.nodes))
+    logger.info("here")
+    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=60))
 
 
 

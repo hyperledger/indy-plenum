@@ -3,7 +3,9 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA
+from plenum.test import waits
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
+    setupClients, checkReqNack
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
     BALANCE, ALL_TXNS
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
@@ -71,11 +73,11 @@ class AccountApp(App):
             waitForSufficientRepliesForRequests(self.looper, self.client,
                                                 requests=[req], fVal=1)
         else:
+            timeout = waits.expectedReqNAckQuorumTime()
             for node in nodes:
-                # TODO[slow-factor]: add expectedReqNAckQuorumTime
                 self.looper.run(eventually(checkReqNack, self.client, node,
                                            req.identifier, req.reqId, None,
-                                           retryWait=1, timeout=5))
+                                           retryWait=1, timeout=timeout))
         return req
 
     def getBalance(self) -> int:

@@ -9,6 +9,7 @@ from plenum.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
+from plenum.test import waits
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
@@ -192,14 +193,14 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
 
     def chk():
         assert not C.nodestack.isKeySharing
-    # TODO[slow-factor]: add expectedPoolGetReadyTimeout
-    looper.run(eventually(chk, retryWait=2, timeout=21))
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodeReg))
+    looper.run(eventually(chk, retryWait=2, timeout=timeout))
     stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
-    # TODO[slow-factor]: add expectedNodeInterconnectionTime
-    looper.run(eventually(chk, retryWait=2, timeout=5))
+    timeout = waits.expectedNodeInterconnectionTime(len(nodeReg))
+    looper.run(eventually(chk, retryWait=2, timeout=timeout))
     stopNodes([A, B], looper)

@@ -119,14 +119,14 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     cli.enterCmd("new client {}".format(clientName))
 
     fVal = util.getMaxFailures(len(validNodeNames))
-    connectionTimeout=waits.expectedClientConnectionTimeout(fVal)
+    connectionTimeout = waits.expectedClientConnectionTimeout(fVal)
 
     waitClientConnected(cli, validNodeNames, clientName)
 
     cli.enterCmd("new key")
     cli.enterCmd("status client {}".format(clientName))
     cli.looper.run(eventually(checkActiveIdrPrinted, cli,
-                              retryWait=1, timeout=3))
+                              retryWait=1, timeout=connectionTimeout))
 
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing

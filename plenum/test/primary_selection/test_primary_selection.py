@@ -6,6 +6,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.util import getNoInstances
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
+from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test.view_change.conftest import viewNo
 from plenum.test.view_change.test_view_change import viewChangeDone
@@ -56,11 +57,11 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
                 assert node.replicas[2].isPrimary
 
     # Check if the primary is on the correct node
-    # TODO[slow-factor]: add expectedElectionTimeout
-    looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=10))
+    timeout = waits.expectedElectionTimeout(len(nodeSet))
+    looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=timeout))
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
-    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=timeout)
 
 
 # noinspection PyIncorrectDocstring
