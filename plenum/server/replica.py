@@ -994,6 +994,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCheckpoint(ppSeqNo, digest)
 
     def processCheckpoint(self, msg: Checkpoint, sender: str):
+        logger.debug('{} received checkpoint {} from {}'.
+                     format(self, msg, sender))
         if self.checkpoints:
             seqNo = msg.seqNo
             _, firstChk = self.firstCheckPoint
@@ -1020,6 +1022,9 @@ class Replica(HasActionQueue, MessageProcessor):
                         return
             if len(state.receivedDigests) == 2*self.f:
                 self.markCheckPointStable(msg.seqNo)
+            else:
+                logger.debug('{} has state.receivedDigests as {}'.
+                             format(self, state.receivedDigests.keys()))
         else:
             self.discard(msg, reason="No checkpoints present to tally",
                          logMethod=logger.warn)
@@ -1111,7 +1116,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
             if isinstance(item, ReqDigest):
                 self.doPrePrepare(item)
-            elif isinstance(item, tuple) and len(tuple) == 2:
+            elif isinstance(item, tuple) and len(item) == 2:
                 self.dispatchThreePhaseMsg(*item)
             else:
                 logger.error("{} cannot process {} "

@@ -33,9 +33,9 @@ def testRequestOlderThanStableCheckpointRemoved(chkFreqPatched, looper,
     checkRequestCounts(txnPoolNodeSet, 1)
 
 
-def test3PhaseMsgsOlderThanStableCheckpointDiscarded(chkFreqPatched, looper,
-                                                     txnPoolNodeSet, client1,
-                                                     wallet1, client1Connected):
+def testStableCheckpointWhenOneInstanceSlow(chkFreqPatched, looper,
+                                            txnPoolNodeSet, client1,
+                                            wallet1, client1Connected):
     pr = getPrimaryReplica(txnPoolNodeSet, 1)
     slowNode = pr.node
     otherNodes = [n for n in txnPoolNodeSet if n != slowNode]
@@ -49,7 +49,7 @@ def test3PhaseMsgsOlderThanStableCheckpointDiscarded(chkFreqPatched, looper,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, CHK_FREQ, 1)
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1,
-                          timeout=10))
+                          timeout=15))
     for n in otherNodes:
         c = len(n.replicas[1].spylog.getAll(n.replicas[0].discard.__name__))
         assert discardCounts[n.name] < c
