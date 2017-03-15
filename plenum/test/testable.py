@@ -49,7 +49,7 @@ class SpyLog(list):
         return sum(1 for x in self if x.method == method)
 
 
-def Spyable(name: str = None, methods: SpyableMethods = None):
+def Spyable(name: str = None, methods: SpyableMethods = None, deepLevel: int = None):
     def spy(func, isInit, shouldSpy):
 
         sig = inspect.signature(func)
@@ -133,7 +133,7 @@ def Spyable(name: str = None, methods: SpyableMethods = None):
                         "method {} not found, so no spy added".format(m),
                         extra={"cli": False})
 
-        objSearchReplace(spyable, morphed, logMsg="Applying spy remapping")
+        objSearchReplace(spyable, morphed, logMsg="Applying spy remapping", deepLevel=deepLevel)
         return spyable
 
     return decorator
