@@ -26,8 +26,6 @@ def testKeyShareParty(tdir_for_func):
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            # for n in nodeSet:
-            #     n.startKeySharing()
             looper.run(checkNodesConnected(nodeSet))
 
     logger.debug("-----key sharing done, connect after key sharing-----")

@@ -1888,9 +1888,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #                        code=InvalidSignature.code)
 
         if code in self.suspicions:
-            self.blacklistNode(nodeName,
-                               reason=self.suspicions[code],
-                               code=code)
+            # TODO: Reconsider tolerating some suspicions, and if you tolerate,
+            #  why are they suspicions?
+            if code not in (Suspicions.DUPLICATE_PPR_SENT,
+                            Suspicions.DUPLICATE_PR_SENT,
+                            Suspicions.DUPLICATE_CM_SENT):
+                self.blacklistNode(nodeName,
+                                   reason=self.suspicions[code],
+                                   code=code)
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 

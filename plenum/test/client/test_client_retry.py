@@ -109,7 +109,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
 
 def testClientNotRetryingRequestAfterMaxTriesDone(looper, nodeSet, client1,
-                                                 wallet1, tconf):
+                                                  wallet1, tconf):
     """
     A client sends Request to a node but the node never responds to client.
     The client resends the request but only the number of times defined in its

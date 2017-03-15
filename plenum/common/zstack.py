@@ -78,28 +78,42 @@ class Remote:
         sock.identity = localPubKey
         sock.setsockopt(zmq.PROBE_ROUTER, 1)
 
-        monitorLoc = 'inproc://monitor.{}{}'.format(self.uid, randomString(10))
-        monitorSock = context.socket(zmq.PAIR)
-        monitorSock.connect(monitorLoc)
-        monitorSock.linger = 0
-        sock.monitor(monitorLoc, zmq.EVENT_ALL)
+        # monitorLoc = 'inproc://monitor.{}{}'.format(self.uid, randomString(10))
+        # monitorSock = context.socket(zmq.PAIR)
+        # monitorSock.connect(monitorLoc)
+        # monitorSock.linger = 0
+        # sock.monitor(monitorLoc, zmq.EVENT_ALL)
 
+        monitorSock = sock.get_monitor_socket()
+        monitorSock.linger = 0
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
         self.socket = sock
-        self.monitorSock = monitorSock
 
     def disconnect(self):
-        if self.monitorSock:
-            self.monitorSock.close()
-            self.monitorSock = None
-
+        logger.debug('disconnecting remote {}'.format(self))
         if self.socket:
+            # Do not close self.monitorSock before disabling monitor as
+            # this will freeze the code
+            # logger.debug('{} has monitor, {}:{}:{}'.
+            #              format(self, self.socket._monitor_socket.FD,
+            #                     self.socket._monitor_socket.LAST_ENDPOINT,
+            #                     self.socket._monitor_socket.closed))
+            # self.socket.disable_monitor()
+            self.socket.monitor(None, 0)
+            self.socket._monitor_socket = None
+            # logger.debug('{} 111'.format(self))
             self.socket.close()
+            # logger.debug('{} 222'.format(self))
             self.socket = None
         else:
             logger.debug('{} close was closed on a null socket, maybe close is '
                          'being called twice.'.format(self))
+
+        # if self.monitorSock:
+        #     self.monitorSock.close()
+        #     self.monitorSock = None
+
         self.isConnected = False
 
 
@@ -293,6 +307,7 @@ class ZStack(NetworkInterface):
         self.listener.unbind(self.listener.LAST_ENDPOINT)
         self.listener.close()
         self.listener = None
+        logger.debug('{} starting to disconnect remotes'.format(self))
         for r in self.remotes.values():
             r.disconnect()
             self.remotesByKeys.pop(r.publicKey, None)
@@ -542,7 +557,8 @@ class ZStack(NetworkInterface):
         return remote.uid
 
     def shouldReconnect(self, remote):
-        monitor = remote.monitorSock
+        # logger.trace('{} getting monitor socket for remote {} with socket state {}'.format(self, remote, remote.socket.closed))
+        monitor = remote.socket.get_monitor_socket()
         events = []
         while True:
             try:
@@ -629,7 +645,7 @@ class ZStack(NetworkInterface):
                 r = []
                 for uid in self.remotes:
                     r.append(self.transmit(msg, uid))
-                    return all(r)
+                return all(r)
             else:
                 return self.transmit(msg, remote)
 
@@ -651,6 +667,7 @@ class ZStack(NetworkInterface):
         else:
             logger.warn('{} has uninitialised socket for remote {}'.
                         format(self, self.remotes[uid]))
+            return False
 
     def transmitThroughListener(self, msg, ident):
         if isinstance(ident, str):

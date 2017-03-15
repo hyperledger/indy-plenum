@@ -136,7 +136,7 @@ class TestNodeCore(StackedTester):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
-        logger.debug("{} white listing {} for codes {}"
+        logger.debug("{} whitelisting {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
@@ -153,7 +153,7 @@ class TestNodeCore(StackedTester):
         if clientName not in self.whitelistedClients:
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
-        logger.debug("{} white listing {} for codes {}"
+        logger.debug("{} whitelisting {} for codes {}"
                       .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):

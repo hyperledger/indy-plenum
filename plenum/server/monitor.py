@@ -122,10 +122,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         HasActionQueue.__init__(self)
 
         if config.SendMonitorStats:
-            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)   
+            self.startRepeating(self.sendPeriodicStats,
+                                config.DashboardUpdateFreq)
 
-        self._schedule(self.checkPerformance,
-            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+        self.startRepeating(self.checkPerformance,
+                            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def __repr__(self):
         return self.name
@@ -403,12 +404,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
-        self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     def checkPerformance(self):
         self.sendClusterThroughputSpike()
-        self._schedule(self.checkPerformance, 
-            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def sendClusterThroughputSpike(self):
         if self.instances.masterId is None:
@@ -433,7 +431,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
                         (now - self.orderedRequestsInLast[0]) > \
-                        config.ThroughputWindowSize:
+                         config.ThroughputWindowSize:
             self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
         return len(self.orderedRequestsInLast) / config.ThroughputWindowSize

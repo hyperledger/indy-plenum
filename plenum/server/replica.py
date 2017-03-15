@@ -548,6 +548,12 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO move this try/except up higher
         logger.debug("{} received PREPARE{} from {}".
                      format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
+        if self.lastStableCheckPoint and \
+                prepare.ppSeqNo <= self.lastStableCheckPoint:
+            self.discard(prepare,
+                         "achieved checkpoint for Preapre",
+                         logger.debug)
+            return
         try:
             if self.isValidPrepare(prepare, sender):
                 self.addToPrepares(prepare, sender)
@@ -572,6 +578,13 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} received COMMIT {} from {}".
                      format(self, commit, sender))
+        if self.lastStableCheckPoint and \
+                commit.ppSeqNo <= self.lastStableCheckPoint:
+            self.discard(commit,
+                         "achieved checkpoint for Commit",
+                         logger.debug)
+            return
+
         if self.isValidCommit(commit, sender):
             self.stats.inc(TPCStat.CommitRcvd)
             self.addToCommits(commit, sender)
@@ -682,8 +695,8 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # A PRE-PREPARE is sent that has already been received
-        # if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
-        #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
+        if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
+            raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         key = (pp.identifier, pp.reqId)
         if not self.requests.isFinalised(key):
@@ -748,8 +761,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # If non primary replica
         if primaryStatus is False:
-            # if self.prepares.hasPrepareFrom(prepare, sender):
-            #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            if self.prepares.hasPrepareFrom(prepare, sender):
+                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if key not in ppReqs:
                 self.enqueuePrepare(prepare, sender)
@@ -763,8 +776,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 return True
         # If primary replica
         else:
-            # if self.prepares.hasPrepareFrom(prepare, sender):
-            #     raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
+            if self.prepares.hasPrepareFrom(prepare, sender):
+                raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE was not sent for this PREPARE, certainly
             # malicious behavior
             if key not in ppReqs:
@@ -1115,6 +1128,14 @@ class Replica(HasActionQueue, MessageProcessor):
             return None
         else:
             return self.checkpoints.peekitem(-1)
+
+    @property
+    def lastStableCheckPoint(self):
+        last = None
+        for (s, e), state in self.checkpoints.items():
+            if state.isStable:
+                last = e
+        return last
 
     def isPpSeqNoAcceptable(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H

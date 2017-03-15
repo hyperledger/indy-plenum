@@ -114,12 +114,13 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     for nodeName in ("Zeta", "Eta"):
         newStewardName = "testClientSteward"+randomString(3)
         newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-                                                   steward1,
-                                                   stewardWallet,
-                                                   newStewardName,
-                                                   nodeName,
-                                                   tdirWithPoolTxns, tconf,
-                                                   allPluginsPath)
+                                                                     steward1,
+                                                                     stewardWallet,
+                                                                     newStewardName,
+                                                                     nodeName,
+                                                                     tdirWithPoolTxns,
+                                                                     tconf,
+                                                                     allPluginsPath)
         txnPoolNodeSet.append(newNode)
         looper.run(checkNodesConnected(txnPoolNodeSet))
         logger.debug("{} connected to the pool".format(newNode))
