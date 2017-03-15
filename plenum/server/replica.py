@@ -548,8 +548,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO move this try/except up higher
         logger.debug("{} received PREPARE{} from {}".
                      format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
-        if self.lastStableCheckPoint and \
-                prepare.ppSeqNo <= self.lastStableCheckPoint:
+        if self.lastStableCheckPointAt and \
+                prepare.ppSeqNo <= self.lastStableCheckPointAt:
             self.discard(prepare,
                          "achieved checkpoint for Preapre",
                          logger.debug)
@@ -578,8 +578,8 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} received COMMIT {} from {}".
                      format(self, commit, sender))
-        if self.lastStableCheckPoint and \
-                commit.ppSeqNo <= self.lastStableCheckPoint:
+        if self.lastStableCheckPointAt and \
+                commit.ppSeqNo <= self.lastStableCheckPointAt:
             self.discard(commit,
                          "achieved checkpoint for Commit",
                          logger.debug)
@@ -839,6 +839,7 @@ class Replica(HasActionQueue, MessageProcessor):
         elif self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
         elif commit.digest != self.getDigestFor3PhaseKey(ThreePhaseKey(*key)):
+
             raise SuspiciousNode(sender, Suspicions.CM_DIGEST_WRONG, commit)
         elif key in ppReqs and commit.ppTime != ppReqs[key][1]:
             raise SuspiciousNode(sender, Suspicions.CM_TIME_WRONG,
@@ -1098,7 +1099,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.ordered.remove(k)
 
         for k in reqKeys:
-            self.requests.pop(k, None)
+            self.requests[k].forwardedTo -= 1
+            if self.requests[k].forwardedTo == 0:
+                self.requests.pop(k)
 
     def processStashedMsgsForNewWaterMarks(self):
         while self.stashingWhileOutsideWaterMarks:
@@ -1130,7 +1133,7 @@ class Replica(HasActionQueue, MessageProcessor):
             return self.checkpoints.peekitem(-1)
 
     @property
-    def lastStableCheckPoint(self):
+    def lastStableCheckPointAt(self):
         last = None
         for (s, e), state in self.checkpoints.items():
             if state.isStable:

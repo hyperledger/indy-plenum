@@ -15,6 +15,9 @@ class ReqState:
     def __init__(self, request: Request):
         self.request = request
         self.forwarded = False
+        # forwardedTo helps in finding to how many replicas has this request
+        # been forwarded to, helps in garbage collection, see `gc` of `Replica`
+        self.forwardedTo = 0
         self.propagates = {}
         self.finalised = None
 
@@ -51,11 +54,12 @@ class Requests(Dict[Tuple[str, int], ReqState]):
         """
         return self[req.key].forwarded
 
-    def flagAsForwarded(self, req: Request):
+    def flagAsForwarded(self, req: Request, to: int):
         """
         Set the given request's forwarded attribute to True
         """
         self[req.key].forwarded = True
+        self[req.key].forwardedTo = to
 
     def addPropagate(self, req: Request, sender: str):
         """
@@ -178,7 +182,7 @@ class Propagator:
         for repQueue in self.msgsToReplicas:
             repQueue.append(self.requests[key].finalised.reqDigest)
         self.monitor.requestUnOrdered(*key)
-        self.requests.flagAsForwarded(request)
+        self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):
