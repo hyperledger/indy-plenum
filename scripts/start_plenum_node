@@ -3,11 +3,14 @@
 import os
 import sys
 
+from ioflo.aid.consoling import Console
+
 from plenum.common.looper import Looper
 from plenum.common.types import HA
 from plenum.common.config_util import getConfig
 from plenum.server.node import Node
-from plenum.common.log import setupLogging, TRACE_LOG_LEVEL
+from plenum.common.log import Logger, getRAETLogLevelFromConfig, \
+    getRAETLogFilePath
 
 config = getConfig()
 keepDir = config.baseDir
@@ -25,7 +28,13 @@ if __name__ == "__main__":
 
         logFileName = os.path.join(config.baseDir, selfName + ".log")
 
-        setupLogging(TRACE_LOG_LEVEL, filename=logFileName)
+        RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
+                                                  Console.Wordage.mute,
+                                                  config)
+        RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", config)
+
+        Logger().enableFileLogging(logFileName)
+        Logger().setupRaet(RAETVerbosity, RAETLogFile)
         print("You can find logs in {}".format(logFileName))
 
         with Looper(debug=True) as looper:

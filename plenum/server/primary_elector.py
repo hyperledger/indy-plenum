@@ -248,7 +248,7 @@ class PrimaryElector(PrimaryDecider):
             self.nominations[instId][replica.name] = replica.name
             logger.info("{} nominating itself for instance {}".
                         format(replica, instId),
-                        extra={"cli": "PLAIN"})
+                        extra={"cli": "PLAIN", "tags": ["node-nomination"]})
             self.sendNomination(replica.name, instId, self.viewNo)
         else:
             logger.debug(
@@ -285,7 +285,8 @@ class PrimaryElector(PrimaryDecider):
             self.sendNomination(nom.name, nom.instId, nom.viewNo)
             logger.debug("{} nominating {} for instance {}".
                          format(replica, nom.name, nom.instId),
-                         extra={"cli": "PLAIN"})
+                         extra={"cli": "PLAIN", "tags": ["node-nomination"]})
+
         else:
             logger.debug("{} already nominated".format(replica.name))
 
@@ -351,9 +352,10 @@ class PrimaryElector(PrimaryDecider):
                     primary = mostCommonElement(
                         self.primaryDeclarations[instId].values())
                     logger.display("{} selected primary {} for instance {} "
-                                "(view {})".
-                                format(replica, primary, instId, self.viewNo),
-                                extra={"cli": "ANNOUNCE"})
+                                   "(view {})".format(replica, primary,
+                                                      instId, self.viewNo),
+                                   extra={"cli": "ANNOUNCE",
+                                          "tags": ["node-election"]})
                     logger.debug("{} selected primary on the basis of {}".
                                  format(replica,
                                         self.primaryDeclarations[instId]),
@@ -580,7 +582,7 @@ class PrimaryElector(PrimaryDecider):
                         self.scheduledPrimaryDecisions[instId] is not None and
                         self.hasPrimaryDecisionTimerExpired(instId)):
                     logger.info("{} proposing re-election".format(replica),
-                                extra={"cli": True})
+                                extra={"cli": True, "tags": ['node-election']})
                     self.sendReelection(instId,
                                         [n[0] for n in primaryCandidates])
                 else:

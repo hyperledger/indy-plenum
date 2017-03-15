@@ -1,14 +1,19 @@
 import os
 import random
 import string
+from _signal import SIGINT
 from functools import partial
 from itertools import permutations
 from shutil import copyfile
+from sys import executable
+from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
     List, Any, Sequence
 from typing import Union
 
 import itertools
+
+from psutil import Popen
 
 from plenum.common.config_util import getConfig
 from plenum.config import poolTransactionsFile, domainTransactionsFile
@@ -538,3 +543,15 @@ def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
                 checkPortAvailable(("", port))
 
         looper.run(eventually(chk, retryWait=.5))
+
+
+def run_script(script, *args):
+    s = os.path.join(os.path.dirname(__file__), '../../scripts/' + script)
+    command = [executable, s]
+    command.extend(args)
+
+    with Popen([executable, s]) as p:
+        sleep(4)
+        p.send_signal(SIGINT)
+        p.wait(timeout=1)
+        assert p.poll() == 0, 'script failed'

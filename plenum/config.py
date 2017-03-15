@@ -66,7 +66,7 @@ PerfCheckFreq = 10
 DELTA = 0.8
 LAMBDA = 60
 OMEGA = 5
-SendMonitorStats = True
+SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
@@ -137,7 +137,7 @@ CLIENT_MAX_RETRY_REPLY = 5
 # to True. This option is overwritten by default for tests to keep multiple
 # clients from reading an updated pool transaction file, this helps us
 # emulate clients on different machines.
-UpdateGenesisPoolTxnFile = True
+UpdateGenesisPoolTxnFile = False
 
 
 # Since the ledger is stored in a flat file, this makes the ledger do
@@ -146,3 +146,4 @@ UpdateGenesisPoolTxnFile = True
 # repository
 EnsureLedgerDurability = True
 
+log_override_tags = dict(cli={}, demo={})

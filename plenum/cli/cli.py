@@ -26,6 +26,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
     PROMPT_ENV_SEPARATOR, WALLET_FILE_EXTENSION, NO_ENV
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
+from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
@@ -74,7 +75,7 @@ from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, cleanSeed, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
-from plenum.common.log import CliHandler, getlogger, setupLogging, \
+from plenum.common.log import CliHandler, getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
 from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
@@ -115,13 +116,17 @@ class Cli:
     # noinspection PyPep8
     def __init__(self, looper, basedirpath, nodeReg=None, cliNodeReg=None,
                  output=None, debug=False, logFileName=None, config=None,
-                 useNodeReg=False, withNode=True):
+                 useNodeReg=False, withNode=True, unique_name=None,
+                 override_tags=None):
+        self.unique_name = unique_name
         self.curClientPort = None
-        logging.root.addHandler(CliHandler(self.out))
-        self.looper = looper
         self.basedirpath = os.path.expanduser(basedirpath)
-        self.nodeRegLoadedFromFile = False
         self._config = config or getConfig(self.basedirpath)
+
+        Logger().enableCliLogging(self.out,
+                                  override_tags=override_tags)
+        self.looper = looper
+        self.nodeRegLoadedFromFile = False
         if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
                 and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
@@ -246,13 +251,13 @@ class Cli:
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
-        setupLogging(TRACE_LOG_LEVEL,
-                     RAETVerbosity,
-                     filename=logFileName,
-                     raet_log_file=RAETLogFile)
+
+        if logFileName:
+            Logger().enableFileLogging(logFileName)
+        Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
-        self.print("\n{}-CLI (c) 2016 Evernym, Inc.".format(self.properName))
+        self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
         self._actions = []
 
         if nodeReg:
@@ -272,11 +277,11 @@ class Cli:
 
     def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
         msg="Command mapping not provided for '{}' command handler. " \
-            "Please add proper mapping for that command handler " \
-            "(in function '{}') with corresponding command object".\
+            "\nPlease add proper mapping for that command handler " \
+            "(in function '{}') with corresponding command object.".\
             format(cmdHandlerFuncName, mappingFuncName)
 
-        sep = "\n" + "*"*len(msg) + "\n"
+        sep = "\n" + "*"*125 + "\n"
         msg = sep + msg + sep
         return msg
 
@@ -285,7 +290,8 @@ class Cli:
             funcName = cmdHandlerFunc.__name__.replace("_","")
             if funcName not in self.cmdHandlerToCmdMappings().keys():
                 raise Exception(self._getCmdMappingError(
-                    funcName, self.cmdHandlerToCmdMappings.__name__))
+                    cmdHandlerFunc.__name__,
+                    self.cmdHandlerToCmdMappings.__name__))
 
     @staticmethod
     def getCliVersion():
@@ -340,26 +346,26 @@ class Cli:
                 'node_name': WordCompleter(self.nodeNames),
                 'more_nodes': WordCompleter(self.nodeNames),
                 'helpable': WordCompleter(self.helpablesCommands),
-                'load_plugins': WordCompleter(['load plugins from']),
+                'load_plugins': PhraseWordCompleter('load plugins from'),
                 'client_name': self.clientWC,
                 'second_client_name': self.clientWC,
                 'cli_action': WordCompleter(self.cliActions),
                 'simple': WordCompleter(self.simpleCmds),
-                'add_key': WordCompleter(['add key']),
-                'for_client': WordCompleter(['for client']),
-                'new_key': WordCompleter(['new', 'key']),
-                'new_keyring': WordCompleter(['new', 'keyring']),
-                'rename_keyring': WordCompleter(['rename', 'keyring']),
-                'list_ids': WordCompleter(['list', 'ids']),
-                'list_krs': WordCompleter(['list', 'keyrings']),
+                'add_key': PhraseWordCompleter('add key'),
+                'for_client': PhraseWordCompleter('for client'),
+                'new_key': PhraseWordCompleter('new key'),
+                'new_keyring': PhraseWordCompleter('new keyring'),
+                'rename_keyring': PhraseWordCompleter('rename keyring'),
+                'list_ids': PhraseWordCompleter('list ids'),
+                'list_krs': PhraseWordCompleter('list keyrings'),
                 'become': WordCompleter(['become']),
-                'use_id': WordCompleter(['use', 'identifier']),
-                'use_kr': WordCompleter(['use', 'keyring']),
-                'save_kr': WordCompleter(['save', 'keyring']),
-                'add_gen_txn': WordCompleter(['add', 'genesis', 'transaction']),
+                'use_id': PhraseWordCompleter('use identifier'),
+                'use_kr': PhraseWordCompleter('use keyring'),
+                'save_kr': PhraseWordCompleter('save keyring'),
+                'add_gen_txn': PhraseWordCompleter('add genesis transaction'),
                 'prompt': WordCompleter(['prompt']),
-                'create_gen_txn_file': WordCompleter(
-                    ['create', 'genesis', 'transaction', 'file'])
+                'create_gen_txn_file': PhraseWordCompleter(
+                    'create genesis transaction file')
             }
         return self._completers
 
@@ -406,7 +412,8 @@ class Cli:
             newWalletFilePath = Cli.getWalletFilePath(
             keyringsDir, Cli._normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
-                self.print("A persistent wallet file already exists for new wallet name. Please choose new wallet name.")
+                self.print("A persistent wallet file already exists for "
+                           "new wallet name. Please choose new wallet name.")
                 return False
             os.rename(oldWalletFilePath, newWalletFilePath)
         return True
@@ -530,10 +537,9 @@ class Cli:
     def activeWallet(self) -> Wallet:
         if not self._activeWallet:
             if self.wallets:
-                return firstValue(self.wallets)
+                self.activeWallet = firstValue(self.wallets)
             else:
-                self._activeWallet = self._newWallet()
-                return self._activeWallet
+                self.activeWallet = self._newWallet()
         return self._activeWallet
 
     @activeWallet.setter
@@ -980,7 +986,7 @@ class Cli:
         try:
             self.ensureValidClientId(clientName)
             if not isLocalKeepSetup(clientName, self.basedirpath):
-                client_addr = genHa()
+                client_addr = genHa(ip='0.0.0.0')
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
                                                        self.basedirpath)['ha'])
@@ -1309,7 +1315,6 @@ class Cli:
             wallet = self._wallets[nm]
             self.activeWallet = wallet  # type: Wallet
             return wallet
-
         wallet = self._buildWalletClass(nm)
         self._wallets[nm] = wallet
         self.print("New keyring {} created".format(nm))
@@ -1404,6 +1409,14 @@ class Cli:
                 self.print("No active keyring found.")
             return True
 
+    def checkIfPersistentWalletExists(self, name, inContextDir=None):
+        toBeWalletFileName = Cli._normalizedWalletFileName(name)
+        contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
+        toBeWalletFilePath = Cli.getWalletFilePath(
+            contextDir, toBeWalletFileName)
+        if os.path.exists(toBeWalletFilePath):
+            return toBeWalletFilePath
+
     def _checkIfIdentifierConflicts(self, origName, checkInWallets=True,
                                     checkInAliases=True, checkInSigners=True,
                                     printAppropriateMsg=True,
@@ -1435,10 +1448,8 @@ class Cli:
                     return True, 'identifier'
 
                 if checkPersistedFile:
-                    toBeWalletFileName = Cli._normalizedWalletFileName(origName)
-                    toBeWalletFilePath = Cli.getWalletFilePath(
-                        self.getContextBasedKeyringsBaseDir(), toBeWalletFileName)
-                    if os.path.exists(toBeWalletFilePath):
+                    toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
+                    if toBeWalletFilePath:
                         return True, 'keyring (stored at: {})'.\
                             format(toBeWalletFilePath)
 
@@ -1823,40 +1834,42 @@ class Cli:
             return False
         return True
 
+    def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
+        try:
+            createDirIfNotExists(contextDir)
+            walletFilePath = Cli.getWalletFilePath(
+                contextDir, self.walletFileName)
+            with open(walletFilePath, "w+") as walletFile:
+                try:
+                    encodedWallet = encode(self._activeWallet)
+                    walletFile.write(encodedWallet)
+                    if printMsgs:
+                        self.print('Active keyring "{}" saved'.format(
+                            self._activeWallet.name), newline=False)
+                        self.print(' ({})'.format(walletFilePath), Token.Gray)
+                except ValueError as ex:
+                    self.logger.info("ValueError: " +
+                                     "Could not save wallet while exiting\n {}"
+                                     .format(ex))
+                except IOError:
+                    self.logger.info(
+                        "IOError while writing data to wallet file"
+                    )
+        except IOError as ex:
+            self.logger.info("Error occurred while creating wallet. " +
+                             "error no.{}, error.{}"
+                             .format(ex.errno, ex.strerror))
+
     def _saveActiveWallet(self):
         if self._activeWallet:
             # We would save wallet only if user already has a wallet
             # otherwise our access for `activeWallet` property
             # will create a wallet
             self.updateEnvNameInWallet()
-
             if not self.performCompatibilityCheckBeforeSave():
                 return False
-
-            encodedWallet = encode(self._activeWallet)
-            try:
-                keyringsDir = self.getContextBasedKeyringsBaseDir()
-                createDirIfNotExists(keyringsDir)
-                walletFilePath = Cli.getWalletFilePath(
-                        keyringsDir, self.walletFileName)
-                with open(walletFilePath, "w+") as walletFile:
-                    try:
-                        walletFile.write(encodedWallet)
-                        self.print('Active keyring "{}" saved'.format(
-                            self._activeWallet.name), newline=False)
-                        self.print(' ({})'.format(walletFilePath), Token.Gray)
-                    except ValueError as ex:
-                        self.logger.info("ValueError: " +
-                                         "Could not save wallet while exiting\n {}"
-                                         .format(ex))
-                    except IOError:
-                        self.logger.info(
-                            "IOError while writing data to wallet file"
-                        )
-            except IOError as ex:
-                self.logger.info("Error occurred while creating wallet. " +
-                                 "error no.{}, error.{}"
-                                 .format(ex.errno, ex.strerror))
+            keyringsDir = self.getContextBasedKeyringsBaseDir()
+            self._saveActiveWalletInDir(keyringsDir, printMsgs=True)
 
     def parse(self, cmdText):
         cmdText = cmdText.strip()
@@ -1961,6 +1974,13 @@ class Cli:
             return i
 
         dropdbs()
+
+    def __hash__(self):
+        return hash((self.name, self.unique_name, self.basedirpath))
+
+    def __eq__(self, other):
+        return (self.name, self.unique_name, self.basedirpath) == \
+               (other.name, self.unique_name, other.basedirpath)
 
 
 class Exit(Exception):

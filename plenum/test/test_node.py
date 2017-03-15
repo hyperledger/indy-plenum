@@ -16,7 +16,7 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
-from plenum.common.stacked import NodeStack, ClientStack
+from plenum.common.stacked import NodeStack, ClientStack, KITStack
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict
@@ -218,7 +218,7 @@ class TestNode(TestNodeCore, Node):
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(NodeStack)
+        return getTestableStack(Spyable(methods=[KITStack.handleJoinFromUnregisteredRemote], deepLevel=3)(NodeStack))
 
     @property
     def clientStackClass(self) -> ClientStack:
