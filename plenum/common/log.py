@@ -120,7 +120,8 @@ class Logger(metaclass=Singleton):
         self._default_raet_log_file = \
             getRAETLogFilePath("RAETLogFilePath", self._config)
 
-        self.enableStdLogging()
+        if self._config.enableStdOutLogging:
+            self.enableStdLogging()
 
         logLevel = logging.INFO
         if hasattr(self._config, "logLevel"):
