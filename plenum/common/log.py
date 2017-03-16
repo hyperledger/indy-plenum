@@ -122,7 +122,10 @@ class Logger(metaclass=Singleton):
 
         self.enableStdLogging()
 
-        self.setLogLevel(TRACE_LOG_LEVEL)
+        logLevel = logging.INFO
+        if hasattr(self._config, "logLevel"):
+            logLevel = self._config.logLevel
+        self.setLogLevel(logLevel)
 
     @staticmethod
     def getlogger(name=None):
