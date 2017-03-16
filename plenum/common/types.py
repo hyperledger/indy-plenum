@@ -194,11 +194,12 @@ Commit = TaggedTuple(COMMIT, [
 Checkpoint = TaggedTuple(CHECKPOINT, [
     f.INST_ID,
     f.VIEW_NO,
-    f.SEQ_NO,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END,
     f.DIGEST])
 
 CheckpointState = NamedTuple(CHECKPOINT_STATE, [
-    f.SEQ_NO,
+    f.SEQ_NO,   # Current ppSeqNo in the checkpoint
     f.DIGESTS,  # Digest of all the requests in the checkpoint
     f.DIGEST,   # Final digest of the checkpoint, after all requests in its
     # range have been ordered

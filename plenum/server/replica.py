@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
+from hashlib import sha256
 
 from orderedset import OrderedSet
 from sortedcontainers import SortedDict
@@ -197,6 +198,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # Dict[int, Commit]]
 
         self.checkpoints = SortedDict(lambda k: k[0])
+
+        self.stashedRecvdCheckpoints = {}   # type: Dict[Tuple,
+        # Dict[str, Checkpoint]]
 
         self.stashingWhileOutsideWaterMarks = deque()
 
@@ -548,10 +552,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO move this try/except up higher
         logger.debug("{} received PREPARE{} from {}".
                      format(self, (prepare.viewNo, prepare.ppSeqNo), sender))
-        if self.lastStableCheckPointAt and \
-                prepare.ppSeqNo <= self.lastStableCheckPointAt:
+        if self.isPpSeqNoStable(prepare.ppSeqNo):
             self.discard(prepare,
-                         "achieved checkpoint for Preapre",
+                         "achieved stable checkpoint for Preapre",
                          logger.debug)
             return
         try:
@@ -578,10 +581,9 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         logger.debug("{} received COMMIT {} from {}".
                      format(self, commit, sender))
-        if self.lastStableCheckPointAt and \
-                commit.ppSeqNo <= self.lastStableCheckPointAt:
+        if self.isPpSeqNoStable(commit.ppSeqNo):
             self.discard(commit,
-                         "achieved checkpoint for Commit",
+                         "achieved stable checkpoint for Commit",
                          logger.debug)
             return
 
@@ -996,38 +998,61 @@ class Replica(HasActionQueue, MessageProcessor):
     def processCheckpoint(self, msg: Checkpoint, sender: str):
         logger.debug('{} received checkpoint {} from {}'.
                      format(self, msg, sender))
-        if self.checkpoints:
-            seqNo = msg.seqNo
-            _, firstChk = self.firstCheckPoint
-            if firstChk.isStable:
-                if firstChk.seqNo == seqNo:
-                    self.discard(msg, reason="Checkpoint already stable",
-                                 logMethod=logger.debug)
-                    return
-                if firstChk.seqNo > seqNo:
-                    self.discard(msg, reason="Higher stable checkpoint present",
-                                 logMethod=logger.debug)
-                    return
-            for state in self.checkpoints.values():
-                if state.seqNo == seqNo:
-                    if state.digest == msg.digest:
-                        state.receivedDigests[sender] = msg.digest
-                        break
-                    else:
-                        logger.error("{} received an incorrect digest {} for "
-                                     "checkpoint {} from {}".format(self,
-                                                                    msg.digest,
-                                                                    seqNo,
-                                                                    sender))
-                        return
-            if len(state.receivedDigests) == 2*self.f:
-                self.markCheckPointStable(msg.seqNo)
+        seqNoEnd = msg.seqNoEnd
+        if self.isPpSeqNoStable(seqNoEnd):
+            self.discard(msg, reason="Checkpoint already stable",
+                         logMethod=logger.debug)
+            return
+
+        seqNoStart = msg.seqNoStart
+        key = (seqNoStart, seqNoEnd)
+        if key in self.checkpoints and self.checkpoints[key].digest:
+            ckState = self.checkpoints[key]
+            if ckState.digest == msg.digest:
+                ckState.receivedDigests[sender] = msg.digest
             else:
-                logger.debug('{} has state.receivedDigests as {}'.
-                             format(self, state.receivedDigests.keys()))
+                logger.error("{} received an incorrect digest {} for "
+                             "checkpoint {} from {}".format(self,
+                                                            msg.digest,
+                                                            key,
+                                                            sender))
+                return
+            self.checkIfCheckpointStable(key)
         else:
-            self.discard(msg, reason="No checkpoints present to tally",
-                         logMethod=logger.warn)
+            self.stashCheckpoint(msg, sender)
+
+        # if self.checkpoints:
+        #     seqNo = msg.seqNo
+        #     _, firstChk = self.firstCheckPoint
+        #     if firstChk.isStable:
+        #         if firstChk.seqNo == seqNo:
+        #             self.discard(msg, reason="Checkpoint already stable",
+        #                          logMethod=logger.debug)
+        #             return
+        #         if firstChk.seqNo > seqNo:
+        #             self.discard(msg, reason="Higher stable checkpoint present",
+        #                          logMethod=logger.debug)
+        #             return
+        #     for state in self.checkpoints.values():
+        #         if state.seqNo == seqNo:
+        #             if state.digest == msg.digest:
+        #                 state.receivedDigests[sender] = msg.digest
+        #                 break
+        #             else:
+        #                 logger.error("{} received an incorrect digest {} for "
+        #                              "checkpoint {} from {}".format(self,
+        #                                                             msg.digest,
+        #                                                             seqNo,
+        #                                                             sender))
+        #                 return
+        #     if len(state.receivedDigests) == 2*self.f:
+        #         self.markCheckPointStable(msg.seqNo)
+        #     else:
+        #         logger.debug('{} has state.receivedDigests as {}'.
+        #                      format(self, state.receivedDigests.keys()))
+        # else:
+        #     self.discard(msg, reason="No checkpoints present to tally",
+        #                  logMethod=logger.warn)
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1047,14 +1072,18 @@ class Replica(HasActionQueue, MessageProcessor):
                 break
         else:
             state = self._newCheckpointState(ppSeqNo, digest)
-            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ
+            s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
 
         if len(state.digests) == self.config.CHK_FREQ:
-            state = updateNamedTuple(state, digest=serialize(state.digests),
+            state = updateNamedTuple(state,
+                                     digest=sha256(
+                                         serialize(state.digests).encode()
+                                     ).hexdigest(),
                                      digests=[])
             self.checkpoints[s, e] = state
-            self.send(Checkpoint(self.instId, self.viewNo, ppSeqNo,
+            self.send(Checkpoint(self.instId, self.viewNo, s, e,
                                  state.digest))
+            self.processStashedCheckpoints((s, e))
 
     def markCheckPointStable(self, seqNo):
         previousCheckpoints = []
@@ -1076,6 +1105,32 @@ class Replica(HasActionQueue, MessageProcessor):
         self.gc(seqNo)
         logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
+
+    def checkIfCheckpointStable(self, key: Tuple[int, int]):
+        ckState = self.checkpoints[key]
+        if len(ckState.receivedDigests) == 2 * self.f:
+            self.markCheckPointStable(ckState.seqNo)
+            return True
+        else:
+            logger.debug('{} has state.receivedDigests as {}'.
+                         format(self, ckState.receivedDigests.keys()))
+            return False
+
+    def stashCheckpoint(self, ck: Checkpoint, sender: str):
+        seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
+        if (seqNoStart, seqNoEnd) not in self.stashedRecvdCheckpoints:
+            self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd] = {}
+        self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd][sender] = ck
+
+    def processStashedCheckpoints(self, key):
+        i = 0
+        if key in self.stashedRecvdCheckpoints:
+            for sender, ck in self.stashedRecvdCheckpoints[key].items():
+                self.processCheckpoint(ck, sender)
+                i += 1
+        logger.debug('{} processed {} stashed checkpoints for {}'.
+                     format(self, i, key))
+        return i
 
     def gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
@@ -1137,13 +1192,18 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return self.checkpoints.peekitem(-1)
 
-    @property
-    def lastStableCheckPointAt(self):
-        last = None
-        for (s, e), state in self.checkpoints.items():
-            if state.isStable:
-                last = e
-        return last
+    def isPpSeqNoStable(self, ppSeqNo):
+        """
+        :param ppSeqNo:
+        :return: True if ppSeqNo is less than or equal to last stable
+        checkpoint, false otherwise
+        """
+        ck = self.firstCheckPoint
+        if ck:
+            _, ckState = ck
+            return ckState.isStable and ckState.seqNo >= ppSeqNo
+        else:
+            return False
 
     def isPpSeqNoAcceptable(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H

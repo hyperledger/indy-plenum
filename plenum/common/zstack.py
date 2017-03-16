@@ -99,6 +99,8 @@ class Remote:
             #              format(self, self.socket._monitor_socket.FD,
             #                     self.socket._monitor_socket.LAST_ENDPOINT,
             #                     self.socket._monitor_socket.closed))
+            # disable_monitor has its operations in reverse order so doing
+            # them manually in the correct order
             # self.socket.disable_monitor()
             self.socket.monitor(None, 0)
             self.socket._monitor_socket = None
