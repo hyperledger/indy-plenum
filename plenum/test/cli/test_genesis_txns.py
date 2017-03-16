@@ -1,16 +1,20 @@
-import pytest
 import re
+
+import pytest
+from plenum.common.roles import Roles
 
 
 @pytest.fixture("module")
 def newStewardsAdded(cli):
     oldGenTxns = len(cli.genesisTransactions)
-    cli.enterCmd("add genesis transaction NYM for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role=STEWARD")
+    cli.enterCmd(
+        "add genesis transaction NYM for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 role={role}".format(
+            role=Roles.STEWARD.name))
     assert len(cli.genesisTransactions) == oldGenTxns + 1
     assert cli.lastCmdOutput == "Genesis transaction added"
     cli.enterCmd(
         'add genesis transaction NYM for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 '
-        'with data {"alias": "Ty"} role=STEWARD')
+        'with data {{"alias": "Ty"}} role={role}'.format(role=Roles.STEWARD.name))
     assert len(cli.genesisTransactions) == oldGenTxns + 2
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
@@ -19,16 +23,18 @@ def newStewardsAdded(cli):
 @pytest.fixture("module")
 def newNodesAdded(cli):
     oldGenTxns = len(cli.genesisTransactions)
-    cli.enterCmd('add genesis transaction NODE for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
-                 '{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
-                 '"client_port": "9702", '
-                 '"alias": "PhilNode"}')
+    cli.enterCmd(
+        'add genesis transaction NODE for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}')
     assert len(cli.genesisTransactions) == oldGenTxns + 1
     assert cli.lastCmdOutput == "Genesis transaction added"
-    cli.enterCmd('add genesis transaction NODE for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
-                 '{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
-                 '"client_port": "9702", '
-                 '"alias": "PhilNode"}')
+    cli.enterCmd(
+        'add genesis transaction NODE for 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06419 by 59d9225473451efffe6b36dbcaefdbf7b1895de62084509a7f5b58bf01d06418 with data '
+        '{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", '
+        '"client_port": "9702", '
+        '"alias": "PhilNode"}')
     assert len(cli.genesisTransactions) == oldGenTxns + 2
     assert cli.lastCmdOutput == "Genesis transaction added"
     return cli
@@ -59,7 +65,8 @@ def testCreatePoolTxnFle(newStewardsAdded, newNodesAdded):
 def newAddGenStewardTxnAdded(cli):
     oldGenTxns = len(cli.genesisTransactions)
     exportedData = """{"BCU-steward": {"verkey": "b0739fe3113adbdce9dd994057bed5339e9bf2f99a6b7d4754b8b9d094e7c1e0"}}"""
-    cli.enterCmd('add genesis transaction NYM with data {} role=STEWARD'.format(exportedData))
+    cli.enterCmd(
+        'add genesis transaction NYM with data {data} role={role}'.format(data=exportedData, role=Roles.STEWARD.name))
     assert len(cli.genesisTransactions) == oldGenTxns + 1
 
 

@@ -61,11 +61,11 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-dev==0.0.86',
+    install_requires=['ledger-dev',
                       'raet', 'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers', 'psutil'],
+                      'sortedcontainers==1.5.7', 'psutil'],
     extras_require={
         'stats': ['python-firebase']
     },

@@ -2,6 +2,8 @@ import os
 import sys
 from collections import OrderedDict
 
+import logging
+
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
@@ -66,7 +68,7 @@ PerfCheckFreq = 10
 DELTA = 0.8
 LAMBDA = 60
 OMEGA = 5
-SendMonitorStats = True
+SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
@@ -113,6 +115,7 @@ logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
+logLevel=logging.INFO
 
 
 # OPTIONS RELATED TO TESTS
