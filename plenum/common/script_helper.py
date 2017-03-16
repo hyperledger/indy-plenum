@@ -1,5 +1,4 @@
 import os
-import random
 
 from jsonpickle import json
 
@@ -7,6 +6,7 @@ from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
+from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
@@ -250,7 +250,7 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     stewardWallet.addIdentifier(signer=stewardSigner)
 
     # prepare client to submit change ha request to sovrin
-    randomClientPort = random.randint(9700, 9799)
+    _, randomClientPort = genHa()
     client = Client(stewardName,
                     ha=('0.0.0.0', randomClientPort), config=config)
     looper.add(client)

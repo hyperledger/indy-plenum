@@ -15,7 +15,7 @@ txnCount = 10
 whitelist = ['found legacy entry']  # logged errors to ignore
 
 
-@pytest.mark.skipif(True, reason="Incomplete implementation")
+@pytest.mark.skip(reason="SOV-551. Incomplete implementation")
 def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
                             txnPoolCliNodeReg, tdirWithPoolTxns, tconf,
                             allPluginsPath):
