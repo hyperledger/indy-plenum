@@ -4,10 +4,8 @@ import signal
 import sys
 import time
 from asyncio import Task
-from asyncio.coroutines import CoroWrapper
 from typing import List
 
-# import uvloop
 from plenum.common.exceptions import ProdableAlreadyAdded
 from plenum.common.startable import Status
 from plenum.common.log import getlogger
@@ -216,7 +214,7 @@ class Looper:
         while self.running:
             await self.runOnceNicely()
 
-    def run(self, *coros: CoroWrapper):
+    def run(self, *coros):
         """
         Runs an arbitrary list of coroutines in order and then quits the loop,
         if not running as a context manager.
