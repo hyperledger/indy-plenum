@@ -145,6 +145,8 @@ def testUbuntu() {
 
         testEnv.inside('--user sovrin --network host') {
             echo 'Ubuntu Test: Install dependencies'
+            sh 'whoami'
+            echo '------'
 
             sh '/home/sovrin/test/bin/python setup.py install'
             sh '/home/sovrin/test/bin/pip install pytest'
