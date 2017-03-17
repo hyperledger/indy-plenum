@@ -142,6 +142,7 @@ def testUbuntu() {
         }
 
         def uid = sh(returnStdout: true, script: 'id -u').trim()
+        echo 'uid=${uid}'
         def testEnv = docker.build('plenum-test', '--build-arg uid=${uid}')
 
         testEnv.inside('--network host') {
