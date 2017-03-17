@@ -9,7 +9,7 @@ try {
     // 1. TEST
     stage('Test') {
         parallel 'ubuntu-test':{
-            node('ubuntu') {
+            node('ubuntutest') {
                 stage('Ubuntu Test') {
                     testUbuntu()
                 }
@@ -143,7 +143,7 @@ def testUbuntu() {
 
         def testEnv = docker.build 'plenum-test'
 
-        testEnv.inside('--network host') {
+        testEnv.inside('--user sovrin -network host') {
             echo 'Ubuntu Test: Install dependencies'
 
             sh '/home/sovrin/test/bin/python setup.py install'
