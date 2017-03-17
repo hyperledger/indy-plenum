@@ -143,7 +143,7 @@ def testUbuntu() {
 
         def testEnv = docker.build 'plenum-test'
 
-        testEnv.inside('--user sovrin -network host') {
+        testEnv.inside('--user sovrin --network host') {
             echo 'Ubuntu Test: Install dependencies'
 
             sh '/home/sovrin/test/bin/python setup.py install'
