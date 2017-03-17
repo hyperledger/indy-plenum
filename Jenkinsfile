@@ -132,7 +132,7 @@ def testUbuntu() {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        sh 'ln -sf ci/plenum-ubuntu.dockerfile Dockerfile'
+        sh 'ln -sf ci/ubuntu.dockerfile Dockerfile'
         def dockerContainers = sh(returnStdout: true, script: 'docker ps -a').trim()
         echo "Existing docker containers: ${dockerContainers}"
         if (dockerContainers.toLowerCase().contains('orientdb')) {
@@ -145,7 +145,7 @@ def testUbuntu() {
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
-            sh 'cd /home/sovrin && virtualenv -p python3.5 test'
+
             sh '/home/sovrin/test/bin/python setup.py install'
             sh '/home/sovrin/test/bin/pip install pytest'
 

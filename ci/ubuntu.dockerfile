@@ -16,4 +16,5 @@ RUN pip3 install -U \
 	virtualenv
 RUN useradd -ms /bin/bash sovrin
 USER sovrin
+RUN virtualenv -p python3.5 /home/sovrin/test
 WORKDIR /home/sovrin
