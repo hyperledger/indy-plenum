@@ -141,7 +141,8 @@ def testUbuntu() {
             sh("docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password -e ORIENTDB_OPTS_MEMORY=\"${env.ORIENTDB_OPTS_MEMORY}\" orientdb")
         }
 
-        def testEnv = docker.build('plenum-test', '--build-arg 1002')
+        def uid = sh('id -u')
+        def testEnv = docker.build('plenum-test', '--build-arg uid=' + uid)
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
