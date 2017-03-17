@@ -9,7 +9,7 @@ try {
     // 1. TEST
     stage('Test') {
         parallel 'ubuntu-test':{
-            node('ubuntutest') {
+            node('ubuntu') {
                 stage('Ubuntu Test') {
                     testUbuntu()
                 }
