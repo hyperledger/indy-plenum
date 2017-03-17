@@ -71,7 +71,6 @@ class Remote:
     def connect(self, context, localPubKey, localSecKey, typ=None):
         typ = typ or zmq.DEALER
         sock = context.socket(typ)
-        sock.setsockopt(zmq.LINGER, LINGER_TIME)
         sock.curve_publickey = localPubKey
         sock.curve_secretkey = localSecKey
         sock.curve_serverkey = self.publicKey
@@ -84,8 +83,6 @@ class Remote:
         # monitorSock.linger = 0
         # sock.monitor(monitorLoc, zmq.EVENT_ALL)
 
-        monitorSock = sock.get_monitor_socket()
-        monitorSock.linger = 0
         addr = 'tcp://{}:{}'.format(*self.ha)
         sock.connect(addr)
         self.socket = sock
@@ -292,7 +289,6 @@ class ZStack(NetworkInterface):
         # noinspection PyUnresolvedReferences
         self.listener = self.ctx.socket(zmq.ROUTER)
         # noinspection PyUnresolvedReferences
-        self.listener.setsockopt(zmq.LINGER, LINGER_TIME)
         # self.poller.register(self.listener, zmq.POLLIN)
         public, secret = self.selfEncKeys
         self.listener.curve_secretkey = secret
@@ -641,7 +637,7 @@ class ZStack(NetworkInterface):
 
     def send(self, msg, remote: str = None):
         if self.onlyListener:
-            self.transmitThroughListener(msg, remote)
+            return self.transmitThroughListener(msg, remote)
         else:
             if remote is None:
                 r = []
@@ -688,6 +684,9 @@ class ZStack(NetworkInterface):
             return True
         except zmq.Again:
             return False
+        except Exception as e:
+            logger.error('{} got error {} while sending through listener to {}'.
+                         format(self, e, ident))
 
     @staticmethod
     def prepMsg(msg):
