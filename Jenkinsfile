@@ -142,7 +142,7 @@ def testUbuntu() {
         }
 
         def uid = sh('id -u')
-        def testEnv = docker.build('plenum-test', '--build-arg uid=' + uid)
+        def testEnv = docker.build('plenum-test', '--build-arg uid=${uid}')
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
