@@ -2,6 +2,8 @@ import os
 import sys
 from collections import OrderedDict
 
+import logging
+
 from plenum.common.txn import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
@@ -113,7 +115,8 @@ logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
-
+logLevel=logging.INFO
+enableStdOutLogging=True
 
 # OPTIONS RELATED TO TESTS
 
