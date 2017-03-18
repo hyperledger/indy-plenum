@@ -532,17 +532,23 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
     if ensurePortsFreedUp:
         assert looper, 'Need a looper to make sure ports are freed up'
+
     for node in nodes:
         node.stop()
+
     if ensurePortsFreedUp:
-        ports = itertools.chain(*[[n.nodestack.ha[1], n.clientstack.ha[1]]
-                                  for n in nodes])
+        ports = [[n.nodestack.ha[1], n.clientstack.ha[1]] for n in nodes]
+        waitUntillPortIsAvailable(looper, ports)
 
-        def chk():
-            for port in ports:
-                checkPortAvailable(("", port))
 
-        looper.run(eventually(chk, retryWait=.5))
+def waitUntillPortIsAvailable(looper, ports):
+    ports = itertools.chain(*ports)
+
+    def chk():
+        for port in ports:
+            checkPortAvailable(("", port))
+
+    looper.run(eventually(chk, retryWait=.5))
 
 
 def run_script(script, *args):
