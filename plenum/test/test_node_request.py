@@ -25,8 +25,6 @@ logger = getlogger()
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            # for n in nodeSet:
-            #     n.startKeySharing()
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)

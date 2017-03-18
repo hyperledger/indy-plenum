@@ -28,9 +28,7 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures, randomSeed
-from plenum.common.z_util import createEncAndSigKeys, \
-    moveKeyFilesToCorrectLocations, initStackLocalKeys, \
-    initNodeKeysForBothStacks
+from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
@@ -154,12 +152,20 @@ def logcapture(request, whitelist, concerningLogLevels):
                               if re.search(w, msg)])
 
         if not (isBenign or isTest or isWhiteListed):
+            # Stopping all loopers, so prodables like nodes, clients, etc stop.
+            #  This helps in freeing ports
+            for fv in request._fixture_values.values():
+                if isinstance(fv, Looper):
+                    fv.stopall()
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
 
-    request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
+    def cleanup():
+        logging.getLogger().removeHandler(ch)
+
+    request.addfinalizer(cleanup)
     config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)

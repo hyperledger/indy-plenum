@@ -44,7 +44,6 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     delayedPpSeqNos = set()
 
     requestCount = 15
-    requests = sendRandomRequests(wallet1, client1, requestCount)
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5
@@ -63,6 +62,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
+    requests = sendRandomRequests(wallet1, client1, requestCount)
     checkSufficientRepliesForRequests(looper, client1, requests)
 
     def ensureSlowNodesHaveAllTxns():

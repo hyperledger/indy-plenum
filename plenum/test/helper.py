@@ -477,22 +477,6 @@ def checkAllLedgersEqual(*ledgers):
         checkLedgerEquality(l1, l2)
 
 
-def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None,
-                                     tries=None, sighex=None):
-    client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name, sighex=sighex)
-    clientSendMessageAndRemove(client, looper, wallet, tries)
-    return client
-
-
-def clientSendMessageAndRemove(client, looper, wallet, tries=None):
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    clientInboxSize = len(client.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1, tries)
-    assert len(client.inBox) > clientInboxSize
-    looper.removeProdable(client)
-
-
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 

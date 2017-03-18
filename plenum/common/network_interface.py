@@ -116,17 +116,6 @@ class NetworkInterface:
             return None
         return remote.ha
 
-    # def send(self, msg: Any, remoteName: str):
-    #     """
-    #     Transmit the specified message to the remote specified by `remoteName`.
-    #
-    #     :param msg: a message
-    #     :param remoteName: the name of the remote
-    #     """
-    #     rid = self.getRemote(remoteName).uid
-    #     # Setting timeout to never expire
-    #     self.transmit(msg, rid, timeout=self.messageTimeout)
-
     @property
     def conns(self) -> Set[str]:
         """

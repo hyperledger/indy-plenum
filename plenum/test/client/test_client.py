@@ -1,21 +1,19 @@
 import pytest
 from raet.raeting import AutoMode
 
+from plenum.common.eventually import eventually
 from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.common.raet import initRemoteKeep
+from plenum.common.txn import REPLY, REQACK, TXN_ID
+from plenum.common.types import OP_FIELD_NAME, f
 from plenum.common.z_util import initRemoteKeys
-from plenum.test.helper import *
-from plenum.test.helper import checkResponseCorrectnessFromNodes
-from plenum.test.helper import randomOperation, \
-    checkLastClientReqForNode, \
-    getRepliesFromClientInbox
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
-    assertLength
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.server.node import Node
+from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
+    randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
+    sendRandomRequest, checkSufficientRepliesRecvd, assertLength,  \
+    sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNodeSet
-from plenum.common.crypto import Signer
 from plenum.common.log import getlogger
 
 
@@ -55,36 +53,6 @@ def checkResponseRecvdFromNodes(client, expectedCount: int,
         if reqId == expectedReqId:
             coll.add(nodeNm)
     assert len(replies) == len(acks) == expectedCount
-
-
-# noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-550. Implementation changed")
-def testGeneratedRequestSequencing(tdir_for_func):
-    """
-    Request ids must be generated in an increasing order
-    """
-    with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet("test")
-        w.addIdentifier()
-
-        operation = randomOperation()
-
-        request = w.signOp(operation)
-        assert request.reqId == 1
-
-        request = w.signOp(operation)
-        assert request.reqId == 2
-
-        request = w.signOp(randomOperation())
-        assert request.reqId == 3
-
-        idr, _ = w.addIdentifier()
-
-        request = w.signOp(randomOperation(), idr)
-        assert request.reqId == 1
-
-        request = w.signOp(randomOperation())
-        assert request.reqId == 4
 
 
 # noinspection PyIncorrectDocstring
@@ -337,34 +305,3 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
     assert len(client1.inBox) == client1InboxSize
     assert len(newClient.inBox) > newClientInboxSize
-
-
-def testClientCanSendMessagesIfAnotherClientSendsMessage(looper, nodeSet,
-                                                         tdir, another_tdir,
-                                                         wallet1):
-    assert tdir != another_tdir
-    client1 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               tdir, wallet1, 'TestClient1')
-    client2 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               another_tdir, wallet1,
-                                               'TestClient1')
-    clientSendMessageAndRemove(client1, looper, wallet1)
-
-
-def testClientCanSendMessagesIfInitWithSighex(looper, nodeSet,
-                                                         tdir, another_tdir,
-                                                         wallet1):
-    assert tdir != another_tdir
-    signer1 = Signer()
-    sighex1 = signer1.keyhex
-    client1 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               tdir, wallet1,
-                                               'TestClient1', sighex=sighex1)
-
-    signer2 = Signer()
-    sighex2 = signer2.keyhex
-    assert sighex2 != sighex1
-    client2 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               another_tdir, wallet1,
-                                               'TestClient1', sighex=sighex2)
-    clientSendMessageAndRemove(client1, looper, wallet1)

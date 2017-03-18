@@ -26,7 +26,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
 
     # Making the change HA txn an confirming its succeeded
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                 nodeHa=nodeNewHa, clientHa=clientNewHa)
+                nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:

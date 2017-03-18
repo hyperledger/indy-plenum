@@ -18,5 +18,5 @@ def testKitZStacksConnected(registry, tdir, looper):
         stacks.append(stack)
 
     prepStacks(looper, *stacks, connect=False)
-    looper.run(eventually(checkStacksConnected, stacks))
+    looper.run(eventually(checkStacksConnected, stacks, retryWait=1, timeout=10))
 

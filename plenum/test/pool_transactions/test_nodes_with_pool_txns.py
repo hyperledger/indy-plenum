@@ -196,6 +196,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     newNode = getNodeWithName(txnPoolNodeSet, newNode.name)
 
     newNode.stop()
+    looper.removeProdable(name=newNode.name)
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
@@ -207,7 +208,6 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
         initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
         initLocalKeep(newNode.name + CLIENT_STACK_SUFFIX, tdirWithPoolTxns,
                       sigseed)
-    looper.removeProdable(name=newNode.name)
 
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,

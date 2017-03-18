@@ -274,10 +274,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             tooLow = r < self.Delta
             if tooLow:
-                logger.debug("{} master throughput {} is lower than Delta {}.".
-                             format(self, r, self.Delta))
+                logger.debug("{} master throughput ratio {} is lower than "
+                             "Delta {}.".format(self, r, self.Delta))
             else:
-                logger.trace("{} master throughput {} is acceptable.".
+                logger.trace("{} master throughput ratio {} is acceptable.".
                              format(self, r))
             return tooLow
 

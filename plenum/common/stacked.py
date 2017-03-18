@@ -458,9 +458,9 @@ class KITStack(SimpleStack):
             # (no need to connect to itself)
             del self.registry[self.name]
 
-    async def serviceLifecycle(self) -> None:
+    def serviceLifecycle(self) -> None:
         """
-        Async function that does the following activities if the node is going:
+        Function that does the following activities if the node is going:
         (See `Status.going`)
 
         - check connections (See `checkConns`)

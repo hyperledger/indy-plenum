@@ -1021,39 +1021,6 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             self.stashCheckpoint(msg, sender)
 
-        # if self.checkpoints:
-        #     seqNo = msg.seqNo
-        #     _, firstChk = self.firstCheckPoint
-        #     if firstChk.isStable:
-        #         if firstChk.seqNo == seqNo:
-        #             self.discard(msg, reason="Checkpoint already stable",
-        #                          logMethod=logger.debug)
-        #             return
-        #         if firstChk.seqNo > seqNo:
-        #             self.discard(msg, reason="Higher stable checkpoint present",
-        #                          logMethod=logger.debug)
-        #             return
-        #     for state in self.checkpoints.values():
-        #         if state.seqNo == seqNo:
-        #             if state.digest == msg.digest:
-        #                 state.receivedDigests[sender] = msg.digest
-        #                 break
-        #             else:
-        #                 logger.error("{} received an incorrect digest {} for "
-        #                              "checkpoint {} from {}".format(self,
-        #                                                             msg.digest,
-        #                                                             seqNo,
-        #                                                             sender))
-        #                 return
-        #     if len(state.receivedDigests) == 2*self.f:
-        #         self.markCheckPointStable(msg.seqNo)
-        #     else:
-        #         logger.debug('{} has state.receivedDigests as {}'.
-        #                      format(self, state.receivedDigests.keys()))
-        # else:
-        #     self.discard(msg, reason="No checkpoints present to tally",
-        #                  logMethod=logger.warn)
-
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
         logger.debug("{} adding new checkpoint state for {}".

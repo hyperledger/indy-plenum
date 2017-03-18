@@ -92,7 +92,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode))
     newNode.start(looper.loop)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:4], retryWait=1, timeout=15))
 

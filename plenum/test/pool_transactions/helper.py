@@ -211,7 +211,7 @@ def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode]):
         if node.name == disconnect:
             node.stop()
         else:
-            node.nodestack.removeRemoteByName(disconnect)
+            node.nodestack.disconnectByName(disconnect)
 
 
 def checkNodeDisconnectedFrom(needle: str, haystack: Iterable[TestNode]):

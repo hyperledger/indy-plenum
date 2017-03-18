@@ -490,6 +490,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
+            self.hashStore = self.getHashStore(self.name)
+
             self.nodestack.start()
             self.clientstack.start()
 
@@ -497,7 +499,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             # if first time running this node
             if not self.nodestack.remotes:
-                logger.info("{} first time running; waiting for key sharing..."
+                logger.info("{} first time running..."
                             "".format(self), extra={"cli": "LOW_STATUS",
                                                     "tags": ["node-key-sharing"]})
             else:
@@ -547,6 +549,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Stop the txn store
         self.primaryStorage.stop()
 
+        # Stop hash store
+        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
+            self.hashStore.close()
+
         self.nodestack.stop()
         self.clientstack.stop()
 
@@ -576,7 +582,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: total number of messages serviced by this node
         """
         if self.isGoing():
-            await self.nodestack.serviceLifecycle()
+            self.nodestack.serviceLifecycle()
             self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:

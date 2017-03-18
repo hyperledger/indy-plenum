@@ -3,7 +3,7 @@ from distutils.dir_util import copy_tree
 
 from plenum.common.motor import Motor
 from plenum.common.z_util import generate_certificates
-from plenum.common.zstack import ZStack
+from plenum.common.zstack import ZStack, KITZStack
 
 
 class Printer:
@@ -22,7 +22,10 @@ class SMotor(Motor):
         self.stack = stack
 
     async def prod(self, limit) -> int:
-        return await self.stack.service(limit)
+        c = await self.stack.service(limit)
+        if isinstance(self.stack, KITZStack):
+            self.stack.serviceLifecycle()
+        return c
 
     def start(self, loop):
         self.stack.start()

@@ -139,6 +139,7 @@ class TxnStackManager:
             logger.debug("{} adding new node {} with HA {}".format(self.name,
                                                                    remoteName,
                                                                    cliHa))
+        nodeOrClientObj.nodestack.maintainConnections(force=True)
 
     def stackHaChanged(self, txn, remoteName, nodeOrClientObj):
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
@@ -149,6 +150,9 @@ class TxnStackManager:
             nodeOrClientObj.cliNodeReg[remoteName + CLIENT_STACK_SUFFIX] = HA(*cliHa)
         else:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
+
+        nodeOrClientObj.nodestack.maintainConnections(force=True)
+
         return rid
 
     def stackKeysChanged(self, txn, remoteName, nodeOrClientObj):
@@ -165,17 +169,21 @@ class TxnStackManager:
             if self.config.UseZStack:
                 initRemoteKeys(self.name, remoteName, self.basedirpath,
                                verkey, override=True)
+                #TODO:
             else:
                 initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
                                override=True)
         except Exception as ex:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))
+
+        nodeOrClientObj.nodestack.maintainConnections(force=True)
         return rid
 
     @staticmethod
     def removeRemote(stack, remoteName):
         try:
+            stack.disconnectByName(remoteName)
             rid = stack.removeRemoteByName(remoteName)
             logger.debug(
                 "{} removed remote {}".format(stack, remoteName))

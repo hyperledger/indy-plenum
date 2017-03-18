@@ -22,9 +22,16 @@ class MyAuthenticator(Authenticator):
         """Create and bind the ZAP socket"""
         self.zap_socket = self.context.socket(zmq.REP)
         self.zap_socket.linger = 1
-        self.zap_socket.bind(
-            "inproc://zeromq.zap.{}".format(MyAuthenticator.count))
-        self.log.debug("Starting")
+        zapLoc = 'inproc://zeromq.zap.{}'.format(MyAuthenticator.count)
+        self.zap_socket.bind(zapLoc)
+        self.log.debug('Starting ZAP at {}'.format(zapLoc))
+
+    def stop(self):
+        """Close the ZAP socket"""
+        if self.zap_socket:
+            self.log.debug(
+                'Stopping ZAP at {}'.format(self.zap_socket.LAST_ENDPOINT))
+            super().stop()
 
 
 @_inherit_docstrings

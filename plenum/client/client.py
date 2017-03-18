@@ -239,7 +239,7 @@ class Client(Motor,
         s = 0
         if self.isGoing():
             s = await self.nodestack.service(limit)
-            await self.nodestack.serviceLifecycle()
+            self.nodestack.serviceLifecycle()
         self.nodestack.flushOutBoxes()
         s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont

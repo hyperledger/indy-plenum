@@ -202,7 +202,7 @@ class Looper:
         dur = time.perf_counter() - start
         if dur >= 0.5:
             logger.info("it took {:.3f} seconds to run once nicely".
-                           format(dur), extra={"cli": False})
+                        format(dur), extra={"cli": False})
 
     def runFor(self, timeout):
         self.run(asyncio.sleep(timeout))
@@ -266,8 +266,9 @@ class Looper:
         start = time.perf_counter()
         await self.runFut
         self.stopall()
-        logger.info("Looper shut down in {:.3f} seconds.".
-                    format(time.perf_counter() - start),
+        from plenum.common.util import getOpenConnections
+        logger.info("Looper shut down in {:.3f} seconds. {} open conns".
+                    format(time.perf_counter() - start, len(getOpenConnections())),
                     extra={"cli": False})
 
     def __enter__(self):

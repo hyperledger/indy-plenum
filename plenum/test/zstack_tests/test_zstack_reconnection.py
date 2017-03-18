@@ -36,23 +36,24 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     idxToCrash = txnPoolNodeSet.index(nodeToCrash)
     otherNodes = [_ for _ in txnPoolNodeSet if _ != nodeToCrash]
 
-    def checkCrashedConnected(conn=True):
+    def checkFlakyConnected(conn=True):
         for node in otherNodes:
             if conn:
                 assert nodeToCrash.nodestack.name in node.nodestack.connecteds
             else:
                 assert nodeToCrash.nodestack.name not in node.nodestack.connecteds
 
-    checkCrashedConnected(True)
+    checkFlakyConnected(True)
     nodeToCrash.stop()
     looper.removeProdable(nodeToCrash)
-    looper.run(eventually(checkCrashedConnected, False, retryWait=.5, timeout=5))
+    looper.runFor(2)
+    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=20))
     looper.runFor(3)
     node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)
     looper.add(node)
     txnPoolNodeSet[idxToCrash] = node
-    looper.run(eventually(checkCrashedConnected, True, retryWait=2, timeout=50))
+    looper.run(eventually(checkFlakyConnected, True, retryWait=2, timeout=50))
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2, timeout=50)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     checkNodesSendingCommits(txnPoolNodeSet)
