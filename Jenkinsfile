@@ -132,7 +132,6 @@ def testUbuntu() {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        sh 'ln -sf ci/ubuntu.dockerfile Dockerfile'
         def dockerContainers = sh(returnStdout: true, script: 'docker ps -a').trim()
         echo "Existing docker containers: ${dockerContainers}"
         if (dockerContainers.toLowerCase().contains('orientdb')) {
@@ -141,7 +140,8 @@ def testUbuntu() {
             sh("docker run -d --name orientdb -p 2424:2424 -p 2480:2480 -e ORIENTDB_ROOT_PASSWORD=password -e ORIENTDB_OPTS_MEMORY=\"${env.ORIENTDB_OPTS_MEMORY}\" orientdb")
         }
 
-        def testEnv = docker.build 'plenum-test'
+        def uid = sh(returnStdout: true, script: 'id -u').trim()
+        def testEnv = docker.build('plenum-test', "--build-arg uid=${uid} -f ci/ubuntu.dockerfile ci")
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
