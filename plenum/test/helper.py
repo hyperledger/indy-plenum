@@ -511,13 +511,6 @@ def mockImportModule(moduleName):
     return obj
 
 
-def createTempDir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
-    logger.debug("module-level temporary directory: {}".format(tempdir))
-    return tempdir
-
-
 def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
