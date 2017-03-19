@@ -407,9 +407,8 @@ class TestMonitor(Monitor):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
+    def __init__(self, tmpdir_factory, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
-        self.counter = counter
         self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
@@ -425,8 +424,7 @@ class Pool:
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):
-        return self.tmpdir_factory.getbasetemp().strpath + \
-               '/' + str(next(self.counter))
+        return self.tmpdir_factory.mktemp('').strpath
 
 
 class MockedNodeStack:
