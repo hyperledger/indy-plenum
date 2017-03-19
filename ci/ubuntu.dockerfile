@@ -1,6 +1,8 @@
 # Development
 FROM ubuntu:16.04
 
+ARG uid=1000
+
 # Install environment
 RUN apt-get update -y
 RUN apt-get install -y \ 
@@ -14,7 +16,7 @@ RUN pip3 install -U \
 	pip \ 
 	setuptools \
 	virtualenv
-RUN useradd -ms /bin/bash sovrin
+RUN useradd -ms /bin/bash -u $uid sovrin
 USER sovrin
 RUN virtualenv -p python3.5 /home/sovrin/test
 WORKDIR /home/sovrin
