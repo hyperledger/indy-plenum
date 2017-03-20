@@ -19,4 +19,8 @@ RUN pip3 install -U \
 RUN useradd -ms /bin/bash -u $uid sovrin
 USER sovrin
 RUN virtualenv -p python3.5 /home/sovrin/test
+USER root
+RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
+RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
+USER sovrin
 WORKDIR /home/sovrin
