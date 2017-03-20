@@ -33,7 +33,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import isLocalKeepSetup
+from plenum.common.raet import isLocalKeepSetup, initLocalKeep
 from plenum.common.ratchet import Ratchet
 from plenum.common.signer import Signer
 from plenum.common.signer_simple import SimpleSigner
@@ -2015,4 +2015,3 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
-

@@ -247,6 +247,18 @@ class InvalidEndpointPort(EndpointException):
         super().__init__("invalid endpoint port: '{}'".format(endpoint))
 
 
+class WalletError(Exception):
+    pass
+
+
+class WalletNotSet(WalletError):
+    pass
+
+
+class WalletNotInitialized(WalletError):
+    pass
+
+
 class PortNotAvailable(Exception):
     def __init__(self, port):
         self.port = port
@@ -256,3 +268,4 @@ class PortNotAvailable(Exception):
 class OperationError(Exception):
     def __init__(self, error):
         super().__init__("error occurred during operation: {}".format(error))
+

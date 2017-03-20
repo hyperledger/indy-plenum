@@ -4,10 +4,8 @@ import signal
 import sys
 import time
 from asyncio import Task
-from asyncio.coroutines import CoroWrapper
 from typing import List
 
-# import uvloop
 from plenum.common.exceptions import ProdableAlreadyAdded
 from plenum.common.startable import Status
 from plenum.common.log import getlogger
@@ -84,8 +82,10 @@ class Looper:
         #     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         if loop:
+            self.manage_loop = False
             self.loop = loop
         else:
+            self.manage_loop = True
             try:
                 #if sys.platform == 'win32':
                 #    loop = asyncio.ProactorEventLoop()
@@ -214,7 +214,7 @@ class Looper:
         while self.running:
             await self.runOnceNicely()
 
-    def run(self, *coros: CoroWrapper):
+    def run(self, *coros):
         """
         Runs an arbitrary list of coroutines in order and then quits the loop,
         if not running as a context manager.
@@ -274,7 +274,8 @@ class Looper:
         return self
 
     def shutdownSync(self):
-        self.loop.run_until_complete(self.shutdown())
+        if self.manage_loop:
+            self.loop.run_until_complete(self.shutdown())
 
     # noinspection PyUnusedLocal
     def __exit__(self, exc_type, exc_val, exc_tb):

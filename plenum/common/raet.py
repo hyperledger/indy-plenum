@@ -6,7 +6,9 @@ from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
 from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
+from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.util import hasKeys, hexToFriendly
+from plenum.persistence.orientdb_store import OrientDbStore
 
 
 def initLocalKeep(name, baseDir, sigseed, override=False):

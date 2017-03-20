@@ -318,6 +318,9 @@ class adict(dict):
     __setattr__ = __setitem__
     __getattr__ = __getitem__
 
+    def copy(self):
+        return adict(**super().copy())
+
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
     """

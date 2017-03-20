@@ -1,6 +1,5 @@
 import importlib
 import inspect
-import itertools
 import json
 import logging
 import os

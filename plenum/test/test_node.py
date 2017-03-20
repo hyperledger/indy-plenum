@@ -9,6 +9,8 @@ from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
 
+import pytest
+
 import plenum.test.delayers as delayers
 from plenum.common.error import error
 from plenum.common.eventually import eventually, eventuallyAll
