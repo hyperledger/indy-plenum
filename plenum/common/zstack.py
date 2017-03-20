@@ -670,15 +670,21 @@ class ZStack(NetworkInterface):
 
     def sendPing(self, remote):
         r = self.send(self.pingMessage, remote.name)
-        if r:
+        if r is True:
             logger.debug('{} pinged {} at {}'.format(self.name, remote.name,
                                                      self.ha))
-        else:
+        elif r is False:
             # TODO: This fails the first time as socket is not established,
             # need to make it retriable
             logger.warn('{} failed to ping {} at {}'.
                         format(self.name, remote.name, remote.ha),
                         extra={"cli": False})
+        elif r is None:
+            logger.debug('{} will be sending in batch'.format(self))
+        else:
+            logger.warn('{} got an unexpected return value {} while sending'.
+                        format(self, r))
+        return r
 
     def send(self, msg, remote: str = None):
         if self.onlyListener:

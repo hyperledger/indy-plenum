@@ -56,6 +56,7 @@ class f:  # provides a namespace for reusable field constants
     LEDGER_TYPE = Field("ledgerType", int)
     SEQ_NO_START = Field("seqNoStart", int)
     SEQ_NO_END = Field("seqNoEnd", int)
+    CATCHUP_TILL = Field("catchupTill", int)
     HASHES = Field("hashes", List[str])
     TXNS = Field("txns", List[Any])
     TXN = Field("txn", Any)
@@ -240,6 +241,7 @@ CatchupReq = TaggedTuple(CATCHUP_REQ, [
     f.LEDGER_TYPE,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
+    f.CATCHUP_TILL
 ])
 
 CatchupRep = TaggedTuple(CATCHUP_REP, [

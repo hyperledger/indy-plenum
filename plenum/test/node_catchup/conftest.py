@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
@@ -15,11 +16,13 @@ def whitelist():
     return ['got error while verifying message']
 
 
+logger = getlogger()
+
+
 @pytest.yield_fixture("module")
 def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
-    # with Looper(debug=True) as looper:
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)
@@ -29,6 +32,9 @@ def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
                                         txnCount, timeoutPerReq=25)
 
+    logger.debug('Going to add new node, ledger sizes of existing nodes {}'.
+                 format(','.join(['{}:{}'.format(n.name, n.primaryStorage.size)
+                                  for n in txnPoolNodeSet])))
     newStewardName = randomString()
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(

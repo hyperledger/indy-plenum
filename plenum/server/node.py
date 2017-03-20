@@ -551,7 +551,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Stop hash store
         if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
-            self.hashStore.close()
+            try:
+                self.hashStore.close()
+            except Exception as ex:
+                logger.warn('{} got exception while closing hash store: {}'.
+                            format(self, ex))
 
         self.nodestack.stop()
         self.clientstack.stop()
@@ -1685,6 +1689,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
+        # DO NOT COMMIT
+        logger.debug('{} has root hash and size {} {}'.format(self, self.primaryStorage.tree.root_hash, self.primaryStorage.size))
 
     @staticmethod
     def ledgerTypeForTxn(txnType: str):
@@ -1785,7 +1791,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def processStashedOrderedReqs(self):
         i = 0
         while self.stashedOrderedReqs:
-            msg = self.stashedOrderedReqs.pop()
+            msg = self.stashedOrderedReqs.popleft()
             if not self.gotInCatchupReplies(msg):
                 self.processOrdered(msg)
             i += 1

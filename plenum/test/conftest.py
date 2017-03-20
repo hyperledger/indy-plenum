@@ -35,7 +35,7 @@ from plenum.test.helper import randomOperation, \
     checkViewNoForNodes, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule, createTempDir
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
-    checkPropagated, checkPrepared, checkCommited
+    checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
@@ -351,11 +351,11 @@ def prepared1(looper, nodeSet, client1, preprepared1, faultyNodes):
 
 @pytest.fixture(scope="module")
 def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
-    checkCommited(looper,
-                  nodeSet,
-                  prepared1,
-                  range(getNoInstances(len(nodeSet))),
-                  faultyNodes)
+    checkCommitted(looper,
+                   nodeSet,
+                   prepared1,
+                   range(getNoInstances(len(nodeSet))),
+                   faultyNodes)
     return prepared1
 
 

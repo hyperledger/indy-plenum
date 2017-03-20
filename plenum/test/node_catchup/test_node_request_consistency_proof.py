@@ -5,6 +5,7 @@ from random import randint
 import pytest
 
 from plenum.common.eventually import eventually
+from plenum.common.log import getlogger
 from plenum.common.types import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
@@ -13,6 +14,9 @@ from plenum.test.test_node import checkNodesConnected
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
+
+
+logger = getlogger()
 
 
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
@@ -32,7 +36,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
     txnPoolNodeSet.append(newNode)
-    # The new node does not sends different ledger statuses to every node so it
+    # The new node sends different ledger statuses to every node so it
     # does not get enough similar consistency proofs
     sentSizes = set()
 
@@ -53,8 +57,9 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         sentSizes.add(newSize)
 
     newNode.sendDomainLedgerStatus = types.MethodType(sendDLStatus, newNode)
+    logger.debug(
+        'Domain Ledger status sender of {} patched'.format(newNode))
 
-    print("sending 10 requests")
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
 

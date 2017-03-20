@@ -17,6 +17,9 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
+txnCount = 10
+
+
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-331')
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
@@ -57,6 +60,8 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # One of the node sends incorrect txns in catchup reply.
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
+    logger.debug(
+        'Catchup request processor of {} patched'.format(txnPoolNodeSet[0]))
 
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))

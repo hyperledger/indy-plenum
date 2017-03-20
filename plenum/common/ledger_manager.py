@@ -66,6 +66,7 @@ class LedgerManager(HasActionQueue):
         # transactions that need to be applied to the domain transaction ledger
         self.receivedCatchUpReplies = {}    # type: Dict[int, List]
 
+        # Keep track of received replies from different senders
         self.recvdCatchupRepliesFrm = {}
         # type: Dict[int, Dict[str, List[CatchupRep]]]
 
@@ -138,6 +139,7 @@ class LedgerManager(HasActionQueue):
 
             self.recvdConsistencyProofs[ledgerType] = {}
             self.consistencyProofsTimers[ledgerType] = None
+            self.recvdCatchupRepliesFrm[ledgerType] = {}
 
     def checkIfTxnsNeeded(self, ledgerType):
         if self.catchupReplyTimers[ledgerType] is not None:
@@ -180,14 +182,11 @@ class LedgerManager(HasActionQueue):
                     missing = to - frm + 1
                     numBatches = math.ceil(missing / batchSize)
                     for i in range(numBatches):
-                        req = CatchupReq(ledgerType,
-                                         frm + (i * batchSize),
-                                         min(to, frm +
-                                             ((i + 1) * batchSize) - 1))
-                        logger.debug("{} creating catchup request {} to {}".
-                                     format(self, frm+(i*batchSize),
-                                            min(to, frm+((i+1)*batchSize)-1)
-                                            ))
+                        start = frm + (i * batchSize)
+                        end = min(to, frm + ((i + 1) * batchSize) - 1)
+                        req = CatchupReq(ledgerType, start, end, to)
+                        logger.debug("{} creating catchup request {} to {} till".
+                                     format(self, start, end, to))
                         cReqs.append(req)
                     return missing
 
@@ -377,9 +376,9 @@ class LedgerManager(HasActionQueue):
                      .format(frm, end - start, start, end))
 
         logger.debug("{} generating consistency proof: {} from {}".
-                     format(self, end, ledger.size))
+                     format(self, end, req.catchupTill))
         consProof = [b64encode(p).decode() for p in
-                     ledger.tree.consistency_proof(end, ledger.size)]
+                     ledger.tree.consistency_proof(end, req.catchupTill)]
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns,
                                    consProof), to=frm)
 
@@ -711,7 +710,7 @@ class LedgerManager(HasActionQueue):
         e = min(s + batchLength - 1, end)
         for i in range(nodeCount):
             reqs.append(CatchupReq(getattr(consProof, f.LEDGER_TYPE.nm),
-                                   s, e))
+                                   s, e, end))
             s = e + 1
             e = min(s + batchLength - 1, end)
             if s > end:
