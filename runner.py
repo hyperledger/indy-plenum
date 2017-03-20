@@ -130,7 +130,7 @@ def log(msg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--pytest', type=str, help='pytest instance', default='pytest')
+    parser.add_argument('--pytest', type=str, help='pytest instance', default='python -m pytest')
     parser.add_argument('--output', type=str, help='result file', default='../Test-Report.txt')
     parser.add_argument('--nooutput', help='no result file', action="store_true")
     args = parser.parse_args()
