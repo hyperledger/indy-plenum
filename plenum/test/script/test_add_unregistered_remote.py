@@ -5,7 +5,7 @@ from plenum.common.looper import Looper
 from plenum.test.helper import msgAll, randomText
 from plenum.common.log import getlogger
 from plenum.common.exceptions import RemoteNotFound
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.port_dispenser import genHa
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg, TestNode
 from plenum.common.types import NodeDetail

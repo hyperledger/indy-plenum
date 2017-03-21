@@ -1,5 +1,5 @@
 from plenum.common.roles import Roles
-from plenum.common.txn import STEWARD, TRUSTEE, TGB, TRUST_ANCHOR
+from plenum.common.constants import STEWARD, TRUSTEE, TGB, TRUST_ANCHOR
 
 
 def testRolesAreEncoded():

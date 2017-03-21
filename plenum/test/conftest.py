@@ -22,11 +22,10 @@ from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, NYM
+from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
-    PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import HA, PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
