@@ -10,13 +10,13 @@ from plenum.common.types import Identifier, HA, OP_FIELD_NAME, f
 from plenum.common.util import bootstrapClientKeys
 from plenum.common.error import error
 from plenum.test.test_stack import StackedTester, getTestableStack
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 
 
 logger = getlogger()
 
 
-@Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
+@spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
 class TestClient(Client, StackedTester):
     @property
     def nodeStackClass(self) -> NodeStack:

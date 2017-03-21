@@ -37,7 +37,7 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 from plenum.test.waits import expectedWait
 
 logger = getlogger()
@@ -184,7 +184,7 @@ class TestNodeCore(StackedTester):
         pass
 
 
-@Spyable(methods=[Node.handleOneNodeMsg,
+@spyable(methods=[Node.handleOneNodeMsg,
                   Node.handleInvalidClientMsg,
                   Node.processRequest,
                   Node.processOrdered,
@@ -220,7 +220,7 @@ class TestNode(TestNodeCore, Node):
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(Spyable(methods=[KITStack.handleJoinFromUnregisteredRemote], deepLevel=3)(NodeStack))
+        return getTestableStack(spyable(methods=[KITStack.handleJoinFromUnregisteredRemote], deep_level=3)(NodeStack))
 
     @property
     def clientStackClass(self) -> ClientStack:
@@ -242,7 +242,7 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@Spyable(methods=[replica.Replica.doPrePrepare,
+@spyable(methods=[replica.Replica.doPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canSendPrepare,
                   replica.Replica.isValidPrepare,
@@ -387,7 +387,7 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
     return [node.replicas[instId] for node in nodes]
 
 
-@Spyable(methods=[Monitor.isMasterThroughputTooLow,
+@spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
                   Monitor.sendThroughput,
                   Monitor.requestOrdered,

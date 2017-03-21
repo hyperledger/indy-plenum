@@ -17,7 +17,7 @@ from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 from pygments.token import Token
 
 
@@ -128,7 +128,7 @@ class TestCliCore:
         return self.lastPrintArgs['msg']
 
 
-@Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
+@spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
     pass
 

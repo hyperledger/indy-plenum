@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from plenum.common.log import getlogger
 from plenum.server.node import Node
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 
 
 pr = slice(3, 5)  # params and result
@@ -78,26 +78,26 @@ class TestHelpers(TestCase):
 
 class NewTestableTests(TestHelpers):
     def testNew(self):
-        X = Spyable(Node)
+        X = spyable(Node)
         print(X)
 
     def testSpyableBaseClass(self):
-        SpyBaseClass = Spyable()(NewBaseClass)
+        SpyBaseClass = spyable()(NewBaseClass)
         z = SpyBaseClass('x', 'y')
         self.runThroughAssertions(z)
 
     def testSpyableSubClass(self):
-        SpySubClass = Spyable()(SubClass)
+        SpySubClass = spyable()(SubClass)
         z = SpySubClass('x', 'y')
         self.runThroughAssertions(z)
 
     def testSpyableSubClassWithOverride(self):
-        SpySubClassOvrd = Spyable()(SubClassWithOverride)
+        SpySubClassOvrd = spyable()(SubClassWithOverride)
         z = SpySubClassOvrd('x', 'y')
         self.runThroughAssertions(z, 'hooray!')
 
     def testEveryObjectGetsItsOwnSpyLog(self):
-        SpySubClass = Spyable()(SubClass)
+        SpySubClass = spyable()(SubClass)
         y = SpySubClass('a', 'b')
         z = SpySubClass('x', 'y')
         self.checkOneInit(y, {'s': 'a', 'p': 'b'})
@@ -105,7 +105,7 @@ class NewTestableTests(TestHelpers):
 
     def testSpyOnSubsetOfMethods(self):
         def go(methods, ec: "expected counts"):
-            SpySubClass = Spyable(methods=methods)(SubClass)
+            SpySubClass = spyable(methods=methods)(SubClass)
             z = SpySubClass('a', 'b')
             self.assertEquals(len(z.spylog), ec[0],
                               "expected certain number of entries in the spy log")
@@ -132,7 +132,7 @@ class NewTestableTests(TestHelpers):
             go([SubClass.eatCorn, SubClass.mymethod], [0, 2, 4])
 
     def testSpyOnOverriddenClassMethod(self):
-        SpySubClass = Spyable(
+        SpySubClass = spyable(
             methods=[SubClassWithOverride.eatCorn, "mymethod"])(
             SubClassWithOverride)
         z = SpySubClass('a', 'b')
@@ -144,7 +144,7 @@ class NewTestableTests(TestHelpers):
                           ({'inp': 'hi'}, None))
 
     def testSpyOnOverriddenBaseClassMethod(self):
-        SpySubClass = Spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
+        SpySubClass = spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
             SubClassWithOverride)
         z = SpySubClass('a', 'b')
         z.mymethod("hi")
@@ -156,7 +156,7 @@ class NewTestableTests(TestHelpers):
     def testSpyOnCertainClass(self):
         # known limitation... when super() is called, we are not spy-wrapping
         # base base class methods.
-        SpySubClass = Spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
+        SpySubClass = spyable(methods=[NewBaseClass.eatCorn, "mymethod"])(
             SubClassWithOverrideAndSuperCall)
         z = SpySubClass('a', 'b')
         z.mymethod("hi")

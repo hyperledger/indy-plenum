@@ -1,5 +1,4 @@
 import inspect
-import logging
 import time
 from functools import wraps
 from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
@@ -49,62 +48,67 @@ class SpyLog(list):
         return sum(1 for x in self if x.method == method)
 
 
-def Spyable(name: str = None, methods: SpyableMethods = None, deepLevel: int = None):
-    def spy(func, isInit, shouldSpy):
+def spy(func, is_init, should_spy, spy_log=None):
+    sig = inspect.signature(func)
+    paramNames = [k for k in sig.parameters]
+    # TODO Find a better way
+    if paramNames and paramNames[0] == "self":
+        paramNames = paramNames[1:]
 
-        sig = inspect.signature(func)
-        paramNames = [k for k in sig.parameters]
-        # TODO Find a better way
-        if paramNames and paramNames[0] == "self":
-            paramNames = paramNames[1:]
+    # sets up spylog, but doesn't spy on init
+    def init_only(self, *args, **kwargs):
+        self.spylog = SpyLog()
+        return func(self, *args, **kwargs)
 
-        # sets up spylog, but doesn't spy on init
-        def initOnly(self, *args, **kwargs):
-            self.spylog = SpyLog()
-            return func(self, *args, **kwargs)
+    init_only.__name__ = func.__name__
 
-        initOnly.__name__ = func.__name__
+    # sets up spylog, and also spys on init
+    def init_wrap(self, *args, **kwargs):
+        self.spylog = SpyLog()
+        return wrap(self, *args, **kwargs)
 
-        # sets up spylog, and also spys on init
-        def initWrap(self, *args, **kwargs):
-            self.spylog = SpyLog()
-            return wrap(self, *args, **kwargs)
+    init_wrap.__name__ = func.__name__
 
-        initWrap.__name__ = func.__name__
+    # wraps a function call
+    @wraps(func)
+    def wrap(self, *args, **kwargs):
+        start = time.perf_counter()
+        r = None
+        try:
+            r = func(self, *args, **kwargs)
+        except Exception as ex:
+            r = ex
+            raise
+        finally:
+            params = {}
+            if kwargs:
+                for k, v in kwargs.items():
+                    params[k] = v
+            if args:
+                for i, nm in enumerate(paramNames[:len(args)]):
+                    params[nm] = args[i]
 
-        # wraps a function call
-        @wraps(func)
-        def wrap(self, *args, **kwargs):
-            start = time.perf_counter()
-            r = None
-            try:
-                r = func(self, *args, **kwargs)
-            except Exception as ex:
-                r = ex
-                raise
-            finally:
-                params = {}
-                if kwargs:
-                    for k, v in kwargs.items():
-                        params[k] = v
-                if args:
-                    for i, nm in enumerate(paramNames[:len(args)]):
-                        params[nm] = args[i]
+            used_log = spy_log
 
-                self.spylog.append(Entry(start,
-                                         time.perf_counter(),
-                                         func.__name__,
-                                         params,
-                                         r))
-            return r
+            if hasattr(self, 'spylog'):
+                used_log = self.spylog
 
-        return wrap if not isInit else initWrap if shouldSpy else initOnly
+            used_log.append(Entry(start,
+                                  time.perf_counter(),
+                                  func.__name__,
+                                  params,
+                                  r))
+        return r
 
+    return wrap if not is_init else init_wrap if should_spy else init_only
+
+
+def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = None):
     def decorator(clas):
         nonlocal name
         name = name if name else "Spyable" + clas.__name__
 
-        spyable = type(name, (clas,), {})
+        spyable_type = type(name, (clas,), {})
         morphed = {}  # type: Dict[Callable, Callable]
         matches = []
         for nm, func in [(method, getattr(clas, method))
@@ -121,9 +125,9 @@ def Spyable(name: str = None, methods: SpyableMethods = None, deepLevel: int = N
             if shouldSpy or isInit:
                 newFunc = spy(func, isInit, shouldSpy)
                 morphed[func] = newFunc
-                setattr(spyable, nm, newFunc)
+                setattr(spyable_type, nm, newFunc)
                 logger.debug("in {} added spy on {}".
-                              format(spyable.__name__, nm))
+                             format(spyable_type.__name__, nm))
             matches.append(matched)
 
         if methods:
@@ -133,7 +137,7 @@ def Spyable(name: str = None, methods: SpyableMethods = None, deepLevel: int = N
                         "method {} not found, so no spy added".format(m),
                         extra={"cli": False})
 
-        objSearchReplace(spyable, morphed, logMsg="Applying spy remapping", deepLevel=deepLevel)
-        return spyable
+        objSearchReplace(spyable_type, morphed, logMsg="Applying spy remapping", deepLevel=deep_level)
+        return spyable_type
 
     return decorator
