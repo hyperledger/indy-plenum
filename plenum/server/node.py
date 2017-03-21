@@ -1887,7 +1887,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param nodeName: name of the node to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.warning("{} suspicion raised on node {} for {}; suspicion code "
+        logger.warning("{} raised suspicion on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
 

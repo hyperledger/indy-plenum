@@ -122,7 +122,8 @@ class LedgerManager(HasActionQueue):
 
     def checkIfCPsNeeded(self, ledgerType):
         if self.consistencyProofsTimers[ledgerType] is not None:
-            logger.debug("{} requesting consistency proofs after timeout".format(self))
+            logger.debug("{} requesting consistency proofs of {} after timeout".
+                         format(self, ledgerType))
             adjustedF = getMaxFailures(self.owner.totalNodes - 1)
             recvdConsProof = self.recvdConsistencyProofs[ledgerType]
             grpdPrf, nullProofs = self._groupConsistencyProofs(recvdConsProof)

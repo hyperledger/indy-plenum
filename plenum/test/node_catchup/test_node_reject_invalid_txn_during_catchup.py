@@ -20,7 +20,7 @@ logger = getlogger()
 txnCount = 10
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-331')
+@pytest.mark.skip(reason='SOV-331')
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other

@@ -466,6 +466,10 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent this request
         """
         senderRep = self.generateName(sender, self.instId)
+        if self.isPpSeqNoStable(msg.ppSeqNo):
+            logger.debug('{} achieved stable checkpoint for {}'.
+                         format(self, msg))
+            return
         if self.isPpSeqNoAcceptable(msg.ppSeqNo):
             try:
                 self.threePhaseRouter.handleSync((msg, senderRep))
