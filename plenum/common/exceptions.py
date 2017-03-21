@@ -245,3 +245,14 @@ class InvalidEndpointIpAddress(EndpointException):
 class InvalidEndpointPort(EndpointException):
     def __init__(self, endpoint):
         super().__init__("invalid endpoint port: '{}'".format(endpoint))
+
+
+class PortNotAvailable(Exception):
+    def __init__(self, port):
+        self.port = port
+        super().__init__("port not available: {}".format(port))
+
+
+class OperationError(Exception):
+    def __init__(self, error):
+        super().__init__("error occurred during operation: {}".format(error))
