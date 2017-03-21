@@ -82,9 +82,7 @@ BY = "by"
 
 # ROLES
 STEWARD = Roles.STEWARD.value
-TRUST_ANCHOR = Roles.TRUST_ANCHOR.value
 TRUSTEE = Roles.TRUSTEE.value
-TGB = Roles.TGB.value
 
 # TXNs
 NODE = PlenumTransactions.NODE.value
