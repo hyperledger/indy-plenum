@@ -1,5 +1,7 @@
 import types
 
+import pytest
+
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import CatchupReq
@@ -14,6 +16,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
+@pytest.mark.skip(reason="")
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
