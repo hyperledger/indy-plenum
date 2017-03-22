@@ -1,11 +1,11 @@
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.port_dispenser import genHa
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import changeNodeHa, \
     buildPoolClientAndWallet
 from plenum.test.test_node import TestNode, checkNodesConnected
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 

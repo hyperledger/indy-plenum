@@ -1,6 +1,6 @@
 from binascii import unhexlify
 
-from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
+from stp_core.crypto.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 
 
 def testNodesConnectedUsingConvertedKeys(nodeSet, up):

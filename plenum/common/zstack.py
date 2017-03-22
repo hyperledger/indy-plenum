@@ -26,7 +26,8 @@ from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
 from plenum.common.ratchet import Ratchet
 from plenum.common.txn import BATCH
-from plenum.common.types import HA, OP_FIELD_NAME, f
+from plenum.common.types import OP_FIELD_NAME, f
+from stp_core.types import HA
 from plenum.common.util import randomString
 from plenum.common.z_util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations
@@ -950,7 +951,7 @@ class SimpleZStack(ZStack):
 
 
 class KITZStack(SimpleZStack):
-    # Stack which maintains connections mentioned in its registry
+    # RStack which maintains connections mentioned in its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], seed=None, sighex: str = None):
         super().__init__(stackParams, msgHandler, seed=seed, sighex=sighex)
@@ -1028,7 +1029,7 @@ class KITZStack(SimpleZStack):
         """
         return set(self.registry.keys()) - self.conns
 
-    # The next method is copied from KITStack from stacked.py
+    # The next method is copied from KITRStack from stacked.py
     def findInNodeRegByHA(self, remoteHa):
         """
         Returns the name of the remote by HA if found in the node registry, else

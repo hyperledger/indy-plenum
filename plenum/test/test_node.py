@@ -1,5 +1,4 @@
 import operator
-import os
 import time
 import types
 from collections import OrderedDict
@@ -17,13 +16,11 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
-from plenum.common.stacked import NodeStack, ClientStack, KITStack
+from plenum.common.stacked import NodeStack, ClientRStack
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict, randomSeed
-from plenum.common.z_util import createCertsFromKeys
-from plenum.common.zstack import NodeZStack, ClientZStack, ZStack
+from plenum.common.zstack import NodeZStack, ClientZStack
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -41,6 +38,7 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
 from plenum.test.testable import Spyable
 from plenum.test.waits import expectedWait
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 
@@ -211,7 +209,7 @@ class TestNode(TestNodeCore, Node):
         # TODO: Remove them once RAET is removed
         from plenum.test.conftest import UseZStack
         self.NodeStackClass = NodeZStack if UseZStack else NodeStack
-        self.ClientStackClass = ClientZStack if UseZStack else ClientStack
+        self.ClientStackClass = ClientZStack if UseZStack else ClientRStack
 
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)
@@ -230,7 +228,7 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.NodeStackClass)
 
     @property
-    def clientStackClass(self) -> ClientStack:
+    def clientStackClass(self) -> ClientRStack:
         return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):

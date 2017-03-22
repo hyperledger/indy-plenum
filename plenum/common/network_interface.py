@@ -246,4 +246,3 @@ class NetworkInterface:
             array = conns if self.isRemoteConnected(r) else disconns
             array.append(r)
         return conns, disconns
-

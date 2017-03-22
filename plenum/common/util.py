@@ -1,14 +1,13 @@
 import asyncio
-import os
-
 import collections
 import inspect
+import ipaddress
 import itertools
 import json
 import logging
 import math
+import os
 import random
-import socket
 import string
 import time
 from binascii import unhexlify, hexlify
@@ -21,14 +20,12 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import base58
 import libnacl.secret
 import psutil
+from libnacl import crypto_hash_sha256
+from six import iteritems, string_types
 
 from ledger.util import F
-from libnacl import crypto_hash_sha256
 from plenum.common.error import error
-from six import iteritems, string_types
-import ipaddress
-
-from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+from plenum.common.exceptions import MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
@@ -112,22 +109,6 @@ def getRandomPortNumber() -> int:
     :return: a random port number
     """
     return random.randint(8090, 65530)
-
-
-def isHex(val: str) -> bool:
-    """
-    Return whether the given str represents a hex value or not
-
-    :param val: the string to check
-    :return: whether the given str represents a hex value
-    """
-    if isinstance(val, bytes):
-        # only decodes utf-8 string
-        try:
-            val = val.decode()
-        except:
-            return False
-    return isinstance(val, str) and all(c in string.hexdigits for c in val)
 
 
 async def runall(corogen):
@@ -259,25 +240,6 @@ def distributedConnectionMap(names: List[str]) -> OrderedDict:
     return connmap
 
 
-def checkPortAvailable(ha):
-    """Checks whether the given port is available"""
-    # Not sure why OS would allow binding to one type and not other.
-    # Checking for port available for TCP and UDP, this is done since
-    # either RAET (UDP) or CurveZMQ(TCP) could have been used
-    sockTypes = (socket.SOCK_DGRAM, socket.SOCK_STREAM)
-    for typ in sockTypes:
-        sock = socket.socket(socket.AF_INET, typ)
-        try:
-            sock.bind(ha)
-        except BaseException as ex:
-            logging.warning("Checked port availability for opening "
-                            "as {} but address was already in use: {}".
-                            format(typ, ha))
-            raise ex
-        finally:
-            sock.close()
-
-
 class MessageProcessor:
     """
     Helper functions for messages.
@@ -362,26 +324,6 @@ def firstKey(d: Dict):
 
 def firstValue(d: Dict):
     return next(iter(d.values()))
-
-
-def seedFromHex(seed):
-    if len(seed) == 64:
-        try:
-            return unhexlify(seed)
-        except:
-            pass
-
-
-def cleanSeed(seed=None):
-    if seed:
-        bts = seedFromHex(seed)
-        if not bts:
-            if isinstance(seed, str):
-                seed = seed.encode('utf-8')
-            bts = bytes(seed)
-            if len(seed) != 32:
-                error('seed length must be 32 bytes')
-        return bts
 
 
 def isHexKey(key):

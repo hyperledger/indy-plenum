@@ -11,7 +11,8 @@ from plenum.common.exceptions import UnsupportedOperation, \
 
 from plenum.common.stack_manager import TxnStackManager
 
-from plenum.common.types import HA, f, Reply
+from plenum.common.types import f, Reply
+from stp_core.types import HA
 from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR

@@ -1,13 +1,14 @@
+import os
+import psutil
+
 import pytest
 import zmq
 
 from plenum.common.eventually import eventually
-from plenum.common.port_dispenser import genHa
 from plenum.common.util import randomString
 from plenum.test.pool_transactions.helper import addNewClient
 from plenum.test.test_client import TestClient
-
-import os, psutil
+from stp_core.network.port_dispenser import genHa
 
 
 @pytest.mark.skip(reason='This is not a test')

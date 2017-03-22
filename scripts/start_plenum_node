@@ -6,7 +6,7 @@ import sys
 from ioflo.aid.consoling import Console
 
 from plenum.common.looper import Looper
-from plenum.common.types import HA
+from stp_core.types import HA
 from plenum.common.config_util import getConfig
 from plenum.server.node import Node
 from plenum.common.log import Logger, getRAETLogLevelFromConfig, \

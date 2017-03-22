@@ -29,7 +29,8 @@ from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems, checkPortAvailable
+    checkIfMoreThanFSameItems
+from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \

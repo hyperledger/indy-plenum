@@ -8,7 +8,8 @@ from plenum.client.wallet import Wallet
 from plenum.common.looper import Looper
 from plenum.common.keygen_utils import initKeys
 from plenum.common.temp_file_util import SafeTemporaryDirectory
-from plenum.common.types import HA, NodeDetail
+from plenum.common.types import NodeDetail
+from stp_core.types import HA
 from plenum.common.util import randomString
 from plenum.server.node import Node
 from plenum.test.malicious_behaviors_node import faultyReply, makeNodeFaulty

@@ -38,7 +38,7 @@ from plenum.common.raet import isLocalKeepSetup
 from plenum.common.ratchet import Ratchet
 from plenum.common.signer import Signer
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.stacked import NodeStack, ClientStack
+from plenum.common.stacked import NodeStack, ClientRStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
@@ -48,12 +48,13 @@ from plenum.common.types import Propagate, \
     Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
+    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
     HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
+from stp_core.types import HA
 from plenum.common.request import Request
 from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
     rawToFriendly
@@ -403,12 +404,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return NodeStack
 
     @property
-    def clientStackClass(self) -> ClientStack:
+    def clientStackClass(self) -> ClientRStack:
         # TODO: Remove if condition once raet is removed
         if self.config.UseZStack:
             return ClientZStack
         else:
-            return ClientStack
+            return ClientRStack
 
     def getPrimaryStorage(self):
         """

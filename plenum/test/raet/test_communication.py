@@ -5,9 +5,9 @@ from raet.road.estating import RemoteEstate
 from raet.road.stacking import RoadStack
 
 from plenum.common.log import getlogger
-from plenum.common.port_dispenser import genHa
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test.raet.helper import handshake, cleanup, sendMsgs, getRemote
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 

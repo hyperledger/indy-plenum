@@ -3,9 +3,9 @@ from typing import Any, Optional, NamedTuple
 from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
-from plenum.common.stacked import Stack
+from plenum.common.stacked import RStack
 from plenum.common.zstack import ZStack
-from plenum.common.types import HA
+from stp_core.types import HA
 from plenum.test.exceptions import NotFullyConnected
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.stasher import Stasher
@@ -20,7 +20,7 @@ config = getConfig()
 if config.UseZStack:
     BaseStackClass = ZStack
 else:
-    BaseStackClass = Stack
+    BaseStackClass = RStack
 
 
 class TestStack(BaseStackClass):
@@ -76,7 +76,7 @@ class StackedTester:
 
 def getTestableStack(stack: NetworkInterface):
     """
-    Dynamically modify a class that extends from `Stack` and introduce
+    Dynamically modify a class that extends from `RStack` and introduce
     `TestStack` in the class hierarchy
     :param stack:
     :return:
@@ -123,7 +123,7 @@ def checkState(state: RemoteState, obj: Any, details: str=None):
                                      set(state._asdict().items())
 
 
-def checkRemoteExists(frm: Stack,
+def checkRemoteExists(frm: RStack,
                       to: str,  # remoteName
                       state: Optional[RemoteState] = None):
     remote = frm.getRemote(to)

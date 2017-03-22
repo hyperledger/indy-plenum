@@ -4,8 +4,8 @@ import pytest
 import zmq.asyncio
 
 from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
 from plenum.common.temp_file_util import SafeTemporaryDirectory
+from stp_core.network.port_dispenser import genHa
 
 
 @pytest.fixture()

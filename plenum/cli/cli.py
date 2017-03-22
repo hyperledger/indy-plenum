@@ -1,18 +1,18 @@
 from __future__ import unicode_literals
 
-# noinspection PyUnresolvedReferences
 import glob
+import shutil
+from hashlib import sha256
+from os.path import basename, dirname
 from typing import Dict, Iterable
 
 import pyorient
-import shutil
-from hashlib import sha256
 from jsonpickle import json, encode, decode
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
-from os.path import basename, dirname
-
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
@@ -32,14 +32,13 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
-from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from stp_core.network.port_dispenser import genHa
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -55,9 +54,7 @@ import time
 import ast
 
 from functools import reduce, partial
-import logging
 import sys
-from collections import defaultdict
 
 from prompt_toolkit.history import FileHistory
 from ioflo.aid.consoling import Console
@@ -73,13 +70,15 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
+from stp_core.crypto.util import cleanSeed
 from plenum.common.util import getMaxFailures, \
-    firstValue, randomString, cleanSeed, bootstrapClientKeys, \
+    firstValue, randomString, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
-from plenum.common.log import CliHandler, getlogger, Logger, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
+from plenum.common.log import getlogger, Logger, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
+from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail
+from stp_core.types import HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig

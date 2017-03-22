@@ -5,7 +5,7 @@ from collections import OrderedDict
 from raet.nacling import Signer, Privateer
 from raet.road.keeping import RoadKeep
 
-from plenum.common.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
+from stp_core.crypto.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
 from plenum.common.util import hasKeys, hexToFriendly
 
 

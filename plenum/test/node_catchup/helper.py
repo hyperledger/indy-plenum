@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from plenum.common.eventually import eventually
-from plenum.common.types import HA
+from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode

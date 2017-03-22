@@ -4,11 +4,10 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
 from plenum.common.util import adict
-
 from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
     doByCtx
+from stp_core.network.port_dispenser import genHa
 
 
 @pytest.yield_fixture(scope="module")

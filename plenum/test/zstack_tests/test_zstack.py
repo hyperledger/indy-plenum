@@ -1,9 +1,9 @@
 from plenum.common.eventually import eventually
-from plenum.common.port_dispenser import genHa
 from plenum.common.util import randomSeed
 from plenum.common.zstack import ZStack
 from plenum.test.zstack_tests.helper import Printer, genKeys, chkPrinted, \
     prepStacks
+from stp_core.network.port_dispenser import genHa
 
 
 def testRestricted2ZStackCommunication(tdir, looper):

@@ -1,19 +1,18 @@
 from random import shuffle, randint
 
 import pytest
-import time
 from ioflo.aid import getConsole
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 from plenum.test.zstack_tests.helper import genKeys
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 

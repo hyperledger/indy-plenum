@@ -20,12 +20,11 @@ from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
 from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
+from plenum.common.types import CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
     PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures, randomSeed
 from plenum.common.z_util import initNodeKeysForBothStacks
@@ -40,6 +39,8 @@ from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 logger = getlogger()
 config = getConfig()

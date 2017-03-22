@@ -4,10 +4,9 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.types import CLIENT_STACK_SUFFIX, HA
+from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
@@ -18,6 +17,8 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeHa, addNewStewardAndNode, changeNodeKeys
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 logger = getlogger()
 

@@ -7,10 +7,7 @@ from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE
-
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
+from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
     ("ha", HA),
@@ -135,8 +132,6 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 
 
 OPERATION = 'operation'
-
-Identifier = str
 
 RequestAck = TaggedTuple(REQACK, [
     f.IDENTIFIER,

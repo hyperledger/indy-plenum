@@ -10,7 +10,8 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.raet import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR
-from plenum.common.types import HA, CLIENT_STACK_SUFFIX
+from plenum.common.types import CLIENT_STACK_SUFFIX
+from stp_core.types import HA
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.log import getlogger
 from plenum.common.z_util import initRemoteKeys

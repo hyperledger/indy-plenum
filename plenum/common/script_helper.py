@@ -6,12 +6,13 @@ from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
-from plenum.common.port_dispenser import genHa
 from plenum.common.raet import getLocalVerKey, getLocalPubKey
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE
-from plenum.common.types import CLIENT_STACK_SUFFIX, HA
+from plenum.common.types import CLIENT_STACK_SUFFIX
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"

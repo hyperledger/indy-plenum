@@ -7,7 +7,7 @@ from libnacl import crypto_sign_seed_keypair
 from zmq.auth.certs import _write_key_file, _cert_public_banner, \
     _cert_secret_banner
 from zmq.utils import z85
-from plenum.common.crypto import ed25519PkToCurve25519 as ep2c, \
+from stp_core.crypto.crypto import ed25519PkToCurve25519 as ep2c, \
     ed25519SkToCurve25519 as es2c
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomSeed, isHex

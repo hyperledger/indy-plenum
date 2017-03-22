@@ -3,7 +3,6 @@ from typing import Iterable, Union
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.eventually import eventually
-from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
@@ -14,6 +13,7 @@ from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.test.helper import checkSufficientRepliesRecvd
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode
+from stp_core.network.port_dispenser import genHa
 
 
 def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,

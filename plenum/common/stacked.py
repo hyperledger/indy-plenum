@@ -13,15 +13,15 @@ from raet.road.transacting import Joiner, Allower, Messenger
 
 from plenum.common.batched import Batched
 from plenum.common.config_util import getConfig
-from plenum.common.crypto import getEd25519AndCurve25519Keys, \
+from stp_core.crypto.crypto import getEd25519AndCurve25519Keys, \
     ed25519SkToCurve25519
 from plenum.common.error import error
 from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
 from plenum.common.ratchet import Ratchet
-from plenum.common.types import HA
-from plenum.common.util import distributedConnectionMap, \
-    checkPortAvailable
+from stp_core.types import HA
+from plenum.common.util import distributedConnectionMap
+from stp_core.network.util import checkPortAvailable
 
 logger = getlogger()
 
@@ -36,7 +36,7 @@ Messenger.RedoTimeoutMin = 1.0
 Messenger.RedoTimeoutMax = 10.0
 
 
-class Stack(NetworkInterface, RoadStack):
+class RStack(NetworkInterface, RoadStack):
     def __init__(self, *args, **kwargs):
         checkPortAvailable(kwargs['ha'])
         basedirpath = kwargs.get('basedirpath')
@@ -239,7 +239,7 @@ class Stack(NetworkInterface, RoadStack):
         self.transmit(msg, rid, timeout=self.messageTimeout)
 
 
-class SimpleStack(Stack):
+class SimpleRStack(RStack):
     def __init__(self, stackParams: Dict, msgHandler: Callable, sighex: str=None):
         self.stackParams = stackParams
         self.msgHandler = msgHandler
@@ -249,8 +249,8 @@ class SimpleStack(Stack):
         super().start()
 
 
-class KITStack(SimpleStack):
-    # Keep In Touch Stack. Stack which maintains connections mentioned in
+class KITRStack(SimpleRStack):
+    # Keep In Touch RStack. RStack which maintains connections mentioned in
     # its registry
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], sighex: str=None):
@@ -293,13 +293,13 @@ class KITStack(SimpleStack):
         if not self.findInNodeRegByHA(remote.ha):
             logger.debug('Remote {} with HA {} not added -> not found in registry'.format(remote.name, remote.ha))
             return
-        return super(KITStack, self).addRemote(remote, dump)
+        return super(KITRStack, self).addRemote(remote, dump)
 
     def createRemote(self, ha):
         if ha and not self.findInNodeRegByHA(ha):
             logger.debug('Remote with HA {} not added -> not found in registry'.format(ha))
             return
-        return super(KITStack, self).createRemote(ha)
+        return super(KITRStack, self).createRemote(ha)
 
     def processRx(self, packet):
         # Override to add check that in case of join new remote is in registry. This is done to avoid creation
@@ -311,7 +311,7 @@ class KITStack(SimpleStack):
             if not self.findInNodeRegByHA(sha):
                 return self.handleJoinFromUnregisteredRemote(sha)
 
-        return super(KITStack, self).processRx(packet)
+        return super(KITRStack, self).processRx(packet)
 
     def handleJoinFromUnregisteredRemote(self, sha):
         logger.debug('Remote with HA {} not added -> not found in registry'.format(sha))
@@ -595,12 +595,12 @@ class KITStack(SimpleStack):
         return remote.name
 
 
-class ClientStack(SimpleStack):
+class ClientRStack(SimpleRStack):
     def __init__(self, stackParams: dict, msgHandler: Callable):
         # The client stack needs to be mutable unless we explicitly decide
         # not to
         stackParams["mutable"] = stackParams.get("mutable", True)
-        SimpleStack.__init__(self, stackParams, msgHandler)
+        SimpleRStack.__init__(self, stackParams, msgHandler)
         self.connectedClients = set()
 
     def serviceClientStack(self):
@@ -636,17 +636,17 @@ class ClientStack(SimpleStack):
             self.transmitToClient(msg, nm)
 
 
-class NodeStack(Batched, KITStack):
+class NodeStack(Batched, KITRStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
                  registry: Dict[str, HA], sighex: str=None):
         Batched.__init__(self)
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
-        KITStack.__init__(self, stackParams, msgHandler, registry, sighex)
+        KITRStack.__init__(self, stackParams, msgHandler, registry, sighex)
 
     def start(self):
-        KITStack.start(self)
+        KITRStack.start(self)
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
                     extra={"tags": ["node-listening"]})
