@@ -1132,6 +1132,8 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
             if self.requests[k].forwardedTo == 0:
+                logger.debug('{} clearing requests {} from previous checkpoints'.
+                             format(self, len(reqKeys)))
                 self.requests.pop(k)
 
     def processStashedMsgsForNewWaterMarks(self):

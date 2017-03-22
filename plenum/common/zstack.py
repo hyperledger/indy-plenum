@@ -59,7 +59,7 @@ class Remote:
         # TODO: A stack should have a monitor and it should identify remote
         # by endpoint
         # Helps to see if socket got disconnected
-        self.monitorSock = None
+        # self.monitorSock = None
 
         self.isConnected = False
         # Currently keeping uid field to resemble RAET RemoteEstate
