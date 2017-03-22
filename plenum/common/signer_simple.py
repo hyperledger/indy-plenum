@@ -6,7 +6,7 @@ from libnacl import randombytes
 from raet.nacling import SigningKey
 from raet.nacling import Signer as NaclSigner
 
-from plenum.common.signer import Signer
+from stp_core.crypto.signer import Signer
 from plenum.common.signing import serializeMsg
 
 from plenum.common.util import hexToFriendly

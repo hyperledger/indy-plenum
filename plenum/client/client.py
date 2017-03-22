@@ -12,8 +12,8 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from plenum.common.r_stack import NodeStack
-from plenum.common.zstack import NodeZStack
+from stp_core.raet.rstack import NodeStack
+from stp_core.zmq.zstack import NodeZStack
 from raet.nacling import Signer
 from raet.raeting import AutoMode
 from stp_core.types import HA

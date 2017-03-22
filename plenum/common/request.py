@@ -3,7 +3,8 @@ from typing import Mapping, NamedTuple
 
 from plenum.common.signing import serializeMsg
 from plenum.common.txn import REQDIGEST
-from plenum.common.types import Identifier, f, OPERATION
+from plenum.common.types import f, OPERATION
+from stp_core.types import Identifier
 
 
 class Request:

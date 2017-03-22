@@ -3,7 +3,7 @@ import shutil
 from abc import abstractproperty
 from collections import OrderedDict
 
-from plenum.common.z_util import initRemoteKeys
+from stp_core.zmq.util import initRemoteKeys
 from stp_core.types import HA
 
 from ledger.compact_merkle_tree import CompactMerkleTree
