@@ -1,7 +1,6 @@
 import pytest
-from raet.raeting import AutoMode
-
-from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
+from plenum.common.crypto import Signer
+from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.test.helper import *
 from plenum.test.helper import checkResponseCorrectnessFromNodes
@@ -13,7 +12,7 @@ from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNodeSet
-from plenum.common.crypto import Signer
+from raet.raeting import AutoMode
 
 nodeCount = 7
 

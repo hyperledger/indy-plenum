@@ -1,4 +1,5 @@
 from plenum.common.roles import Roles
+from plenum.common.transactions import PlenumTransactions
 
 
 class Command:
@@ -131,12 +132,12 @@ addGenesisTxnCmd = Command(
     title="Adds given genesis transaction",
     usage="add genesis transaction <type> for <dest-identifier> [by <identifier>] [with data {<json data>}] [role=<role>]",
     examples=[
-        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
-            role=Roles.STEWARD.name),
-        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {{"alias": "Alice"}} role={role}'.format(
-            role=Roles.STEWARD.name),
-        'add genesis transaction NODE for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML by FvDi9xQZd1CZitbK15BNKFbA7izCdXZjvxf91u3rQVzW '
-        'with data {"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}'])
+        'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
+            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+        'add genesis transaction {nym} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {{"alias": "Alice"}} role={role}'.format(
+            nym=PlenumTransactions.NYM.name, role=Roles.STEWARD.name),
+        'add genesis transaction {node} for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML by FvDi9xQZd1CZitbK15BNKFbA7izCdXZjvxf91u3rQVzW '
+        'with data {{"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}}'.format(node=PlenumTransactions.NODE.name)])
 
 createGenesisTxnFileCmd = Command(
     id="create genesis transaction file",
