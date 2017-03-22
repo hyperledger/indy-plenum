@@ -1,4 +1,4 @@
-from plenum.common.zstack import ZStack
+from stp_core.zmq.zstack import ZStack
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 

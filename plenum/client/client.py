@@ -12,8 +12,7 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from plenum.common.r_stack import NodeStack
-from plenum.common.zstack import NodeZStack
+from plenum.common.stacks import NodeZStack, NodeRStack
 from raet.nacling import Signer
 from raet.raeting import AutoMode
 from stp_core.types import HA
@@ -209,12 +208,12 @@ class Client(Motor,
                os.path.exists(os.path.join(basedirpath, name))
 
     @property
-    def nodeStackClass(self) -> NodeStack:
+    def nodeStackClass(self) -> NodeRStack:
         # TODO: Remove if condition once raet is removed
         if self.config.UseZStack:
             return NodeZStack
         else:
-            return NodeStack
+            return NodeRStack
 
     def start(self, loop):
         oldstatus = self.status
