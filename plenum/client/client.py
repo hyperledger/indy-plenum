@@ -209,12 +209,12 @@ class Client(Motor,
                os.path.exists(os.path.join(basedirpath, name))
 
     @property
-    def nodeStackClass(self) -> NodeStack:
+    def nodeStackClass(self) -> NodeRStack:
         # TODO: Remove if condition once raet is removed
         if self.config.UseZStack:
             return NodeZStack
         else:
-            return NodeStack
+            return NodeRStack
 
     def start(self, loop):
         oldstatus = self.status

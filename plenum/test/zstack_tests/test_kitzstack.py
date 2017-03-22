@@ -1,6 +1,6 @@
 from copy import copy
 
-from plenum.common.zstack import KITZStack
+from stp_core.zmq.zstack import KITZStack
 
 from plenum.common.eventually import eventually
 from plenum.test.zstack_tests.helper import genKeys, Printer, prepStacks, \

@@ -1,8 +1,8 @@
 from typing import Any, Optional, NamedTuple
 
-from plenum.common.network_interface import NetworkInterface
+from stp_core.network.network_interface import NetworkInterface
 from plenum.common.r_stack import RStack
-from plenum.common.zstack import ZStack
+from stp_core.zmq.zstack import ZStack
 from stp_core.types import HA
 
 from plenum.common.config_util import getConfig
