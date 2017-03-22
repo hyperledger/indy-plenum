@@ -1,6 +1,7 @@
 import time
+
 from plenum.common.throttler import Throttler
-from plenum.common.ratchet import Ratchet
+from stp_core.ratchet import Ratchet
 
 
 def test_throttler_case1():

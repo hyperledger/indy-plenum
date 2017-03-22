@@ -1,14 +1,16 @@
 from copy import copy
 
 import pytest
+from plenum.common.z_util import initNodeKeysForBothStacks
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.raet import initLocalKeep
+from stp_core.raet.util import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
-from plenum.common.z_util import initNodeKeysForBothStacks
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
@@ -17,8 +19,6 @@ from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeHa, addNewStewardAndNode, changeNodeKeys
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
-from stp_core.network.port_dispenser import genHa
-from stp_core.types import HA
 
 logger = getlogger()
 

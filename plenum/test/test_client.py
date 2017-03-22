@@ -1,19 +1,20 @@
 from functools import partial
 
+from plenum.common.r_stack import NodeStack
+from plenum.common.z_util import initRemoteKeys
+from plenum.common.zstack import NodeZStack, ZStack
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
+
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error
 from plenum.common.log import getlogger
-from plenum.common.stacked import NodeStack
 from plenum.common.txn import REQACK, REQNACK, REPLY
 from plenum.common.types import Identifier, OP_FIELD_NAME, f
 from plenum.common.util import bootstrapClientKeys
-from plenum.common.z_util import initRemoteKeys
-from plenum.common.zstack import NodeZStack, ZStack
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import Spyable
-from stp_core.network.port_dispenser import genHa
-from stp_core.types import HA
 
 
 logger = getlogger()

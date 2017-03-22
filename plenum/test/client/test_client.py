@@ -1,20 +1,19 @@
 import pytest
-from raet.raeting import AutoMode
+from plenum.common.z_util import initRemoteKeys
 
 from plenum.common.eventually import eventually
-from plenum.common.exceptions import EmptySignature, BlowUp, NotConnectedToAny
+from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
-from plenum.common.raet import initRemoteKeep
+from plenum.common.log import getlogger
+from stp_core.raet.util import initRemoteKeep
 from plenum.common.txn import REPLY, REQACK, TXN_ID
 from plenum.common.types import OP_FIELD_NAME, f
-from plenum.common.z_util import initRemoteKeys
 from plenum.server.node import Node
 from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
     sendRandomRequest, checkSufficientRepliesRecvd, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-from plenum.common.log import getlogger
 
 
 nodeCount = 7

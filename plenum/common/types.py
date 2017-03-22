@@ -92,9 +92,9 @@ class TaggedTupleBase:
 # noinspection PyProtectedMember
 def TaggedTuple(typename, fields):
     cls = NamedTuple(typename, fields)
-    if any(field == OP_FIELD_NAME for field in cls._fields):
-            raise RuntimeError("field name '{}' is reserved in TaggedTuple"
-                               .format(OP_FIELD_NAME))
+    if OP_FIELD_NAME in cls._fields:
+        raise RuntimeError("field name '{}' is reserved in TaggedTuple"
+                           .format(OP_FIELD_NAME))
     cls.__bases__ += (TaggedTupleBase,)
     cls.typename = typename
     return cls

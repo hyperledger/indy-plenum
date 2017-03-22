@@ -2,7 +2,7 @@ from collections import deque
 from typing import Any, Iterable
 from typing import Dict
 
-from stp_core.signer import Signer
+from stp_core.crypto.signer import Signer
 from plenum.common.log import getlogger
 from plenum.common.types import Batch
 from plenum.common.util import MessageProcessor

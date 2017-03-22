@@ -1,4 +1,4 @@
-from plenum.common.exceptions import RemoteNotFound
+from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 

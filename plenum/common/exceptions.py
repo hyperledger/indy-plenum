@@ -1,28 +1,12 @@
+from re import compile
+
 from plenum.server.suspicion_codes import Suspicion
-from re import compile, match
 
 
 class ReqInfo:
     def __init__(self, identifier=None, reqId=None):
         self.identifier = identifier
         self.reqId = reqId
-
-
-class NodeError(Exception):
-    pass
-
-
-class PortNotAvailableForNodeWebServer(NodeError):
-    pass
-
-
-class RemoteError(NodeError):
-    def __init__(self, remote):
-        self.remote = remote
-
-
-class RemoteNotFound(RemoteError):
-    pass
 
 
 class BaseExc(Exception):

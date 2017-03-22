@@ -1,9 +1,11 @@
 import os
 
+from stp_core.zmq.util import initStackLocalKeys, createCertsFromKeys
+from stp_core.zmq.zstack import ZStack
+
 from plenum.common.config_util import getConfig
-from plenum.common.raet import initLocalKeep, isLocalKeepSetup
-from plenum.common.z_util import initStackLocalKeys, createCertsFromKeys
-from plenum.common.zstack import ZStack
+from stp_core.raet.util import initLocalKeep, isLocalKeepSetup
+from plenum.common.types import CLIENT_STACK_SUFFIX
 
 
 def initKeys(name, baseDir, sigseed, override=False, config=None):
@@ -18,6 +20,12 @@ def initKeys(name, baseDir, sigseed, override=False, config=None):
     print("Public key is", pubkey)
     print("Verification key is", verkey)
     return pubkey, verkey
+
+
+def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
+    initStackLocalKeys(name, baseDir, sigseed, override=override)
+    initStackLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
+                       override=override)
 
 
 def areKeysSetup(name, baseDir, config=None):
@@ -51,6 +59,7 @@ def learnKeysFromOthers(baseDir, nodeName, otherNodes):
                                 stack.verKey)
             createCertsFromKeys(pubDirPath, stack.name,
                                 stack.publicKey)
+
 
 def tellKeysToOthers(node, otherNodes):
     for otherNode in otherNodes:

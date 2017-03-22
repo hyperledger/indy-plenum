@@ -6,14 +6,17 @@ import shutil
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
-from functools import partial
+from contextlib import closing
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
-from contextlib import closing
 
 import pyorient
-from raet.raeting import AutoMode
+from plenum.common.r_stack import NodeStack, ClientRStack
+from plenum.common.signer import Signer
+from plenum.common.zstack import ZStack, ClientZStack, NodeZStack
+from stp_core.ratchet import Ratchet
+from stp_core.types import HA
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -23,6 +26,7 @@ from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.client.wallet import Wallet
+from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -34,13 +38,11 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import isLocalKeepSetup
-from plenum.common.ratchet import Ratchet
-from plenum.common.signer import Signer
+from plenum.common.request import Request
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.stacked import NodeStack, ClientRStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
+from plenum.common.txn import DATA, ALIAS, NODE_IP
 from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
 from plenum.common.txn_util import getTxnOrderedFields
@@ -54,15 +56,8 @@ from plenum.common.types import Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
-from stp_core.types import HA
-from plenum.common.request import Request
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
-    rawToFriendly
-from plenum.common.config_util import getConfig
+from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
-from plenum.common.txn import DATA, ALIAS, NODE_IP
-from plenum.common.zstack import ZStack, ClientZStack, NodeZStack
-
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -76,6 +71,8 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -84,9 +81,6 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
-    PluginManager
-
 
 pluginManager = PluginManager()
 logger = getlogger()

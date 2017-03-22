@@ -6,22 +6,21 @@ from typing import List
 from typing import Tuple
 
 import psutil
+from plenum.common.r_stack import NodeStack
 
+from plenum.common.config_util import getConfig
+from plenum.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
     EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
     EVENT_PERIODIC_STATS_NODE_INFO, EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
-from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
-from plenum.common.config_util import getConfig
-from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
-from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
-
+from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()

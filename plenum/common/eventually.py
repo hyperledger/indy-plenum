@@ -6,8 +6,7 @@ from inspect import isawaitable
 from typing import Callable, TypeVar, Optional, Iterable
 
 from plenum.common.log import getlogger
-
-from plenum.common.ratchet import Ratchet
+from stp_core.ratchet import Ratchet
 
 T = TypeVar('T')
 

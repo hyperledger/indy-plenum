@@ -1,13 +1,13 @@
 import json
 
 import zmq
-from raet.raeting import AutoMode
-
-from plenum.common.util import randomSeed
 from plenum.common.zstack import SimpleZStack
-from plenum.test.zstack_tests.helper import genKeys, SMotor
+from raet.raeting import AutoMode
+from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
+
+from plenum.test.zstack_tests.helper import genKeys, SMotor
 
 
 def testSimpleZStacksMsgs(tdir, looper):

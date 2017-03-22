@@ -7,7 +7,7 @@ from raet.road.estating import RemoteEstate
 from raet.road.stacking import RoadStack
 
 from plenum.test.raet.helper import handshake, cleanup, sendMsgs
-from stp_core.crypto.crypto import ed25519SkToCurve25519, ed25519PkToCurve25519
+from stp_core.crypto.util import ed25519SkToCurve25519, ed25519PkToCurve25519
 from stp_core.network.port_dispenser import genHa
 
 

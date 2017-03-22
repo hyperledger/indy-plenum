@@ -17,7 +17,7 @@ import logging
 
 # NOTE: Loading of plugin should happen as early as possible
 # So put all other required imports after loadPlugins function call below
-from plenum.common.raet import initLocalKeep
+from stp_core.raet.util import initLocalKeep
 from plenum.common.util import randomString
 from plenum.common.config_util import getConfig
 from plenum.common.plugin_helper import loadPlugins

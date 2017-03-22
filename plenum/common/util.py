@@ -5,7 +5,6 @@ import ipaddress
 import itertools
 import json
 import logging
-import math
 import os
 import random
 import string
@@ -15,18 +14,18 @@ from collections import Counter
 from collections import OrderedDict
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple, Callable
+    Tuple, Union, NamedTuple, Callable
 
 import base58
 import libnacl.secret
 import psutil
-from libnacl import crypto_hash_sha256
 from six import iteritems, string_types
 
 from ledger.util import F
 from plenum.common.error import error
 from plenum.common.exceptions import MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
+from stp_core.crypto.util import isHexKey, isHex
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -205,41 +204,6 @@ def prime_gen() -> int:
             D[x] = p
 
 
-def evenCompare(a: str, b: str) -> bool:
-    """
-    A deterministic but more evenly distributed comparator than simple alphabetical.
-    Useful when comparing consecutive strings and an even distribution is needed.
-    Provides an even chance of returning true as often as false
-    """
-    ab = a.encode('utf-8')
-    bb = b.encode('utf-8')
-    ac = crypto_hash_sha256(ab)
-    bc = crypto_hash_sha256(bb)
-    return ac < bc
-
-
-def distributedConnectionMap(names: List[str]) -> OrderedDict:
-    """
-    Create a map where every node is connected every other node.
-    Assume each key in the returned dictionary to be connected to each item in
-    its value(list).
-
-    :param names: a list of node names
-    :return: a dictionary of name -> list(name).
-    """
-    names.sort()
-    combos = list(itertools.combinations(names, 2))
-    maxPer = math.ceil(len(list(combos)) / len(names))
-    # maxconns = math.ceil(len(names) / 2)
-    connmap = OrderedDict((n, []) for n in names)
-    for a, b in combos:
-        if len(connmap[a]) < maxPer:
-            connmap[a].append(b)
-        else:
-            connmap[b].append(a)
-    return connmap
-
-
 class MessageProcessor:
     """
     Helper functions for messages.
@@ -305,36 +269,12 @@ async def untilTrue(condition, *args, timeout=5) -> bool:
     return result
 
 
-def hasKeys(data, keynames):
-    """
-    Checks whether all keys are present in the given data, and are not None
-    """
-    # if all keys in `keynames` are not present in `data`
-    if len(set(keynames).difference(set(data.keys()))) != 0:
-        return False
-    for key in keynames:
-        if data[key] is None:
-            return False
-    return True
-
-
 def firstKey(d: Dict):
     return next(iter(d.keys()))
 
 
 def firstValue(d: Dict):
     return next(iter(d.values()))
-
-
-def isHexKey(key):
-    try:
-        if len(key) == 64 and isHex(key):
-            return True
-    except ValueError as ex:
-        return False
-    except Exception as ex:
-        print(ex)
-        exit()
 
 
 def getCryptonym(identifier):
@@ -484,11 +424,6 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     curTimeRounded = round(time.time() * 1000)
     startTimeRounded = round(startTime * 1000)
     return startTimeRounded + maxCheckForMillis < curTimeRounded
-
-
-def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits)
-                   for _ in range(size)).encode()
 
 
 def lxor(a, b):

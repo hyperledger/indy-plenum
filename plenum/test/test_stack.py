@@ -1,16 +1,17 @@
 from typing import Any, Optional, NamedTuple
 
-from plenum.common.eventually import eventuallyAll, eventually
-from plenum.common.log import getlogger
 from plenum.common.network_interface import NetworkInterface
-from plenum.common.stacked import RStack
+from plenum.common.r_stack import RStack
 from plenum.common.zstack import ZStack
 from stp_core.types import HA
-from plenum.test.exceptions import NotFullyConnected
+
+from plenum.common.config_util import getConfig
+from plenum.common.eventually import eventuallyAll, eventually
 from plenum.common.exceptions import NotConnectedToAny
+from plenum.common.log import getlogger
+from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
 from plenum.test.waits import expectedWait
-from plenum.common.config_util import getConfig
 
 
 logger = getlogger()

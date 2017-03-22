@@ -9,18 +9,21 @@ from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
 
+from plenum.common.r_stack import NodeStack, ClientRStack
+from plenum.common.zstack import NodeZStack, ClientZStack
+from stp_core.crypto.util import randomSeed
+from stp_core.network.port_dispenser import genHa
+
 import plenum.test.delayers as delayers
 from plenum.common.error import error
 from plenum.common.eventually import eventually, eventuallyAll
-from plenum.common.exceptions import RemoteNotFound
+from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
-from plenum.common.stacked import NodeStack, ClientRStack
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
-from plenum.common.util import Seconds, getMaxFailures, adict, randomSeed
-from plenum.common.zstack import NodeZStack, ClientZStack
+from plenum.common.util import Seconds, getMaxFailures, adict
 from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -38,7 +41,6 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
 from plenum.test.testable import Spyable
 from plenum.test.waits import expectedWait
-from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 

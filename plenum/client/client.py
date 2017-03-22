@@ -12,35 +12,35 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
+from plenum.common.r_stack import NodeStack
+from plenum.common.zstack import NodeZStack
+from raet.nacling import Signer
 from raet.raeting import AutoMode
+from stp_core.types import HA
 
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
-from plenum.common.exceptions import MissingNodeOp, RemoteNotFound
+from plenum.common.config_util import getConfig
+from plenum.common.exceptions import MissingNodeOp
+from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getHaFromLocalEstate
-from plenum.common.stacked import NodeStack
+from stp_core.raet.util import getHaFromLocalEstate
+from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, OP_FIELD_NAME, f, LedgerStatus, TaggedTuples
-from stp_core.types import HA
-from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, \
     checkIfMoreThanFSameItems, rawToFriendly
-from plenum.common.zstack import NodeZStack
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
-from raet.nacling import Signer
-
-from plenum.common.log import getlogger
-from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.config_util import getConfig
 from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()

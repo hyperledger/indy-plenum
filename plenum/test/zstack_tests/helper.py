@@ -1,9 +1,10 @@
 import os
 from distutils.dir_util import copy_tree
 
-from plenum.common.motor import Motor
 from plenum.common.z_util import generate_certificates
 from plenum.common.zstack import ZStack, KITZStack
+
+from plenum.common.motor import Motor
 
 
 class Printer:
