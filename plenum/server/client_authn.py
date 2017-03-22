@@ -9,7 +9,7 @@ from plenum.common.log import getlogger
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
-    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, \
+    MissingIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
 from plenum.common.signing import serializeMsg
 from plenum.common.types import f

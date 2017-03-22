@@ -3,7 +3,6 @@ import shutil
 from abc import abstractproperty
 from collections import OrderedDict
 
-from stp_core.zmq.util import initRemoteKeys
 from stp_core.types import HA
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -12,10 +11,11 @@ from ledger.stores.file_hash_store import FileHashStore
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from stp_core.raet.util import initRemoteKeep
-from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
+from plenum.common.txn import DATA, ALIAS, TARGET_NYM, N    ODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
+from stp_core.zmq.util import initRemoteKeys
 
 logger = getlogger()
 
@@ -209,7 +209,6 @@ class TxnStackManager:
 
                 # TODO: Remove later
                 if self.isNode and not self.node.config.UseZStack:
-                # if self.isNode:
                     initRemoteKeep(self.name, remoteName, self.basedirpath, key,
                                    override=True)
                 else:

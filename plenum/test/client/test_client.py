@@ -1,5 +1,4 @@
 import pytest
-from plenum.common.z_util import initRemoteKeys
 
 from plenum.common.eventually import eventually
 from plenum.common.exceptions import EmptySignature
@@ -14,7 +13,7 @@ from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures
     sendRandomRequest, checkSufficientRepliesRecvd, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-
+from stp_core.zmq.util import initRemoteKeys
 
 nodeCount = 7
 

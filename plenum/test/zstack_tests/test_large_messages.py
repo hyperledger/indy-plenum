@@ -1,7 +1,7 @@
 import json
 
 import zmq
-from plenum.common.zstack import SimpleZStack
+from stp_core.zmq.zstack import SimpleZStack
 from raet.raeting import AutoMode
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa

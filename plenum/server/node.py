@@ -12,9 +12,10 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
 import pyorient
-from plenum.common.r_stack import NodeStack, ClientRStack
-from plenum.common.signer import Signer
-from plenum.common.zstack import ZStack, ClientZStack, NodeZStack
+from plenum.common.stacks import NodeRStack, ClientRStack, ClientZStack, \
+    NodeZStack
+from stp_core.crypto.signer import Signer
+from stp_core.zmq.zstack import ZStack
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 
@@ -390,12 +391,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.mode == Mode.participating
 
     @property
-    def nodeStackClass(self) -> NodeStack:
+    def nodeStackClass(self) -> NodeRStack:
         # TODO: Remove if condition once raet is removed
         if self.config.UseZStack:
             return NodeZStack
         else:
-            return NodeStack
+            return NodeRStack
 
     @property
     def clientStackClass(self) -> ClientRStack:

@@ -1,7 +1,7 @@
 from copy import copy
 
 import pytest
-from plenum.common.z_util import initNodeKeysForBothStacks
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 
