@@ -268,30 +268,23 @@ def newCLI(looper, basedir, cliClass=TestCli,
     mockOutput = MockOutput(recorder=recorder)
     recorder.write("~ be {}\n".format(unique_name))
     otags = config.log_override_tags['cli'] if config else None
+    cliClassParams = {
+        'looper': looper,
+        'basedirpath': basedir,
+        'nodeReg': None,
+        'cliNodeReg': None,
+        'output': mockOutput,
+        'debug': True,
+        'config': config,
+        'unique_name': unique_name,
+        'override_tags': otags,
+        'logFileName': logFileName
+    }
     if name is not None and agentCreator is not None:
-        newcli = cliClass(looper=looper,
-                          basedirpath=basedir,
-                          nodeReg=None,
-                          cliNodeReg=None,
-                          output=mockOutput,
-                          debug=True,
-                          config=config,
-                          unique_name=unique_name,
-                          override_tags=otags,
-                          logFileName=logFileName,
-                          name=name,
-                          agentCreator=agentCreator)
-    else:
-        newcli = cliClass(looper=looper,
-                          basedirpath=basedir,
-                          nodeReg=None,
-                          cliNodeReg=None,
-                          output=mockOutput,
-                          debug=True,
-                          config=config,
-                          unique_name=unique_name,
-                          override_tags=otags,
-                          logFileName=logFileName)
+        cliClassParams['name'] = name
+        cliClassParams['agentCreator'] = agentCreator
+
+    newcli = cliClass(**cliClassParams)
     newcli.recorder = recorder
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
