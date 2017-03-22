@@ -1,17 +1,18 @@
+from plenum.common.roles import Roles
+
 
 class Command:
-
     def __init__(self, id, title, usage, note=None, examples=None):
-        self.id = id                # unique command identifier
-        self.title = title          # brief explanation about the command
-        self.usage = usage          # syntax with all available clauses
-        self.note = note            # any additional description/note
+        self.id = id  # unique command identifier
+        self.title = title  # brief explanation about the command
+        self.usage = usage  # syntax with all available clauses
+        self.note = note  # any additional description/note
         self.examples = examples if isinstance(examples, list) else [examples] \
             if examples else examples
 
     def __str__(self):
         detailIndent = "    "
-        header = "\n{}\n{}\n".format(self.id, '-'*(len(self.id)))
+        header = "\n{}\n{}\n".format(self.id, '-' * (len(self.id)))
         note = "{} note: {}\n\n".format(detailIndent, self.note) if self.note else ""
         examplesStr = '\n{}{}'.format(detailIndent, detailIndent).join(
             self.examples) if self.examples else ""
@@ -23,8 +24,9 @@ class Command:
                    "{} usage: {}\n\n" \
                    "{}" \
                    "{}".format(detailIndent, self.title,
-                                     detailIndent, self.usage, note, examples)
+                               detailIndent, self.usage, note, examples)
         return header + helpInfo
+
 
 helpCmd = Command(
     id="help",
@@ -129,10 +131,12 @@ addGenesisTxnCmd = Command(
     title="Adds given genesis transaction",
     usage="add genesis transaction <type> for <dest-identifier> [by <identifier>] [with data {<json data>}] [role=<role>]",
     examples=[
-        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role=STEWARD',
-        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {"alias": "Alice"} role=STEWARD',
+        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML role={role}'.format(
+            role=Roles.STEWARD.name),
+        'add genesis transaction NYM for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML with data {{"alias": "Alice"}} role={role}'.format(
+            role=Roles.STEWARD.name),
         'add genesis transaction NODE for 2ru5PcgeQzxF7QZYwQgDkG2K13PRqyigVw99zMYg8eML by FvDi9xQZd1CZitbK15BNKFbA7izCdXZjvxf91u3rQVzW '
-            'with data {"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}'])
+        'with data {"node_ip": "localhost", "node_port": "9701", "client_ip": "localhost", "client_port": "9702", "alias": "AliceNode"}'])
 
 createGenesisTxnFileCmd = Command(
     id="create genesis transaction file",
@@ -156,7 +160,7 @@ useKeyringCmd = Command(
     id="use keyring",
     title="Loads given keyring and marks it active/default",
     usage="use keyring <name|absolute-wallet-file-path>",
-    examples=["use keyring mykeyring","use keyring /home/ubuntu/.sovrin/keyrings/test/mykeyring.wallet"])
+    examples=["use keyring mykeyring", "use keyring /home/ubuntu/.sovrin/keyrings/test/mykeyring.wallet"])
 
 saveKeyringCmd = Command(
     id="save keyring",

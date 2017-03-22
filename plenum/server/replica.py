@@ -1095,7 +1095,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
             if isinstance(item, ReqDigest):
                 self.doPrePrepare(item)
-            elif isinstance(item, tuple) and len(tuple) == 2:
+            elif isinstance(item, tuple) and len(item) == 2:
                 self.dispatchThreePhaseMsg(*item)
             else:
                 logger.error("{} cannot process {} "

@@ -12,6 +12,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 from contextlib import closing
 
 import pyorient
+from plenum.common.roles import Roles
 from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -1706,7 +1707,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be STEWARD".format(role))
+                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
                     return
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)
