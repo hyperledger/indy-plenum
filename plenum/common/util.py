@@ -24,7 +24,6 @@ import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
 
-from plenum.common.error_codes import SOCKET_BIND_ERROR_ALREADY_IN_USE
 from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
