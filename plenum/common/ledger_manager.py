@@ -154,7 +154,7 @@ class LedgerManager(HasActionQueue):
             if totalMissing:
                 logger.debug(
                     "{} requesting {} missing transactions after timeout".
-                        format(self, totalMissing))
+                    format(self, totalMissing))
                 eligibleNodes = list(self.nodestack.conns -
                                      self.blacklistedNodes)
                 # Shuffling order of nodes so that catchup requests dont go to
