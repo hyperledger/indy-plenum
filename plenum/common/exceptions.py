@@ -256,5 +256,3 @@ class PortNotAvailable(OSError):
 class OperationError(Exception):
     def __init__(self, error):
         super().__init__("error occurred during operation: {}".format(error))
-
-
