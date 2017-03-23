@@ -1151,19 +1151,28 @@ class Replica(HasActionQueue, MessageProcessor):
                              "from stashingWhileOutsideWaterMarks".
                              format(self, item))
 
+    @staticmethod
+    def peekitem(d, i):
+        # Adding it since its not present in version supported by
+        # Ubuntu repositories.
+        key = d._list[i]
+        return key, d[key]
+
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.checkpoints.peekitem(0)
+            return self.peekitem(self.checkpoints, 0)
+            # return self.checkpoints.peekitem(0)
 
     @property
     def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.checkpoints.peekitem(-1)
+            return self.peekitem(self.checkpoints, -1)
+            # return self.checkpoints.peekitem(-1)
 
     def isPpSeqNoStable(self, ppSeqNo):
         """

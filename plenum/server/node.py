@@ -547,7 +547,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reset()
 
         # Stop the txn store
-        self.primaryStorage.stop()
+        try:
+            self.primaryStorage.stop()
+        except Exception as ex:
+            logger.warn('{} got exception while stopping primary storage: {}'.
+                        format(self, ex))
 
         # Stop hash store
         if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
@@ -1058,7 +1062,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.info("{} non validated msg {}".format(self, wrappedMsg),
+                logger.info("{} invalidated msg {}".format(self, wrappedMsg),
                             extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
@@ -1690,7 +1694,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
         # DO NOT COMMIT
-        logger.debug('{} has root hash and size {} {}'.format(self, self.primaryStorage.tree.root_hash, self.primaryStorage.size))
+        logger.debug('{} has root hash and size {} {}'
+                     .format(self, self.primaryStorage.tree.root_hash,
+                             self.primaryStorage.size))
 
     @staticmethod
     def ledgerTypeForTxn(txnType: str):

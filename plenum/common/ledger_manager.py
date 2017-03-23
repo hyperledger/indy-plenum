@@ -183,11 +183,11 @@ class LedgerManager(HasActionQueue):
                     missing = to - frm + 1
                     numBatches = math.ceil(missing / batchSize)
                     for i in range(numBatches):
-                        start = frm + (i * batchSize)
-                        end = min(to, frm + ((i + 1) * batchSize) - 1)
-                        req = CatchupReq(ledgerType, start, end, to)
-                        logger.debug("{} creating catchup request {} to {} till".
-                                     format(self, start, end, to))
+                        s = frm + (i * batchSize)
+                        e = min(to, frm + ((i + 1) * batchSize) - 1)
+                        req = CatchupReq(ledgerType, s, e, end)
+                        logger.debug("{} creating catchup request {} to {} till {}".
+                                     format(self, s, e, end))
                         cReqs.append(req)
                     return missing
 
@@ -256,9 +256,9 @@ class LedgerManager(HasActionQueue):
         # registries (old approach)
         ledgerStatus = LedgerStatus(*status) if status else None
         if ledgerStatus.txnSeqNo < 0:
-            self.discard(status, reason="Received negative sequence "
-                                              "number from {}".format(frm),
-                               logMethod=logger.warn)
+            self.discard(status, reason="Received negative sequence number "
+                         "from {}".format(frm),
+                         logMethod=logger.warn)
         if not status:
             logger.debug("{} found ledger status to be null from {}".
                          format(self, frm))
@@ -374,7 +374,7 @@ class LedgerManager(HasActionQueue):
         txns = ledger.getAllTxn(start, end)
 
         logger.debug("node {} requested catchup for {} from {} to {}"
-                     .format(frm, end - start, start, end))
+                     .format(frm, end - start+1, start, end))
 
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
@@ -426,11 +426,13 @@ class LedgerManager(HasActionQueue):
                                catchUpReplies: List):
         # Removing transactions for sequence numbers are already
         # present in the ledger
+        # TODO: Inefficient, should check list in reverse and stop at first
+        # match since list is already sorted
         numProcessed = sum(1 for s, _ in catchUpReplies if s <= ledger.size)
-        catchUpReplies = catchUpReplies[numProcessed:]
         if numProcessed:
             logger.debug("{} found {} already processed transactions in the "
                          "catchup replies".format(self, numProcessed))
+        catchUpReplies = catchUpReplies[numProcessed:]
         if catchUpReplies:
             seqNo = catchUpReplies[0][0]
             if seqNo - ledger.seqNo == 1:
