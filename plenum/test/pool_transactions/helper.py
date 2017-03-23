@@ -114,7 +114,7 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
     node.nodestack.clearLocalKeep()
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
@@ -137,7 +137,7 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
 
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
     node.nodestack.clearLocalRoleKeep()
     node.nodestack.clearRemoteRoleKeeps()
     node.nodestack.clearAllDir()
@@ -159,7 +159,7 @@ def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
 
 
 def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
@@ -177,7 +177,7 @@ def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=10))
+                          retryWait=1, timeout=3*len(stewardClient.nodeReg)))
 
 
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
