@@ -2,6 +2,7 @@ import collections
 import json
 
 from ledger.util import F
+from plenum.common.exceptions import RemoteNotFound
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
     NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
@@ -122,9 +123,13 @@ class HasPoolManager(TxnStackManager):
             if VALIDATOR in oldServices.difference(newServices):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
-                rid = self.nodestack.removeRemoteByName(remoteName)
-                if rid:
-                    self.nodestack.outBoxes.pop(rid, None)
+                try:
+                    rid = self.nodestack.removeRemoteByName(remoteName)
+                    if rid:
+                        self.nodestack.outBoxes.pop(rid, None)
+                except RemoteNotFound:
+                    logger.debug('{} did not find remote {} to remove'.
+                                 format(self, remoteName))
 
     # noinspection PyUnresolvedReferences
     @property
