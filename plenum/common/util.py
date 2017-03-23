@@ -19,6 +19,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
@@ -266,7 +267,7 @@ def checkPortAvailable(ha):
     try:
         sock.bind(ha)
     except OSError as exc:
-        if exc.args[0] == SOCKET_BIND_ERROR_ALREADY_IN_USE:
+        if exc.args[0] in [errno.EADDRINUSE, errno.EADDRNOTAVAIL]:
             raise PortNotAvailable(ha)
         else:
             raise exc
