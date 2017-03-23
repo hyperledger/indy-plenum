@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA
+from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA
 from plenum.test.helper import checkSufficientRepliesRecvd, \
     checkReqNack, setupClients
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \

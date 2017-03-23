@@ -7,7 +7,8 @@ from plenum.common.log import getlogger
 from plenum.common.port_dispenser import genHa
 from plenum.common.raet import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.types import CLIENT_STACK_SUFFIX, HA
+from plenum.common.types import HA
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason

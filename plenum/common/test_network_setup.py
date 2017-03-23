@@ -9,7 +9,7 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
+from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
     TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
     STEWARD, \
     ROLE, SERVICES, VALIDATOR, TRUSTEE

@@ -1,9 +1,8 @@
-# TODO: Change this file name to `constants`
-
 # inter-node communication
 from enum import IntEnum
 
 from plenum.common.roles import Roles
+from plenum.common.transactions import PlenumTransactions
 
 NOMINATE = "NOMINATE"
 REELECTION = "REELECTION"
@@ -61,17 +60,16 @@ HASH = "hash"
 ALIAS = "alias"
 PUBKEY = "pubkey"
 VERKEY = "verkey"
+NYM_KEY = "NYM"
 NODE_IP = "node_ip"
 NODE_PORT = "node_port"
 CLIENT_IP = "client_ip"
 CLIENT_PORT = "client_port"
-NODE = "NODE"
 # CHANGE_HA = "CHANGE_HA"
 # CHANGE_KEYS = "CHANGE_KEYS"
 SERVICES = "services"
 VALIDATOR = "VALIDATOR"
 CLIENT = "CLIENT"
-NYM = "NYM"
 ROLE = 'role'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
@@ -80,13 +78,15 @@ TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
-
-STEWARD = Roles.STEWARD.value
-TRUST_ANCHOR = Roles.TRUST_ANCHOR.value
-TRUSTEE = Roles.TRUSTEE.value
-TGB = Roles.TGB.value
-
 BY = "by"
+
+# ROLES
+STEWARD = Roles.STEWARD.value
+TRUSTEE = Roles.TRUSTEE.value
+
+# TXNs
+NODE = PlenumTransactions.NODE.value
+NYM = PlenumTransactions.NYM.value
 
 POOL_TXN_TYPES = {NODE, }
 
@@ -101,3 +101,21 @@ class StorageType(IntEnum):
     File = 1
     Ledger = 2
     OrientDB = 3
+
+
+OP_FIELD_NAME = "op"
+
+CLIENT_STACK_SUFFIX = "C"
+CLIENT_BLACKLISTER_SUFFIX = "BLC"
+
+NODE_BLACKLISTER_SUFFIX = "BLN"
+NODE_PRIMARY_STORAGE_SUFFIX = "PS"
+NODE_SECONDARY_STORAGE_SUFFIX = "SS"
+NODE_TXN_STORE_SUFFIX = "TS"
+NODE_HASH_STORE_SUFFIX = "HS"
+
+HS_FILE = "file"
+HS_ORIENT_DB = "orientdb"
+HS_MEMORY = "memory"
+
+PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
