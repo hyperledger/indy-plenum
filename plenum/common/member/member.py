@@ -1,6 +1,6 @@
 from hashlib import sha256
 
-from plenum.common.txn import TXN_TYPE, NYM, TARGET_NYM, TXN_ID, ROLE, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, TARGET_NYM, TXN_ID, ROLE, VERKEY
 from plenum.common.types import f
 
 

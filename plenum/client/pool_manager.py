@@ -3,9 +3,9 @@ import json
 
 from ledger.util import F
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR
-from plenum.common.types import CLIENT_STACK_SUFFIX, PoolLedgerTxns, f, HA
+from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+from plenum.common.types import PoolLedgerTxns, f, HA
 from plenum.common.util import getMaxFailures
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.log import getlogger

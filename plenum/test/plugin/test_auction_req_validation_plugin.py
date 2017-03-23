@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from plenum.common.eventually import eventuallyAll
-from plenum.common.txn import TXN_TYPE,  DATA
+from plenum.common.constants import TXN_TYPE,  DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader

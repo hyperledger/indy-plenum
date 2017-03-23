@@ -27,9 +27,9 @@ from plenum.common.raet import getHaFromLocalEstate
 from plenum.common.signer import Signer
 from plenum.common.stacked import NodeStack
 from plenum.common.startable import Status, LedgerState, Mode
-from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
-from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
+from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, OP_FIELD_NAME
+from plenum.common.types import Reply, f, HA, \
     LedgerStatus, TaggedTuples
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, MessageProcessor, \

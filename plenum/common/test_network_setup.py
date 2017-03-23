@@ -11,7 +11,7 @@ from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
 from plenum.common.raet import initLocalKeep
-from plenum.common.txn import STEWARD, TRUSTEE
+from plenum.common.constants import STEWARD
 from plenum.common.util import hexToFriendly, adict
 
 

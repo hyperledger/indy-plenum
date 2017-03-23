@@ -20,7 +20,8 @@ from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
 from plenum.common.stacked import NodeStack, ClientStack, KITStack
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
+from plenum.common.types import TaggedTuples, NodeDetail
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict
 from plenum.persistence import orientdb_store
 from plenum.server import replica

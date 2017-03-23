@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import logging
 
-from plenum.common.txn import ClientBootStrategy
+from plenum.common.constants import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))

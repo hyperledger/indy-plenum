@@ -2,7 +2,7 @@ from hashlib import sha256
 
 from plenum.common.exceptions import WalletNotSet, WalletNotInitialized
 from plenum.common.member.member import Member
-from plenum.common.txn import STEWARD, TARGET_NYM, TXN_TYPE, NODE, DATA, \
+from plenum.common.constants import STEWARD, TARGET_NYM, TXN_TYPE, NODE, DATA, \
     CLIENT_IP, ALIAS, CLIENT_PORT, NODE_IP, NODE_PORT, SERVICES, VALIDATOR, \
     TXN_ID
 from plenum.common.types import f
