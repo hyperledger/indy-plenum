@@ -19,15 +19,17 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
 
-from plenum.common.error_codes import SOCKET_BIND_ERROR_ALREADY_IN_USE
 from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
 
+from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
+    WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
 from plenum.common.exceptions import PortNotAvailable
 from plenum.common.exceptions import EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
@@ -266,7 +268,11 @@ def checkPortAvailable(ha):
     try:
         sock.bind(ha)
     except OSError as exc:
-        if exc.args[0] == SOCKET_BIND_ERROR_ALREADY_IN_USE:
+        if exc.errno in [
+            errno.EADDRINUSE, errno.EADDRNOTAVAIL,
+            WS_SOCKET_BIND_ERROR_ALREADY_IN_USE,
+            WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
+        ]:
             raise PortNotAvailable(ha)
         else:
             raise exc

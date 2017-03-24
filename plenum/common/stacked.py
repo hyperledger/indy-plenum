@@ -250,7 +250,17 @@ class Stack(RoadStack):
         """
         remote = self.getRemote(name)
         rid = remote.uid
-        self.removeRemote(remote)
+        try:
+            self.removeRemote(remote)
+        except KeyError as ex:
+            # A correct fix would be to check in RAET why `nameRemotes` does
+            # not have a key as `name`, but then have to modify RAET.
+            logger.warn('Key error {} occurred on {} while removing {}'.
+                        format(ex, self, name))
+            self.clearRemote(remote)
+            for transaction in remote.transactions.values():
+                transaction.nack()
+
         return rid
 
     def send(self, msg: Any, remoteName: str):

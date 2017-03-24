@@ -7,7 +7,7 @@ from plenum.common.txn_util import updateGenesisPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest
+    UnauthorizedClientRequest, RemoteNotFound
 
 from plenum.common.stack_manager import TxnStackManager
 
@@ -243,9 +243,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     # If validator service is disabled
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-                    rid = self.node.nodestack.removeRemoteByName(nodeName)
-                    if rid:
-                        self.node.nodestack.outBoxes.pop(rid, None)
+                    try:
+                        rid = self.node.nodestack.removeRemoteByName(nodeName)
+                        if rid:
+                            self.node.nodestack.outBoxes.pop(rid, None)
+                    except RemoteNotFound:
+                        logger.debug('{} did not find remote {} to remove'.
+                                     format(self, nodeName))
+
                     self.node.nodeLeft(txn)
             self.doElectionIfNeeded(nodeName)
 
