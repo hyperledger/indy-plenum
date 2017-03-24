@@ -476,62 +476,75 @@ class ZStack(NetworkInterface):
             return self.processReceived(pracLimit)
         return 0
 
-    async def _serviceStack(self, age):
-        # TODO: age is unused
+    def _verifyAndAppend(self, msg, ident):
+        if self.verify(msg, ident):
+            self.rxMsgs.append((msg[:-self.sigLen].decode(), ident))
+        else:
+            logger.error('{} got error while '
+                         'verifying message {} from {}'
+                         .format(self, msg, ident))
 
-        def verifyAndAppend(msg, ident):
-            if self.verify(msg, ident):
-                self.rxMsgs.append((msg[:-self.sigLen].decode(), ident))
-            else:
-                logger.error('{} got error while verifying message {} from {}'
-                             .format(self, msg, ident))
+    def _receiveFromListener(self, quota) -> int:
+        """
+        Receives messages from listener
 
-        # TODO: If a stack is being bombarded with messages this can lead to the
-        # stack always busy in receiving messages and never getting time to
-        # complete processing fo messages.
-        # TODO: Optimize this
+        :param quota: number of messages to receive
+        :return: number of received messages
+        """
+        assert quota
         i = 0
-        while True:
+        while i < quota:
             try:
-                # ident, msg = await self.listener.recv_multipart(
-                #     flags=zmq.NOBLOCK)
                 ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
                 if not msg:
                     # Router probing sends empty message on connection
                     continue
+                i += 1
                 if self.onlyListener and ident not in self.remotesByKeys:
                     self.peersWithoutRemotes.add(ident)
-                i += 1
-                verifyAndAppend(msg, ident)
+                self._verifyAndAppend(msg, ident)
             except zmq.Again:
-                if i > 0:
-                    logger.trace('{} got {} messages through listener'.
-                                 format(self, i))
                 break
+        if i > 0:
+            logger.trace('{} got {} messages through listener'.
+                         format(self, i))
+        return i
 
+    def _receiveFromRemotes(self, quotaPerRemote) -> int:
+        """
+        Receives messages from remotes
+
+        :param quotaPerRemote: number of messages to receive from one remote
+        :return: number of received messages
+        """
+
+        assert quotaPerRemote
+        totalReceived = 0
         for ident, remote in self.remotesByKeys.items():
             if not remote.socket:
                 continue
-
-            sock = remote.socket
-
             i = 0
-            while True:
+            sock = remote.socket
+            while i < quotaPerRemote:
                 try:
-                    # ident, msg = await sock.recv(flags=zmq.NOBLOCK)
-                    # msg = sock.recv(flags=zmq.NOBLOCK)
                     msg, = sock.recv_multipart(flags=zmq.NOBLOCK)
                     if not msg:
                         # Router probing sends empty message on connection
                         continue
                     i += 1
-                    verifyAndAppend(msg, ident)
+                    self._verifyAndAppend(msg, ident)
                 except zmq.Again:
-                    if i > 0:
-                        logger.trace('{} got {} messages through remote {}'.
-                                     format(self, i, remote))
                     break
+            if i > 0:
+                logger.trace('{} got {} messages through remote {}'.
+                             format(self, i, remote))
+            totalReceived += i
+        return totalReceived
 
+    async def _serviceStack(self, age):
+        # TODO: age is unused
+        self._receiveFromListener(quota=5)
+        self._receiveFromRemotes(quotaPerRemote=5)
         return len(self.rxMsgs)
 
     def processReceived(self, limit):
