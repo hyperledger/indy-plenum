@@ -4,10 +4,8 @@ import os
 import sys
 
 from ioflo.base.consoling import getConsole, Console
-
-from plenum.common.logging.TimeAndSizeRotatingFileHandler \
-    import TimeAndSizeRotatingFileHandler
-from plenum.common.util import Singleton, adict
+from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRotatingFileHandler
+from stp_core.common.util import Singleton
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25

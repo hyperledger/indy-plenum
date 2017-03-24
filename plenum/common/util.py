@@ -19,12 +19,11 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import base58
 import libnacl.secret
 import psutil
-from six import iteritems, string_types
-
 from ledger.util import F
 from plenum.common.error import error
 from plenum.common.exceptions import MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
+from six import iteritems, string_types
 from stp_core.crypto.util import isHexKey, isHex
 
 T = TypeVar('T')
@@ -202,26 +201,6 @@ def prime_gen() -> int:
             while x in D:
                 x += p
             D[x] = p
-
-
-class MessageProcessor:
-    """
-    Helper functions for messages.
-    """
-
-    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
-        """
-        Discard a message and log a reason using the specified `logMethod`.
-
-        :param msg: the message to discard
-        :param reason: the reason why this message is being discarded
-        :param logMethod: the logging function to be used
-        :param cliOutput: if truthy, informs a CLI that the logged msg should
-        be printed
-        """
-        reason = "" if not reason else " because {}".format(reason)
-        logMethod("{} discarding message {}{}".format(self, msg, reason),
-                  extra={"cli": cliOutput})
 
 
 class adict(dict):
@@ -460,15 +439,6 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
 def createDirIfNotExists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
-
-
-class Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
 
 
 def check_endpoint_valid(endpoint, required: bool=True):

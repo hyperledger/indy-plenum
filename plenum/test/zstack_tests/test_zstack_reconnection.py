@@ -1,9 +1,6 @@
 import pytest
 
 from plenum.common.eventually import eventually
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
-from plenum.test.conftest import tdir
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import TestNode, ensureElectionsDone
 

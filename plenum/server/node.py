@@ -57,7 +57,8 @@ from plenum.common.types import Propagate, \
     CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
+from plenum.common.util import friendlyEx, getMaxFailures
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore

@@ -2,11 +2,11 @@ from collections import deque
 from typing import Any, Iterable
 from typing import Dict
 
+from plenum.common.txn import BATCH
 from stp_core.crypto.signer import Signer
 from plenum.common.log import getlogger
-from plenum.common.types import Batch
-from plenum.common.util import MessageProcessor
-
+from plenum.common.types import Batch, OP_FIELD_NAME, f
+from plenum.common.message_processor import MessageProcessor
 
 logger = getlogger()
 
@@ -98,3 +98,19 @@ class Batched(MessageProcessor):
                 self.discard(msgs, "rid {} no longer available".format(rid),
                              logMethod=logger.debug)
             del self.outBoxes[rid]
+
+
+    def doProcessReceived(self, msg, frm, ident):
+         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
+             if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
+                 # Removing ping and pong messages from Batch
+                 relevantMsgs = []
+                 for m in msg[f.MSGS.nm]:
+                     r = self.handlePingPong(m, frm, ident)
+                     if not r:
+                         relevantMsgs.append(m)
+
+                 if not relevantMsgs:
+                     return None
+                 msg[f.MSGS.nm] = relevantMsgs
+         return msg

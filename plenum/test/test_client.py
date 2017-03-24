@@ -1,10 +1,9 @@
 from functools import partial
 
+from plenum.common.stacks import NodeZStack, NodeRStack
+from stp_core.network.network_interface import NetworkInterface
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA, Identifier
-
-from plenum.common.r_stack import NodeStack
-from plenum.common.zstack import NodeZStack
 
 from stp_core.zmq.util import initRemoteKeys
 from stp_core.zmq.zstack import  ZStack
@@ -27,11 +26,11 @@ class TestClient(Client, StackedTester):
     def __init__(self, *args, **kwargs):
         # TODO: Remove them once RAET is removed
         from plenum.test.conftest import UseZStack
-        self.NodeStackClass = NodeZStack if UseZStack else NodeStack
+        self.NodeStackClass = NodeZStack if UseZStack else NodeRStack
         super().__init__(*args, **kwargs)
 
     @property
-    def nodeStackClass(self) -> NodeStack:
+    def nodeStackClass(self) -> NetworkInterface:
         return getTestableStack(self.NodeStackClass)
 
     def handleOneNodeMsg(self, wrappedMsg, excludeFromCli=None) -> None:

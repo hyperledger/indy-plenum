@@ -12,8 +12,8 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from stp_core.raet.rstack import NodeStack
-from stp_core.zmq.zstack import NodeZStack
+from plenum.common.stacks import NodeRStack
+from plenum.common.stacks import NodeZStack
 from raet.nacling import Signer
 from raet.raeting import AutoMode
 from stp_core.types import HA
@@ -37,8 +37,8 @@ from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, OP_FIELD_NAME, f, LedgerStatus, TaggedTuples
-from plenum.common.util import getMaxFailures, MessageProcessor, \
-    checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
 from plenum.server.has_action_queue import HasActionQueue

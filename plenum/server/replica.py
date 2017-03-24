@@ -19,7 +19,8 @@ from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
     CheckpointState, Checkpoint
 from plenum.common.request import ReqDigest
-from plenum.common.util import MessageProcessor, updateNamedTuple
+from plenum.common.util import updateNamedTuple
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares

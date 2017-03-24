@@ -1,7 +1,7 @@
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from plenum.common.r_stack import RStack
+from stp_core.raet.rstack import RStack
 from stp_core.zmq.zstack import ZStack
 from stp_core.types import HA
 

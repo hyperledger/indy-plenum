@@ -1,13 +1,18 @@
 from typing import Callable, Any, List, Dict
 
+from plenum.common.batched import Batched, logger
+from plenum.common.message_processor import MessageProcessor
 from stp_core.raet.rstack import SimpleRStack, KITRStack
+from stp_core.types import HA
 from stp_core.zmq.zstack import SimpleZStack, KITZStack
 
 
-class ClientZStack(SimpleZStack):
+
+class ClientZStack(SimpleZStack, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
         SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
                               onlyListener=True)
+        MessageProcessor.__init__(self, allowDictOnly=False)
         self.connectedClients = set()
 
     def serviceClientStack(self):
@@ -50,6 +55,7 @@ class NodeZStack(Batched, KITZStack):
         Batched.__init__(self)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
                            seed=seed, sighex=sighex)
+        MessageProcessor.__init__(self, allowDictOnly=False)
 
     # TODO: Reconsider defaulting `reSetupAuth` to True.
     def start(self, restricted=None, reSetupAuth=True):
@@ -59,12 +65,13 @@ class NodeZStack(Batched, KITZStack):
                     extra={"tags": ["node-listening"]})
 
 
-class ClientRStack(SimpleRStack):
+class ClientRStack(SimpleRStack, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable):
         # The client stack needs to be mutable unless we explicitly decide
         # not to
         stackParams["mutable"] = stackParams.get("mutable", True)
         SimpleRStack.__init__(self, stackParams, msgHandler)
+        MessageProcessor.__init__(self, allowDictOnly=True)
         self.connectedClients = set()
 
     def serviceClientStack(self):
@@ -108,6 +115,7 @@ class NodeRStack(Batched, KITRStack):
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
         KITRStack.__init__(self, stackParams, msgHandler, registry, sighex)
+        MessageProcessor.__init__(self, allowDictOnly=True)
 
     def start(self):
         KITRStack.start(self)

@@ -61,10 +61,10 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['raet', 'jsonpickle', 'portalocker==0.5.7',
-                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger',
+    install_requires=['jsonpickle', 'portalocker==0.5.7',
+                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger', 'stp-core',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pyzmq'],
+                      'sortedcontainers==1.5.7', 'psutil'],
     extras_require={
         'stats': ['python-firebase']
     },
