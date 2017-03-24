@@ -43,7 +43,7 @@ class Batched(MessageProcessor):
         for rid in self.remotes.keys():
             self._enqueue(msg, rid, signer)
 
-    def send(self, msg: Any, *rids: Iterable[int], signer: Signer=None) -> None:
+    def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None) -> None:
         """
         Enqueue the given message into the outBoxes of the specified remotes
          or into the outBoxes of all the remotes if rids is None
@@ -74,10 +74,12 @@ class Batched(MessageProcessor):
                     msg = msgs.popleft()
                     # Setting timeout to never expire
                     self.transmit(msg, rid, timeout=self.messageTimeout)
-                    logger.trace("{} sending msg {} to {}".format(self, msg, dest))
+                    logger.trace(
+                        "{} sending msg {} to {}".format(self, msg, dest))
                 else:
-                    logger.debug("{} batching {} msgs to {} into one transmission".
-                                 format(self, len(msgs), dest))
+                    logger.debug(
+                        "{} batching {} msgs to {} into one transmission".
+                        format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
                     batch = Batch([], None)
                     while msgs:
@@ -99,18 +101,17 @@ class Batched(MessageProcessor):
                              logMethod=logger.debug)
             del self.outBoxes[rid]
 
-
     def doProcessReceived(self, msg, frm, ident):
-         if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
-             if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
-                 # Removing ping and pong messages from Batch
-                 relevantMsgs = []
-                 for m in msg[f.MSGS.nm]:
-                     r = self.handlePingPong(m, frm, ident)
-                     if not r:
-                         relevantMsgs.append(m)
+        if OP_FIELD_NAME in msg and msg[OP_FIELD_NAME] == BATCH:
+            if f.MSGS.nm in msg and isinstance(msg[f.MSGS.nm], list):
+                # Removing ping and pong messages from Batch
+                relevantMsgs = []
+                for m in msg[f.MSGS.nm]:
+                    r = self.handlePingPong(m, frm, ident)
+                    if not r:
+                        relevantMsgs.append(m)
 
-                 if not relevantMsgs:
-                     return None
-                 msg[f.MSGS.nm] = relevantMsgs
-         return msg
+                if not relevantMsgs:
+                    return None
+                msg[f.MSGS.nm] = relevantMsgs
+        return msg

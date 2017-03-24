@@ -2,10 +2,9 @@ from typing import Callable, Any, List, Dict
 
 from plenum.common.batched import Batched, logger
 from plenum.common.message_processor import MessageProcessor
-from stp_core.raet.rstack import SimpleRStack, KITRStack
+from stp_raet.rstack import SimpleRStack, KITRStack
 from stp_core.types import HA
-from stp_core.zmq.zstack import SimpleZStack, KITZStack
-
+from stp_zmq.zstack import SimpleZStack, KITZStack
 
 
 class ClientZStack(SimpleZStack, MessageProcessor):

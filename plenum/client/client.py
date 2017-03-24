@@ -30,7 +30,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from stp_core.raet.util import getHaFromLocalEstate
+from stp_raet.util import getHaFromLocalEstate
 from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
