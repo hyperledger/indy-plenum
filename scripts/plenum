@@ -34,7 +34,7 @@ loadPlugins(basedirpath)
 # NOTE: Put all regular imports below (not related to loadplugin)
 import sys
 from plenum.cli.cli import Cli
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 
 
 def run_cli():

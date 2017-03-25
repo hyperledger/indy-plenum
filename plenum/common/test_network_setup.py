@@ -3,7 +3,7 @@ import os
 from hashlib import sha256
 
 from ledger.serializers.compact_serializer import CompactSerializer
-from raet.nacling import Signer
+from stp_core.crypto.nacl_wrappers import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger

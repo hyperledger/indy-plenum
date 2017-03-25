@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.common.eventually import eventuallyAll
+from stp_core.loop.eventually import eventuallyAll
 from plenum.common.txn import TXN_TYPE,  DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node

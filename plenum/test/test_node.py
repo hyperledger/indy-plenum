@@ -16,11 +16,11 @@ from stp_core.network.port_dispenser import genHa
 
 import plenum.test.delayers as delayers
 from plenum.common.error import error
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict

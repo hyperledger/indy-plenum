@@ -1,7 +1,7 @@
 import time
 from functools import partial
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.motor import Motor
 from plenum.server.has_action_queue import HasActionQueue
 

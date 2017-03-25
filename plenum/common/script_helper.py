@@ -5,8 +5,8 @@ from jsonpickle import json
 from ledger.stores.text_file_store import TextFileStore
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually
-from stp_core.raet.util import getLocalVerKey, getLocalPubKey
+from stp_core.loop.eventually import eventually
+from stp_raet.util import getLocalVerKey, getLocalPubKey
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE

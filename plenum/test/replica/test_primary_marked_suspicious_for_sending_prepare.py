@@ -1,6 +1,6 @@
 import time
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.types import Prepare
 from plenum.server.suspicion_codes import Suspicions

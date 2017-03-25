@@ -4,7 +4,7 @@ import psutil
 import pytest
 import zmq
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.util import randomString
 from plenum.test.pool_transactions.helper import addNewClient
 from plenum.test.test_client import TestClient

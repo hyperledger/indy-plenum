@@ -5,9 +5,9 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from stp_core.raet.util import initLocalKeep
+from stp_raet.util import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString

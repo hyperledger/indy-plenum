@@ -15,7 +15,7 @@ import pyorient
 from plenum.common.stacks import NodeRStack, ClientRStack, ClientZStack, \
     NodeZStack
 from stp_core.crypto.signer import Signer
-from stp_core.zmq.zstack import ZStack
+from stp_zmq.zstack import ZStack
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 

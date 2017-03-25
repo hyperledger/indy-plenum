@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
 from plenum.common.types import PrePrepare
 from plenum.server.replica import TPCStat

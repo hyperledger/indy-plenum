@@ -5,7 +5,7 @@ pool.
 from ioflo.base.consoling import getConsole
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.keygen_utils import initKeys
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail

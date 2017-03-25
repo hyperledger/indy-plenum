@@ -2,7 +2,7 @@ from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.test.helper import msgAll
 from plenum.test.test_stack import RemoteState, NOT_CONNECTED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg

@@ -1,7 +1,7 @@
 import time
 from functools import partial
 
-from plenum.common.eventually import eventuallyAll
+from stp_core.loop.eventually import eventuallyAll
 from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node

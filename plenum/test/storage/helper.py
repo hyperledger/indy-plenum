@@ -1,4 +1,4 @@
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import f
 

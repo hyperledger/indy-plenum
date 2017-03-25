@@ -1,10 +1,10 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.common.log import getlogger
-from stp_core.raet.util import initRemoteKeep
+from stp_raet.util import initRemoteKeep
 from plenum.common.txn import REPLY, REQACK, TXN_ID
 from plenum.common.types import OP_FIELD_NAME, f
 from plenum.server.node import Node
@@ -13,7 +13,7 @@ from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures
     sendRandomRequest, checkSufficientRepliesRecvd, assertLength,  \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
-from stp_core.zmq.util import initRemoteKeys
+from stp_zmq.util import initRemoteKeys
 
 nodeCount = 7
 

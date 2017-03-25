@@ -1,10 +1,10 @@
 import os
 
-from stp_core.zmq.util import initStackLocalKeys, createCertsFromKeys
-from stp_core.zmq.zstack import ZStack
+from stp_zmq.util import initStackLocalKeys, createCertsFromKeys
+from stp_zmq.zstack import ZStack
 
 from plenum.common.config_util import getConfig
-from stp_core.raet.util import initLocalKeep, isLocalKeepSetup
+from stp_raet.util import initLocalKeep, isLocalKeepSetup
 from plenum.common.types import CLIENT_STACK_SUFFIX
 
 

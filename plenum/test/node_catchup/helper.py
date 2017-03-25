@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality
 from plenum.test.test_client import TestClient

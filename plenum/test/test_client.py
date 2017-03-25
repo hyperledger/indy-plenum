@@ -5,8 +5,8 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA, Identifier
 
-from stp_core.zmq.util import initRemoteKeys
-from stp_core.zmq.zstack import  ZStack
+from stp_zmq.util import initRemoteKeys
+from stp_zmq.zstack import  ZStack
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error

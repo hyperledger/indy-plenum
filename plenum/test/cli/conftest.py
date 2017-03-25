@@ -2,8 +2,8 @@ from collections import OrderedDict
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.looper import Looper
+from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 from plenum.common.util import adict
 from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
     doByCtx

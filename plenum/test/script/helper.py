@@ -4,7 +4,7 @@ import os
 import pytest
 
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.script_helper import changeHA
 from plenum.common.signer_simple import SimpleSigner

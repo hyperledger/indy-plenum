@@ -20,11 +20,11 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
-from plenum.common.looper import Looper
-from stp_core.raet.util import initLocalKeep
+from stp_core.loop.looper import Looper
+from stp_raet.util import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM
 from plenum.common.txn_util import getTxnOrderedFields

@@ -14,8 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from plenum.common.stacks import NodeRStack
 from plenum.common.stacks import NodeZStack
-from raet.nacling import Signer
-from raet.raeting import AutoMode
+from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.types import HA
 
 from ledger.merkle_verifier import MerkleVerifier
@@ -123,7 +122,7 @@ class Client(Motor,
         stackargs = dict(name=self.stackName,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
-                         auto=AutoMode.always)
+                         auto=2)
         stackargs['basedirpath'] = basedirpath
         self.created = time.perf_counter()
 

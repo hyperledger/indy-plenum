@@ -3,7 +3,7 @@ from base64 import b64encode
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.txn import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep

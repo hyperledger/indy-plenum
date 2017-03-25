@@ -17,13 +17,12 @@ from psutil import Popen
 
 from plenum.common.config_util import getConfig
 from plenum.config import poolTransactionsFile, domainTransactionsFile
-from raet.raeting import TrnsKind, PcktKind
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.request import Request
 from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import OP_FIELD_NAME, \
@@ -42,11 +41,6 @@ from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
     ("frm", Optional[str])])
-
-RaetDelay = NamedTuple("RaetDelay", [
-    ("tk", Optional[TrnsKind]),
-    ("pk", Optional[PcktKind]),
-    ("fromPort", Optional[int])])
 
 
 logger = getlogger()

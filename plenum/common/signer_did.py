@@ -3,8 +3,7 @@ from binascii import hexlify
 from typing import Dict
 
 from libnacl import randombytes
-from raet.nacling import SigningKey
-from raet.nacling import Signer as NaclSigner
+from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
 
 from stp_core.crypto.signer import Signer
 from plenum.common.signing import serializeMsg

@@ -1,12 +1,12 @@
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
-from stp_core.raet.rstack import RStack
-from stp_core.zmq.zstack import ZStack
+from stp_raet.rstack import RStack
+from stp_zmq.zstack import ZStack
 from stp_core.types import HA
 
 from plenum.common.config_util import getConfig
-from plenum.common.eventually import eventuallyAll, eventually
+from stp_core.loop.eventually import eventuallyAll, eventually
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected

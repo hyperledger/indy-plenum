@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import checkViewNoForNodes, \

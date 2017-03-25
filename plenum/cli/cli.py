@@ -32,7 +32,7 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.plugin_helper import loadPlugins
-from stp_core.raet.util import isLocalKeepSetup, getLocalEstateData
+from stp_raet.util import isLocalKeepSetup, getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \

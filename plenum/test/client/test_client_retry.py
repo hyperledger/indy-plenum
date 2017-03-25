@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
 from plenum.common.types import Reply, RequestNack
 from plenum.test.helper import sendRandomRequest, checkReqAck, checkReplyCount

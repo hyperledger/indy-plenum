@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Commit
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
