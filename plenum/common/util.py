@@ -19,13 +19,18 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
+
 from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
 
+from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
+    WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
+from plenum.common.exceptions import PortNotAvailable
 from plenum.common.exceptions import EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
@@ -262,10 +267,15 @@ def checkPortAvailable(ha):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
-    except BaseException as ex:
-        logging.warning("Checked port availability for opening "
-                        "and address was already in use: {}".format(ha))
-        raise ex
+    except OSError as exc:
+        if exc.errno in [
+            errno.EADDRINUSE, errno.EADDRNOTAVAIL,
+            WS_SOCKET_BIND_ERROR_ALREADY_IN_USE,
+            WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
+        ]:
+            raise PortNotAvailable(ha)
+        else:
+            raise exc
     finally:
         sock.close()
 
@@ -586,6 +596,10 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+def is_valid_port(port):
+    return port.isdigit() and int(port) in range(1, 65536)
+
+
 def check_endpoint_valid(endpoint, required: bool=True):
     if not endpoint:
         if required:
@@ -597,5 +611,11 @@ def check_endpoint_valid(endpoint, required: bool=True):
         ipaddress.ip_address(ip)
     except Exception as exc:
         raise InvalidEndpointIpAddress(endpoint) from exc
-    if not (port.isdigit() and int(port) in range(1, 65536)):
+    if not is_valid_port(port):
         raise InvalidEndpointPort(endpoint)
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"

@@ -101,10 +101,10 @@ class TestingHandler(logging.Handler):
 
 
 class Logger(metaclass=Singleton):
-    def __init__(self):
+    def __init__(self, config=None):
         from plenum.common.config_util import getConfig
         # TODO: This should take directory
-        self._config = getConfig()
+        self._config = config or getConfig()
         self._addTraceToLogging()
         self._addDisplayToLogging()
 
@@ -120,7 +120,8 @@ class Logger(metaclass=Singleton):
         self._default_raet_log_file = \
             getRAETLogFilePath("RAETLogFilePath", self._config)
 
-        self.enableStdLogging()
+        if self._config.enableStdOutLogging:
+            self.enableStdLogging()
 
         logLevel = logging.INFO
         if hasattr(self._config, "logLevel"):
