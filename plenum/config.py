@@ -153,5 +153,5 @@ UseZStack = True
 
 
 # Number of messages zstack accepts at once
-LISTENER_MESSAGE_QUOTA = 5
-REMOTES_MESSAGE_QUOTA = 5
+LISTENER_MESSAGE_QUOTA = 100
+REMOTES_MESSAGE_QUOTA = 100
