@@ -20,18 +20,14 @@ def testUbuntu = {
 
             echo 'Ubuntu Test: Test'
             try {
-                //sh 'python -m pytest -k orientdb --junitxml=test-result.xml' // Run only orientdb test for POC purposes
-                sh 'python runner.py --pytest \"python -m pytest -k orientdb\" --output "test-result.txt"'
+                sh 'python -m pytest -k orientdb --junitxml=test-result.xml' // Run only orientdb test for POC purposes
+                //sh 'python runner.py --pytest \"python -m pytest -k orientdb\" --output "test-result.txt"'
             }
             finally {
-                //junit 'test-result.xml'
-                archiveArtifacts artifacts: 'test-result.txt'
+                junit 'test-result.xml'
+                //archiveArtifacts artifacts: 'test-result.txt'
             }
         }
-    }
-    catch(e) {
-        echo "Error"
-        echo "${e}"
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
@@ -83,12 +79,12 @@ def testWindowsNoDocker = {
 
             // Run only orientdb test for POC purposes
             try {
-                //bat "${python} -m pytest -k orientdb --junitxml=test-result.xml"
-                bat "${python} runner.py --pytest \"${python} -m pytest -k orientdb\" --output \"test-result.txt\""
+                bat "${python} -m pytest -k orientdb --junitxml=test-result.xml"
+                //bat "${python} runner.py --pytest \"${python} -m pytest -k orientdb\" --output \"test-result.txt\""
             }
             finally {
-                //junit 'test-result.xml'
-                archiveArtifacts 'test-result.txt'
+                junit 'test-result.xml'
+                //archiveArtifacts 'test-result.txt'
             }
         })
     }
