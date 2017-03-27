@@ -1,4 +1,4 @@
-#!groovy​
+#!groovy
 
 @Library('SovrinHelpers') _
 
@@ -19,18 +19,13 @@ def testUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            /* try {
+            try {
+                //sh 'python -m pytest -k orientdb --junitxml=test-result.xml' // Run only orientdb test for POC purposes
                 sh 'python runner.py --output "/home/sovrin/test-result.txt"'
             }
             finally {
+                //junit 'test-result.xml'
                 archiveArtifacts artifacts: '/home/sovrin/test-result.txt'
-            }*/
-            // Run only orientdb test for POC purposes
-            try {
-                sh 'python -m pytest -k orientdb --junitxml=test-result.xml'
-            }
-            finally {
-                junit 'test-result.xml'
             }
         }
     }
@@ -43,12 +38,62 @@ def testUbuntu = {
 
 def testWindows = {
     echo 'TODO: Implement me'
+
+    /* win2016 for now (03-23-2017) is not supported by Docker for Windows
+     * (Hyper-V version), so we can't use linux containers
+     * https://github.com/docker/for-win/issues/448#issuecomment-276328342
+     *
+     * possible solutions:
+     *  - use host-installed OrientDB (trying this one)
+     *  - wait until Docker support will be provided for win2016
+     */
+
+    //try {
+    //    echo 'Windows Test: Checkout csm'
+    //    checkout scm
+
+    //    echo 'Windows Test: Build docker image'
+    //    dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + ["cd C:\\test && python -m pytest -k orientdb --junit-xml=C:\\testOrig\\$testFile"] /*testHelpers.testJunitWindowsCommands()*/)
+    //    junit 'test-result.xml'
+    //}
+    //finally {
+    //    echo 'Windows Test: Cleanup'
+    //    step([$class: 'WsCleanup'])
+    //}
 }
 
 def testWindowsNoDocker = {
-    echo 'TODO: Implement me'
+    try {
+        echo 'Windows No Docker Test: Checkout csm'
+        checkout scm
+
+        echo 'Windows No Docker Test: drop orientdb databases'
+        orientdb.cleanupWindows()
+
+        testHelpers.createVirtualEnvAndExecute({ python, pip ->
+            echo 'Windows No Docker Test: Install dependencies'
+            testHelpers.installDepsBat(python, pip)
+            
+            echo 'Windows No Docker Test: Test'
+            //testHelpers.testJunitBat(python, pip)
+
+            // Run only orientdb test for POC purposes
+            try {
+                //bat "$python -m pytest -k orientdb --junitxml=test-result.xml"
+                bat "$python runner.py --pytest \"$python -m pytest\" --output test-result.txt"
+            }
+            finally {
+                //junit 'test-result.xml'
+                archiveArtifacts 'test-result.txt'
+            }
+        })
+    }
+    finally {
+        echo 'Windows No Docker Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
 }
 
 
 
-testAndPublish(name, [ubuntu: testUbuntu, windows: testWindows, windowsNoDocker: testWindowsNoDocker])
+testAndPublish(name, [ubuntu: testUbuntu, windows: testWindowsNoDocker, windowsNoDocker: testWindowsNoDocker])
