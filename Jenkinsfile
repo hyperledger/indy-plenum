@@ -68,7 +68,7 @@ def testWindowsNoDocker = {
             testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            bat "${python} runner.py --pytest \"${python} -m pytest -k orientdb\" --output \"test-result.txt\""
+            bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
         })
     }
     finally {
