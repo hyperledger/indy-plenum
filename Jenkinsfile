@@ -29,6 +29,10 @@ def testUbuntu = {
             }
         }
     }
+    catch(e) {
+        echo "Error"
+        echo "${e}"
+    }
     finally {
         echo 'Ubuntu Test: Cleanup'
         orientdb.stop()
