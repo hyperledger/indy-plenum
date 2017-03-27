@@ -80,7 +80,7 @@ def testWindowsNoDocker = {
             // Run only orientdb test for POC purposes
             try {
                 //bat "${python} -m pytest -k orientdb --junitxml=test-result.xml"
-                bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
+                bat "${python} runner.py --pytest \"${python} -m pytest -k orientdb\" --output \"test-result.txt\""
             }
             finally {
                 //junit 'test-result.xml'
