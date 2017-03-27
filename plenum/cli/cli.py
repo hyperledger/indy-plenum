@@ -36,8 +36,9 @@ from plenum.common.raet import getLocalEstateData
 from plenum.common.raet import isLocalKeepSetup
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
+from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 
 if is_windows():
@@ -78,7 +79,7 @@ from plenum.common.util import getMaxFailures, \
 from plenum.common.log import CliHandler, getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail, HA
+from plenum.common.types import NodeDetail, HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
@@ -477,7 +478,7 @@ class Cli:
                 return self._addNewGenesisCommand(matchedVars)
 
     def _addNewGenesisCommand(self, matchedVars):
-        typ = matchedVars.get(TXN_TYPE)
+        typ = self._getType(matchedVars)
 
         nodeName, nodeData, identifier = None, None, None
         jsonNodeData = json.loads(matchedVars.get(DATA))
@@ -504,7 +505,7 @@ class Cli:
 
     def _addOldGenesisCommand(self, matchedVars):
         destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
-        typ = matchedVars.get(TXN_TYPE)
+        typ = self._getType(matchedVars)
         txn = {
             TXN_TYPE: typ,
             TARGET_NYM: destId,
@@ -528,6 +529,26 @@ class Cli:
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
             self.newClient(clientName=name, config=config)
+
+    def _getType(self, matchedVars):
+        typeVar = matchedVars.get(TXN_TYPE)
+
+        try:
+            type =  PlenumTransactions(typeVar)
+            return type.value
+        except ValueError:
+            pass
+
+        try:
+            type = PlenumTransactions[typeVar]
+            return type.value
+        except KeyError:
+            pass
+
+        self.print("Invalid transaction type. Valid types are: {}".
+                   format(", ".join(map(lambda r: r.name, PlenumTransactions))),
+                   Token.Error)
+        return None
 
     @property
     def wallets(self):

@@ -25,9 +25,8 @@ from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.request import Request
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
-from plenum.common.types import OP_FIELD_NAME, \
-    Reply, f, PrePrepare
+from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, OP_FIELD_NAME
+from plenum.common.types import Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, checkPortAvailable
 from plenum.server.node import Node
