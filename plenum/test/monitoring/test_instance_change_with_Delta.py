@@ -8,7 +8,8 @@ from plenum.common.types import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
 from plenum.test.helper import checkViewNoForNodes, \
-    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies, sendRandomRequests
+    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests
+from plenum.test.test_node import getPrimaryReplica
 
 nodeCount = 7
 whitelist = ["discarding message"]

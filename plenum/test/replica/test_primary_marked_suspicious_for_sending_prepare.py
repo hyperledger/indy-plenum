@@ -4,9 +4,10 @@ from plenum.common.eventually import eventually
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.types import Prepare
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
-from plenum.test.test_node import TestNode, getNonPrimaryReplicas
+from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
+    getPrimaryReplica
 
 nodeCount = 7
 

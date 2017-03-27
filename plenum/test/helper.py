@@ -1,3 +1,4 @@
+import itertools
 import os
 import random
 import string
@@ -7,17 +8,12 @@ from itertools import permutations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
-    List, Any, Sequence
-from typing import Union
-
-import itertools
 
 from psutil import Popen
-
-from plenum.common.config_util import getConfig
-from plenum.config import poolTransactionsFile, domainTransactionsFile
 from raet.raeting import TrnsKind, PcktKind
+from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
+    List, Any, Sequence
+from typing import Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
@@ -30,6 +26,7 @@ from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, checkPortAvailable
+from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
@@ -217,18 +214,6 @@ async def aSetupClient(looper: Looper,
     looper.add(client1)
     await client1.ensureConnectedToNodes()
     return client1
-
-
-def getPrimaryReplica(nodes: Sequence[TestNode],
-                      instId: int = 0) -> TestReplica:
-    preplicas = [node.replicas[instId] for node in nodes if
-                 node.replicas[instId].isPrimary]
-    if len(preplicas) > 1:
-        raise RuntimeError('More than one primary node found')
-    elif len(preplicas) < 1:
-        raise RuntimeError('No primary node found')
-    else:
-        return preplicas[0]
 
 
 def randomOperation():
@@ -434,6 +419,14 @@ def checkDiscardMsg(processors, discardedMsg,
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
+
+
+def countDiscarded(processor, reasonPat):
+    c = 0
+    for entry in processor.spylog.getAll(processor.discard):
+        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+            c += 1
+    return c
 
 
 def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):

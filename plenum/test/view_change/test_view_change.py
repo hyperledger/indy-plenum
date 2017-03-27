@@ -7,7 +7,8 @@ from plenum.common.eventually import eventually
 from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import checkViewNoForNodes, \
-    sendReqsToNodesAndVerifySuffReplies, getPrimaryReplica
+    sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import getPrimaryReplica
 
 nodeCount = 7
 

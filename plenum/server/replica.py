@@ -2,7 +2,7 @@ import time
 from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
-from typing import Dict
+from typing import Dict, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
@@ -467,10 +467,11 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         senderRep = self.generateName(sender, self.instId)
         if self.isPpSeqNoStable(msg.ppSeqNo):
-            logger.debug('{} achieved stable checkpoint for {}'.
-                         format(self, msg))
+            self.discard(msg,
+                         "achieved stable checkpoint for 3 phase message",
+                         logger.debug)
             return
-        if self.isPpSeqNoAcceptable(msg.ppSeqNo):
+        if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
             try:
                 self.threePhaseRouter.handleSync((msg, senderRep))
             except SuspiciousNode as ex:
@@ -479,7 +480,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is "
                          "not between {} and {}".
                          format(self, msg, msg.ppSeqNo, self.h, self.H))
-            self.stashingWhileOutsideWaterMarks.append((msg, sender))
+            self.stashOutsideWatermarks((msg, sender))
 
     def processReqDigest(self, rd: ReqDigest):
         """
@@ -635,7 +636,7 @@ class Replica(HasActionQueue, MessageProcessor):
                          "than high water mark {}".
                          format(self, (self.viewNo, self.lastPrePrepareSeqNo+1),
                                 self.H))
-            self.stashingWhileOutsideWaterMarks.append(reqDigest)
+            self.stashOutsideWatermarks(reqDigest)
             return
         self.lastPrePrepareSeqNo += 1
         tm = time.time()*1000
@@ -1136,9 +1137,12 @@ class Replica(HasActionQueue, MessageProcessor):
                              format(self, len(reqKeys)))
                 self.requests.pop(k)
 
+    def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
+        self.stashingWhileOutsideWaterMarks.append(item)
+
     def processStashedMsgsForNewWaterMarks(self):
         while self.stashingWhileOutsideWaterMarks:
-            item = self.stashingWhileOutsideWaterMarks.pop()
+            item = self.stashingWhileOutsideWaterMarks.popleft()
             logger.debug("{} processing stashed item {} after new stable "
                          "checkpoint".format(self, item))
 
@@ -1187,7 +1191,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return False
 
-    def isPpSeqNoAcceptable(self, ppSeqNo: int):
+    def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):

@@ -8,6 +8,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
+from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
+    steward1, stewardWallet
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
@@ -19,17 +21,22 @@ def whitelist():
 logger = getlogger()
 
 
+@pytest.yield_fixture(scope="module")
+def looper(txnPoolNodesLooper):
+    yield txnPoolNodesLooper
+
+
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
+def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)
-    txnPoolNodesLooper.add(client)
-    txnPoolNodesLooper.run(client.ensureConnectedToNodes())
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
                                         txnCount, timeoutPerReq=25)
 
     logger.debug('Going to add new node, ledger sizes of existing nodes {}'.
@@ -38,9 +45,9 @@ def nodeCreatedAfterSomeTxns(txnPoolNodesLooper, txnPoolNodeSet,
     newStewardName = randomString()
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
-        txnPoolNodesLooper, client, wallet, newStewardName, newNodeName,
+        looper, client, wallet, newStewardName, newNodeName,
         tdirWithPoolTxns, tconf, allPluginsPath=allPluginsPath, autoStart=True)
-    yield txnPoolNodesLooper, newNode, client, wallet, newStewardClient, \
+    yield looper, newNode, client, wallet, newStewardClient, \
         newStewardWallet
 
 
