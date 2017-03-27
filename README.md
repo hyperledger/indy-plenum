@@ -1,5 +1,6 @@
-# Plenum Byzantine Fault Tolerant Protocol
-[![Build Status](http://52.36.52.15:8080/buildStatus/icon?job=Plenum/master)](http://52.36.52.15:8080/job/Plenum/job/master/)
+# Plenum Byzantine Fault Tolerant Protocol    
+
+[![Build Status](https://jenkins.evernym.com/buildStatus/icon?job=Plenum/master)](https://jenkins.evernym.com/job/Plenum/job/master/)    
 
 Plenum makes extensive use of coroutines and the async/await keywords in
 Python, and as such, requires Python version 3.5.0 or later. Plenum also
