@@ -19,14 +19,7 @@ def testUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            try {
-                //sh 'python -m pytest -k orientdb --junitxml=test-result.xml' // Run only orientdb test for POC purposes
-                sh 'python runner.py --output "/home/sovrin/test-result.txt"'
-            }
-            finally {
-                //junit 'test-result.xml'
-                archiveArtifacts artifacts: '/home/sovrin/test-result.txt'
-            }
+            sh 'python runner.py --output "/home/sovrin/test-result.txt"'
         }
     }
     finally {
@@ -75,17 +68,7 @@ def testWindowsNoDocker = {
             testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            //testHelpers.testJunitBat(python, pip)
-
-            // Run only orientdb test for POC purposes
-            try {
-                //bat "$python -m pytest -k orientdb --junitxml=test-result.xml"
-                bat "$python runner.py --pytest \"$python -m pytest\" --output test-result.txt"
-            }
-            finally {
-                //junit 'test-result.xml'
-                archiveArtifacts 'test-result.txt'
-            }
+            bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
         })
     }
     finally {
