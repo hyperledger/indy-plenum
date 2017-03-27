@@ -30,6 +30,8 @@ from plenum.common.types import HA, OP_FIELD_NAME, f
 from plenum.common.util import randomString
 from plenum.common.z_util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations
+from plenum.common.config_util import getConfig
+
 
 logger = getlogger()
 
@@ -251,8 +253,14 @@ class ZStack(NetworkInterface):
 
         self._conns = set()  # type: Set[str]
 
+
+        config = getConfig()
+        self.listenerQuota = config.LISTENER_MESSAGE_QUOTA
+        self.remoteQuota = config.REMOTES_MESSAGE_QUOTA
+
         self.rxMsgs = deque()
         self.created = time.perf_counter()
+
 
     @staticmethod
     def keyDirNames():
@@ -543,16 +551,8 @@ class ZStack(NetworkInterface):
 
     async def _serviceStack(self, age):
         # TODO: age is unused
-
-        from plenum.common.config_util import getConfig
-        config = getConfig()
-
-
-
-        listenerQuota = config.LISTENER_MESSAGE_QUOTA
-        remoteQuota = config.REMOTES_MESSAGE_QUOTA
-        self._receiveFromListener(quota=listenerQuota)
-        self._receiveFromRemotes(quotaPerRemote=remoteQuota)
+        self._receiveFromListener(quota=self.listenerQuota)
+        self._receiveFromRemotes(quotaPerRemote=self.remoteQuota)
         return len(self.rxMsgs)
 
     def processReceived(self, limit):
