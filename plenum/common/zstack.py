@@ -543,8 +543,16 @@ class ZStack(NetworkInterface):
 
     async def _serviceStack(self, age):
         # TODO: age is unused
-        self._receiveFromListener(quota=5)
-        self._receiveFromRemotes(quotaPerRemote=5)
+
+        from plenum.common.config_util import getConfig
+        config = getConfig()
+
+
+
+        listenerQuota = config.LISTENER_MESSAGE_QUOTA
+        remoteQuota = config.REMOTES_MESSAGE_QUOTA
+        self._receiveFromListener(quota=listenerQuota)
+        self._receiveFromRemotes(quotaPerRemote=remoteQuota)
         return len(self.rxMsgs)
 
     def processReceived(self, limit):
