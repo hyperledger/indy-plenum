@@ -1732,6 +1732,8 @@ class Cli:
 
                     self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
+                    return True
+
                 except (ValueError, AttributeError) as e:
                     self.logger.info(
                         "error occurred while restoring wallet {}: {}".

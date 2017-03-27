@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 import sys
 
 import plenum
+from plenum.common.jsonpickle_util import setUpJsonpickle
 from plenum.common.pkg_util import check_deps
 
 if sys.version_info < (3, 5, 0):
@@ -17,3 +18,5 @@ import importlib
 from .__metadata__ import *
 
 check_deps(plenum)
+
+setUpJsonpickle()
