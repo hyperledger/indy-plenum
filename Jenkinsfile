@@ -19,7 +19,7 @@ def testUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            sh 'python runner.py --pytest \"python -m pytest -k orientdb\" --output "test-result.txt"'
+            sh 'python runner.py --pytest \"python -m pytest\" --output "test-result.txt"'
         }
     }
     finally {
