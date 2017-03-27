@@ -21,11 +21,11 @@ def testUbuntu = {
             echo 'Ubuntu Test: Test'
             try {
                 //sh 'python -m pytest -k orientdb --junitxml=test-result.xml' // Run only orientdb test for POC purposes
-                sh 'python runner.py --output "/home/sovrin/test-result.txt"'
+                sh 'python runner.py --output "test-result.txt"'
             }
             finally {
                 //junit 'test-result.xml'
-                archiveArtifacts artifacts: '/home/sovrin/test-result.txt'
+                archiveArtifacts artifacts: 'test-result.txt'
             }
         }
     }
@@ -79,8 +79,8 @@ def testWindowsNoDocker = {
 
             // Run only orientdb test for POC purposes
             try {
-                //bat "$python -m pytest -k orientdb --junitxml=test-result.xml"
-                bat "$python runner.py --pytest \"$python -m pytest\" --output test-result.txt"
+                //bat "${python} -m pytest -k orientdb --junitxml=test-result.xml"
+                bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
             }
             finally {
                 //junit 'test-result.xml'
