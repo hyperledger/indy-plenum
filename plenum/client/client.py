@@ -12,9 +12,10 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from plenum.common.stacks import NodeRStack
+from plenum.common.stacks import NodeRStack, nodeStackClass
 from plenum.common.stacks import NodeZStack
 from stp_core.crypto.nacl_wrappers import Signer
+from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 
 from ledger.merkle_verifier import MerkleVerifier
@@ -208,12 +209,8 @@ class Client(Motor,
                os.path.exists(os.path.join(basedirpath, name))
 
     @property
-    def nodeStackClass(self) -> NodeRStack:
-        # TODO: Remove if condition once raet is removed
-        if self.config.UseZStack:
-            return NodeZStack
-        else:
-            return NodeRStack
+    def nodeStackClass(self) -> NetworkInterface:
+        return nodeStackClass
 
     def start(self, loop):
         oldstatus = self.status

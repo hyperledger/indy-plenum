@@ -13,8 +13,9 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 
 import pyorient
 from plenum.common.stacks import NodeRStack, ClientRStack, ClientZStack, \
-    NodeZStack
+    NodeZStack, nodeStackClass, clientStackClass
 from stp_core.crypto.signer import Signer
+from stp_core.network.network_interface import NetworkInterface
 from stp_zmq.zstack import ZStack
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
@@ -159,9 +160,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
         self.nodestack = cls(**kwargs)
-        # self.nodestack = self.nodeStackClass(self.poolManager.nstack,
-        #                                      self.handleOneNodeMsg,
-        #                                      self.nodeReg)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
         kwargs = dict(stackParams=self.poolManager.cstack,
@@ -392,20 +390,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.mode == Mode.participating
 
     @property
-    def nodeStackClass(self) -> NodeRStack:
-        # TODO: Remove if condition once raet is removed
-        if self.config.UseZStack:
-            return NodeZStack
-        else:
-            return NodeRStack
+    def nodeStackClass(self) -> NetworkInterface:
+        return nodeStackClass
 
     @property
-    def clientStackClass(self) -> ClientRStack:
-        # TODO: Remove if condition once raet is removed
-        if self.config.UseZStack:
-            return ClientZStack
-        else:
-            return ClientRStack
+    def clientStackClass(self) -> NetworkInterface:
+        return clientStackClass
 
     def getPrimaryStorage(self):
         """
@@ -1914,8 +1904,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.nodeBlacklister.isBlacklisted(nm)}
 
     def transmitToClient(self, msg: Any, remoteName: str):
-        if isinstance(remoteName, str):
-            remoteName = remoteName.encode()
         self.clientstack.transmitToClient(msg, remoteName)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):

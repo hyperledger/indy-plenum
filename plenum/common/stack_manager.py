@@ -3,6 +3,7 @@ import shutil
 from abc import abstractproperty
 from collections import OrderedDict
 
+from plenum.common.keygen_utils import initRemoteKeys
 from stp_core.types import HA
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -10,12 +11,10 @@ from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
-from stp_raet.util import initRemoteKeep
 from plenum.common.txn import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
-from stp_zmq.util import initRemoteKeys
 
 logger = getlogger()
 
@@ -119,13 +118,8 @@ class TxnStackManager:
                 # Override any keys found, reason being the scenario where
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
-                if self.config.UseZStack:
-                    initRemoteKeys(self.name, remoteName, self.basedirpath,
+                initRemoteKeys(self.name, remoteName, self.basedirpath,
                                    verkey, override=True)
-                else:
-                    initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
-                                   override=True)
-
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))
@@ -168,13 +162,8 @@ class TxnStackManager:
         verkey = txn[VERKEY]
         try:
             # Override any keys found
-            if self.config.UseZStack:
-                initRemoteKeys(self.name, remoteName, self.basedirpath,
-                               verkey, override=True)
-                #TODO:
-            else:
-                initRemoteKeep(self.name, remoteName, self.basedirpath, verkey,
-                               override=True)
+            initRemoteKeys(self.name, remoteName, self.basedirpath,
+                                   verkey, override=True)
         except Exception as ex:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))
@@ -206,15 +195,9 @@ class TxnStackManager:
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
-
-                # TODO: Remove later
-                if self.isNode and not self.node.config.UseZStack:
-                    initRemoteKeep(self.name, remoteName, self.basedirpath, key,
-                                   override=True)
-                else:
+                if self.isNode:
                     initRemoteKeys(self.name, remoteName, self.basedirpath, key,
                                    override=True)
-
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
                              format(ex))

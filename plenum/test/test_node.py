@@ -9,7 +9,7 @@ from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
 
-from plenum.common.stacks import ClientZStack, NodeRStack, ClientRStack
+from plenum.common.stacks import ClientZStack, NodeRStack, ClientRStack, nodeStackClass, clientStackClass
 from plenum.common.stacks import NodeZStack
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -208,10 +208,8 @@ class TestNodeCore(StackedTester):
 class TestNode(TestNodeCore, Node):
 
     def __init__(self, *args, **kwargs):
-        # TODO: Remove them once RAET is removed
-        from plenum.test.conftest import UseZStack
-        self.NodeStackClass = NodeZStack if UseZStack else NodeRStack
-        self.ClientStackClass = ClientZStack if UseZStack else ClientRStack
+        self.NodeStackClass = nodeStackClass
+        self.ClientStackClass = clientStackClass
 
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)

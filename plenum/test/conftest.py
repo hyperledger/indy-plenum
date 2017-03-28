@@ -24,7 +24,6 @@ from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
 from stp_core.loop.looper import Looper
-from stp_raet.util import initLocalKeep
 from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM
 from plenum.common.txn_util import getTxnOrderedFields
@@ -473,11 +472,7 @@ def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
         seed = seeds[nName]
-        # TODO: Remove once raet it removed
-        if UseZStack:
-            initNodeKeysForBothStacks(nName, tdir, seed, override=True)
-        else:
-            initLocalKeep(nName, tdir, seed, override=True)
+        initNodeKeysForBothStacks(nName, tdir, seed, override=True)
 
 
 @pytest.fixture(scope="module")

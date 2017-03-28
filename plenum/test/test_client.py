@@ -1,11 +1,11 @@
 from functools import partial
 
-from plenum.common.stacks import NodeZStack, NodeRStack
+from plenum.common.keygen_utils import initRemoteKeys
+from plenum.common.stacks import NodeZStack, NodeRStack, nodeStackClass
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA, Identifier
 
-from stp_zmq.util import initRemoteKeys
 from stp_zmq.zstack import  ZStack
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
@@ -24,9 +24,7 @@ logger = getlogger()
 @Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
 class TestClient(Client, StackedTester):
     def __init__(self, *args, **kwargs):
-        # TODO: Remove them once RAET is removed
-        from plenum.test.conftest import UseZStack
-        self.NodeStackClass = NodeZStack if UseZStack else NodeRStack
+        self.NodeStackClass = nodeStackClass
         super().__init__(*args, **kwargs)
 
     @property

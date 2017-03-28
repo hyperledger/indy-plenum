@@ -6,7 +6,7 @@ from sys import argv
 
 from plenum.common.script_helper import getStewardKeyFromName, \
     generateNodeGenesisTxn, buildKeepDirIfNotExists
-from plenum.common.keygen_utils import initKeys
+from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from stp_core.crypto.util import isHexKey
 from plenum.common.config_util import getConfig
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # Initialize node stack
     print("For node stack, stack name is", args.name)
     try:
-        pubkey, verkey = initKeys(args.name, config.baseDir, args.seed,
+        pubkey, verkey = initLocalKeys(args.name, config.baseDir, args.seed,
                                   args.force, config=config)
     except Exception as ex:
         print(ex)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
+        initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
                  args.force, config=config)
     except Exception as ex:
         print(ex)

@@ -1,5 +1,6 @@
 from typing import Callable, Any, List, Dict
 
+from plenum import config
 from plenum.common.batched import Batched, logger
 from plenum.common.message_processor import MessageProcessor
 from stp_raet.rstack import SimpleRStack, KITRStack
@@ -33,6 +34,8 @@ class ClientZStack(SimpleZStack, MessageProcessor):
         # happens inherently with RAET
         payload = self.prepForSending(msg)
         try:
+            if isinstance(remoteName, str):
+                remoteName = remoteName.encode()
             self.send(payload, remoteName)
         except Exception as ex:
             # TODO: This should not be an error since the client might not have
@@ -69,6 +72,7 @@ class ClientRStack(SimpleRStack, MessageProcessor):
         # The client stack needs to be mutable unless we explicitly decide
         # not to
         stackParams["mutable"] = stackParams.get("mutable", True)
+        stackParams["messageTimeout"] = config.RAETMessageTimeout
         SimpleRStack.__init__(self, stackParams, msgHandler)
         MessageProcessor.__init__(self, allowDictOnly=True)
         self.connectedClients = set()
@@ -113,6 +117,7 @@ class NodeRStack(Batched, KITRStack):
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
         stackParams["mutable"] = stackParams.get("mutable", True)
+        stackParams["messageTimeout"] = config.RAETMessageTimeout
         KITRStack.__init__(self, stackParams, msgHandler, registry, sighex)
         MessageProcessor.__init__(self, allowDictOnly=True)
 
@@ -121,3 +126,9 @@ class NodeRStack(Batched, KITRStack):
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
                     extra={"tags": ["node-listening"]})
+
+
+
+
+nodeStackClass = NodeZStack if config.UseZStack else NodeRStack
+clientStackClass = ClientZStack if config.UseZStack else ClientRStack

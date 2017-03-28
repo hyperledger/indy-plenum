@@ -30,9 +30,9 @@ from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
-from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
-from stp_raet.util import isLocalKeepSetup, getLocalEstateData
+from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
@@ -991,7 +991,7 @@ class Cli:
                   config=None):
         try:
             self.ensureValidClientId(clientName)
-            if not isLocalKeepSetup(clientName, self.basedirpath):
+            if not areKeysSetup(clientName, self.basedirpath):
                 client_addr = genHa(ip='0.0.0.0')
             else:
                 client_addr = tuple(getLocalEstateData(clientName,

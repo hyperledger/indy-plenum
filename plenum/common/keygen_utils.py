@@ -1,50 +1,37 @@
 import os
 
-from stp_zmq.util import initStackLocalKeys, createCertsFromKeys
+from plenum.common.stacks import nodeStackClass
+from stp_raet.rstack import RStack
+from stp_zmq.util import createCertsFromKeys
 from stp_zmq.zstack import ZStack
 
 from plenum.common.config_util import getConfig
-from stp_raet.util import initLocalKeep, isLocalKeepSetup
 from plenum.common.types import CLIENT_STACK_SUFFIX
 
 
-def initKeys(name, baseDir, sigseed, override=False, config=None):
-    if not config:
-        from plenum.common.config_util import getConfig
-        config = getConfig()
-    if config.UseZStack:
-        pubkey, verkey = initStackLocalKeys(name, baseDir, sigseed,
+def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
+    pubkey, verkey = nodeStackClass.initLocalKeys(name, baseDir, sigseed,
                                             override=override)
-    else:
-        pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
     print("Public key is", pubkey)
     print("Verification key is", verkey)
     return pubkey, verkey
 
 
-def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
-    initStackLocalKeys(name, baseDir, sigseed, override=override)
-    initStackLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
+def initRemoteKeys(name, baseDir, sigseed, verkey, override=False, config=None):
+    nodeStackClass.initRemoteKeys(name, baseDir, sigseed, verkey,
+                                            override=override)
+
+
+
+def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, config=None):
+    nodeStackClass.initLocalKeys(name, baseDir, sigseed, override=override)
+    nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
                        override=override)
 
 
+
 def areKeysSetup(name, baseDir, config=None):
-    config = config or getConfig()
-    if config.UseZStack:
-        homeDir = ZStack.homeDirPath(baseDir, name)
-        verifDirPath = ZStack.verifDirPath(homeDir)
-        pubDirPath = ZStack.publicDirPath(homeDir)
-        sigDirPath = ZStack.sigDirPath(homeDir)
-        secretDirPath = ZStack.secretDirPath(homeDir)
-        for d in (verifDirPath, pubDirPath):
-            if not os.path.isfile(os.path.join(d, '{}.key'.format(name))):
-                return False
-        for d in (sigDirPath, secretDirPath):
-            if not os.path.isfile(os.path.join(d, '{}.key_secret'.format(name))):
-                return False
-        return True
-    else:
-        return isLocalKeepSetup(name, baseDir)
+    return nodeStackClass.areKeysSetup(name, baseDir)
 
 
 def learnKeysFromOthers(baseDir, nodeName, otherNodes):

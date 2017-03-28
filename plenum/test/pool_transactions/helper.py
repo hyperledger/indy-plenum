@@ -6,7 +6,6 @@ from stp_core.network.port_dispenser import genHa
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from stp_core.loop.eventually import eventually
-from stp_raet.util import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
@@ -71,11 +70,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                           req.reqId, 1,
                           retryWait=1, timeout=5 * nodeCount))
 
-    # TODO: Remove once raet it removed
-    if tconf.UseZStack:
-        initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
-    else:
-        initLocalKeep(newNodeName, tdir, sigseed, override=True)
+    initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
 
     node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
                      ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),

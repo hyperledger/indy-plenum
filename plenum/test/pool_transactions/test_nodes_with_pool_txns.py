@@ -7,7 +7,6 @@ from stp_core.types import HA
 
 from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from stp_raet.util import initLocalKeep
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.types import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
@@ -203,13 +202,8 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     sigseed = randomString(32).encode()
     verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
-    if tconf.UseZStack:
-        initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
+    initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
                                   override=True)
-    else:
-        initLocalKeep(newNode.name, tdirWithPoolTxns, sigseed)
-        initLocalKeep(newNode.name + CLIENT_STACK_SUFFIX, tdirWithPoolTxns,
-                      sigseed)
 
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
