@@ -1,3 +1,4 @@
+import itertools
 import os
 import random
 import string
@@ -7,27 +8,27 @@ from itertools import permutations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
+
+from psutil import Popen
+from raet.raeting import TrnsKind, PcktKind
+from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
-import itertools
-
-from psutil import Popen
-
-from plenum.common.config_util import getConfig
-from plenum.config import poolTransactionsFile, domainTransactionsFile
-
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from stp_core.loop.eventually import eventually, eventuallyAll
+from plenum.common.config_util import getConfig
+from plenum.config import poolTransactionsFile, domainTransactionsFile
+from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
-from stp_core.loop.looper import Looper
+from plenum.common.looper import Looper
 from plenum.common.request import Request
 from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK
 from plenum.common.types import OP_FIELD_NAME, \
     Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
+    checkIfMoreThanFSameItems
+from plenum.config import poolTransactionsFile, domainTransactionsFile
     checkIfMoreThanFSameItems
 from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
@@ -41,6 +42,11 @@ from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
     ("frm", Optional[str])])
+
+RaetDelay = NamedTuple("RaetDelay", [
+    ("tk", Optional[TrnsKind]),
+    ("pk", Optional[PcktKind]),
+    ("fromPort", Optional[int])])
 
 
 logger = getlogger()
@@ -429,6 +435,14 @@ def checkDiscardMsg(processors, discardedMsg,
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
+
+
+def countDiscarded(processor, reasonPat):
+    c = 0
+    for entry in processor.spylog.getAll(processor.discard):
+        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+            c += 1
+    return c
 
 
 def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):

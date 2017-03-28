@@ -203,7 +203,8 @@ class TestNodeCore(StackedTester):
                   Node.send,
                   Node.sendInstanceChange,
                   Node.processInstanceChange,
-                  Node.checkPerformance
+                  Node.checkPerformance,
+                  Node.processStashedOrderedReqs
                   ])
 class TestNode(TestNodeCore, Node):
 
@@ -258,6 +259,7 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
+                  replica.Replica.stashOutsideWatermarks
                   # replica.Replica.orderPendingCommit
                   ])
 class TestReplica(replica.Replica):
@@ -397,17 +399,6 @@ class TestNodeSet(ExitStack):
 
     def getAllMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
         return getAllMsgReceivedForNode(self.getNode(node), method)
-
-
-def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
-        Sequence[TestReplica]:
-    return [node.replicas[instId] for node in nodes if
-            node.replicas[instId].isPrimary is False]
-
-
-def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
-        Sequence[TestReplica]:
-    return [node.replicas[instId] for node in nodes]
 
 
 @Spyable(methods=[Monitor.isMasterThroughputTooLow,
@@ -707,3 +698,24 @@ def getRequiredInstances(nodeCount: int) -> int:
     return f_value + 1
 
 
+def getPrimaryReplica(nodes: Sequence[TestNode],
+                      instId: int = 0) -> TestReplica:
+    preplicas = [node.replicas[instId] for node in nodes if
+                 node.replicas[instId].isPrimary]
+    if len(preplicas) > 1:
+        raise RuntimeError('More than one primary node found')
+    elif len(preplicas) < 1:
+        raise RuntimeError('No primary node found')
+    else:
+        return preplicas[0]
+
+
+def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
+        Sequence[TestReplica]:
+    return [node.replicas[instId] for node in nodes if
+            node.replicas[instId].isPrimary is False]
+
+
+def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
+        Sequence[TestReplica]:
+    return [node.replicas[instId] for node in nodes]

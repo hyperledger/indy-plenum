@@ -2,7 +2,7 @@ import time
 from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
-from typing import Dict
+from typing import Dict, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
@@ -468,10 +468,11 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         senderRep = self.generateName(sender, self.instId)
         if self.isPpSeqNoStable(msg.ppSeqNo):
-            logger.debug('{} achieved stable checkpoint for {}'.
-                         format(self, msg))
+            self.discard(msg,
+                         "achieved stable checkpoint for 3 phase message",
+                         logger.debug)
             return
-        if self.isPpSeqNoAcceptable(msg.ppSeqNo):
+        if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
             try:
                 self.threePhaseRouter.handleSync((msg, senderRep))
             except SuspiciousNode as ex:
@@ -480,7 +481,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} stashing 3 phase message {} since ppSeqNo {} is "
                          "not between {} and {}".
                          format(self, msg, msg.ppSeqNo, self.h, self.H))
-            self.stashingWhileOutsideWaterMarks.append((msg, sender))
+            self.stashOutsideWatermarks((msg, sender))
 
     def processReqDigest(self, rd: ReqDigest):
         """
@@ -636,7 +637,7 @@ class Replica(HasActionQueue, MessageProcessor):
                          "than high water mark {}".
                          format(self, (self.viewNo, self.lastPrePrepareSeqNo+1),
                                 self.H))
-            self.stashingWhileOutsideWaterMarks.append(reqDigest)
+            self.stashOutsideWatermarks(reqDigest)
             return
         self.lastPrePrepareSeqNo += 1
         tm = time.time()*1000
@@ -1133,11 +1134,16 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
             if self.requests[k].forwardedTo == 0:
+                logger.debug('{} clearing requests {} from previous checkpoints'.
+                             format(self, len(reqKeys)))
                 self.requests.pop(k)
+
+    def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
+        self.stashingWhileOutsideWaterMarks.append(item)
 
     def processStashedMsgsForNewWaterMarks(self):
         while self.stashingWhileOutsideWaterMarks:
-            item = self.stashingWhileOutsideWaterMarks.pop()
+            item = self.stashingWhileOutsideWaterMarks.popleft()
             logger.debug("{} processing stashed item {} after new stable "
                          "checkpoint".format(self, item))
 
@@ -1150,19 +1156,28 @@ class Replica(HasActionQueue, MessageProcessor):
                              "from stashingWhileOutsideWaterMarks".
                              format(self, item))
 
+    @staticmethod
+    def peekitem(d, i):
+        # Adding it since its not present in version supported by
+        # Ubuntu repositories.
+        key = d._list[i]
+        return key, d[key]
+
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.checkpoints.peekitem(0)
+            return self.peekitem(self.checkpoints, 0)
+            # return self.checkpoints.peekitem(0)
 
     @property
     def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.checkpoints.peekitem(-1)
+            return self.peekitem(self.checkpoints, -1)
+            # return self.checkpoints.peekitem(-1)
 
     def isPpSeqNoStable(self, ppSeqNo):
         """
@@ -1177,7 +1192,7 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             return False
 
-    def isPpSeqNoAcceptable(self, ppSeqNo: int):
+    def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):

@@ -322,6 +322,7 @@ class Client(Motor,
         pass
 
     def onStopping(self, *args, **kwargs):
+        logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
         if self._ledger:

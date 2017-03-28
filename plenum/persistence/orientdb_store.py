@@ -85,7 +85,6 @@ class OrientDbStore:
 
     def close(self):
         self.client.db_close(self.client._connection.db_opened)
-        self.client.connection.close()
 
 
 def createOrientDbInMemStore(config, name, dbType):

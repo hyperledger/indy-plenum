@@ -6,10 +6,9 @@ from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
-from plenum.test.helper import getPrimaryReplica
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
-    getAllReplicas
+    getAllReplicas, getPrimaryReplica
 
 
 def checkPropagated(looper, nodeSet, request, faultyNodes=0, timeout=10):
