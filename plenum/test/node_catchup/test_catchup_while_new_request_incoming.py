@@ -1,6 +1,5 @@
 import types
 
-from plenum.common.eventually import eventually
 from plenum.common.types import CatchupReq, f
 from plenum.common.util import randomString
 from plenum.test.delayers import crDelay
@@ -9,6 +8,7 @@ from plenum.test.helper import sendRandomRequests, \
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, TestNode
+from stp_core.loop.eventually import eventually
 
 
 def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,

@@ -17,9 +17,6 @@ from typing import Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.config_util import getConfig
-from plenum.config import poolTransactionsFile, domainTransactionsFile
-from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.request import Request
@@ -29,7 +26,9 @@ from plenum.common.types import OP_FIELD_NAME, \
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.config import poolTransactionsFile, domainTransactionsFile
-    checkIfMoreThanFSameItems
+from stp_core.loop.eventually import eventuallyAll, eventually
+
+checkIfMoreThanFSameItems
 from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
@@ -218,18 +217,6 @@ async def aSetupClient(looper: Looper,
     looper.add(client1)
     await client1.ensureConnectedToNodes()
     return client1
-
-
-def getPrimaryReplica(nodes: Sequence[TestNode],
-                      instId: int = 0) -> TestReplica:
-    preplicas = [node.replicas[instId] for node in nodes if
-                 node.replicas[instId].isPrimary]
-    if len(preplicas) > 1:
-        raise RuntimeError('More than one primary node found')
-    elif len(preplicas) < 1:
-        raise RuntimeError('No primary node found')
-    else:
-        return preplicas[0]
 
 
 def randomOperation():

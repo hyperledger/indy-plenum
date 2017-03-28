@@ -11,7 +11,9 @@ from stp_zmq.zstack import SimpleZStack, KITZStack
 class ClientZStack(SimpleZStack, MessageProcessor):
     def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
         SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
-                              onlyListener=True)
+                              onlyListener=True,
+                              listenerQuota=config.LISTENER_MESSAGE_QUOTA,
+                              remoteQuota=config.REMOTES_MESSAGE_QUOTA)
         MessageProcessor.__init__(self, allowDictOnly=False)
         self.connectedClients = set()
 
@@ -56,7 +58,9 @@ class NodeZStack(Batched, KITZStack):
                  registry: Dict[str, HA], seed=None, sighex: str=None):
         Batched.__init__(self)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
-                           seed=seed, sighex=sighex)
+                           seed=seed, sighex=sighex,
+                           listenerQuota=config.LISTENER_MESSAGE_QUOTA,
+                           remoteQuota=config.REMOTES_MESSAGE_QUOTA)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
     # TODO: Reconsider defaulting `reSetupAuth` to True.
