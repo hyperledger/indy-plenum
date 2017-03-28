@@ -195,8 +195,8 @@ class TxnStackManager:
                 # before this node comes to know about the other node, the other
                 # node tries to connect to it.
                 # Do it only for Nodes, not for Clients!
-                if self.isNode:
-                    initRemoteKeys(self.name, remoteName, self.basedirpath, key,
+                #if self.isNode:
+                initRemoteKeys(self.name, remoteName, self.basedirpath, key,
                                    override=True)
             except Exception as ex:
                 logger.error("Exception while initializing keep for remote {}".
