@@ -29,4 +29,4 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
 
     print('Sending {} requests'.format(reqsToSend))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    looper.run(eventually(chk, retryWait=1, timeout=60))
+    looper.run(eventually(chk, retryWait=1, timeout=80))
