@@ -11,8 +11,8 @@ from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error
 from plenum.common.log import getlogger
-from plenum.common.txn import REQACK, REQNACK, REPLY
-from plenum.common.types import OP_FIELD_NAME, f
+from plenum.common.constants import REQACK, REQNACK, REPLY
+from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import Spyable

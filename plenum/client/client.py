@@ -33,10 +33,10 @@ from plenum.common.plugin_helper import loadPlugins
 from stp_raet.util import getHaFromLocalEstate
 from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
-from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK
+from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, OP_FIELD_NAME
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Reply, OP_FIELD_NAME, f, LedgerStatus, TaggedTuples
+from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile

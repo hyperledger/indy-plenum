@@ -20,6 +20,8 @@ from stp_zmq.zstack import ZStack
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 
+from plenum.common.roles import Roles
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
@@ -44,23 +46,25 @@ from plenum.common.request import Request
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
-from plenum.common.txn import DATA, ALIAS, NODE_IP
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
+    HS_FILE, HS_ORIENT_DB
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
-    Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
+    Reply, Nomination, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
-    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
-    HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
-    CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
+    RequestNack, HA, \
+    LedgerStatus, ConsistencyProof, \
+    CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
 from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.verifier import DidVerifier
+from plenum.common.constants import DATA, ALIAS, NODE_IP
+
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.secondary_storage import SecondaryStorage
@@ -1680,10 +1684,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.sendReplyToClient(reply, req.key)
         if reply.result.get(TXN_TYPE) == NYM:
             self.addNewRole(reply.result)
-        # DO NOT COMMIT
-        logger.debug('{} has root hash and size {} {}'
-                     .format(self, self.primaryStorage.tree.root_hash,
-                             self.primaryStorage.size))
 
     @staticmethod
     def ledgerTypeForTxn(txnType: str):
@@ -1738,7 +1738,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be STEWARD".format(role))
+                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
                     return
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)

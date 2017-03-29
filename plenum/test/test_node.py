@@ -22,7 +22,8 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
+from plenum.common.types import TaggedTuples, NodeDetail
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict
 from plenum.persistence import orientdb_store
 from plenum.server import replica
@@ -423,9 +424,8 @@ class TestMonitor(Monitor):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
+    def __init__(self, tmpdir_factory, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
-        self.counter = counter
         self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
@@ -441,8 +441,7 @@ class Pool:
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):
-        return self.tmpdir_factory.getbasetemp().strpath + \
-               '/' + str(next(self.counter))
+        return self.tmpdir_factory.mktemp('').strpath
 
 
 class MockedNodeStack:

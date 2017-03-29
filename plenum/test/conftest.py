@@ -24,17 +24,16 @@ from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
 from stp_core.loop.looper import Looper
-from plenum.common.txn import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
-    CLIENT_IP, NODE_PORT, NYM
+from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
+    CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH, \
-    PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
     checkViewNoForNodes, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, createTempDir
+    mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -181,22 +180,18 @@ def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
         yield ns
 
 
-@pytest.fixture(scope="session")
-def counter():
-    return itertools.count()
-
-
 @pytest.fixture(scope='module')
-def tdir(tmpdir_factory, counter):
-    return createTempDir(tmpdir_factory, counter)
+def tdir(tmpdir_factory):
+    tempdir = tmpdir_factory.mktemp('').strpath
+    logger.debug("module-level temporary directory: {}".format(tempdir))
+    return tempdir
 
 another_tdir = tdir
 
 
 @pytest.fixture(scope='function')
-def tdir_for_func(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
+def tdir_for_func(tmpdir_factory):
+    tempdir = tmpdir_factory.mktemp('').strpath
     logging.debug("function-level temporary directory: {}".format(tempdir))
     return tempdir
 
@@ -221,8 +216,8 @@ def looper(unstartedLooper):
 
 
 @pytest.fixture(scope="module")
-def pool(tmpdir_factory, counter):
-    return Pool(tmpdir_factory, counter)
+def pool(tmpdir_factory):
+    return Pool(tmpdir_factory)
 
 
 @pytest.fixture(scope="module")

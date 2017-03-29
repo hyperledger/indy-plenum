@@ -32,11 +32,14 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
+from stp_core.crypto.util import cleanSeed
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
+from plenum.common.transactions import PlenumTransactions
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from stp_core.network.port_dispenser import genHa
 
 if is_windows():
@@ -69,14 +72,13 @@ from prompt_toolkit.styles import PygmentsStyle
 from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
-from stp_core.crypto.util import cleanSeed
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
     createDirIfNotExists, getFriendlyIdentifier
 from plenum.common.log import getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
-from plenum.common.types import CLIENT_STACK_SUFFIX, NodeDetail
+from plenum.common.types import NodeDetail, HA
 from stp_core.types import HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
@@ -476,7 +478,7 @@ class Cli:
                 return self._addNewGenesisCommand(matchedVars)
 
     def _addNewGenesisCommand(self, matchedVars):
-        typ = matchedVars.get(TXN_TYPE)
+        typ = self._getType(matchedVars)
 
         nodeName, nodeData, identifier = None, None, None
         jsonNodeData = json.loads(matchedVars.get(DATA))
@@ -503,7 +505,7 @@ class Cli:
 
     def _addOldGenesisCommand(self, matchedVars):
         destId = getFriendlyIdentifier(matchedVars.get(TARGET_NYM))
-        typ = matchedVars.get(TXN_TYPE)
+        typ = self._getType(matchedVars)
         txn = {
             TXN_TYPE: typ,
             TARGET_NYM: destId,
@@ -527,6 +529,26 @@ class Cli:
             # Need a unique name so nodes can differentiate
             name = self.name + randomString(6)
             self.newClient(clientName=name, config=config)
+
+    def _getType(self, matchedVars):
+        typeVar = matchedVars.get(TXN_TYPE)
+
+        try:
+            type =  PlenumTransactions(typeVar)
+            return type.value
+        except ValueError:
+            pass
+
+        try:
+            type = PlenumTransactions[typeVar]
+            return type.value
+        except KeyError:
+            pass
+
+        self.print("Invalid transaction type. Valid types are: {}".
+                   format(", ".join(map(lambda r: r.name, PlenumTransactions))),
+                   Token.Error)
+        return None
 
     @property
     def wallets(self):
@@ -1716,6 +1738,8 @@ class Cli:
                     self.activeIdentifier = wallet.defaultId
 
                     self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
+
+                    return True
 
                 except (ValueError, AttributeError) as e:
                     self.logger.info(

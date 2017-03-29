@@ -41,7 +41,7 @@ if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
 
 setup(
-    name='plenum',
+    name='plenum-dev',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -61,8 +61,9 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['jsonpickle', 'portalocker==0.5.7',
-                      'prompt_toolkit==0.57', 'pyorient', 'pygments', 'ledger', 'stp-core',
+    install_requires=['ledger-dev',
+                      'raet', 'jsonpickle', 'portalocker==0.5.7',
+                      'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil'],
     extras_require={

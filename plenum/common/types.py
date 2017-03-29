@@ -2,11 +2,12 @@ import sys
 from collections import namedtuple
 from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
 
-from plenum.common.txn import NOMINATE, PRIMARY, REELECTION, REQACK,\
+from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
-    CHECKPOINT_STATE, THREE_PC_STATE
+    CHECKPOINT_STATE, THREE_PC_STATE, OP_FIELD_NAME
+
 from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
@@ -67,10 +68,6 @@ class f:  # provides a namespace for reusable field constants
     DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", Any)
     POOL_CATCHUP_REP = Field("poolCatchupRep", Any)
     DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
-
-
-# TODO: Move this to `txn.py` which should be renamed to constants.py
-OP_FIELD_NAME = "op"
 
 
 class TaggedTupleBase:
@@ -279,19 +276,6 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.PP_SEQ_NO
                     ])
 
-CLIENT_STACK_SUFFIX = "C"
-CLIENT_BLACKLISTER_SUFFIX = "BLC"
-NODE_BLACKLISTER_SUFFIX = "BLN"
-
-NODE_PRIMARY_STORAGE_SUFFIX = "PS"
-NODE_SECONDARY_STORAGE_SUFFIX = "SS"
-NODE_TXN_STORE_SUFFIX = "TS"
-NODE_HASH_STORE_SUFFIX = "HS"
-
-HS_FILE = "file"
-HS_ORIENT_DB = "orientdb"
-HS_MEMORY = "memory"
-
 PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
 PLUGIN_TYPE_PROCESSING = "PROCESSING"
 PLUGIN_TYPE_STATS_CONSUMER = "STATS_CONSUMER"
@@ -305,4 +289,3 @@ EVENT_PERIODIC_STATS_NODES = "periodic_stats_nodes"
 EVENT_PERIODIC_STATS_NODE_INFO = "periodic_stats_node_info"
 EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO = "periodic_stats_system_performance_info"
 EVENT_PERIODIC_STATS_TOTAL_REQUESTS = "periodic_stats_total_requests"
-PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"

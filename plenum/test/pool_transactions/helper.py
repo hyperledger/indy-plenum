@@ -7,7 +7,7 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from stp_core.loop.eventually import eventually
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.txn import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
+from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR
 from plenum.common.util import randomString, hexToFriendly
@@ -117,7 +117,7 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
 
     # TODO: Not needed in ZStack, remove once raet is removed
     node.nodestack.clearLocalKeep()
@@ -142,7 +142,7 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
 
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
     node.nodestack.clearLocalRoleKeep()
     node.nodestack.clearRemoteRoleKeeps()
     node.nodestack.clearAllDir()
@@ -164,7 +164,7 @@ def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=5))
+                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
 
 
 def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
@@ -182,7 +182,7 @@ def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
     stewardClient.submitReqs(req)
     looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
                           req.reqId, 1,
-                          retryWait=1, timeout=10))
+                          retryWait=1, timeout=3*len(stewardClient.nodeReg)))
 
 
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,

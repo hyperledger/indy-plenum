@@ -6,8 +6,8 @@ from sys import argv
 
 from plenum.common.script_helper import getStewardKeyFromName, \
     generateNodeGenesisTxn, buildKeepDirIfNotExists
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.types import CLIENT_STACK_SUFFIX
 from stp_core.crypto.util import isHexKey
 from plenum.common.config_util import getConfig
 

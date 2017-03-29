@@ -1,12 +1,10 @@
 import os
 
 from plenum.common.stacks import nodeStackClass
-from stp_raet.rstack import RStack
 from stp_zmq.util import createCertsFromKeys
 from stp_zmq.zstack import ZStack
 
-from plenum.common.config_util import getConfig
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 
 
 def initLocalKeys(name, baseDir, sigseed, override=False, config=None):

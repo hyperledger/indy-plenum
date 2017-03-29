@@ -5,8 +5,8 @@ from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
 from plenum.common.log import getlogger
-from plenum.common.txn import REPLY, REQACK, TXN_ID
-from plenum.common.types import OP_FIELD_NAME, f
+from plenum.common.constants import OP_FIELD_NAME, REPLY, REQACK, TXN_ID
+from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
     randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \

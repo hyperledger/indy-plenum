@@ -17,11 +17,17 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
 import psutil
 from ledger.util import F
 from plenum.common.error import error
-from plenum.common.exceptions import MissingEndpoint, \
+import ipaddress
+
+from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
+    WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
+from plenum.common.exceptions import PortNotAvailable
+from plenum.common.exceptions import EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 from six import iteritems, string_types
 from stp_core.crypto.util import isHexKey, isHex
@@ -441,6 +447,10 @@ def createDirIfNotExists(dir):
         os.makedirs(dir)
 
 
+def is_valid_port(port):
+    return port.isdigit() and int(port) in range(1, 65536)
+
+
 def check_endpoint_valid(endpoint, required: bool=True):
     if not endpoint:
         if required:
@@ -452,10 +462,16 @@ def check_endpoint_valid(endpoint, required: bool=True):
         ipaddress.ip_address(ip)
     except Exception as exc:
         raise InvalidEndpointIpAddress(endpoint) from exc
-    if not (port.isdigit() and int(port) in range(1, 65536)):
+    if not is_valid_port(port):
         raise InvalidEndpointPort(endpoint)
 
 
 def getOpenConnections():
     pr = psutil.Process(os.getpid())
     return pr.connections()
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"

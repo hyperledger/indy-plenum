@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.txn import STEWARD
+from plenum.common.constants import STEWARD
 from plenum.test.pool_transactions.helper import addNewClient
 
 

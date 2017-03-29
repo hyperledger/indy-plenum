@@ -3,7 +3,7 @@ import os
 from collections import OrderedDict, namedtuple
 from typing import Any, Sequence, List, Dict
 
-from plenum.common.txn import REQACK, REQNACK, REPLY
+from plenum.common.constants import REQACK, REQNACK, REPLY
 
 from ledger.stores.directory_store import DirectoryStore
 from ledger.util import F

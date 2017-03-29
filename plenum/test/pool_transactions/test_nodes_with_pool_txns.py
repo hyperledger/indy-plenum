@@ -8,7 +8,7 @@ from stp_core.types import HA
 from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
