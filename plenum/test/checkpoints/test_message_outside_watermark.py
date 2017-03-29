@@ -8,9 +8,9 @@ from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 
 
-def test3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
-                                       txnPoolNodeSet, client1,
-                                       wallet1, client1Connected):
+def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
+                                                      txnPoolNodeSet, client1,
+                                                      wallet1, client1Connected):
     """
     A node is slow in processing PRE-PREPAREs such that lot of requests happen 
     and the slow node has started getting 3 phase messages outside of it 
