@@ -59,6 +59,9 @@ class Stats:
         """
         self.stats[key] += 1
 
+    def get(self, key):
+        return self.stats[key]
+
     def __repr__(self):
         return OrderedDict((TPCStat(k).name, v)
                            for k, v in self.stats.items())
@@ -171,8 +174,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self.prepares = Prepares()
         # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
-        self.commits = Commits()    # type: Dict[Tuple[int, int],
-        # Tuple[Tuple[str, int], Set[str]]]
+        self.commits = Commits()
+        # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo)
@@ -206,9 +209,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Low water mark
         self._h = 0              # type: int
-
-        # High water mark
-        self.H = self._h + self.config.LOG_SIZE   # type: int
+        # Set high water mark (`H`) too
+        self.h = 0   # type: int
 
         self.lastPrePrepareSeqNo = self.h  # type: int
 
@@ -220,6 +222,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def h(self, n):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
+        logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
 
     @property
     def requests(self):
@@ -901,10 +904,20 @@ class Replica(HasActionQueue, MessageProcessor):
         return True, None
 
     def isNextInOrdering(self, commit: Commit):
+        # TODO: This method does a lot of work, choose correct data
+        # structures to make it efficient.
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
+
         if self.ordered and self.ordered[-1] == (viewNo, ppSeqNo-1):
             return True
-        for (v, p) in self.commits:
+
+        # if some PREPAREs/COMMITs were completely missed in the same view
+        toCheck = set()
+        toCheck.update(set(self.sentPrePrepares.keys()))
+        toCheck.update(set(self.prePrepares.keys()))
+        toCheck.update(set(self.prepares.keys()))
+        toCheck.update(set(self.commits.keys()))
+        for (v, p) in toCheck:
             if v < viewNo:
                 # Have commits from previous view that are unordered.
                 # TODO: Question: would commits be always ordered, what if
@@ -917,8 +930,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # TODO: Revisit PBFT paper, how to make sure that last request of the
         # last view has been ordered? Need change in `VIEW CHANGE` mechanism.
-        # Somehow view change needs to communicate what the last request was.
-        # Also what if some COMMITs were completely missed in the same view
+        # View change needs to communicate what the last request was.
         return True
 
     def orderStashedCommits(self):
@@ -1141,7 +1153,12 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stashingWhileOutsideWaterMarks.append(item)
 
     def processStashedMsgsForNewWaterMarks(self):
-        while self.stashingWhileOutsideWaterMarks:
+        # `stashingWhileOutsideWaterMarks` can grow from methods called in the
+        # loop below, so `stashingWhileOutsideWaterMarks` might never
+        # become empty during the execution of this method resulting
+        # in an infinite loop
+        itemsToConsume = len(self.stashingWhileOutsideWaterMarks)
+        while itemsToConsume:
             item = self.stashingWhileOutsideWaterMarks.popleft()
             logger.debug("{} processing stashed item {} after new stable "
                          "checkpoint".format(self, item))
@@ -1154,6 +1171,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 logger.error("{} cannot process {} "
                              "from stashingWhileOutsideWaterMarks".
                              format(self, item))
+            itemsToConsume -= 1
 
     @staticmethod
     def peekitem(d, i):

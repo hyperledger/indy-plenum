@@ -252,13 +252,18 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
                           msg: Optional[Tuple]=None,
                           timeout: Optional[int]=15
                           ):
+    sendMsg(nodes, frm, to, msg)
+    await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
+                     ratchetSteps=10)
+
+
+def sendMsg(nodes: TestNodeSet, frm: NodeRef, to: NodeRef,
+            msg: Optional[Tuple]=None):
     logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
     frmnode = nodes.getNode(frm)
     rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
     frmnode.nodestack.send(msg, rid)
-    await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
-                     ratchetSteps=10)
 
 
 def checkMsg(msg, nodes, to, method: str = None):
