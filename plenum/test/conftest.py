@@ -47,16 +47,16 @@ logger = getlogger()
 @pytest.fixture(scope="session")
 def warnfilters():
     def _():
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='plenum\.common\.log', message='unclosed file.*TextIOWrapper')
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='pyorient\.orient', message='unclosed.*socket\.socket')
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='ledger\.compact_merkle_tree', message='unclosed.*socket\.socket')
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='logging', message='unclosed file')
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='ioflo\.aid\.odicting', message='unclosed file')
-        warnings.filterwarnings('ignore', category=ResourceWarning, module='raet\.road\.packeting.py', message='unclosed file')
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', lineno=254)
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', lineno=165)
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', lineno=538)
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', lineno=259)
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable')
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', lineno=76)
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', lineno=242)
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+        warnings.filterwarnings('ignore', category=RuntimeWarning, message='coroutine.*was never awaited')
     return _
 
 
