@@ -4,7 +4,7 @@
 
 def name = 'plenum'
 
-def testUbuntu = {
+def testUbuntu = { nodeLabel ->
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -19,7 +19,13 @@ def testUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            sh 'python runner.py --pytest \"python -m pytest\" --output "test-result.txt"'
+            def resFile = "test-result.${nodeLabel}.txt"
+            try {
+                sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts "$resFile"
+            }
         }
     }
     finally {
@@ -29,7 +35,7 @@ def testUbuntu = {
     }
 }
 
-def testWindows = {
+def testWindows = { nodeLabel ->
     echo 'TODO: Implement me'
 
     /* win2016 for now (03-23-2017) is not supported by Docker for Windows
@@ -55,7 +61,7 @@ def testWindows = {
     //}
 }
 
-def testWindowsNoDocker = {
+def testWindowsNoDocker = { nodeLabel ->
     try {
         echo 'Windows No Docker Test: Checkout csm'
         checkout scm
@@ -68,7 +74,13 @@ def testWindowsNoDocker = {
             testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
+            def resFile = "test-result.${nodeLabel}.txt"
+            try {
+                bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts "$resFile"
+            }
         })
     }
     finally {
@@ -76,7 +88,5 @@ def testWindowsNoDocker = {
         step([$class: 'WsCleanup'])
     }
 }
-
-
 
 testAndPublish(name, [ubuntu: testUbuntu, windows: testWindowsNoDocker, windowsNoDocker: testWindowsNoDocker])
