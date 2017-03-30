@@ -8,7 +8,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import PruningState
-from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEWARD, \
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEWARD, \
     ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Nomination
 
 whitelist = ['already got nomination',
@@ -8,7 +8,7 @@ whitelist = ['already got nomination',
 
 
 # noinspection PyIncorrectDocstring,PyUnusedLocal,PyShadowingNames
-@pytest.mark.skipif(True, reason="Implementation changed.")
+@pytest.mark.skip(reason="SOV-540. Implementation changed.")
 def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
     """
     A node that sends multiple nominations must be blacklisted by other nodes

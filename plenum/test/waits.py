@@ -8,7 +8,7 @@ logger = getlogger()
 
 def expectedWaitDirect(count):
     conf = getConfig()
-    return count * conf.ExpectedConnectTime + 1
+    return count * conf.ExpectedConnectTime + 4
 
 
 def expectedWait(nodeCount):

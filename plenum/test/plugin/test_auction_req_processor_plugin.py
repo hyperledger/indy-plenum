@@ -2,8 +2,8 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.txn import TXN_TYPE, DATA, TARGET_NYM
+from stp_core.loop.eventually import eventually
+from plenum.common.constants import TXN_TYPE, DATA, TARGET_NYM
 from plenum.test.helper import setupClients, checkSufficientRepliesRecvd
 from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor import \
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT

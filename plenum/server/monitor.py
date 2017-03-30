@@ -6,22 +6,21 @@ from typing import List
 from typing import Tuple
 
 import psutil
+from plenum.common.stacks import NodeRStack
 
+from plenum.common.config_util import getConfig
+from plenum.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \
     EVENT_PERIODIC_STATS_NODES, EVENT_PERIODIC_STATS_TOTAL_REQUESTS,\
     EVENT_PERIODIC_STATS_NODE_INFO, EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
-from plenum.common.stacked import NodeStack
 from plenum.server.blacklister import Blacklister
-from plenum.common.config_util import getConfig
-from plenum.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
-from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
     PluginManager
-
+from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -38,7 +37,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, nodestack: NodeStack,
+                 instances: Instances, nodestack: NodeRStack,
                  blacklister: Blacklister, nodeInfo: Dict,
                  notifierEventTriggeringConfig: Dict,
                  pluginPaths: Iterable[str]=None):
@@ -122,10 +121,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         HasActionQueue.__init__(self)
 
         if config.SendMonitorStats:
-            self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)   
+            self.startRepeating(self.sendPeriodicStats,
+                                config.DashboardUpdateFreq)
 
-        self._schedule(self.checkPerformance,
-            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
+        self.startRepeating(self.checkPerformance,
+                            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def __repr__(self):
         return self.name
@@ -283,10 +283,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             tooLow = r < self.Delta
             if tooLow:
-                logger.debug("{} master throughput {} is lower than Delta {}.".
-                             format(self, r, self.Delta))
+                logger.debug("{} master throughput ratio {} is lower than "
+                             "Delta {}.".format(self, r, self.Delta))
             else:
-                logger.trace("{} master throughput {} is acceptable.".
+                logger.trace("{} master throughput ratio {} is acceptable.".
                              format(self, r))
             return tooLow
 
@@ -413,12 +413,9 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.sendNodeInfo()
         self.sendSystemPerfomanceInfo()
         self.sendTotalRequests()
-        self._schedule(self.sendPeriodicStats, config.DashboardUpdateFreq)
 
     def checkPerformance(self):
         self.sendClusterThroughputSpike()
-        self._schedule(self.checkPerformance, 
-            config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
     def sendClusterThroughputSpike(self):
         if self.instances.masterId is None:
@@ -443,7 +440,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         now = time.perf_counter()
         while self.orderedRequestsInLast and \
                         (now - self.orderedRequestsInLast[0]) > \
-                        config.ThroughputWindowSize:
+                         config.ThroughputWindowSize:
             self.orderedRequestsInLast = self.orderedRequestsInLast[1:]
 
         return len(self.orderedRequestsInLast) / config.ThroughputWindowSize

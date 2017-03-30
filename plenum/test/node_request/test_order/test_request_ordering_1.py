@@ -1,6 +1,6 @@
 import types
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
 from plenum.test.helper import sendRandomRequest
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing

@@ -3,36 +3,46 @@ from random import shuffle, randint
 import pytest
 from ioflo.aid import getConsole
 
-from plenum.common.eventually import eventually
+from plenum.common.constants import CLIENT_STACK_SUFFIX
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
+from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
+from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
+from stp_zmq.test.helper import genKeys
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 
-whitelist = ['discarding message', 'found legacy entry']
+whitelist = ['discarding message', 'found legacy entry',
+             'error while verifying message']
 
-nodeReg = {
-    'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
-    'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
-    'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
-    'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))}
+
+@pytest.fixture()
+def nodeReg():
+    return {
+            'Alpha': NodeDetail(genHa(1), "AlphaC", genHa(1)),
+            'Beta': NodeDetail(genHa(1), "BetaC", genHa(1)),
+            'Gamma': NodeDetail(genHa(1), "GammaC", genHa(1)),
+            'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
+    }
 
 
 # Its a function fixture, deliberately
 @pytest.yield_fixture()
-def tdirAndLooper():
+def tdirAndLooper(nodeReg):
     with SafeTemporaryDirectory() as td:
         logger.debug("temporary directory: {}".format(td))
         with Looper() as looper:
             yield td, looper
 
 
-def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
+@pytest.mark.skip()
+def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
+                                       nodeReg, conf):
     tdir, looper = tdirAndLooper
     nodes = []
     names = list(nodeReg.keys())
@@ -42,8 +52,11 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
+
+    # TODO: This will be moved to a fixture
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
 
     for name in names[:3]:
         create(name)
@@ -57,23 +70,30 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper):
     # from the other nodes
     create(names[3])
     checkProtocolInstanceSetup(looper, nodes, timeout=10)
+    stopNodes(nodes, looper)
 
 
-def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper):
+def testNodesConnectWhenTheyAllStartAtOnce(allPluginsPath, tdirAndLooper,
+                                           nodeReg, conf):
     tdir, looper = tdirAndLooper
     nodes = []
+    if conf.UseZStack:
+        names = list(nodeReg.keys())
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     for name in nodeReg:
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
     looper.run(checkNodesConnected(nodes))
+    stopNodes(nodes, looper)
 
 
 # @pytest.mark.parametrize("x10", range(1, 11))
 # def testNodesComingUpAtDifferentTimes(x10):
-def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
+def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
+                                      nodeReg, conf):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
@@ -81,6 +101,9 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
     nodes = []
 
     names = list(nodeReg.keys())
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     shuffle(names)
     waits = [randint(1, 10) for _ in names]
     rwaits = [randint(1, 10) for _ in names]
@@ -89,7 +112,6 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
         looper.add(node)
-        node.startKeySharing()
         nodes.append(node)
         looper.runFor(waits[i])
     looper.run(checkNodesConnected(nodes,
@@ -98,35 +120,40 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper):
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
 
-    for n in nodes:
-        n.stop()
+    stopNodes(nodes, looper)
+
+    # # Giving some time for sockets to close, use eventually
+    # time.sleep(1)
+
     for i, n in enumerate(nodes):
         n.start(looper.loop)
         looper.runFor(rwaits[i])
     looper.runFor(3)
     looper.run(checkNodesConnected(nodes,
                                    overrideTimeout=10))
+    stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
     logger.debug("rwaits: {}".format(rwaits))
 
 
-def testNodeConnection(allPluginsPath, tdirAndLooper):
+def testNodeConnection(allPluginsPath, tdirAndLooper, nodeReg, conf):
     console = getConsole()
     console.reinit(flushy=True, verbosity=console.Wordage.verbose)
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
+    if conf.UseZStack:
+        genKeys(tdir, names + [_+CLIENT_STACK_SUFFIX for _ in names])
+
     logger.debug(names)
     nrg = {n: nodeReg[n] for n in names}
     A, B = [TestNode(name, nrg, basedirpath=tdir,
                      pluginPaths=allPluginsPath)
             for name in names]
     looper.add(A)
-    A.startKeySharing()
     looper.runFor(4)
     logger.debug("wait done")
     looper.add(B)
-    B.startKeySharing()
     looper.runFor(4)
     looper.run(checkNodesConnected([A, B]))
     looper.stopall()
@@ -134,35 +161,10 @@ def testNodeConnection(allPluginsPath, tdirAndLooper):
     looper.runFor(4)
     B.start(looper.loop)
     looper.run(checkNodesConnected([A, B]))
+    stopNodes([A, B], looper)
 
 
-@pytest.mark.skipif(True, reason="Fails due to a bug. Its fixed here "
-                                 "https://github.com/RaetProtocol/raet/pull/9")
-def testNodeConnectionAfterKeysharingRestarted(allPluginsPath, tdirAndLooper):
-    console = getConsole()
-    console.reinit(flushy=True, verbosity=console.Wordage.verbose)
-    tdir, looper = tdirAndLooper
-    timeout = 60
-    names = ["Alpha", "Beta"]
-    logger.debug(names)
-    nrg = {n: nodeReg[n] for n in names}
-    A, B = [TestNode(name, nodeRegistry=nrg, basedirpath=tdir,
-                     pluginPaths=allPluginsPath)
-            for name in names]
-    looper.add(A)
-    A.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for A's timeout")
-    looper.add(B)
-    B.startKeySharing(timeout=timeout)
-    looper.runFor(timeout+1)
-    logger.debug("done waiting for B's timeout")
-    A.startKeySharing(timeout=timeout)
-    B.startKeySharing(timeout=timeout)
-    looper.run(checkNodesConnected([A, B]))
-
-
-def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
+def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     """
     The nodes Alpha and Beta know about each other so they should connect but
     they should remove remote for C when it tries to connect to them
@@ -171,28 +173,32 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper):
     tdir, looper = tdirAndLooper
     names = ["Alpha", "Beta"]
     logger.debug(names)
+
+    if conf.UseZStack:
+        _names = names + ['Gamma']
+        genKeys(tdir, _names + [_+CLIENT_STACK_SUFFIX for _ in _names])
+
     nrg = {n: nodeReg[n] for n in names}
     A, B = [TestNode(name, nrg, basedirpath=tdir,
                      pluginPaths=allPluginsPath)
             for name in names]
     for node in (A, B):
         looper.add(node)
-        node.startKeySharing()
     looper.run(checkNodesConnected([A, B]))
 
     C = TestNode("Gamma", {**nrg, **{"Gamma": nodeReg["Gamma"]}},
                  basedirpath=tdir, pluginPaths=allPluginsPath)
     looper.add(C)
-    C.startKeySharing(timeout=20)
 
     def chk():
         assert not C.nodestack.isKeySharing
 
-    looper.run(eventually(chk, retryWait=2, timeout=21))
-    C.stop()
+    looper.run(eventually(chk, retryWait=2, timeout=22))
+    stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
     looper.run(eventually(chk, retryWait=2, timeout=5))
+    stopNodes([A, B], looper)

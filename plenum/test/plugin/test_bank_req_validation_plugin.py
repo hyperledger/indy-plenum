@@ -2,8 +2,8 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventuallyAll, eventually
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, DATA
+from stp_core.loop.eventually import eventuallyAll, eventually
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION
 from plenum.server.node import Node
 from plenum.server.plugin_loader import PluginLoader

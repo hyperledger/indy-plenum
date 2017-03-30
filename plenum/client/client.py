@@ -12,35 +12,35 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from raet.raeting import AutoMode
+from plenum.common.stacks import NodeRStack, nodeStackClass
+from plenum.common.stacks import NodeZStack
+from stp_core.crypto.nacl_wrappers import Signer
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.types import HA
 
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
-from plenum.common.exceptions import MissingNodeOp, RemoteNotFound
+from plenum.common.config_util import getConfig
+from plenum.common.exceptions import MissingNodeOp
+from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
+from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import getHaFromLocalEstate
-from plenum.common.signer import Signer
-from plenum.common.stacked import NodeStack
-from plenum.common.startable import Status, LedgerState, Mode
-from plenum.common.txn import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT
-from plenum.common.types import Reply, OP_FIELD_NAME, f, HA, \
-    LedgerStatus, TaggedTuples
+from stp_raet.util import getHaFromLocalEstate
 from plenum.common.request import Request
-from plenum.common.util import getMaxFailures, MessageProcessor, \
-    checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.startable import Status, LedgerState, Mode
+from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME
+from plenum.common.txn_util import getTxnOrderedFields
+from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
+from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
+from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
 from plenum.persistence.client_txn_log import ClientTxnLog
-from raet.nacling import Signer
-
-from plenum.common.log import getlogger
-from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.config_util import getConfig
 from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()
@@ -70,11 +70,14 @@ class Client(Motor,
         self.basedirpath = basedirpath
 
         signer = Signer(sighex)
-        sighex = signer.keyhex
+        sighex = signer.keyraw
         verkey = rawToFriendly(signer.verraw)
 
-        self.name = name
         self.stackName = verkey
+        # TODO: Have a way for a client to have a user friendly name. Does it
+        # matter now, it used to matter in some CLI exampples in the past.
+        # self.name = name
+        self.name = self.stackName
 
         cha = None
         # If client information already exists is RAET then use that
@@ -93,6 +96,9 @@ class Client(Motor,
         self.dataDir = self.config.clientDataDir or "data/clients"
         HasFileStorage.__init__(self, self.name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
+
+        # TODO: Find a proper name
+        self.alias = name
 
         self._ledger = None
 
@@ -117,7 +123,7 @@ class Client(Motor,
         stackargs = dict(name=self.stackName,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
-                         auto=AutoMode.always)
+                         auto=2)
         stackargs['basedirpath'] = basedirpath
         self.created = time.perf_counter()
 
@@ -203,8 +209,8 @@ class Client(Motor,
                os.path.exists(os.path.join(basedirpath, name))
 
     @property
-    def nodeStackClass(self) -> NodeStack:
-        return NodeStack
+    def nodeStackClass(self) -> NetworkInterface:
+        return nodeStackClass
 
     def start(self, loop):
         oldstatus = self.status
@@ -229,7 +235,7 @@ class Client(Motor,
         s = 0
         if self.isGoing():
             s = await self.nodestack.service(limit)
-            await self.nodestack.serviceLifecycle()
+            self.nodestack.serviceLifecycle()
         self.nodestack.flushOutBoxes()
         s += self._serviceActions()
         # TODO: This if condition has to be removed. `_ledger` if once set wont
@@ -242,6 +248,7 @@ class Client(Motor,
         requests = []
         for request in reqs:
             if self.mode == Mode.discovered and self.hasSufficientConnections:
+                logger.debug('Client {} sending request {}'.format(self, request))
                 self.nodestack.send(request)
                 self.expectingFor(request)
             else:
@@ -318,6 +325,7 @@ class Client(Motor,
         pass
 
     def onStopping(self, *args, **kwargs):
+        logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
         if self._ledger:
@@ -542,7 +550,7 @@ class Client(Motor,
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
-            self.nodestack.join(remote.uid, cascade=True)
+            self.nodestack.connect(name=remote.name)
 
         if keys:
             # Need a delay in case connection has to be established with some
@@ -604,7 +612,7 @@ class Client(Motor,
                 r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
-            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].iteritems()
+            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].items()
                         if k not in
                         [F.auditPath.name, F.seqNo.name, F.rootHash.name])
             result = serializer.serialize(dict(filtered))

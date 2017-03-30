@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import HA
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
@@ -8,6 +8,9 @@ from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
+
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
@@ -50,8 +53,8 @@ def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
            startTimes[1] < completionTimes[1]
 
 
-@pytest.mark.skipif(True, reason="Test implementation pending, "
-                                 "although bug fixed")
+@pytest.mark.skip(reason="SOV-554. "
+                         "Test implementation pending, although bug fixed")
 def testDelayedLedgerStatusNotChangingState():
     """
     Scenario: When a domain `LedgerStatus` arrives when the node is in
@@ -99,7 +102,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     txnPoolNodeSet[-1] = newNode
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=15))
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=60))
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,

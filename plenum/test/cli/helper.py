@@ -2,11 +2,18 @@ import ast
 import os
 import re
 import traceback
+from tempfile import gettempdir, mkdtemp
+
+import time
+
+import logging
+
+import sys
 
 import plenum.cli.cli as cli
-import pytest
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually
+from stp_core.common.util import Singleton
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
@@ -22,7 +29,41 @@ from pygments.token import Token
 logger = getlogger()
 
 
+class Recorder:
+    """
+    This class will write an interleaved log of the CLI session into a temp
+    directory. The directory will start with "cli_scripts_ and should contain
+    files for each CLI that was created, e.g., earl, pool, etc.
+    """
+    def __init__(self, partition):
+        basedir = os.path.join(gettempdir(), 'cli_scripts')
+        try:
+            os.mkdir(basedir)
+        except FileExistsError:
+            pass
+        self.directory = mkdtemp(dir=basedir, prefix=time.strftime("%Y%m%d-%H%M%S-"))
+        self.filename = os.path.join(self.directory, partition)
+
+    def write(self, data, newline=False):
+        with open(self.filename, 'a') as f:
+            f.write(data)
+            if newline:
+                f.write("\n")
+
+    def write_cmd(self, cmd, partition):
+        self.write("{}> ".format(partition))
+        self.write(cmd, newline=True)
+
+
+class CombinedRecorder(Recorder, metaclass=Singleton):
+    def __init__(self):
+        super().__init__('combined')
+
+
 class TestCliCore:
+    def __init__(self):
+        self.recorder = None
+
     @property
     def lastPrintArgs(self):
         args = self.printeds
@@ -84,6 +125,8 @@ class TestCliCore:
         logger.debug('CLI got command: {}'.format(cmd))
         self.lastPrintIndex = len(self.printeds)
         self.lastPrintedTokenIndex = len(self.printedTokens)
+        if self.recorder:
+            self.recorder.write_cmd(cmd, self.unique_name)
         self.parse(cmd)
 
     def lastMsg(self):
@@ -92,6 +135,10 @@ class TestCliCore:
 
 @Spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     new = logging.StreamHandler(sys.stdout)
+    #     self._setHandler('std', new)
     pass
 
 
@@ -215,21 +262,43 @@ def checkRequest(cli, operation):
     return client, wallet
 
 
-def newCLI(looper, tdir, cliClass=TestCli,
+def newCLI(looper, basedir, cliClass=TestCli,
            nodeClass=TestNode,
            clientClass=TestClient,
-           config=None):
-    mockOutput = MockOutput()
-    newcli = cliClass(looper=looper,
-                      basedirpath=tdir,
-                      nodeReg=None,
-                      cliNodeReg=None,
-                      output=mockOutput,
-                      debug=True,
-                      config=config)
+           config=None,
+           partition: str=None,
+           unique_name=None,
+           logFileName=None,
+           name=None,
+           agentCreator=None):
+    if partition:
+        recorder = Recorder(partition)
+    else:
+        recorder = CombinedRecorder()
+    mockOutput = MockOutput(recorder=recorder)
+    recorder.write("~ be {}\n".format(unique_name))
+    otags = config.log_override_tags['cli'] if config else None
+    cliClassParams = {
+        'looper': looper,
+        'basedirpath': basedir,
+        'nodeReg': None,
+        'cliNodeReg': None,
+        'output': mockOutput,
+        'debug': True,
+        'config': config,
+        'unique_name': unique_name,
+        'override_tags': otags,
+        'logFileName': logFileName
+    }
+    if name is not None and agentCreator is not None:
+        cliClassParams['name'] = name
+        cliClassParams['agentCreator'] = agentCreator
+
+    newcli = cliClass(**cliClassParams)
+    newcli.recorder = recorder
     newcli.NodeClass = nodeClass
     newcli.ClientClass = clientClass
-    newcli.basedirpath = tdir
+    newcli.basedirpath = basedir
     return newcli
 
 
@@ -267,7 +336,6 @@ def newKeyPair(cli: TestCli, alias: str=None):
     # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     assert needle in cli.lastCmdOutput
     return pubKey
-
 
 
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
@@ -381,6 +449,8 @@ def assertCliTokens(matchedVars, tokens):
 
 def doByCtx(ctx):
     def _(attempt, expect=None, within=None, mapper=None, not_expect=None):
+        assert expect is not None or within is None, \
+            "'within' not applicable without 'expect'"
         cli = ctx['current_cli']
 
         # This if was not there earlier, but I felt a need to reuse this
@@ -390,7 +460,21 @@ def doByCtx(ctx):
 
         if attempt:
             attempt = attempt.format(**mapper) if mapper else attempt
+            # TODO this needs to be renamed, because it's not clear that here
+            # is where we are actually calling the cli command
             checkCmdValid(cli, attempt)
+
+        def getAssertErrorMsg(e, cli, exp:bool, actual:bool):
+            length = 80
+            sepLines = "\n" + "*" * length + "\n" + "-" * length
+            commonMsg = "\n{}\n{}".format(
+                cli.lastCmdOutput, sepLines)
+            prefix = ""
+            if exp and not actual:
+                prefix="NOT found "
+            elif not exp and actual:
+                prefix = "FOUND "
+            return "{}\n{}\n\n{} in\n {}".format(sepLines, e, prefix, commonMsg)
 
         def check():
             nonlocal expect
@@ -405,10 +489,13 @@ def doByCtx(ctx):
                     if isinstance(e, str):
                         e = e.format(**mapper) if mapper else e
                         try:
+
                             if parity:
-                                assert e in cli.lastCmdOutput
+                                assert e in cli.lastCmdOutput, \
+                                    getAssertErrorMsg(e, cli, exp=True, actual=False)
                             else:
-                                assert e not in cli.lastCmdOutput
+                                assert e not in cli.lastCmdOutput, \
+                                    getAssertErrorMsg(e, cli, exp=False, actual=True)
                         except AssertionError as e:
                             extraMsg = ""
                             if not within:
@@ -417,8 +504,10 @@ def doByCtx(ctx):
                                            " sometime before considering this" \
                                            " check failed, then provide that" \
                                            " parameter with appropriate value"
-                                separator="-"*len(extraMsg)
-                                extraMsg="\n\n{}\n{}\n{}".format(separator, extraMsg, separator)
+                                separator = "-" * len(extraMsg)
+                                extraMsg = "\n\n{}\n{}\n{}".format(separator,
+                                                                   extraMsg,
+                                                                   separator)
                             raise (AssertionError("{}{}".format(e, extraMsg)))
                     elif callable(e):
                         # callables should raise exceptions to signal an error
@@ -492,6 +581,7 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
 
 
 def exitFromCli(do):
+    import pytest
     with pytest.raises(cli.Exit):
         do('exit', expect='Goodbye.')
 

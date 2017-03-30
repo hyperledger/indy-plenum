@@ -6,7 +6,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import State
-from plenum.common.txn import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.txn_util import reqToTxn
 from plenum.server.req_handler import ReqHandler
 

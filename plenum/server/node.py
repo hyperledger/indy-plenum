@@ -6,14 +6,21 @@ import shutil
 import time
 from binascii import unhexlify
 from collections import deque, defaultdict
-from functools import partial
+from contextlib import closing
 from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
-from contextlib import closing
 
 import pyorient
-from raet.raeting import AutoMode
+from plenum.common.stacks import NodeRStack, ClientRStack, ClientZStack, \
+    NodeZStack, nodeStackClass, clientStackClass
+from stp_core.crypto.signer import Signer
+from stp_core.network.network_interface import NetworkInterface
+from stp_zmq.zstack import ZStack
+from stp_core.ratchet import Ratchet
+from stp_core.types import HA
+
+from plenum.common.roles import Roles
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.serializers.compact_serializer import CompactSerializer
@@ -22,42 +29,41 @@ from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.client.wallet import Wallet
+from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
     InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.raet import isLocalKeepSetup
-from plenum.common.ratchet import Ratchet
-from plenum.common.signer import Signer
+from plenum.common.request import Request
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.state import PruningState
 from plenum.common.throttler import Throttler
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
-from plenum.common.txn_util import getTxnOrderedFields, reqToTxn
+from plenum.common.constants import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
+    HS_FILE, HS_ORIENT_DB, DATA, ALIAS, NODE_IP
+from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
-    Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
+    Reply, Nomination, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
-    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
-    HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
-    CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
+    RequestNack, HA, \
+    LedgerStatus, ConsistencyProof, \
+    CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, ThreePCState, \
-    POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
 from plenum.common.request import Request
-from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures
+from plenum.common.util import friendlyEx, getMaxFailures
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
-from plenum.common.txn import DATA, ALIAS, NODE_IP
 from plenum.common.ledger import Ledger
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -74,6 +80,8 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
 from plenum.server.monitor import Monitor
+from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
+    PluginManager
 from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
@@ -111,7 +119,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  primaryDecider: PrimaryDecider = None,
                  pluginPaths: Iterable[str]=None,
                  storage: Storage=None,
-                 config=None):
+                 config=None,
+                 seed=None):
 
         """
         Create a new node.
@@ -131,7 +140,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
-        self.__class__.ensureKeysAreSetup(name, basedirpath)
+        self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
@@ -168,15 +177,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.nodeReg = self.poolManager.nodeReg
 
+        kwargs = dict(stackParams=self.poolManager.nstack,
+                      msgHandler=self.handleOneNodeMsg, registry=self.nodeReg)
+        cls = self.nodeStackClass
+        if issubclass(cls, ZStack):
+            kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
-        self.nodestack = self.nodeStackClass(self.poolManager.nstack,
-                                             self.handleOneNodeMsg,
-                                             self.nodeReg)
+        self.nodestack = cls(**kwargs)
         self.nodestack.onConnsChanged = self.onConnsChanged
 
+        kwargs = dict(stackParams=self.poolManager.cstack,
+                      msgHandler=self.handleOneClientMsg)
+        cls = self.clientStackClass
+        if issubclass(cls, ZStack):
+            kwargs.update(seed=seed)
+
         # noinspection PyCallingNonCallable
-        self.clientstack = self.clientStackClass(self.poolManager.cstack,
-                                                 self.handleOneClientMsg)
+        self.clientstack = cls(**kwargs)
+        # self.clientstack = self.clientStackClass(self.poolManager.cstack,
+        #                                          self.handleOneClientMsg)
 
         self.cliNodeReg = self.poolManager.cliNodeReg
 
@@ -220,7 +239,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                           [Nomination, Primary, Reelection])
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit,
+                          [PrePrepare, Prepare, Commit, Checkpoint,
                            ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
@@ -271,7 +290,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # which both require client signature verification
         self.authnWhitelist = (Nomination, Primary, Reelection,
                                Batch,
-                               PrePrepare, Prepare,
+                               PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
                                ConsProofRequest, ThreePCState)
@@ -347,7 +366,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def wallet(self):
         if not self._wallet:
             wallet = Wallet(self.name)
-            signer = SimpleSigner(seed=self.nodestack.local.signer.keyraw)
+            signer = SimpleSigner(seed=unhexlify(self.nodestack.keyhex))
             wallet.addIdentifier(signer=signer)
             self._wallet = wallet
         return self._wallet
@@ -418,12 +437,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.mode == Mode.participating
 
     @property
-    def nodeStackClass(self) -> NodeStack:
-        return NodeStack
+    def nodeStackClass(self) -> NetworkInterface:
+        return nodeStackClass
 
     @property
-    def clientStackClass(self) -> ClientStack:
-        return ClientStack
+    def clientStackClass(self) -> NetworkInterface:
+        return clientStackClass
 
     def getPrimaryStorage(self):
         """
@@ -518,6 +537,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
+            self.hashStore = self.getHashStore(self.name)
+
             self.nodestack.start()
             self.clientstack.start()
 
@@ -525,8 +546,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             # if first time running this node
             if not self.nodestack.remotes:
-                logger.info("{} first time running; waiting for key sharing..."
-                            "".format(self))
+                logger.info("{} first time running..."
+                            "".format(self), extra={"cli": "LOW_STATUS",
+                                                    "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections()
 
@@ -572,7 +594,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reset()
 
         # Stop the txn store
-        self.primaryStorage.stop()
+        try:
+            self.primaryStorage.stop()
+        except Exception as ex:
+            logger.warn('{} got exception while stopping primary storage: {}'.
+                        format(self, ex))
+
+        # Stop hash store
+        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
+            try:
+                self.hashStore.close()
+            except Exception as ex:
+                logger.warn('{} got exception while closing hash store: {}'.
+                            format(self, ex))
 
         self.nodestack.stop()
         self.clientstack.stop()
@@ -619,7 +653,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: total number of messages serviced by this node
         """
         if self.isGoing():
-            await self.nodestack.serviceLifecycle()
+            self.nodestack.serviceLifecycle()
             self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
@@ -696,7 +730,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
                 self.status = Status.started
-                self.stopKeySharing()
+                # self.stopKeySharing()
             elif self.connectedNodeCount >= self.minimumNodes:
                 self.status = Status.started_hungry
             else:
@@ -862,7 +896,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
                        format(self, replica, instId, instDesc),
-                       extra={"cli": True, "demo": True})
+                       extra={"tags": ["node-replica"]})
         return replica
 
     def removeReplica(self):
@@ -872,7 +906,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} removed replica {} from instance {}".
                        format(self, replica, replica.instId),
-                       extra={"cli": True, "demo": True})
+                       extra={"tags": ["node-replica"]})
         return replica
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
@@ -906,7 +940,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 msg = replica.outBox.popleft()
                 if isinstance(msg, (PrePrepare,
                                     Prepare,
-                                    Commit)):
+                                    Commit,
+                                    Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
                     # Checking for request in received catchup replies as a
@@ -1103,10 +1138,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
-                logger.info("{} msg validated {}".format(self, wrappedMsg))
+                logger.info("{} msg validated {}".format(self, wrappedMsg),
+                            extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.info("{} non validated msg {}".format(self, wrappedMsg))
+                logger.info("{} invalidated msg {}".format(self, wrappedMsg),
+                            extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
@@ -1251,7 +1288,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             cMsg = cls(**msg)
         except Exception as ex:
-            raise InvalidClientRequest from ex
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm)) from ex
 
         if self.isSignatureVerificationNeeded(msg):
             self.verifySignature(cMsg)
@@ -1301,7 +1339,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req, frm = m
             logger.display("{} processing {} request {}".
                            format(self.clientstack.name, frm, req),
-                           extra={"cli": True})
+                           extra={"cli": True,
+                                  "tags": ["node-msg-processing"]})
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
@@ -1612,7 +1651,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendInstanceChange(self.viewNo+1)
                 return False
             else:
-                logger.debug("{}s master has higher performance than backups".
+                logger.debug("{}'s master has higher performance than backups".
                              format(self))
         return True
 
@@ -1721,14 +1760,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg
 
         if not isinstance(req, Mapping):
-            req = msg.__getstate__()
+            # req = msg.__getstate__()
+            req = msg.as_dict
 
         # Since clients send si
 
         identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
                        format(self, identifier, typ, req['reqId']),
-                       extra={"cli": True})
+                       extra={"cli": True,
+                              "tags": ["node-msg-processing"]})
 
     def authNr(self, req):
         return self.clientAuthNr
@@ -1853,7 +1894,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be STEWARD".format(role))
+                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
                     return
                 self.clientAuthNr.addIdr(identifier, verkey=v.verkey,
                                          role=role)
@@ -1931,62 +1972,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for replica in self.replicas:
             self.send(replica.threePhaseState)
 
-    def startKeySharing(self, timeout=60):
-        """
-        Start key sharing till the timeout is reached.
-        Other nodes will be able to join this node till the timeout is reached.
-
-        :param timeout: the time till which key sharing is active
-        """
-        if self.nodestack.isKeySharing:
-            logger.info("{} already key sharing".format(self),
-                        extra={"cli": "LOW_STATUS"})
-        else:
-            logger.info("{} starting key sharing".format(self),
-                        extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.always
-            self._schedule(partial(self.stopKeySharing, timedOut=True), timeout)
-
-            # remove any unjoined remotes
-            for name, r in self.nodestack.nameRemotes.items():
-                if not r.joined:
-                    logger.debug("{} removing unjoined remote {}"
-                                 .format(self, r.name))
-                    # This is a bug in RAET where the `removeRemote`
-                    # of `raet/stacking.py` does not consider the fact that
-                    # renaming of remote might not have happened. Fixed here
-                    # https://github.com/RaetProtocol/raet/pull/9
-                    self.nodestack.removeRemote(r)
-
-            # if just starting, then bootstrap
-            force = time.time() - self.created > 5
-            self.nodestack.maintainConnections(force=force)
-
-    def stopKeySharing(self, timedOut=False):
-        """
-        Stop key sharing, i.e don't allow any more nodes to join this node.
-        """
-        if self.nodestack.isKeySharing:
-            if timedOut and self.nodestack.notConnectedNodes:
-                logger.info("{} key sharing timed out; was not able to "
-                            "connect to {}".
-                            format(self,
-                                   ", ".join(
-                                       self.nodestack.notConnectedNodes)),
-                            extra={"cli": "WARNING"})
-            else:
-                logger.info("{} completed key sharing".format(self),
-                            extra={"cli": "STATUS"})
-            self.nodestack.keep.auto = AutoMode.never
-
-    @classmethod
-    def ensureKeysAreSetup(cls, name, baseDir):
+    def ensureKeysAreSetup(self):
         """
         Check whether the keys are setup in the local RAET keep.
         Raises RaetKeysNotFoundException if not found.
         """
-        if not isLocalKeepSetup(name, baseDir):
-            raise REx(REx.reason.format(name) + cls.keygenScript)
+        name, baseDir = self.name, self.basedirpath
+        if not areKeysSetup(name, baseDir, self.config):
+            raise REx(REx.reason.format(name) + self.keygenScript)
 
     @staticmethod
     def reasonForClientFromException(ex: Exception):
@@ -2011,7 +2004,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param nodeName: name of the node to report suspicion on
         :param reason: the reason for suspicion
         """
-        logger.warning("{} suspicion raised on node {} for {}; suspicion code "
+        logger.warning("{} raised suspicion on node {} for {}; suspicion code "
                        "is {}".format(self, nodeName, reason, code))
         # TODO need a more general solution here
 
@@ -2030,12 +2023,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #                        code=code)
 
         if code in (s.code for s in (Suspicions.PPR_DIGEST_WRONG,
-                    Suspicions.PPR_REJECT_WRONG,
-                    Suspicions.PPR_TXN_WRONG,
-                    Suspicions.PPR_STATE_WRONG)):
+                                     Suspicions.PPR_REJECT_WRONG,
+                                     Suspicions.PPR_TXN_WRONG,
+                                     Suspicions.PPR_STATE_WRONG)):
             logger.info('{} sending instance change since suspicion code {}'
                         .format(self, code))
-            self.sendInstanceChange(self.viewNo+1)
+            self.sendInstanceChange(self.viewNo + 1)
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 

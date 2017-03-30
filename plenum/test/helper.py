@@ -1,28 +1,33 @@
+import itertools
 import os
 import random
 import string
+from _signal import SIGINT
 from functools import partial
 from itertools import permutations
 from shutil import copyfile
-from typing import Tuple, Iterable, Dict, Optional, NamedTuple,\
+from sys import executable
+from time import sleep
+
+from psutil import Popen
+from raet.raeting import TrnsKind, PcktKind
+from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
-from plenum.common.config_util import getConfig
-from plenum.config import poolTransactionsFile, domainTransactionsFile
-from raet.raeting import TrnsKind, PcktKind
-
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually, eventuallyAll
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.request import Request
-from plenum.common.txn import REPLY, REQACK, TXN_ID, REQNACK, REJECT
-from plenum.common.types import OP_FIELD_NAME, \
-    Reply, f, PrePrepare
+from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, REJECT, OP_FIELD_NAME
+from plenum.common.types import Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
+from plenum.config import poolTransactionsFile, domainTransactionsFile
+from stp_core.loop.eventually import eventuallyAll, eventually
+
+from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
@@ -119,7 +124,7 @@ def getRepliesFromClientInbox(inbox, reqId) -> list:
 def checkLastClientReqForNode(node: TestNode, expectedRequest: Request):
     recvRequest = getLastClientReqReceivedForNode(node)
     assert recvRequest
-    assert expectedRequest.__dict__ == recvRequest.__dict__
+    assert expectedRequest.as_dict == recvRequest.as_dict
 
 
 # noinspection PyIncorrectDocstring
@@ -212,18 +217,6 @@ async def aSetupClient(looper: Looper,
     return client1
 
 
-def getPrimaryReplica(nodes: Sequence[TestNode],
-                      instId: int = 0) -> TestReplica:
-    preplicas = [node.replicas[instId] for node in nodes if
-                 node.replicas[instId].isPrimary]
-    if len(preplicas) > 1:
-        raise RuntimeError('More than one primary node found')
-    elif len(preplicas) < 1:
-        raise RuntimeError('No primary node found')
-    else:
-        return preplicas[0]
-
-
 def randomOperation():
     return {
         "type": "buy",
@@ -260,13 +253,17 @@ async def sendMsgAndCheck(nodes: TestNodeSet,
                           msg: Optional[Tuple]=None,
                           timeout: Optional[int]=15
                           ):
-    logger.debug("Sending msg from {} to {}".format(frm, to))
     msg = msg if msg else randomMsg()
+    sendMsg(nodes, frm, to, msg)
+    await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
+                     ratchetSteps=10)
+
+
+def sendMsg(nodes: TestNodeSet, frm: NodeRef, to: NodeRef, msg):
+    logger.debug("Sending msg from {} to {}".format(frm, to))
     frmnode = nodes.getNode(frm)
     rid = frmnode.nodestack.getRemote(nodes.getNodeName(to)).uid
     frmnode.nodestack.send(msg, rid)
-    await eventually(checkMsg, msg, nodes, to, retryWait=.1, timeout=timeout,
-                     ratchetSteps=10)
 
 
 def checkMsg(msg, nodes, to, method: str = None):
@@ -416,7 +413,8 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     assert len(viewNos) == 1
     vNo, = viewNos
     if expectedViewNo:
-        assert vNo == expectedViewNo
+        assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
+            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
     return vNo
 
 
@@ -437,6 +435,14 @@ def checkDiscardMsg(processors, discardedMsg,
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
+
+
+def countDiscarded(processor, reasonPat):
+    c = 0
+    for entry in processor.spylog.getAll(processor.discard):
+        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+            c += 1
+    return c
 
 
 def filterNodeSet(nodeSet, exclude: List[Union[str, Node]]):
@@ -480,22 +486,6 @@ def checkAllLedgersEqual(*ledgers):
         checkLedgerEquality(l1, l2)
 
 
-def createClientSendMessageAndRemove(looper, nodeSet, tdir, wallet, name=None,
-                                     tries=None, sighex=None):
-    client, _ = genTestClient(nodeSet, tmpdir=tdir, name=name, sighex=sighex)
-    clientSendMessageAndRemove(client, looper, wallet, tries)
-    return client
-
-
-def clientSendMessageAndRemove(client, looper, wallet, tries=None):
-    looper.add(client)
-    looper.run(client.ensureConnectedToNodes())
-    clientInboxSize = len(client.inBox)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1, tries)
-    assert len(client.inBox) > clientInboxSize
-    looper.removeProdable(client)
-
-
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 
@@ -515,13 +505,6 @@ def mockImportModule(moduleName):
     return obj
 
 
-def createTempDir(tmpdir_factory, counter):
-    tempdir = os.path.join(tmpdir_factory.getbasetemp().strpath,
-                           str(next(counter)))
-    logger.debug("module-level temporary directory: {}".format(tempdir))
-    return tempdir
-
-
 def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
@@ -532,3 +515,36 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
         copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
                  os.path.join(dirName, tconf.domainTransactionsFile))
 
+
+def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
+    if ensurePortsFreedUp:
+        assert looper, 'Need a looper to make sure ports are freed up'
+
+    for node in nodes:
+        node.stop()
+
+    if ensurePortsFreedUp:
+        ports = [[n.nodestack.ha[1], n.clientstack.ha[1]] for n in nodes]
+        waitUntillPortIsAvailable(looper, ports)
+
+
+def waitUntillPortIsAvailable(looper, ports):
+    ports = itertools.chain(*ports)
+
+    def chk():
+        for port in ports:
+            checkPortAvailable(("", port))
+
+    looper.run(eventually(chk, retryWait=.5))
+
+
+def run_script(script, *args):
+    s = os.path.join(os.path.dirname(__file__), '../../scripts/' + script)
+    command = [executable, s]
+    command.extend(args)
+
+    with Popen([executable, s]) as p:
+        sleep(4)
+        p.send_signal(SIGINT)
+        p.wait(timeout=1)
+        assert p.poll() == 0, 'script failed'

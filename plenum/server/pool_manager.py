@@ -1,6 +1,7 @@
 import os
 from binascii import unhexlify
 from typing import Dict, Tuple
+from functools import lru_cache
 
 from copy import deepcopy
 from ledger.util import F
@@ -13,14 +14,15 @@ from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.types import HA
 
-from plenum.common.types import HA, f, Reply, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
-from plenum.common.txn import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+from plenum.common.types import f, Reply, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, TXN_TIME
+    VALIDATOR, TXN_TIME, CLIENT_STACK_SUFFIX
 from plenum.common.log import getlogger
 
-from plenum.common.types import NodeDetail, CLIENT_STACK_SUFFIX
+from plenum.common.types import NodeDetail
 from plenum.server.pool_req_handler import PoolReqHandler
 
 logger = getlogger()
@@ -202,12 +204,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.nodestack.name))
-            self.node.nodestack.keep.clearLocalData()
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.clientstack.name))
-            self.node.clientstack.keep.clearLocalData()
+            if not self.config.UseZStack:
+                logger.debug("{} clearing local data in keep".
+                             format(self.node.nodestack.name))
+                self.node.nodestack.keep.clearLocalData()
+                logger.debug("{} clearing local data in keep".
+                             format(self.node.clientstack.name))
+                self.node.clientstack.keep.clearLocalData()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
@@ -256,9 +259,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     # If validator service is disabled
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-                    rid = self.node.nodestack.removeRemoteByName(nodeName)
-                    if rid:
-                        self.node.nodestack.outBoxes.pop(rid, None)
+                    try:
+                        rid = self.node.nodestack.removeRemoteByName(nodeName)
+                        if rid:
+                            self.node.nodestack.outBoxes.pop(rid, None)
+                    except RemoteNotFound:
+                        logger.debug('{} did not find remote {} to remove'.
+                                     format(self, nodeName))
+
                     self.node.nodeLeft(txn)
             self.doElectionIfNeeded(nodeName)
 
@@ -331,6 +339,37 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def txnSeqNo(self):
         return self.ledger.seqNo
 
+    def getNodeData(self, nym):
+        _, nodeTxn = self.getNodeInfoFromLedger(nym)
+        return nodeTxn[DATA]
+
+    def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
+        otherNodeData = existingNodeTxn[DATA]
+        for (ip, port) in [(NODE_IP, NODE_PORT),
+                           (CLIENT_IP, CLIENT_PORT)]:
+            if (otherNodeData.get(ip), otherNodeData.get(port)) == (
+            data.get(ip), data.get(port)):
+                return True
+
+        if otherNodeData.get(ALIAS) == data.get(ALIAS):
+            return True
+
+    def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
+        sameNodeData = existingNodeTxn[DATA]
+        if sameNodeData.get(ALIAS) != data.get(ALIAS):
+            return True
+
+    def isNodeDataConflicting(self, data, nodeNym=None):
+        for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
+                    if t[TXN_TYPE] == NODE]:
+            if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
+                conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
+                if conflictFound:
+                    return conflictFound
+            if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
+                conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
+                if conflictFound:
+                    return conflictFound
 
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and

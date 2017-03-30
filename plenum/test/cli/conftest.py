@@ -2,18 +2,12 @@ from collections import OrderedDict
 
 import pytest
 
-import plenum.common.log
-import plenum.common.util
-from plenum.common.eventually import eventually
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
+from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 from plenum.common.util import adict
-
-
-plenum.common.log.loggingConfigured = False
-
 from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
-    checkCmdValid, doByCtx
+    doByCtx
+from stp_core.network.port_dispenser import genHa
 
 
 @pytest.yield_fixture(scope="module")
@@ -46,7 +40,9 @@ def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 @pytest.fixture("module")
 def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited):
-    return newCLI(cliLooper, tdir)
+    return newCLI(cliLooper, tdir, unique_name='alice')
+
+
 
 @pytest.fixture("module")
 def validNodeNames(cli):

@@ -1,28 +1,12 @@
+from re import compile
+
 from plenum.server.suspicion_codes import Suspicion
-from re import compile, match
 
 
 class ReqInfo:
     def __init__(self, identifier=None, reqId=None):
         self.identifier = identifier
         self.reqId = reqId
-
-
-class NodeError(Exception):
-    pass
-
-
-class PortNotAvailableForNodeWebServer(NodeError):
-    pass
-
-
-class RemoteError(NodeError):
-    def __init__(self, remote):
-        self.remote = remote
-
-
-class RemoteNotFound(RemoteError):
-    pass
 
 
 class BaseExc(Exception):
@@ -218,3 +202,41 @@ class NotConnectedToAny(Exception):
 
 class NameAlreadyExists(Exception):
     pass
+
+
+class GraphStorageNotAvailable(Exception):
+    pass
+
+
+class OrientDBNotRunning(GraphStorageNotAvailable):
+    pass
+
+
+class EndpointException(Exception):
+    pass
+
+
+class MissingEndpoint(EndpointException):
+    def __init__(self):
+        super().__init__('missing endpoint')
+
+
+class InvalidEndpointIpAddress(EndpointException):
+    def __init__(self, endpoint):
+        super().__init__("invalid endpoint address: '{}'".format(endpoint))
+
+
+class InvalidEndpointPort(EndpointException):
+    def __init__(self, endpoint):
+        super().__init__("invalid endpoint port: '{}'".format(endpoint))
+
+
+class PortNotAvailable(OSError):
+    def __init__(self, port):
+        self.port = port
+        super().__init__("port not available: {}".format(port))
+
+
+class OperationError(Exception):
+    def __init__(self, error):
+        super().__init__("error occurred during operation: {}".format(error))

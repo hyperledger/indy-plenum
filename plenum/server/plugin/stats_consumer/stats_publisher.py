@@ -80,7 +80,7 @@ class StatsPublisher:
         #
         # Actually currently it's no needed as long as we use a port 30000 as destination and specified port != 30000 as source
         # (which is less than default range of ports used to establish connection on Linux)
-        logger.debug("Can not publish stats message: {}".format(ex))
+        logger.debug("Cannot publish stats message: {}".format(ex))
         self._writer = None
 
 

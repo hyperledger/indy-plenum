@@ -1,10 +1,9 @@
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
-    checkSufficientRepliesForRequests, checkLedgerEquality, getPrimaryReplica, \
-    checkAllLedgersEqual
-from plenum.test.test_node import getNonPrimaryReplicas
+    checkSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 nodeCount = 7
 
@@ -44,7 +43,6 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     delayedPpSeqNos = set()
 
     requestCount = 15
-    requests = sendRandomRequests(wallet1, client1, requestCount)
 
     def specificCommits(wrappedMsg):
         # TODO: Do not need nonlocal
@@ -63,6 +61,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
+    requests = sendRandomRequests(wallet1, client1, requestCount)
     checkSufficientRepliesForRequests(looper, client1, requests)
 
     def ensureSlowNodesHaveAllTxns():

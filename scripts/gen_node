@@ -4,10 +4,11 @@ import argparse
 
 from sys import argv
 
-from plenum.common.script_helper import getStewardKeyFromName, initKeep, \
+from plenum.common.script_helper import getStewardKeyFromName, \
     generateNodeGenesisTxn, buildKeepDirIfNotExists
-from plenum.common.types import CLIENT_STACK_SUFFIX
-from plenum.common.util import isHexKey
+from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.keygen_utils import initLocalKeys
+from stp_core.crypto.util import isHexKey
 from plenum.common.config_util import getConfig
 
 config = getConfig()
@@ -41,18 +42,22 @@ if __name__ == "__main__":
     # Initialize node stack
 
     stewardVerkey = None
-    if isHexKey(args.steward):
-        stewardVerkey = args.steward
-    else:
-        stewardVerkey = getStewardKeyFromName(config.baseDir, args.steward)
+    try:
+        if isHexKey(args.steward):
+            stewardVerkey = args.steward
+        else:
+            stewardVerkey = getStewardKeyFromName(config.baseDir, args.steward)
+    except Exception as ex:
+        print(ex)
+        exit(1)
 
     pubkey, verkey = None, None
 
     # Initialize node stack
     print("For node stack, stack name is", args.name)
     try:
-        pubkey, verkey = initKeep(config.baseDir, args.name, args.seed,
-                                  args.force)
+        pubkey, verkey = initLocalKeys(args.name, config.baseDir, args.seed,
+                                  args.force, config=config)
     except Exception as ex:
         print(ex)
         exit()
@@ -60,8 +65,8 @@ if __name__ == "__main__":
     # Initialize client stack
     print("For client stack, stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        initKeep(config.baseDir, args.name + CLIENT_STACK_SUFFIX, args.seed,
-                 args.force)
+        initLocalKeys(args.name + CLIENT_STACK_SUFFIX, config.baseDir, args.seed,
+                 args.force, config=config)
     except Exception as ex:
         print(ex)
         exit()

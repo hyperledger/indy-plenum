@@ -1,14 +1,12 @@
 import asyncio
-import os
-
 import collections
 import inspect
+import ipaddress
 import itertools
 import json
 import logging
-import math
+import os
 import random
-import socket
 import string
 import time
 from binascii import unhexlify, hexlify
@@ -16,14 +14,23 @@ from collections import Counter
 from collections import OrderedDict
 from math import floor
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
-    Tuple, Union, List, NamedTuple, Callable
+    Tuple, Union, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
+import psutil
 from ledger.util import F
-from libnacl import crypto_hash_sha256
 from plenum.common.error import error
+import ipaddress
+
+from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
+    WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
+from plenum.common.exceptions import PortNotAvailable
+from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+    InvalidEndpointIpAddress, InvalidEndpointPort
 from six import iteritems, string_types
+from stp_core.crypto.util import isHexKey, isHex
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -61,24 +68,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
-    """
-    Compare provided fields of 2 named tuples for equality and returns true
-    :param tuple1:
-    :param tuple2:
-    :param fields:
-    :return:
-    """
-    tuple1 = tuple1._asdict()
-    tuple2 = tuple2._asdict()
-    comp = []
-    for field in fields:
-        comp.append(tuple1[field] == tuple2[field])
-    return all(comp)
-
-
 def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None) -> None:
+                     , logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -109,7 +100,9 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
                         setattr(obj, nm, new)
                     mutated = True
             if not mutated:
-                objSearchReplace(o, toFrom, checked, logMsg)
+                if deepLevel is not None and deepLevel == 0:
+                    continue
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel - 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 
@@ -120,22 +113,6 @@ def getRandomPortNumber() -> int:
     :return: a random port number
     """
     return random.randint(8090, 65530)
-
-
-def isHex(val: str) -> bool:
-    """
-    Return whether the given str represents a hex value or not
-
-    :param val: the string to check
-    :return: whether the given str represents a hex value
-    """
-    if isinstance(val, bytes):
-        # only decodes utf-8 string
-        try:
-            val = val.decode()
-        except:
-            return False
-    return isinstance(val, str) and all(c in string.hexdigits for c in val)
 
 
 async def runall(corogen):
@@ -232,74 +209,6 @@ def prime_gen() -> int:
             D[x] = p
 
 
-def evenCompare(a: str, b: str) -> bool:
-    """
-    A deterministic but more evenly distributed comparator than simple alphabetical.
-    Useful when comparing consecutive strings and an even distribution is needed.
-    Provides an even chance of returning true as often as false
-    """
-    ab = a.encode('utf-8')
-    bb = b.encode('utf-8')
-    ac = crypto_hash_sha256(ab)
-    bc = crypto_hash_sha256(bb)
-    return ac < bc
-
-
-def distributedConnectionMap(names: List[str]) -> OrderedDict:
-    """
-    Create a map where every node is connected every other node.
-    Assume each key in the returned dictionary to be connected to each item in
-    its value(list).
-
-    :param names: a list of node names
-    :return: a dictionary of name -> list(name).
-    """
-    names.sort()
-    combos = list(itertools.combinations(names, 2))
-    maxPer = math.ceil(len(list(combos)) / len(names))
-    # maxconns = math.ceil(len(names) / 2)
-    connmap = OrderedDict((n, []) for n in names)
-    for a, b in combos:
-        if len(connmap[a]) < maxPer:
-            connmap[a].append(b)
-        else:
-            connmap[b].append(a)
-    return connmap
-
-
-def checkPortAvailable(ha):
-    """Checks whether the given port is available"""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.bind(ha)
-    except BaseException as ex:
-        logging.warning("Checked port availability for opening "
-                        "and address was already in use: {}".format(ha))
-        raise ex
-    finally:
-        sock.close()
-
-
-class MessageProcessor:
-    """
-    Helper functions for messages.
-    """
-
-    def discard(self, msg, reason, logMethod=logging.error, cliOutput=False):
-        """
-        Discard a message and log a reason using the specified `logMethod`.
-
-        :param msg: the message to discard
-        :param reason: the reason why this message is being discarded
-        :param logMethod: the logging function to be used
-        :param cliOutput: if truthy, informs a CLI that the logged msg should
-        be printed
-        """
-        reason = "" if not reason else " because {}".format(reason)
-        logMethod("{} discarding message {}{}".format(self, msg, reason),
-                  extra={"cli": cliOutput})
-
-
 class adict(dict):
     """Dict with attr access to keys."""
     marker = object()
@@ -345,19 +254,6 @@ async def untilTrue(condition, *args, timeout=5) -> bool:
     return result
 
 
-def hasKeys(data, keynames):
-    """
-    Checks whether all keys are present in the given data, and are not None
-    """
-    # if all keys in `keynames` are not present in `data`
-    if len(set(keynames).difference(set(data.keys()))) != 0:
-        return False
-    for key in keynames:
-        if data[key] is None:
-            return False
-    return True
-
-
 def firstKey(d: Dict):
     return next(iter(d.keys()))
 
@@ -366,40 +262,13 @@ def firstValue(d: Dict):
     return next(iter(d.values()))
 
 
-def seedFromHex(seed):
-    if len(seed) == 64:
-        try:
-            return unhexlify(seed)
-        except:
-            pass
-
-
-def cleanSeed(seed=None):
-    if seed:
-        bts = seedFromHex(seed)
-        if not bts:
-            if isinstance(seed, str):
-                seed = seed.encode('utf-8')
-            bts = bytes(seed)
-            if len(seed) != 32:
-                error('seed length must be 32 bytes')
-        return bts
-
-
-def isHexKey(key):
-    try:
-        if len(key) == 64 and isHex(key):
-            return True
-    except ValueError as ex:
-        return False
-    except Exception as ex:
-        print(ex)
-        exit()
-
-
 def getCryptonym(identifier):
     return base58.b58encode(unhexlify(identifier.encode())).decode() \
         if isHexKey(identifier) else identifier
+
+
+def getFriendlyIdentifier(dest):
+    return hexToFriendly(dest) if isHexKey(dest) else dest
 
 
 def hexToFriendly(hx):
@@ -413,7 +282,7 @@ def rawToFriendly(raw):
     return base58.b58encode(raw)
 
 
-def friendlyToRaw(f ):
+def friendlyToRaw(f):
     return base58.b58decode(f)
 
 
@@ -458,6 +327,22 @@ def updateFieldsWithSeqNo(fields):
     r[F.seqNo.name] = (str, int)
     r.update(fields)
     return r
+
+
+def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
+    """
+    Compare provided fields of 2 named tuples for equality and returns true
+    :param tuple1:
+    :param tuple2:
+    :param fields:
+    :return:
+    """
+    tuple1 = tuple1._asdict()
+    tuple2 = tuple2._asdict()
+    comp = []
+    for field in fields:
+        comp.append(tuple1[field] == tuple2[field])
+    return all(comp)
 
 
 def bootstrapClientKeys(identifier, verkey, nodes):

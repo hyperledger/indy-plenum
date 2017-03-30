@@ -27,11 +27,13 @@ def makeNodeFaulty(node, *behaviors):
 
 def changesRequest(node):
     def evilCreatePropagate(self,
-                            request: Request, clientName: str) -> Propagate:
+                            request: Request, identifier: str) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
-        return Propagate(request.__getstate__(), clientName)
+        if isinstance(identifier, bytes):
+            identifier = identifier.decode()
+        return Propagate(request.__getstate__(), identifier)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod

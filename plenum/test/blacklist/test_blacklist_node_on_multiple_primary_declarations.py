@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Primary
 
 whitelist = ['got primary declaration',
@@ -9,7 +9,7 @@ whitelist = ['got primary declaration',
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True, reason="Implementation changed.")
+@pytest.mark.skip(reason="SOV-541. Implementation changed.")
 def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
                                                    keySharedNodes,
                                                    ready):

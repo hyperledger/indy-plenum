@@ -2,12 +2,12 @@ import types
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
 from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs
-from plenum.test.helper import sendRandomRequests, getPrimaryReplica
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import sendRandomRequests
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
 @pytest.fixture(scope="module")

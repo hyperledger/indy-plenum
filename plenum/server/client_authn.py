@@ -9,10 +9,10 @@ from plenum.common.log import getlogger
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \
-    MissingIdentifier, InvalidIdentifier, CouldNotAuthenticate, \
+    MissingIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
 from plenum.common.signing import serializeMsg
-from plenum.common.txn import VERKEY, ROLE
+from plenum.common.constants import VERKEY, ROLE
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
 from plenum.server.domain_req_handler import DomainReqHandler

@@ -3,16 +3,15 @@ import os
 from hashlib import sha256
 
 from ledger.serializers.compact_serializer import CompactSerializer
-from raet.nacling import Signer
+from stp_core.crypto.nacl_wrappers import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 
-from plenum.common.raet import initLocalKeep
-from plenum.common.txn import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
-    TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, NYM, \
-    STEWARD, \
-    ROLE, SERVICES, VALIDATOR
+from plenum.common.keygen_utils import initLocalKeys
+from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
+    TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, CLIENT_STACK_SUFFIX, NYM, \
+    STEWARD, ROLE, SERVICES, VALIDATOR, TRUSTEE
 from plenum.common.types import f
 from plenum.common.util import hexToFriendly
 
@@ -38,16 +37,27 @@ class TestNetworkSetup:
         return hexToFriendly(verkey)
 
     @staticmethod
+    def writeNodeParamsFile(filePath, name, nPort, cPort):
+        contents = [
+            'NODE_NAME={}'.format(name),
+            'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_PORT={}'.format(cPort)
+        ]
+        with open(filePath, 'w') as f:
+            f.writelines(os.linesep.join(contents))
+
+    @staticmethod
     def bootstrapTestNodesCore(config, envName, appendToLedgers,
                                domainTxnFieldOrder,
                                ips, nodeCount, clientCount,
-                               nodeNum, startingPort):
-
+                               nodeNum, startingPort, nodeParamsFileName):
         baseDir = config.baseDir
         if not os.path.exists(baseDir):
             os.makedirs(baseDir, exist_ok=True)
 
-        if not ips:
+        localNodes = not ips
+
+        if localNodes:
             ips = ['127.0.0.1'] * nodeCount
         else:
             ips = ips.split(",")
@@ -87,7 +97,7 @@ class TestNetworkSetup:
             TXN_TYPE: NYM,
             # TODO: Trustees dont exist in Plenum, but only in Sovrin.
             # This should be moved to Sovrin
-            ROLE: 'TRUSTEE',
+            ROLE: TRUSTEE,
             ALIAS: trusteeName,
             # TXN_ID: sha256(trusteeName.encode()).hexdigest()
         }
@@ -119,11 +129,22 @@ class TestNetworkSetup:
             ip = ips[num - 1]
             sigseed = TestNetworkSetup.getSigningSeed(nodeName)
             if nodeNum == num:
-                _, verkey = initLocalKeep(nodeName, baseDir, sigseed, True)
+                _, verkey = initLocalKeys(nodeName, baseDir, sigseed, True,
+                                     config=config)
+                _, verkey = initLocalKeys(nodeName+CLIENT_STACK_SUFFIX, baseDir,
+                                     sigseed, True, config=config)
                 verkey = verkey.encode()
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"
                       .format(nodeName, nodePort, clientPort))
+
+                if not localNodes:
+                    paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
+                    print('Nodes will not run locally, so writing '
+                          '{}'.format(paramsFilePath))
+                    TestNetworkSetup.writeNodeParamsFile(
+                        paramsFilePath, nodeName, nodePort, clientPort)
+
             else:
                 verkey = Signer(sigseed).verhex
             txn = {
@@ -159,14 +180,15 @@ class TestNetworkSetup:
         domainLedger.stop()
 
     @staticmethod
-    def bootstrapTestNodes(config, startingPort, domainTxnFieldOrder):
+    def bootstrapTestNodes(config, startingPort, nodeParamsFileName,
+                           domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
 
         parser.add_argument('--nodes', required=True, type=int,
                             help='node count, '
-                                 'should be less than 20')
+                                 'should be less than 100')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
         parser.add_argument('--nodeNum', type=int,
@@ -188,16 +210,16 @@ class TestNetworkSetup:
 
         parser.add_argument('--appendToLedgers',
                             help="Determine if ledger files needs to be erased "
-                                 "before writting new information or not.",
+                                 "before writing new information or not.",
                             action='store_true')
 
         args = parser.parse_args()
-        if args.nodes > 20:
+        if args.nodes > 100:
             print("Cannot run {} nodes for testing purposes as of now. "
                   "This is not a problem with the protocol but some placeholder"
                   " rules we put in place which will be replaced by our "
-                  "Governance model. Going to run only 20".format(args.nodes))
-            nodeCount = 20
+                  "Governance model. Going to run only 100".format(args.nodes))
+            nodeCount = 100
         else:
             nodeCount = args.nodes
         clientCount = args.clients
@@ -212,4 +234,5 @@ class TestNetworkSetup:
         TestNetworkSetup.bootstrapTestNodesCore(config, envName, appendToLedgers,
                                                 domainTxnFieldOrder,
                                                 ips, nodeCount, clientCount,
-                                                nodeNum, startingPort)
+                                                nodeNum, startingPort,
+                                                nodeParamsFileName)

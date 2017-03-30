@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
     checkClientConnected, checkActiveIdrPrinted
@@ -73,8 +73,9 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
 # This test fails intermittently when the whole test package is run, fails
 # because the fixture `createAllNodes` fails, the relevant bug is
 # https://www.pivotaltracker.com/story/show/126771175
-@pytest.mark.skipif(True, reason="Intermittently fails due to a bug mentioned "
-                                 "in the above comment")
+@pytest.mark.skip(reason="SOV-548. "
+                         "Intermittently fails due to a bug mentioned "
+                         "in the above comment")
 def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
     # Checking the output after command `status`. Testing the pool status here
     cli.enterCmd("status")
@@ -106,8 +107,9 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 
 # This test fails intermittently when the whole test package is run, fails
 # because the fixture `createAllNodes` fails
-@pytest.mark.skipif(True, reason="Intermittently fails due to a bug mentioned "
-                                 "in the above comment")
+@pytest.mark.skip(reason="SOV-549. "
+                         "Intermittently fails due to a bug mentioned "
+                         "in the above comment")
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))

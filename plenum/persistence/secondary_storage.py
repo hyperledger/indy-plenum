@@ -7,8 +7,8 @@ The data stored in the secondary storage may be a replication of
 the primary storage's data but can be queried more effectively.
 """
 from ledger.util import F
-from plenum.common.txn import NYM, STEWARD, ROLE
-from plenum.common.txn import TXN_TYPE, TARGET_NYM
+from plenum.common.constants import NYM, STEWARD, ROLE
+from plenum.common.constants import TXN_TYPE, TARGET_NYM
 from plenum.common.types import f, Reply
 
 

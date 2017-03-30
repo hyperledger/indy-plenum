@@ -2,9 +2,9 @@ from pprint import pprint
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
 from plenum.common.util import getMaxFailures
@@ -25,8 +25,6 @@ logger = getlogger()
 def testReqExecWhenReturnedByMaster(tdir_for_func):
     with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
             client1, wallet1 = setupNodesAndClient(looper,
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
@@ -50,7 +48,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skipif(True, reason="Implementation changed")
+@pytest.mark.skip(reason="SOV-539. Implementation changed")
 def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
     """Test no T-3"""
     nodeNames = genNodeNames(7)
@@ -169,14 +167,19 @@ def testMultipleRequests(tdir_for_func):
     """
     with TestNodeSet(count=7, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
 
-            ss0 = snapshotStats(*nodeSet)
+            # TODO: ZStack does not have any mechanism to have stats,
+            # either remove this once raet is removed or implement a `stats`
+            # feature in ZStack
+            if not nodeSet.UseZStack:
+                ss0 = snapshotStats(*nodeSet)
             client, wal = setupNodesAndClient(looper,
                                               nodeSet,
                                               tmpdir=tdir_for_func)
-            ss1 = snapshotStats(*nodeSet)
+            if not nodeSet.UseZStack:
+                ss1 = snapshotStats(*nodeSet)
 
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
@@ -185,12 +188,14 @@ def testMultipleRequests(tdir_for_func):
                         checkSufficientRepliesRecvd, client.inBox,
                         request.reqId, 3,
                         retryWait=1, timeout=3 * len(nodeSet)))
-                ss2 = snapshotStats(*nodeSet)
-                diff = statsDiff(ss2, ss1)
 
-                pprint(ss2)
-                print("----------------------------------------------")
-                pprint(diff)
+                if not nodeSet.UseZStack:
+                    ss2 = snapshotStats(*nodeSet)
+                    diff = statsDiff(ss2, ss1)
+
+                    pprint(ss2)
+                    print("----------------------------------------------")
+                    pprint(diff)
 
             profile_this(x)
 

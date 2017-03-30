@@ -2,7 +2,9 @@ import os
 import sys
 from collections import OrderedDict
 
-from plenum.common.txn import ClientBootStrategy
+import logging
+
+from plenum.common.constants import ClientBootStrategy
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
@@ -67,7 +69,7 @@ PerfCheckFreq = 10
 DELTA = 0.8
 LAMBDA = 60
 OMEGA = 5
-SendMonitorStats = True
+SendMonitorStats = False
 ThroughputWindowSize = 30
 DashboardUpdateFreq = 5
 ThroughputGraphDuration = 240
@@ -114,18 +116,19 @@ logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
-
+logLevel=logging.DEBUG
+enableStdOutLogging=True
 
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.1
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.5
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-# CHK_FREQ = 100
+CHK_FREQ = 10000
 
 # Difference between low water mark and high water mark
-# LOG_SIZE = 3*CHK_FREQ
+LOG_SIZE = 3*CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5
@@ -138,26 +141,35 @@ CLIENT_MAX_RETRY_REPLY = 5
 # to True. This option is overwritten by default for tests to keep multiple
 # clients from reading an updated pool transaction file, this helps us
 # emulate clients on different machines.
-UpdateGenesisPoolTxnFile = True
+UpdateGenesisPoolTxnFile = False
 
 
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
 # repository
-EnsureLedgerDurability = True
+EnsureLedgerDurability = False
 
+log_override_tags = dict(cli={}, demo={})
+
+# TODO needs to be refactored to use a transport protocol abstraction
+UseZStack = True
+
+
+# Number of messages zstack accepts at once
+LISTENER_MESSAGE_QUOTA = 100
+REMOTES_MESSAGE_QUOTA = 100
 
 # After `Max3PCBatchSize` requests or `Max3PCBatchWait`, whichever is earlier,
 # a 3 phase batch is sent
 # Max batch size for 3 phase commit
-Max3PCBatchSize = 10
+Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 3
+Max3PCBatchWait = 5
 
 # Maximum lifespan for a batch, this needs to be changed if
 # `Max3PCBatchSize` is changed
-ThreePCBatchTimeout = 15
+ThreePCBatchTimeout = 25
 
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is

@@ -2,20 +2,19 @@ import time
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
 from plenum.common.types import PrePrepare
 from plenum.server.replica import TPCStat
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 instId = 0
 
 
-@pytest.mark.skipif(True, reason="Not implemented in replica. Add a check in "
-                                 "replica to check value of preprepare "
-                                 "seq number.")
+@pytest.mark.skip(reason="SOV-555. Not implemented in replica. Add a check in "
+                         "replica to check value of preprepare seq number.")
 def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
     def chk():
         for r in getNonPrimaryReplicas(nodeSet, instId):

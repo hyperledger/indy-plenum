@@ -120,4 +120,5 @@ class PruningState(State):
 
     def close(self):
         self.db.db.close()
-        del self.db.kv
+        # del self.db.kv
+        self.db.kv = None

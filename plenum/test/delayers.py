@@ -1,7 +1,8 @@
 from typing import Iterable
 
-from plenum.common.types import OP_FIELD_NAME, f, Propagate, PrePrepare, \
+from plenum.common.types import f, Propagate, PrePrepare, \
     Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq
+from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
 
