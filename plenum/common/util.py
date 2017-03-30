@@ -19,11 +19,18 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
+import errno
 import libnacl.secret
 from ledger.util import F
 from libnacl import crypto_hash_sha256
+
 from plenum.common.error import error
 from six import iteritems, string_types
+import ipaddress
+
+from plenum.common.exceptions import PortNotAvailable
+from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+    InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -61,8 +68,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
-                     , logMsg: str = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(),
+                     logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -93,7 +100,9 @@ def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
                         setattr(obj, nm, new)
                     mutated = True
             if not mutated:
-                objSearchReplace(o, toFrom, checked, logMsg)
+                if deepLevel is not None and deepLevel == 0:
+                    continue
+                objSearchReplace(o, toFrom, checked, logMsg, deepLevel - 1 if deepLevel is not None else deepLevel)
     checked.remove(id(obj))
 
 
@@ -256,10 +265,11 @@ def checkPortAvailable(ha):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind(ha)
-    except BaseException as ex:
-        logging.warning("Checked port availability for opening "
-                        "and address was already in use: {}".format(ha))
-        raise ex
+    except OSError as exc:
+        if exc.args[0] in [errno.EADDRINUSE, errno.EADDRNOTAVAIL]:
+            raise PortNotAvailable(ha)
+        else:
+            raise exc
     finally:
         sock.close()
 
@@ -384,6 +394,10 @@ def isHexKey(key):
 def getCryptonym(identifier):
     return base58.b58encode(unhexlify(identifier.encode())).decode() \
         if isHexKey(identifier) else identifier
+
+
+def getFriendlyIdentifier(dest):
+    return hexToFriendly(dest) if isHexKey(dest) else dest
 
 
 def hexToFriendly(hx):
@@ -565,3 +579,37 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
 def createDirIfNotExists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+def is_valid_port(port):
+    return port.isdigit() and int(port) in range(1, 65536)
+
+
+def check_endpoint_valid(endpoint, required: bool=True):
+    if not endpoint:
+        if required:
+            raise MissingEndpoint()
+        else:
+            return
+    ip, port = endpoint.split(':')
+    try:
+        ipaddress.ip_address(ip)
+    except Exception as exc:
+        raise InvalidEndpointIpAddress(endpoint) from exc
+    if not is_valid_port(port):
+        raise InvalidEndpointPort(endpoint)
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"

@@ -12,6 +12,7 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
 from contextlib import closing
 
 import pyorient
+from plenum.common.roles import Roles
 from raet.raeting import AutoMode
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -39,17 +40,18 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacked import NodeStack, ClientStack
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
-from plenum.common.txn import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
+    HS_FILE, HS_ORIENT_DB
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
-    Reply, Nomination, OP_FIELD_NAME, TaggedTuples, Primary, \
+    Reply, Nomination, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, HA, \
-    NODE_SECONDARY_STORAGE_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, HS_ORIENT_DB, \
-    HS_FILE, NODE_HASH_STORE_SUFFIX, LedgerStatus, ConsistencyProof, \
-    CatchupReq, CatchupRep, CLIENT_STACK_SUFFIX, \
+    RequestNack, HA, \
+    LedgerStatus, ConsistencyProof, \
+    CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
 from plenum.common.request import Request
@@ -57,7 +59,7 @@ from plenum.common.util import MessageProcessor, friendlyEx, getMaxFailures, \
     rawToFriendly
 from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
-from plenum.common.txn import DATA, ALIAS, NODE_IP
+from plenum.common.constants import DATA, ALIAS, NODE_IP
 
 from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
@@ -473,7 +475,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # if first time running this node
             if not self.nodestack.remotes:
                 logger.info("{} first time running; waiting for key sharing..."
-                            "".format(self))
+                            "".format(self), extra={"cli": "LOW_STATUS",
+                                                    "tags": ["node-key-sharing"]})
             else:
                 self.nodestack.maintainConnections()
 
@@ -793,7 +796,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} added replica {} to instance {} ({})".
                        format(self, replica, instId, instDesc),
-                       extra={"cli": True, "demo": True})
+                       extra={"tags": ["node-replica"]})
         return replica
 
     def removeReplica(self):
@@ -803,7 +806,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.addInstance()
         logger.display("{} removed replica {} from instance {}".
                        format(self, replica, replica.instId),
-                       extra={"cli": True, "demo": True})
+                       extra={"tags": ["node-replica"]})
         return replica
 
     def serviceReplicaMsgs(self, limit: int=None) -> int:
@@ -1018,10 +1021,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             vmsg = self.validateNodeMsg(wrappedMsg)
             if vmsg:
-                logger.info("{} msg validated {}".format(self, wrappedMsg))
+                logger.info("{} msg validated {}".format(self, wrappedMsg),
+                            extra={"tags": ["node-msg-validation"]})
                 self.unpackNodeMsg(*vmsg)
             else:
-                logger.info("{} non validated msg {}".format(self, wrappedMsg))
+                logger.info("{} non validated msg {}".format(self, wrappedMsg),
+                            extra={"tags": ["node-msg-validation"]})
         except SuspiciousNode as ex:
             self.reportSuspiciousNodeEx(ex)
         except Exception as ex:
@@ -1216,7 +1221,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req, frm = m
             logger.display("{} processing {} request {}".
                            format(self.clientstack.name, frm, req),
-                           extra={"cli": True})
+                           extra={"cli": True,
+                                  "tags": ["node-msg-processing"]})
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
@@ -1585,8 +1591,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".
-                     format(self, identifier, typ, req['reqId']),
-                     extra={"cli": True})
+                       format(self, identifier, typ, req['reqId']),
+                       extra={"cli": True,
+                              "tags": ["node-msg-processing"]})
 
     def authNr(self, req):
         return self.clientAuthNr
@@ -1701,7 +1708,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be STEWARD".format(role))
+                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
                     return
                 self.clientAuthNr.addClient(identifier, verkey=v.verkey,
                                             role=role)

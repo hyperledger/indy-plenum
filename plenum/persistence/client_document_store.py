@@ -4,7 +4,7 @@ from typing import Any
 from plenum.common.types import f
 from plenum.common.request import Request
 
-from plenum.common.txn import TXN_ID, TXN_TIME, TXN_TYPE
+from plenum.common.constants import TXN_ID, TXN_TIME, TXN_TYPE
 from plenum.common.util import getlogger
 
 logger = getlogger()

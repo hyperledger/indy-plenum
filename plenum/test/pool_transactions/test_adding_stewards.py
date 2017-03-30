@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.eventually import eventually
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.txn import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, ROLE, STEWARD, NYM, \
     ALIAS
 from plenum.common.util import randomSeed
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet, \

@@ -1,13 +1,12 @@
-import pytest
 import time
 from plenum.common.throttler import Throttler
 from plenum.common.ratchet import Ratchet
 
 
 def test_throttler_case1():
-    '''
+    """
     Tests throttler with default delay function
-    '''
+    """
     windowSize = 3
     throttler = Throttler(windowSize)
     testIterations = windowSize * 5
@@ -21,10 +20,11 @@ def test_throttler_case1():
             assert windowSize - i % windowSize == round(timeToWait)
         time.sleep(1)
 
+
 def test_throttler_case2():
-    '''
+    """
     Tests throttler with custom delay function
-    '''
+    """
     windowSize = 10
     testIterations = windowSize - 2
     ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
