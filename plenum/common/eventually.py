@@ -120,13 +120,11 @@ async def eventually(coroFunc: FlexFunc,
                                        timeout*slowFactor).gen() \
         if ratchetSteps else None
 
-    def remaining():
-        return start + timeout*slowFactor - time.perf_counter()
-
     fname = getFuncName(coroFunc)
     while True:
+        remain = 0
         try:
-            remain = remaining()
+            remain = start + timeout*slowFactor - time.perf_counter()
             if remain < 0:
                 # this provides a convenient breakpoint for a debugger
                 logger.warning("{} last try...".format(fname),

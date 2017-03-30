@@ -43,7 +43,7 @@ def reincarnatedCLI(nodeRegsForCLI, newLooper, tdir, cli):
     """
     Creating a new cli instance is equivalent to starting and stopping a cli
     """
-    return newCLI(nodeRegsForCLI, newLooper, tdir)
+    return newCLI(nodeRegsForCLI, newLooper, tdir, unique_name='reincarnate')
 
 
 @pytest.mark.skip(reason="SOV-542. Implementation changed")
