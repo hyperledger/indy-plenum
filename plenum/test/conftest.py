@@ -48,6 +48,8 @@ logger = getlogger()
 @pytest.fixture(scope="session")
 def warnfilters():
     def _():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
