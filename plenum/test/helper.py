@@ -27,7 +27,6 @@ from plenum.common.util import getMaxFailures, \
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from stp_core.loop.eventually import eventuallyAll, eventually
 
-checkIfMoreThanFSameItems
 from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
 from plenum.test.msgs import randomMsg
