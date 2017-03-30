@@ -16,9 +16,10 @@ from plenum.common.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.common.looper import Looper
 from plenum.common.port_dispenser import genHa
-from plenum.common.stacked import NodeStack, ClientStack
+from plenum.common.stacked import NodeStack, ClientStack, KITStack
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, CLIENT_STACK_SUFFIX
+from plenum.common.types import TaggedTuples, NodeDetail
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import Seconds, getMaxFailures, adict
 from plenum.persistence import orientdb_store
 from plenum.server import replica
@@ -218,7 +219,7 @@ class TestNode(TestNodeCore, Node):
 
     @property
     def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(NodeStack)
+        return getTestableStack(Spyable(methods=[KITStack.handleJoinFromUnregisteredRemote], deepLevel=3)(NodeStack))
 
     @property
     def clientStackClass(self) -> ClientStack:
@@ -407,9 +408,8 @@ class TestMonitor(Monitor):
 
 
 class Pool:
-    def __init__(self, tmpdir_factory, counter, testNodeSetClass=TestNodeSet):
+    def __init__(self, tmpdir_factory, testNodeSetClass=TestNodeSet):
         self.tmpdir_factory = tmpdir_factory
-        self.counter = counter
         self.testNodeSetClass = testNodeSetClass
 
     def run(self, coro, nodecount=4):
@@ -425,8 +425,7 @@ class Pool:
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):
-        return self.tmpdir_factory.getbasetemp().strpath + \
-               '/' + str(next(self.counter))
+        return self.tmpdir_factory.mktemp('').strpath
 
 
 class MockedNodeStack:

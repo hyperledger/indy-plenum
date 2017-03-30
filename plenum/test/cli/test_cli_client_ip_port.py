@@ -32,3 +32,12 @@ def testEachClientOnDifferentPort(cli1, cli2):
     client2 = next(iter(cli2.clients.values()))
     assert client1.nodestack.ha != client2.nodestack.ha
 
+
+def testClientListeningIp(cli, validNodeNames, createAllNodes):
+    """
+    Test that a client should always listen at 0.0.0.0
+    """
+    cName = "Joe"
+
+    cli.enterCmd("new client {}".format(cName))
+    assert cli.clients[cName].nodestack.ha[0] == '0.0.0.0'

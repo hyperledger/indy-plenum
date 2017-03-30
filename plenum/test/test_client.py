@@ -5,8 +5,8 @@ from plenum.client.wallet import Wallet
 from plenum.common.log import getlogger
 from plenum.common.port_dispenser import genHa
 from plenum.common.stacked import NodeStack
-from plenum.common.txn import REQACK, REQNACK, REPLY
-from plenum.common.types import Identifier, HA, OP_FIELD_NAME, f
+from plenum.common.constants import REQACK, REQNACK, REPLY, OP_FIELD_NAME
+from plenum.common.types import Identifier, HA, f
 from plenum.common.util import bootstrapClientKeys
 from plenum.common.error import error
 from plenum.test.test_stack import StackedTester, getTestableStack
@@ -36,7 +36,7 @@ def genTestClient(nodes = None,
                   ha=None,
                   usePoolLedger=False,
                   name=None,
-                  sighex=None) -> TestClient:
+                  sighex=None) -> (TestClient, Wallet):
     if not usePoolLedger:
         nReg = nodeReg
         if nodeReg:

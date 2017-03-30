@@ -1,10 +1,6 @@
-from plenum.common.log import getlogger
-
-logger = getlogger()
-
-
 def fault(ex: Exception, msg: str):
-    logger.error(msg, exc_info=ex)
+    from plenum.common.log import getlogger
+    getlogger().error(msg, exc_info=ex)
 
 
 def error(msg: str) -> Exception:

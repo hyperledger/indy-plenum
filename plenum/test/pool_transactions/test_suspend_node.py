@@ -1,7 +1,7 @@
 import pytest
 from plenum.client.client import Client
 from plenum.common.eventually import eventually
-from plenum.common.types import CLIENT_STACK_SUFFIX
+from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
 from plenum.test.helper import sendRandomRequest, \
