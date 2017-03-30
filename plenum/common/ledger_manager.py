@@ -378,7 +378,7 @@ class LedgerManager(HasActionQueue):
                      format(self, end, req.catchupTill))
         consProof = [b64encode(p).decode() for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
-        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns,
+        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
