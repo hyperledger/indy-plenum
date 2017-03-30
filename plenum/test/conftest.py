@@ -48,13 +48,10 @@ logger = getlogger()
 @pytest.fixture(scope="session")
 def warnfilters():
     def _():
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', lineno=254)
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', lineno=165)
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', lineno=538)
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', lineno=259)
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable')
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', lineno=76)
-        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', lineno=242)
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect.getargspec() is deprecated')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
     return _
