@@ -26,8 +26,8 @@ import ipaddress
 
 from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
     WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
-from plenum.common.exceptions import PortNotAvailable
-from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+from stp_core.network.exceptions import \
+    PortNotAvailable, EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 from six import iteritems, string_types
 from stp_core.crypto.util import isHexKey, isHex
