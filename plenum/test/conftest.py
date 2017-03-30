@@ -10,6 +10,7 @@ from copy import copy
 from functools import partial
 from typing import Dict, Any
 
+import gc
 import pip
 import pytest
 from _pytest.recwarn import WarningsRecorder
@@ -65,6 +66,7 @@ def warncheck(warnfilters):
     with WarningsRecorder() as record:
         warnfilters()
         yield
+        gc.collect()
     to_prints = []
 
     def keyfunc(_):
