@@ -937,6 +937,8 @@ class Replica(HasActionQueue, MessageProcessor):
     def orderStashedCommits(self):
         # TODO: What if the first few commits were out of order and stashed?
         # `self.ordered` would be empty
+        logger.debug('{} trying to order from stashed commits. {} {}'.
+                     format(self, self.ordered, self.stashedCommitsForOrdering))
         if self.ordered:
             lastOrdered = self.ordered[-1]
             vToRemove = set()
@@ -964,8 +966,6 @@ class Replica(HasActionQueue, MessageProcessor):
             for v in vToRemove:
                 del self.stashedCommitsForOrdering[v]
 
-            # if self.stashedCommitsForOrdering:
-            #     self._schedule(self.orderStashedCommits, 2)
             if not self.stashedCommitsForOrdering:
                 self.stopRepeating(self.orderStashedCommits)
 
@@ -979,7 +979,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 ppSeqNos.append(p)
         return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
 
-    def tryOrdering(self, commit: Commit) -> None:
+    def tryOrdering(self, commit: Commit) -> bool:
         """
         Attempt to send an ORDERED request for the specified COMMIT to the
         node.
@@ -993,7 +993,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if not digest:
             logger.error("{} did not find digest for {}, request key {}".
                          format(self, key, reqKey))
-            return
+            return False
         self.doOrder(*key, *reqKey, digest, commit.ppTime)
         return True
 
@@ -1140,8 +1140,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePrepares.pop(k, None)
             self.prepares.pop(k, None)
             self.commits.pop(k, None)
-            if k in self.ordered:
-                self.ordered.remove(k)
+            # if k in self.ordered:
+            #     self.ordered.remove(k)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1

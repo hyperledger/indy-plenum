@@ -10,7 +10,7 @@ def checkRequestCounts(nodes, count):
         for r in node.replicas:
             assert len(r.commits) == count
             assert len(r.prepares) == count
-            assert len(r.ordered) == count
+            # assert len(r.ordered) == count
 
 
 def testRequestOlderThanStableCheckpointRemoved(chkFreqPatched, looper,
