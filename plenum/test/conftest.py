@@ -57,7 +57,6 @@ def warnfilters():
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', lineno=242)
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
-        warnings.filterwarnings('ignore', category=RuntimeWarning, message="coroutine 'msgAll' was never awaited")
     return _
 
 
