@@ -15,7 +15,6 @@ import itertools
 
 from psutil import Popen
 
-from plenum.common.config_util import getConfig
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from raet.raeting import TrnsKind, PcktKind
 

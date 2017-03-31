@@ -1,4 +1,5 @@
 import asyncio
+import glob
 import os
 
 import collections
@@ -6,6 +7,7 @@ import inspect
 import itertools
 import json
 import logging
+
 import math
 import random
 import socket
@@ -15,15 +17,19 @@ from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
 from math import floor
+from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, List, NamedTuple, Callable
 
 import base58
 import errno
 import libnacl.secret
+from jsonpickle import encode, decode
+
 from ledger.util import F
 from libnacl import crypto_hash_sha256
 
+from plenum.cli.constants import WALLET_FILE_EXTENSION
 from plenum.common.error import error
 from six import iteritems, string_types
 import ipaddress
@@ -31,7 +37,7 @@ import ipaddress
 from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
     WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
 from plenum.common.exceptions import PortNotAvailable
-from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+from plenum.common.exceptions import MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
@@ -619,3 +625,36 @@ def getFormattedErrorMsg(msg):
     msgHalfLength = int(len(msg) / 2)
     errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
     return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
+
+def normalizedWalletFileName(walletName):
+    return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
+
+
+def getWalletFilePath(basedir, walletFileName):
+    return os.path.join(basedir, walletFileName)
+
+
+def saveGivenWallet(wallet, fileName, contextDir):
+    createDirIfNotExists(contextDir)
+    walletFilePath = getWalletFilePath(
+        contextDir, fileName)
+    with open(walletFilePath, "w+") as walletFile:
+        encodedWallet = encode(wallet)
+        walletFile.write(encodedWallet)
+    return walletFilePath
+
+
+def getWalletByPath(walletFilePath):
+    with open(walletFilePath) as walletFile:
+        wallet = decode(walletFile.read())
+        return wallet
+
+
+def getLastSavedWalletFileName(dir):
+    def getLastModifiedTime(file):
+        return os.stat(file).st_mtime_ns
+
+    filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
+    newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
+                 key=getLastModifiedTime)
+    return basename(newest)
