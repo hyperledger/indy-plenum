@@ -5,6 +5,7 @@ import sys
 import time
 from asyncio import Task
 from typing import List
+from collections import deque
 
 from plenum.common.exceptions import ProdableAlreadyAdded
 from plenum.common.startable import Status
@@ -75,6 +76,7 @@ class Looper:
         :param debug: set_debug on event loop will be set to this value
         :param autoStart: start immediately?
         """
+        self._activity = deque(maxlen=10)
         self.prodables = list(prodables) if prodables is not None \
             else []  # type: List[Prodable]
 
@@ -143,7 +145,10 @@ class Looper:
         limit = None
         s = 0
         for n in self.prodables:
-            s += await n.prod(limit)
+            e = await n.prod(limit)
+            if e > 0:
+                self._activity.appendleft((time.time(), e))
+            s += e
         return s
 
     def add(self, prodable: Prodable) -> None:
@@ -201,8 +206,47 @@ class Looper:
             await asyncio.sleep(0.01, loop=self.loop)  # if no let other stuff run
         dur = time.perf_counter() - start
         if dur >= 0.5:
-            logger.info("it took {:.3f} seconds to run once nicely".
+            logger.debug("it took {:.3f} seconds to run once nicely".
                            format(dur), extra={"cli": False})
+
+    def run_till_quiet(self, quiet_for=1, timeout=None):
+        """
+        Runs till the Prodable are quite (not processing events)
+
+        :param quiet_for: How long should activity be quiet for
+        :param timeout: A max timeout that should be waited
+
+        :return: No return
+        """
+        start_time = time.time()
+
+        self.runFor(.01)  # allow prodables to run before checking
+        while True:
+            if timeout is not None and \
+               time.time() - start_time > timeout:
+                break
+
+
+            last_activity = None
+            if len(self._activity) > 0:
+                last_activity = self._activity[0]
+
+            if last_activity:
+                inactive_for = time.time() - last_activity[0]
+                if inactive_for > quiet_for:
+                    # no activity for the required time
+                    return
+                else:
+                    # too busy, wait more
+                    run_for = quiet_for - inactive_for
+                    self.runFor(run_for)
+                    continue
+            else:
+                # Nothing has ever happened
+                return
+
+        # timeout has been passed, return
+        return
 
     def runFor(self, timeout):
         self.run(asyncio.sleep(timeout))
