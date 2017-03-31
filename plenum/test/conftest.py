@@ -5,12 +5,15 @@ import json
 import logging
 import os
 import re
+import warnings
 from copy import copy
 from functools import partial
 from typing import Dict, Any
 
+import gc
 import pip
 import pytest
+from _pytest.recwarn import WarningsRecorder
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -40,6 +43,49 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
+
+
+@pytest.fixture(scope="session")
+def warnfilters():
+    def _():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+    return _
+
+
+@pytest.yield_fixture(scope="session", autouse=True)
+def warncheck(warnfilters):
+    with WarningsRecorder() as record:
+        warnfilters()
+        yield
+        gc.collect()
+    to_prints = []
+
+    def keyfunc(_):
+        return _.category.__name__, _.filename, _.lineno
+
+    _sorted = sorted(record, key=keyfunc)
+    _grouped = itertools.groupby(_sorted, keyfunc)
+    for k, g in _grouped:
+        to_prints.append("\n"
+                         "category: {}\n"
+                         "filename: {}\n"
+                         "  lineno: {}".format(*k))
+        messages = itertools.groupby(g, lambda _: str(_.message))
+        for k2, g2 in messages:
+            count = sum(1 for _ in g2)
+            count_str = ' ({} times)'.format(count) if count > 1 else ''
+            to_prints.append("     msg: {}{}".format(k2, count_str))
+    if to_prints:
+        to_prints.insert(0, 'Warnings found:')
+        pytest.fail('\n'.join(to_prints))
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -402,12 +448,13 @@ def nodeAndClientInfoFilePath(dirName):
 
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
-    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
-    for txn in data["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            txn[DATA][NODE_PORT] = genHa()[1]
-            txn[DATA][CLIENT_PORT] = genHa()[1]
-    return data
+    with open(nodeAndClientInfoFilePath) as f:
+        data = json.loads(f.read().strip())
+        for txn in data["txns"]:
+            if txn[TXN_TYPE] == NODE:
+                txn[DATA][NODE_PORT] = genHa()[1]
+                txn[DATA][CLIENT_PORT] = genHa()[1]
+        return data
 
 
 @pytest.fixture(scope="module")

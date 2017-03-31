@@ -49,7 +49,7 @@ def testAddUnregisteredRemote(tdir_for_func):
         nodeSet.nodes[name] = unregisteredNode
         with Looper(nodeSet) as loop:
             with pytest.raises(RemoteNotFound) as e:
-                loop.run(checkNodesConnected(nodeSet), msgAll(nodeSet))
+                loop.run(checkNodesConnected(nodeSet))
             for nodeName, node in nodeSet.nodes.items():
                 if node.name != unregisteredNode.name:
                     assert len(node.nodestack.spylog) > 0
