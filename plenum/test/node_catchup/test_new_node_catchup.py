@@ -94,7 +94,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     newNode.start(looper.loop)
     looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=60))
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=75))
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
