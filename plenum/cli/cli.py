@@ -1352,7 +1352,11 @@ class Cli:
         if matchedVars.get('list_krs') == 'list keyrings':
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
-            envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
+            keyringBaseDir = self.getKeyringsBaseDir()
+            envPaths = [os.path.join(keyringBaseDir, e) for e in envs]
+            if len(envPaths) == 0:
+                envPaths = [keyringBaseDir]
+
             anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
