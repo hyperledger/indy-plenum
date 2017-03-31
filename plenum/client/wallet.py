@@ -210,9 +210,6 @@ class Wallet:
         request = Request(operation=op)
         return self.signRequest(request, identifier)
 
-    # Removed:
-    # _getIdData - removed in favor of passing RequestIdStore
-
     def _signerById(self, idr: Identifier):
         signer = self.idsToSigners.get(idr)
         if not signer:
