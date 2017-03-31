@@ -541,7 +541,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             self.primaryStorage.stop()
         except Exception as ex:
-            logger.warn('{} got exception while stopping primary storage: {}'.
+            logger.warning('{} got exception while stopping primary storage: {}'.
                         format(self, ex))
 
         # Stop hash store
@@ -549,7 +549,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             try:
                 self.hashStore.close()
             except Exception as ex:
-                logger.warn('{} got exception while closing hash store: {}'.
+                logger.warning('{} got exception while closing hash store: {}'.
                             format(self, ex))
 
         self.nodestack.stop()

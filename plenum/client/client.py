@@ -543,7 +543,7 @@ class Client(Motor,
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
-                logger.warn('{} could not find remote {}'.format(self, nm))
+                logger.warning('{} could not find remote {}'.format(self, nm))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
