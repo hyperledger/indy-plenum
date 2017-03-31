@@ -124,7 +124,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>",
-
+                     'got exception while closing hash store',
                      # TODO: Remove these once the relevant bugs are fixed
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
