@@ -101,7 +101,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
-    keygenScript = "init_plenum_raet_keep"
+    keygenScript = "init_plenum_keys"
 
     def __init__(self,
                  name: str,

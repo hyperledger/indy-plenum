@@ -71,7 +71,7 @@ setup(
     },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
-    scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
+    scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
