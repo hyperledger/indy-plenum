@@ -4,7 +4,7 @@
 
 def name = 'plenum'
 
-def testUbuntu = { nodeLabel ->
+def testUbuntu = {
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -19,7 +19,7 @@ def testUbuntu = { nodeLabel ->
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            def resFile = "test-result.${nodeLabel}.txt"
+            def resFile = "test-result.${NODE_NAME}.txt"
             try {
                 sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
             }
@@ -35,7 +35,7 @@ def testUbuntu = { nodeLabel ->
     }
 }
 
-def testWindows = { nodeLabel ->
+def testWindows = {
     echo 'TODO: Implement me'
 
     /* win2016 for now (03-23-2017) is not supported by Docker for Windows
@@ -61,7 +61,7 @@ def testWindows = { nodeLabel ->
     //}
 }
 
-def testWindowsNoDocker = { nodeLabel ->
+def testWindowsNoDocker = {
     try {
         echo 'Windows No Docker Test: Checkout csm'
         checkout scm
@@ -74,7 +74,7 @@ def testWindowsNoDocker = { nodeLabel ->
             testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            def resFile = "test-result.${nodeLabel}.txt"
+            def resFile = "test-result.${NODE_NAME}.txt"
             try {
                 bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"$resFile\""
             }
