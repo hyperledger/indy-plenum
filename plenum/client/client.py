@@ -136,7 +136,7 @@ class Client(Motor,
 
         if self.nodeReg:
             logger.info("Client {} initialized with the following node registry:"
-                        .format(self.name))
+                        .format(self.alias))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
                 for name, (host, port) in self.nodeReg.items()])]
@@ -146,7 +146,7 @@ class Client(Motor,
                 logger.info(fmt.format(name, host, port))
         else:
             logger.info(
-                "Client {} found an empty node registry:".format(self.name))
+                "Client {} found an empty node registry:".format(self.alias))
 
         Motor.__init__(self)
 
@@ -216,7 +216,7 @@ class Client(Motor,
         oldstatus = self.status
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
-                        format(self, self.status.name))
+                        format(self.alias, self.status.name))
         else:
             super().start(loop)
             self.nodestack.start()
