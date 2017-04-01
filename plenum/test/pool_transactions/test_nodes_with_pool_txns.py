@@ -186,6 +186,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
+@pytest.mark.skip(reason="SOV-881")
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                         tconf, steward1, nodeThetaAdded,
                         allPluginsPath=None):
