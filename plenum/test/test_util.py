@@ -3,7 +3,8 @@ from itertools import combinations
 
 from libnacl import crypto_hash_sha256
 
-from plenum.common.util import evenCompare, distributedConnectionMap, randomString
+from plenum.common.util import randomString
+from stp_core.network.util import evenCompare, distributedConnectionMap
 from plenum.test.greek import genNodeNames
 
 

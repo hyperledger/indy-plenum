@@ -121,7 +121,7 @@ enableStdOutLogging=True
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.4
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.5
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
 CHK_FREQ = 100
@@ -150,3 +150,11 @@ UpdateGenesisPoolTxnFile = False
 EnsureLedgerDurability = True
 
 log_override_tags = dict(cli={}, demo={})
+
+# TODO needs to be refactored to use a transport protocol abstraction
+UseZStack = True
+
+
+# Number of messages zstack accepts at once
+LISTENER_MESSAGE_QUOTA = 100
+REMOTES_MESSAGE_QUOTA = 100

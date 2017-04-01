@@ -1,6 +1,6 @@
 import types
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import sendRandomRequest
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -17,7 +17,6 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     slowRep = nonPrimReps[0]
     slowNode = slowRep.node
     slowNode.nodeIbStasher.delay(ppDelay(10, 0))
-    sendRandomRequest(wallet1, client1)
 
     stash = []
     origMethod = slowRep.processReqDigest
@@ -31,6 +30,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     def chk1():
         assert len(slowRep.commitsWaitingForPrepare) > 0
 
+    sendRandomRequest(wallet1, client1)
     looper.run(eventually(chk1, timeout=4))
 
     for item in stash:

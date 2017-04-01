@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
 from plenum.common.types import Reply, RequestNack
 from plenum.test.helper import sendRandomRequest, checkReqAck, checkReplyCount
@@ -21,8 +21,18 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
     """
     alpha = nodeSet.Alpha
 
-    r = alpha.clientstack.getRemote(client1.stackName)
-    alpha.clientstack.removeRemote(r)
+    skipped = False
+    origPr = alpha.processRequest
+
+    def skipReqOnce(msg, remoteName):
+        nonlocal skipped
+        if isinstance(msg, Request) and not skipped:
+            skipped = True
+            return
+        origPr(msg, remoteName)
+
+    alpha.clientMsgRouter.routes[Request] = skipReqOnce
+
     req = sendRandomRequest(wallet1, client1)
 
     def chkAcks():
@@ -103,7 +113,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
 
 def testClientNotRetryingRequestAfterMaxTriesDone(looper, nodeSet, client1,
-                                                 wallet1, tconf):
+                                                  wallet1, tconf):
     """
     A client sends Request to a node but the node never responds to client.
     The client resends the request but only the number of times defined in its

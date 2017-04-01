@@ -123,6 +123,9 @@ class OrientDbHashStore(HashStore):
         return [(self.leafHashClass, self.createLeafHashClass),
                 (self.nodeHashClass, self.createNodeHashClass)]
 
+    def close(self):
+        self.store.close()
+
     def reset(self) -> bool:
         def trunc(clazz):
             self.store.client.command(

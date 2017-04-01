@@ -2,16 +2,15 @@ import time
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import getMaxFailures
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
-    getPrimaryReplica
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',

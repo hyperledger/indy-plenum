@@ -10,4 +10,4 @@ def testBootstrapTestNode(tconf):
         config=tconf, envName="test", appendToLedgers=False,
         domainTxnFieldOrder=getTxnOrderedFields(),
         ips=None, nodeCount=4, clientCount=1,
-        nodeNum=1, startingPort=portsStart)
+        nodeNum=1, startingPort=portsStart, nodeParamsFileName='plenum.env')

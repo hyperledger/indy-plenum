@@ -1,13 +1,17 @@
-from plenum.common.exceptions import RemoteNotFound
+from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.test.helper import msgAll
-from plenum.test.test_stack import RemoteState
+from plenum.test.test_stack import RemoteState, NOT_CONNECTED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
+
+
+whitelist = ['public key from disk', 'verification key from disk',
+             'doesnt have enough info to connect']
 
 
 # noinspection PyIncorrectDocstring
@@ -22,8 +26,6 @@ def testKeyShareParty(tdir_for_func):
     with TestNodeSet(nodeReg=nodeReg,
                      tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-            for n in nodeSet:
-                n.startKeySharing()
             looper.run(checkNodesConnected(nodeSet))
 
     logger.debug("-----key sharing done, connect after key sharing-----")
@@ -45,8 +47,7 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
         with Looper(nodes) as looper:
             try:
                 looper.run(
-                        checkNodesConnected(nodes,
-                                            RemoteState(None, None, None)))
+                        checkNodesConnected(nodes, NOT_CONNECTED))
             except RemoteNotFound:
                 pass
             except KeyError as ex:

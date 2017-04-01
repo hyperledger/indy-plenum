@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Primary
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \

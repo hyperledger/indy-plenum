@@ -2,7 +2,7 @@ from typing import Callable, Sequence
 
 from plenum.common.exceptions import DidMethodNotFound
 from plenum.common.signer_did import DidSigner
-from plenum.common.types import Identifier
+from stp_core.types import Identifier
 
 Seed = str
 SignerConstructor = Callable[[Identifier], Seed]
