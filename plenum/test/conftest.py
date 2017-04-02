@@ -93,6 +93,15 @@ def warncheck(warnfilters):
         pytest.fail('\n'.join(to_prints))
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setResourceLimits():
+    import resource
+    flimit = 65535
+    plimit = 65535
+    resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
+    resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
+
+
 def getValueFromModule(request, name: str, default: Any = None):
     """
     Gets an attribute from the request's module if attribute is found
