@@ -3,7 +3,7 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.test.delayers import delayNonPrimaries

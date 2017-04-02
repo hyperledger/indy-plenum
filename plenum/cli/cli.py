@@ -1,20 +1,20 @@
 from __future__ import unicode_literals
 
-# noinspection PyUnresolvedReferences
 import glob
+import shutil
+from hashlib import sha256
+from os.path import basename, dirname
 from typing import Dict, Iterable
 
 import pyorient
-import shutil
-from hashlib import sha256
-from jsonpickle import json, decode
+from jsonpickle import json, encode, decode
+from prompt_toolkit.utils import is_windows, is_conemu_ansi
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
-from os.path import basename, dirname
-
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
-    keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
+    loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
@@ -30,16 +30,17 @@ from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import getLocalEstateData
-from plenum.common.raet import isLocalKeepSetup
+from stp_core.crypto.util import cleanSeed
+from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from stp_core.network.port_dispenser import genHa
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -55,9 +56,7 @@ import time
 import ast
 
 from functools import reduce, partial
-import logging
 import sys
-from collections import defaultdict
 
 from prompt_toolkit.history import FileHistory
 from ioflo.aid.consoling import Console
@@ -74,14 +73,15 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
-    firstValue, randomString, cleanSeed, bootstrapClientKeys, \
-    getFriendlyIdentifier, saveGivenWallet, \
+    firstValue, randomString, bootstrapClientKeys, \
+    createDirIfNotExists, getFriendlyIdentifier, saveGivenWallet, \
     normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
     getLastSavedWalletFileName
-from plenum.common.log import CliHandler, getlogger, Logger, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
+from plenum.common.log import getlogger, Logger, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail, HA
+from stp_core.types import HA
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
@@ -313,7 +313,7 @@ class Cli:
             self._actions = [self._simpleAction, self._helpAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
-                             self._keyShareAction, self._loadPluginDirAction,
+                             self._loadPluginDirAction,
                              self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
@@ -578,7 +578,7 @@ class Cli:
     @activeClient.setter
     def activeClient(self, client):
         self._activeClient = client
-        self.print("Active client set to " + client.name)
+        self.print("Active client set to " + client.alias)
 
     @staticmethod
     def relist(seq):
@@ -659,7 +659,6 @@ class Cli:
         mappings['newClientAction'] = newClientCmd
         mappings['statusNodeAction'] = statusNodeCmd
         mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
         mappings['clientSendMsgCommand'] = clientSendCmd
         mappings['clientShowMsgCommand'] = clientShowCmd
 
@@ -827,21 +826,21 @@ class Cli:
             self.print("Instances: "
                        "Not enough nodes to create protocol instances")
 
-    def keyshare(self, nodeName):
-        node = self.nodes.get(nodeName, None)
-        if node is not None:
-            node = self.nodes[nodeName]
-            node.startKeySharing()
-        elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showValidNodes()
-            return
-        else:
-            tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showStartedNodes()
-            return
+    # def keyshare(self, nodeName):
+    #     node = self.nodes.get(nodeName, None)
+    #     if node is not None:
+    #         node = self.nodes[nodeName]
+    #         node.startKeySharing()
+    #     elif nodeName not in self.nodeReg:
+    #         tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showValidNodes()
+    #         return
+    #     else:
+    #         tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showStartedNodes()
+    #         return
 
     def showStartedNodes(self):
         self.printTokens([(Token, "Started nodes are: ")])
@@ -890,19 +889,22 @@ class Cli:
         nodes = []
         for name in names:
             try:
+                nodeRegistry = None if self.nodeRegLoadedFromFile \
+                    else self.nodeRegistry
+                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
                 node = self.NodeClass(name,
-                                  nodeRegistry=None if self.nodeRegLoadedFromFile
-                                  else self.nodeRegistry,
-                                  basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths,
-                                  config=self.config)
+                                      nodeRegistry=nodeRegistry,
+                                      basedirpath=self.basedirpath,
+                                      pluginPaths=self.pluginPaths,
+                                      config=self.config)
             except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
                 self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
             self.looper.add(node)
             if not self.nodeRegLoadedFromFile:
-                node.startKeySharing()
+                # node.startKeySharing()
+                tellKeysToOthers(node, self.nodes.values())
 
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
@@ -1008,7 +1010,7 @@ class Cli:
                   config=None):
         try:
             self.ensureValidClientId(clientName)
-            if not isLocalKeepSetup(clientName, self.basedirpath):
+            if not areKeysSetup(clientName, self.basedirpath):
                 client_addr = genHa(ip='0.0.0.0')
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
@@ -1179,11 +1181,11 @@ class Cli:
             self.statusClient(client)
             return True
 
-    def _keyShareAction(self, matchedVars):
-        if matchedVars.get('node_command') == 'keyshare':
-            name = matchedVars.get('node_name')
-            self.keyshare(name)
-            return True
+    # def _keyShareAction(self, matchedVars):
+    #     if matchedVars.get('node_command') == 'keyshare':
+    #         name = matchedVars.get('node_name')
+    #         self.keyshare(name)
+    #         return True
 
     def _clientCommand(self, matchedVars):
         if matchedVars.get('client') == 'client':

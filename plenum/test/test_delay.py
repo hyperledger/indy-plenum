@@ -1,11 +1,12 @@
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually, slowFactor
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.server.node import Node
 from plenum.test.delayers import delayerMsgTuple
-from plenum.test.helper import sendMsgAndCheck, addNodeBack, assertExp
+from plenum.test.helper import sendMsgAndCheck, addNodeBack, assertExp, sendMsg, \
+    checkMsg
 from plenum.test.msgs import randomMsg
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone, prepareNodeSet
@@ -21,30 +22,33 @@ def testTestNodeDelay(tdir_for_func):
         nodeB = nodes.getNode("testB")
 
         with Looper(nodes) as looper:
-            for n in nodes:
-                n.startKeySharing()
+            # for n in nodes:
+            #     n.startKeySharing()
 
             logger.debug("connect")
             looper.run(checkNodesConnected(nodes))
             logger.debug("send one message, without delay")
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 1))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 2))
             logger.debug("set delay, then send another message and find that "
                           "it doesn't arrive")
             msg = randomMsg()
 
-            nodeB.nodeIbStasher.delay(delayerMsgTuple(6, type(msg), nodeA.name))
+            nodeB.nodeIbStasher.delay(delayerMsgTuple(10 * slowFactor, type(msg), nodeA.name))
 
+            sendMsg(nodes, nodeA, nodeB, msg)
             with pytest.raises(AssertionError):
-                looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 3))
+                looper.run(eventually(checkMsg, msg, nodes, nodeB,
+                                         retryWait=.1, timeout=6))
             logger.debug("but then find that it arrives after the delay "
-                          "duration has passed")
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 4))
+                         "duration has passed")
+            looper.run(eventually(checkMsg, msg, nodes, nodeB,
+                                     retryWait=.1, timeout=6))
             logger.debug(
                     "reset the delay, and find another message comes quickly")
             nodeB.nodeIbStasher.resetDelays()
             msg = randomMsg()
-            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 1))
+            looper.run(sendMsgAndCheck(nodes, nodeA, nodeB, msg, 2))
 
 
 def testSelfNominationDelay(tdir_for_func):

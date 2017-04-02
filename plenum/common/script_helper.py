@@ -2,17 +2,18 @@ import os
 
 from jsonpickle import json
 from ledger.stores.text_file_store import TextFileStore
+from stp_core.loop.eventually import eventually
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
+from stp_raet.util import getLocalVerKey, getLocalPubKey
+
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX
-from plenum.common.eventually import eventually
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import initLocalKeep, getLocalVerKey, getLocalPubKey
+from plenum.common.transactions import PlenumTransactions
 from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.transactions import PlenumTransactions
-from plenum.common.types import HA
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
@@ -99,13 +100,6 @@ def storeExportedTxns(baseDir, txn):
 def storeGenTxns(baseDir, txn):
     storeToFile(baseDir, GenTxnFile, txn, None, storeHash=False,
                 isLineNoKey=True)
-
-
-def initKeep(baseDir, name, sigseed, override=False):
-    pubkey, verkey = initLocalKeep(name, baseDir, sigseed, override)
-    print("Public key is", pubkey)
-    print("Verification key is", verkey)
-    return pubkey, verkey
 
 
 def getStewardKeyFromName(baseDir, name):

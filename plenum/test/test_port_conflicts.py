@@ -1,11 +1,12 @@
 import pytest
+from stp_zmq.zstack import ZStack
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import isPortUsed
-from plenum.common.types import NodeDetail, HA
+from stp_raet.util import isPortUsedByRaetRemote
+from plenum.common.types import NodeDetail
 
 
-# noinspection PyIncorrectDocstring
 @pytest.fixture('module')
 def overlapNodePorts(nodeReg):
     """
@@ -27,7 +28,10 @@ def testOverlappingNodePorts(up):
 
 
 def testUsedPortDetection(tdir, client1):
-    port = client1.nodestack.ha[1]
-    assert isPortUsed(tdir, port)
-    newPort = genHa()[1]
-    assert not isPortUsed(tdir, newPort)
+    if isinstance(client1.nodestack, ZStack):
+        pytest.skip("ZStack does not store port numbers on disk")
+    else:
+        port = client1.nodestack.ha[1]
+        assert isPortUsedByRaetRemote(tdir, port)
+        newPort = genHa()[1]
+        assert not isPortUsedByRaetRemote(tdir, newPort)

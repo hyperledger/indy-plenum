@@ -1,18 +1,17 @@
 import time
 from functools import partial
 
-from plenum.common.eventually import eventuallyAll
+from stp_core.loop.eventually import eventuallyAll
 from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
-from plenum.test.helper import getPrimaryReplica
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
-    getAllReplicas
+    getAllReplicas, getPrimaryReplica
 
 
-def checkPropagated(looper, nodeSet, request, faultyNodes=0):
+def checkPropagated(looper, nodeSet, request, faultyNodes=0, timeout=10):
     nodesSize = len(list(nodeSet.nodes))
 
     # noinspection PyIncorrectDocstring
@@ -40,7 +39,7 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
 
     coros = [partial(g, node) for node in nodeSet]
     looper.run(eventuallyAll(*coros,
-                             totalTimeout=10,
+                             totalTimeout=timeout,
                              acceptableFails=faultyNodes))
 
 
@@ -48,7 +47,8 @@ def checkPrePrepared(looper,
                      nodeSet,
                      propagated1,
                      instIds,
-                     faultyNodes=0):
+                     faultyNodes=0,
+                     timeout=30):
     nodesSize = len(list(nodeSet))
 
     def g(instId):
@@ -80,7 +80,8 @@ def checkPrePrepared(looper,
                     propagated1.identifier,
                     propagated1.reqId,
                     propagated1.digest,
-                    time.time())
+                    time.time()
+            )
 
             passes = 0
             for npr in nonPrimaryReplicas:
@@ -161,10 +162,11 @@ def checkPrePrepared(looper,
         nonPrimaryReceivesCorrectNumberOfPREPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=30))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
-def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0):
+def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
+                  timeout=30):
     nodeCount = len(list(nodeSet.nodes))
     f = getMaxFailures(nodeCount)
 
@@ -267,10 +269,11 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0):
         nonPrimaryReplicasReceiveCorrectNumberOfPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=30))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
-def checkCommited(looper, nodeSet, prepared1, instIds, faultyNodes=0):
+def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
+                   timeout=60):
     nodeCount = len((list(nodeSet)))
     f = getMaxFailures(nodeCount)
 
@@ -334,7 +337,7 @@ def checkCommited(looper, nodeSet, prepared1, instIds, faultyNodes=0):
         replicasSeesCorrectNumOfCOMMITs()
 
     coros = [partial(g, instId) for instId in instIds]
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=60))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
 def msgCountOK(nodesSize,

@@ -12,7 +12,7 @@ Where <node_name> is one of Alpha, Beta, Gamma, Delta.
 import sys
 from collections import OrderedDict
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.server.node import Node
 

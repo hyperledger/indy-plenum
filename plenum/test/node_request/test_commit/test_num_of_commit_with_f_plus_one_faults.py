@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 
 from plenum.common.util import getNoInstances, adict
-from plenum.test.node_request.node_request_helper import checkCommited
+from plenum.test.node_request.node_request_helper import checkCommitted
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
     changesRequest
@@ -38,8 +38,8 @@ def afterElection(setup, up):
 def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
                                           nodeSet, prepared1, noRetryReq):
     with pytest.raises(AssertionError):
-        checkCommited(looper,
-                      nodeSet,
-                      prepared1,
-                      range(getNoInstances(len(nodeSet))),
-                      faultyNodes)
+        checkCommitted(looper,
+                       nodeSet,
+                       prepared1,
+                       range(getNoInstances(len(nodeSet))),
+                       faultyNodes)

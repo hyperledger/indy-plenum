@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.server.node import Node
 from plenum.test.helper import sendRandomRequest, \
