@@ -123,7 +123,7 @@ listIdsCmd = Command(
 
 useIdCmd = Command(
     id="use identifier",
-    title="Marks given idetifier active/default",
+    title="Marks given identifier active/default",
     usage="use identifier <identifier>",
     note="Note: To see all identifiers in active keyring, use 'list ids' command",
     examples="use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")

@@ -109,8 +109,8 @@ class HasPoolManager(TxnStackManager):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug(
                 "Client {} not changing {} since it is same as existing"

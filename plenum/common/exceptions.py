@@ -1,6 +1,8 @@
 from plenum.server.suspicion_codes import Suspicion
 from re import compile
 
+from plenum.server.suspicion_codes import Suspicion
+
 
 class ReqInfo:
     def __init__(self, identifier=None, reqId=None):
