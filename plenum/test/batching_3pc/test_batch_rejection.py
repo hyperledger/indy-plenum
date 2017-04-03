@@ -12,6 +12,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 @pytest.fixture(scope="module")
 def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
+    # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 

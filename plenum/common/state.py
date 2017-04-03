@@ -1,6 +1,6 @@
 from binascii import unhexlify
 
-from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles
+from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles, BLANK_NODE
 from state.db.persistent_db import PeristentDB
 from state.db.refcount_db import RefcountDB
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
@@ -98,7 +98,10 @@ class PruningState(State):
         self.db.db.put(self.rootHashKey, rootHash)
 
     def revertToHead(self, headHash=None):
-        head = self.trie._decode_to_node(headHash)
+        if headHash != BLANK_ROOT:
+            head = self.trie._decode_to_node(headHash)
+        else:
+            head = BLANK_NODE
         self.trie.replace_root_hash(self.trie.root_node, head)
 
     @property

@@ -1062,9 +1062,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def msgHasAcceptableViewNo(self, msg, frm) -> bool:
         """
         Return true if the view no of message corresponds to the current view
-        no, or a view no in the past that the replicas know of or a view no in
-        the future
-
+        no or a view no in the future
         :param msg: the node message to validate
         :return:
         """

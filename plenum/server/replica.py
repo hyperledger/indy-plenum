@@ -488,13 +488,13 @@ class Replica(HasActionQueue, MessageProcessor):
     #                      format(self, (req.identifier, req.reqId)))
     #         self._stashInBox(req)
 
-    def trackBatches(self, pp: PrePrepare, prevStateRoot):
+    def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # ppReq.discarded indicates the index from where the discarded requests
         #  starts hence the count of accepted requests, prevStateRoot is
         # tracked to revert this PRE-PREPARE
         logger.debug('{} tracking batch for {} with state root {}'.
-                     format(self, pp, prevStateRoot))
-        self.batches[pp.ppSeqNo] = [pp.discarded, pp.ppTime, prevStateRoot]
+                     format(self, pp, prevStateRootHash))
+        self.batches[pp.ppSeqNo] = [pp.discarded, pp.ppTime, prevStateRootHash]
 
     def send3PCBatch(self):
         if not self.node.isParticipating:
@@ -507,10 +507,10 @@ class Replica(HasActionQueue, MessageProcessor):
                                 self.lastBatchCreated +
                                 self.config.Max3PCBatchWait >
                                 time.perf_counter() and len(q) > 0):
-                oldStateRoot = self.stateRootHash(lid, toHex=False)
+                oldStateRootHash = self.stateRootHash(lid, toHex=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
-                self.trackBatches(ppReq, oldStateRoot)
+                self.trackBatches(ppReq, oldStateRootHash)
                 r += 1
 
         if r > 0:
@@ -676,8 +676,14 @@ class Replica(HasActionQueue, MessageProcessor):
         # If COMMIT or PREPARE corresponding to which a PRE-PREPARE is
         # received then proceed otherwise only proceed further if primary
         # is known
+        if msg.viewNo < self.viewNo:
+            self.discard(msg,
+                         "its a previous view message",
+                         logger.debug)
+            return
         if isinstance(msg, PrePrepare) or not self.getPrePrepare(msg.viewNo,
                                                                  msg.ppSeqNo):
+            # TODO: This is incomplete
             if self.isPrimary is None:
                 self.postElectionMsgs.append((msg, sender))
                 logger.debug("Replica {} pended request {} from {}".
@@ -873,8 +879,8 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
         logger.info('{} reverting {} txns and state root from {} to {} for'
-                    ' ledger {}'.format(self, reqCount, state.headHash, stateRootHash,
-                                        ledgerId))
+                    ' ledger {}'.format(self, reqCount, state.headHash,
+                                        stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
 
@@ -1384,39 +1390,40 @@ class Replica(HasActionQueue, MessageProcessor):
                      format(self, i, key))
         return i
 
-    # TODO: This needs to be worked ASAP
-    # def gc(self, tillSeqNo):
-    #     logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
-    #     tpcKeys = set()
-    #     reqKeys = set()
-    #     for (v, p), (reqKey, _) in self.sentPrePrepares.items():
-    #         if p <= tillSeqNo:
-    #             tpcKeys.add((v, p))
-    #             reqKeys.add(reqKey)
-    #     for (v, p), pp in self.prePrepares.items():
-    #         if p <= tillSeqNo:
-    #             tpcKeys.add((v, p))
-    #             reqKeys.add(reqKey)
-    #
-    #     logger.debug("{} found {} 3 phase keys to clean".
-    #                  format(self, len(tpcKeys)))
-    #     logger.debug("{} found {} request keys to clean".
-    #                  format(self, len(reqKeys)))
-    #
-    #     for k in tpcKeys:
-    #         self.sentPrePrepares.pop(k, None)
-    #         self.prePrepares.pop(k, None)
-    #         self.prepares.pop(k, None)
-    #         self.commits.pop(k, None)
-    #         # if k in self.ordered:
-    #         #     self.ordered.remove(k)
-    #
-    #     for k in reqKeys:
-    #         self.requests[k].forwardedTo -= 1
-    #         if self.requests[k].forwardedTo == 0:
-    #             logger.debug('{} clearing requests {} from previous checkpoints'.
-    #                          format(self, len(reqKeys)))
-    #             self.requests.pop(k)
+    def gc(self, tillSeqNo):
+        logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
+        tpcKeys = set()
+        reqKeys = set()
+        for (v, p), pp in self.sentPrePrepares.items():
+            if p <= tillSeqNo:
+                tpcKeys.add((v, p))
+                for reqKey in pp.reqIdr:
+                    reqKeys.add(reqKey)
+        for (v, p), pp in self.prePrepares.items():
+            if p <= tillSeqNo:
+                tpcKeys.add((v, p))
+                for reqKey in pp.reqIdr:
+                    reqKeys.add(reqKey)
+
+        logger.debug("{} found {} 3 phase keys to clean".
+                     format(self, len(tpcKeys)))
+        logger.debug("{} found {} request keys to clean".
+                     format(self, len(reqKeys)))
+
+        for k in tpcKeys:
+            self.sentPrePrepares.pop(k, None)
+            self.prePrepares.pop(k, None)
+            self.prepares.pop(k, None)
+            self.commits.pop(k, None)
+            # if k in self.ordered:
+            #     self.ordered.remove(k)
+
+        for k in reqKeys:
+            self.requests[k].forwardedTo -= 1
+            if self.requests[k].forwardedTo == 0:
+                logger.debug('{} clearing requests {} from previous checkpoints'.
+                             format(self, len(reqKeys)))
+                self.requests.pop(k)
 
     def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
         self.stashingWhileOutsideWaterMarks.append(item)
@@ -1491,6 +1498,11 @@ class Replica(HasActionQueue, MessageProcessor):
                          "requests. PrePrepare {} from {}".format(ppMsg, sender))
             self.prePreparesPendingFinReqs.append((ppMsg, sender, nonFinReqs))
         else:
+            # Possible exploit, an malicious party can send an invalid
+            # pre-prepare and over-write the correct one?
+            logger.debug(
+                "Queueing pre-prepares due to unavailability of previous "
+                "pre-prepares. PrePrepare {} from {}".format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (ppMsg, sender)
 
     def dequeuePrePrepares(self):
@@ -1513,6 +1525,11 @@ class Replica(HasActionQueue, MessageProcessor):
         while self.prePreparesPendingPrevPP and self.isNextPrePrepare(
                 self.prePreparesPendingPrevPP.iloc[0][1]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
+            if pp.viewNo < self.viewNo:
+                self.discard(pp,
+                             "Pre-Prepare from a previous view",
+                             logger.debug)
+                continue
             self.processPrePrepare(pp, sender)
             r += 1
         return r

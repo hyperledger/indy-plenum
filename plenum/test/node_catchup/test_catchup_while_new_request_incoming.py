@@ -25,7 +25,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
 
     def chkAfterCall(self, req, frm):
         r = self.processCatchupReq(req, frm)
-        typ = getattr(req, f.LEDGER_TYPE.nm)
+        typ = getattr(req, f.LEDGER_ID.nm)
         if typ == 1:
             ledger = self.getLedgerForMsg(req)
             assert req.catchupTill < ledger.size

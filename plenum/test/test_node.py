@@ -193,6 +193,7 @@ class TestNodeCore(StackedTester):
             state = self.getState(DOMAIN_LEDGER_ID)
             key = '{}:{}'.format(request.identifier, request.reqId).encode()
             state.set(key, json.dumps(request.operation).encode())
+            logger.trace('{} after adding to state, headhash is {}'.format(self, state.headHash))
             return True
         else:
             return r
