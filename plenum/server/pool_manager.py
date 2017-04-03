@@ -10,6 +10,7 @@ from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
 
 from plenum.common.types import f
@@ -228,8 +229,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         nodeName = nodeInfo[DATA][ALIAS]
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug("Node {} not changing {} since it is same as existing"
                          .format(nodeNym, SERVICES))
