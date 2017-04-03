@@ -1,4 +1,4 @@
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Checkpoint
 from plenum.test.checkpoints.conftest import CHK_FREQ
 from plenum.test.checkpoints.helper import chkChkpoints
@@ -14,8 +14,7 @@ def testDiscardCheckpointMsgForStableCheckpoint(chkFreqPatched, looper,
     node1 = txnPoolNodeSet[0]
     rep1 = node1.replicas[0]
     _, stableChk = rep1.firstCheckPoint
-    oldChkpointMsg = Checkpoint(rep1.instId, rep1.viewNo, stableChk.seqNo,
-                         stableChk.digest)
+    oldChkpointMsg = Checkpoint(rep1.instId, rep1.viewNo, *_, stableChk.digest)
     rep1.send(oldChkpointMsg)
     recvReplicas = [n.replicas[0] for n in txnPoolNodeSet[1:]]
     looper.run(eventually(checkDiscardMsg, recvReplicas, oldChkpointMsg,

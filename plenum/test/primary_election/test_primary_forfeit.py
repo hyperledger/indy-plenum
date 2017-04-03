@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import getPrimaryReplica
+from plenum.test.test_node import getPrimaryReplica
 
 
 @pytest.mark.skip(reason="SOV-556. Test implementation pending, "

@@ -11,7 +11,7 @@ TODO: demonstrate client verification key bootstrapping
 #TODO Remove this file, just for now
 
 from plenum.client.client import Client
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.config_util import getConfig
 

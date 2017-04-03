@@ -10,7 +10,7 @@ TODO: demonstrate client verification key bootstrapping
 from collections import OrderedDict
 
 from plenum.client.client import Client
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 

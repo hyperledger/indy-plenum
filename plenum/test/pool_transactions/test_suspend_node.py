@@ -1,6 +1,6 @@
 import pytest
 from plenum.client.client import Client
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
@@ -10,7 +10,6 @@ from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import suspendNode, \
     buildPoolClientAndWallet, cancelNodeSuspension
-from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkNodesConnected
 
 whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
@@ -39,7 +38,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                             allPluginsPath):
 
     newSteward, newStewardWallet, newNode = nodeThetaAdded
-    newNodeNym = hexToFriendly(newNode.nodestack.local.signer.verhex)
+    newNodeNym = hexToFriendly(newNode.nodestack.verhex)
     suspendNode(looper, newSteward, newStewardWallet, newNodeNym, newNode.name)
     # Check suspended node does not exist in any nodeReg or remotes of
     # nodes or clients

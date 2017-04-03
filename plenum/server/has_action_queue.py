@@ -1,6 +1,5 @@
 import time
 from collections import deque
-from functools import partial
 from typing import Callable
 
 from plenum.common.log import getlogger

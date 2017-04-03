@@ -1,7 +1,7 @@
 from functools import partial
 
-from plenum.common.eventually import eventually
-from plenum.common.looper import Looper
+from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import TestNodeSet, getNonPrimaryReplicas, \

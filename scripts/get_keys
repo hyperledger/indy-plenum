@@ -8,11 +8,11 @@ import os
 import sys
 
 from plenum.common.sys_util import getLoggedInUser
-from raet.nacling import Signer, Privateer
+from stp_core.crypto.nacl_wrappers import Signer, Privateer
 
 
 # TODO: Abstract this functionality in a method inside plenum/common/raet.py so
-# it can be used in sovrin too. Look at how init_plenum_raet_keep is implemented
+# it can be used in sovrin too. Look at how init_plenum_keys is implemented
 
 def breakIt(message):
     print(message)
