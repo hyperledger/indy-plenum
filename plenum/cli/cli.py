@@ -31,7 +31,7 @@ from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable
     RaetKeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
-from stp_core.crypto.util import cleanSeed
+from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
@@ -1295,9 +1295,10 @@ class Cli:
     def isValidSeedForNewKey(self, seed):
         if seed:
             seed = seed.strip()
-            if len(seed) != 32:
-                self.print('Seed needs to be 32 characters long but is {} '
-                           'characters long'.format(len(seed)), Token.Error)
+            if len(seed) != 32 and not seedFromHex(seed):
+                self.print('Seed needs to be 32 or 64 characters (if hex) long '
+                           'but is {} characters long'.format(len(seed)),
+                           Token.Error)
                 return False
 
         return True
