@@ -26,7 +26,7 @@ from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
-from stp_core.loop.looper import Looper
+from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
@@ -98,8 +98,11 @@ def setResourceLimits():
     import resource
     flimit = 65535
     plimit = 65535
-    resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
-    resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
+        resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
+    except Exception as ex:
+        print('Could not set resource limits due to {}'.format(ex))
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -212,6 +215,8 @@ def logcapture(request, whitelist, concerningLogLevels):
             for fv in request._fixture_values.values():
                 if isinstance(fv, Looper):
                     fv.stopall()
+                if isinstance(fv, Prodable):
+                    fv.stop()
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
