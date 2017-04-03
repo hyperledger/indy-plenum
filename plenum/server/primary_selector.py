@@ -1,4 +1,4 @@
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 

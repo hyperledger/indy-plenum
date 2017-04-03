@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.types import Propagate
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 nodeCount = 4
 faultyNodes = 1

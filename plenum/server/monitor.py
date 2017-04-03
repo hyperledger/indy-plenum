@@ -9,7 +9,7 @@ import psutil
 from plenum.common.stacks import NodeRStack
 
 from plenum.common.config_util import getConfig
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.types import EVENT_REQ_ORDERED, EVENT_NODE_STARTED, \
     EVENT_PERIODIC_STATS_THROUGHPUT, PLUGIN_TYPE_STATS_CONSUMER, \
     EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_LATENCIES, \

@@ -5,7 +5,7 @@ from ioflo.aid import getConsole
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail

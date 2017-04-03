@@ -1,5 +1,5 @@
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     sendRandomRequest, checkSufficientRepliesForRequests
