@@ -7,8 +7,7 @@ from os.path import basename, dirname
 from typing import Dict, Iterable
 
 import pyorient
-from jsonpickle import json, encode, decode
-from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -41,6 +40,7 @@ from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFI
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -74,14 +74,13 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
-    createDirIfNotExists, getFriendlyIdentifier, saveGivenWallet, \
+    getFriendlyIdentifier, saveGivenWallet, \
     normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
     getLastSavedWalletFileName
 from plenum.common.log import getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
-from plenum.common.types import NodeDetail, HA
-from stp_core.types import HA
+from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
