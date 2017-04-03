@@ -11,7 +11,7 @@ from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NOD
 from plenum.common.types import PoolLedgerTxns, f, HA
 from plenum.common.util import getMaxFailures
 from plenum.common.txn_util import updateGenesisPoolTxnFile
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 t = f.TXN.nm
