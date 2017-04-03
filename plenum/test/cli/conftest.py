@@ -1,14 +1,16 @@
+import warnings
 from collections import OrderedDict
+from itertools import groupby
 
 import pytest
+from _pytest.recwarn import WarningsRecorder
 
-from plenum.common.eventually import eventually
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
+from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 from plenum.common.util import adict
-
 from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
     doByCtx
+from stp_core.network.port_dispenser import genHa
 
 
 @pytest.yield_fixture(scope="module")
@@ -42,6 +44,7 @@ def cli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
 def aliceCli(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited):
     return newCLI(cliLooper, tdir, unique_name='alice')
+
 
 
 @pytest.fixture("module")

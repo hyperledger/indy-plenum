@@ -2,12 +2,11 @@ import operator
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.util import getNoInstances
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
-from plenum.test.helper import getPrimaryReplica
-from plenum.test.test_node import checkProtocolInstanceSetup
+from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test.view_change.conftest import viewNo
 from plenum.test.view_change.test_view_change import viewChangeDone
 

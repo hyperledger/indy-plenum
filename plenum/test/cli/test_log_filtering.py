@@ -1,6 +1,6 @@
 import types
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import checkRequest
 from plenum.test.helper import checkSufficientRepliesRecvd

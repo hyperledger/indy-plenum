@@ -7,11 +7,12 @@ from plenum.common.txn_util import updateGenesisPoolTxnFile
 from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest, RemoteNotFound
+    UnauthorizedClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.types import HA
 
-from plenum.common.types import HA, f, Reply
+from plenum.common.types import f
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX
@@ -187,12 +188,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.nodestack.name))
-            self.node.nodestack.keep.clearLocalData()
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.clientstack.name))
-            self.node.clientstack.keep.clearLocalData()
+            if not self.config.UseZStack:
+                logger.debug("{} clearing local data in keep".
+                             format(self.node.nodestack.name))
+                self.node.nodestack.keep.clearLocalData()
+                logger.debug("{} clearing local data in keep".
+                             format(self.node.clientstack.name))
+                self.node.clientstack.keep.clearLocalData()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:

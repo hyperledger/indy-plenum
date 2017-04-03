@@ -2,8 +2,8 @@ import logging
 from functools import partial
 
 import pytest
-from plenum.test.malicious_behaviors_node import makeNodeFaulty, delaysPrePrepareProcessing, \
-    changesRequest
+from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
+    delaysPrePrepareProcessing, changesRequest
 from plenum.common.util import adict
 from plenum.common.log import getlogger
 

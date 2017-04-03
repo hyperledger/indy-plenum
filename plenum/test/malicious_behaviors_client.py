@@ -30,7 +30,7 @@ def genDoesntSendRequestToSomeNodes(*nodeName: str,
             ovrdRids = [rid for rid in client.nodestack.remotes.keys()
                         if rid not in skipIds]
         else:
-            ovrdRids = client.nodestack.remotes.keys()[skipCount:]
+            ovrdRids = list(client.nodestack.remotes.keys())[skipCount:]
 
         def evilSend(self, msg, *rids, signer=None) -> None:
             logger.debug("EVIL: sending to less nodes {}, ignoring passed "

@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.test.cli.helper import loadPlugin, assertNoClient, \
     createClientAndConnect, checkReply, checkSuccess, checkBalance
 

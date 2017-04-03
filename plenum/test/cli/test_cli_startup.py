@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.util import firstValue
 from plenum.test.cli.helper import newCLI
 

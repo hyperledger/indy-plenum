@@ -1,8 +1,8 @@
 from typing import Iterable
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import addNodeBack, ordinal
@@ -31,8 +31,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
 
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
 
             # helpers
 

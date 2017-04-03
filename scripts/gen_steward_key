@@ -4,8 +4,9 @@ import argparse
 
 from sys import argv
 
-from plenum.common.script_helper import buildKeepDirIfNotExists, initKeep, \
+from plenum.common.script_helper import buildKeepDirIfNotExists, \
     generateStewardGenesisTxn
+from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.config_util import getConfig
 
 config = getConfig()
@@ -28,7 +29,7 @@ if __name__ == "__main__":
 
     try:
         # Initialize node stack
-        pubkey, verkey = initKeep(config.baseDir, name, args.seed, args.force)
+        pubkey, verkey = initLocalKeys(name, config.baseDir, args.seed, args.force)
         # Print genesis transaction commands
         generateStewardGenesisTxn(config.baseDir, args.print_gen_txn, args.name,
                                   verkey)

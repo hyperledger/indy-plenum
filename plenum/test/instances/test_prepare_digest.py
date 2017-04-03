@@ -2,14 +2,14 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Prepare
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
              'Invalid prepare message received',

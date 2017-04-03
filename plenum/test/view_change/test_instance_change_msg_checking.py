@@ -1,4 +1,4 @@
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import InstanceChange
 from plenum.test.test_node import TestNode
 

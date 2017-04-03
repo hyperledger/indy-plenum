@@ -79,11 +79,12 @@ statusClientCmd = Command(
     usage="status client <name>",
     examples="status client Alice")
 
-keyShareCmd = Command(
-    id="keyshare",
-    title="Manually starts key sharing of a node",
-    usage="keyshare node <name>",
-    examples="keyshare node Alpha")
+# TODO: Obsolete, Needs to be removed
+# keyShareCmd = Command(
+#     id="keyshare",
+#     title="Manually starts key sharing of a node",
+#     usage="keyshare node <name>",
+#     examples="keyshare node Alpha")
 
 loadPluginsCmd = Command(
     id="load plugins",
@@ -122,7 +123,7 @@ listIdsCmd = Command(
 
 useIdCmd = Command(
     id="use identifier",
-    title="Marks given idetifier active/default",
+    title="Marks given identifier active/default",
     usage="use identifier <identifier>",
     note="Note: To see all identifiers in active keyring, use 'list ids' command",
     examples="use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
