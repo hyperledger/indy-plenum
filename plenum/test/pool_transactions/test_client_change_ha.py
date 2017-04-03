@@ -1,12 +1,11 @@
 import os
 import shutil
 
-from plenum.common.port_dispenser import genHa
-from plenum.test.test_client import genTestClient
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
-
+from plenum.test.test_client import genTestClient
+from stp_core.network.port_dispenser import genHa
 
 whitelist = ['client already added']
 

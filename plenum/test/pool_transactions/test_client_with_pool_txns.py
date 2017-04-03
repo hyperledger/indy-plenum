@@ -1,4 +1,4 @@
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
@@ -30,11 +30,11 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
     logger.debug("{} starting at {}".format(newClient, newClient.nodestack.ha))
     looper.add(newClient)
     logger.debug("Public keys of client {} {}".format(
-        newClient.nodestack.local.priver.keyhex,
-        newClient.nodestack.local.priver.pubhex))
+        newClient.nodestack.prihex,
+        newClient.nodestack.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
     newClient.stop()
     looper.removeProdable(newClient)
@@ -44,11 +44,11 @@ def testClientConnectAfterRestart(looper, txnPoolNodeSet, tdirWithPoolTxns):
                                                   newClient.nodestack.ha))
     looper.add(newClient)
     logger.debug("Public keys of client {} {}".format(
-        newClient.nodestack.local.priver.keyhex,
-        newClient.nodestack.local.priver.pubhex))
+        newClient.nodestack.prihex,
+        newClient.nodestack.pubhex))
     logger.debug("Signer keys of client {} {}".format(
-        newClient.nodestack.local.signer.keyhex,
-        newClient.nodestack.local.signer.verhex))
+        newClient.nodestack.keyhex,
+        newClient.nodestack.verhex))
     looper.run(newClient.ensureConnectedToNodes())
 
 

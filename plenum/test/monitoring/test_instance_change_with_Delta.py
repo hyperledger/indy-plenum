@@ -2,13 +2,14 @@ import logging
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
 from plenum.test.helper import checkViewNoForNodes, \
-    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies
+    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests
+from plenum.test.test_node import getPrimaryReplica
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -101,11 +102,11 @@ def step2(step1, looper):
 def step3(step2):
 
     # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
-    def by3IfPrePrepare(msg):
+    def ifPrePrepare(msg):
         if isinstance(msg, PrePrepare):
-            return 3
+            return 5
 
-    step2.P.outBoxTestStasher.delay(by3IfPrePrepare)
+    step2.P.outBoxTestStasher.delay(ifPrePrepare)
     # send requests to client
     return step2
 
@@ -117,5 +118,22 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
+    def chkViewChange(newViewNo):
+        if {n.viewNo for n in step3.nodes} != {newViewNo}:
+            tr = []
+            for n in step3.nodes:
+                tr.append(n.monitor.isMasterThroughputTooLow())
+            if all(tr):
+                logger.debug('Throughput ratio gone down')
+                checkViewNoForNodes(step3.nodes, newViewNo)
+            else:
+                logger.debug('Master instance has not degraded yet, '
+                             'sending more requests')
+                sendRandomRequests(wallet1, client1, 1)
+                assert False
+        else:
+            assert True
+
     # verify all nodes have undergone an instance change
-    looper.run(eventually(checkViewNoForNodes, step3.nodes, 1, timeout=10))
+    looper.run(eventually(chkViewChange, 1, retryWait=1, timeout=60))
+    # looper.run(eventually(checkViewNoForNodes, step3.nodes, 1, timeout=10))

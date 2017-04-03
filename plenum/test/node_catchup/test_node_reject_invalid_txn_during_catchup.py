@@ -3,7 +3,7 @@ from base64 import b64encode
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.constants import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
@@ -11,10 +11,15 @@ from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.test_node import checkNodesConnected
 
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
+
 logger = getlogger()
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-331')
+txnCount = 10
+
+
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
@@ -45,15 +50,17 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                 if txns[seqNo].get(TXN_TYPE) == "buy":
                     txns[seqNo][TXN_TYPE] = "randomtype"
             consProof = [b64encode(p).decode() for p in
-                     ledger.tree.consistency_proof(end, ledger.size)]
+                         ledger.tree.consistency_proof(end, ledger.size)]
             self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_TYPE.nm), txns,
                                        consProof), to=frm)
         else:
             self.processCatchupReq(req, frm)
 
-    # One of the node does not process catchup request.
+    # One of the node sends incorrect txns in catchup reply.
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
+    logger.debug(
+        'Catchup request processor of {} patched'.format(txnPoolNodeSet[0]))
 
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))

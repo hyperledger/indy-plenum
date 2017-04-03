@@ -1,20 +1,19 @@
 from __future__ import unicode_literals
 
-# noinspection PyUnresolvedReferences
 import glob
+import shutil
+from hashlib import sha256
+from os.path import basename, dirname
 from typing import Dict, Iterable
 
 import pyorient
-import shutil
-from hashlib import sha256
-from jsonpickle import json, encode, decode
+from jsonpickle import json
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
-from os.path import basename, dirname
-
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
-    keyShareCmd, loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
+    loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
     listKeyringCmd, listIdsCmd, useIdCmd, addGenesisTxnCmd, \
     createGenesisTxnFileCmd, changePromptCmd, exitCmd, quitCmd, Command
@@ -30,16 +29,18 @@ from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
     RaetKeysNotFoundException
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import getLocalEstateData
-from plenum.common.raet import isLocalKeepSetup
+from stp_core.crypto.util import cleanSeed, seedFromHex
+from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
     NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -55,9 +56,7 @@ import time
 import ast
 
 from functools import reduce, partial
-import logging
 import sys
-from collections import defaultdict
 
 from prompt_toolkit.history import FileHistory
 from ioflo.aid.consoling import Console
@@ -74,12 +73,14 @@ from prompt_toolkit.terminal.vt100_output import Vt100_Output
 from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
-    firstValue, randomString, cleanSeed, bootstrapClientKeys, \
-    createDirIfNotExists, getFriendlyIdentifier
-from plenum.common.log import CliHandler, getlogger, Logger, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath, TRACE_LOG_LEVEL
+    firstValue, randomString, bootstrapClientKeys, \
+    getFriendlyIdentifier, saveGivenWallet, \
+    normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
+    getLastSavedWalletFileName
+from plenum.common.log import getlogger, Logger, \
+    getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
-from plenum.common.types import NodeDetail, HA
+from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
@@ -311,14 +312,14 @@ class Cli:
             self._actions = [self._simpleAction, self._helpAction,
                              self._newNodeAction, self._newClientAction,
                              self._statusNodeAction, self._statusClientAction,
-                             self._keyShareAction, self._loadPluginDirAction,
+                             self._loadPluginDirAction,
                              self._clientCommand, self._addKeyAction,
                              self._newKeyAction, self._listIdsAction,
                              self._useIdentifierAction, self._addGenesisAction,
                              self._createGenTxnFileAction, self._changePrompt,
                              self._newKeyring, self._renameKeyring,
                              self._useKeyringAction, self._saveKeyringAction,
-                             self._listKeyringsAction ]
+                             self._listKeyringsAction]
         return self._actions
 
     @property
@@ -407,11 +408,11 @@ class Cli:
 
     def _renameWalletFile(self, oldWalletName, newWalletName):
         keyringsDir = self.getContextBasedKeyringsBaseDir()
-        oldWalletFilePath = Cli.getWalletFilePath(
-            keyringsDir, Cli._normalizedWalletFileName(oldWalletName))
+        oldWalletFilePath = getWalletFilePath(
+            keyringsDir, normalizedWalletFileName(oldWalletName))
         if os.path.exists(oldWalletFilePath):
-            newWalletFilePath = Cli.getWalletFilePath(
-            keyringsDir, Cli._normalizedWalletFileName(newWalletName))
+            newWalletFilePath = getWalletFilePath(
+            keyringsDir, normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
                 self.print("A persistent wallet file already exists for "
                            "new wallet name. Please choose new wallet name.")
@@ -576,7 +577,7 @@ class Cli:
     @activeClient.setter
     def activeClient(self, client):
         self._activeClient = client
-        self.print("Active client set to " + client.name)
+        self.print("Active client set to " + client.alias)
 
     @staticmethod
     def relist(seq):
@@ -657,7 +658,6 @@ class Cli:
         mappings['newClientAction'] = newClientCmd
         mappings['statusNodeAction'] = statusNodeCmd
         mappings['statusClientAction'] = statusClientCmd
-        mappings['keyShareAction'] = keyShareCmd
         mappings['clientSendMsgCommand'] = clientSendCmd
         mappings['clientShowMsgCommand'] = clientShowCmd
 
@@ -825,21 +825,21 @@ class Cli:
             self.print("Instances: "
                        "Not enough nodes to create protocol instances")
 
-    def keyshare(self, nodeName):
-        node = self.nodes.get(nodeName, None)
-        if node is not None:
-            node = self.nodes[nodeName]
-            node.startKeySharing()
-        elif nodeName not in self.nodeReg:
-            tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showValidNodes()
-            return
-        else:
-            tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
-            self.printTokens(tokens)
-            self.showStartedNodes()
-            return
+    # def keyshare(self, nodeName):
+    #     node = self.nodes.get(nodeName, None)
+    #     if node is not None:
+    #         node = self.nodes[nodeName]
+    #         node.startKeySharing()
+    #     elif nodeName not in self.nodeReg:
+    #         tokens = [(Token.Error, "Invalid node name '{}'.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showValidNodes()
+    #         return
+    #     else:
+    #         tokens = [(Token.Error, "Node '{}' not started.".format(nodeName))]
+    #         self.printTokens(tokens)
+    #         self.showStartedNodes()
+    #         return
 
     def showStartedNodes(self):
         self.printTokens([(Token, "Started nodes are: ")])
@@ -888,19 +888,22 @@ class Cli:
         nodes = []
         for name in names:
             try:
+                nodeRegistry = None if self.nodeRegLoadedFromFile \
+                    else self.nodeRegistry
+                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
                 node = self.NodeClass(name,
-                                  nodeRegistry=None if self.nodeRegLoadedFromFile
-                                  else self.nodeRegistry,
-                                  basedirpath=self.basedirpath,
-                                  pluginPaths=self.pluginPaths,
-                                  config=self.config)
+                                      nodeRegistry=nodeRegistry,
+                                      basedirpath=self.basedirpath,
+                                      pluginPaths=self.pluginPaths,
+                                      config=self.config)
             except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
                 self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
             self.looper.add(node)
             if not self.nodeRegLoadedFromFile:
-                node.startKeySharing()
+                # node.startKeySharing()
+                tellKeysToOthers(node, self.nodes.values())
 
             if len(self.clients) > 0:
                 self.bootstrapKey(self.activeWallet, node)
@@ -1006,7 +1009,7 @@ class Cli:
                   config=None):
         try:
             self.ensureValidClientId(clientName)
-            if not isLocalKeepSetup(clientName, self.basedirpath):
+            if not areKeysSetup(clientName, self.basedirpath):
                 client_addr = genHa(ip='0.0.0.0')
             else:
                 client_addr = tuple(getLocalEstateData(clientName,
@@ -1177,11 +1180,11 @@ class Cli:
             self.statusClient(client)
             return True
 
-    def _keyShareAction(self, matchedVars):
-        if matchedVars.get('node_command') == 'keyshare':
-            name = matchedVars.get('node_name')
-            self.keyshare(name)
-            return True
+    # def _keyShareAction(self, matchedVars):
+    #     if matchedVars.get('node_command') == 'keyshare':
+    #         name = matchedVars.get('node_name')
+    #         self.keyshare(name)
+    #         return True
 
     def _clientCommand(self, matchedVars):
         if matchedVars.get('client') == 'client':
@@ -1292,9 +1295,10 @@ class Cli:
     def isValidSeedForNewKey(self, seed):
         if seed:
             seed = seed.strip()
-            if len(seed) != 32:
-                self.print('Seed needs to be 32 characters long but is {} '
-                           'characters long'.format(len(seed)), Token.Error)
+            if len(seed) != 32 and not seedFromHex(seed):
+                self.print('Seed needs to be 32 or 64 characters (if hex) long '
+                           'but is {} characters long'.format(len(seed)),
+                           Token.Error)
                 return False
 
         return True
@@ -1350,7 +1354,11 @@ class Cli:
         if matchedVars.get('list_krs') == 'list keyrings':
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
-            envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
+            keyringBaseDir = self.getKeyringsBaseDir()
+            envPaths = [os.path.join(keyringBaseDir, e) for e in envs]
+            if len(envPaths) == 0:
+                envPaths = [keyringBaseDir]
+
             anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
@@ -1377,7 +1385,7 @@ class Cli:
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(fe, Cli._normalizedWalletFileName(pwn))
+                        f = os.path.join(fe, normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
                         isThisActiveWallet = True if contextDirPath == fe and \
                                self._activeWallet is not None and \
@@ -1431,9 +1439,9 @@ class Cli:
             return True
 
     def checkIfPersistentWalletExists(self, name, inContextDir=None):
-        toBeWalletFileName = Cli._normalizedWalletFileName(name)
+        toBeWalletFileName = normalizedWalletFileName(name)
         contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
-        toBeWalletFilePath = Cli.getWalletFilePath(
+        toBeWalletFilePath = getWalletFilePath(
             contextDir, toBeWalletFileName)
         if os.path.exists(toBeWalletFilePath):
             return toBeWalletFilePath
@@ -1490,7 +1498,7 @@ class Cli:
     def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
         wallet = self._getWalletByName(name)
         if not wallet:
-            walletFileName = Cli._normalizedWalletFileName(name)
+            walletFileName = normalizedWalletFileName(name)
             self.restoreWalletByName(walletFileName, copyAs=copyAs,
                                      override=override)
 
@@ -1704,55 +1712,44 @@ class Cli:
 
     def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
+            wallet = getWalletByPath(walletFilePath)
 
-            with open(walletFilePath) as walletFile:
-                try:
-                    # if wallet already exists, deserialize it
-                    # and set as active wallet
-                    wallet = decode(walletFile.read())
-                    if copyAs:
-                        wallet.name=copyAs
+            if copyAs:
+                wallet.name=copyAs
 
-                    if not self.performValidationCheck(wallet, walletFilePath,
-                                                       override):
-                        return False
+            if not self.performValidationCheck(wallet, walletFilePath,
+                                               override):
+                return False
 
-                    # As the persisted wallet restored and validated successfully,
-                    # before we restore it, lets save active wallet (if exists)
-                    if self._activeWallet:
-                        self._saveActiveWallet()
+            # As the persisted wallet restored and validated successfully,
+            # before we restore it, lets save active wallet (if exists)
+            if self._activeWallet:
+                self._saveActiveWallet()
 
-                    self._wallets[wallet.name] = wallet
-                    self.print('\nSaved keyring "{}" restored'.
-                               format(wallet.name), newline=False)
-                    self.print(" ({})".format(walletFilePath)
-                               , Token.Gray)
-                    self.activeWallet = wallet
-                    self.activeIdentifier = wallet.defaultId
+            self._wallets[wallet.name] = wallet
+            self.print('\nSaved keyring "{}" restored'.
+                       format(wallet.name), newline=False)
+            self.print(" ({})".format(walletFilePath)
+                       , Token.Gray)
+            self.activeWallet = wallet
+            self.activeIdentifier = wallet.defaultId
 
-                    self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
+            self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
-                    return True
-
-                except (ValueError, AttributeError) as e:
-                    self.logger.info(
-                        "error occurred while restoring wallet {}: {}".
-                            format(walletFilePath, e), Token.BoldOrange)
-        except IOError:
+            return True
+        except (ValueError, AttributeError) as e:
+            self.logger.info(
+                "error occurred while restoring wallet {}: {}".
+                    format(walletFilePath, e), Token.BoldOrange)
+        except IOError as e:
             self.logger.debug("No such keyring file exists ({})".
                               format(walletFilePath))
 
     def restoreLastActiveWallet(self):
-        filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
         baseFileName=None
         try:
-            def getLastModifiedTime(file):
-                return os.stat(file).st_mtime_ns
-
             keyringPath = self.getContextBasedKeyringsBaseDir()
-            newest = max(glob.iglob('{}/{}'.format(keyringPath, filePattern)),
-                         key=getLastModifiedTime)
-            baseFileName = basename(newest)
+            baseFileName = getLastSavedWalletFileName(keyringPath)
             self._searchAndSetWallet(os.path.join(keyringPath, baseFileName))
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
@@ -1767,7 +1764,7 @@ class Cli:
         raise e
 
     def restoreWalletByName(self, walletFileName, copyAs=None, override=False):
-        walletFilePath = self.getWalletFilePath(
+        walletFilePath = getWalletFilePath(
             self.getContextBasedKeyringsBaseDir(), walletFileName)
         self.restoreWalletByPath(walletFilePath, copyAs=copyAs, override=override)
 
@@ -1775,10 +1772,6 @@ class Cli:
     def getWalletKeyName(walletFileName):
         return walletFileName.replace(
             ".{}".format(WALLET_FILE_EXTENSION), "")
-
-    @staticmethod
-    def _normalizedWalletFileName(walletName):
-        return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
 
     @staticmethod
     def getPromptAndEnv(cliName, currPromptText):
@@ -1790,7 +1783,7 @@ class Cli:
     def getActiveWalletPersitentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
-        return Cli._normalizedWalletFileName(fileName)
+        return normalizedWalletFileName(fileName)
 
 
     @property
@@ -1833,10 +1826,6 @@ class Cli:
         pattern = "{}/*.{}".format(keyringPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
-    @staticmethod
-    def getWalletFilePath(basedir, walletFileName):
-        return os.path.join(basedir, walletFileName)
-
     @property
     def getActiveEnv(self):
         return None
@@ -1859,27 +1848,15 @@ class Cli:
 
     def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
         try:
-            createDirIfNotExists(contextDir)
-            walletFilePath = Cli.getWalletFilePath(
-                contextDir, self.walletFileName)
-            with open(walletFilePath, "w+") as walletFile:
-                try:
-                    encodedWallet = encode(self._activeWallet)
-                    walletFile.write(encodedWallet)
-                    if printMsgs:
-                        self.print('Active keyring "{}" saved'.format(
-                            self._activeWallet.name), newline=False)
-                        self.print(' ({})'.format(walletFilePath), Token.Gray)
-                except ValueError as ex:
-                    self.logger.info("ValueError: " +
-                                     "Could not save wallet while exiting\n {}"
-                                     .format(ex))
-                except IOError:
-                    self.logger.info(
-                        "IOError while writing data to wallet file"
-                    )
+            walletFilePath = saveGivenWallet(self._activeWallet,
+                                             self.walletFileName, contextDir)
+            if printMsgs:
+                self.print('Active keyring "{}" saved'.format(
+                    self._activeWallet.name), newline=False)
+                self.print(' ({})'.format(walletFilePath), Token.Gray)
+
         except IOError as ex:
-            self.logger.info("Error occurred while creating wallet. " +
+            self.logger.info("Error occurred while saving wallet. " +
                              "error no.{}, error.{}"
                              .format(ex.errno, ex.strerror))
 

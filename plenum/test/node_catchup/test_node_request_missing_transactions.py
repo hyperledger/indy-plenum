@@ -1,11 +1,17 @@
 import types
 
-from plenum.common.eventually import eventually
+import pytest
+
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
 from plenum.common.types import CatchupReq
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.test_node import checkNodesConnected
+
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
+
 
 logger = getlogger()
 

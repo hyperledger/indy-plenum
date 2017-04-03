@@ -8,9 +8,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, OP_FIELD_NAME
 
-HA = NamedTuple("HA", [
-    ("host", str),
-    ("port", int)])
+from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
     ("ha", HA),
@@ -56,6 +54,7 @@ class f:  # provides a namespace for reusable field constants
     LEDGER_TYPE = Field("ledgerType", int)
     SEQ_NO_START = Field("seqNoStart", int)
     SEQ_NO_END = Field("seqNoEnd", int)
+    CATCHUP_TILL = Field("catchupTill", int)
     HASHES = Field("hashes", List[str])
     TXNS = Field("txns", List[Any])
     TXN = Field("txn", Any)
@@ -90,9 +89,9 @@ class TaggedTupleBase:
 # noinspection PyProtectedMember
 def TaggedTuple(typename, fields):
     cls = NamedTuple(typename, fields)
-    if any(field == OP_FIELD_NAME for field in cls._fields):
-            raise RuntimeError("field name '{}' is reserved in TaggedTuple"
-                               .format(OP_FIELD_NAME))
+    if OP_FIELD_NAME in cls._fields:
+        raise RuntimeError("field name '{}' is reserved in TaggedTuple"
+                           .format(OP_FIELD_NAME))
     cls.__bases__ += (TaggedTupleBase,)
     cls.typename = typename
     return cls
@@ -130,8 +129,6 @@ BlacklistMsg = NamedTuple(BLACKLIST, [
 
 
 OPERATION = 'operation'
-
-Identifier = str
 
 RequestAck = TaggedTuple(REQACK, [
     f.IDENTIFIER,
@@ -190,11 +187,12 @@ Commit = TaggedTuple(COMMIT, [
 Checkpoint = TaggedTuple(CHECKPOINT, [
     f.INST_ID,
     f.VIEW_NO,
-    f.SEQ_NO,
+    f.SEQ_NO_START,
+    f.SEQ_NO_END,
     f.DIGEST])
 
 CheckpointState = NamedTuple(CHECKPOINT_STATE, [
-    f.SEQ_NO,
+    f.SEQ_NO,   # Current ppSeqNo in the checkpoint
     f.DIGESTS,  # Digest of all the requests in the checkpoint
     f.DIGEST,   # Final digest of the checkpoint, after all requests in its
     # range have been ordered
@@ -235,6 +233,7 @@ CatchupReq = TaggedTuple(CATCHUP_REQ, [
     f.LEDGER_TYPE,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
+    f.CATCHUP_TILL
 ])
 
 CatchupRep = TaggedTuple(CATCHUP_REP, [

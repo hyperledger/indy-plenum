@@ -61,8 +61,8 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-dev',
-                      'raet', 'jsonpickle', 'portalocker==0.5.7',
+    install_requires=['ledger-dev', 'stp-dev',
+                      'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil'],
@@ -71,7 +71,7 @@ setup(
     },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
-    scripts=['scripts/plenum', 'scripts/init_plenum_raet_keep',
+    scripts=['scripts/plenum', 'scripts/init_plenum_keys',
              'scripts/start_plenum_node',
              'scripts/generate_plenum_pool_transactions',
              'scripts/gen_steward_key', 'scripts/gen_node',
