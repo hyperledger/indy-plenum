@@ -1,5 +1,4 @@
 from plenum.common.has_file_storage import HasFileStorage
-from plenum.common.raet import initLocalKeep
 
 
 def cleanup_environment(name, base_dir):

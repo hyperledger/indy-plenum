@@ -2,15 +2,16 @@ import argparse
 import os
 from collections import namedtuple
 
+from ledger.ledger import Ledger
+
 from ledger.serializers.compact_serializer import CompactSerializer
-from raet.nacling import Signer
+from stp_core.crypto.nacl_wrappers import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
-from plenum.common.raet import initLocalKeep
+from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.constants import STEWARD
 from plenum.common.util import hexToFriendly, adict
 
@@ -34,6 +35,16 @@ class TestNetworkSetup:
     @staticmethod
     def getNymFromVerkey(verkey: bytes):
         return hexToFriendly(verkey)
+
+    @staticmethod
+    def writeNodeParamsFile(filePath, name, nPort, cPort):
+        contents = [
+            'NODE_NAME={}'.format(name),
+            'NODE_PORT={}'.format(nPort),
+            'NODE_CLIENT_PORT={}'.format(cPort)
+        ]
+        with open(filePath, 'w') as f:
+            f.writelines(os.linesep.join(contents))
 
     @classmethod
     def bootstrapTestNodesCore(cls, config, envName, appendToLedgers,
@@ -67,7 +78,7 @@ class TestNetworkSetup:
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey = initLocalKeep(nd.name, baseDir, nd.sigseed, True)
+                _, verkey = initLocalKeys(nd.name, baseDir, nd.sigseed, True, config=config)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
                 print("This node with name {} will use ports {} and {} for "
@@ -137,7 +148,7 @@ class TestNetworkSetup:
 
         parser.add_argument('--nodes', required=True, type=int,
                             help='node count, '
-                                 'should be less than 20')
+                                 'should be less than 100')
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
         parser.add_argument('--nodeNum', type=int,
@@ -159,16 +170,16 @@ class TestNetworkSetup:
 
         parser.add_argument('--appendToLedgers',
                             help="Determine if ledger files needs to be erased "
-                                 "before writting new information or not.",
+                                 "before writing new information or not.",
                             action='store_true')
 
         args = parser.parse_args()
-        if args.nodes > 20:
+        if args.nodes > 100:
             print("Cannot run {} nodes for testing purposes as of now. "
                   "This is not a problem with the protocol but some placeholder"
                   " rules we put in place which will be replaced by our "
-                  "Governance model. Going to run only 20".format(args.nodes))
-            nodeCount = 20
+                  "Governance model. Going to run only 100".format(args.nodes))
+            nodeCount = 100
         else:
             nodeCount = args.nodes
         clientCount = args.clients

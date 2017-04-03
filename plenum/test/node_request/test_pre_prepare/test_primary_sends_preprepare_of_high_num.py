@@ -2,13 +2,13 @@ import time
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
 from plenum.common.types import PrePrepare
 from plenum.server.replica import TPCStat
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.helper import getNodeSuspicions
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 instId = 0
 

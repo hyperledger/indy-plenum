@@ -4,10 +4,8 @@ import os
 import sys
 
 from ioflo.base.consoling import getConsole, Console
-
-from plenum.common.logging.TimeAndSizeRotatingFileHandler \
-    import TimeAndSizeRotatingFileHandler
-from plenum.common.util import Singleton, adict
+from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRotatingFileHandler
+from stp_core.common.util import Singleton
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25
@@ -81,7 +79,7 @@ class DemoHandler(CallbackHandler):
                          override_tags=override_tags)
 
 
-def getlogger(name=None):
+def getlogger(name: object = None) -> object:
     return Logger().getlogger(name)
 
 

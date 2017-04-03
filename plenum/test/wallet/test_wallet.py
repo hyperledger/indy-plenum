@@ -1,6 +1,7 @@
 import pytest
 from plenum.client.wallet import Wallet
-from plenum.common.util import getTimeBasedId, randomSeed
+from plenum.common.util import getTimeBasedId
+from stp_core.crypto.util import randomSeed
 
 
 def add_and_sign(signersNum = 10):

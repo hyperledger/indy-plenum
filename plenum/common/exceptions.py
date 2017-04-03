@@ -1,5 +1,5 @@
 from plenum.server.suspicion_codes import Suspicion
-from re import compile, match
+from re import compile
 
 
 class ReqInfo:

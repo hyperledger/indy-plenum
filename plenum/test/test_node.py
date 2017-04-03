@@ -11,14 +11,18 @@ from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
 
 import pytest
 
+from plenum.common.stacks import ClientZStack, NodeRStack, ClientRStack, nodeStackClass, clientStackClass
+from plenum.common.stacks import NodeZStack
+from stp_core.crypto.util import randomSeed
+from stp_core.network.port_dispenser import genHa
+
 import plenum.test.delayers as delayers
 from plenum.common.error import error
-from plenum.common.eventually import eventually, eventuallyAll
-from plenum.common.exceptions import RemoteNotFound
+from stp_core.loop.eventually import eventually, eventuallyAll
+from stp_core.network.exceptions import RemoteNotFound
+from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from plenum.common.log import getlogger
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
-from plenum.common.stacked import NodeStack, ClientStack, KITStack
+from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail
 from plenum.common.constants import CLIENT_STACK_SUFFIX
@@ -135,7 +139,7 @@ class TestNodeCore(StackedTester):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
-        logger.debug("{} white listing {} for codes {}"
+        logger.debug("{} whitelisting {} for codes {}"
                       .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
@@ -152,7 +156,7 @@ class TestNodeCore(StackedTester):
         if clientName not in self.whitelistedClients:
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
-        logger.debug("{} white listing {} for codes {}"
+        logger.debug("{} whitelisting {} for codes {}"
                       .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
@@ -180,8 +184,7 @@ class TestNodeCore(StackedTester):
             r.outBoxTestStasher.process()
         return super().serviceReplicaOutBox(*args, **kwargs)
 
-    @classmethod
-    def ensureKeysAreSetup(cls, name, baseDir):
+    def ensureKeysAreSetup(self):
         pass
 
 
@@ -203,10 +206,15 @@ class TestNodeCore(StackedTester):
                   Node.send,
                   Node.sendInstanceChange,
                   Node.processInstanceChange,
-                  Node.checkPerformance
+                  Node.checkPerformance,
+                  Node.processStashedOrderedReqs
                   ])
 class TestNode(TestNodeCore, Node):
+
     def __init__(self, *args, **kwargs):
+        self.NodeStackClass = nodeStackClass
+        self.ClientStackClass = clientStackClass
+
         Node.__init__(self, *args, **kwargs)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
@@ -220,12 +228,12 @@ class TestNode(TestNodeCore, Node):
             self.config, name, dbType)
 
     @property
-    def nodeStackClass(self) -> NodeStack:
-        return getTestableStack(spyable(methods=[KITStack.handleJoinFromUnregisteredRemote], deep_level=3)(NodeStack))
+    def nodeStackClass(self):
+        return getTestableStack(self.NodeStackClass)
 
     @property
-    def clientStackClass(self) -> ClientStack:
-        return getTestableStack(ClientStack)
+    def clientStackClass(self):
+        return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True)
@@ -254,6 +262,7 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
+                  replica.Replica.stashOutsideWatermarks
                   # replica.Replica.orderPendingCommit
                   ])
 class TestReplica(replica.Replica):
@@ -268,16 +277,22 @@ class TestReplica(replica.Replica):
 class TestNodeSet(ExitStack):
 
     def __init__(self,
-                 names: Iterable[str] = None,
-                 count: int = None,
+                 names: Iterable[str]=None,
+                 count: int=None,
                  nodeReg=None,
                  tmpdir=None,
                  keyshare=True,
                  primaryDecider=None,
-                 pluginPaths:Iterable[str]=None,
+                 pluginPaths: Iterable[str]=None,
                  testNodeClass=TestNode):
+
+        # TODO: Remove them once RAET is removed
+        from plenum.test.conftest import UseZStack
+        self.UseZStack = UseZStack
+
         super().__init__()
         self.tmpdir = tmpdir
+        self.keyshare = keyshare
         self.primaryDecider = primaryDecider
         self.pluginPaths = pluginPaths
 
@@ -307,6 +322,13 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
+        if self.UseZStack:
+            seed = randomSeed()
+            if self.keyshare:
+                learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
+        else:
+            seed = None
+
         testNodeClass = self.testNodeClass
         node = self.enter_context(
                 testNodeClass(name=name,
@@ -316,7 +338,12 @@ class TestNodeSet(ExitStack):
                               nodeRegistry=copy(self.nodeReg),
                               basedirpath=self.tmpdir,
                               primaryDecider=self.primaryDecider,
-                              pluginPaths=self.pluginPaths))
+                              pluginPaths=self.pluginPaths,
+                              seed=seed))
+
+        if self.UseZStack and self.keyshare:
+            tellKeysToOthers(node, self.nodes.values())
+
         self.nodes[name] = node
         self.__dict__[name] = node
         return node
@@ -377,17 +404,6 @@ class TestNodeSet(ExitStack):
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
 
-def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
-        Sequence[TestReplica]:
-    return [node.replicas[instId] for node in nodes if
-            node.replicas[instId].isPrimary is False]
-
-
-def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
-        Sequence[TestReplica]:
-    return [node.replicas[instId] for node in nodes]
-
-
 @spyable(methods=[Monitor.isMasterThroughputTooLow,
                   Monitor.isMasterReqLatencyTooHigh,
                   Monitor.sendThroughput,
@@ -418,8 +434,8 @@ class Pool:
         tmpdir = self.fresh_tdir()
         with self.testNodeSetClass(count=nodecount, tmpdir=tmpdir) as nodeset:
             with Looper(nodeset) as looper:
-                for n in nodeset:
-                    n.startKeySharing()
+                # for n in nodeset:
+                #     n.startKeySharing()
                 ctx = adict(looper=looper, nodeset=nodeset, tmpdir=tmpdir)
                 looper.run(checkNodesConnected(nodeset))
                 ensureElectionsDone(looper=looper, nodes=nodeset, retryWait=1,
@@ -530,7 +546,7 @@ def checkIfSameReplicaIPrimary(looper: Looper,
 
 def checkNodesAreReady(nodes: Sequence[TestNode]):
     for node in nodes:
-        assert node.isReady()
+        assert node.isReady(), '{} has status {}'.format(node, node.status)
 
 
 async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
@@ -580,7 +596,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
 
 def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
                                retryWait: float = 1,
-                               timeout: float = None):
+                               timeout: float = 20):
     checkEveryProtocolInstanceHasOnlyOnePrimary(
         looper=looper, nodes=nodes, retryWait=retryWait,
         timeout=timeout if timeout else None)
@@ -602,12 +618,16 @@ def ensureElectionsDone(looper: Looper,
     # Wait for elections to be complete and returns the primary replica for
     # each protocol instance
 
-    checkPoolReady(looper=looper, nodes=nodes,
-                   timeout=timeout / 3 if timeout else None)
+    kwargs = dict(looper=looper, nodes=nodes)
+    if timeout:
+        kwargs.update(timeout=timeout / 3)
+    checkPoolReady(**kwargs)
 
-    return checkProtocolInstanceSetup(
-        looper=looper, nodes=nodes, retryWait=retryWait,
-        timeout=2 * timeout / 3 if timeout else None)
+    kwargs = dict(looper=looper, nodes=nodes, retryWait=retryWait)
+    if timeout:
+        kwargs.update(timeout=2*timeout / 3)
+
+    return checkProtocolInstanceSetup(**kwargs)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -633,8 +653,8 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
 
-    for n in nodeSet:
-        n.startKeySharing()
+    # for n in nodeSet:
+    #     n.startKeySharing()
 
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))
@@ -679,3 +699,24 @@ def getRequiredInstances(nodeCount: int) -> int:
     return f_value + 1
 
 
+def getPrimaryReplica(nodes: Sequence[TestNode],
+                      instId: int = 0) -> TestReplica:
+    preplicas = [node.replicas[instId] for node in nodes if
+                 node.replicas[instId].isPrimary]
+    if len(preplicas) > 1:
+        raise RuntimeError('More than one primary node found')
+    elif len(preplicas) < 1:
+        raise RuntimeError('No primary node found')
+    else:
+        return preplicas[0]
+
+
+def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
+        Sequence[TestReplica]:
+    return [node.replicas[instId] for node in nodes if
+            node.replicas[instId].isPrimary is False]
+
+
+def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
+        Sequence[TestReplica]:
+    return [node.replicas[instId] for node in nodes]

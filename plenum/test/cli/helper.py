@@ -6,11 +6,16 @@ from tempfile import gettempdir, mkdtemp
 
 import time
 
+import logging
+
+import sys
+
 import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
-from plenum.common.eventually import eventually
+from stp_core.common.util import Singleton
+from stp_core.loop.eventually import eventually
 from plenum.common.log import getlogger
-from plenum.common.util import getMaxFailures, Singleton
+from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
 from plenum.test.helper import checkSufficientRepliesRecvd
@@ -130,6 +135,10 @@ class TestCliCore:
 
 @spyable(methods=[cli.Cli.print, cli.Cli.printTokens])
 class TestCli(cli.Cli, TestCliCore):
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     new = logging.StreamHandler(sys.stdout)
+    #     self._setHandler('std', new)
     pass
 
 
@@ -328,7 +337,6 @@ def newKeyPair(cli: TestCli, alias: str=None):
     return pubKey
 
 
-
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
 
@@ -451,7 +459,9 @@ def doByCtx(ctx):
 
         if attempt:
             attempt = attempt.format(**mapper) if mapper else attempt
-            checkCmdValid(cli, attempt)  # TODO this needs to be renamed, because it's not clear that here is where we are actually calling the cli command
+            # TODO this needs to be renamed, because it's not clear that here
+            # is where we are actually calling the cli command
+            checkCmdValid(cli, attempt)
 
         def getAssertErrorMsg(e, cli, exp:bool, actual:bool):
             length = 80

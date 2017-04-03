@@ -4,7 +4,7 @@ from abc import abstractmethod
 
 from base58 import b58decode, b58encode
 from plenum.common.signing import serializeMsg
-from raet.nacling import Verifier as NaclVerifier
+from stp_core.crypto.nacl_wrappers import Verifier as NaclVerifier
 
 
 class Verifier:

@@ -2,11 +2,12 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import PrePrepare, f
 from plenum.common.util import adict
-from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
+from plenum.test.helper import checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import getPrimaryReplica
 from plenum.test.spy_helpers import getAllReturnVals
 
 nodeCount = 7

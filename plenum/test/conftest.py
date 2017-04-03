@@ -4,27 +4,34 @@ import json
 import logging
 import os
 import re
+import warnings
 from copy import copy
 from functools import partial
 from typing import Dict, Any
 
+import gc
+
+import itertools
 import pip
 import pytest
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from stp_core.crypto.util import randomSeed
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
+from _pytest.recwarn import WarningsRecorder
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from plenum.common.log import getlogger, TestingHandler
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import initLocalKeep
+from stp_core.loop.looper import Looper
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import HA, PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
@@ -32,13 +39,59 @@ from plenum.test.helper import randomOperation, \
     checkViewNoForNodes, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
-    checkPropagated, checkPrepared, checkCommited
+    checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
+config = getConfig()
+
+UseZStack = config.UseZStack
+
+
+@pytest.fixture(scope="session")
+def warnfilters():
+    def _():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+    return _
+
+
+@pytest.yield_fixture(scope="session", autouse=True)
+def warncheck(warnfilters):
+    with WarningsRecorder() as record:
+        warnfilters()
+        yield
+        gc.collect()
+    to_prints = []
+
+    def keyfunc(_):
+        return _.category.__name__, _.filename, _.lineno
+
+    _sorted = sorted(record, key=keyfunc)
+    _grouped = itertools.groupby(_sorted, keyfunc)
+    for k, g in _grouped:
+        to_prints.append("\n"
+                         "category: {}\n"
+                         "filename: {}\n"
+                         "  lineno: {}".format(*k))
+        messages = itertools.groupby(g, lambda _: str(_.message))
+        for k2, g2 in messages:
+            count = sum(1 for _ in g2)
+            count_str = ' ({} times)'.format(count) if count > 1 else ''
+            to_prints.append("     msg: {}{}".format(k2, count_str))
+    if to_prints:
+        to_prints.insert(0, 'Warnings found:')
+        pytest.fail('\n'.join(to_prints))
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -82,8 +135,8 @@ def allPluginsPath():
 
 @pytest.fixture(scope="module")
 def keySharedNodes(startedNodes):
-    for n in startedNodes:
-        n.startKeySharing()
+    # for n in startedNodes:
+    #     n.startKeySharing()
     return startedNodes
 
 
@@ -117,7 +170,13 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'not trying any more because',
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
-                     "because field viewNo has incorrect type: <class 'str'>"
+                     "because field viewNo has incorrect type: <class 'str'>",
+                     'got exception while closing hash store',
+                     # TODO: Remove these once the relevant bugs are fixed
+                     '.+ failed to ping .+ at',
+                     'discarding message (NOMINATE|PRIMARY)',
+                     '.+ rid .+ has been removed',
+                     'last try...'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -140,12 +199,20 @@ def logcapture(request, whitelist, concerningLogLevels):
                               if re.search(w, msg)])
 
         if not (isBenign or isTest or isWhiteListed):
+            # Stopping all loopers, so prodables like nodes, clients, etc stop.
+            #  This helps in freeing ports
+            for fv in request._fixture_values.values():
+                if isinstance(fv, Looper):
+                    fv.stopall()
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
 
-    request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
+    def cleanup():
+        logging.getLogger().removeHandler(ch)
+
+    request.addfinalizer(cleanup)
     config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
@@ -327,11 +394,11 @@ def prepared1(looper, nodeSet, client1, preprepared1, faultyNodes):
 
 @pytest.fixture(scope="module")
 def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
-    checkCommited(looper,
-                  nodeSet,
-                  prepared1,
-                  range(getNoInstances(len(nodeSet))),
-                  faultyNodes)
+    checkCommitted(looper,
+                   nodeSet,
+                   prepared1,
+                   range(getNoInstances(len(nodeSet))),
+                   faultyNodes)
     return prepared1
 
 
@@ -401,12 +468,13 @@ def nodeAndClientInfoFilePath(dirName):
 
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
-    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
-    for txn in data["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            txn[DATA][NODE_PORT] = genHa()[1]
-            txn[DATA][CLIENT_PORT] = genHa()[1]
-    return data
+    with open(nodeAndClientInfoFilePath) as f:
+        data = json.loads(f.read().strip())
+        for txn in data["txns"]:
+            if txn[TXN_TYPE] == NODE:
+                txn[DATA][NODE_PORT] = genHa()[1]
+                txn[DATA][CLIENT_PORT] = genHa()[1]
+        return data
 
 
 @pytest.fixture(scope="module")
@@ -446,7 +514,8 @@ def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
 def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
-        initLocalKeep(nName, tdir, seeds[nName], override=True)
+        seed = seeds[nName]
+        initNodeKeysForBothStacks(nName, tdir, seed, override=True)
 
 
 @pytest.fixture(scope="module")
@@ -583,4 +652,4 @@ def testNode(pluginManager, tdir):
     ha, cliname, cliha = nodeReg[name]
     return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
-                    primaryDecider=None, pluginPaths=None)
+                    primaryDecider=None, pluginPaths=None, seed=randomSeed())
