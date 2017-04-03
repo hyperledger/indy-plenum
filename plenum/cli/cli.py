@@ -7,8 +7,7 @@ from os.path import basename, dirname
 from typing import Dict, Iterable
 
 import pyorient
-from jsonpickle import json, encode, decode
-from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -41,6 +40,7 @@ from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFI
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -74,12 +74,13 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
-    createDirIfNotExists, getFriendlyIdentifier
+    getFriendlyIdentifier, saveGivenWallet, \
+    normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
+    getLastSavedWalletFileName
 from plenum.common.log import getlogger, Logger, \
     getRAETLogLevelFromConfig, getRAETLogFilePath
 from plenum.server.node import Node
-from plenum.common.types import NodeDetail, HA
-from stp_core.types import HA
+from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader
 from plenum.server.replica import Replica
 from plenum.common.config_util import getConfig
@@ -318,7 +319,7 @@ class Cli:
                              self._createGenTxnFileAction, self._changePrompt,
                              self._newKeyring, self._renameKeyring,
                              self._useKeyringAction, self._saveKeyringAction,
-                             self._listKeyringsAction ]
+                             self._listKeyringsAction]
         return self._actions
 
     @property
@@ -407,11 +408,11 @@ class Cli:
 
     def _renameWalletFile(self, oldWalletName, newWalletName):
         keyringsDir = self.getContextBasedKeyringsBaseDir()
-        oldWalletFilePath = Cli.getWalletFilePath(
-            keyringsDir, Cli._normalizedWalletFileName(oldWalletName))
+        oldWalletFilePath = getWalletFilePath(
+            keyringsDir, normalizedWalletFileName(oldWalletName))
         if os.path.exists(oldWalletFilePath):
-            newWalletFilePath = Cli.getWalletFilePath(
-            keyringsDir, Cli._normalizedWalletFileName(newWalletName))
+            newWalletFilePath = getWalletFilePath(
+            keyringsDir, normalizedWalletFileName(newWalletName))
             if os.path.exists(newWalletFilePath):
                 self.print("A persistent wallet file already exists for "
                            "new wallet name. Please choose new wallet name.")
@@ -641,11 +642,6 @@ class Cli:
         mappings['helpAction'] = helpCmd
         mappings['statusAction'] = statusCmd
         mappings['changePrompt'] = changePromptCmd
-        mappings['newNodeAction'] = newNodeCmd
-        mappings['newClientAction'] = newClientCmd
-        mappings['statusNodeAction'] = statusNodeCmd
-        mappings['statusClientAction'] = statusClientCmd
-        # mappings['keyShareAction'] = keyShareCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
 
         mappings['newKeyring'] = newKeyringCmd
@@ -1357,7 +1353,11 @@ class Cli:
         if matchedVars.get('list_krs') == 'list keyrings':
             envs = self.getAllEnvDirNamesForKeyrings()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
-            envPaths = [os.path.join(self.getKeyringsBaseDir(), e) for e in envs]
+            keyringBaseDir = self.getKeyringsBaseDir()
+            envPaths = [os.path.join(keyringBaseDir, e) for e in envs]
+            if len(envPaths) == 0:
+                envPaths = [keyringBaseDir]
+
             anyWalletFound = False
             for e in envPaths:
                 fe = e.rstrip(os.sep)
@@ -1384,7 +1384,7 @@ class Cli:
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(fe, Cli._normalizedWalletFileName(pwn))
+                        f = os.path.join(fe, normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
                         isThisActiveWallet = True if contextDirPath == fe and \
                                self._activeWallet is not None and \
@@ -1438,9 +1438,9 @@ class Cli:
             return True
 
     def checkIfPersistentWalletExists(self, name, inContextDir=None):
-        toBeWalletFileName = Cli._normalizedWalletFileName(name)
+        toBeWalletFileName = normalizedWalletFileName(name)
         contextDir = inContextDir or self.getContextBasedKeyringsBaseDir()
-        toBeWalletFilePath = Cli.getWalletFilePath(
+        toBeWalletFilePath = getWalletFilePath(
             contextDir, toBeWalletFileName)
         if os.path.exists(toBeWalletFilePath):
             return toBeWalletFilePath
@@ -1497,7 +1497,7 @@ class Cli:
     def _loadWalletIfExistsAndNotLoaded(self, name, copyAs=None, override=False):
         wallet = self._getWalletByName(name)
         if not wallet:
-            walletFileName = Cli._normalizedWalletFileName(name)
+            walletFileName = normalizedWalletFileName(name)
             self.restoreWalletByName(walletFileName, copyAs=copyAs,
                                      override=override)
 
@@ -1711,55 +1711,44 @@ class Cli:
 
     def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
+            wallet = getWalletByPath(walletFilePath)
 
-            with open(walletFilePath) as walletFile:
-                try:
-                    # if wallet already exists, deserialize it
-                    # and set as active wallet
-                    wallet = decode(walletFile.read())
-                    if copyAs:
-                        wallet.name=copyAs
+            if copyAs:
+                wallet.name=copyAs
 
-                    if not self.performValidationCheck(wallet, walletFilePath,
-                                                       override):
-                        return False
+            if not self.performValidationCheck(wallet, walletFilePath,
+                                               override):
+                return False
 
-                    # As the persisted wallet restored and validated successfully,
-                    # before we restore it, lets save active wallet (if exists)
-                    if self._activeWallet:
-                        self._saveActiveWallet()
+            # As the persisted wallet restored and validated successfully,
+            # before we restore it, lets save active wallet (if exists)
+            if self._activeWallet:
+                self._saveActiveWallet()
 
-                    self._wallets[wallet.name] = wallet
-                    self.print('\nSaved keyring "{}" restored'.
-                               format(wallet.name), newline=False)
-                    self.print(" ({})".format(walletFilePath)
-                               , Token.Gray)
-                    self.activeWallet = wallet
-                    self.activeIdentifier = wallet.defaultId
+            self._wallets[wallet.name] = wallet
+            self.print('\nSaved keyring "{}" restored'.
+                       format(wallet.name), newline=False)
+            self.print(" ({})".format(walletFilePath)
+                       , Token.Gray)
+            self.activeWallet = wallet
+            self.activeIdentifier = wallet.defaultId
 
-                    self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
+            self.printWarningIfIncompatibleWalletIsRestored(walletFilePath)
 
-                    return True
-
-                except (ValueError, AttributeError) as e:
-                    self.logger.info(
-                        "error occurred while restoring wallet {}: {}".
-                            format(walletFilePath, e), Token.BoldOrange)
-        except IOError:
+            return True
+        except (ValueError, AttributeError) as e:
+            self.logger.info(
+                "error occurred while restoring wallet {}: {}".
+                    format(walletFilePath, e), Token.BoldOrange)
+        except IOError as e:
             self.logger.debug("No such keyring file exists ({})".
                               format(walletFilePath))
 
     def restoreLastActiveWallet(self):
-        filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
         baseFileName=None
         try:
-            def getLastModifiedTime(file):
-                return os.stat(file).st_mtime_ns
-
             keyringPath = self.getContextBasedKeyringsBaseDir()
-            newest = max(glob.iglob('{}/{}'.format(keyringPath, filePattern)),
-                         key=getLastModifiedTime)
-            baseFileName = basename(newest)
+            baseFileName = getLastSavedWalletFileName(keyringPath)
             self._searchAndSetWallet(os.path.join(keyringPath, baseFileName))
         except ValueError as e:
             if not str(e) == "max() arg is an empty sequence":
@@ -1774,7 +1763,7 @@ class Cli:
         raise e
 
     def restoreWalletByName(self, walletFileName, copyAs=None, override=False):
-        walletFilePath = self.getWalletFilePath(
+        walletFilePath = getWalletFilePath(
             self.getContextBasedKeyringsBaseDir(), walletFileName)
         self.restoreWalletByPath(walletFilePath, copyAs=copyAs, override=override)
 
@@ -1782,10 +1771,6 @@ class Cli:
     def getWalletKeyName(walletFileName):
         return walletFileName.replace(
             ".{}".format(WALLET_FILE_EXTENSION), "")
-
-    @staticmethod
-    def _normalizedWalletFileName(walletName):
-        return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
 
     @staticmethod
     def getPromptAndEnv(cliName, currPromptText):
@@ -1797,7 +1782,7 @@ class Cli:
     def getActiveWalletPersitentFileName(self):
         fileName = self._activeWallet.name if self._activeWallet \
             else self.name
-        return Cli._normalizedWalletFileName(fileName)
+        return normalizedWalletFileName(fileName)
 
 
     @property
@@ -1840,10 +1825,6 @@ class Cli:
         pattern = "{}/*.{}".format(keyringPath, WALLET_FILE_EXTENSION)
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
-    @staticmethod
-    def getWalletFilePath(basedir, walletFileName):
-        return os.path.join(basedir, walletFileName)
-
     @property
     def getActiveEnv(self):
         return None
@@ -1866,27 +1847,15 @@ class Cli:
 
     def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
         try:
-            createDirIfNotExists(contextDir)
-            walletFilePath = Cli.getWalletFilePath(
-                contextDir, self.walletFileName)
-            with open(walletFilePath, "w+") as walletFile:
-                try:
-                    encodedWallet = encode(self._activeWallet)
-                    walletFile.write(encodedWallet)
-                    if printMsgs:
-                        self.print('Active keyring "{}" saved'.format(
-                            self._activeWallet.name), newline=False)
-                        self.print(' ({})'.format(walletFilePath), Token.Gray)
-                except ValueError as ex:
-                    self.logger.info("ValueError: " +
-                                     "Could not save wallet while exiting\n {}"
-                                     .format(ex))
-                except IOError:
-                    self.logger.info(
-                        "IOError while writing data to wallet file"
-                    )
+            walletFilePath = saveGivenWallet(self._activeWallet,
+                                             self.walletFileName, contextDir)
+            if printMsgs:
+                self.print('Active keyring "{}" saved'.format(
+                    self._activeWallet.name), newline=False)
+                self.print(' ({})'.format(walletFilePath), Token.Gray)
+
         except IOError as ex:
-            self.logger.info("Error occurred while creating wallet. " +
+            self.logger.info("Error occurred while saving wallet. " +
                              "error no.{}, error.{}"
                              .format(ex.errno, ex.strerror))
 
