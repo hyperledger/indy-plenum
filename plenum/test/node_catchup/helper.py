@@ -31,7 +31,7 @@ def waitNodeLedgersEquality(looper,
     timeout = customTimeout or waits.expectedPoolLedgerCheck(numOfNodes)
     looper.run(eventually(checkNodeLedgersForEquality,
                           referenceNode,
-                          otherNodes,
+                          *otherNodes,
                           retryWait=1, timeout=10))
 
 
