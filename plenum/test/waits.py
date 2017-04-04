@@ -75,7 +75,7 @@ def expectedOrderingTime(numInstances) -> float:
 
 
 def expectedElectionTimeout(nodeCount) -> float:
-    return expectedNominationTimeout(nodeCount) + 2 * nodeCount
+    return expectedNominationTimeout(nodeCount) + 3 * nodeCount
 
 
 def expectedNominationTimeout(nodeCount) -> float:
