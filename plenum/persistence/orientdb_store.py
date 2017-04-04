@@ -3,7 +3,7 @@ from typing import Dict
 import pyorient
 from plenum.common.error import error
 from plenum.common.exceptions import OrientDBNotRunning
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -84,7 +84,8 @@ class OrientDbStore:
         return joiner.join(items)
 
     def close(self):
-        self.client.db_close(self.client._connection.db_opened)
+        if self.client._connection.connected:
+            self.client.db_close(self.client._connection.db_opened)
 
 
 def createOrientDbInMemStore(config, name, dbType):
@@ -96,10 +97,13 @@ def createOrientDbInMemStore(config, name, dbType):
     try:
         client = pyorient.OrientDB(host=host, port=port)
         client.connect(user=config.OrientDB['user'],
-                   password=config.OrientDB['password'])
+                       password=config.OrientDB['password'])
+    # except ValueError:
+    #     client.connect(user=config.OrientDB['user'],
+    #                    password=config.OrientDB['password'])
     except pyorient.exceptions.PyOrientConnectionException:
         error("OrientDB connection failed. Check if DB is running "
-                     "on port {}".format(port))
+              "on port {}".format(port))
     try:
         if client.db_exists(name, pyorient.STORAGE_TYPE_MEMORY):
             client.db_drop(name, type=pyorient.STORAGE_TYPE_MEMORY)

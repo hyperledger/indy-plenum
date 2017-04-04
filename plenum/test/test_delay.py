@@ -1,7 +1,7 @@
 import pytest
 
-from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually, slowFactor
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node
 from plenum.test.delayers import delayerMsgTuple
@@ -34,7 +34,7 @@ def testTestNodeDelay(tdir_for_func):
                           "it doesn't arrive")
             msg = randomMsg()
 
-            nodeB.nodeIbStasher.delay(delayerMsgTuple(10, type(msg), nodeA.name))
+            nodeB.nodeIbStasher.delay(delayerMsgTuple(10 * slowFactor, type(msg), nodeA.name))
 
             sendMsg(nodes, nodeA, nodeB, msg)
             with pytest.raises(AssertionError):

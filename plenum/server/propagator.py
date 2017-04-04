@@ -4,7 +4,7 @@ import weakref
 
 from plenum.common.types import Propagate
 from plenum.common.request import Request
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.util import checkIfMoreThanFSameItems
 
 logger = getlogger()

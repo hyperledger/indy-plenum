@@ -2,7 +2,7 @@ from typing import Dict
 
 import pyorient
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.persistence.graph_store import GraphStore
 from plenum.persistence.orientdb_store import OrientDbStore
 

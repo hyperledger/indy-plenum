@@ -27,7 +27,7 @@ from plenum.common.exceptions import MissingNodeOp
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from stp_raet.util import getHaFromLocalEstate
@@ -136,7 +136,7 @@ class Client(Motor,
 
         if self.nodeReg:
             logger.info("Client {} initialized with the following node registry:"
-                        .format(self.name))
+                        .format(self.alias))
             lengths = [max(x) for x in zip(*[
                 (len(name), len(host), len(str(port)))
                 for name, (host, port) in self.nodeReg.items()])]
@@ -146,7 +146,7 @@ class Client(Motor,
                 logger.info(fmt.format(name, host, port))
         else:
             logger.info(
-                "Client {} found an empty node registry:".format(self.name))
+                "Client {} found an empty node registry:".format(self.alias))
 
         Motor.__init__(self)
 
@@ -216,7 +216,7 @@ class Client(Motor,
         oldstatus = self.status
         if oldstatus in Status.going():
             logger.info("{} is already {}, so start has no effect".
-                        format(self, self.status.name))
+                        format(self.alias, self.status.name))
         else:
             super().start(loop)
             self.nodestack.start()
@@ -546,7 +546,7 @@ class Client(Motor,
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
-                logger.warn('{} could not find remote {}'.format(self, nm))
+                logger.warning('{} could not find remote {}'.format(self, nm))
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))

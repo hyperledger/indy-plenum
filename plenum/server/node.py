@@ -37,7 +37,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
@@ -106,7 +106,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}
-    keygenScript = "init_plenum_raet_keep"
+    keygenScript = "init_plenum_keys"
 
     def __init__(self,
                  name: str,
@@ -597,7 +597,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             self.primaryStorage.stop()
         except Exception as ex:
-            logger.warn('{} got exception while stopping primary storage: {}'.
+            logger.warning('{} got exception while stopping primary storage: {}'.
                         format(self, ex))
 
         # Stop hash store
@@ -605,7 +605,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             try:
                 self.hashStore.close()
             except Exception as ex:
-                logger.warn('{} got exception while closing hash store: {}'.
+                logger.warning('{} got exception while closing hash store: {}'.
                             format(self, ex))
 
         self.nodestack.stop()

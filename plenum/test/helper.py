@@ -17,8 +17,8 @@ from typing import Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+from stp_core.common.log import getlogger
+from stp_core.loop.looper import Looper
 from plenum.common.request import Request
 from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, REJECT, OP_FIELD_NAME
 from plenum.common.types import Reply, f, PrePrepare

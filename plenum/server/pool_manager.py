@@ -8,19 +8,20 @@ from ledger.util import F
 from plenum.common.request import Request
 from plenum.common.state import PruningState
 from plenum.common.txn_util import updateGenesisPoolTxnFile, reqToTxn
-from raet.raeting import AutoMode
+from raet.raeting import     AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
 
 from plenum.common.types import f, Reply, DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, TXN_TIME, CLIENT_STACK_SUFFIX
-from plenum.common.log import getlogger
+    VALIDATOR, CLIENT_STACK_SUFFIX, TXN_TIME
+from stp_core.common.log import getlogger
 
 from plenum.common.types import NodeDetail
 from plenum.server.pool_req_handler import PoolReqHandler
@@ -242,8 +243,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         nodeName = nodeInfo[DATA][ALIAS]
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug("Node {} not changing {} since it is same as existing"
                          .format(nodeNym, SERVICES))

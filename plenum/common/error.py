@@ -1,5 +1,5 @@
 def fault(ex: Exception, msg: str):
-    from plenum.common.log import getlogger
+    from stp_core.common.log import getlogger
     getlogger().error(msg, exc_info=ex)
 
 

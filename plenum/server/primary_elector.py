@@ -7,7 +7,7 @@ from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, f
 from plenum.common.util import mostCommonElement, getQuorum
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.router import Router

@@ -1,8 +1,8 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
 from plenum.common.types import HA
+from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
@@ -102,7 +102,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     txnPoolNodeSet[-1] = newNode
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=60))
+                          *txnPoolNodeSet[:4], retryWait=1, timeout=75))
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,

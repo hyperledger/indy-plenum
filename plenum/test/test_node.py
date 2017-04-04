@@ -19,7 +19,7 @@ from plenum.common.error import error
 from stp_core.loop.eventually import eventually, eventuallyAll
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, DOMAIN_LEDGER_ID

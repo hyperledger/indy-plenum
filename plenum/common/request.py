@@ -42,18 +42,6 @@ class Request:
     def getDigest(self):
         return sha256(serializeMsg(self.signingState)).hexdigest()
 
-    # @property
-    # def digest(self):
-    #     # The digest needs to be of the whole request. If only client id and
-    #     # request id are used to construct digest, then a malicious client might
-    #     # send different operations to different nodes and the nodes will not
-    #     # realize an have different ledgers.
-    #     if not self._digest:
-    #         self._digest = sha256(serializeMsg(self.as_dict)).hexdigest()
-    #     return self._digest
-    #     # DEPR
-    #     # return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
-
     @property
     def reqDigest(self):
         return ReqDigest(self.identifier, self.reqId, self.digest)

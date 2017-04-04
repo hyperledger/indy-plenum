@@ -5,16 +5,19 @@ import json
 import logging
 import os
 import re
+import warnings
 from copy import copy
 from functools import partial
 from typing import Dict, Any
 
+import gc
 import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
+from _pytest.recwarn import WarningsRecorder
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
@@ -22,8 +25,9 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from plenum.common.log import getlogger, TestingHandler
-from stp_core.loop.looper import Looper
+from stp_core.common.log import getlogger
+from stp_core.common.logging.handlers import TestingHandler
+from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
@@ -45,6 +49,65 @@ logger = getlogger()
 config = getConfig()
 
 UseZStack = config.UseZStack
+
+
+@pytest.fixture(scope="session")
+def warnfilters():
+    def _():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+    return _
+
+
+@pytest.yield_fixture(scope="session", autouse=True)
+def warncheck(warnfilters):
+    with WarningsRecorder() as record:
+        warnfilters()
+        yield
+        gc.collect()
+    to_prints = []
+
+    def keyfunc(_):
+        return _.category.__name__, _.filename, _.lineno
+
+    _sorted = sorted(record, key=keyfunc)
+    _grouped = itertools.groupby(_sorted, keyfunc)
+    for k, g in _grouped:
+        to_prints.append("\n"
+                         "category: {}\n"
+                         "filename: {}\n"
+                         "  lineno: {}".format(*k))
+        messages = itertools.groupby(g, lambda _: str(_.message))
+        for k2, g2 in messages:
+            count = sum(1 for _ in g2)
+            count_str = ' ({} times)'.format(count) if count > 1 else ''
+            to_prints.append("     msg: {}{}".format(k2, count_str))
+    if to_prints:
+        to_prints.insert(0, 'Warnings found:')
+        pytest.fail('\n'.join(to_prints))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setResourceLimits():
+    try:
+        import resource
+    except ImportError:
+        print('Module resource is not available, maybe i am running on Windows')
+        return
+    flimit = 65535
+    plimit = 65535
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
+        resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
+    except Exception as ex:
+        print('Could not set resource limits due to {}'.format(ex))
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -125,7 +188,7 @@ def logcapture(request, whitelist, concerningLogLevels):
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
                      "because field viewNo has incorrect type: <class 'str'>",
-
+                     'got exception while closing hash store',
                      # TODO: Remove these once the relevant bugs are fixed
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
@@ -158,6 +221,8 @@ def logcapture(request, whitelist, concerningLogLevels):
             for fv in request._fixture_values.values():
                 if isinstance(fv, Looper):
                     fv.stopall()
+                if isinstance(fv, Prodable):
+                    fv.stop()
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
@@ -422,12 +487,13 @@ def nodeAndClientInfoFilePath(dirName):
 
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
-    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
-    for txn in data["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            txn[DATA][NODE_PORT] = genHa()[1]
-            txn[DATA][CLIENT_PORT] = genHa()[1]
-    return data
+    with open(nodeAndClientInfoFilePath) as f:
+        data = json.loads(f.read().strip())
+        for txn in data["txns"]:
+            if txn[TXN_TYPE] == NODE:
+                txn[DATA][NODE_PORT] = genHa()[1]
+                txn[DATA][CLIENT_PORT] = genHa()[1]
+        return data
 
 
 @pytest.fixture(scope="module")

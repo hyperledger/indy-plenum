@@ -1,11 +1,15 @@
 import asyncio
+import glob
+import os
+
 import collections
 import inspect
 import ipaddress
 import itertools
 import json
 import logging
-import os
+
+import math
 import random
 import string
 import time
@@ -13,6 +17,7 @@ from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
 from math import floor
+from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, NamedTuple, Callable
 
@@ -20,14 +25,17 @@ import base58
 import errno
 import libnacl.secret
 import psutil
+from jsonpickle import encode, decode
+
 from ledger.util import F
+from plenum.cli.constants import WALLET_FILE_EXTENSION
 from plenum.common.error import error
 import ipaddress
 
 from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
     WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
-from plenum.common.exceptions import PortNotAvailable
-from plenum.common.exceptions import EndpointException, MissingEndpoint, \
+from stp_core.network.exceptions import \
+    PortNotAvailable, EndpointException, MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
 from six import iteritems, string_types
 from stp_core.crypto.util import isHexKey, isHex
@@ -466,3 +474,66 @@ def updateNestedDict(d, u, nestedKeysToUpdate=None):
 def createDirIfNotExists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+
+def is_valid_port(port):
+    return port.isdigit() and int(port) in range(1, 65536)
+
+
+def check_endpoint_valid(endpoint, required: bool=True):
+    if not endpoint:
+        if required:
+            raise MissingEndpoint()
+        else:
+            return
+    ip, port = endpoint.split(':')
+    try:
+        ipaddress.ip_address(ip)
+    except Exception as exc:
+        raise InvalidEndpointIpAddress(endpoint) from exc
+    if not is_valid_port(port):
+        raise InvalidEndpointPort(endpoint)
+
+
+def getOpenConnections():
+    pr = psutil.Process(os.getpid())
+    return pr.connections()
+
+
+def getFormattedErrorMsg(msg):
+    msgHalfLength = int(len(msg) / 2)
+    errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
+    return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
+
+def normalizedWalletFileName(walletName):
+    return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
+
+
+def getWalletFilePath(basedir, walletFileName):
+    return os.path.join(basedir, walletFileName)
+
+
+def saveGivenWallet(wallet, fileName, contextDir):
+    createDirIfNotExists(contextDir)
+    walletFilePath = getWalletFilePath(
+        contextDir, fileName)
+    with open(walletFilePath, "w+") as walletFile:
+        encodedWallet = encode(wallet)
+        walletFile.write(encodedWallet)
+    return walletFilePath
+
+
+def getWalletByPath(walletFilePath):
+    with open(walletFilePath) as walletFile:
+        wallet = decode(walletFile.read())
+        return wallet
+
+
+def getLastSavedWalletFileName(dir):
+    def getLastModifiedTime(file):
+        return os.stat(file).st_mtime_ns
+
+    filePattern = "*.{}".format(WALLET_FILE_EXTENSION)
+    newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
+                 key=getLastModifiedTime)
+    return basename(newest)

@@ -11,7 +11,7 @@ from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NOD
 from plenum.common.types import PoolLedgerTxns, f, HA
 from plenum.common.util import getMaxFailures
 from plenum.common.txn_util import updateGenesisPoolTxnFile
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 t = f.TXN.nm
@@ -109,8 +109,8 @@ class HasPoolManager(TxnStackManager):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         remoteName = nodeInfo[DATA][ALIAS] + CLIENT_STACK_SUFFIX
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug(
                 "Client {} not changing {} since it is same as existing"

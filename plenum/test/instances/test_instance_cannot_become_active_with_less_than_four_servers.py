@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.test.greek import genNodeNames

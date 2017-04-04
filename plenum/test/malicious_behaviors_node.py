@@ -11,7 +11,7 @@ from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
 from plenum.common.util import updateNamedTuple
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica

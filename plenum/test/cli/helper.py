@@ -14,7 +14,7 @@ import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
@@ -460,9 +460,7 @@ def doByCtx(ctx):
 
         if attempt:
             attempt = attempt.format(**mapper) if mapper else attempt
-            # TODO this needs to be renamed, because it's not clear that here
-            # is where we are actually calling the cli command
-            checkCmdValid(cli, attempt)
+            cli.enterCmd(attempt)
 
         def getAssertErrorMsg(e, cli, exp:bool, actual:bool):
             length = 80

@@ -1,6 +1,6 @@
 import math
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.config_util import getConfig
 
 logger = getlogger()
