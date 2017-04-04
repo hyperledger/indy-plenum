@@ -283,8 +283,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         else:
             tooLow = r < self.Delta
             if tooLow:
-                logger.debug("{} master throughput ratio {} is lower than "
-                             "Delta {}.".format(self, r, self.Delta))
+                logger.info("{} master throughput ratio {} is lower than "
+                            "Delta {}.".format(self, r, self.Delta))
             else:
                 logger.trace("{} master throughput ratio {} is acceptable.".
                              format(self, r))
@@ -295,10 +295,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Return whether the request latency of the master instance is greater
         than the acceptable threshold
         """
-        r = self.masterReqLatencyTooHigh or any([lat > self.Lambda for lat
-                 in self.masterReqLatencies.values()])
+        r = self.masterReqLatencyTooHigh or \
+            any([lat > self.Lambda for lat in self.masterReqLatencies.values()])
         if r:
-            logger.debug("{} found master's latency to be higher than the "
+            logger.info("{} found master's latency to be higher than the "
                          "threshold for some or all requests.".format(self))
         else:
             logger.trace("{} found master's latency to be lower than the "
@@ -322,7 +322,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                              format(self, cid))
                 return False
             if avgLatM[cid] - lat > self.Omega:
-                logger.debug("{} found difference between master's and "
+                logger.info("{} found difference between master's and "
                              "backups's avg latency to be higher than the "
                              "threshold".format(self))
                 logger.trace(

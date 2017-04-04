@@ -1616,7 +1616,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
                 self.instanceChanges.addVote(instChg.viewNo, frm)
             if self.monitor.isMasterDegraded():
-                logger.debug(
+                logger.info(
                     "{} found master degraded after receiving instance change "
                     "message from {}".format(self, frm))
                 self.sendInstanceChange(instChg.viewNo)
@@ -1625,7 +1625,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "{} received instance change message {} but did not "
                     "find the master to be slow".format(self, instChg))
             if self.canViewChange(instChg.viewNo):
-                logger.debug("{} initiating a view change with view "
+                logger.info("{} initiating a view change with view "
                              "no {}".format(self, self.viewNo))
                 self.startViewChange(instChg.viewNo)
             else:
@@ -1854,6 +1854,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
             self.seqNoDB.add(*reqKey, reply.result[F.seqNo.name])
+            logger.info('{} sending reply for {} to client'.format(self, reqKey))
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 
@@ -1914,6 +1915,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             txns = [_ for _ in ledger.getAllTxn().values()]
             reqHandler.updateState(txns)
             state.commit(rootHash=state.headHash)
+            logger.info('{} state hash {} while starting'.
+                        format(state.db.db.dbPath, state.headHash))
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
