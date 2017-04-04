@@ -10,7 +10,7 @@ from stp_zmq.zstack import  ZStack
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.constants import REQACK, REQNACK, REPLY
 from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys

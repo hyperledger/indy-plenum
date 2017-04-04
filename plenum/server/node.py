@@ -39,7 +39,7 @@ from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request

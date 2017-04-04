@@ -6,7 +6,7 @@ from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
 from typing import Dict
 
 from plenum.common.util import objSearchReplace
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 

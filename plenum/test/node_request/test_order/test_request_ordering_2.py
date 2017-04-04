@@ -1,5 +1,5 @@
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
     checkSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual

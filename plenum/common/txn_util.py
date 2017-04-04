@@ -14,7 +14,7 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.constants import TXN_ID, TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     ALIAS, VERKEY, TYPE, IDENTIFIER, DATA
 from plenum.common.types import f
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 
 logger = getlogger()

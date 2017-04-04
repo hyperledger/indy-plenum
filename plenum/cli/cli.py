@@ -77,8 +77,8 @@ from plenum.common.util import getMaxFailures, \
     getFriendlyIdentifier, saveGivenWallet, \
     normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
     getLastSavedWalletFileName
-from plenum.common.log import getlogger, Logger, \
-    getRAETLogLevelFromConfig, getRAETLogFilePath
+from stp_core.common.log import \
+    getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader

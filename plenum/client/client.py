@@ -27,7 +27,7 @@ from plenum.common.exceptions import MissingNodeOp
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from stp_raet.util import getHaFromLocalEstate
