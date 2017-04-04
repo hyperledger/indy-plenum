@@ -111,9 +111,9 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 
 # This test fails intermittently when the whole test package is run, fails
 # because the fixture `createAllNodes` fails
-# @pytest.mark.skip(reason="SOV-549. "
-#                          "Intermittently fails due to a bug mentioned "
-#                          "in the above comment")
+@pytest.mark.skip(reason="SOV-549. "
+                         "Intermittently fails due to a bug mentioned "
+                         "in the above comment")
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
