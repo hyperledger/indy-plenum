@@ -25,7 +25,8 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from plenum.common.log import getlogger, TestingHandler
+from stp_core.common.log import getlogger
+from stp_core.common.logging.handlers import TestingHandler
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
@@ -95,7 +96,11 @@ def warncheck(warnfilters):
 
 @pytest.fixture(scope="session", autouse=True)
 def setResourceLimits():
-    import resource
+    try:
+        import resource
+    except ImportError:
+        print('Module resource is not available, maybe i am running on Windows')
+        return
     flimit = 65535
     plimit = 65535
     try:

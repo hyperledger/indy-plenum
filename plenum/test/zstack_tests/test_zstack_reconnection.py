@@ -45,9 +45,9 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     checkFlakyConnected(True)
     nodeToCrash.stop()
     looper.removeProdable(nodeToCrash)
-    looper.runFor(2)
-    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=20))
-    looper.runFor(3)
+    looper.runFor(1)
+    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=35))
+    looper.runFor(1)
     node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)
     looper.add(node)

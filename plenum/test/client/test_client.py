@@ -4,7 +4,7 @@ from plenum.common.keygen_utils import initRemoteKeys
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.constants import OP_FIELD_NAME, REPLY, REQACK, TXN_ID
 from plenum.common.types import f
 from plenum.server.node import Node

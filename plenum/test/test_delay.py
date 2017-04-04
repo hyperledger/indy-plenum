@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually, slowFactor
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node
 from plenum.test.delayers import delayerMsgTuple

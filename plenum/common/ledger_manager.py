@@ -20,7 +20,7 @@ from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
     CatchupReq, ConsProofRequest
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 
 logger = getlogger()

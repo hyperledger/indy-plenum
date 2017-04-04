@@ -14,7 +14,7 @@ import plenum.cli.cli as cli
 from plenum.client.wallet import Wallet
 from stp_core.common.util import Singleton
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring

@@ -1,5 +1,5 @@
 from stp_core.network.exceptions import RemoteNotFound
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from stp_core.loop.looper import Looper

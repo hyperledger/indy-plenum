@@ -6,7 +6,7 @@ from libnacl import crypto_secretbox_open, randombytes, \
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.types import Identifier
 from plenum.common.request import Request

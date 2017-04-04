@@ -3,7 +3,7 @@ from typing import Dict
 import pyorient
 from plenum.common.error import error
 from plenum.common.exceptions import OrientDBNotRunning
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
