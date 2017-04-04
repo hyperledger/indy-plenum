@@ -435,7 +435,7 @@ def checkReply(cli, count, clbk):
             result = ast.literal_eval(m.groups(0)[0].strip())
             if clbk(result):
                 done += 1
-    logger.warn("Done = {}, Count = {}".format(done, count))
+    logger.warning("Done = {}, Count = {}".format(done, count))
     assert done == count
 
 
