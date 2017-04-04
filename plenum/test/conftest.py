@@ -96,7 +96,11 @@ def warncheck(warnfilters):
 
 @pytest.fixture(scope="session", autouse=True)
 def setResourceLimits():
-    import resource
+    try:
+        import resource
+    except ImportError:
+        print('Module resource is not available, maybe i am running on Windows')
+        return
     flimit = 65535
     plimit = 65535
     try:
