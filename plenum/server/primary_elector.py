@@ -372,7 +372,10 @@ class PrimaryElector(PrimaryDecider):
                         assert replica.lastOrderdedPPSeqNo >= seqNo
                         replica.lastPrePrepareSeqNo = replica.lastOrderdedPPSeqNo
 
-                        # If this replica has nominated itself and since the
+                    if replica.lastOrderdedPPSeqNo < seqNo:
+                        replica.lastOrderdedPPSeqNo = seqNo
+
+                    # If this replica has nominated itself and since the
                     # election is over, reset the flag
                     if self.replicaNominatedForItself == instId:
                         self.replicaNominatedForItself = None
