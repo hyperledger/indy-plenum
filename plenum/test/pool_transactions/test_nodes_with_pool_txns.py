@@ -122,7 +122,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
                                                                      tconf,
                                                                      allPluginsPath)
         txnPoolNodeSet.append(newNode)
-        looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
+        looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=30))
         logger.debug("{} connected to the pool".format(newNode))
         waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
