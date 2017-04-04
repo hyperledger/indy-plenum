@@ -5,7 +5,7 @@ from typing import Tuple, List
 
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import PruningState
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEWARD, \

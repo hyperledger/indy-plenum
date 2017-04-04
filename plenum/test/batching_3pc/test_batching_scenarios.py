@@ -1,4 +1,4 @@
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs
