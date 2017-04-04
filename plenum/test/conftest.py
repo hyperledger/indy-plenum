@@ -62,7 +62,6 @@ def warnfilters():
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
-        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
     return _
 
 
