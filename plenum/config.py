@@ -66,8 +66,8 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
-DELTA = 0.4
-LAMBDA = 70
+DELTA = 0.8
+LAMBDA = 60
 OMEGA = 5
 SendMonitorStats = False
 ThroughputWindowSize = 30
@@ -132,7 +132,7 @@ LOG_SIZE = 3*CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = 300
+CLIENT_REPLY_TIMEOUT = 10
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 
