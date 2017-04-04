@@ -1,4 +1,5 @@
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.keygen_utils import initLocalKeys
 
 
 def cleanup_environment(name, base_dir):
@@ -15,6 +16,6 @@ def initialize_node_environment(name, base_dir, sigseed=None,
     and likely a method of an interface
     """
     cleanup_environment(name, base_dir)
-    _, vk = initLocalKeep(name=name, baseDir=base_dir, sigseed=sigseed,
+    _, vk = initLocalKeys(name=name, baseDir=base_dir, sigseed=sigseed,
                           override=override_keep)
     return vk

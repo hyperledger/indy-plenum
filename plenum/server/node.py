@@ -135,7 +135,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
-        self.ensureKeysAreSetup()
+        # self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
