@@ -32,7 +32,7 @@ def waitNodeLedgersEquality(looper,
     looper.run(eventually(checkNodeLedgersForEquality,
                           referenceNode,
                           *otherNodes,
-                          retryWait=1, timeout=10))
+                          retryWait=1, timeout=timeout))
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

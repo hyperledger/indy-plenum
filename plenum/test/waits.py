@@ -75,7 +75,7 @@ def expectedOrderingTime(numInstances) -> float:
 
 
 def expectedElectionTimeout(nodeCount) -> float:
-    return expectedNominationTimeout(nodeCount) + 3 * nodeCount
+    return expectedNominationTimeout(nodeCount) + 4 * nodeCount
 
 
 def expectedNominationTimeout(nodeCount) -> float:
@@ -99,7 +99,7 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
     Expected time required for checking that 'pool ledger' on nodes and client
     is the same
     """
-    return 3 * nodeCount
+    return 4 * nodeCount
 
 
 def expectedNodeStartUpTimeout() -> float:
