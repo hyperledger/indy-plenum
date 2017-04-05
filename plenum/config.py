@@ -66,8 +66,8 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
-DELTA = 0.8
-LAMBDA = 60
+DELTA = 0.1
+LAMBDA = 150
 OMEGA = 5
 SendMonitorStats = False
 ThroughputWindowSize = 30
@@ -125,14 +125,14 @@ enableStdOutLogging=True
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.5
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-CHK_FREQ = 10000
+CHK_FREQ = 100000
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3*CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = 10
+CLIENT_REPLY_TIMEOUT = 300
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
 

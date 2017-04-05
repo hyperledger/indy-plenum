@@ -273,7 +273,7 @@ class Client(Motor,
                           CATCHUP_REP)
         printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not \
                                             in ledgerTxnTypes
-        logger.info("Client {} got msg from node {}: {}".
+        logger.debug("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:

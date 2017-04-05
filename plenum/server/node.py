@@ -1912,7 +1912,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # txns from ledger
         if state.isEmpty:
             txns = [_ for _ in ledger.getAllTxn().values()]
+            logger.info('{} state hash {} before starting'.
+                        format(state.db.db.dbPath, state.headHash))
             reqHandler.updateState(txns)
+            logger.info('adding txns {}'.format(txns))
             state.commit(rootHash=state.headHash)
             logger.info('{} state hash {} while starting'.
                         format(state.db.db.dbPath, state.headHash))
