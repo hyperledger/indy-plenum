@@ -25,7 +25,7 @@ class PoolRequestHandler(RequestHandler):
         self.state = state
         self.domainState = domainState
 
-    def validate(self, req: Request):
+    def validate(self, req: Request, config = None):
         typ = req.operation.get(TXN_TYPE)
         error = None
         if typ == NODE:
