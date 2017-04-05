@@ -284,7 +284,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             raise InvalidClientRequest(identifier, reqId)
 
     def doDynamicValidation(self, request: Request):
-        self.reqHandler.validateReq(request)
+        self.reqHandler.validate(request)
 
     def applyReq(self, request: Request):
         return self.reqHandler.applyReq(request)

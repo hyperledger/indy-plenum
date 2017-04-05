@@ -1450,7 +1450,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.customRequestApplication(request)
 
     def customDynamicValidation(self, request: Request):
-        self.reqHandler.validateReq(request, self.config)
+        self.reqHandler.validate(request, self.config)
 
     def customRequestApplication(self, request: Request):
         return self.reqHandler.applyReq(request)

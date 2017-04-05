@@ -19,7 +19,7 @@ class RequestHandler:
         self.ledger = ledger
         self.state = state
 
-    def validateReq(self, req: Request, config):
+    def validate(self, req: Request, config):
         pass
 
     def applyReq(self, req: Request):

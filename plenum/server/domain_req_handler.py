@@ -20,7 +20,7 @@ class DomainRequestHandler(RequestHandler):
         self.state = state
         self.reqProcessors = reqProcessors
 
-    def validateReq(self, req: Request, config):
+    def validate(self, req: Request, config):
         if req.operation.get(TXN_TYPE) == NYM:
             origin = req.identifier
             error = None
