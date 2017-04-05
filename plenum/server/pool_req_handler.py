@@ -59,15 +59,6 @@ class PoolRequestHandler(RequestHandler):
             existingData.update(data)
             self.updateNodeData(nodeNym, existingData)
 
-    def commitReqs(self, count, stateRoot, txnRoot) -> List:
-        """
-        :param count: The number of requests to commit (The actual requests are
-        picked up from the uncommitted list from the ledger)
-        :param stateRoot: The state trie root after the txns are committed
-        :param txnRoot: The txn merkle root after the txns are committed
-        """
-        return self.commit(count, stateRoot, txnRoot)
-
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
         operation = request.operation

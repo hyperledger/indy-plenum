@@ -139,8 +139,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param ppTime: PrePrepare request time
         :param reqs: request
         """
-        committedTxns = self.reqHandler.commitReqs(len(reqs), stateRoot,
-                                                   txnRoot)
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         for txn in committedTxns:
             self.onPoolMembershipChange(deepcopy(txn))
 

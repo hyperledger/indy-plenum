@@ -52,9 +52,6 @@ class DomainRequestHandler(RequestHandler):
         self.updateState([txn])
         return True
 
-    def commitReqs(self, count, stateRoot, txnRoot) -> List:
-        return self.commit(count, stateRoot, txnRoot)
-
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
             typ = txn.get(TXN_TYPE)

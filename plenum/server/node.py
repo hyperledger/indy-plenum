@@ -1822,8 +1822,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
-        committedTxns = self.reqHandler.commitReqs(len(reqs), stateRoot,
-                                                   txnRoot)
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
