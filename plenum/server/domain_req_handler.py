@@ -14,6 +14,7 @@ logger = getlogger()
 
 
 class DomainReqHandler(ReqHandler):
+
     def __init__(self, ledger, state, reqProcessors):
         self.ledger = ledger
         self.state = state
@@ -36,7 +37,7 @@ class DomainReqHandler(ReqHandler):
                                                 req.reqId,
                                                 error)
 
-    def reqToTxn(self, req: Request):
+    def _reqToTxn(self, req: Request):
         txn = reqToTxn(req)
         for processor in self.reqProcessors:
             res = processor.process(req)
@@ -45,7 +46,7 @@ class DomainReqHandler(ReqHandler):
         return txn
 
     def applyReq(self, req: Request):
-        txn = self.reqToTxn(req)
+        txn = self._reqToTxn(req)
         self.ledger.appendTxns([txn])
         self.updateState([txn])
         return True
