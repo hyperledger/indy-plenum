@@ -23,8 +23,7 @@ class PoolRequestHandler(RequestHandler):
 
     def __init__(self, ledger: Ledger, state: PruningState,
                  domainState: PruningState):
-        self.ledger = ledger
-        self.state = state
+        super().__init__(ledger, state)
         self.domainState = domainState
         self.stateSerializer = JsonSerializer()
 
@@ -67,7 +66,7 @@ class PoolRequestHandler(RequestHandler):
         :param stateRoot: The state trie root after the txns are committed
         :param txnRoot: The txn merkle root after the txns are committed
         """
-        return super().commit(self.state, self.ledger, count, stateRoot, txnRoot)
+        return self.commit(count, stateRoot, txnRoot)
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier

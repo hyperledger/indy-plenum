@@ -17,8 +17,7 @@ logger = getlogger()
 class DomainRequestHandler(RequestHandler):
 
     def __init__(self, ledger, state, reqProcessors):
-        self.ledger = ledger
-        self.state = state
+        super().__init__(ledger, state)
         self.reqProcessors = reqProcessors
         self.stateSerializer = JsonSerializer()
 
@@ -54,8 +53,7 @@ class DomainRequestHandler(RequestHandler):
         return True
 
     def commitReqs(self, count, stateRoot, txnRoot) -> List:
-        return super().commit(self.state, self.ledger, count, stateRoot,
-                              txnRoot)
+        return self.commit(count, stateRoot, txnRoot)
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
