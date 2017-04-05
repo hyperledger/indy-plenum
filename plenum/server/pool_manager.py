@@ -24,7 +24,7 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
 from stp_core.common.log import getlogger
 
 from plenum.common.types import NodeDetail
-from plenum.server.pool_req_handler import PoolReqHandler
+from plenum.server.pool_req_handler import PoolRequestHandler
 
 logger = getlogger()
 
@@ -78,8 +78,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return self.node.name
 
     def getPoolReqHandler(self):
-        return PoolReqHandler(self.ledger, self.state,
-                              self.node.states[DOMAIN_LEDGER_ID])
+        return PoolRequestHandler(self.ledger, self.state,
+                                  self.node.states[DOMAIN_LEDGER_ID])
 
     def loadState(self):
         return PruningState(os.path.join(self.node.dataLocation,

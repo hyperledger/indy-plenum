@@ -15,7 +15,7 @@ from plenum.common.signing import serializeMsg
 from plenum.common.constants import VERKEY, ROLE
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
-from plenum.server.domain_req_handler import DomainReqHandler
+from plenum.server.domain_req_handler import DomainRequestHandler
 
 logger = getlogger()
 
@@ -139,8 +139,8 @@ class SimpleAuthNr(NaclAuthNr):
     def getVerkey(self, identifier):
         nym = self.clients.get(identifier)
         if not nym:
-            nym = DomainReqHandler.getNymDetails(self.state,
-                                                 nym, isCommitted=False)
+            nym = DomainRequestHandler.getNymDetails(self.state,
+                                                     nym, isCommitted=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)

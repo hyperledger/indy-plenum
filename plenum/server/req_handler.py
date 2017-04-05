@@ -7,7 +7,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.state import State
 
 
-class ReqHandler:
+class RequestHandler:
     """
     Base class for request handlers
     Declares methods for validation, application of requests and 

@@ -75,7 +75,7 @@ from plenum.server import replica
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
-from plenum.server.domain_req_handler import DomainReqHandler
+from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
@@ -378,9 +378,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.name
 
     def getDomainReqHandler(self):
-        return DomainReqHandler(self.domainLedger,
-                                self.states[DOMAIN_LEDGER_ID],
-                                self.reqProcessors)
+        return DomainRequestHandler(self.domainLedger,
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.reqProcessors)
 
     def loadSeqNoDB(self):
         dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)

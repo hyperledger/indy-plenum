@@ -8,12 +8,12 @@ from plenum.common.request import Request
 from plenum.common.state import State
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.txn_util import reqToTxn
-from plenum.server.req_handler import ReqHandler
+from plenum.server.req_handler import RequestHandler
 
 logger = getlogger()
 
 
-class DomainReqHandler(ReqHandler):
+class DomainRequestHandler(RequestHandler):
 
     def __init__(self, ledger, state, reqProcessors):
         self.ledger = ledger
@@ -91,7 +91,7 @@ class DomainReqHandler(ReqHandler):
 
     @staticmethod
     def getSteward(state, nym, isCommitted: bool = True):
-        nymData = DomainReqHandler.getNymDetails(state, nym, isCommitted)
+        nymData = DomainRequestHandler.getNymDetails(state, nym, isCommitted)
         if not nymData:
             return {}
         else:
@@ -102,9 +102,9 @@ class DomainReqHandler(ReqHandler):
 
     @staticmethod
     def isSteward(state, nym, isCommitted: bool = True):
-        return bool(DomainReqHandler.getSteward(state,
-                                                nym,
-                                                isCommitted))
+        return bool(DomainRequestHandler.getSteward(state,
+                                                    nym,
+                                                    isCommitted))
 
     @staticmethod
     def getNymDetails(state, nym, isCommitted: bool = True):

@@ -12,13 +12,13 @@ from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEW
     ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
-from plenum.server.domain_req_handler import DomainReqHandler
-from plenum.server.req_handler import ReqHandler
+from plenum.server.domain_req_handler import DomainRequestHandler
+from plenum.server.req_handler import RequestHandler
 
 logger = getlogger()
 
 
-class PoolReqHandler(ReqHandler):
+class PoolRequestHandler(RequestHandler):
     def __init__(self, ledger: Ledger, state: PruningState,
                  domainState: PruningState):
         self.ledger = ledger
@@ -105,7 +105,7 @@ class PoolReqHandler(ReqHandler):
         self.state.set(key, json.dumps(data).encode())
 
     def isSteward(self, nym, isCommitted: bool = True):
-        return DomainReqHandler.isSteward(self.domainState, nym, isCommitted)
+        return DomainRequestHandler.isSteward(self.domainState, nym, isCommitted)
 
     @lru_cache(maxsize=64)
     def isStewardOfNode(self, stewardNym, nodeNym):
