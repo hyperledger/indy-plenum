@@ -5,7 +5,7 @@ from plenum.test.helper import *
 from time import *
 from plenum.common.signer_simple import SimpleSigner
 
-numReqs = 30000
+numReqs = 10000
 splits = 5
 
 

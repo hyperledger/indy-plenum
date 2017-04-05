@@ -537,10 +537,10 @@ class Replica(HasActionQueue, MessageProcessor):
     def create3PCBatch(self, ledgerId):
         # TODO: If no valid requests then PRE-PREPARE should be sent but rejects
         #  should be tracked so they can be sent as part of next batch.
-        logger.info("{} creating a batch for ledger {} with state root {}".
-                    format(self, ledgerId,
-                           self.stateRootHash(ledgerId, toHex=False)))
         ppSeqNo = self.lastPrePrepareSeqNo + 1
+        logger.info("{} creating batch {} for ledger {} with state root {}".
+                    format(self, ppSeqNo, ledgerId,
+                           self.stateRootHash(ledgerId, toHex=False)))
         tm = time.time() * 1000
         validReqs = []
         inValidReqs = []
