@@ -29,12 +29,10 @@ class ReqHandler:
         txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
         assert self.ledger.root_hash == txnRoot
         self.state.commit(rootHash=stateRoot)
-        r = []
-        for txn, seqNo in zip(committedTxns,
-                              range(seqNoStart, seqNoEnd + 1)):
+        seqNos = range(seqNoStart, seqNoEnd + 1)
+        for txn, seqNo in zip(committedTxns, seqNos):
             txn[f.SEQ_NO.nm] = seqNo
-            r.append(txn)
-        return r
+        return committedTxns
 
     def validateReq(self, req: Request, config):
         pass
