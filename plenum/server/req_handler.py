@@ -20,9 +20,15 @@ class RequestHandler:
         self.state = state
 
     def validate(self, req: Request, config = None):
+        """
+        Validates request. Raises exception if requiest is invalid.  
+        """
         pass
 
-    def applyReq(self, req: Request):
+    def apply(self, req: Request):
+        """
+        Applies request
+        """
         pass
 
     def updateState(self, txns, isCommitted=False):

@@ -19,6 +19,7 @@ logger = getlogger()
 
 
 class PoolRequestHandler(RequestHandler):
+
     def __init__(self, ledger: Ledger, state: PruningState,
                  domainState: PruningState):
         self.ledger = ledger
@@ -38,7 +39,7 @@ class PoolRequestHandler(RequestHandler):
             raise UnauthorizedClientRequest(req.identifier, req.reqId,
                                             error)
 
-    def applyReq(self, req: Request):
+    def apply(self, req: Request):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
             txn = reqToTxn(req)

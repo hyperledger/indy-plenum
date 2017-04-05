@@ -1453,7 +1453,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqHandler.validate(request, self.config)
 
     def customRequestApplication(self, request: Request):
-        return self.reqHandler.applyReq(request)
+        return self.reqHandler.apply(request)
 
     def processRequest(self, request: Request, frm: str):
         """

@@ -287,7 +287,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.reqHandler.validate(request)
 
     def applyReq(self, request: Request):
-        return self.reqHandler.applyReq(request)
+        return self.reqHandler.apply(request)
 
     # def checkRequestAuthorized(self, request):
     #     typ = request.operation.get(TXN_TYPE)

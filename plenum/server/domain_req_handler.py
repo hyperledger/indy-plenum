@@ -45,7 +45,7 @@ class DomainRequestHandler(RequestHandler):
 
         return txn
 
-    def applyReq(self, req: Request):
+    def apply(self, req: Request):
         txn = self._reqToTxn(req)
         self.ledger.appendTxns([txn])
         self.updateState([txn])
