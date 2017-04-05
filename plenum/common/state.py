@@ -42,6 +42,8 @@ class State:
         raise NotImplementedError
 
 
+# TODO: Some PruningState's method often used in context where State expected,
+# this should be fixed by moving declaration of these methods to State
 class PruningState(State):
     # This class is used to store the
     # committed root hash of the trie in the db.

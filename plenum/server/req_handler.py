@@ -4,7 +4,7 @@ from plenum.common.types import f
 from plenum.common.request import Request
 from typing import List
 from plenum.common.ledger import Ledger
-from plenum.common.state import State
+from plenum.common.state import PruningState
 
 
 class RequestHandler:
@@ -14,7 +14,8 @@ class RequestHandler:
     state control
     """
 
-    def __init__(self, ledger: Ledger, state: State):
+    def __init__(self, ledger: Ledger, state: PruningState):
+        # TODO: continue using PruningState until State hierarchy fixed
         self.ledger = ledger
         self.state = state
 
@@ -41,8 +42,8 @@ class RequestHandler:
         :return: list of committed transactions
         """
 
-        (seqNoStart, seqNoEnd), committedTxns = self.ledger.commitTxns(
-            txnCount)
+        (seqNoStart, seqNoEnd), committedTxns = \
+            self.ledger.commitTxns(txnCount)
         stateRoot = unhexlify(stateRoot.encode())
         txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
         assert self.ledger.root_hash == txnRoot
