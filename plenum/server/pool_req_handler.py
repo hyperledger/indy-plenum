@@ -3,6 +3,7 @@ from binascii import unhexlify
 from functools import lru_cache
 from typing import Tuple, List
 
+from ledger.serializers.json_serializer import JsonSerializer
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
@@ -25,6 +26,7 @@ class PoolRequestHandler(RequestHandler):
         self.ledger = ledger
         self.state = state
         self.domainState = domainState
+        self.stateSerializer = JsonSerializer()
 
     def validate(self, req: Request, config = None):
         typ = req.operation.get(TXN_TYPE)
@@ -103,7 +105,8 @@ class PoolRequestHandler(RequestHandler):
 
     def updateNodeData(self, nym, data):
         key = nym.encode()
-        self.state.set(key, json.dumps(data).encode())
+        val = self.stateSerializer.serialize(data)
+        self.state.set(key, val)
 
     def isSteward(self, nym, isCommitted: bool = True):
         return DomainRequestHandler.isSteward(self.domainState, nym, isCommitted)

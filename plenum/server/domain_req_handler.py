@@ -1,6 +1,7 @@
 import json
 from typing import Tuple, List
 
+from ledger.serializers.json_serializer import JsonSerializer
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
@@ -19,6 +20,7 @@ class DomainRequestHandler(RequestHandler):
         self.ledger = ledger
         self.state = state
         self.reqProcessors = reqProcessors
+        self.stateSerializer = JsonSerializer()
 
     def validate(self, req: Request, config):
         if req.operation.get(TXN_TYPE) == NYM:
@@ -82,7 +84,9 @@ class DomainRequestHandler(RequestHandler):
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
         existingData.update(data)
-        self.state.set(nym.encode(), json.dumps(data).encode())
+        key = nym.encode()
+        val = self.stateSerializer.serialize(data)
+        self.state.set(key, val)
 
     def hasNym(self, nym, isCommitted: bool = True):
         key = nym.encode()

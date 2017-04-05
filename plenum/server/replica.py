@@ -537,7 +537,9 @@ class Replica(HasActionQueue, MessageProcessor):
     def create3PCBatch(self, ledgerId):
         # TODO: If no valid requests then PRE-PREPARE should be sent but rejects
         #  should be tracked so they can be sent as part of next batch.
-        logger.debug("{} creating a batch for ledger {}".format(self, ledgerId))
+        logger.info("{} creating a batch for ledger {} with state root {}".
+                    format(self, ledgerId,
+                           self.stateRootHash(ledgerId, toHex=False)))
         ppSeqNo = self.lastPrePrepareSeqNo + 1
         tm = time.time() * 1000
         validReqs = []
@@ -780,10 +782,12 @@ class Replica(HasActionQueue, MessageProcessor):
         Try to commit if the Prepare message is ready to be passed into the
         commit phase.
         """
-        if self.canCommit(prepare):
+        rv, reason = self.canCommit(prepare)
+        if rv:
             self.doCommit(prepare)
         else:
-            logger.debug("{} not yet able to send COMMIT".format(self))
+            logger.debug("{} not yet able to send COMMIT since {}".
+                         format(self, reason))
 
     def tryOrder(self, commit: Commit):
         """
@@ -888,12 +892,12 @@ class Replica(HasActionQueue, MessageProcessor):
         validReqs = []
         inValidReqs = []
         rejects = []
-        state = self.node.getState(pp.ledgerId)
-        # If this PRE-PREPARE is not valid then state and ledger should be
-        # reverted
-        oldStateRoot = state.headHash
-        logger.debug('{} state root before processing {} is {}'.
-                     format(self, pp, oldStateRoot))
+        if self.isMaster:
+            # If this PRE-PREPARE is not valid then state and ledger should be
+            # reverted
+            oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
+            logger.info('{} state root before processing {} is {}'.
+                         format(self, pp, oldStateRoot))
 
         for reqKey in pp.reqIdr:
             req = self.node.requests[reqKey].finalised
@@ -1080,7 +1084,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return self.commits.hasCommitFrom(ThreePhaseKey(
             request.viewNo, request.ppSeqNo), self.name)
 
-    def canCommit(self, prepare: Prepare) -> bool:
+    def canCommit(self, prepare: Prepare) -> (bool, str):
         """
         Return whether the specified PREPARE can proceed to the Commit
         step.
@@ -1094,9 +1098,13 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param prepare: the PREPARE
         """
-        return self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo) and \
-            self.prepares.hasQuorum(prepare, self.f) and \
-            not self.hasCommitted(prepare)
+        if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
+            return False, 'participate in consenesus for {}'.format(prepare)
+        if not self.prepares.hasQuorum(prepare, self.f):
+            return False, 'does not have prepare quorom for {}'.format(prepare)
+        if self.hasCommitted(prepare):
+            return False, 'has already sent COMMIT for {}'.format(prepare)
+        return True, ''
 
     def validateCommit(self, commit: Commit, sender: str) -> bool:
         """
