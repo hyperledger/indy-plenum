@@ -16,6 +16,8 @@ def initialize_node_environment(name, base_dir, sigseed=None,
     and likely a method of an interface
     """
     cleanup_environment(name, base_dir)
+
     _, vk = initLocalKeys(name=name, baseDir=base_dir, sigseed=sigseed,
                           override=override_keep)
+
     return vk

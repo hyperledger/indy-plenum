@@ -14,6 +14,7 @@ import gc
 import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
@@ -26,7 +27,6 @@ from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
 from stp_core.common.log import getlogger
-from stp_core.common.logging.handlers import TestingHandler
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
