@@ -18,7 +18,7 @@ def expectedNodeInterconnectionTime(nodeCount) -> float:
     return t
 
 
-def expectedCatchupTime(customConsistencyProofsTimeout = None) -> float:
+def expectedCatchupTime(customConsistencyProofsTimeout=None) -> float:
     timeout = customConsistencyProofsTimeout or config.ConsistencyProofsTimeout
     # TODO: implement
     return timeout + 30
@@ -33,7 +33,7 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
     Expected time required for checking that 'pool ledger' on nodes and client
     is the same
     """
-    return 4 * nodeCount
+    return 5 * nodeCount
 
 
 def expectedNodeStartUpTimeout() -> float:
