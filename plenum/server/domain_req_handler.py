@@ -4,10 +4,12 @@ from typing import Tuple, List
 from ledger.serializers.json_serializer import JsonSerializer
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
+from plenum.common.types import f
 from stp_core.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import State
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY, \
+    GUARDIAN
 from plenum.common.txn_util import reqToTxn
 from plenum.server.req_handler import RequestHandler
 
@@ -58,6 +60,7 @@ class DomainRequestHandler(RequestHandler):
             nym = txn.get(TARGET_NYM)
             if typ == NYM:
                 self.updateNym(nym, {
+                    f.IDENTIFIER.nm: txn.get(f.IDENTIFIER.nm),
                     ROLE: txn.get(ROLE),
                     VERKEY: txn.get(VERKEY)
                 }, isCommitted=isCommitted)
@@ -80,8 +83,9 @@ class DomainRequestHandler(RequestHandler):
                                           isCommitted=isCommitted)
         existingData.update(data)
         key = nym.encode()
-        val = self.stateSerializer.serialize(data)
+        val = self.stateSerializer.serialize(existingData)
         self.state.set(key, val)
+        return existingData
 
     def hasNym(self, nym, isCommitted: bool = True):
         key = nym.encode()

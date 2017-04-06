@@ -76,7 +76,10 @@ class PruningState(State):
     def committedHead(self):
         # The committed head of the state, if the state is a merkle tree then
         # head is the root
-        return self.trie._decode_to_node(self.committedHeadHash)
+        if self.committedHeadHash == BLANK_ROOT:
+            return BLANK_NODE
+        else:
+            return self.trie._decode_to_node(self.committedHeadHash)
 
     def set(self, key: bytes, value: bytes):
         self.trie.update(key, rlp_encode([value]))

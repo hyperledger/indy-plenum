@@ -1921,7 +1921,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # txns from ledger
         if state.isEmpty:
             txns = [_ for _ in ledger.getAllTxn().values()]
-            reqHandler.updateState(txns)
+            reqHandler.updateState(txns, isCommitted=True)
             state.commit(rootHash=state.headHash)
 
     def initDomainState(self):
