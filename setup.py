@@ -65,7 +65,7 @@ setup(
                       'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip'],
     extras_require={
         'stats': ['python-firebase']
     },
