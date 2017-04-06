@@ -166,7 +166,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
 
         self.addGenesisNyms()
-        # self.verkeyStore = self.getVerkeyStore()
 
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
@@ -194,8 +193,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # noinspection PyCallingNonCallable
         self.clientstack = cls(**kwargs)
-        # self.clientstack = self.clientStackClass(self.poolManager.cstack,
-        #                                          self.handleOneClientMsg)
 
         self.cliNodeReg = self.poolManager.cliNodeReg
 
@@ -1438,7 +1435,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
             self.poolManager.doDynamicValidation(request)
         else:
-            self.customDynamicValidation(request)
+            self.domainDynamicValidation(request)
 
     def applyReq(self, request: Request):
         """
@@ -1447,12 +1444,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
             return self.poolManager.applyReq(request)
         else:
-            return self.customRequestApplication(request)
+            return self.domainRequestApplication(request)
 
-    def customDynamicValidation(self, request: Request):
+    def domainDynamicValidation(self, request: Request):
         self.reqHandler.validate(request, self.config)
 
-    def customRequestApplication(self, request: Request):
+    def domainRequestApplication(self, request: Request):
         return self.reqHandler.apply(request)
 
     def processRequest(self, request: Request, frm: str):
@@ -1574,7 +1571,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug('{} retrying executing ordered client requests'.
                              format(self.name))
             else:
-                logger.warn('{} not retrying processing Ordered any more {} '
+                logger.warning('{} not retrying processing Ordered any more {} '
                             'times'.format(self, retryNo))
             return True
         else:
@@ -1820,24 +1817,37 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.requestExecuter[ledgerId](ppTime, reqs, stateRoot, txnRoot)
 
+    def updateSeqNoMap(self, committedTxns):
+        for txn in committedTxns:
+            self.seqNoDB.add(txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
+                             txn[F.seqNo.name])
+
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        self.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
                 # self.cacheVerkey(txn)
         self.sendRepliesToClients(committedTxns, ppTime)
 
-    # def cacheVerkey(self, txn):
-    #     ddo = txn.get('ddo', None)
-    #     did = txn.get('dest', None)
-    #     verkey = txn.get('verkey', '')
-    #     if ddo:
-    #         did = ddo.get('id', did)
-    #         verkey = ddo.get('publicKeyBase64', verkey)
-    #     if did:
-    #         self.verkeyStore.set(did, verkey)
+    def onBatchCreated(self, ledgerId, seqNo):
+        """
+        A batch of requests has been created and has been applied but
+        committed to ledger and state.
+        :param ledgerId:
+        :param seqNo: sequence number of the batch (pre-prepare sequence no.)
+        :return:
+        """
+        if ledgerId == POOL_LEDGER_ID:
+            if isinstance(self.poolManager, TxnPoolManager):
+                self.poolManager.reqHandler.onBatchCreated(seqNo)
+        elif ledgerId == DOMAIN_LEDGER_ID:
+            self.reqHandler.onBatchCreated(seqNo)
+        else:
+            logger.debug('{} did not know how to handle for ledger {}'.
+                         format(self, ledgerId))
 
     @staticmethod
     def ledgerId(txnType: str):
@@ -1852,7 +1862,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
-            self.seqNoDB.add(*reqKey, reply.result[F.seqNo.name])
             logger.info('{} sending reply for {} to client'.format(self, reqKey))
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)

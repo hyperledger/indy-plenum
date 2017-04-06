@@ -71,6 +71,7 @@ SERVICES = "services"
 VALIDATOR = "VALIDATOR"
 CLIENT = "CLIENT"
 ROLE = 'role'
+GUARDIAN = 'guardian'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
 VERIFIABLE_ATTRIBUTES = 'verifiableAttributes'

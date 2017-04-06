@@ -19,7 +19,7 @@ class RequestHandler:
         self.ledger = ledger
         self.state = state
 
-    def validate(self, req: Request, config = None):
+    def validate(self, req: Request, config=None):
         """
         Validates request. Raises exception if requiest is invalid.  
         """
@@ -58,3 +58,6 @@ class RequestHandler:
         for txn, seqNo in zip(committedTxns, seqNos):
             txn[f.SEQ_NO.nm] = seqNo
         return committedTxns
+
+    def onBatchCreated(self, seqNo):
+        pass

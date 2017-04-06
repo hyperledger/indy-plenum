@@ -140,6 +140,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         :param reqs: request
         """
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             self.onPoolMembershipChange(deepcopy(txn))
 

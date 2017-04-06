@@ -186,14 +186,15 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(self):
         pass
 
-    def customRequestApplication(self, request):
+    def domainRequestApplication(self, request):
         typ = request.operation.get(TXN_TYPE)
-        r = super().customRequestApplication(request)
+        r = super().domainRequestApplication(request)
         if typ == 'buy':
             state = self.getState(DOMAIN_LEDGER_ID)
             key = '{}:{}'.format(request.identifier, request.reqId).encode()
             state.set(key, json.dumps(request.operation).encode())
-            logger.trace('{} after adding to state, headhash is {}'.format(self, state.headHash))
+            logger.trace('{} after adding to state, headhash is {}'.
+                         format(self, state.headHash))
             return True
         else:
             return r

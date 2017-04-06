@@ -21,7 +21,7 @@ class DomainRequestHandler(RequestHandler):
         self.reqProcessors = reqProcessors
         self.stateSerializer = JsonSerializer()
 
-    def validate(self, req: Request, config):
+    def validate(self, req: Request, config=None):
         if req.operation.get(TXN_TYPE) == NYM:
             origin = req.identifier
             error = None
