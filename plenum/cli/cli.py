@@ -12,6 +12,7 @@ from jsonpickle import json
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
+from plenum import config
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
@@ -890,7 +891,10 @@ class Cli:
             try:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
-                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
+
+
+                if config.UseZStack:
+                    learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,

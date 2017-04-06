@@ -189,13 +189,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
-            if not self.config.UseZStack:
-                logger.debug("{} clearing local data in keep".
-                             format(self.node.nodestack.name))
-                self.node.nodestack.keep.clearLocalData()
-                logger.debug("{} clearing local data in keep".
-                             format(self.node.clientstack.name))
-                self.node.clientstack.keep.clearLocalData()
+            self.node.nodestack.onHostAddressChanged()
+            self.node.clientstack.onHostAddressChanged()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
