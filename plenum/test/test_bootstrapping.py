@@ -1,10 +1,10 @@
-from stp_core.network.exceptions import RemoteNotFound
+from stp_core.network.exceptions import RemoteNotFound, PublicKeyNotFoundOnDisk
 from stp_core.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from stp_core.loop.looper import Looper
 from plenum.test.helper import msgAll
-from plenum.test.test_stack import RemoteState, NOT_CONNECTED
+from plenum.test.test_stack import NOT_CONNECTED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
@@ -50,8 +50,8 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
                         checkNodesConnected(nodes, NOT_CONNECTED))
             except RemoteNotFound:
                 pass
-            except KeyError as ex:
+            except PublicKeyNotFoundOnDisk as ex:
                 assert [n for n in nodeNames
-                        if n == ex.args[0]]
+                        if n == ex.stackName]
             except Exception:
                 raise
