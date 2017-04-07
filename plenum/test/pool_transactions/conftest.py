@@ -61,7 +61,10 @@ def nodeThetaAdded(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
 
 @pytest.fixture(scope="module")
 def clientAndWallet1(txnPoolNodeSet, poolTxnClientData, tdirWithPoolTxns):
-    return buildPoolClientAndWallet(poolTxnClientData, tdirWithPoolTxns)
+    client, wallet = buildPoolClientAndWallet(poolTxnClientData,
+                                              tdirWithPoolTxns)
+    yield client, wallet
+    client.stop()
 
 
 @pytest.fixture(scope="module")

@@ -73,9 +73,9 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn,
         portalocker.Lock(genesisFilePath, truncate=None,
                          flags=portalocker.LOCK_EX | portalocker.LOCK_NB)
         seqNo = txn[F.seqNo.name]
-        ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
-            dataDir=genesisTxnDir)), dataDir=genesisTxnDir,
-            fileName=genesisTxnFile)
+        fileHashStore = FileHashStore(dataDir=genesisTxnDir)
+        ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
+                        dataDir=genesisTxnDir, fileName=genesisTxnFile)
         ledgerSize = len(ledger)
         if seqNo - ledgerSize == 1:
             ledger.add({k:v for k,v in txn.items() if k != F.seqNo.name})
@@ -85,6 +85,7 @@ def updateGenesisPoolTxnFile(genesisTxnDir, genesisTxnFile, txn,
             logger.debug('Already {} genesis pool transactions present so '
                          'transaction with sequence number {} '
                          'not applicable'.format(ledgerSize, seqNo))
+        fileHashStore.close()
         portalocker.unlock(genesisFilePath)
     except portalocker.AlreadyLocked as ex:
         logger.info("file is already locked: {}, will retry in few seconds".

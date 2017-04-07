@@ -133,12 +133,13 @@ class Cli:
                 and len(cliNodeReg)):
             self.nodeRegLoadedFromFile = True
             dataDir = self.basedirpath
-            ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
-                dataDir=dataDir)),
+            fileHashStore = FileHashStore(dataDir=dataDir)
+            ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
                 dataDir=dataDir,
                 fileName=self.config.poolTransactionsFile)
             nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
                 ledger)
+            fileHashStore.close()
 
         self.withNode = withNode
         self.nodeReg = nodeReg

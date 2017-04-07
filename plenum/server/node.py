@@ -481,7 +481,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
-            self.hashStore = self.getHashStore(self.name)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -558,6 +557,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
+            if self.poolManager.hashStore is not None:
+                self.poolManager.hashStore.close()
         self.ledgerManager.setLedgerState(1, LedgerState.not_synced)
 
     def reset(self):

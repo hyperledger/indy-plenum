@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import warnings
+from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from typing import Dict, Any
@@ -581,16 +582,18 @@ def txnPoolNodeSet(patchPluginManager,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass):
-    nodes = []
-    for nm in poolTxnNodeNames:
-        node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                             config=tconf, pluginPaths=allPluginsPath)
-        txnPoolNodesLooper.add(node)
-        nodes.append(node)
-    txnPoolNodesLooper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=20)
-    return nodes
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(
+                testNodeClass(nm, basedirpath=tdirWithPoolTxns,
+                              config=tconf, pluginPaths=allPluginsPath))
+            txnPoolNodesLooper.add(node)
+            nodes.append(node)
+        txnPoolNodesLooper.run(checkNodesConnected(nodes))
+        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
+                            timeout=20)
+        yield nodes
 
 
 @pytest.fixture(scope="module")
