@@ -6,8 +6,7 @@ from state.db.refcount_db import RefcountDB
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
 from state.util.utils import to_string
-
-from plenum.common.util import isHex
+from stp_core.crypto.util import isHex
 
 
 class State:
