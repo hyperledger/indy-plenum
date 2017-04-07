@@ -152,8 +152,6 @@ def allPluginsPath():
 
 @pytest.fixture(scope="module")
 def keySharedNodes(startedNodes):
-    # for n in startedNodes:
-    #     n.startKeySharing()
     return startedNodes
 
 

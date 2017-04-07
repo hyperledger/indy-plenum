@@ -1832,19 +1832,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # self.cacheVerkey(txn)
         self.sendRepliesToClients(committedTxns, ppTime)
 
-    def onBatchCreated(self, ledgerId, seqNo):
+    def onBatchCreated(self, ledgerId, stateRoot):
         """
         A batch of requests has been created and has been applied but
         committed to ledger and state.
         :param ledgerId:
-        :param seqNo: sequence number of the batch (pre-prepare sequence no.)
+        :param stateRoot: state root after the batch creation
         :return:
         """
         if ledgerId == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.poolManager.reqHandler.onBatchCreated(seqNo)
+                self.poolManager.reqHandler.onBatchCreated(stateRoot)
         elif ledgerId == DOMAIN_LEDGER_ID:
-            self.reqHandler.onBatchCreated(seqNo)
+            self.reqHandler.onBatchCreated(stateRoot)
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
@@ -1862,7 +1862,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
-            logger.info('{} sending reply for {} to client'.format(self, reqKey))
+            logger.debug('{} sending reply for {} to client'.format(self, reqKey))
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 

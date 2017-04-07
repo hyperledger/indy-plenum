@@ -1,5 +1,5 @@
 import time
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
@@ -550,7 +550,6 @@ class Replica(HasActionQueue, MessageProcessor):
             req = self.requestQueues[ledgerId].popleft()
             self.processReqDuringBatch(req, validReqs, inValidReqs, rejects)
 
-        self.node.onBatchCreated(ledgerId, ppSeqNo)
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
         prePrepareReq = PrePrepare(self.instId,
@@ -564,10 +563,13 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledgerId),
                                    self.txnRootHash(ledgerId)
                                    )
-        self.lastPrePrepareSeqNo = ppSeqNo
-        self.outBox.extend(rejects)
         logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledgerId))
+        self.lastPrePrepareSeqNo = ppSeqNo
+        if self.isMaster:
+            self.outBox.extend(rejects)
+            self.node.onBatchCreated(ledgerId,
+                                     self.stateRootHash(ledgerId, toHex=False))
         return prePrepareReq
 
     def sendPrePrepare(self, ppReq: PrePrepare):
@@ -709,6 +711,10 @@ class Replica(HasActionQueue, MessageProcessor):
                                                     for i, r in pp.reqIdr]})
         oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
         if self.canProcessPrePrepare(pp, sender):
+            if self.isMaster:
+                self.node.onBatchCreated(pp.ledgerId,
+                                         self.stateRootHash(pp.ledgerId,
+                                                            toHex=False))
             if not self.node.isParticipating:
                 self.stashingWhileCatchingUp.add(key)
             self.addToPrePrepares(pp)

@@ -27,7 +27,7 @@ class PoolRequestHandler(RequestHandler):
         self.domainState = domainState
         self.stateSerializer = JsonSerializer()
 
-    def validate(self, req: Request, config = None):
+    def validate(self, req: Request, config=None):
         typ = req.operation.get(TXN_TYPE)
         error = None
         if typ == NODE:

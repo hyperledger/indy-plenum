@@ -59,5 +59,5 @@ class RequestHandler:
             txn[f.SEQ_NO.nm] = seqNo
         return committedTxns
 
-    def onBatchCreated(self, seqNo):
+    def onBatchCreated(self, stateRoot):
         pass

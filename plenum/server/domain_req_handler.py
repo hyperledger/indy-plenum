@@ -29,7 +29,7 @@ class DomainRequestHandler(RequestHandler):
             error = None
             if not self.isSteward(self.state,
                                   origin, isCommitted=False):
-                error = "Only Steward is allowed to do this transactions"
+                error = "Only Steward is allowed to do these transactions"
             if req.operation.get(ROLE) == STEWARD:
                 if self.stewardThresholdExceeded(config):
                     error = "New stewards cannot be added by other stewards " \
