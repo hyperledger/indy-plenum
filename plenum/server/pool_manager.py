@@ -4,7 +4,6 @@ from functools import lru_cache
 from copy import deepcopy
 from ledger.util import F
 from plenum.common.txn_util import updateGenesisPoolTxnFile
-from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
@@ -94,7 +93,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
-                      auto=AutoMode.never)
+                      auto=0)
         nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
@@ -103,7 +102,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
-                      auto=AutoMode.always)
+                      auto=2)
         cliNodeReg[cliname] = HA(*cliha)
 
         if basedirpath:
@@ -418,7 +417,7 @@ class RegistryPoolManager(PoolManager):
         nstack = dict(name=name,
                       ha=ha,
                       main=True,
-                      auto=AutoMode.never)
+                      auto=0)
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
@@ -449,7 +448,7 @@ class RegistryPoolManager(PoolManager):
         cstack = dict(name=cliname,
                       ha=cliha,
                       main=True,
-                      auto=AutoMode.always)
+                      auto=2)
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath

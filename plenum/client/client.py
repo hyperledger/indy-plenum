@@ -12,8 +12,7 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
-from plenum.common.stacks import NodeRStack, nodeStackClass
-from plenum.common.stacks import NodeZStack
+from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
@@ -30,7 +29,6 @@ from plenum.common.ledger_manager import LedgerManager
 from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from stp_raet.util import getHaFromLocalEstate
 from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
@@ -82,7 +80,7 @@ class Client(Motor,
         cha = None
         # If client information already exists is RAET then use that
         if self.exists(self.stackName, basedirpath):
-            cha = getHaFromLocalEstate(self.stackName, basedirpath)
+            cha = self.nodeStackClass.getHaFromLocal(self.stackName, basedirpath)
             if cha:
                 cha = HA(*cha)
                 logger.debug("Client {} ignoring given ha {} and using {}".

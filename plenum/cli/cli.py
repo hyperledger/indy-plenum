@@ -29,7 +29,7 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
 from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
-    RaetKeysNotFoundException
+    KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from stp_core.crypto.util import cleanSeed, seedFromHex
@@ -892,15 +892,13 @@ class Cli:
                 nodeRegistry = None if self.nodeRegLoadedFromFile \
                     else self.nodeRegistry
 
-
-                if config.UseZStack:
-                    learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
+                learnKeysFromOthers(self.basedirpath, name, self.nodes.values())
                 node = self.NodeClass(name,
                                       nodeRegistry=nodeRegistry,
                                       basedirpath=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
-            except (GraphStorageNotAvailable, RaetKeysNotFoundException) as e:
+            except (GraphStorageNotAvailable, KeysNotFoundException) as e:
                 self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
