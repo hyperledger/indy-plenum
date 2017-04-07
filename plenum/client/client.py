@@ -14,6 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.nacl_wrappers import Signer
+from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 
@@ -121,7 +122,7 @@ class Client(Motor,
         stackargs = dict(name=self.stackName,
                          ha=cha,
                          main=False,  # stops incoming vacuous joins
-                         auto=2)
+                         auth_mode=AuthMode.ALLOW_ANY.value)
         stackargs['basedirpath'] = basedirpath
         self.created = time.perf_counter()
 

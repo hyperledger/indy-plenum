@@ -9,6 +9,7 @@ from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
 
@@ -93,7 +94,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
-                      auto=0)
+                      auth_mode=AuthMode.RESTRICTED.value)
         nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
@@ -102,7 +103,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
-                      auto=2)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
         cliNodeReg[cliname] = HA(*cliha)
 
         if basedirpath:
@@ -417,7 +418,7 @@ class RegistryPoolManager(PoolManager):
         nstack = dict(name=name,
                       ha=ha,
                       main=True,
-                      auto=0)
+                      auth_mode=AuthMode.RESTRICTED.value)
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
@@ -448,7 +449,7 @@ class RegistryPoolManager(PoolManager):
         cstack = dict(name=cliname,
                       ha=cliha,
                       main=True,
-                      auto=2)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath
