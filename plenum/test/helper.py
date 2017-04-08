@@ -399,6 +399,13 @@ def checkRejectWithReason(client, reason: str, sender: str):
     assert found
 
 
+def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
+    for node in nodes:
+        looper.run(eventually(checkRejectWithReason, client, reason,
+                              node.clientstack.name, retryWait=1,
+                              timeout=timeout))
+
+
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     """
     Checks if all the given nodes have the expected view no

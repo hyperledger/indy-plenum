@@ -577,7 +577,8 @@ class Replica(HasActionQueue, MessageProcessor):
         self.send(ppReq, TPCStat.PrePrepareSent)
 
     def readyFor3PC(self, request: Request):
-        self.requestQueues[self.node.ledgerIdForRequest(request)].append(request)
+        cls = self.node.__class__
+        self.requestQueues[cls.ledgerIdForRequest(request)].append(request)
 
     def serviceQueues(self, limit=None):
         """
@@ -894,6 +895,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                         stateRootHash, ledgerId))
         state.revertToHead(stateRootHash)
         ledger.discardTxns(reqCount)
+        self.node.onBatchRejected(ledgerId)
 
     def validatePrePrepare(self, pp: PrePrepare, sender: str):
         validReqs = []

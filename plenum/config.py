@@ -1,3 +1,4 @@
+
 import os
 import sys
 from collections import OrderedDict
@@ -116,7 +117,7 @@ logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno:d}) | {funcName:s} | {message:s}'
 logFormatStyle='{'
-logLevel=logging.DEBUG
+logLevel=logging.INFO
 enableStdOutLogging=True
 
 # OPTIONS RELATED TO TESTS

@@ -36,6 +36,13 @@ class ReqIdrToTxnLevelDB(ReqIdrToTxn):
         key = self.getKey(identifier, reqId)
         self.db.Put(key, str(seqNo).encode())
 
+    def addBatch(self, batch):
+        b = leveldb.WriteBatch()
+        for identifier, reqId, seqNo in batch:
+            key = self.getKey(identifier, reqId)
+            b.Put(key, str(seqNo).encode())
+        self.db.Write(b, sync=False)
+
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)
         try:

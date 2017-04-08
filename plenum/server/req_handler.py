@@ -61,3 +61,6 @@ class RequestHandler:
 
     def onBatchCreated(self, stateRoot):
         pass
+
+    def onBatchRejected(self, stateRoot=None):
+        pass

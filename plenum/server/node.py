@@ -246,10 +246,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
-        # TODO: Create a RecurringCaller that takes a method to call after
-        # every `n` seconds, also support start and stop methods
-        # self._schedule(self.checkPerformance, self.perfCheckFreq)
-        self.startRepeating(self.checkPerformance, self.perfCheckFreq)
+        # Deliberately disabling performance check to prevent view change
+        # while stress testing
+        # self.startRepeating(self.checkPerformance, self.perfCheckFreq)
+
         self.startRepeating(self.checkNodeRequestSpike,
                             self.config
                             .notifierEventTriggeringConfig[
@@ -515,14 +515,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return PruningState(os.path.join(self.dataLocation,
                                          self.config.domainStateDbName))
 
-    @staticmethod
-    def ledgerIdForRequest(request: Request):
+    @classmethod
+    def ledgerIdForRequest(cls, request: Request):
         assert request.operation[TXN_TYPE]
         typ = request.operation[TXN_TYPE]
-        return Node.ledgerId(typ)
-
-    # def getVerkeyStore(self):
-    #     return IdrCache(self.dataLocation)
+        return cls.ledgerId(typ)
 
     def start(self, loop):
         oldstatus = self.status
@@ -626,8 +623,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 state.close()
         if self.seqNoDB:
             self.seqNoDB.close()
-        # if self.verkeyStore:
-        #     self.verkeyStore.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -1772,40 +1767,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    # def checkValidOperation(self, clientId, reqId, operation):
-    #     if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-    #         if not self.poolManager.checkValidOperation(operation):
-    #             raise InvalidClientRequest(clientId, reqId)
-    #
-    #     if self.opVerifiers:
-    #         try:
-    #             for v in self.opVerifiers:
-    #                 v.verify(operation)
-    #         except Exception as ex:
-    #             raise InvalidClientRequest(clientId, reqId) from ex
-
-    # def checkRequestAuthorized(self, request):
-    #     """
-    #     Subclasses can implement this method to throw an
-    #     UnauthorizedClientRequest if the request is not authorized.
-    #
-    #     If a request makes it this far, the signature has been verified
-    #     to match the identifier.
-    #     """
-    #     if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-    #         return self.poolManager.checkRequestAuthorized(request)
-    #     if request.operation.get(TXN_TYPE) == NYM:
-    #         origin = request.identifier
-    #         error = None
-    #         if not self.secondaryStorage.isSteward(origin):
-    #             error = "Only Steward is allowed to do this transactions"
-    #         if request.operation.get(ROLE) == STEWARD:
-    #             error = self.authErrorWhileAddingSteward(request)
-    #         if error:
-    #             raise UnauthorizedClientRequest(request.identifier,
-    #                                             request.reqId,
-    #                                             error)
-
     def executeBatch(self, ppTime: float, reqs: List[Request], ledgerId,
                      stateRoot, txnRoot) -> None:
         """
@@ -1818,9 +1779,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter[ledgerId](ppTime, reqs, stateRoot, txnRoot)
 
     def updateSeqNoMap(self, committedTxns):
-        for txn in committedTxns:
-            self.seqNoDB.add(txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
-                             txn[F.seqNo.name])
+        # for txn in committedTxns:
+        #     self.seqNoDB.add(txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
+        #                      txn[F.seqNo.name])
+        self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
+                                txn[F.seqNo.name]) for txn in committedTxns)
 
     # TODO: Find a better name for the function
     def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
@@ -1849,8 +1812,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
 
-    @staticmethod
-    def ledgerId(txnType: str):
+    def onBatchRejected(self, ledgerId, stateRoot=None):
+        """
+        A batch of requests has been rejected, if stateRoot is None, reject
+        the current batch.
+        :param ledgerId:
+        :param stateRoot: state root after the batch was created
+        :return:
+        """
+        if ledgerId == POOL_LEDGER_ID:
+            if isinstance(self.poolManager, TxnPoolManager):
+                self.poolManager.reqHandler.onBatchRejected(stateRoot)
+        elif ledgerId == DOMAIN_LEDGER_ID:
+            self.reqHandler.onBatchRejected(stateRoot)
+        else:
+            logger.debug('{} did not know how to handle for ledger {}'.
+                         format(self, ledgerId))
+
+    @classmethod
+    def ledgerId(cls, txnType: str):
         return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
 
     def sendRepliesToClients(self, committedTxns, ppTime):
