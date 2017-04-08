@@ -1,3 +1,4 @@
+import pytest
 from stp_core.network.exceptions import RemoteNotFound, PublicKeyNotFoundOnDisk
 from stp_core.common.log import getlogger
 from plenum.test.greek import genNodeNames
@@ -42,16 +43,11 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
     attempts at connecting to nodes when key sharing is disabled must fail
     """
     nodeNames = genNodeNames(5)
-    with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func,
-                     keyshare=False) as nodes:
-        with Looper(nodes) as looper:
-            try:
-                looper.run(
-                        checkNodesConnected(nodes, NOT_CONNECTED))
-            except RemoteNotFound:
-                pass
-            except PublicKeyNotFoundOnDisk as ex:
-                assert [n for n in nodeNames
-                        if n == ex.stackName]
-            except Exception:
-                raise
+
+    with pytest.raises(PublicKeyNotFoundOnDisk):
+        with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func,
+                         keyshare=False) as nodes:
+            with Looper(nodes) as looper:
+                    looper.run(
+                            checkNodesConnected(nodes, NOT_CONNECTED))
+
