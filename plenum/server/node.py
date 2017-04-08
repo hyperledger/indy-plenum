@@ -1138,7 +1138,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param wrappedMsg: a message from a client
         """
         try:
-            vmsg = self.validateClientMsg(wrappedMsg)
+            try:
+                vmsg = self.validateClientMsg(wrappedMsg)
+            except:
+                vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
         except BlowUp:

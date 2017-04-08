@@ -21,10 +21,9 @@ def initRemoteKeys(name, baseDir, sigseed, verkey, override=False, config=None):
 
 
 def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, config=None):
-    nodeStackClass.initLocalKeys(name, baseDir, sigseed, override=override)
-    # Above and below method call will return same thing, as seed is same.
-    return nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
-                       override=override)
+    nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
+                                 override=override)
+    return nodeStackClass.initLocalKeys(name, baseDir, sigseed, override=override)
 
 
 def areKeysSetup(name, baseDir, config=None):
