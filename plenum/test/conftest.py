@@ -48,8 +48,6 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
 logger = getlogger()
 config = getConfig()
 
-UseZStack = config.UseZStack
-
 
 @pytest.fixture(scope="session")
 def warnfilters():

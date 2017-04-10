@@ -9,10 +9,7 @@ from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
 
-import pytest
-
-from plenum.common.stacks import ClientZStack, NodeRStack, ClientRStack, nodeStackClass, clientStackClass
-from plenum.common.stacks import NodeZStack
+from plenum.common.stacks import nodeStackClass, clientStackClass
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -286,9 +283,6 @@ class TestNodeSet(ExitStack):
                  pluginPaths: Iterable[str]=None,
                  testNodeClass=TestNode):
 
-        # TODO: Remove them once RAET is removed
-        from plenum.test.conftest import UseZStack
-        self.UseZStack = UseZStack
 
         super().__init__()
         self.tmpdir = tmpdir
@@ -322,12 +316,9 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
-        if self.UseZStack:
-            seed = randomSeed()
-            if self.keyshare:
-                learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
-        else:
-            seed = None
+        seed = randomSeed()
+        if self.keyshare:
+            learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
@@ -341,7 +332,7 @@ class TestNodeSet(ExitStack):
                               pluginPaths=self.pluginPaths,
                               seed=seed))
 
-        if self.UseZStack and self.keyshare:
+        if self.keyshare:
             tellKeysToOthers(node, self.nodes.values())
 
         self.nodes[name] = node

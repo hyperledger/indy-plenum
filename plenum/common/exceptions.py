@@ -107,7 +107,7 @@ class UnregisteredIdentifier(SigningException):
     reason = 'provided owner identifier not registered with agent'
 
 
-class RaetKeysNotFoundException(Exception):
+class KeysNotFoundException(Exception):
     code = 141
     reason = 'Keys not found in the keep for {}. ' \
              'To generate them run script '

@@ -3,7 +3,6 @@ import os
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.util import randomSeed
 from stp_zmq.util import createCertsFromKeys
-from stp_zmq.zstack import ZStack
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 
@@ -37,25 +36,20 @@ def areKeysSetup(name, baseDir, config=None):
 
 
 def learnKeysFromOthers(baseDir, nodeName, otherNodes):
-    homeDir = ZStack.homeDirPath(baseDir, nodeName)
-    verifDirPath = ZStack.verifDirPath(homeDir)
-    pubDirPath = ZStack.publicDirPath(homeDir)
-    for d in (homeDir, verifDirPath, pubDirPath):
-        os.makedirs(d, exist_ok=True)
+    otherNodeStacks = []
     for otherNode in otherNodes:
-        for stack in (otherNode.nodestack, otherNode.clientstack):
-            createCertsFromKeys(verifDirPath, stack.name,
-                                stack.verKey)
-            createCertsFromKeys(pubDirPath, stack.name,
-                                stack.publicKey)
+        if otherNode.name != nodeName:
+            otherNodeStacks.append(otherNode.nodestack)
+            otherNodeStacks.append(otherNode.clientstack)
+    nodeStackClass.learnKeysFromOthers(baseDir, nodeName, otherNodeStacks)
 
 
 def tellKeysToOthers(node, otherNodes):
+    otherNodeStacks = []
     for otherNode in otherNodes:
-        for attrName in ('nodestack', 'clientstack'):
-            stack = getattr(node, attrName)
-            otherStack = getattr(otherNode, attrName)
-            createCertsFromKeys(otherStack.verifKeyDir, stack.name,
-                                stack.verKey)
-            createCertsFromKeys(otherStack.publicKeysDir, stack.name,
-                                stack.publicKey)
+        if otherNode != node:
+            otherNodeStacks.append(otherNode.nodestack)
+            otherNodeStacks.append(otherNode.clientstack)
+
+    node.nodestack.tellKeysToOthers(otherNodeStacks)
+    node.clientstack.tellKeysToOthers(otherNodeStacks)
