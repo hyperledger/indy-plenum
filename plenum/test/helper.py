@@ -10,7 +10,6 @@ from sys import executable
 from time import sleep
 
 from psutil import Popen
-from raet.raeting import TrnsKind, PcktKind
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
@@ -39,12 +38,6 @@ from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
     ("frm", Optional[str])])
-
-RaetDelay = NamedTuple("RaetDelay", [
-    ("tk", Optional[TrnsKind]),
-    ("pk", Optional[PcktKind]),
-    ("fromPort", Optional[int])])
-
 
 logger = getlogger()
 
