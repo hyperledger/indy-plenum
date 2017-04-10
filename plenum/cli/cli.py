@@ -1354,9 +1354,10 @@ class Cli:
         if matchedVars.get('list_krs') == 'list keyrings':
             keyringBaseDir = self.getKeyringsBaseDir()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
-            dirs_to_scan = [contextDirPath] + self.getAllSubDirNamesForKeyrings()
+            dirs_to_scan = self.getAllSubDirNamesForKeyrings()
+            if contextDirPath not in dirs_to_scan:
+                dirs_to_scan.insert(0, contextDirPath)
             dirs_to_scan = [os.path.join(keyringBaseDir, e) for e in dirs_to_scan]
-
             anyWalletFound = False
             for dir in dirs_to_scan:
                 cleaned_dir_name = dir.rstrip(os.sep)   # removed os path separator at the end
