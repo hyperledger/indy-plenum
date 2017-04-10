@@ -28,10 +28,10 @@ def run(pytest, output_file):
     allErrorTests = []
     failureData = []
     testRep = 'currentTestReport.txt'
-    passPat = re.compile("==.+ ([0-9]+) passed,?.+===\n")
-    skipPat = re.compile("==.+ ([0-9]+) skipped,?.+===\n")
-    failPat = re.compile("==.+ ([0-9]+) failed,?.+===\n")
-    errPat = re.compile("==.+ ([0-9]+) error,?.+===\n")
+    passPat = re.compile(".* ([0-9]+) passed.*$")
+    skipPat = re.compile(".* ([0-9]+) skipped.*$")
+    failPat = re.compile(".* ([0-9]+) failed.*$")
+    errPat = re.compile(".* ([0-9]+) error.*$")
     failedTestPat = re.compile('____ (test.+) ____')
     errorTestPat = re.compile('____ (ERROR.+) ____')
 
