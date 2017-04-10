@@ -46,10 +46,10 @@ class PoolRequestHandler(RequestHandler):
             txn = reqToTxn(req)
             self.ledger.appendTxns([txn])
             self.updateState([txn])
-            return True
+            return txn
         else:
             logger.debug('Cannot apply request of type {} to state'.format(typ))
-            return False
+            return None
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:

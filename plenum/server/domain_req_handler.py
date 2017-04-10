@@ -52,7 +52,7 @@ class DomainRequestHandler(RequestHandler):
         txn = self._reqToTxn(req)
         self.ledger.appendTxns([txn])
         self.updateState([txn])
-        return True
+        return txn
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
