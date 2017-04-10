@@ -10,7 +10,6 @@ from sys import executable
 from time import sleep
 
 from psutil import Popen
-from raet.raeting import TrnsKind, PcktKind
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
@@ -39,12 +38,6 @@ from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
     ("frm", Optional[str])])
-
-RaetDelay = NamedTuple("RaetDelay", [
-    ("tk", Optional[TrnsKind]),
-    ("pk", Optional[PcktKind]),
-    ("fromPort", Optional[int])])
-
 
 logger = getlogger()
 
@@ -532,17 +525,17 @@ def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
 
     if ensurePortsFreedUp:
         ports = [[n.nodestack.ha[1], n.clientstack.ha[1]] for n in nodes]
-        waitUntillPortIsAvailable(looper, ports)
+        waitUntilPortIsAvailable(looper, ports)
 
 
-def waitUntillPortIsAvailable(looper, ports):
+def waitUntilPortIsAvailable(looper, ports, timeout=5):
     ports = itertools.chain(*ports)
 
     def chk():
         for port in ports:
             checkPortAvailable(("", port))
 
-    looper.run(eventually(chk, retryWait=.5))
+    looper.run(eventually(chk, retryWait=.5, timeout=timeout))
 
 
 def run_script(script, *args):

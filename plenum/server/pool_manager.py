@@ -5,15 +5,14 @@ from functools import lru_cache
 
 from copy import deepcopy
 from ledger.util import F
+from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.request import Request
 from plenum.common.state import PruningState
-from plenum.common.txn_util import updateGenesisPoolTxnFile, reqToTxn
-from raet.raeting import     AutoMode
-
 from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
 
@@ -113,7 +112,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
-                      auto=AutoMode.never)
+                      auth_mode=AuthMode.RESTRICTED.value)
         nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
@@ -122,7 +121,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
-                      auto=AutoMode.always)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
         cliNodeReg[cliname] = HA(*cliha)
 
         if basedirpath:
@@ -205,13 +204,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
-            if not self.config.UseZStack:
-                logger.debug("{} clearing local data in keep".
-                             format(self.node.nodestack.name))
-                self.node.nodestack.keep.clearLocalData()
-                logger.debug("{} clearing local data in keep".
-                             format(self.node.clientstack.name))
-                self.node.clientstack.keep.clearLocalData()
+            self.node.nodestack.onHostAddressChanged()
+            self.node.clientstack.onHostAddressChanged()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
@@ -418,7 +412,7 @@ class RegistryPoolManager(PoolManager):
         nstack = dict(name=name,
                       ha=ha,
                       main=True,
-                      auto=AutoMode.never)
+                      auth_mode=AuthMode.RESTRICTED.value)
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
@@ -449,7 +443,7 @@ class RegistryPoolManager(PoolManager):
         cstack = dict(name=cliname,
                       ha=cliha,
                       main=True,
-                      auto=AutoMode.always)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath

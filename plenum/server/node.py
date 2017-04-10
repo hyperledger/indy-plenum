@@ -12,13 +12,10 @@ from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
 import pyorient
-from plenum.common.stacks import NodeRStack, ClientRStack, ClientZStack, \
-    NodeZStack, nodeStackClass, clientStackClass
+from plenum.common.stacks import nodeStackClass, clientStackClass
 from stp_core.crypto.signer import Signer
 from stp_core.network.network_interface import NetworkInterface
-from stp_zmq.zstack import ZStack
 from stp_core.ratchet import Ratchet
-from stp_core.types import HA
 
 from plenum.common.roles import Roles
 
@@ -33,7 +30,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, RaetKeysNotFoundException as REx, BlowUp
+    UnauthorizedClientRequest, InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger_manager import LedgerManager
@@ -179,8 +176,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         kwargs = dict(stackParams=self.poolManager.nstack,
                       msgHandler=self.handleOneNodeMsg, registry=self.nodeReg)
         cls = self.nodeStackClass
-        if issubclass(cls, ZStack):
-            kwargs.update(seed=seed)
+        kwargs.update(seed=seed)
         # noinspection PyCallingNonCallable
         self.nodestack = cls(**kwargs)
         self.nodestack.onConnsChanged = self.onConnsChanged
@@ -188,8 +184,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         kwargs = dict(stackParams=self.poolManager.cstack,
                       msgHandler=self.handleOneClientMsg)
         cls = self.clientStackClass
-        if issubclass(cls, ZStack):
-            kwargs.update(seed=seed)
+        kwargs.update(seed=seed)
 
         # noinspection PyCallingNonCallable
         self.clientstack = cls(**kwargs)
@@ -246,9 +241,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
-        # Deliberately disabling performance check to prevent view change
-        # while stress testing
-        # self.startRepeating(self.checkPerformance, self.perfCheckFreq)
+        self.startRepeating(self.checkPerformance, self.perfCheckFreq)
 
         self.startRepeating(self.checkNodeRequestSpike,
                             self.config
@@ -1961,8 +1954,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def ensureKeysAreSetup(self):
         """
-        Check whether the keys are setup in the local RAET keep.
-        Raises RaetKeysNotFoundException if not found.
+        Check whether the keys are setup in the local STP keep.
+        Raises KeysNotFoundException if not found.
         """
         name, baseDir = self.name, self.basedirpath
         if not areKeysSetup(name, baseDir, self.config):

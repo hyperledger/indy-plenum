@@ -16,7 +16,7 @@ from sortedcontainers import SortedDict
 import plenum.server.node
 from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, InvalidClientRequest, \
-    InvalidClientMessageException
+    InvalidClientMessageException, UnknownIdentifier
 from plenum.common.signing import serialize
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import PrePrepare, \
@@ -528,7 +528,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.node.doDynamicValidation(req)
                 self.node.applyReq(req)
             validReqs.append(req)
-        except InvalidClientMessageException as ex:
+        except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                         'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))

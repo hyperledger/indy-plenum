@@ -91,7 +91,7 @@ def getTestableStack(stack: NetworkInterface):
         newMro.append(c)
     return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
 
-
+# TODO: move to stp
 if config.UseZStack:
     RemoteState = NamedTuple("RemoteState", [
         ('isConnected', Optional[bool])

@@ -299,9 +299,6 @@ class TestNodeSet(ExitStack):
                  pluginPaths: Iterable[str]=None,
                  testNodeClass=TestNode):
 
-        # TODO: Remove them once RAET is removed
-        from plenum.test.conftest import UseZStack
-        self.UseZStack = UseZStack
 
         super().__init__()
         self.tmpdir = tmpdir
@@ -335,12 +332,9 @@ class TestNodeSet(ExitStack):
         assert name in self.nodeReg
         ha, cliname, cliha = self.nodeReg[name]
 
-        if self.UseZStack:
-            seed = randomSeed()
-            if self.keyshare:
-                learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
-        else:
-            seed = None
+        seed = randomSeed()
+        if self.keyshare:
+            learnKeysFromOthers(self.tmpdir, name, self.nodes.values())
 
         testNodeClass = self.testNodeClass
         node = self.enter_context(
@@ -354,7 +348,7 @@ class TestNodeSet(ExitStack):
                               pluginPaths=self.pluginPaths,
                               seed=seed))
 
-        if self.UseZStack and self.keyshare:
+        if self.keyshare:
             tellKeysToOthers(node, self.nodes.values())
 
         self.nodes[name] = node

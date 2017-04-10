@@ -6,7 +6,6 @@ from typing import List
 from typing import Tuple
 
 import psutil
-from plenum.common.stacks import NodeRStack
 
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -37,7 +36,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
     """
 
     def __init__(self, name: str, Delta: float, Lambda: float, Omega: float,
-                 instances: Instances, nodestack: NodeRStack,
+                 instances: Instances, nodestack,
                  blacklister: Blacklister, nodeInfo: Dict,
                  notifierEventTriggeringConfig: Dict,
                  pluginPaths: Iterable[str]=None):

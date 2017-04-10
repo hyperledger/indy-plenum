@@ -72,7 +72,7 @@ class NodeZStack(Batched, KITZStack):
 
 
 class ClientRStack(SimpleRStack, MessageProcessor):
-    def __init__(self, stackParams: dict, msgHandler: Callable):
+    def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
         # The client stack needs to be mutable unless we explicitly decide
         # not to
         stackParams["mutable"] = stackParams.get("mutable", True)
@@ -116,7 +116,7 @@ class ClientRStack(SimpleRStack, MessageProcessor):
 
 class NodeRStack(Batched, KITRStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA], sighex: str=None):
+                 registry: Dict[str, HA], seed=None, sighex: str=None):
         Batched.__init__(self)
         # TODO: Just to get around the restriction of port numbers changed on
         # Azure. Remove this soon to relax port numbers only but not IP.
