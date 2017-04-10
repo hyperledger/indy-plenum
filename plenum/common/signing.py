@@ -27,6 +27,7 @@ from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.error import error
 
+
 logger = getlogger()
 
 # by allowing only primitives, it ensures we're signing the whole message
@@ -60,8 +61,11 @@ def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):
-        keys = [k for k in obj.keys() if level > 0 or k not in
-                (topLevelKeysToIgnore or [])]  # remove signature if top level
+        if level > 0:
+            keys = list(obj.keys())
+        else:
+            topLevelKeysToIgnore = topLevelKeysToIgnore or []
+            keys = [k for k in obj.keys() if k not in topLevelKeysToIgnore]
         keys.sort()
         strs = []
         for k in keys:
@@ -77,6 +81,8 @@ def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
         return ""
     else:
         return str(obj)
+    # topLevelKeysToIgnore = topLevelKeysToIgnore or []
+    # return ujson.dumps({k:obj[k] for k in obj.keys() if k not in topLevelKeysToIgnore}, sort_keys=True)
 
 
 def serializeMsg(msg: Mapping, topLevelKeysToIgnore=None):
