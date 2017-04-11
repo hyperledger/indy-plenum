@@ -6,14 +6,13 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 from plenum.test import waits
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
-
 txnCount = 5
 
 
@@ -77,7 +76,6 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     transactions which happened while it was down
     :return:
     """
-
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
@@ -94,7 +92,6 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Starting the stopped node, {}".format(newNode))
     newNode.start(looper.loop)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    timeout = waits.expectedCatchupTime()
     waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
 
 

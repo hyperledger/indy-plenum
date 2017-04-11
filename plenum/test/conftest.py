@@ -355,7 +355,7 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
-    ackTimeout = waits.expectedReqAckQuorumTime(numerOfNodes)
+    ackTimeout = waits.expectedReqAckQuorumTime()
     looper.run(eventuallyAll(*coros2,
                              totalTimeout=ackTimeout,
                              acceptableFails=faultyNodes))

@@ -1,7 +1,7 @@
 from plenum.common.log import getlogger
 from plenum.common.config_util import getConfig
 from plenum.common.util import totalConnections
-
+from plenum.config import CLIENT_REQACK_TIMEOUT, CLIENT_REPLY_TIMEOUT
 
 logger = getlogger()
 config = getConfig()
@@ -12,23 +12,22 @@ config = getConfig()
 #########################
 
 
-def expectedNodeInterconnectionTime(nodeCount) -> float:
+def expectedNodeInterconnectionTime(nodeCount):
     count = totalConnections(nodeCount)
-    t = count * config.ExpectedConnectTime + 4
-    return t
+    return count * config.ExpectedConnectTime
 
 
-def expectedCatchupTime(customConsistencyProofsTimeout=None) -> float:
+def expectedCatchupTime(nodeCount, customConsistencyProofsTimeout=None):
     timeout = customConsistencyProofsTimeout or config.ConsistencyProofsTimeout
-    # TODO: implement
-    return timeout + 30
+    return timeout * nodeCount
 
 
-def expectedPoolGetReadyTimeout(nodeCount) -> float:
-    return 10 * nodeCount
+def expectedPoolGetReadyTimeout(nodeCount):
+    # looks the same with catchup process
+    return expectedCatchupTime(nodeCount)
 
 
-def expectedPoolLedgerCheck(nodeCount) -> float:
+def expectedPoolLedgerCheck(nodeCount):
     """
     Expected time required for checking that 'pool ledger' on nodes and client
     is the same
@@ -36,11 +35,11 @@ def expectedPoolLedgerCheck(nodeCount) -> float:
     return 5 * nodeCount
 
 
-def expectedNodeStartUpTimeout() -> float:
+def expectedNodeStartUpTimeout():
     return 5
 
 
-def expectedRequestStashingTime() -> float:
+def expectedRequestStashingTime():
     return 20
 
 
@@ -48,19 +47,19 @@ def expectedRequestStashingTime() -> float:
 # Pool election timeouts
 #########################
 
-def expectedNominationTimeout(nodeCount) -> float:
-    return nodeCount * 3
+def expectedNominationTimeout(nodeCount):
+    return 3 * nodeCount
 
 
-def expectedElectionTimeout(nodeCount) -> float:
+def expectedElectionTimeout(nodeCount):
     return expectedNominationTimeout(nodeCount) + 4 * nodeCount
 
 
-def expectedNextPerfCheck(nodes) -> float:
-    return max(n.perfCheckFreq for n in nodes) + 1
+def expectedNextPerfCheck(nodes):
+    return max([n.perfCheckFreq for n in nodes]) + 1
 
 
-def expectedViewChangeTime(nodeCount) -> float:
+def expectedViewChangeTime(nodeCount):
     return int(0.75 * nodeCount)
 
 
@@ -68,18 +67,19 @@ def expectedViewChangeTime(nodeCount) -> float:
 # Processing timeouts
 #########################
 
-def expectedNodeToNodeMessageDeliveryTime() -> float:
+def expectedNodeToNodeMessageDeliveryTime():
     return 5
 
 
-def expectedPrePrepareTime(nodeCount) -> float:
-    # TODO: move 1.4 to config
-    # Also what if we have own config for tests?
-    return int(2.5 * nodeCount)
+def expectedPropagateTime(nodeCount):
+    return expectedNodeToNodeMessageDeliveryTime() * nodeCount
 
 
-def expectedOrderingTime(numInstances) -> float:
-    # TODO: should not be less than one second
+def expectedPrePrepareTime(nodeCount):
+    return expectedNodeToNodeMessageDeliveryTime() * nodeCount
+
+
+def expectedOrderingTime(numInstances):
     return int(2.14 * numInstances)
 
 
@@ -87,38 +87,31 @@ def expectedOrderingTime(numInstances) -> float:
 # Client timeouts
 #########################
 
-def expectedClientConnectionTimeout(fVal) -> float:
+def expectedClientConnectionTimeout(fVal):
     return 3 * fVal
 
 
-def expectedClientRequestPropagationTime(nodeCount) -> float:
-    # TODO: move 1.4 to config
-    # Also what if we have own config for tests?
+def expectedClientRequestPropagationTime(nodeCount):
     return int(2.5 * nodeCount)
 
 
-def expectedTransactionExecutionTime(nodeCount) -> float:
-    # TODO: maybe it should depend on transaction type?
-    # TODO: implement
-    # CLIENT_REPLY_TIMEOUT
-
-    return int(7.5 * nodeCount)
+def expectedTransactionExecutionTime(nodeCount):
+    return int(CLIENT_REPLY_TIMEOUT * nodeCount)
 
 
-def expectedReqAckQuorumTime(nodeCount) -> float:
-    # CLIENT_REQACK_TIMEOUT
-    return 5
+def expectedReqAckQuorumTime():
+    return CLIENT_REQACK_TIMEOUT
 
 
-def expectedReqNAckQuorumTime() -> float:
-    return 5
+def expectedReqNAckQuorumTime():
+    return CLIENT_REQACK_TIMEOUT
 
 
 #########################
 # Agent timeouts
 #########################
 
-def expectedAgentCommunicationTime() -> float:
-    # TODO: implement
+def expectedAgentCommunicationTime():
+    # TODO: implement if it is needed
     raise NotImplementedError()
 

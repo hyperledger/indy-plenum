@@ -33,7 +33,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
     request1 = sendRandomRequest(wallet1, client1)
-    timeout = waits.expectedReqAckQuorumTime(len(nodeSet))
+    timeout = waits.expectedReqAckQuorumTime()
     result1 = looper.run(
         eventually(checkSufficientRepliesReceived, client1.inBox,
                    request1.reqId, fValue,

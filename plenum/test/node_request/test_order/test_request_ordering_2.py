@@ -70,7 +70,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
             assert len(node.domainLedger) == requestCount
 
     from plenum.test import waits
-    timeout = waits.expectedCatchupTime()
+    timeout = waits.expectedCatchupTime(len(nodeSet))
     looper.run(eventually(ensureSlowNodesHaveAllTxns,
                           retryWait=1, timeout=timeout))
 

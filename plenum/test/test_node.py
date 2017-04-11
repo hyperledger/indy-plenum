@@ -488,7 +488,8 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               customTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
-    timeout = customTimeout or waits.expectedNodeInterconnectionTime(len(stacks))
+    timeout = customTimeout or \
+              (waits.expectedNodeInterconnectionTime(len(stacks)) * len(stacks))
     logger.debug("waiting for {} seconds to check connections...".format(timeout))
     # verify every node can see every other as a remote
     funcs = [

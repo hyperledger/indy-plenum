@@ -102,7 +102,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
 
-    reqAckTimeout = waits.expectedReqAckQuorumTime(numOfNodes)
+    reqAckTimeout = waits.expectedReqAckQuorumTime()
     executionTimeout = waits.expectedTransactionExecutionTime(numOfNodes)
 
     # Wait till ACK timeout
@@ -146,8 +146,8 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     req = sendRandomRequest(wallet1, client1)
 
     # Wait for more than REPLY timeout
-    timeout = (tconf.CLIENT_MAX_RETRY_REPLY + 2) * \
-              waits.expectedTransactionExecutionTime(len(nodeSet)) + 2
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + \
+        tconf.CLIENT_REQACK_TIMEOUT * tconf.CLIENT_MAX_RETRY_REPLY
     looper.runFor(timeout)
 
     idr, reqId = req.key
