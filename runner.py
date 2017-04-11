@@ -3,6 +3,8 @@ import re
 import sys
 import argparse
 
+import time
+
 
 def run(pytest, output_file, repeatUntilFailure):
     if repeatUntilFailure:
@@ -39,10 +41,12 @@ def run(pytest, output_file, repeatUntilFailure):
     failedTestPat = re.compile('____ (test.+) ____')
     errorTestPat = re.compile('____ (ERROR.+) ____')
     while True:
-        for test in testList:
+        for i, test in enumerate(testList):
             # testRep = '{}.rep'.format(test.split("/")[-1])
             log("Going to run {}".format(test))
+            testStartTime = time.time()
             r = os.system('{} -k "{}" > {}'.format(pytest, test, testRep))
+            testExecutionTime = time.time() - testStartTime
             reportLines = open(testRep).readlines()
             output = ''.join(reportLines)
             pas = passPat.search(output)
@@ -85,14 +89,16 @@ def run(pytest, output_file, repeatUntilFailure):
             else:
                 failed = 0
                 errors = 0
-            log('In {}, {} passed, {} failed, {} errors, {} skipped'.
-                format(test, passed, errors, failed, skipped))
+            log('In {}, {} passed, {} failed, {} errors, {} skipped, {:.1f}s time '
+                '({}/{} progress)'.
+                format(test, passed, errors, failed, skipped,
+                       testExecutionTime, i+1, len(testList)))
             if failed:
-                log("Failed tests: {}".format(', '.join(failedNames)))
+                logError("Failed tests: {}".format(', '.join(failedNames)))
                 for nm in failedNames:
                     allFailedTests.append((test, nm))
             if errors:
-                log("Error in tests: {}".format(', '.join(errorNames)))
+                logError("Error in tests: {}".format(', '.join(errorNames)))
                 for nm in errorNames:
                     allErrorTests.append((test, nm))
             retVal += r
@@ -106,7 +112,7 @@ def run(pytest, output_file, repeatUntilFailure):
             if totalFailed or totalErros:
                 break  # repeatUntilFailure set and failures happened
             else:
-                log('Run #{} was successful'.format(runsCount))
+                logSuccess('Run #{} was successful'.format(runsCount))
                 log('\n\n')
 
         else:
@@ -141,6 +147,14 @@ def run(pytest, output_file, repeatUntilFailure):
 
 def log(msg):
     return print(msg, flush=True)
+
+
+def logError(msg):
+    return print('\x1b[0;30;41m' + msg + '\x1b[0m', flush=True)
+
+
+def logSuccess(msg):
+    return print('\x1b[6;30;42m' + msg + '\x1b[0m')
 
 
 if __name__ == "__main__":
