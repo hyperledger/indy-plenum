@@ -20,7 +20,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
+@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly

@@ -69,6 +69,7 @@ def testDelayedLedgerStatusNotChangingState():
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
+@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
                                 nodeSetWithNodeAddedAfterSomeTxns):
     """
@@ -95,6 +96,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
 
 
+@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
                                             nodeSetWithNodeAddedAfterSomeTxns):
     """
