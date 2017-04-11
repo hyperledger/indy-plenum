@@ -1,15 +1,12 @@
 import asyncio
-import glob
-import os
-
 import collections
+import glob
 import inspect
 import ipaddress
 import itertools
 import json
 import logging
-
-import math
+import os
 import random
 import string
 import time
@@ -22,23 +19,18 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
     Tuple, Union, NamedTuple, Callable
 
 import base58
-import errno
 import libnacl.secret
 import psutil
 from jsonpickle import encode, decode
+from six import iteritems, string_types
 
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
 from plenum.common.error import error
-import ipaddress
-
-from plenum.common.error_codes import WS_SOCKET_BIND_ERROR_ALREADY_IN_USE, \
-    WS_SOCKET_BIND_ERROR_NOT_AVAILABLE
-from stp_core.network.exceptions import \
-    PortNotAvailable, EndpointException, MissingEndpoint, \
-    InvalidEndpointIpAddress, InvalidEndpointPort
-from six import iteritems, string_types
 from stp_core.crypto.util import isHexKey, isHex
+from stp_core.network.exceptions import \
+    MissingEndpoint, \
+    InvalidEndpointIpAddress, InvalidEndpointPort
 
 T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
@@ -497,14 +489,14 @@ def saveGivenWallet(wallet, fileName, contextDir):
     walletFilePath = getWalletFilePath(
         contextDir, fileName)
     with open(walletFilePath, "w+") as walletFile:
-        encodedWallet = encode(wallet)
+        encodedWallet = encode(wallet, keys=True)
         walletFile.write(encodedWallet)
     return walletFilePath
 
 
 def getWalletByPath(walletFilePath):
     with open(walletFilePath) as walletFile:
-        wallet = decode(walletFile.read())
+        wallet = decode(walletFile.read(), keys=True)
         return wallet
 
 

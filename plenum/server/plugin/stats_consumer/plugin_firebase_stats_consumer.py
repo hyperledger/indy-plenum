@@ -8,7 +8,7 @@ from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
     PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_NODES, \
     EVENT_PERIODIC_STATS_TOTAL_REQUESTS, EVENT_PERIODIC_STATS_NODE_INFO,\
     EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT
 from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher,\
     Topic

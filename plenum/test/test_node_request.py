@@ -1,9 +1,10 @@
 from pprint import pprint
 
 import pytest
+from plenum import config
 
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
@@ -173,12 +174,12 @@ def testMultipleRequests(tdir_for_func):
             # TODO: ZStack does not have any mechanism to have stats,
             # either remove this once raet is removed or implement a `stats`
             # feature in ZStack
-            if not nodeSet.UseZStack:
+            if not config.UseZStack:
                 ss0 = snapshotStats(*nodeSet)
             client, wal = setupNodesAndClient(looper,
                                               nodeSet,
                                               tmpdir=tdir_for_func)
-            if not nodeSet.UseZStack:
+            if not config.UseZStack:
                 ss1 = snapshotStats(*nodeSet)
 
             def x():
@@ -189,7 +190,7 @@ def testMultipleRequests(tdir_for_func):
                         request.reqId, 3,
                         retryWait=1, timeout=3 * len(nodeSet)))
 
-                if not nodeSet.UseZStack:
+                if not config.UseZStack:
                     ss2 = snapshotStats(*nodeSet)
                     diff = statsDiff(ss2, ss1)
 

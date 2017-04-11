@@ -13,7 +13,7 @@ from ledger.stores.file_hash_store import FileHashStore
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 logger = getlogger()
 
 

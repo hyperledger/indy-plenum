@@ -3,7 +3,7 @@ import sys
 
 from ioflo.base.consoling import getConsole
 from plenum.common.error import error
-from plenum.common.log import getlogger, TRACE_LOG_LEVEL
+from stp_core.common.log import getlogger, TRACE_LOG_LEVEL
 
 logger = getlogger()
 

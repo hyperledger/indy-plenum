@@ -5,7 +5,7 @@ import base58
 from abc import abstractmethod
 from typing import Dict
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingSignature, EmptyIdentifier, \

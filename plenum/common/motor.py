@@ -1,6 +1,6 @@
 from stp_core.loop.looper import Prodable
 from plenum.common.startable import Status
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 

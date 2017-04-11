@@ -1,6 +1,6 @@
 import time
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 

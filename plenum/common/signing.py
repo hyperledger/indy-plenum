@@ -23,7 +23,7 @@ authenticator.
 from collections import Iterable
 from typing import Mapping
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.error import error
 
