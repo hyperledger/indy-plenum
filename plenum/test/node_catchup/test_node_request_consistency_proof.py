@@ -5,7 +5,7 @@ from random import randint
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.types import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality

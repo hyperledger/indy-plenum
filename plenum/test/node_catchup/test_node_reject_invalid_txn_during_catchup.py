@@ -4,7 +4,7 @@ from base64 import b64encode
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE
 from plenum.common.types import CatchupReq, f, CatchupRep
 from plenum.test.helper import sendRandomRequests

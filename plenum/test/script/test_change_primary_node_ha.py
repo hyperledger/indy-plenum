@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.script.helper import looper, tconf
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.test.script.helper import changeNodeHa
 
 

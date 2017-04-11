@@ -2,7 +2,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 import os
 
 from plenum.common.config_util import getConfig
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 pluginsLoaded = {}  # Dict(baseDir, List[plugin names])
 pluginsNotFound = {}  # Dict(baseDir, List[plugin names])

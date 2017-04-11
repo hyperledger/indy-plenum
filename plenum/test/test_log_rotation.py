@@ -3,7 +3,7 @@ import os
 import logging
 import shutil
 import time
-from plenum.common.logging.TimeAndSizeRotatingFileHandler \
+from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
 
 

@@ -5,7 +5,7 @@ import pytest
 
 from plenum.client.wallet import Wallet
 from stp_core.loop.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.script_helper import changeHA
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures
@@ -86,8 +86,9 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(restartedNode)
 
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper, txnPoolNodeSet)
+
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
+    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=20)
 
     # start client and check the node HA
     anotherClient, _ = genTestClient(tmpdir=tdirWithPoolTxns,

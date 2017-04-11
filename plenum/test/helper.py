@@ -10,14 +10,13 @@ from sys import executable
 from time import sleep
 
 from psutil import Popen
-from raet.raeting import TrnsKind, PcktKind
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.request import Request
 from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, OP_FIELD_NAME
@@ -41,12 +40,6 @@ from plenum.test import waits
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
     ("frm", Optional[str])])
-
-RaetDelay = NamedTuple("RaetDelay", [
-    ("tk", Optional[TrnsKind]),
-    ("pk", Optional[PcktKind]),
-    ("fromPort", Optional[int])])
-
 
 logger = getlogger()
 
@@ -582,17 +575,17 @@ def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):
 
     if ensurePortsFreedUp:
         ports = [[n.nodestack.ha[1], n.clientstack.ha[1]] for n in nodes]
-        waitUntillPortIsAvailable(looper, ports)
+        waitUntilPortIsAvailable(looper, ports)
 
 
-def waitUntillPortIsAvailable(looper, ports):
+def waitUntilPortIsAvailable(looper, ports, timeout=5):
     ports = itertools.chain(*ports)
 
     def chk():
         for port in ports:
             checkPortAvailable(("", port))
 
-    looper.run(eventually(chk, retryWait=.5))
+    looper.run(eventually(chk, retryWait=.5, timeout=timeout))
 
 
 def run_script(script, *args):

@@ -3,7 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes
 from plenum.test.test_node import TestNode, ensureElectionsDone
 
 
@@ -45,9 +45,10 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     checkFlakyConnected(True)
     nodeToCrash.stop()
     looper.removeProdable(nodeToCrash)
-    looper.runFor(2)
-    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=20))
-    looper.runFor(3)
+    looper.runFor(1)
+    stopNodes([nodeToCrash], looper)
+    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=35))
+    looper.runFor(1)
     node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)
     looper.add(node)

@@ -8,7 +8,7 @@ from stp_core.types import HA
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventuallyAll, eventually
 from plenum.common.exceptions import NotConnectedToAny
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
 from plenum.test import waits
@@ -96,7 +96,7 @@ def getTestableStack(stack: NetworkInterface):
         newMro.append(c)
     return type(stack.__name__, tuple(newMro), dict(stack.__dict__))
 
-
+# TODO: move to stp
 if config.UseZStack:
     RemoteState = NamedTuple("RemoteState", [
         ('isConnected', Optional[bool])
