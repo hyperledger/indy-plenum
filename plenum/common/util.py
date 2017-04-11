@@ -489,14 +489,14 @@ def saveGivenWallet(wallet, fileName, contextDir):
     walletFilePath = getWalletFilePath(
         contextDir, fileName)
     with open(walletFilePath, "w+") as walletFile:
-        encodedWallet = encode(wallet)
+        encodedWallet = encode(wallet, keys=True)
         walletFile.write(encodedWallet)
     return walletFilePath
 
 
 def getWalletByPath(walletFilePath):
     with open(walletFilePath) as walletFile:
-        wallet = decode(walletFile.read())
+        wallet = decode(walletFile.read(), keys=True)
         return wallet
 
 
