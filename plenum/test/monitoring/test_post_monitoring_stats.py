@@ -33,8 +33,7 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
                                         wallet1,
                                         client1,
                                         reqCount,
-                                        nodeSet.f,
-                                        customTimeoutPerReq=20)
+                                        nodeSet.f)
 
     for node in nodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
@@ -59,8 +58,8 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
             assert node.monitor.highResThroughput == 0
             assert node.monitor.totalRequests == reqCount
 
-    # TODO[slow-factor]: add config.ThroughputWindowSize
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = config.ThroughputWindowSize
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
 def testPostingLatency(postingStatsEnabled, looper: Looper,
@@ -85,8 +84,7 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
                                         wallet1,
                                         client1,
                                         reqCount,
-                                        nodeSet.f,
-                                        customTimeoutPerReq=20)
+                                        nodeSet.f)
 
     for node in nodeSet:
         assert node.monitor.masterLatency > 0
@@ -106,5 +104,5 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
             assert node.monitor.masterLatency == 0
             assert node.monitor.avgBackupLatency == 0
 
-    # TODO[slow-factor]: add config.LatencyWindowSize
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = config.LatencyWindowSize
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

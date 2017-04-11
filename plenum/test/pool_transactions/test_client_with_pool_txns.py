@@ -1,6 +1,7 @@
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
+from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     sendRandomRequest, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
@@ -82,7 +83,8 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         for node in txnPoolNodeSet:
             assert node.isParticipating
 
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
 

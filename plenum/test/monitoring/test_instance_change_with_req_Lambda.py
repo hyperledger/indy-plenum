@@ -46,7 +46,7 @@ def setup(looper, startedNodes, up, wallet1, client1):
             return 65
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)
-
+    # TODO select or create a timeout for this case in 'waits'
     sendReqsToNodesAndVerifySuffReplies(looper,
                                         wallet1,
                                         client1,

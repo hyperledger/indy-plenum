@@ -44,7 +44,8 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
                 with pytest.raises(AssertionError):
                     checkReqAck(client1, node, *req.key)
 
-    looper.run(eventually(chkAcks, retryWait=1, timeout=3))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventually(chkAcks, retryWait=1, timeout=timeout))
     idr, reqId = req.key
     waitReplyCount(looper, client1, idr, reqId, 4)
 
@@ -70,7 +71,8 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     alpha.transmitToClient = skipReplyOnce
     req = sendRandomRequest(wallet1, client1)
     coros = [partial(checkReqAck, client1, node, *req.key) for node in nodeSet]
-    looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=3))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=timeout))
     idr, reqId = req.key
     waitReplyCount(looper, client1, idr, reqId, 3)
     waitReplyCount(looper, client1, idr, reqId, 4)

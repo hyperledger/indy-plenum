@@ -1,6 +1,8 @@
 from copy import copy
 
 import pytest
+
+from plenum.common import util
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
@@ -10,6 +12,7 @@ from stp_core.common.log import getlogger
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
+from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkReqNackWithReason
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
@@ -53,7 +56,8 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
         for node in txnPoolNodeSet:
             assert wallet.defaultId in node.clientAuthNr.clients
 
-    looper.run(eventually(chk, retryWait=1, timeout=5))
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
@@ -99,7 +103,9 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
         assert (len(steward1.nodeReg) - len(oldNodeReg)) == 1
         assert (newNode.name + CLIENT_STACK_SUFFIX) in steward1.nodeReg
 
-    looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=5))
+    fVal = util.getMaxFailures(len(txnPoolNodeSet))
+    timeout = waits.expectedClientConnectionTimeout(fVal)
+    looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=timeout))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
@@ -122,9 +128,9 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
                                                                      tconf,
                                                                      allPluginsPath)
         txnPoolNodeSet.append(newNode)
-        looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=30))
-        logger.debug("{} connected to the pool".format(newNode))
-        waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    logger.debug("{} connected to the pool".format(newNode))
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     f = getMaxFailures(len(txnPoolNodeSet))
 
@@ -133,9 +139,9 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
             assert node.f == f
             assert len(node.replicas) == (f + 1)
 
-    looper.run(eventually(checkFValue, retryWait=1, timeout=5))
-    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
-                               customTimeout=5)
+    timeout = waits.expectedClientConnectionTimeout(f)
+    looper.run(eventually(checkFValue, retryWait=1, timeout=timeout))
+    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
 
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,

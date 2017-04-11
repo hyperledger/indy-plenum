@@ -4,6 +4,7 @@ from stp_core.loop.eventually import eventually, slowFactor
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.helper import sendMessageAndCheckDelivery, addNodeBack, assertExp
 from plenum.test.msgs import randomMsg, TestMsg
@@ -63,26 +64,25 @@ def testSelfNominationDelay(tdir_for_func):
 
             # Ensuring that NodeA is started before any other node to demonstrate
             # that it is delaying self nomination
+            timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
                     eventually(lambda: assertExp(nodeA.isReady()), retryWait=1,
-                               timeout=5))
+                               timeout=timeout))
 
-            # Elections should be done
-            # TODO: can default election timeout be used?
             ensureElectionsDone(looper=looper,
                                 nodes=nodeSet,
-                                retryWait=1,
-                                timeout=10)
+                                retryWait=1)
 
             # node A should not have any primary replica
+            timeout = waits.expectedNodeStartUpTimeout()
             looper.run(
                     eventually(lambda: assertExp(not nodeA.hasPrimary),
                                retryWait=1,
-                               timeout=10))
+                               timeout=timeout))
 
             # Make sure that after at the most 30 seconds, nodeA's
             # `startElection` is called
             looper.run(eventually(lambda: assertExp(
                     len(nodeA.spylog.getAll(
                             Node.decidePrimaries.__name__)) > 0),
-                                  retryWait=1, timeout=30))
+                                  retryWait=1, timeout=delay))

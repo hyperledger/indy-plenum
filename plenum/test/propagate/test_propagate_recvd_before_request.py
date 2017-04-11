@@ -10,13 +10,14 @@ from plenum.test import waits
 
 
 nodeCount = 4
-
+howlong = 10
+delaySec = 5
 
 @pytest.fixture()
 def setup(nodeSet):
     A, B, C, D = nodeSet.nodes.values()
-    A.clientIbStasher.delay(lambda x: 5)
-    delay(Propagate, frm=[C, D], to=A, howlong=10)
+    A.clientIbStasher.delay(lambda x: delaySec)
+    delay(Propagate, frm=[C, D], to=A, howlong=howlong)
 
 
 def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
@@ -30,7 +31,8 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    looper.run(eventually(x, retryWait=.5, timeout=3))
+    timeout = delaySec - 2
+    looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
     def y():
         # A should have received a request from the client
@@ -38,7 +40,8 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    looper.run(eventually(y, retryWait=.5, timeout=6))
+    timeout = delaySec + 2
+    looper.run(eventually(y, retryWait=.5, timeout=timeout))
 
     def chk():
         # A should have forwarded the request

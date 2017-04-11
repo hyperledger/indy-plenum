@@ -39,6 +39,10 @@ def expectedNodeStartUpTimeout():
     return 5
 
 
+def expectedPoolStartUpTimeout(nodeCount):
+    return nodeCount * expectedNodeStartUpTimeout()
+
+
 def expectedRequestStashingTime():
     return 20
 
@@ -88,6 +92,7 @@ def expectedOrderingTime(numInstances):
 #########################
 
 def expectedClientConnectionTimeout(fVal):
+    # TODO calc fVal here, get nodeCount
     return 3 * fVal
 
 

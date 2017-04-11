@@ -81,6 +81,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
 
             # All nodes including B should return their ordered requests
             for node in nodeSet:
+                # TODO set timeout from 'waits' after the test enabled
                 looper.run(eventually(checkRequestReturnedToNode, node,
                                       wallet1.defaultId, req.reqId,
                                       instNo, retryWait=1, timeout=30))
@@ -109,8 +110,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # will not know whether it is primary or not
 
             # nodeD.nodestack.delay(delayer(20, PRIMARY))
-
-            nodeD.nodeIbStasher.delay(delayerMsgTuple(20, Primary))
+            delayD = 20
+            nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 
@@ -153,7 +154,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=20))
+                    0), retryWait=1, timeout=delayD))
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,

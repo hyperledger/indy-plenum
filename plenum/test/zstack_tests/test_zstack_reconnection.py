@@ -47,13 +47,16 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     looper.removeProdable(nodeToCrash)
     looper.runFor(1)
     stopNodes([nodeToCrash], looper)
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=35))
     looper.runFor(1)
     node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)
     looper.add(node)
     txnPoolNodeSet[idxToCrash] = node
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, True, retryWait=2, timeout=50))
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2, timeout=50)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     checkNodesSendingCommits(txnPoolNodeSet)

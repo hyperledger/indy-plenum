@@ -63,7 +63,6 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
         looper.add(node)
         nodes.append(node)
 
-
     for name in names[:3]:
         create(name)
 
@@ -75,6 +74,7 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     # create the fourth and see that it learns who the primaries are
     # from the other nodes
     create(names[3])
+    # TODO set timeout from 'waits' after the test enabled
     checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
     stopNodes(nodes, looper)
 
@@ -130,8 +130,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     for i, node in enumerate(nodes):
         looper.add(node)
         looper.runFor(waits[i])
-    looper.run(checkNodesConnected(nodes,
-                                   customTimeout=10))
+    looper.run(checkNodesConnected(nodes))
     logger.debug("connects")
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
@@ -145,8 +144,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
         n.start(looper.loop)
         looper.runFor(rwaits[i])
     looper.runFor(3)
-    looper.run(checkNodesConnected(nodes,
-                                   customTimeout=10))
+    looper.run(checkNodesConnected(nodes))
     stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))

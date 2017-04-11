@@ -196,11 +196,10 @@ def checkAllNodesUp(cli):
             pri = rep.primaryNames[0]
             assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
 
-def waitAllNodesUp(cli):
-    timeout = waits.expectedPoolGetReadyTimeout(len(cli.nodes))
-    logger.info("here")
-    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=60))
 
+def waitAllNodesUp(cli):
+    timeout = waits.expectedPoolStartUpTimeout(len(cli.nodes))
+    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=timeout))
 
 
 def checkClientConnected(cli, nodeNames, clientName):

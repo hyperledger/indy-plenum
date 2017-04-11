@@ -2,6 +2,8 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
+
+from plenum.test import waits
 from plenum.test.delayers import cpDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
@@ -34,6 +36,8 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     nodeYName = "Eta"
     stewardZName = "testClientStewardZ"
     nodeZName = "Theta"
+    delayX = 45
+    delayY = 2
     stewardX, nodeX = addNewStewardAndNode(looper, client, stewardXName,
                                                nodeXName,
                                                tdirWithPoolTxns, tconf,
@@ -42,16 +46,15 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
                                            nodeYName,
                                            tdirWithPoolTxns, tconf,
                                            allPluginsPath, autoStart=False)
-    nodeX.nodeIbStasher.delay(cpDelay(45))
-    nodeY.nodeIbStasher.delay(cpDelay(2))
+    nodeX.nodeIbStasher.delay(cpDelay(delayX))
+    nodeY.nodeIbStasher.delay(cpDelay(delayY))
     looper.add(nodeX)
     looper.add(nodeY)
     txnPoolNodeSet.append(nodeX)
     txnPoolNodeSet.append(nodeY)
 
-    # TODO: use named timeouts when implementation complete
-
-    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=60))
+    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet)) + delayX + delayY
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=timeout))
     logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
                                                              nodeY.name))
     nodeX.stop()

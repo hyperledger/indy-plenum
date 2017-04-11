@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test import waits
 from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
 from plenum.common.util import getMaxFailures, adict
@@ -20,7 +21,7 @@ def pool(looper, nodeSet):
     # for n in nodeSet:  # type: TestNode
     #     n.startKeySharing()
     looper.run(checkNodesConnected(nodeSet))
-    checkProtocolInstanceSetup(looper, nodeSet, customTimeout=5)
+    checkProtocolInstanceSetup(looper, nodeSet)
     return adict(looper=looper, nodeset=nodeSet)
 
 
@@ -35,12 +36,13 @@ def testAllBroadcast(pool):
 def testMsgSendingTime(pool, nodeReg):
     nodeNames = list(nodeReg.keys())
     msg = randomMsg()
+    timeout = waits.expectedNodeStartUpTimeout()
     pool.looper.run(
             sendMessageAndCheckDelivery(pool.nodeset,
                                         nodeNames[0],
                                         nodeNames[1],
                                         msg,
-                                        customTimeout=1))
+                                        customTimeout=timeout))
 
 
 def testCorrectNumOfProtocolInstances(pool):
