@@ -313,7 +313,9 @@ def delayedPerf(nodeSet):
 
 @pytest.fixture(scope="module")
 def clientAndWallet1(looper, nodeSet, tdir, up):
-    return genTestClient(nodeSet, tmpdir=tdir)
+    client, wallet = genTestClient(nodeSet, tmpdir=tdir)
+    yield client, wallet
+    client.stop()
 
 
 @pytest.fixture(scope="module")
@@ -670,6 +672,8 @@ def testNode(pluginManager, tdir):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
-    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+    node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
+    yield node
+    node.stop()

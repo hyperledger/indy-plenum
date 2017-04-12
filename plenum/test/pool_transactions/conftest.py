@@ -17,7 +17,10 @@ def looper(txnPoolNodesLooper):
 @pytest.fixture(scope="module")
 def stewardAndWallet1(looper, txnPoolNodeSet, poolTxnStewardData,
                       tdirWithPoolTxns):
-    return buildPoolClientAndWallet(poolTxnStewardData, tdirWithPoolTxns)
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithPoolTxns)
+    yield client, wallet
+    client.stop()
 
 
 @pytest.fixture(scope="module")

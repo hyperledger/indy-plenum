@@ -139,6 +139,7 @@ class Cli:
                 fileName=self.config.poolTransactionsFile)
             nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
                 ledger)
+            ledger.stop()
             fileHashStore.close()
 
         self.withNode = withNode
@@ -277,6 +278,15 @@ class Cli:
         self.restoreLastActiveWallet()
 
         self.checkIfCmdHandlerAndCmdMappingExists()
+
+    def close(self):
+        """
+        Stops all the created clients and nodes.
+        """
+        for key in self.clients:
+            self.clients[key].stop()
+        for key in self.nodes:
+            self.nodes[key].stop()
 
     def _getCmdMappingError(self, cmdHandlerFuncName, mappingFuncName):
         msg="Command mapping not provided for '{}' command handler. " \
@@ -470,6 +480,7 @@ class Cli:
                 ledger.add(item)
             self.print('Genesis transaction file created at {} '
                        .format(ledger._transactionLog.dbPath))
+            ledger.stop()
             return True
 
     def _addGenesisAction(self, matchedVars):

@@ -50,12 +50,14 @@ def storeToFile(baseDir, dbName, value, key, storeHash=True, isLineNoKey=False):
         ledger.put(value)
     else:
         ledger.put(value, key)
+    ledger.close()
 
 
 def getNodeInfo(baseDir, nodeName):
     ledger = getLedger(baseDir, NodeInfoFile, storeHash=False,
                        isLineNoKey=False)
     rec = ledger.get(nodeName)
+    ledger.close()
     return json.loads(rec)
 
 
@@ -90,6 +92,7 @@ def storeNodeInfo(baseDir, nodeName, steward, nodeip, nodeport, clientip,
         for key, value in newRec:
             storeToFile(baseDir, NodeInfoFile, value, key, storeHash=False,
                         isLineNoKey=False)
+    ledger.close()
 
 
 def storeExportedTxns(baseDir, txn):
