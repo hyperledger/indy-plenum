@@ -5,6 +5,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import getMaxFailures
+from plenum.test import waits
 from plenum.test.delayers import ppDelay, icDelay
 from plenum.test.helper import sendRandomRequest, \
     sendReqsToNodesAndVerifySuffReplies
@@ -27,8 +28,9 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     f = getMaxFailures(nodeCount)
 
     # Delay processing of instance change on a node
+    delayIcA = 60
     nodeA = nodeSet.Alpha
-    nodeA.nodeIbStasher.delay(icDelay(60))
+    nodeA.nodeIbStasher.delay(icDelay(delayIcA))
 
     nonPrimReps = getNonPrimaryReplicas(nodeSet, 0)
     # Delay processing of PRE-PREPARE from all non primary replicas of master
@@ -38,23 +40,25 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelayer)
 
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + delay
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4,
-                                        customTimeoutPerReq=delay * nodeCount)
+                                        customTimeoutPerReq=timeout)
 
     # Every node except Node A should have a view change
+    timeout = waits.expectedViewChangeTime(len(nodeSet))
     for node in nodeSet:
-        if node.name != nodeA.name:
+        if node.name == nodeA.name:
+            # Node A's view should not have changed yet
+            with pytest.raises(AssertionError):
+                looper.run(eventually(partial(
+                    checkViewChangeInitiatedForNode, node, 1),
+                    retryWait=1,
+                    timeout=timeout))
+        else:
             looper.run(eventually(
                 partial(checkViewChangeInitiatedForNode, node, 1),
                 retryWait=1,
-                timeout=delay * nodeCount))
-
-    # Node A's view should not have changed yet
-    with pytest.raises(AssertionError):
-        looper.run(eventually(partial(
-            checkViewChangeInitiatedForNode, nodeA, 1),
-            retryWait=1,
-            timeout=delay * nodeCount))
+                timeout=timeout))
 
     # NodeA should not have any pending 3 phase request for a later view
     for r in nodeA.replicas:  # type: TestReplica
@@ -70,7 +74,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
     def checkPending3PhaseReqs():
         # Get all replicas that have their primary status decided
         reps = [rep for rep in nodeA.replicas if rep.isPrimary is not None]
-        # Atleast one replica should have its primary status decided
+        # At least one replica should have its primary status decided
         assert len(reps) > 0
         for r in reps:  # type: TestReplica
             logger.debug("primary status for replica {} is {}"
@@ -78,5 +82,5 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
             assert len(r.threePhaseMsgsForLaterView) > 0
 
     # NodeA should now have pending 3 phase request for a later view
-    # TODO[slow-factor]: add 'delay * nodeCount'
-    looper.run(eventually(checkPending3PhaseReqs, retryWait=1, timeout=delay * nodeCount))
+    timeout = waits.expectedViewChangeTime(len(nodeSet)) + delayIcA
+    looper.run(eventually(checkPending3PhaseReqs, retryWait=1, timeout=timeout))

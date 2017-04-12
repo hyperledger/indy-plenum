@@ -164,6 +164,7 @@ def checkPrePrepared(looper,
         nonPrimaryReceivesCorrectNumberOfPREPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
@@ -271,6 +272,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
         nonPrimaryReplicasReceiveCorrectNumberOfPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
@@ -339,6 +341,7 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
         replicasSeesCorrectNumOfCOMMITs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
