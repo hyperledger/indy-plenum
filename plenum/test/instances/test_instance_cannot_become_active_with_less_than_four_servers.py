@@ -55,7 +55,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                              format(ordinal(nodeIdx + 1), expectedStatus))
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
 
-                timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
+                timeout = waits.expectedNodeStartUpTimeout() + \
+                    waits.expectedNodeInterconnectionTime(len(nodeSet))
                 looper.run(eventually(checkNodeStatusRemotesAndF,
                                       expectedStatus,
                                       nodeIdx,
@@ -70,6 +71,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
             for n in nodeNames:
                 looper.removeProdable(nodeSet.nodes[n])
                 nodeSet.removeNode(n, shouldClean=False)
+
+            looper.runFor(10)
 
             logger.debug("Add nodes back one at a time")
             for i in range(nodeCount):
