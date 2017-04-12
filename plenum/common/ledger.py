@@ -31,10 +31,17 @@ class Ledger(_Ledger):
         return len(self.uncommittedTxns)
 
     def appendTxns(self, txns: List):
+        # These transactions are not yet committed so they do not go to
+        # the ledger
+        uncommittedSize = self.size + len(self.uncommittedTxns)
         self.uncommittedTree = self.treeWithAppliedTxns(txns,
                                                         self.uncommittedTree)
         self.uncommittedRootHash = self.uncommittedTree.root_hash
         self.uncommittedTxns.extend(txns)
+        if txns:
+            return (uncommittedSize+1, uncommittedSize+len(txns)), txns
+        else:
+            return (uncommittedSize, uncommittedSize), txns
 
     def commitTxns(self, count: int) -> Tuple[Tuple[int, int], List]:
         """

@@ -25,8 +25,8 @@ from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, DOMAIN_LEDGER_ID
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE
 from plenum.common.util import Seconds, getMaxFailures, adict
-from plenum.common.txn_util import reqToTxn
-from plenum.persistence import orientdb_store
+# from plenum.common.txn_util import reqToTxn
+# from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -139,7 +139,7 @@ class TestNodeCore(StackedTester):
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
         logger.debug("{} whitelisting {} for codes {}"
-                      .format(self, nodeName, codes))
+                     .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
         if nodeName in self.whitelistedClients:
@@ -156,7 +156,7 @@ class TestNodeCore(StackedTester):
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
         logger.debug("{} whitelisting {} for codes {}"
-                      .format(self, clientName, codes))
+                     .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
         if clientName in self.whitelistedClients:
@@ -176,7 +176,7 @@ class TestNodeCore(StackedTester):
 
     async def eatTestMsg(self, msg, frm):
         logger.debug("{0} received Test message: {1} from {2}".
-                      format(self.nodestack.name, msg, frm))
+                     format(self.nodestack.name, msg, frm))
 
     def serviceReplicaOutBox(self, *args, **kwargs) -> int:
         for r in self.replicas:  # type: TestReplica
@@ -235,9 +235,9 @@ class TestNode(TestNodeCore, Node):
         # Txns of all clients, each txn is a tuple like (from, to, amount)
         self.txns = []  # type: List[Tuple]
 
-    def _getOrientDbStore(self, name, dbType):
-        return orientdb_store.createOrientDbInMemStore(
-            self.config, name, dbType)
+    # def _getOrientDbStore(self, name, dbType):
+    #     return orientdb_store.createOrientDbInMemStore(
+    #         self.config, name, dbType)
 
     @property
     def nodeStackClass(self):

@@ -1,7 +1,7 @@
 from binascii import unhexlify
 
 from state.trie.pruning_trie import Trie, BLANK_ROOT, bin_to_nibbles, BLANK_NODE
-from state.db.persistent_db import PeristentDB
+from state.db.persistent_db import PersistentDB
 from state.db.refcount_db import RefcountDB
 from state.util.fast_rlp import encode_optimized as rlp_encode, \
     decode_optimized as rlp_decode
@@ -56,7 +56,7 @@ class PruningState(State):
     rootHashKey = b'\x88\xc8\x88 \x9a\xa7\x89\x1b'
 
     def __init__(self, dbPath, initState=None):
-        db = PeristentDB(dbPath)
+        db = PersistentDB(dbPath)
         if self.rootHashKey in db:
             rootHash = bytes(db.get(self.rootHashKey))
         else:

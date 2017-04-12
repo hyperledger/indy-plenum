@@ -7,17 +7,11 @@ import time
 from binascii import unhexlify
 from collections import deque, defaultdict
 from contextlib import closing
-from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
+import leveldb
 import pyorient
-from plenum.common.stacks import nodeStackClass, clientStackClass
-from stp_core.crypto.signer import Signer
-from stp_core.network.network_interface import NetworkInterface
-from stp_core.ratchet import Ratchet
-
-from plenum.common.roles import Roles
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.serializers.compact_serializer import CompactSerializer
@@ -27,25 +21,28 @@ from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
+from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
+    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
+    HS_FILE, HS_ORIENT_DB, DATA, ALIAS, NODE_IP, HS_LEVELDB
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    UnauthorizedClientRequest, InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
+from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
-from stp_core.common.log import getlogger
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
+from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
+from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.state import PruningState
 from plenum.common.throttler import Throttler
-from plenum.common.constants import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
-    HS_FILE, HS_ORIENT_DB, DATA, ALIAS, NODE_IP
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
     Reply, Nomination, TaggedTuples, Primary, \
@@ -56,17 +53,16 @@ from plenum.common.types import Propagate, \
     CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
-from plenum.common.request import Request
 from plenum.common.util import friendlyEx, getMaxFailures
-from plenum.common.message_processor import MessageProcessor
-from plenum.common.config_util import getConfig
 from plenum.common.verifier import DidVerifier
-from plenum.common.ledger import Ledger
-from plenum.persistence.orientdb_hash_store import OrientDbHashStore
-from plenum.persistence.orientdb_store import OrientDbStore
+# from plenum.persistence.orientdb_hash_store import OrientDbHashStore
+from plenum.persistence.leveldb_hash_store import LevelDbHashStore
+# from plenum.persistence.orientdb_store import OrientDbStore
+from plenum.persistence.req_id_to_txn import ReqIdrToTxnLevelDB
 from plenum.persistence.secondary_storage import SecondaryStorage
 # from plenum.persistence.idr_cache import IdrCache
 from plenum.persistence.storage import Storage, initStorage
+from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server import primary_elector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
@@ -85,11 +81,13 @@ from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
-from plenum.server.req_id_to_txn import ReqIdrToTxnLevelDB
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.notifier_plugin_manager import notifierPluginTriggerEvents, \
-    PluginManager
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.ratchet import Ratchet
+from stp_zmq.zstack import ZStack
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -459,13 +457,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.dataLocation,
                                  fileNamePrefix=NODE_HASH_STORE_SUFFIX)
-        elif hsConfig == HS_ORIENT_DB:
-            if hasattr(self, '_orientDbStore'):
-                store = self._orientDbStore
-            else:
-                store = self._getOrientDbStore(name,
-                                               pyorient.DB_TYPE_GRAPH)
-            return OrientDbHashStore(store)
+        # elif hsConfig == HS_ORIENT_DB:
+        #     if hasattr(self, '_orientDbStore'):
+        #         store = self._orientDbStore
+        #     else:
+        #         store = self._getOrientDbStore(name,
+        #                                        pyorient.DB_TYPE_GRAPH)
+        #     return OrientDbHashStore(store)
+        elif hsConfig == HS_LEVELDB:
+            return LevelDbHashStore(dataDir=self.dataLocation)
         else:
             return MemoryHashStore()
 
@@ -483,23 +483,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return SecondaryStorage(txnStore=None,
                                     primaryStorage=self.primaryStorage)
 
-    def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
-        """
-        Helper method that creates an instance of OrientdbStore.
-
-        :param name: name of the orientdb database
-        :param dbType: orientdb database type
-        :return: orientdb store
-        """
-        self._orientDbStore = OrientDbStore(
-            user=self.config.OrientDB["user"],
-            password=self.config.OrientDB["password"],
-            host=self.config.OrientDB["host"],
-            port=self.config.OrientDB["port"],
-            dbName=name,
-            dbType=dbType,
-            storageType=pyorient.STORAGE_TYPE_PLOCAL)
-        return self._orientDbStore
+    # def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
+    #     """
+    #     Helper method that creates an instance of OrientdbStore.
+    #
+    #     :param name: name of the orientdb database
+    #     :param dbType: orientdb database type
+    #     :return: orientdb store
+    #     """
+    #     self._orientDbStore = OrientDbStore(
+    #         user=self.config.OrientDB["user"],
+    #         password=self.config.OrientDB["password"],
+    #         host=self.config.OrientDB["host"],
+    #         port=self.config.OrientDB["port"],
+    #         dbName=name,
+    #         dbType=dbType,
+    #         storageType=pyorient.STORAGE_TYPE_PLOCAL)
+    #     return self._orientDbStore
 
     def getLedgerManager(self):
         return LedgerManager(self, ownedByNode=True)
@@ -524,7 +524,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
-            self.hashStore = self.getHashStore(self.name)
+            if self.hashStore.closed:
+                self.hashStore = self.getHashStore(self.name)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -588,7 +589,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, ex))
 
         # Stop hash store
-        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
+        if isinstance(self.hashStore, (FileHashStore, LevelDbHashStore)):
             try:
                 self.hashStore.close()
             except Exception as ex:
@@ -1177,6 +1178,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Batch):
             logger.debug("{} processing a batch {}".format(self, msg))
             for m in msg.messages:
+                m = self.nodestack.deserializeMsg(m)
                 self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
@@ -1298,6 +1300,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if isinstance(msg, Batch):
             for m in msg.messages:
+                # This check is done since Client uses NodeStack (which can
+                # send and receive BATCH) to talk to nodes but Node uses
+                # ClientStack (which cannot send or receive BATCH).
+                # TODO: The solution is to have both kind of stacks be able to
+                # parse BATCH messages
+                if m in (ZStack.pingMessage, ZStack.pongMessage):
+                    continue
+                m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
             self.postToClientInBox(msg, frm)
@@ -1331,11 +1341,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def postPoolLedgerCaughtUp(self):
         self.mode = Mode.discovered
-        self.ledgerManager.setLedgerCanSync(1, True)
+        self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
         # Node has discovered other nodes now sync up domain ledger
         for nm in self.nodestack.connecteds:
             self.sendDomainLedgerStatus(nm)
-        self.ledgerManager.processStashedLedgerStatuses(1)
+        self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
         # Initialising node id in case where node's information was not present
@@ -1772,9 +1782,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestExecuter[ledgerId](ppTime, reqs, stateRoot, txnRoot)
 
     def updateSeqNoMap(self, committedTxns):
-        # for txn in committedTxns:
-        #     self.seqNoDB.add(txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
-        #                      txn[F.seqNo.name])
         self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
                                 txn[F.seqNo.name]) for txn in committedTxns)
 
@@ -1786,6 +1793,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
                 # self.cacheVerkey(txn)
+        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
         self.sendRepliesToClients(committedTxns, ppTime)
 
     def onBatchCreated(self, ledgerId, stateRoot):

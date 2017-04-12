@@ -524,6 +524,8 @@ class Client(Motor,
                     nodesNotSendingAck.update(expectedFrom)
                 else:
                     clearKeys.append(reqKey)
+
+        # Dont try for the requests which have gone beyond retry limits
         for k in clearKeys:
             self.expectingAcksFor.pop(k)
 
@@ -541,6 +543,9 @@ class Client(Motor,
         for k in clearKeys:
             self.expectingRepliesFor.pop(k)
 
+        if nodesNotSendingAck:
+            logger.debug('{} going to retry for {}'.format(self,
+                                                           self.expectingAcksFor.keys()))
         for nm in nodesNotSendingAck:
             try:
                 remote = self.nodestack.getRemote(nm)

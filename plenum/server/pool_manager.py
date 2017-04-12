@@ -12,6 +12,7 @@ from plenum.common.exceptions import UnsupportedOperation, \
     UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from plenum.persistence.util import txnsWithMerkleInfo
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
@@ -142,7 +143,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             self.onPoolMembershipChange(deepcopy(txn))
-
+        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
         self.node.sendRepliesToClients(committedTxns, ppTime)
 
     # def getReplyFor(self, request):

@@ -1,10 +1,14 @@
 import json
 from typing import Tuple, List
 
+from copy import deepcopy
+
 from ledger.serializers.json_serializer import JsonSerializer
+from ledger.util import F
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
 from plenum.common.types import f
+from plenum.persistence.util import txnsWithSeqNo
 from stp_core.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import State
@@ -17,11 +21,11 @@ logger = getlogger()
 
 
 class DomainRequestHandler(RequestHandler):
+    stateSerializer = JsonSerializer()
 
     def __init__(self, ledger, state, reqProcessors):
         super().__init__(ledger, state)
         self.reqProcessors = reqProcessors
-        self.stateSerializer = JsonSerializer()
 
     def validate(self, req: Request, config=None):
         if req.operation.get(TXN_TYPE) == NYM:
@@ -50,20 +54,16 @@ class DomainRequestHandler(RequestHandler):
 
     def apply(self, req: Request):
         txn = self._reqToTxn(req)
-        self.ledger.appendTxns([txn])
-        self.updateState([txn])
+        (start, end), _ = self.ledger.appendTxns([txn])
+        self.updateState(txnsWithSeqNo(start, end, [txn]))
         return txn
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
             typ = txn.get(TXN_TYPE)
-            nym = txn.get(TARGET_NYM)
             if typ == NYM:
-                self.updateNym(nym, {
-                    f.IDENTIFIER.nm: txn.get(f.IDENTIFIER.nm),
-                    ROLE: txn.get(ROLE),
-                    VERKEY: txn.get(VERKEY)
-                }, isCommitted=isCommitted)
+                nym = txn.get(TARGET_NYM)
+                self.updateNym(nym, txn, isCommitted=isCommitted)
             else:
                 logger.debug('Cannot apply request of type {} to state'.format(typ))
 
@@ -78,7 +78,13 @@ class DomainRequestHandler(RequestHandler):
         by other stewards"""
         return self.countStewards() > config.stewardThreshold
 
-    def updateNym(self, nym, data, isCommitted=True):
+    def updateNym(self, nym, txn, isCommitted=True):
+        data = {
+            f.IDENTIFIER.nm: txn.get(f.IDENTIFIER.nm),
+            ROLE: txn.get(ROLE),
+            VERKEY: txn.get(VERKEY),
+            F.seqNo.name: txn.get(F.seqNo.name)
+        }
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
         existingData.update(data)

@@ -1,9 +1,7 @@
 from hashlib import sha256
-
-import leveldb as leveldb
 from typing import Optional
 
-from plenum.persistence.util import removeLockFiles
+from plenum.persistence.kv_store import KVStoreLeveldb
 
 
 class ReqIdrToTxn:
@@ -24,7 +22,7 @@ class ReqIdrToTxn:
 class ReqIdrToTxnLevelDB(ReqIdrToTxn):
     def __init__(self, dbPath):
         self.dbPath = dbPath
-        self.db = leveldb.LevelDB(dbPath)
+        self.db = KVStoreLeveldb(dbPath)
 
     def getKey(self, identifier, reqId):
         h = sha256()
@@ -34,24 +32,19 @@ class ReqIdrToTxnLevelDB(ReqIdrToTxn):
 
     def add(self, identifier, reqId, seqNo):
         key = self.getKey(identifier, reqId)
-        self.db.Put(key, str(seqNo).encode())
+        self.db.set(key, str(seqNo))
 
     def addBatch(self, batch):
-        b = leveldb.WriteBatch()
-        for identifier, reqId, seqNo in batch:
-            key = self.getKey(identifier, reqId)
-            b.Put(key, str(seqNo).encode())
-        self.db.Write(b, sync=False)
+        self.db.setBatch([(self.getKey(identifier, reqId), str(seqNo))
+                          for identifier, reqId, seqNo in batch])
 
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)
         try:
-            val = self.db.Get(key)
+            val = self.db.get(key)
             return int(val)
         except (KeyError, ValueError):
             return None
 
     def close(self):
-        removeLockFiles(self.dbPath)
-        del self.db
-        self.db = None
+        self.db.close()

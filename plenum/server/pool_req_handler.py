@@ -6,6 +6,7 @@ from typing import Tuple, List
 from ledger.serializers.json_serializer import JsonSerializer
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
+from plenum.persistence.util import txnsWithSeqNo
 from stp_core.common.log import getlogger
 from plenum.common.request import Request
 from plenum.common.state import PruningState
@@ -44,8 +45,8 @@ class PoolRequestHandler(RequestHandler):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
             txn = reqToTxn(req)
-            self.ledger.appendTxns([txn])
-            self.updateState([txn])
+            (start, end), _ = self.ledger.appendTxns([txn])
+            self.updateState(txnsWithSeqNo(start, end, [txn]))
             return txn
         else:
             logger.debug('Cannot apply request of type {} to state'.format(typ))

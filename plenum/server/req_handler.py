@@ -5,6 +5,7 @@ from plenum.common.request import Request
 from typing import List
 from plenum.common.ledger import Ledger
 from plenum.common.state import PruningState
+from plenum.persistence.util import txnsWithSeqNo
 
 
 class RequestHandler:
@@ -54,10 +55,7 @@ class RequestHandler:
         txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
         assert self.ledger.root_hash == txnRoot
         self.state.commit(rootHash=stateRoot)
-        seqNos = range(seqNoStart, seqNoEnd + 1)
-        for txn, seqNo in zip(committedTxns, seqNos):
-            txn[f.SEQ_NO.nm] = seqNo
-        return committedTxns
+        return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
     def onBatchCreated(self, stateRoot):
         pass

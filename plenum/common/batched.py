@@ -14,6 +14,7 @@ logger = getlogger()
 class Batched(MessageProcessor):
     """
     A mixin to allow batching of requests to be send to remotes.
+    Assumes a Stack (ZStack or RStack) is mixed
     """
 
     def __init__(self):
@@ -29,10 +30,10 @@ class Batched(MessageProcessor):
         :param msg: the message to enqueue
         :param rid: the id of the remote node
         """
-        payload = self.prepForSending(msg, signer)
+        # payload = self.prepForSending(msg, signer)
         if rid not in self.outBoxes:
             self.outBoxes[rid] = deque()
-        self.outBoxes[rid].append(payload)
+        self.outBoxes[rid].append(msg)
 
     def _enqueueIntoAllRemotes(self, msg: Any, signer: Signer) -> None:
         """
@@ -52,11 +53,16 @@ class Batched(MessageProcessor):
         :param rids: ids of the remotes to whose outBoxes
          this message must be enqueued
         """
+        # Signing (if required) and serializing before enqueueing otherwise
+        # each call to `_enqueue` will sign it and `transmit` will try
+        # to serialize it
+        serializedPayload = self.signAndSerialize(msg, signer)
+
         if rids:
             for r in rids:
-                self._enqueue(msg, r, signer)
+                self._enqueue(serializedPayload, r, signer)
         else:
-            self._enqueueIntoAllRemotes(msg, signer)
+            self._enqueueIntoAllRemotes(serializedPayload, signer)
 
     def flushOutBoxes(self) -> None:
         """
@@ -73,7 +79,8 @@ class Batched(MessageProcessor):
                 if len(msgs) == 1:
                     msg = msgs.popleft()
                     # Setting timeout to never expire
-                    self.transmit(msg, rid, timeout=self.messageTimeout)
+                    self.transmit(msg, rid, timeout=self.messageTimeout,
+                                  serialized=True)
                     logger.trace(
                         "{} sending msg {} to {}".format(self, msg, dest))
                 else:
@@ -81,17 +88,17 @@ class Batched(MessageProcessor):
                         "{} batching {} msgs to {} into one transmission".
                         format(self, len(msgs), dest))
                     logger.trace("    messages: {}".format(msgs))
-                    batch = Batch([], None)
-                    while msgs:
-                        batch.messages.append(msgs.popleft())
+                    batch = Batch(list(msgs), None)
+                    msgs.clear()
                     # don't need to sign the batch, when the composed msgs are
                     # signed
-                    payload = self.prepForSending(batch)
+                    payload = self.signAndSerialize(batch)
                     logger.trace("{} sending payload to {}: {}".format(self,
                                                                        dest,
                                                                        payload))
                     # Setting timeout to never expire
-                    self.transmit(payload, rid, timeout=self.messageTimeout)
+                    self.transmit(payload, rid, timeout=self.messageTimeout,
+                                  serialized=True)
         for rid in removedRemotes:
             logger.warning("{} rid {} has been removed".format(self, rid),
                            extra={"cli": False})
@@ -115,3 +122,7 @@ class Batched(MessageProcessor):
                     return None
                 msg[f.MSGS.nm] = relevantMsgs
         return msg
+
+    def signAndSerialize(self, msg, signer=None):
+        payload = self.prepForSending(msg, signer)
+        return self.serializeMsg(payload)
