@@ -76,11 +76,13 @@ def expectedNodeToNodeMessageDeliveryTime():
 
 
 def expectedPropagateTime(nodeCount):
-    return expectedNodeToNodeMessageDeliveryTime() * nodeCount
+    count = totalConnections(nodeCount)
+    return expectedNodeToNodeMessageDeliveryTime() * count
 
 
 def expectedPrePrepareTime(nodeCount):
-    return expectedNodeToNodeMessageDeliveryTime() * nodeCount
+    count = totalConnections(nodeCount)
+    return expectedNodeToNodeMessageDeliveryTime() * count
 
 
 def expectedOrderingTime(numInstances):
