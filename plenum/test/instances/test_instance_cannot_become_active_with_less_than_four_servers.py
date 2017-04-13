@@ -1,5 +1,6 @@
 from typing import Iterable
 
+import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
@@ -18,6 +19,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """
