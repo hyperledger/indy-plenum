@@ -6,7 +6,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
-from plenum.test.helper import checkViewNoForNodes, \
+from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getPrimaryReplica
 
@@ -22,8 +22,7 @@ def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
-    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo+1),
-                          retryWait=1, timeout=20))
+    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
 
 
 # noinspection PyIncorrectDocstring
@@ -63,8 +62,7 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # Check that view change happened for all nodes
-    looper.run(eventually(partial(checkViewNoForNodes, nodeSet, viewNo + 1),
-                          retryWait=1, timeout=20))
+    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
 
     # All nodes except the reluctant node should have sent a view change and
     # thus must have called `sendInstanceChange`

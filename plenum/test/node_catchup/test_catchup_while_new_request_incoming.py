@@ -47,6 +47,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     txnPoolNodeSet.append(newNode)
     looper.runFor(2)
     sendRandomRequests(stewardWallet, steward1, 5)
+    # TODO select or create a timeout for this case in 'waits'
     looper.run(eventually(checkNodeLedgersForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=80))
     assert newNode.spylog.count(TestNode.processStashedOrderedReqs) > 0

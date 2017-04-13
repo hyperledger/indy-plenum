@@ -5,7 +5,7 @@ from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
@@ -27,7 +27,7 @@ def looper(txnPoolNodesLooper):
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
+def nodeCreatedAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
@@ -36,12 +36,10 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
-                                        txnCount, timeoutPerReq=25)
-
-    logger.debug('Going to add new node, ledger sizes of existing nodes {}'.
-                 format(','.join(['{}:{}'.format(n.name, n.primaryStorage.size)
-                                  for n in txnPoolNodeSet])))
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+                                        wallet,
+                                        client,
+                                        txnCount)
     newStewardName = randomString()
     newNodeName = "Epsilon"
     newStewardClient, newStewardWallet, newNode = addNewStewardAndNode(
@@ -56,7 +54,7 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(newNode)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=10))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(newStewardClient.ensureConnectedToNodes())
     looper.run(client.ensureConnectedToNodes())
     return looper, newNode, client, wallet, newStewardClient, newStewardWallet
@@ -65,6 +63,6 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 @pytest.fixture("module")
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=10))
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
+
     return newNode

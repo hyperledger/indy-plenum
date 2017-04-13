@@ -10,6 +10,7 @@ from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.temp_file_util import SafeTemporaryDirectory
 from plenum.common.types import NodeDetail
+from plenum.test import waits
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
@@ -62,7 +63,6 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
         looper.add(node)
         nodes.append(node)
 
-
     for name in names[:3]:
         create(name)
 
@@ -74,7 +74,8 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     # create the fourth and see that it learns who the primaries are
     # from the other nodes
     create(names[3])
-    checkProtocolInstanceSetup(looper, nodes, timeout=10)
+    # TODO set timeout from 'waits' after the test enabled
+    checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
     stopNodes(nodes, looper)
 
 
@@ -129,8 +130,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     for i, node in enumerate(nodes):
         looper.add(node)
         looper.runFor(waits[i])
-    looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+    looper.run(checkNodesConnected(nodes))
     logger.debug("connects")
     logger.debug("node order: {}".format(names))
     logger.debug("waits: {}".format(waits))
@@ -144,8 +144,7 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
         n.start(looper.loop)
         looper.runFor(rwaits[i])
     looper.runFor(3)
-    looper.run(checkNodesConnected(nodes,
-                                   overrideTimeout=10))
+    looper.run(checkNodesConnected(nodes))
     stopNodes(nodes, looper)
     logger.debug("reconnects")
     logger.debug("node order: {}".format(names))
@@ -220,12 +219,12 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
     looper.add(C)
     looper.runFor(5)
 
-
     stopNodes([C, ], looper)
 
     def chk():
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
-    looper.run(eventually(chk, retryWait=2, timeout=5))
+    timeout = waits.expectedNodeInterconnectionTime(len(nodeReg))
+    looper.run(eventually(chk, retryWait=2, timeout=timeout))
     stopNodes([A, B], looper)

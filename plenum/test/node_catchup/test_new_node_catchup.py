@@ -3,16 +3,16 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
+from plenum.test import waits
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
-
 txnCount = 5
 
 
@@ -71,7 +71,7 @@ def testDelayedLedgerStatusNotChangingState():
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
-@pytest.mark.skip(reason="SOV-939")
+@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
                                 nodeSetWithNodeAddedAfterSomeTxns):
     """
@@ -79,7 +79,6 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     transactions which happened while it was down
     :return:
     """
-
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
@@ -95,12 +94,11 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode))
     newNode.start(looper.loop)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=75))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
 
 
-@pytest.mark.skip(reason="SOV-939")
+@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
                                             nodeSetWithNodeAddedAfterSomeTxns):
     """

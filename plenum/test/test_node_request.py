@@ -9,11 +9,12 @@ from stp_core.loop.looper import Looper
 from plenum.common.types import PrePrepare, Prepare, \
     Commit, Primary
 from plenum.common.util import getMaxFailures
+from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import setupNodesAndClient, \
     sendRandomRequest, setupClient, \
-    assertLength, addNodeBack, checkSufficientRepliesRecvd, \
+    assertLength, addNodeBack, waitForSufficientRepliesForRequests, \
     getPendingRequestsForReplica, checkRequestReturnedToNode
 from plenum.test.profiler import profile_this
 from plenum.test.test_node import TestNode, TestNodeSet, checkPoolReady, \
@@ -30,9 +31,9 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                                                    nodeSet,
                                                    tmpdir=tdir_for_func)
             req = sendRandomRequest(wallet1, client1)
-            looper.run(eventually(checkSufficientRepliesRecvd, client1.inBox,
-                                  req.reqId, 1,
-                                  retryWait=1, timeout=15))
+            waitForSufficientRepliesForRequests(looper, client1,
+                                                requests=[req], fVal=1)
+
             async def chk():
                 for node in nodeSet:
                     entries = node.spylog.getAll(
@@ -44,8 +45,8 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                             assert result
                         else:
                             assert result is None
-
-            looper.run(eventually(chk, timeout=3))
+            timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
+            looper.run(eventually(chk, timeout=timeout))
 
 
 # noinspection PyIncorrectDocstring
@@ -71,8 +72,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
                 delayerMsgTuple(120, PrePrepare, nodeA.name))
 
             # Ensure elections are done
-            ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1,
-                                timeout=30)
+            ensureElectionsDone(looper=looper, nodes=nodeSet)
             assert nodeA.hasPrimary
 
             instNo = nodeA.primaryReplicaNo
@@ -81,6 +81,7 @@ def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
 
             # All nodes including B should return their ordered requests
             for node in nodeSet:
+                # TODO set timeout from 'waits' after the test enabled
                 looper.run(eventually(checkRequestReturnedToNode, node,
                                       wallet1.defaultId, req.reqId,
                                       instNo, retryWait=1, timeout=30))
@@ -109,8 +110,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # will not know whether it is primary or not
 
             # nodeD.nodestack.delay(delayer(20, PRIMARY))
-
-            nodeD.nodeIbStasher.delay(delayerMsgTuple(20, Primary))
+            delayD = 20
+            nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 
@@ -120,6 +121,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # TODO Rethink this
             instNo = 0
 
+            timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
             for i in range(3):
                 node = nodeSet.getNode(nodeNames[i])
                 # Nodes A, B and C should have received PROPAGATE request
@@ -127,14 +129,15 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(
                     eventually(checkIfPropagateRecvdFromNode, node, nodeD,
                                request.identifier,
-                               request.reqId, retryWait=1, timeout=10))
+                               request.reqId, retryWait=1, timeout=timeout))
 
             # Node D should have 1 pending PRE-PREPARE request
             def assertOnePrePrepare():
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                         PrePrepare)) == 1
 
-            looper.run(eventually(assertOnePrePrepare, retryWait=1, timeout=10))
+            timeout = waits.expectedPrePrepareTime(len(nodeSet))
+            looper.run(eventually(assertOnePrePrepare, retryWait=1, timeout=timeout))
 
             # Node D should have 2 pending PREPARE requests(from node B and C)
 
@@ -142,7 +145,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                         Prepare)) == 2
 
-            looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=10))
+            timeout = waits.expectedPrePrepareTime(len(nodeSet))
+            looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=timeout))
 
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
@@ -150,7 +154,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=20))
+                    0), retryWait=1, timeout=delayD))
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
@@ -162,6 +166,9 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason="ZStack does not have any mechanism to have stats "
+                         "either remove this once raet is removed "
+                         "or implement a `stats` feature in ZStack")
 def testMultipleRequests(tdir_for_func):
     """
     Send multiple requests to the client
@@ -184,11 +191,11 @@ def testMultipleRequests(tdir_for_func):
 
             def x():
                 requests = [sendRandomRequest(wal, client) for _ in range(10)]
-                for request in requests:
-                    looper.run(eventually(
-                        checkSufficientRepliesRecvd, client.inBox,
-                        request.reqId, 3,
-                        retryWait=1, timeout=3 * len(nodeSet)))
+                waitForSufficientRepliesForRequests(looper, client,
+                                                    requests=requests, fVal=3)
+
+                ss2 = snapshotStats(*nodeSet)
+                diff = statsDiff(ss2, ss1)
 
                 if not config.UseZStack:
                     ss2 = snapshotStats(*nodeSet)
@@ -207,10 +214,7 @@ def testClientSendingSameRequestAgainBeforeFirstIsProcessed(looper, nodeSet,
     size = len(client1.inBox)
     req = sendRandomRequest(wallet1, client1)
     client1.submitReqs(req)
-    f = getMaxFailures(len(nodeSet))
-    looper.run(eventually(
-        checkSufficientRepliesRecvd, client1.inBox,
-        req.reqId, f, retryWait=1, timeout=3 * len(nodeSet)))
+    waitForSufficientRepliesForRequests(looper, client1, requests=[req])
     # Only REQACK will be sent twice by the node but not REPLY
     assert len(client1.inBox) == size + 12
 

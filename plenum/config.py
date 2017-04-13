@@ -121,7 +121,8 @@ enableStdOutLogging=True
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.5
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
+
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
 CHK_FREQ = 100
