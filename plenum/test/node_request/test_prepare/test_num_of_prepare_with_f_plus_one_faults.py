@@ -48,5 +48,6 @@ def preprepared1WithDelay(looper, nodeSet, propagated1, faultyNodes):
                      timeout=timeouts)
 
 
+@pytest.mark.skip(reason='SOV-944')
 def testNumOfPrepareWithFPlusOneFaults(afterElection, noRetryReq, preprepared1WithDelay):
     pass
