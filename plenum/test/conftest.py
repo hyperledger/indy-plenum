@@ -675,5 +675,6 @@ def testNode(pluginManager, tdir):
     node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
+    node.start(None)
     yield node
     node.stop()
