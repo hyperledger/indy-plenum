@@ -41,7 +41,7 @@ if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
 
 setup(
-    name='plenum-dev',
+    name='plenum-3pc-batch',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -61,7 +61,7 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-chunked-file-store==0.1.2', 'stp-perf-imp==0.1.3', 'evernym-state==0.1.3',
+    install_requires=['ledger-3pc-batch==0.2.1', 'stp-3pc-batch==0.1.1', 'evernym-state==0.1.3',
                       'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
