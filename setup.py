@@ -61,7 +61,7 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-chunked-file-store==0.1.2', 'stp-dev==0.1.20', 'evernym-state==0.1.3',
+    install_requires=['ledger-chunked-file-store==0.1.2', 'stp-perf-imp==0.1.3', 'evernym-state==0.1.3',
                       'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
