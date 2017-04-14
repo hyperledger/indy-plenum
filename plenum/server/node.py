@@ -132,7 +132,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
-        # self.ensureKeysAreSetup()
+        self.ensureKeysAreSetup()
         self.opVerifiers = self.getPluginsByType(pluginPaths,
                                                  PLUGIN_TYPE_VERIFICATION)
         self.reqProcessors = self.getPluginsByType(pluginPaths,
@@ -1133,10 +1133,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param wrappedMsg: a message from a client
         """
         try:
-            try:
-                vmsg = self.validateClientMsg(wrappedMsg)
-            except:
-                vmsg = self.validateClientMsg(wrappedMsg)
+            vmsg = self.validateClientMsg(wrappedMsg)
             if vmsg:
                 self.unpackClientMsg(*vmsg)
         except BlowUp:
