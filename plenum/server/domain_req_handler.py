@@ -1,21 +1,15 @@
 import json
-from typing import Tuple, List
-
-from copy import deepcopy
 
 from ledger.serializers.json_serializer import JsonSerializer
 from ledger.util import F
+from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.exceptions import UnauthorizedClientRequest
-from plenum.common.ledger import Ledger
+from plenum.common.request import Request
+from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
 from plenum.persistence.util import txnsWithSeqNo
-from stp_core.common.log import getlogger
-from plenum.common.request import Request
-from plenum.common.state import State
-from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY, \
-    GUARDIAN
-from plenum.common.txn_util import reqToTxn
 from plenum.server.req_handler import RequestHandler
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -79,15 +73,17 @@ class DomainRequestHandler(RequestHandler):
         return self.countStewards() > config.stewardThreshold
 
     def updateNym(self, nym, txn, isCommitted=True):
-        data = {
-            f.IDENTIFIER.nm: txn.get(f.IDENTIFIER.nm),
-            ROLE: txn.get(ROLE),
-            VERKEY: txn.get(VERKEY),
-            F.seqNo.name: txn.get(F.seqNo.name)
-        }
         existingData = self.getNymDetails(self.state, nym,
                                           isCommitted=isCommitted)
-        existingData.update(data)
+        newData = {}
+        if not existingData:
+            newData[f.IDENTIFIER.nm] = txn[f.IDENTIFIER.nm]
+        if ROLE in txn:
+            newData[ROLE] = txn[ROLE]
+        if VERKEY in txn:
+            newData[VERKEY] = txn[VERKEY]
+        newData[F.seqNo.name] = txn.get(F.seqNo.name)
+        existingData.update(newData)
         key = nym.encode()
         val = self.stateSerializer.serialize(existingData)
         self.state.set(key, val)

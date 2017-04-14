@@ -10,9 +10,6 @@ from contextlib import closing
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
-import leveldb
-import pyorient
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
@@ -24,7 +21,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
-    HS_FILE, HS_ORIENT_DB, DATA, ALIAS, NODE_IP, HS_LEVELDB
+    HS_FILE, DATA, ALIAS, NODE_IP, HS_LEVELDB
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -41,7 +38,6 @@ from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode, LedgerState
-from plenum.common.state import PruningState
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
@@ -52,15 +48,13 @@ from plenum.common.types import Propagate, \
     LedgerStatus, ConsistencyProof, \
     CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
+    POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
 from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
-# from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
-# from plenum.persistence.orientdb_store import OrientDbStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxnLevelDB
-from plenum.persistence.secondary_storage import SecondaryStorage
-# from plenum.persistence.idr_cache import IdrCache
+from plenum.persistence.state import PruningState
 from plenum.persistence.storage import Storage, initStorage
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server import primary_elector
@@ -457,49 +451,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.dataLocation,
                                  fileNamePrefix=NODE_HASH_STORE_SUFFIX)
-        # elif hsConfig == HS_ORIENT_DB:
-        #     if hasattr(self, '_orientDbStore'):
-        #         store = self._orientDbStore
-        #     else:
-        #         store = self._getOrientDbStore(name,
-        #                                        pyorient.DB_TYPE_GRAPH)
-        #     return OrientDbHashStore(store)
         elif hsConfig == HS_LEVELDB:
             return LevelDbHashStore(dataDir=self.dataLocation)
         else:
             return MemoryHashStore()
-
-    def getSecondaryStorage(self) -> SecondaryStorage:
-        """
-        Create and return an instance of secondaryStorage to be
-        used by this Node.
-        """
-        if self.config.secondaryStorage:
-            return initStorage(self.config.secondaryStorage,
-                               name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
-        else:
-            return SecondaryStorage(txnStore=None,
-                                    primaryStorage=self.primaryStorage)
-
-    # def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
-    #     """
-    #     Helper method that creates an instance of OrientdbStore.
-    #
-    #     :param name: name of the orientdb database
-    #     :param dbType: orientdb database type
-    #     :return: orientdb store
-    #     """
-    #     self._orientDbStore = OrientDbStore(
-    #         user=self.config.OrientDB["user"],
-    #         password=self.config.OrientDB["password"],
-    #         host=self.config.OrientDB["host"],
-    #         port=self.config.OrientDB["port"],
-    #         dbName=name,
-    #         dbType=dbType,
-    #         storageType=pyorient.STORAGE_TYPE_PLOCAL)
-    #     return self._orientDbStore
 
     def getLedgerManager(self):
         return LedgerManager(self, ownedByNode=True)
@@ -1065,28 +1020,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return True
         return False
-
-        # corrects = []
-        # for r in self.replicas:
-        #     if not r.primaryNames:
-        #         # The replica and thus this node does not know any viewNos
-        #         corrects.append(True)
-        #         continue
-        #     if viewNo in r.primaryNames.keys():
-        #         # Replica has seen primary with this view no
-        #         corrects.append(True)
-        #     elif viewNo > max(r.primaryNames.keys()):
-        #         # msg for a future view no
-        #         corrects.append(True)
-        #     else:
-        #         # Replica has not seen any primary for this `viewNo` and its
-        #         # less than the current `viewNo`
-        #         corrects.append(False)
-        # r = all(corrects)
-        # if not r:
-        #     self.discard(msg, "un-acceptable viewNo {}"
-        #                  .format(viewNo), logMethod=logger.debug)
-        # return r
 
     def sendToReplica(self, msg, frm):
         """
@@ -1847,28 +1780,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
 
-    # def generateReply(self, ppTime: float, req: Request) -> Reply:
-    #     """
-    #     Return a new clientReply created using the viewNo, request and the
-    #     computed txnId of the request
-    #
-    #     :param ppTime: the time at which PRE-PREPARE was sent
-    #     :param req: the REQUEST
-    #     :return: a Reply generated from the request
-    #     """
-    #     logger.debug("{} generating reply for {}".format(self, req))
-    #     result = {
-    #         f.IDENTIFIER.nm: req.identifier,
-    #         f.REQ_ID.nm: req.reqId,
-    #         f.SIG.nm: req.signature,
-    #         TXN_TIME: int(ppTime)
-    #     }
-    #     result.update(req.operation)
-    #     for processor in self.reqProcessors:
-    #         result.update(processor.process(req))
-    #
-    #     return Reply(result)
-
     def addNewRole(self, txn):
         """
         Adds a new client or steward to this node based on transaction type.
@@ -1914,30 +1825,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
-    # def authErrorWhileAddingSteward(self, request):
-    #     origin = request.identifier
-    #     if not self.secondaryStorage.isSteward(origin):
-    #         return "{} is not a steward so cannot add a new steward". \
-    #             format(origin)
-    #     if self.stewardThresholdExceeded():
-    #         return "New stewards cannot be added by other stewards as "\
-    #             "there are already {} stewards in the system".format(
-    #                 self.config.stewardThreshold)
-
-    # def stewardThresholdExceeded(self) -> bool:
-    #     """We allow at most `stewardThreshold` number of  stewards to be added
-    #     by other stewards"""
-    #     return self.secondaryStorage.countStewards() > \
-    #            self.config.stewardThreshold
-
     def defaultAuthNr(self):
         state = self.getState(DOMAIN_LEDGER_ID)
         return SimpleAuthNr(state=state)
-
-    # def getReplyFor(self, request):
-    #     result = self.secondaryStorage.getReply(request.identifier,
-    #                                             request.reqId)
-    #     return Reply(result) if result else None
 
     def processStashedOrderedReqs(self):
         i = 0

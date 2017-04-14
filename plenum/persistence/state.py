@@ -108,6 +108,10 @@ class PruningState(State):
             head = BLANK_NODE
         self.trie.replace_root_hash(self.trie.root_node, head)
 
+    def as_dict(self):
+        d = self.trie.to_dict()
+        return {k: rlp_decode(v)[0] for k, v in d.items()}
+
     @property
     def headHash(self):
         """

@@ -1,21 +1,19 @@
 import json
-from binascii import unhexlify
 from functools import lru_cache
-from typing import Tuple, List
 
 from ledger.serializers.json_serializer import JsonSerializer
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
+    SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.ledger import Ledger
-from plenum.persistence.util import txnsWithSeqNo
-from stp_core.common.log import getlogger
 from plenum.common.request import Request
-from plenum.common.state import PruningState
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ROLE, STEWARD, \
-    ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
+from plenum.persistence.state import PruningState
+from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.req_handler import RequestHandler
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -57,19 +55,27 @@ class PoolRequestHandler(RequestHandler):
             nodeNym = txn.get(TARGET_NYM)
             data = txn.get(DATA, {})
             existingData = self.getNodeData(nodeNym, isCommitted=isCommitted)
+            # Node data did not exist in state, so this is a new node txn,
+            # hence store the author of the txn (steward of node)
+            if not existingData:
+                existingData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm)
             existingData.update(data)
             self.updateNodeData(nodeNym, existingData)
 
     def authErrorWhileAddingNode(self, request):
         origin = request.identifier
         operation = request.operation
+        data = operation.get(DATA, {})
+        error = self.dataErrorWhileValidating(data, skipKeys=False)
+        if error:
+            return error
+
         isSteward = self.isSteward(origin, isCommitted=False)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)
         if self.stewardHasNode(origin):
             return "{} already has a node".format(origin)
-        if self.isNodeDataConflicting(operation.get(DATA, {}),
-                                      isCommitted=False):
+        if self.isNodeDataConflicting(operation.get(DATA, {})):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))
 
@@ -81,13 +87,23 @@ class PoolRequestHandler(RequestHandler):
         isSteward = self.isSteward(origin, isCommitted=False)
         if not isSteward:
             return "{} is not a steward so cannot update a node".format(origin)
+
         nodeNym = operation.get(TARGET_NYM)
-        if not self.isStewardOfNode(origin, nodeNym):
+        if not self.isStewardOfNode(origin, nodeNym, isCommitted=False):
             return "{} is not a steward of node {}".format(origin, nodeNym)
-        if self.isNodeDataConflicting(operation.get(DATA, {}), nodeNym,
-                                      isCommitted=False):
-            return "existing data has conflicts with " \
-                   "request data {}".format(operation.get(DATA))
+
+        data = operation.get(DATA, {})
+        # error = self.dataErrorWhileValidating(data, skipKeys=True)
+        # if error:
+        #     return error
+        #
+        # if self.isNodeDataSame(nodeNym, data, isCommitted=False):
+        #     return "node already has the same data as requested"
+        #
+        # if self.isNodeDataConflicting(data, nodeNym):
+        #     return "existing data has conflicts with " \
+        #            "request data {}".format(operation.get(DATA))
+        return self.dataErrorWhileValidatingUpdate(data, nodeNym)
 
     def getNodeData(self, nym, isCommitted: bool = True):
         key = nym.encode()
@@ -103,31 +119,120 @@ class PoolRequestHandler(RequestHandler):
         return DomainRequestHandler.isSteward(self.domainState, nym, isCommitted)
 
     @lru_cache(maxsize=64)
-    def isStewardOfNode(self, stewardNym, nodeNym):
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == nodeNym and \
-                            txn[f.IDENTIFIER.nm] == stewardNym:
-                return True
-        return False
+    def isStewardOfNode(self, stewardNym, nodeNym, isCommitted=True):
+        nodeData = self.getNodeData(nodeNym, isCommitted=isCommitted)
+        return nodeData and nodeData[f.IDENTIFIER.nm] == stewardNym
 
-    def stewardHasNode(self, stewardNym):
+    def stewardHasNode(self, stewardNym) -> bool:
         # Cannot use lru_cache since a steward might have a node in future and
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and txn[f.IDENTIFIER.nm] == stewardNym:
+        for nodeNym, nodeData in self.state.as_dict().items():
+            nodeData = json.loads(nodeData.decode())
+            if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
                 return True
         return False
 
-    def isNodeDataConflicting(self, data, nodeNym=None, isCommitted=True):
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and \
-                    (not nodeNym or nodeNym != txn[TARGET_NYM]):
-                existingData = self.getNodeData(txn[TARGET_NYM],
-                                                isCommitted=isCommitted)
-                for (ip, port) in [(NODE_IP, NODE_PORT), (CLIENT_IP, CLIENT_PORT)]:
-                    if (existingData.get(ip), existingData.get(port)) == (data.get(ip), data.get(port)):
-                        return True
-                if existingData.get(ALIAS) == data.get(ALIAS):
+    @staticmethod
+    def dataErrorWhileValidating(data, skipKeys):
+        reqKeys = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES}
+        if not skipKeys and not set(data.keys()) == reqKeys:
+            return 'Missing some of {}'.format(reqKeys)
+
+        nip = data.get(NODE_IP, 'nip')
+        np = data.get(NODE_PORT, 'np')
+        cip = data.get(CLIENT_IP, 'cip')
+        cp = data.get(CLIENT_PORT, 'cp')
+        if (nip, np) == (cip, cp):
+            return 'node and client ha cannot be same'
+
+    # def isNodeDataConflicting(self, data, nodeNym=None, isCommitted=True):
+    #     for txn in self.ledger.getAllTxn().values():
+    #         if txn[TXN_TYPE] == NODE and \
+    #                 (not nodeNym or nodeNym != txn[TARGET_NYM]):
+    #             existingData = self.getNodeData(txn[TARGET_NYM],
+    #                                             isCommitted=isCommitted)
+    #             for (ip, port) in [(NODE_IP, NODE_PORT), (CLIENT_IP, CLIENT_PORT)]:
+    #                 if (existingData.get(ip), existingData.get(port)) == (data.get(ip), data.get(port)):
+    #                     return True
+    #             if existingData.get(ALIAS) == data.get(ALIAS):
+    #                 return True
+
+    def isNodeDataSame(self, nodeNym, newData, isCommitted=True):
+        nodeInfo = self.getNodeData(nodeNym, isCommitted=isCommitted)
+        nodeInfo.pop(f.IDENTIFIER.nm, None)
+        return nodeInfo == newData
+
+    # def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
+    #     otherNodeData = existingNodeTxn[DATA]
+    #     for (ip, port) in [(NODE_IP, NODE_PORT),
+    #                        (CLIENT_IP, CLIENT_PORT)]:
+    #         if (otherNodeData.get(ip), otherNodeData.get(port)) == (
+    #                 data.get(ip), data.get(port)):
+    #             return True
+    #
+    #     if otherNodeData.get(ALIAS) == data.get(ALIAS):
+    #         return True
+    #
+    # def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
+    #     sameNodeData = existingNodeTxn[DATA]
+    #     if sameNodeData.get(ALIAS) != data.get(ALIAS):
+    #         return True
+
+    def isNodeDataConflicting(self, data, nodeNym=None):
+        # Check if node's ALIAS or IPs or ports conflicts with other nodes,
+        # also, the node is not allowed to change its alias.
+
+        # Check ALIAS change
+        nodeData = {}
+        if nodeNym:
+            nodeData = self.getNodeData(nodeNym, isCommitted=False)
+            if nodeData.get(ALIAS) != data.get(ALIAS):
+                return True
+            else:
+                # Preparing node data for check coming next
+                nodeData.pop(f.IDENTIFIER.nm, None)
+                nodeData.pop(SERVICES, None)
+                nodeData.update(data)
+
+        for otherNode, otherNodeData in self.state.as_dict().items():
+            otherNode = otherNode.decode()
+            otherNodeData = json.loads(otherNodeData.decode())
+            otherNodeData.pop(f.IDENTIFIER.nm, None)
+            otherNodeData.pop(SERVICES, None)
+            if not nodeNym or otherNode != nodeNym:
+                # The node's ip, port and alias shuuld be unique
+                bag = set()
+                for d in (nodeData, otherNodeData):
+                    bag.add(d.get(ALIAS))
+                    bag.add((d.get(NODE_IP), d.get(NODE_PORT)))
+                    bag.add((d.get(CLIENT_IP), d.get(CLIENT_PORT)))
+
+                list(map(lambda x: bag.remove(x) if x in bag else None,
+                         (None, (None, None))))
+
+                if (not nodeData and len(bag) != 3) or (nodeData and len(bag) != 6):
                     return True
+
+        # for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
+        #             if t[TXN_TYPE] == NODE]:
+        #     if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
+        #         conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
+        #         if conflictFound:
+        #             return conflictFound
+        #     if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
+        #         conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
+        #         if conflictFound:
+        #             return conflictFound
+
+    def dataErrorWhileValidatingUpdate(self, data, nodeNym):
+        error = self.dataErrorWhileValidating(data, skipKeys=True)
+        if error:
+            return error
+
+        if self.isNodeDataSame(nodeNym, data, isCommitted=False):
+            return "node already has the same data as requested"
+
+        if self.isNodeDataConflicting(data, nodeNym):
+            return "existing data has conflicts with " \
+                   "request data {}".format(data)

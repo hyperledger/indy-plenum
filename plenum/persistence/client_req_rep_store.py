@@ -62,6 +62,8 @@ class ClientReqRepStore:
     def getAllReplies(self, identifier: str, reqId: int):
         replies = self.getReplies(identifier, reqId)
         errors = self.getNacks(identifier, reqId)
+        if not errors:
+            errors = {**errors, **self.getRejects(identifier, reqId)}
         return replies, errors
 
     @abstractproperty

@@ -410,54 +410,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return self.node.viewNo
 
-    # def isPrimaryInView(self, viewNo: int) -> Optional[bool]:
-    #     """
-    #     Return whether a primary has been selected for this view number.
-    #     """
-    #     return self.primaryNames[viewNo] == self.name
-
-    # def isMsgForLaterView(self, msg):
-    #     """
-    #     Return whether this request's view number is greater than the current
-    #     view number of this replica.
-    #     """
-    #     viewNo = getattr(msg, "viewNo", None)
-    #     return viewNo > self.viewNo
-
-    # def isMsgForCurrentView(self, msg):
-    #     """
-    #     Return whether this request's view number is equal to the current view
-    #     number of this replica.
-    #     """
-    #     viewNo = getattr(msg, "viewNo", None)
-    #     return viewNo == self.viewNo
-
-    # def isMsgForPrevView(self, msg):
-    #     """
-    #     Return whether this request's view number is less than the current view
-    #     number of this replica.
-    #     """
-    #     viewNo = getattr(msg, "viewNo", None)
-    #     return viewNo < self.viewNo
-
-    # def isPrimaryForMsg(self, msg) -> Optional[bool]:
-    #     """
-    #     Return whether this replica is primary if the request's view number is
-    #     equal this replica's view number and primary has been selected for
-    #     the current view.
-    #     Return None otherwise.
-    #
-    #     :param msg: message
-    #     """
-    #     # if self.isMsgForLaterView(msg):
-    #     #     self.discard(msg,
-    #     #                  "Cannot get primary status for a request for a later "
-    #     #                  "view {}. Request is {}".format(self.viewNo, msg),
-    #     #                  logger.error)
-    #     # else:
-    #     return self.isPrimary if self.isMsgForCurrentView(msg) \
-    #         else self.isPrimaryInView(msg.viewNo)
-
     def isMsgFromPrimary(self, msg, sender: str) -> bool:
         """
         Return whether this message was from primary replica
@@ -472,21 +424,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # return self.primaryName == sender if self.isMsgForCurrentView(
         #     msg) else self.primaryNames[msg.viewNo] == sender
         return self.primaryName == sender
-
-    # def _preProcessReq(self, req: Request) -> None:
-    #     """
-    #     Process request digest if this replica is not a primary, otherwise stash
-    #     the message into the inBox.
-    #
-    #     :param req: the client Request Digest
-    #     """
-    #     if self.isPrimary is not None:
-    #         self.processRequest(req)
-    #     else:
-    #         logger.debug("{} stashing request digest {} since it does not know "
-    #                      "its primary status".
-    #                      format(self, (req.identifier, req.reqId)))
-    #         self._stashInBox(req)
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # ppReq.discarded indicates the index from where the discarded requests
@@ -606,24 +543,6 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} processing pended msg {}".format(self, msg))
             self.dispatchThreePhaseMsg(*msg)
 
-    # def process3PhaseReqsQueue(self):
-    #     """
-    #     Process the 3 phase requests from the queue whose view number is equal
-    #     to the current view number of this replica.
-    #     """
-    #     unprocessed = deque()
-    #     while self.threePhaseMsgsForLaterView:
-    #         request, sender = self.threePhaseMsgsForLaterView.popleft()
-    #         logger.debug("{} processing pended 3 phase request: {}"
-    #                      .format(self, request))
-    #         # If the request is for a later view dont try to process it but add
-    #         # it back to the queue.
-    #         if self.isMsgForLaterView(request):
-    #             unprocessed.append((request, sender))
-    #         else:
-    #             self.processThreePhaseMsg(request, sender)
-    #     self.threePhaseMsgsForLaterView = unprocessed
-
     @property
     def quorum(self) -> int:
         r"""
@@ -655,19 +574,6 @@ class Replica(HasActionQueue, MessageProcessor):
                          "not between {} and {}".
                          format(self, msg, msg.ppSeqNo, self.h, self.H))
             self.stashOutsideWatermarks((msg, sender))
-
-    # def processRequest(self, rd: ReqDigest):
-    #     """
-    #     Process a request digest. Works only if this replica has decided its
-    #     primary status.
-    #
-    #     :param rd: the client request digest to process
-    #     """
-    #     self.stats.inc(TPCStat.ReqDigestRcvd)
-    #     if self.isPrimary is False:
-    #         self.dequeuePrePrepare(rd.identifier, rd.reqId)
-    #     else:
-    #         self.doPrePrepare(rd)
 
     def processThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str):
         """
@@ -808,38 +714,6 @@ class Replica(HasActionQueue, MessageProcessor):
         else:
             logger.trace("{} cannot return request to node: {}".
                          format(self, reason))
-
-    # def doPrePrepare(self, reqDigest: ReqDigest) -> None:
-    #     """
-    #     Broadcast a PRE-PREPARE to all the replicas.
-    #
-    #     :param reqDigest: a tuple with elements identifier, reqId, and digest
-    #     """
-    #     if not self.node.isParticipating:
-    #         logger.error("Non participating node is attempting PRE-PREPARE. "
-    #                      "This should not happen.")
-    #         return
-    #
-    #     if self.lastPrePrepareSeqNo == self.H:
-    #         logger.debug("{} stashing PRE-PREPARE {} since outside greater "
-    #                      "than high water mark {}".
-    #                      format(self, (self.viewNo, self.lastPrePrepareSeqNo+1),
-    #                             self.H))
-    #         self.stashOutsideWatermarks(reqDigest)
-    #         return
-    #     self.lastPrePrepareSeqNo += 1
-    #     tm = time.time()*1000
-    #     logger.debug("{} Sending PRE-PREPARE {} at {}".
-    #                  format(self, (self.viewNo, self.lastPrePrepareSeqNo),
-    #                         time.perf_counter()))
-    #     prePrepareReq = PrePrepare(self.instId,
-    #                                self.viewNo,
-    #                                self.lastPrePrepareSeqNo,
-    #                                *reqDigest,
-    #                                tm)
-    #     self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = (reqDigest.key,
-    #                                                                    tm)
-    #     self.send(prePrepareReq, TPCStat.PrePrepareSent)
 
     def doPrepare(self, pp: PrePrepare):
         logger.debug("{} Sending PREPARE {} at {}".
@@ -1138,11 +1012,6 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
         elif self.commits.hasCommitFrom(commit, sender):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_CM_SENT, commit)
-        # elif commit.digest != self.getDigestFor3PhaseKey(ThreePhaseKey(*key)):
-        #     raise SuspiciousNode(sender, Suspicions.CM_DIGEST_WRONG, commit)
-        # elif key in ppReqs and commit.ppTime != ppReqs[key][1]:
-        #     raise SuspiciousNode(sender, Suspicions.CM_TIME_WRONG,
-        #                          commit)
         else:
             return True
 
@@ -1274,12 +1143,6 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         key = (commit.viewNo, commit.ppSeqNo)
         logger.debug("{} trying to order COMMIT{}".format(self, key))
-        # reqKey = self.getReqKeyFrom3PhaseKey(key)   # type: Tuple
-        # digest = self.getDigestFor3PhaseKey(key)
-        # if not digest:
-        #     logger.error("{} did not find digest for {}, request key {}".
-        #                  format(self, key, reqKey))
-        #     return False
         ppReq = self.getPrePrepare(*key)
         assert ppReq
         self.doOrder(ppReq)
@@ -1550,21 +1413,6 @@ class Replica(HasActionQueue, MessageProcessor):
             self.processPrePrepare(pp, sender)
             r += 1
         return r
-
-        # key = (identifier, reqId)
-        # if key in self.prePreparesPendingFinReqs:
-        #     pps = self.prePreparesPendingFinReqs[key]
-        #     for (pp, sender) in pps:
-        #         logger.debug("{} popping stashed PRE-PREPARE{}".
-        #                      format(self, key))
-        #         if pp.digest == self.requests.digest(key):
-        #             self.prePreparesPendingFinReqs.pop(key)
-        #             self.processPrePrepare(pp, sender)
-        #             logger.debug(
-        #                 "{} processed {} PRE-PREPAREs waiting for finalised "
-        #                 "request for identifier {} and reqId {}".
-        #                 format(self, pp, identifier, reqId))
-        #             break
 
     def enqueuePrepare(self, pMsg: Prepare, sender: str):
         logger.debug("Queueing prepare due to unavailability of PRE-PREPARE. "
