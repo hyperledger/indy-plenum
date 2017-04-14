@@ -6,6 +6,7 @@ import zmq
 
 from stp_core.loop.eventually import eventually
 from plenum.common.util import randomString
+from plenum.test import waits
 from plenum.test.pool_transactions.helper import addNewClient
 from plenum.test.test_client import TestClient
 from stp_core.network.port_dispenser import genHa
@@ -28,7 +29,8 @@ def testMultipleClients(looper, txnPoolNodeSet, steward1, stewardWallet,
             for node in txnPoolNodeSet:
                 assert wallet.defaultId in node.clientAuthNr.clients
 
-        looper.run(eventually(chk, retryWait=1, timeout=5))
+        timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+        looper.run(eventually(chk, retryWait=1, timeout=timeout))
         newSteward = TestClient(name=name,
                                 nodeReg=None, ha=genHa(),
                                 basedirpath=tdirWithPoolTxns)

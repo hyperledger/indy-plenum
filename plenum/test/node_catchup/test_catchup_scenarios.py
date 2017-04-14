@@ -8,6 +8,8 @@ from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.test_node import checkNodesConnected
+from plenum.test import waits
+
 
 logger = getlogger()
 
@@ -23,14 +25,15 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet[:-1])
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=15))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
     def stashing():
         assert newNode.mode != Mode.participating
         assert len(newNode.stashedOrderedReqs) > 0
         assert len(newNode.reqsFromCatchupReplies) > 0
 
-    looper.run(eventually(stashing, retryWait=1, timeout=20))
+    timeout = waits.expectedRequestStashingTime()
+    looper.run(eventually(stashing, retryWait=1, timeout=timeout))
 
 
 @pytest.mark.skip(reason="SOV-552. Incomplete")

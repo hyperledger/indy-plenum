@@ -1,8 +1,9 @@
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString, bootstrapClientKeys
+from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    sendRandomRequest, checkSufficientRepliesForRequests
+    sendRandomRequest, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.test_client import genTestClient
@@ -76,20 +77,19 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         looper.add(node)
         txnPoolNodeSet.append(node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, retryWait=1,
-                        timeout=10)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
 
     def chk():
         for node in txnPoolNodeSet:
             assert node.isParticipating
 
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
 
     req = sendRandomRequest(w, newClient)
-    checkSufficientRepliesForRequests(looper, newClient, [req, ],
-                                      timeoutPerReq=10)
+    waitForSufficientRepliesForRequests(looper, newClient, requests=[req])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 

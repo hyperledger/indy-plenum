@@ -1,3 +1,4 @@
+from plenum.test import waits
 from plenum.test.checkpoints.conftest import CHK_FREQ
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import ppDelay
@@ -19,12 +20,13 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
     nodes 3 phase messages older than their stable checkpoint so they should 
     discard them.    
     """
+    delay = 15
     instId = 1
     reqsToSend = chkFreqPatched.LOG_SIZE + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     slowReplica = npr[0]
     slowNode = slowReplica.node
-    slowNode.nodeIbStasher.delay(ppDelay(15, instId))
+    slowNode.nodeIbStasher.delay(ppDelay(delay, instId))
 
     def discardCounts(replicas, pat):
         counts = {}
@@ -38,9 +40,10 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
                                      'achieved stable checkpoint')
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
+    timeout =waits.expectedPoolLedgerCheck(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
-                          retryWait=1, timeout=40))
+                          retryWait=1, timeout=timeout))
     newStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)
     assert newStashCount > oldStashCount
 
@@ -51,4 +54,5 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
         for nm, count in counts.items():
             assert count > oldDiscardCounts[nm]
 
-    looper.run(eventually(chk, retryWait=1, timeout=20))
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * len(txnPoolNodeSet)
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
