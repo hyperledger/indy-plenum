@@ -2,7 +2,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
-    checkSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 nodeCount = 7
@@ -62,14 +62,17 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         node.nodeIbStasher.delay(specificCommits)
 
     requests = sendRandomRequests(wallet1, client1, requestCount)
-    checkSufficientRepliesForRequests(looper, client1, requests)
+    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
 
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    looper.run(eventually(ensureSlowNodesHaveAllTxns, retryWait=1, timeout=15))
+    from plenum.test import waits
+    timeout = waits.expectedCatchupTime(len(nodeSet))
+    looper.run(eventually(ensureSlowNodesHaveAllTxns,
+                          retryWait=1, timeout=timeout))
 
     checkAllLedgersEqual((n.domainLedger for n in (node0, node3, node4,
                                                    node5, node6)))

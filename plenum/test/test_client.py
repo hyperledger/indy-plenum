@@ -1,12 +1,11 @@
 from functools import partial
 
 from plenum.common.keygen_utils import initRemoteKeys
-from plenum.common.stacks import NodeZStack, NodeRStack, nodeStackClass
+from plenum.common.stacks import nodeStackClass
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA, Identifier
 
-from stp_zmq.zstack import  ZStack
 from plenum.client.client import Client, ClientProvider
 from plenum.client.wallet import Wallet
 from plenum.common.error import error
@@ -16,6 +15,7 @@ from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import Spyable
+from plenum.common.constants import OP_FIELD_NAME
 
 
 logger = getlogger()
@@ -73,9 +73,7 @@ def genTestClient(nodes = None,
     if not usePoolLedger and nodes:
         for node in nodes:
             stack = node.clientstack
-            # TODO: Remove this if condition once raet is removed
-            if isinstance(stack, ZStack):
-                initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
+            initRemoteKeys(tc.name, stack.name, tmpdir, stack.verhex,
                                override=True)
 
     w = None  # type: Wallet

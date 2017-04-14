@@ -2,6 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import Primary
+from plenum.test import waits
 
 whitelist = ['got primary declaration',
              'doing nothing for now',
@@ -29,4 +30,5 @@ def testBlacklistNodeOnMultiplePrimaryDeclarations(looper,
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    timeout = waits.expectedNominationTimeout(len(nodeSet.nodes))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

@@ -36,4 +36,4 @@ def testViewNotChanged(looper: Looper, nodeSet: TestNodeSet, up, wallet1,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
-    checkViewNoForNodes(nodeSet, 0)
+    checkViewNoForNodes(nodeSet, expectedViewNo=0)

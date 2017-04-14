@@ -10,6 +10,7 @@ from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from typing import Dict, Any
+from plenum.test import waits
 
 import gc
 import pip
@@ -36,8 +37,8 @@ from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
-    checkViewNoForNodes, requestReturnedToNode, randomText, \
+    checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
+    waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
@@ -48,8 +49,6 @@ from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
 
 logger = getlogger()
 config = getConfig()
-
-UseZStack = config.UseZStack
 
 
 @pytest.fixture(scope="session")
@@ -293,7 +292,7 @@ def ready(looper, keySharedNodes):
 
 @pytest.fixture(scope="module")
 def up(looper, ready):
-    ensureElectionsDone(looper=looper, nodes=ready, retryWait=1, timeout=30)
+    ensureElectionsDone(looper=looper, nodes=ready)
 
 
 # noinspection PyIncorrectDocstring
@@ -302,7 +301,8 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-    return looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+
+    return waitForViewChange(looper, nodeSet)
 
 
 @pytest.fixture("module")
@@ -346,18 +346,24 @@ def sent1(client1, request1):
 
 @pytest.fixture(scope="module")
 def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
+
+    numerOfNodes = len(nodeSet)
+
+    # Wait until request received by all nodes
+    propTimeout = waits.expectedClientRequestPropagationTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,
-                             totalTimeout=10,
+                             totalTimeout=propTimeout,
                              acceptableFails=faultyNodes))
 
+    # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
+    ackTimeout = waits.expectedReqAckQuorumTime()
     looper.run(eventuallyAll(*coros2,
-                             totalTimeout=5,
+                             totalTimeout=ackTimeout,
                              acceptableFails=faultyNodes))
-
     return sent1
 
 
@@ -424,21 +430,23 @@ def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
 
 @pytest.fixture(scope="module")
 def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
+    numOfNodes = len(nodeSet)
+    numOfInstances = getNoInstances(numOfNodes)
+    quorum = numOfInstances * (numOfNodes - faultyNodes)
     def checkOrderedCount():
-        instances = getNoInstances(len(nodeSet))
-        resp = [requestReturnedToNode(node, wallet1.defaultId,
-                                      committed1.reqId, instId) for
-                node in nodeSet for instId in range(instances)]
-        assert resp.count(True) >= (len(nodeSet) - faultyNodes)*instances
+        resp = [requestReturnedToNode(node,
+                                      wallet1.defaultId,
+                                      committed1.reqId,
+                                      instId)
+                for node in nodeSet for instId in range(numOfInstances)]
+        assert resp.count(True) >= quorum
 
-    looper.run(eventually(checkOrderedCount, retryWait=1, timeout=30))
-    looper.run(eventually(
-        checkSufficientRepliesRecvd,
-        client1.inBox,
-        committed1.reqId,
-        getMaxFailures(len(nodeSet)),
-        retryWait=2,
-        timeout=30))
+    orderingTimeout = waits.expectedOrderingTime(numOfInstances)
+    looper.run(eventually(checkOrderedCount,
+                          retryWait=1,
+                          timeout=orderingTimeout))
+
+    waitForSufficientRepliesForRequests(looper, client1, requests=[committed1])
     return committed1
 
 
@@ -588,13 +596,14 @@ def txnPoolNodeSet(patchPluginManager,
         nodes = []
         for nm in poolTxnNodeNames:
             node = exitStack.enter_context(
-                testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                              config=tconf, pluginPaths=allPluginsPath))
+                testNodeClass(nm,
+                              basedirpath=tdirWithPoolTxns,
+                              config=tconf,
+                              pluginPaths=allPluginsPath))
             txnPoolNodesLooper.add(node)
             nodes.append(node)
         txnPoolNodesLooper.run(checkNodesConnected(nodes))
-        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                            timeout=20)
+        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
         yield nodes
 
 

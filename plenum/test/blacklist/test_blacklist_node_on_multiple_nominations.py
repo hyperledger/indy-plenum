@@ -2,6 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import Nomination
+from plenum.test import waits
 
 whitelist = ['already got nomination',
              'doing nothing for now']
@@ -25,4 +26,5 @@ def testBlacklistNodeOnMultipleNominations(looper, keySharedNodes, ready):
         for node in A, C, D:
             assert node.isNodeBlacklisted(B.name)
 
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    timeout = waits.expectedNominationTimeout(len(nodeSet.nodes))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

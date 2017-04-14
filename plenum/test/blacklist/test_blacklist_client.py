@@ -1,6 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
+from plenum.test import waits
 from plenum.test.malicious_behaviors_client import makeClientFaulty, \
     sendsUnsignedRequest
 
@@ -21,4 +22,5 @@ def testDoNotBlacklistClient(setup, looper, nodeSet, up, client1, sent1):
         for node in nodeSet:
             assert not node.isClientBlacklisted(client1.name)
 
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    timeout = waits.expectedClientConnectionTimeout(nodeSet.f)
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

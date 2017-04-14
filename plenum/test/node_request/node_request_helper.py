@@ -6,12 +6,13 @@ from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
+from plenum.test import waits
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
 
 
-def checkPropagated(looper, nodeSet, request, faultyNodes=0, timeout=10):
+def checkPropagated(looper, nodeSet, request, faultyNodes=0):
     nodesSize = len(list(nodeSet.nodes))
 
     # noinspection PyIncorrectDocstring
@@ -37,6 +38,7 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0, timeout=10):
                           numOfMsgsWithZFN,
                           numOfMsgsWithFaults)
 
+    timeout = waits.expectedPropagateTime(len(nodeSet))
     coros = [partial(g, node) for node in nodeSet]
     looper.run(eventuallyAll(*coros,
                              totalTimeout=timeout,
@@ -162,6 +164,7 @@ def checkPrePrepared(looper,
         nonPrimaryReceivesCorrectNumberOfPREPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
@@ -269,6 +272,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
         nonPrimaryReplicasReceiveCorrectNumberOfPREPAREs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
@@ -337,6 +341,7 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
         replicasSeesCorrectNumOfCOMMITs()
 
     coros = [partial(g, instId) for instId in instIds]
+    # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 

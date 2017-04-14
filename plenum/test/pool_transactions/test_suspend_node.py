@@ -5,7 +5,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly
 from plenum.server.node import Node
 from plenum.test.helper import sendRandomRequest, \
-    checkSufficientRepliesForRequests
+    waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import suspendNode, \
@@ -51,8 +51,8 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
 
     # Check a client can send request and receive replies
     req = sendRandomRequest(newStewardWallet, newSteward)
-    checkSufficientRepliesForRequests(looper, newSteward, [req, ],
-                                      timeoutPerReq=10)
+    waitForSufficientRepliesForRequests(looper, newSteward,
+                                        requests=[req])
 
     # Check that a restarted client or node does not connect to the suspended
     # node
@@ -91,7 +91,7 @@ def testStewardSuspendsNode(looper, txnPoolNodeSet,
                          ha=newNode.nodestack.ha, cliha=newNode.clientstack.ha)
     looper.add(nodeTheta)
     txnPoolNodeSet.append(nodeTheta)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=30))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
