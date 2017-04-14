@@ -11,7 +11,7 @@ from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, AL
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import checkSufficientRepliesRecvd
+from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode
 
@@ -35,10 +35,9 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
 
-    nodeCount = len(creatorClient.nodeReg)
-    looper.run(eventually(checkSufficientRepliesRecvd, creatorClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=3 * nodeCount))
+    waitForSufficientRepliesForRequests(looper, creatorClient,
+                                        requests=[req], fVal=1)
+
     return wallet
 
 
@@ -65,13 +64,10 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
 
-    nodeCount = len(stewardClient.nodeReg)
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=5 * nodeCount))
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req], fVal=1)
 
     initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
-
     node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
                      ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
                      pluginPaths=allPluginsPath)
@@ -115,9 +111,8 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req], fVal=1)
 
     # TODO: Not needed in ZStack, remove once raet is removed
     node.nodestack.clearLocalKeep()
@@ -140,9 +135,9 @@ def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
 
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req], fVal=1)
+
     node.nodestack.clearLocalRoleKeep()
     node.nodestack.clearRemoteRoleKeeps()
     node.nodestack.clearAllDir()
@@ -162,10 +157,9 @@ def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
     }
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=2*len(stewardClient.nodeReg)))
 
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req], fVal=1)
 
 def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
                          nodeName):
@@ -180,9 +174,8 @@ def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, 1,
-                          retryWait=1, timeout=3*len(stewardClient.nodeReg)))
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req], fVal=1)
 
 
 def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,

@@ -8,7 +8,7 @@ from _pytest.recwarn import WarningsRecorder
 from stp_core.loop.eventually import eventually
 from stp_core.loop.looper import Looper
 from plenum.common.util import adict
-from plenum.test.cli.helper import newCLI, checkAllNodesUp, loadPlugin, \
+from plenum.test.cli.helper import newCLI, waitAllNodesUp, loadPlugin, \
     doByCtx
 from stp_core.network.port_dispenser import genHa
 
@@ -55,12 +55,10 @@ def validNodeNames(cli):
 @pytest.fixture("module")
 def createAllNodes(request, cli):
     cli.enterCmd("new node all")
-    cli.looper.run(eventually(checkAllNodesUp, cli, retryWait=1, timeout=20))
-
+    waitAllNodesUp(cli)
     def stopNodes():
         for node in cli.nodes.values():
             node.stop()
-
     request.addfinalizer(stopNodes)
 
 

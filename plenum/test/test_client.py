@@ -15,6 +15,7 @@ from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
 from plenum.test.testable import spyable
+from plenum.common.constants import OP_FIELD_NAME
 
 
 logger = getlogger()

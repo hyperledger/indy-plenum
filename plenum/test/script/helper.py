@@ -9,7 +9,8 @@ from stp_core.common.log import getlogger
 from plenum.common.script_helper import changeHA
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import checkSufficientRepliesRecvd, \
+from plenum.test import waits
+from plenum.test.helper import waitForSufficientRepliesForRequests, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_client import genTestClient
 from plenum.test.test_node import TestNode, checkNodesConnected, \
@@ -70,9 +71,9 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # change HA
     stewardClient, req = changeHA(looper, tconf, subjectedNode.name, nodeSeed,
                                   nodeStackNewHA, stewardName, stewardsSeed)
-    f = getMaxFailures(len(stewardClient.nodeReg))
-    looper.run(eventually(checkSufficientRepliesRecvd, stewardClient.inBox,
-                          req.reqId, f, retryWait=1, timeout=20))
+
+    waitForSufficientRepliesForRequests(looper, stewardClient,
+                                        requests=[req])
 
     # stop node for which HA will be changed
     subjectedNode.stop()
@@ -85,8 +86,9 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.add(restartedNode)
 
     txnPoolNodeSet[nodeIndex] = restartedNode
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=70))
-    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1, timeout=20)
+
+    looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
+    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1)
 
     # start client and check the node HA
     anotherClient, _ = genTestClient(tmpdir=tdirWithPoolTxns,
@@ -96,6 +98,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
+    timeout = waits.expectedPoolLedgerCheck(len(txnPoolNodeSet) + 1)
     looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
                           stewardClient, anotherClient, retryWait=1,
-                          timeout=10))
+                          timeout=timeout))

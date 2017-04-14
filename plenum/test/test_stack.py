@@ -11,8 +11,8 @@ from plenum.common.exceptions import NotConnectedToAny
 from stp_core.common.log import getlogger
 from plenum.test.exceptions import NotFullyConnected
 from plenum.test.stasher import Stasher
-from plenum.test.waits import expectedWait
-
+from plenum.test import waits
+from plenum.common import util
 
 logger = getlogger()
 config = getConfig()
@@ -62,16 +62,21 @@ class StackedTester:
         else:
             assert connected == totalNodes
 
-    async def ensureConnectedToNodes(self, timeout=None):
-        wait = timeout or expectedWait(len(self.nodeReg))
+    async def ensureConnectedToNodes(self, customTimeout=None):
+        f = util.getQuorum(len(self.nodeReg))
+        timeout = customTimeout or waits.expectedClientConnectionTimeout(f)
+
         logger.debug(
                 "waiting for {} seconds to check client connections to "
-                "nodes...".format(wait))
-        await eventuallyAll(self.checkIfConnectedTo, retryWait=.5,
-                            totalTimeout=wait)
+                "nodes...".format(timeout))
+        await eventuallyAll(self.checkIfConnectedTo,
+                            retryWait=.5,
+                            totalTimeout=timeout)
 
     async def ensureDisconnectedToNodes(self, timeout):
-        await eventually(self.checkIfConnectedTo, 0, retryWait=.5,
+        # TODO is this used? If so - add timeout for it to plenum.test.waits
+        await eventually(self.checkIfConnectedTo, 0,
+                         retryWait=.5,
                          timeout=timeout)
 
 

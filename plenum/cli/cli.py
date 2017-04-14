@@ -1359,18 +1359,17 @@ class Cli:
 
     def _listKeyringsAction(self, matchedVars):
         if matchedVars.get('list_krs') == 'list keyrings':
-            envs = self.getAllEnvDirNamesForKeyrings()
-            contextDirPath = self.getContextBasedKeyringsBaseDir()
             keyringBaseDir = self.getKeyringsBaseDir()
-            envPaths = [os.path.join(keyringBaseDir, e) for e in envs]
-            if len(envPaths) == 0:
-                envPaths = [keyringBaseDir]
-
+            contextDirPath = self.getContextBasedKeyringsBaseDir()
+            dirs_to_scan = self.getAllSubDirNamesForKeyrings()
+            if contextDirPath not in dirs_to_scan:
+                dirs_to_scan.insert(0, contextDirPath)
+            dirs_to_scan = [os.path.join(keyringBaseDir, e) for e in dirs_to_scan]
             anyWalletFound = False
-            for e in envPaths:
-                fe = e.rstrip(os.sep)
-                envName = basename(fe)
-                files = glob.glob("{}/*.{}".format(fe, WALLET_FILE_EXTENSION))
+            for dir in dirs_to_scan:
+                cleaned_dir_name = dir.rstrip(os.sep)   # removed os path separator at the end
+                dir_name = basename(cleaned_dir_name)
+                files = glob.glob("{}/*.{}".format(cleaned_dir_name, WALLET_FILE_EXTENSION))
                 persistedWalletNames = []
                 unpersistedWalletNames = []
 
@@ -1379,7 +1378,7 @@ class Cli:
                         walletName = Cli.getWalletKeyName(basename(f))
                         persistedWalletNames.append(walletName)
 
-                if contextDirPath == fe:
+                if contextDirPath == cleaned_dir_name:
                     unpersistedWalletNames = [
                         n for n in self.wallets.keys()
                         if n.lower() not in persistedWalletNames]
@@ -1387,14 +1386,15 @@ class Cli:
                 if len(persistedWalletNames) > 0 or \
                                 len(unpersistedWalletNames) > 0:
                     anyWalletFound = True
-                    self.print("\nEnvironment: {}".format(envName))
+                    self.print("\nContext Name: {}".format(dir_name), newline=False)
+                    self.print(" (path:{})".format(dir), Token.Gray)
 
                 if len(persistedWalletNames) > 0:
                     self.print("    Persisted wallets:")
                     for pwn in persistedWalletNames:
-                        f = os.path.join(fe, normalizedWalletFileName(pwn))
+                        f = os.path.join(cleaned_dir_name, normalizedWalletFileName(pwn))
                         lastModifiedTime = time.ctime(os.path.getmtime(f))
-                        isThisActiveWallet = True if contextDirPath == fe and \
+                        isThisActiveWallet = True if contextDirPath == cleaned_dir_name and \
                                self._activeWallet is not None and \
                                self._activeWallet.name.lower() == pwn.lower() \
                             else False
@@ -1543,7 +1543,7 @@ class Cli:
 
         return True
 
-    def getAllEnvDirNamesForKeyrings(self):
+    def getAllSubDirNamesForKeyrings(self):
         return [NO_ENV]
 
     def checkIfWalletPathBelongsToCurrentContext(self, filePath):
@@ -1557,7 +1557,7 @@ class Cli:
                        "according to the environment it belongs to."
                        "\nPossible sub directory names are: {}".
                        format(keyringsBaseDir, filePath,
-                              self.getAllEnvDirNamesForKeyrings()))
+                              self.getAllSubDirNamesForKeyrings()))
             return False
 
         curContextDirName = self.getContextBasedKeyringsBaseDir()

@@ -3,6 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.types import Primary
 from plenum.server.suspicion_codes import Suspicions
+from plenum.test import waits
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 
@@ -60,11 +61,11 @@ def testPrimaryElectionCase4(case4Setup, looper):
         primDecs = list(node.elector.primaryDeclarations[0].values())
         assert primDecs.count(D.name) <= 1
 
+    timeout = waits.expectedNominationTimeout(len(allNodes))
     for node in (A, C, D):
-        looper.run(eventually(x, retryWait=.5, timeout=2))
+        looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
-    ensureElectionsDone(looper=looper, nodes=allNodes,
-                        retryWait=1, timeout=45)
+    ensureElectionsDone(looper=looper, nodes=allNodes)
 
     # Node D should not have any primary replica
     assert not D.hasPrimary

@@ -4,6 +4,7 @@ from stp_core.loop.eventually import eventually
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
     checkProtocolInstanceSetup
+from plenum.test import waits
 
 nodeCount = 4
 
@@ -57,13 +58,14 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
     checkPoolReady(looper, nodeSet)
 
     # Checking whether one of the replicas of Node A nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=10))
+    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=timeout))
 
+    timeout = waits.expectedNominationTimeout(len(nodeSet))
     for n in nodesBCD:
         # Checking whether Node B, C and D nominated Node A
-        looper.run(eventually(checkNomination, n, A.name, retryWait=1,
-                              timeout=10))
+        looper.run(eventually(checkNomination, n, A.name,
+                              retryWait=1, timeout=timeout))
 
-    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1,
-                               timeout=10)
+    checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
     assert A.hasPrimary
