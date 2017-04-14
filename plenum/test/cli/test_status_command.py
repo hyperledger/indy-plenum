@@ -2,8 +2,12 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getMaxFailures
-from plenum.test.cli.helper import isNameToken, checkNodeStarted, \
-    checkClientConnected, checkActiveIdrPrinted
+from plenum.test.cli.helper import isNameToken, \
+    waitNodeStarted, \
+    checkActiveIdrPrinted
+from plenum.test import waits
+from plenum.common import util
+from plenum.test.cli.helper import waitClientConnected
 
 
 def checkForNamedTokens(printedTokens, expectedNames):
@@ -42,7 +46,7 @@ def testStatusAfterOneNodeCreated(cli, validNodeNames):
     nodeName = validNodeNames[0]
     cli.enterCmd("new node {}".format(nodeName))
     # Let the node start up
-    checkNodeStarted(cli, nodeName)
+    waitNodeStarted(cli, nodeName)
 
     cli.enterCmd("status")
     startedNodeToken = cli.printedTokens[1]
@@ -113,12 +117,17 @@ def testStatusAfterAllNodesUp(cli, validNodeNames, createAllNodes):
 def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
-    cli.looper.run(eventually(checkClientConnected, cli, validNodeNames,
-                              clientName, retryWait=1, timeout=3))
+
+    fVal = util.getMaxFailures(len(validNodeNames))
+    connectionTimeout = waits.expectedClientConnectionTimeout(fVal)
+
+    waitClientConnected(cli, validNodeNames, clientName)
+
     cli.enterCmd("new key")
     cli.enterCmd("status client {}".format(clientName))
-    cli.looper.run(eventually(checkActiveIdrPrinted, cli, retryWait=1,
-                              timeout=3))
+    cli.looper.run(eventually(checkActiveIdrPrinted, cli,
+                              retryWait=1, timeout=connectionTimeout))
+
     for name in validNodeNames:
         # Checking the output after command `status node <name>`. Testing
         # the node status here after the client is connected

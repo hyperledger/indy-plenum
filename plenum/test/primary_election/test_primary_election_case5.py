@@ -78,7 +78,7 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     B.send(primaryByNode(DRep, B, 0))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1, timeout=45)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have primary declarations for node C from node B

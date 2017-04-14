@@ -19,8 +19,9 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
     forwarded request to replica and delay reception of PRE-PREPARE sufficiently
     so that enough COMMITs reach to trigger ordering.
     """
+    delay = 10
     replica = getNonPrimaryReplicas(nodeSet, instId=0)[0]
-    delaysPrePrepareProcessing(replica.node, delay=10, instId=0)
+    delaysPrePrepareProcessing(replica.node, delay=delay, instId=0)
 
     def doNotProcessReqDigest(self, rd: ReqDigest):
         pass
@@ -32,5 +33,7 @@ def testOrderingCase1(looper, nodeSet, up, client1, wallet1):
         assert replica.spylog.count(replica.doOrder.__name__) == n
 
     sendRandomRequest(wallet1, client1)
-    looper.run(eventually(chk, 0, retryWait=1, timeout=5))
-    looper.run(eventually(chk, 1, retryWait=1, timeout=15))
+    timeout = delay - 5
+    looper.run(eventually(chk, 0, retryWait=1, timeout=timeout))
+    timeout = delay + 5
+    looper.run(eventually(chk, 1, retryWait=1, timeout=timeout))

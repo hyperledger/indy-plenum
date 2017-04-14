@@ -1,5 +1,6 @@
 from stp_core.loop.eventually import eventually
 from plenum.common.types import InstanceChange
+from plenum.test import waits
 from plenum.test.test_node import TestNode
 
 DISCARD_REASON = 'viewNo has incorrect type'
@@ -21,4 +22,5 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
         assert isinstance(params['msg'], InstanceChange)
         assert DISCARD_REASON in params['reason']
 
-    looper.run(eventually(chk, timeout=5))
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime()
+    looper.run(eventually(chk, timeout=timeout))

@@ -93,16 +93,6 @@ class PoolRequestHandler(RequestHandler):
             return "{} is not a steward of node {}".format(origin, nodeNym)
 
         data = operation.get(DATA, {})
-        # error = self.dataErrorWhileValidating(data, skipKeys=True)
-        # if error:
-        #     return error
-        #
-        # if self.isNodeDataSame(nodeNym, data, isCommitted=False):
-        #     return "node already has the same data as requested"
-        #
-        # if self.isNodeDataConflicting(data, nodeNym):
-        #     return "existing data has conflicts with " \
-        #            "request data {}".format(operation.get(DATA))
         return self.dataErrorWhileValidatingUpdate(data, nodeNym)
 
     def getNodeData(self, nym, isCommitted: bool = True):
@@ -135,8 +125,8 @@ class PoolRequestHandler(RequestHandler):
 
     @staticmethod
     def dataErrorWhileValidating(data, skipKeys):
-        reqKeys = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, SERVICES}
-        if not skipKeys and not set(data.keys()) == reqKeys:
+        reqKeys = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS}
+        if not skipKeys and not reqKeys.issubset(set(data.keys())):
             return 'Missing some of {}'.format(reqKeys)
 
         nip = data.get(NODE_IP, 'nip')
@@ -146,38 +136,10 @@ class PoolRequestHandler(RequestHandler):
         if (nip, np) == (cip, cp):
             return 'node and client ha cannot be same'
 
-    # def isNodeDataConflicting(self, data, nodeNym=None, isCommitted=True):
-    #     for txn in self.ledger.getAllTxn().values():
-    #         if txn[TXN_TYPE] == NODE and \
-    #                 (not nodeNym or nodeNym != txn[TARGET_NYM]):
-    #             existingData = self.getNodeData(txn[TARGET_NYM],
-    #                                             isCommitted=isCommitted)
-    #             for (ip, port) in [(NODE_IP, NODE_PORT), (CLIENT_IP, CLIENT_PORT)]:
-    #                 if (existingData.get(ip), existingData.get(port)) == (data.get(ip), data.get(port)):
-    #                     return True
-    #             if existingData.get(ALIAS) == data.get(ALIAS):
-    #                 return True
-
     def isNodeDataSame(self, nodeNym, newData, isCommitted=True):
         nodeInfo = self.getNodeData(nodeNym, isCommitted=isCommitted)
         nodeInfo.pop(f.IDENTIFIER.nm, None)
         return nodeInfo == newData
-
-    # def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
-    #     otherNodeData = existingNodeTxn[DATA]
-    #     for (ip, port) in [(NODE_IP, NODE_PORT),
-    #                        (CLIENT_IP, CLIENT_PORT)]:
-    #         if (otherNodeData.get(ip), otherNodeData.get(port)) == (
-    #                 data.get(ip), data.get(port)):
-    #             return True
-    #
-    #     if otherNodeData.get(ALIAS) == data.get(ALIAS):
-    #         return True
-    #
-    # def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
-    #     sameNodeData = existingNodeTxn[DATA]
-    #     if sameNodeData.get(ALIAS) != data.get(ALIAS):
-    #         return True
 
     def isNodeDataConflicting(self, data, nodeNym=None):
         # Check if node's ALIAS or IPs or ports conflicts with other nodes,
@@ -213,17 +175,6 @@ class PoolRequestHandler(RequestHandler):
 
                 if (not nodeData and len(bag) != 3) or (nodeData and len(bag) != 6):
                     return True
-
-        # for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
-        #             if t[TXN_TYPE] == NODE]:
-        #     if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
-        #         conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
-        #         if conflictFound:
-        #             return conflictFound
-        #     if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
-        #         conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
-        #         if conflictFound:
-        #             return conflictFound
 
     def dataErrorWhileValidatingUpdate(self, data, nodeNym):
         error = self.dataErrorWhileValidating(data, skipKeys=True)

@@ -8,11 +8,13 @@ from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkViewNoForNodes, checkDiscardMsg
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+    waitForViewChange, checkDiscardMsg
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
+from plenum.test import waits
+
 
 whitelist = ['found legacy entry']  # warnings
 
@@ -34,8 +36,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, 10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
-    looper.run(eventually(partial(checkViewNoForNodes, txnPoolNodeSet,
-                                  viewNo + 1), retryWait=1, timeout=20))
+    waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo+1)
 
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"
@@ -48,8 +49,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     txnPoolNodeSet.append(nodeTheta)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())
-    looper.run(eventually(checkNodeLedgersForEquality, nodeTheta,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=5))
+    waitNodeLedgersEquality(looper, nodeTheta, *txnPoolNodeSet[:-1])
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
                                timeout=10)
     electMsg = Nomination(nodeX.name, 0, viewNo,
@@ -67,8 +67,12 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     nodeX.send(electMsg, ridTheta)
     nodeX.send(threePMsg, ridTheta)
     nodeX.send(electMsg, ridTheta)
+
+    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], electMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=5))
+                          'un-acceptable viewNo',
+                          retryWait=1, timeout=messageTimeout))
     nodeX.send(threePMsg, ridTheta)
     looper.run(eventually(checkDiscardMsg, [nodeTheta, ], threePMsg,
-                          'un-acceptable viewNo', retryWait=1, timeout=5))
+                          'un-acceptable viewNo',
+                          retryWait=1, timeout=messageTimeout))

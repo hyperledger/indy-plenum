@@ -73,7 +73,4 @@ class ClientReqRepStore:
     # noinspection PyAttributeOutsideInit
     @property
     def txnSerializer(self):
-        # if not self._serializer:
-        #     self._serializer = CompactSerializer(fields=self.txnFieldOrdering)
-        # return self._serializer
         return CompactSerializer(fields=self.txnFieldOrdering)
