@@ -2,7 +2,10 @@ import shutil
 from abc import abstractmethod
 from typing import Tuple, Iterable
 
-import leveldb
+try:
+    import leveldb
+except ImportError:
+    print('Cannot import leveldb, please install')
 
 from plenum.persistence.util import removeLockFiles
 
@@ -35,6 +38,9 @@ class KVStore:
 
 class KVStoreLeveldb:
     def __init__(self, dbPath):
+        if 'leveldb' not in globals():
+            raise RuntimeError('Leveldb is needed to use this class')
+
         self._dbPath = dbPath
         self._db = None
         self.open()

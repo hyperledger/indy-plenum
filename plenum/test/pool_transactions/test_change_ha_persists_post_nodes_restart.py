@@ -1,6 +1,6 @@
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import changeNodeHa, \
     buildPoolClientAndWallet
@@ -26,7 +26,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
 
     # Making the change HA txn an confirming its succeeded
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                nodeHa=nodeNewHa, clientHa=clientNewHa)
+                 nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:
@@ -50,8 +50,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     restartedNodes.append(node)
 
     looper.run(checkNodesConnected(restartedNodes))
-    looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *restartedNodes[:-1], retryWait=1, timeout=10))
+    waitNodeLedgersEquality(looper, node, *restartedNodes[:-1])
 
     # Building a new client that reads from the genesis txn file
     # but is able to connect to all nodes

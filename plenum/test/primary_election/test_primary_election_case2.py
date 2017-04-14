@@ -9,6 +9,8 @@ from plenum.test.primary_election.helpers import checkNomination, \
     getSelfNominationByNode, nominationByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
+from plenum.test import waits
+
 
 nodeCount = 4
 whitelist = ['already got nomination',
@@ -49,7 +51,9 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     looper.run(checkNodesConnected(nodeSet))
 
     # Node B sends multiple NOMINATE msgs but only after A has nominated itself
-    looper.run(eventually(checkNomination, A, A.name, retryWait=.25, timeout=1))
+    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    looper.run(eventually(checkNomination, A, A.name,
+                          retryWait=.25, timeout=timeout))
 
     instId = getSelfNominationByNode(A)
 
@@ -65,7 +69,7 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     B.send(nominationByNode(DRep, B, instId))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet, retryWait=1, timeout=45)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so
     # not considering it) should have nomination for node C from node B since

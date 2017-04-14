@@ -123,7 +123,8 @@ enableStdOutLogging=True
 # OPTIONS RELATED TO TESTS
 
 # Expected time for one stack to get connected to another
-ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 1.5
+ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
+
 
 # After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
 CHK_FREQ = 100000
@@ -131,11 +132,6 @@ CHK_FREQ = 100000
 # Difference between low water mark and high water mark
 LOG_SIZE = 3*CHK_FREQ
 
-
-CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = 10
-CLIENT_MAX_RETRY_ACK = 5
-CLIENT_MAX_RETRY_REPLY = 5
 
 # The client when learns of new nodes or any change in configuration of
 # other nodes, updates the genesis pool transaction file if this option is set
@@ -180,3 +176,9 @@ MaxStateProofSize = 10
 # State proof timeout
 MaxStateProofTime = 3
 
+
+
+CLIENT_REQACK_TIMEOUT = 5
+CLIENT_REPLY_TIMEOUT = Max3PCBatchWait + 5
+CLIENT_MAX_RETRY_ACK = 5
+CLIENT_MAX_RETRY_REPLY = 5

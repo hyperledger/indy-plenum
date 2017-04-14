@@ -2,13 +2,17 @@ from binascii import hexlify
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import DOMAIN_LEDGER_ID
-from plenum.test.helper import checkSufficientRepliesRecvd
+from plenum.test.helper import waitForSufficientRepliesForRequests
 
 
 def checkSufficientRepliesRecvdForReqs(looper, reqs, client, timeout):
     for req in reqs:
-        looper.run(eventually(checkSufficientRepliesRecvd, client.inBox,
-                              req.reqId, 1, retryWait=1, timeout=timeout))
+        looper.run(eventually(waitForSufficientRepliesForRequests,
+                              looper,
+                              client,
+                              requests=[req, ],
+                              fVal=1,
+                              customTimeoutPerReq=timeout))
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,

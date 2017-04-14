@@ -62,6 +62,8 @@ class ClientReqRepStore:
     def getAllReplies(self, identifier: str, reqId: int):
         replies = self.getReplies(identifier, reqId)
         errors = self.getNacks(identifier, reqId)
+        if not errors:
+            errors = {**errors, **self.getRejects(identifier, reqId)}
         return replies, errors
 
     @abstractproperty
@@ -71,7 +73,4 @@ class ClientReqRepStore:
     # noinspection PyAttributeOutsideInit
     @property
     def txnSerializer(self):
-        # if not self._serializer:
-        #     self._serializer = CompactSerializer(fields=self.txnFieldOrdering)
-        # return self._serializer
         return CompactSerializer(fields=self.txnFieldOrdering)

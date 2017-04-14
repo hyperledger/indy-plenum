@@ -6,7 +6,8 @@ import pytest
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
 from plenum.common.types import Reply, RequestNack
-from plenum.test.helper import sendRandomRequest, checkReqAck, checkReplyCount
+from plenum.test.helper import sendRandomRequest, checkReqAck, waitReplyCount
+from plenum.test import waits
 
 whitelist = ['AlphaC unable to send message', ]
 
@@ -43,10 +44,10 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
                 with pytest.raises(AssertionError):
                     checkReqAck(client1, node, *req.key)
 
-    looper.run(eventually(chkAcks, retryWait=1, timeout=3))
-
-    looper.run(eventually(checkReplyCount, client1, *req.key, 4, retryWait=1,
-                          timeout=tconf.CLIENT_REQACK_TIMEOUT+10))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventually(chkAcks, retryWait=1, timeout=timeout))
+    idr, reqId = req.key
+    waitReplyCount(looper, client1, idr, reqId, 4)
 
 
 def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
@@ -70,11 +71,11 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     alpha.transmitToClient = skipReplyOnce
     req = sendRandomRequest(wallet1, client1)
     coros = [partial(checkReqAck, client1, node, *req.key) for node in nodeSet]
-    looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=3))
-    looper.run(eventually(checkReplyCount, client1, *req.key, 3, retryWait=1,
-                          timeout=3))
-    looper.run(eventually(checkReplyCount, client1, *req.key, 4, retryWait=1,
-                          timeout=tconf.CLIENT_REPLY_TIMEOUT + 5))
+    timeout = waits.expectedReqAckQuorumTime()
+    looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=timeout))
+    idr, reqId = req.key
+    waitReplyCount(looper, client1, idr, reqId, 3)
+    waitReplyCount(looper, client1, idr, reqId, 4)
 
 
 def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
@@ -82,6 +83,8 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
     """
     A node sends REQNACK. The client does not resend Request.
     """
+
+    numOfNodes = len(nodeSet)
 
     alpha = nodeSet.Alpha
     origProcReq = alpha.processRequest
@@ -100,25 +103,37 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
+
+    reqAckTimeout = waits.expectedReqAckQuorumTime()
+    executionTimeout = waits.expectedTransactionExecutionTime(numOfNodes)
+
     # Wait till ACK timeout
-    looper.runFor(tconf.CLIENT_REQACK_TIMEOUT+1)
+    looper.runFor(reqAckTimeout + 1)
     assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
+
     # Wait till REPLY timeout
-    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT - tconf.CLIENT_REQACK_TIMEOUT + 1)
+    retryTimeout = executionTimeout - reqAckTimeout + 1
+    looper.runFor(retryTimeout)
+
     assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
-    looper.run(eventually(checkReplyCount, client1, *req.key, 3, retryWait=1,
-                          timeout=3))
+    idr, reqId = req.key
+    waitReplyCount(looper, client1, idr, reqId, 3)
+
     alpha.clientMsgRouter.routes[Request] = origProcReq
     alpha.transmitToClient = origTrans
 
 
-def testClientNotRetryingRequestAfterMaxTriesDone(looper, nodeSet, client1,
-                                                  wallet1, tconf):
+def testClientNotRetryingRequestAfterMaxTriesDone(looper,
+                                                  nodeSet,
+                                                  client1,
+                                                  wallet1,
+                                                  tconf):
     """
     A client sends Request to a node but the node never responds to client.
     The client resends the request but only the number of times defined in its
     configuration and no more
     """
+
     alpha = nodeSet.Alpha
     origTrans = alpha.transmitToClient
 
@@ -131,10 +146,15 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper, nodeSet, client1,
 
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
+
     # Wait for more than REPLY timeout
-    looper.runFor((tconf.CLIENT_MAX_RETRY_REPLY+2)*tconf.CLIENT_REPLY_TIMEOUT+2)
-    looper.run(eventually(checkReplyCount, client1, *req.key, 3, retryWait=1,
-                          timeout=3))
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + \
+        tconf.CLIENT_REQACK_TIMEOUT * tconf.CLIENT_MAX_RETRY_REPLY
+    looper.runFor(timeout)
+
+    idr, reqId = req.key
+    waitReplyCount(looper, client1, idr, reqId, 3)
+
     assert client1.spylog.count(client1.resendRequests.__name__) == \
         (totalResends + tconf.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor

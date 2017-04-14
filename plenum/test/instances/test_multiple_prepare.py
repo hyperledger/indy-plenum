@@ -10,6 +10,7 @@ from plenum.test.helper import getNodeSuspicions, whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 whitelist = [Suspicions.DUPLICATE_PR_SENT.reason,
              'Invalid prepare message received',
@@ -57,8 +58,12 @@ def testMultiplePrepare(setup, looper, sent1):
                 # Every node except the one from which duplicate PREPARE was
                 # sent should raise suspicion twice, once for each extra
                 # PREPARE request
-                assert len(getNodeSuspicions(r.node,
-                                             Suspicions.DUPLICATE_PR_SENT.code)) \
-                       == 2
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+                suspectingNodes = \
+                    getNodeSuspicions(r.node,
+                                      Suspicions.DUPLICATE_PR_SENT.code)
+                assert len(suspectingNodes) == 2
+
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

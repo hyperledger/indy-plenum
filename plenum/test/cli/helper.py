@@ -18,13 +18,15 @@ from stp_core.common.log import getlogger
 from plenum.common.util import getMaxFailures
 from plenum.test.cli.mock_output import MockOutput
 from plenum.test.cli.test_keyring import createNewKeyring
-from plenum.test.helper import checkSufficientRepliesRecvd
+from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode, checkPoolReady
 from plenum.test.testable import Spyable
 from pygments.token import Token
-
+from functools import partial
+from plenum.test import waits
+from plenum.common import util
 
 logger = getlogger()
 
@@ -154,7 +156,7 @@ def isNameToken(token: Token):
     return token == Token.Name
 
 
-def checkNodeStarted(cli, nodeName):
+def waitNodeStarted(cli, nodeName):
     # Node name should be in cli.nodes
     assert nodeName in cli.nodes
 
@@ -169,15 +171,19 @@ def checkNodeStarted(cli, nodeName):
         assert "{} listening for other nodes at {}:{}" \
                    .format(nodeName, *cli.nodes[nodeName].nodestack.ha) in msgs
 
-    cli.looper.run(eventually(chk, retryWait=1, timeout=2))
+    startUpTimeout = waits.expectedNodeStartUpTimeout()
+    cli.looper.run(eventually(chk, timeout=startUpTimeout))
 
 
-def checkAllNodesStarted(cli, *nodeNames):
+def waitAllNodesStarted(cli, *nodeNames):
     for name in nodeNames:
-        checkNodeStarted(cli, name)
+        waitNodeStarted(cli, name)
 
 
 def checkAllNodesUp(cli):
+    # TODO: can assertAllNodesCreated be used instead?
+    # TODO: can waitAllNodesStarted be used instead?
+
     msgs = {stmt['msg'] for stmt in cli.printeds}
     expected = "{nm}:{inst} selected primary {pri} " \
                "for instance {inst} (view 0)"
@@ -191,7 +197,19 @@ def checkAllNodesUp(cli):
             assert expected.format(nm=nm, pri=pri, inst=inst) in msgs
 
 
+def waitAllNodesUp(cli):
+    timeout = waits.expectedPoolStartUpTimeout(len(cli.nodes))
+    cli.looper.run(eventually(checkAllNodesUp, cli, timeout=timeout))
+
+
 def checkClientConnected(cli, nodeNames, clientName):
+    """
+    Checks whether client connected to nodes.
+
+    If you do not know the moment when it exactly happens consider using
+    'waitClientConnected' instead
+    """
+
     printedMsgs = set()
     stackName = cli.clients[clientName].stackName
     expectedMsgs = {'{} now connected to {}C'.format(stackName, nodeName)
@@ -204,6 +222,17 @@ def checkClientConnected(cli, nodeNames, clientName):
     assert printedMsgs == expectedMsgs
 
 
+def waitClientConnected(cli, nodeNames, clientName):
+    """
+    Wait for moment when client connected to pool
+    """
+
+    fVal = util.getMaxFailures(len(nodeNames))
+    timeout = waits.expectedClientConnectionTimeout(fVal)
+    cli.looper.run(eventually(checkClientConnected, cli,
+                              nodeNames, clientName,
+                              timeout=timeout))
+
 def checkActiveIdrPrinted(cli):
     assert 'Identifier:' in cli.lastCmdOutput
     assert 'Verification key:' in cli.lastCmdOutput
@@ -213,16 +242,23 @@ def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
     createNewKeyring(clientName, cli)
     cli.enterCmd("new key clientName{}".format("key"))
-    cli.looper.run(eventually(checkClientConnected, cli, nodeNames,
-                              clientName, retryWait=1, timeout=3))
+
+    from plenum.common import util
+
+    fVal = util.getMaxFailures(len(cli.nodeReg))
+    timeout = waits.expectedClientConnectionTimeout(fVal)
+
+    waitClientConnected(cli, nodeNames, clientName)
 
 
 def checkRequest(cli, operation):
     cName = "Joe"
     cli.enterCmd("new client {}".format(cName))
     # Let client connect to the nodes
-    cli.looper.run(eventually(checkClientConnected, cli, list(cli.nodes.keys()),
-                              cName, retryWait=1, timeout=5))
+
+    nodeNames = list(cli.nodes.keys())
+    waitClientConnected(cli, nodeNames, cName)
+
     # Send request to all nodes
 
     createNewKeyring(cName, cli)
@@ -233,16 +269,11 @@ def checkRequest(cli, operation):
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
     wallet = cli.wallets[cName]  # type: Wallet
-    f = getMaxFailures(len(cli.nodes))
     # Ensure client gets back the replies
     lastReqId = wallet._getIdData().lastReqId
-    cli.looper.run(eventually(
-            checkSufficientRepliesRecvd,
-            client.inBox,
-            lastReqId,
-            f,
-            retryWait=2,
-            timeout=10))
+
+    waitForSufficientRepliesForRequests(cli.looper, client,
+                                        requestIds=[lastReqId])
 
     txn, status = client.getReply(wallet.defaultId, lastReqId)
 
@@ -405,6 +436,7 @@ def checkReply(cli, count, clbk):
             result = ast.literal_eval(m.groups(0)[0].strip())
             if clbk(result):
                 done += 1
+    logger.warning("Done = {}, Count = {}".format(done, count))
     assert done == count
 
 
@@ -417,6 +449,23 @@ def checkBalance(balance, data):
     if checkSuccess(data):
         result = data.get('result')
         return result.get('balance') == balance
+
+
+def waitForReply(cli, nodeCount, replyChecker, customTimeout=None):
+    timeout = customTimeout or \
+              waits.expectedTransactionExecutionTime(nodeCount)
+    cli.looper.run(eventually(checkReply, cli,
+                          nodeCount, replyChecker,
+                          timeout=timeout))
+
+
+def waitRequestSuccess(cli, nodeCount, customTimeout=None):
+    waitForReply(cli, nodeCount, checkSuccess, customTimeout)
+
+
+def waitBalanceChange(cli, nodeCount, balanceValue, customTimeout=None):
+    waitForReply(cli, nodeCount,
+                 partial(checkBalance, balanceValue), customTimeout)
 
 
 def loadPlugin(cli, pluginPkgName):

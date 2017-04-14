@@ -1,10 +1,9 @@
 from binascii import unhexlify
-
-from plenum.common.types import f
-from plenum.common.request import Request
 from typing import List
+
 from plenum.common.ledger import Ledger
-from plenum.common.state import PruningState
+from plenum.common.request import Request
+from plenum.persistence.state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
 
 
