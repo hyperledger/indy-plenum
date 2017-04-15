@@ -820,7 +820,7 @@ class LedgerManager(HasActionQueue):
         if self.nodestack.hasRemote(remoteName):
             return self.nodestack
         else:
-            logger.debug("{} cannot find remote with name {}".
+            logger.error("{} cannot find remote with name {}".
                          format(self, remoteName))
 
     def sendTo(self, msg: Any, to: str):
