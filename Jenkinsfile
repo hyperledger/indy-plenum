@@ -24,7 +24,7 @@ def testUbuntu = {
                 sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
             }
             finally {
-                archiveArtifacts "$resFile"
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
             }
         }
     }
@@ -79,7 +79,7 @@ def testWindowsNoDocker = {
                 bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"$resFile\""
             }
             finally {
-                archiveArtifacts "$resFile"
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
             }
         })
     }
