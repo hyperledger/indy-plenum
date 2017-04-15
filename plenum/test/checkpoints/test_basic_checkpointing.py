@@ -1,4 +1,5 @@
 from stp_core.loop.eventually import eventually
+from plenum.test import waits
 from plenum.test.checkpoints.conftest import CHK_FREQ
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
@@ -18,7 +19,8 @@ def testCheckpointCreated(chkFreqPatched, looper, txnPoolNodeSet, client1,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1, 1)
 
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1))
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 1, 0, retryWait=1, timeout=timeout))
 
 
 def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
@@ -32,4 +34,5 @@ def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1, 1)
 
-    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 2, 0, retryWait=1))
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    looper.run(eventually(chkChkpoints, txnPoolNodeSet, 2, 0, retryWait=1, timeout=timeout))

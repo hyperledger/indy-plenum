@@ -13,7 +13,14 @@ class PrimarySelector(PrimaryDecider):
         self.nodeNamesByRank = sorted(self.nodeNames)
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
-        self.startSelection()
+        self.scheduleSelection()
+
+    def scheduleSelection(self):
+        """
+        Schedule election at some time in the future. Currently the election
+        starts immediately.
+        """
+        self._schedule(self.startSelection)
 
     def startSelection(self):
         logger.debug("{} starting selection".format(self))

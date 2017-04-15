@@ -10,6 +10,7 @@ import os
 import random
 import string
 import time
+import math
 from binascii import unhexlify, hexlify
 from collections import Counter
 from collections import OrderedDict
@@ -188,6 +189,13 @@ def getNoInstances(nodeCount: int) -> int:
     :return: number of protocol instances
     """
     return getMaxFailures(nodeCount) + 1
+
+
+def totalConnections(nodeCount: int) -> int:
+    """
+    :return: number of connections between nodes
+    """
+    return math.ceil((nodeCount * (nodeCount - 1)) / 2)
 
 
 def prime_gen() -> int:

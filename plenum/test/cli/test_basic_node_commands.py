@@ -1,5 +1,5 @@
 from plenum.common.util import randomString
-from plenum.test.cli.helper import isErrorToken, checkNodeStarted
+from plenum.test.cli.helper import isErrorToken, waitNodeStarted
 from plenum.test.test_node import checkPoolReady
 
 
@@ -8,7 +8,7 @@ def addNodes(be, do, cli, validNodeNames):
     be(cli)
     for i, nm in enumerate(validNodeNames):
         do("new node {}".format(nm))
-        checkNodeStarted(cli, nm)
+        waitNodeStarted(cli, nm)
 
 
 def testNodeNames(be, do, cli, validNodeNames):
