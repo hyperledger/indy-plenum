@@ -17,7 +17,6 @@ logger = getlogger()
 txnCount = 5
 
 
-@pytest.mark.skip(reason="SOV-939")
 def testNewNodeCatchup(newNodeCaughtUp):
     """
     A new node that joins after some transactions should eventually get
@@ -29,7 +28,6 @@ def testNewNodeCatchup(newNodeCaughtUp):
     pass
 
 
-@pytest.mark.skip(reason="SOV-939")
 def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
                                                   newNodeCaughtUp):
     """
@@ -72,7 +70,6 @@ def testDelayedLedgerStatusNotChangingState():
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
-@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
                                 nodeSetWithNodeAddedAfterSomeTxns,
                                 tdirWithPoolTxns, allPluginsPath):
@@ -96,17 +93,15 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     logger.debug("Starting the stopped node, {}".format(newNode))
-    # newNode.start(looper.loop)
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     newNode = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                    ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+                       ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
     looper.add(newNode)
     txnPoolNodeSet[-1] = newNode
     looper.run(checkNodesConnected(txnPoolNodeSet))
     waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
 
 
-@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
                                             nodeSetWithNodeAddedAfterSomeTxns):
     """

@@ -362,9 +362,9 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
 
 
 def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
-    paramsList = getAllArgs(replica, replica.canSendPrepare)
+    paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
-                          replica.canSendPrepare)
+                          replica.canPrepare)
     assert [(identifier, reqId)] in \
            [p["ppReq"].reqIdr for p in paramsList]
     idx = [p["ppReq"].reqIdr for p in paramsList].index([(identifier, reqId)])

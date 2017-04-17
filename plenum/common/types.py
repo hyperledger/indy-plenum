@@ -1,14 +1,13 @@
-import sys
-from collections import namedtuple
 from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict, \
     Tuple
 
+import sys
+from collections import namedtuple
 from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME
-
 from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
@@ -160,6 +159,7 @@ Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
     f.REQ_IDR,
+    f.PP_SEQ_NO,
     f.PP_TIME,
     f.LEDGER_ID,
     f.STATE_ROOT,
@@ -239,6 +239,7 @@ ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
     f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
+    f.PP_SEQ_NO,
     f.OLD_MERKLE_ROOT,
     f.NEW_MERKLE_ROOT,
     f.HASHES
@@ -293,10 +294,6 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
                         f.PP_SEQ_NO
                     ])
-
-POOL_LEDGER_ID = 0
-DOMAIN_LEDGER_ID = 1
-
 
 PLUGIN_TYPE_VERIFICATION = "VERIFICATION"
 PLUGIN_TYPE_PROCESSING = "PROCESSING"

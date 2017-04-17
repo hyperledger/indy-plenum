@@ -17,7 +17,8 @@ from ledger.util import F
 
 from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, ConsistencyProof, f, \
-    CatchupReq, ConsProofRequest, POOL_LEDGER_ID
+    CatchupReq, ConsProofRequest
+from plenum.common.constants import POOL_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -27,9 +28,11 @@ logger = getlogger()
 
 
 class LedgerManager(HasActionQueue):
-    def __init__(self, owner, ownedByNode: bool=True):
+    def __init__(self, owner, ownedByNode: bool=True,
+                 postAllLedgersCaughtUp: Optional[Callable]=None):
         self.owner = owner
         self.ownedByNode = ownedByNode
+        self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
         # responsibility of calling its `_serviceActions` method periodically.
@@ -82,6 +85,9 @@ class LedgerManager(HasActionQueue):
         # missing transactions.
         self.catchupReplyTimers = {}
         # type: Dict[int, Optional[float]]
+
+        # Largest PPSeqNo received during catchup
+        self.lastCaughtUpPpSeqNo = -1
 
     def __repr__(self):
         return self.owner.name
@@ -417,8 +423,9 @@ class LedgerManager(HasActionQueue):
                 catchUpReplies[numProcessed:]
             if getattr(self.catchUpTill[ledgerId], f.SEQ_NO_END.nm) == \
                     ledger.size:
+                cp = self.catchUpTill[ledgerId]
                 self.catchUpTill[ledgerId] = None
-                self.catchupCompleted(ledgerId)
+                self.catchupCompleted(ledgerId, cp.ppSeqNo)
 
     def _processCatchupReplies(self, ledgerId, ledger: Ledger,
                                catchUpReplies: List):
@@ -521,6 +528,11 @@ class LedgerManager(HasActionQueue):
     def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
         logger.debug("{} received consistency proof request: {} from {}".
                      format(self, req, frm))
+        if not self.ownedByNode:
+            self.discard(req,
+                         reason='this ledger manager is not owned by node',
+                         logMethod=logger.warning)
+            return
         ledgerId = getattr(req, f.LEDGER_ID.nm)
         seqNoStart = getattr(req, f.SEQ_NO_START.nm)
         seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
@@ -604,7 +616,8 @@ class LedgerManager(HasActionQueue):
                              getattr(proof, f.SEQ_NO_END.nm)
                 if (start, end) not in recvdPrf:
                     recvdPrf[(start, end)] = {}
-                key = (getattr(proof, f.OLD_MERKLE_ROOT.nm),
+                key = (getattr(proof, f.PP_SEQ_NO.nm),
+                       getattr(proof, f.OLD_MERKLE_ROOT.nm),
                        getattr(proof, f.NEW_MERKLE_ROOT.nm),
                        tuple(getattr(proof, f.HASHES.nm)))
                 recvdPrf[(start, end)][key] = recvdPrf[(start, end)]. \
@@ -619,9 +632,10 @@ class LedgerManager(HasActionQueue):
         adjustedF = getMaxFailures(self.owner.totalNodes - 1)
         result = {}
         for (start, end), val in groupedProofs.items():
-            for (oldRoot, newRoot, hashes), count in val.items():
+            for (lastPpSeqNo, oldRoot, newRoot, hashes), count in val.items():
                 if count > adjustedF:
-                    result[(start, end)] = (oldRoot, newRoot, hashes)
+                    result[(start, end)] = (lastPpSeqNo, oldRoot, newRoot,
+                                            hashes)
                     # There would be only one correct proof for a range of
                     # sequence numbers
                     break
@@ -630,7 +644,8 @@ class LedgerManager(HasActionQueue):
     def _latestReliableProof(self, groupedProofs, ledger):
         reliableProofs = self._reliableProofs(groupedProofs)
         latest = None
-        for (start, end), (oldRoot, newRoot, hashes) in reliableProofs.items():
+        for (start, end), (lastPpSeqNo, oldRoot, newRoot, hashes) in \
+                reliableProofs.items():
             # TODO: Can we do something where consistency proof's start is older
             #  than the current ledger's size and proof's end is larger
             # than the current ledger size.
@@ -638,9 +653,9 @@ class LedgerManager(HasActionQueue):
             if start != ledger.size:
                 continue
             if latest is None:
-                latest = (start, end) + (oldRoot, newRoot, hashes)
+                latest = (start, end) + (lastPpSeqNo, oldRoot, newRoot, hashes)
             elif latest[1] < end:
-                latest = (start, end) + (oldRoot, newRoot, hashes)
+                latest = (start, end) + (lastPpSeqNo, oldRoot, newRoot, hashes)
         return latest
 
     def getConsistencyProofRequest(self, ledgerId, groupedProofs):
@@ -687,7 +702,10 @@ class LedgerManager(HasActionQueue):
         return numRequest * (self.config.CatchupTransactionsTimeout +
                              .1*batchSize)
 
-    def catchupCompleted(self, ledgerId: int):
+    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=-1):
+        if self.lastCaughtUpPpSeqNo < lastPpSeqNo:
+            self.lastCaughtUpPpSeqNo = lastPpSeqNo
+
         self.catchupReplyTimers[ledgerId] = None
         logger.debug("{} completed catching up ledger {}".format(self,
                                                                  ledgerId))
@@ -698,6 +716,10 @@ class LedgerManager(HasActionQueue):
         self.ledgers[ledgerId]["canSync"] = False
         self.ledgers[ledgerId]["state"] = LedgerState.synced
         self.ledgers[ledgerId]["postCatchupCompleteClbk"]()
+        if self.postAllLedgersCaughtUp:
+            if all(LedgerState.synced == l["state"]
+                   for l in self.ledgers.values()):
+                self.postAllLedgersCaughtUp()
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
         nodeCount = len(self.nodestack.conns)
@@ -745,10 +767,15 @@ class LedgerManager(HasActionQueue):
             proof = ledger.tree.consistency_proof(seqNoStart, seqNoEnd)
             oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
         newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
+
+        ppSeqNo = self.owner.ppSeqNoForTxnSeqNo(ledgerId, seqNoEnd)
+        logger.debug('{} found ppSeqNo {} for ledger {} seqNo {}'.
+                     format(self, ppSeqNo, ledgerId, seqNoEnd))
         return ConsistencyProof(
             ledgerId,
             seqNoStart,
             seqNoEnd,
+            ppSeqNo,
             b64encode(oldRoot).decode(),
             b64encode(newRoot).decode(),
             [b64encode(p).decode() for p in

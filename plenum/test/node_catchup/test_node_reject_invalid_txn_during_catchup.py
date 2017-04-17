@@ -3,13 +3,12 @@ from base64 import b64encode
 
 import pytest
 
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.constants import TXN_TYPE
+from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.types import CatchupReq, f, CatchupRep
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
 
 # Do not remove the next import
@@ -21,7 +20,6 @@ logger = getlogger()
 txnCount = 10
 
 
-@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
@@ -38,8 +36,8 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
     def sendIncorrectTxns(self, req, frm):
-        ledgerType = getattr(req, f.LEDGER_ID.nm)
-        if ledgerType == 1:
+        ledgerId = getattr(req, f.LEDGER_ID.nm)
+        if ledgerId == DOMAIN_LEDGER_ID:
             logger.info("{} being malicious and sending incorrect transactions"
                         " for catchup request {} from {}".
                         format(self, req, frm))
@@ -59,14 +57,21 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
             self.processCatchupReq(req, frm)
 
     # One of the node sends incorrect txns in catchup reply.
-    txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
-        sendIncorrectTxns, txnPoolNodeSet[0].ledgerManager)
+    npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)
+    badReplica = npr[0]
+    badNode = badReplica.node
+    badNode.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
+        sendIncorrectTxns, badNode.ledgerManager)
     logger.debug(
-        'Catchup request processor of {} patched'.format(txnPoolNodeSet[0]))
+        'Catchup request processor of {} patched'.format(badNode))
 
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    # Since one of the nodes will send a bad catchup reply, this node will
+    # request transactions from another node, hence large timeout.
+    # Dont reduce it.
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                            customTimeout=45)
 
-    assert newNode.isNodeBlacklisted(txnPoolNodeSet[0].name)
+    assert newNode.isNodeBlacklisted(badNode.name)

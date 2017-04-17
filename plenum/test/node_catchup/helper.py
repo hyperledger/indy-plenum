@@ -20,7 +20,7 @@ def checkNodeLedgersForEquality(node: TestNode,
 def waitNodeLedgersEquality(looper,
                             referenceNode: TestNode,
                             *otherNodes: Iterable[TestNode],
-                            customTimeout = None):
+                            customTimeout=None):
     """
     Wait for node ledger to become equal
 

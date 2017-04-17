@@ -98,17 +98,6 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
-    # def pendMsgForLaterView(self, msg: Any, viewNo: int):
-    #     """
-    #     Add a message to the pending queue for a later view.
-    #
-    #     :param msg: the message to pend
-    #     :param viewNo: the viewNo this message is meant for.
-    #     """
-    #     if viewNo not in self.pendingMsgsForViews:
-    #         self.pendingMsgsForViews[viewNo] = deque()
-    #     self.pendingMsgsForViews[viewNo].append(msg)
-
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
         Filters messages by view number so that only the messages that have the
@@ -124,11 +113,6 @@ class PrimaryElector(PrimaryDecider):
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
                 if reqViewNo == self.viewNo:
                     filtered.append(wrappedMsg)
-                # elif reqViewNo > self.viewNo:
-                #     logger.debug(
-                #         "{}'s elector queueing {} since it is for a later view"
-                #             .format(self.name, wrappedMsg))
-                #     self.pendMsgForLaterView((msg, sender), reqViewNo)
                 else:
                     self.discard(wrappedMsg,
                                  "its view no {} is less than the elector's {}"
@@ -367,13 +351,14 @@ class PrimaryElector(PrimaryDecider):
 
                     # If the maximum primary declarations are for this node
                     # then make it primary
-                    replica.primaryName = primary
-                    if replica.primaryName == replica.name:
-                        assert replica.lastOrderdedPPSeqNo >= seqNo
-                        replica.lastPrePrepareSeqNo = replica.lastOrderdedPPSeqNo
-
-                    if replica.lastOrderdedPPSeqNo < seqNo:
-                        replica.lastOrderdedPPSeqNo = seqNo
+                    # replica.primaryName = primary
+                    # if replica.primaryName == replica.name:
+                    #     assert replica.lastOrderdedPPSeqNo >= seqNo
+                    #     replica.lastPrePrepareSeqNo = replica.lastOrderdedPPSeqNo
+                    #
+                    # if replica.lastOrderdedPPSeqNo < seqNo:
+                    #     replica.lastOrderdedPPSeqNo = seqNo
+                    replica.primaryChanged(primary, seqNo)
 
                     # If this replica has nominated itself and since the
                     # election is over, reset the flag

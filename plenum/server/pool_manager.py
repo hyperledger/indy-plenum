@@ -1,16 +1,15 @@
 import os
 from copy import deepcopy
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX
+    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnsupportedOperation, \
     InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import updateGenesisPoolTxnFile
-from plenum.common.types import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.common.types import NodeDetail
 from plenum.persistence.state import PruningState
 from plenum.persistence.util import txnsWithMerkleInfo
@@ -125,7 +124,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot):
+    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot) -> List:
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
@@ -139,9 +138,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             self.onPoolMembershipChange(deepcopy(txn))
         committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
         self.node.sendRepliesToClients(committedTxns, ppTime)
-
-    # def getReplyFor(self, request):
-    #     return self.node.getReplyFromLedger(self.ledger, request)
+        return committedTxns
 
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NODE:

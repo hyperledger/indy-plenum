@@ -7,7 +7,7 @@ from stp_core.common.log import getlogger
 from plenum.common.types import CatchupReq
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
 
 # Do not remove the next import
@@ -17,7 +17,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
+# @pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
@@ -31,16 +31,23 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     for node in txnPoolNodeSet:
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
-    txnPoolNodeSet.append(newNode)
-
     def ignoreCatchupReq(self, req, frm):
         logger.info("{} being malicious and ignoring catchup request {} "
                     "from {}".format(self, req, frm))
 
     # One of the node does not process catchup request.
-    txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
-        ignoreCatchupReq, txnPoolNodeSet[0].ledgerManager)
+    npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)
+    badReplica = npr[0]
+    badNode = badReplica.node
+    txnPoolNodeSet.append(newNode)
+
+    badNode.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
+        ignoreCatchupReq, badNode.ledgerManager)
     sendRandomRequests(wallet, client, 10)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    # Since one of the nodes does not reply, this new node will experience a
+    # timeout and retry catchup requests, hence a long test timeout.
+    # Dont reduce it.
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                            customTimeout=90)

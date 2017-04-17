@@ -3,7 +3,7 @@ import types
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
 from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs
 from plenum.test.helper import sendRandomRequests

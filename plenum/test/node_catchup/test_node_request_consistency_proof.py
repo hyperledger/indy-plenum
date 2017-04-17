@@ -20,7 +20,7 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
+# @pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
@@ -66,8 +66,10 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
     #  wait more than `ConsistencyProofsTimeout`
     # TODO: apply configurable timeout here
-
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
+    # 60 sec, hence large timeout. Dont reduce it.
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                            customTimeout=75)
 
     for node in txnPoolNodeSet[:-1]:
         assert node.ledgerManager.spylog.count(

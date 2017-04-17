@@ -168,6 +168,10 @@ Max3PCBatchWait = 5
 # `Max3PCBatchSize` is changed
 ThreePCBatchTimeout = 25
 
+# Each node keeps a map of PrePrepare sequence numbers and the corresponding
+# txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
+ProcessedBatchMapsToKeep = 20
+
 
 # After `MaxStateProofSize` requests or `MaxStateProofSize`, whichever is
 # earlier, a signed state proof is sent
@@ -175,7 +179,6 @@ ThreePCBatchTimeout = 25
 MaxStateProofSize = 10
 # State proof timeout
 MaxStateProofTime = 3
-
 
 
 CLIENT_REQACK_TIMEOUT = 5

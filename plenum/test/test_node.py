@@ -22,11 +22,10 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, DOMAIN_LEDGER_ID
-from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE
+from plenum.common.types import TaggedTuples, NodeDetail
+from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
+    DOMAIN_LEDGER_ID
 from plenum.common.util import Seconds, getMaxFailures, adict
-# from plenum.common.txn_util import reqToTxn
-# from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -192,7 +191,8 @@ class TestNodeCore(StackedTester):
         if typ == 'buy':
             state = self.getState(DOMAIN_LEDGER_ID)
             key = '{}:{}'.format(request.identifier, request.reqId).encode()
-            state.set(key, json.dumps(request.operation).encode())
+            val = self.reqHandler.stateSerializer.serialize(request.operation)
+            state.set(key, val)
             logger.trace('{} after adding to state, headhash is {}'.
                          format(self, state.headHash))
             return True
@@ -248,7 +248,8 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
-        return TestLedgerManager(self, ownedByNode=True)
+        return TestLedgerManager(self, ownedByNode=True,
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
 
 class TestPrimaryElector(PrimaryElector):
@@ -266,7 +267,7 @@ class TestPrimaryElector(PrimaryElector):
 @Spyable(methods=[
                   replica.Replica.sendPrePrepare,
                   replica.Replica.canProcessPrePrepare,
-                  replica.Replica.canSendPrepare,
+                  replica.Replica.canPrepare,
                   replica.Replica.validatePrepare,
                   replica.Replica.addToPrePrepares,
                   replica.Replica.processPrePrepare,
@@ -276,7 +277,6 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doOrder,
                   replica.Replica.discard,
                   replica.Replica.stashOutsideWatermarks
-                  # replica.Replica.orderPendingCommit
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):

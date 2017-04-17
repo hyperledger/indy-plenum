@@ -5,6 +5,7 @@ import random
 import shutil
 import time
 from binascii import unhexlify
+from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
@@ -21,7 +22,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
     NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
-    HS_FILE, DATA, ALIAS, NODE_IP, HS_LEVELDB
+    HS_FILE, DATA, ALIAS, NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -49,7 +50,7 @@ from plenum.common.types import Propagate, \
     CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    POOL_LEDGER_ID, DOMAIN_LEDGER_ID, Reject
+    Reject
 from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
@@ -135,7 +136,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqProcessors = self.getPluginsByType(pluginPaths,
                                                    PLUGIN_TYPE_PROCESSING)
 
-        self.requestExecuter = defaultdict(lambda: self.doCustomAction)
+        self.requestExecuter = defaultdict(lambda: self.executeDomainTxns)
 
         Motor.__init__(self)
 
@@ -335,6 +336,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._id = None
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+        # Stores the last txn seqNo that was executed for a ledger in a batch
+        self.batchToSeqNos = OrderedDict()  # type: Dict[int, int]
 
     @property
     def id(self):
@@ -457,7 +460,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return MemoryHashStore()
 
     def getLedgerManager(self):
-        return LedgerManager(self, ownedByNode=True)
+        return LedgerManager(self, ownedByNode=True,
+                             postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
     def loadDomainState(self):
         return PruningState(os.path.join(self.dataLocation,
@@ -894,8 +898,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         self.processOrdered(msg)
                     else:
                         logger.debug("{} stashing {} since mode is {} and {}".
-                                     format(self, msg, self.mode,
-                                            recvd))
+                                     format(self, msg, self.mode, recvd))
                         self.stashedOrderedReqs.append(msg)
                 elif isinstance(msg, Reject):
                     reqKey = (msg.identifier, msg.reqId)
@@ -1272,7 +1275,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
 
-    def postPoolLedgerCaughtUp(self):
+    def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered
         self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
         # Node has discovered other nodes now sync up domain ledger
@@ -1286,16 +1289,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # node starts
         self.id
 
-    def postDomainLedgerCaughtUp(self):
+    def postDomainLedgerCaughtUp(self, **kwargs):
         """
         Process any stashed ordered requests and set the mode to
         `participating`
         :return:
         """
         self.processStashedOrderedReqs()
-        self.mode = Mode.participating
         # self.sync3PhaseState()
-        self.checkInstances()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
@@ -1317,6 +1318,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.addNewRole(txn)
             rh = self.reqHandler
         return rh
+
+    def allLedgersCaughtUp(self):
+        self.mode = Mode.participating
+        self.checkInstances()
 
     def getLedger(self, ledgerId):
         return self.ledgerManager.ledgers.get(ledgerId, {}).get('ledger')
@@ -1476,7 +1481,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, reqIdrs, ppTime, ledgerId, stateRoot, txnRoot \
+        instId, viewNo, reqIdrs, ppSeqNo, ppTime, ledgerId, stateRoot, txnRoot \
             = tuple(ordered)
 
         self.monitor.requestOrdered(reqIdrs,
@@ -1489,9 +1494,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             reqs = [self.requests[i, r].request for (i, r) in reqIdrs
                     if (i, r) in self.requests]
             if len(reqs) == len(reqIdrs):
-                self.executeBatch(ppTime, reqs, ledgerId, stateRoot, txnRoot)
-                logger.debug("{} executing Ordered batch of {} requests".
-                             format(self.name, len(reqIdrs)))
+                logger.debug("{} executing Ordered batch {} of {} requests".
+                             format(self.name, ppSeqNo, len(reqIdrs)))
+                self.executeBatch(ppSeqNo, ppTime, reqs, ledgerId, stateRoot,
+                                  txnRoot)
                 # If the client request hasn't reached the node but corresponding
                 # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
                 # then retry 3 times
@@ -1703,8 +1709,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def executeBatch(self, ppTime: float, reqs: List[Request], ledgerId,
-                     stateRoot, txnRoot) -> None:
+    def ppSeqNoForTxnSeqNo(self, ledgerId, seqNo):
+        for ppSeqNo, (lid, txnSeqNo) in reversed(self.batchToSeqNos.items()):
+            if lid == ledgerId and txnSeqNo == seqNo:
+                return ppSeqNo
+        return -1
+
+    def executeBatch(self, ppSeqNo: int, ppTime: float, reqs: List[Request],
+                     ledgerId, stateRoot, txnRoot) -> None:
         """
         Execute the REQUEST sent to this Node
 
@@ -1712,22 +1724,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param ppTime: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
-        self.requestExecuter[ledgerId](ppTime, reqs, stateRoot, txnRoot)
+        committedTxns = self.requestExecuter[ledgerId](ppTime, reqs, stateRoot,
+                                                       txnRoot)
+        if committedTxns:
+            lastTxnSeqNo = committedTxns[-1][F.seqNo.name]
+            self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
+            logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
+                         format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
 
     def updateSeqNoMap(self, committedTxns):
         self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
-                                txn[F.seqNo.name]) for txn in committedTxns)
+                               txn[F.seqNo.name]) for txn in committedTxns)
 
-    # TODO: Find a better name for the function
-    def doCustomAction(self, ppTime, reqs: List[Request], stateRoot, txnRoot):
+    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
+                          txnRoot) -> List:
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
-                # self.cacheVerkey(txn)
         committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
         self.sendRepliesToClients(committedTxns, ppTime)
+        return committedTxns
 
     def onBatchCreated(self, ledgerId, stateRoot):
         """
@@ -1833,7 +1851,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = 0
         while self.stashedOrderedReqs:
             msg = self.stashedOrderedReqs.popleft()
+            if msg.ppSeqNo <= self.ledgerManager.lastCaughtUpPpSeqNo:
+                logger.debug('{} ignoring stashed ordered msg {} since ledger '
+                             'manager has lastCaughtUpPpSeqNo as {}'.
+                             format(self, msg,
+                                    self.ledgerManager.lastCaughtUpPpSeqNo))
+                continue
             if not self.gotInCatchupReplies(msg):
+                if msg.instId == 0:
+                    logger.debug('{} applying stashed Ordered msg {}'.format(self, msg))
+                    for reqKey in msg.reqIdr:
+                        req = self.requests[reqKey].finalised
+                        self.applyReq(req)
                 self.processOrdered(msg)
             i += 1
         logger.debug("{} processed {} stashed ordered requests".format(self, i))

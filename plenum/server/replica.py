@@ -326,14 +326,22 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param value: the value to set isPrimary to
         """
+        self.primaryNames[self.viewNo] = value
         if not value == self._primaryName:
             self._primaryName = value
-            self.primaryNames[self.viewNo] = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if self.isMaster:
                 self.removeObsoletePpReqs()
             self._stateChanged()
+
+    def primaryChanged(self, primaryName, lastOrderdedPPSeqNo):
+        if self.lastOrderdedPPSeqNo < lastOrderdedPPSeqNo:
+            self.lastOrderdedPPSeqNo = lastOrderdedPPSeqNo
+        self.primaryName = primaryName
+        if primaryName == self.name:
+            assert self.lastOrderdedPPSeqNo >= lastOrderdedPPSeqNo
+            self.lastPrePrepareSeqNo = self.lastOrderdedPPSeqNo
 
     def removeObsoletePpReqs(self):
         # If replica was primary in previous view then remove every sent
@@ -426,7 +434,7 @@ class Replica(HasActionQueue, MessageProcessor):
         return self.primaryName == sender
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
-        # ppReq.discarded indicates the index from where the discarded requests
+        # pp.discarded indicates the index from where the discarded requests
         #  starts hence the count of accepted requests, prevStateRoot is
         # tracked to revert this PRE-PREPARE
         logger.debug('{} tracking batch for {} with state root {}'.
@@ -434,10 +442,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.batches[pp.ppSeqNo] = [pp.discarded, pp.ppTime, prevStateRootHash]
 
     def send3PCBatch(self):
-        if not self.node.isParticipating:
-            logger.trace('{} is not participating'.format(self))
-            return 0
-
         r = 0
         for lid, q in self.requestQueues.items():
             if len(q) >= self.config.Max3PCBatchSize or (
@@ -525,9 +529,10 @@ class Replica(HasActionQueue, MessageProcessor):
         :return: the number of messages successfully processed
         """
         # TODO should handle SuspiciousNode here
-        r = self.dequeuePrePrepares()
+        r = self.dequeuePrePrepares() if self.node.isParticipating else 0
         r += self.inBoxRouter.handleAllSync(self.inBox, limit)
-        r += self.send3PCBatch() if self.isPrimary else 0
+        r += self.send3PCBatch() if (self.isPrimary and
+                                     self.node.isParticipating) else 0
         r += self._serviceActions()
         return r
         # Messages that can be processed right now needs to be added back to the
@@ -593,14 +598,19 @@ class Replica(HasActionQueue, MessageProcessor):
                          "its a previous view message",
                          logger.debug)
             return
-        if isinstance(msg, PrePrepare) or not self.getPrePrepare(msg.viewNo,
-                                                                 msg.ppSeqNo):
-            # TODO: This is incomplete
-            if self.isPrimary is None:
-                self.postElectionMsgs.append((msg, sender))
-                logger.debug("Replica {} pended request {} from {}".
-                             format(self, msg, sender))
-                return
+        # if isinstance(msg, PrePrepare) or not self.getPrePrepare(msg.viewNo,
+        #                                                          msg.ppSeqNo):
+        #     # TODO: This is incomplete
+        #     if self.isPrimary is None:
+        #         self.postElectionMsgs.append((msg, sender))
+        #         logger.debug("Replica {} pended request {} from {}".
+        #                      format(self, msg, sender))
+        #         return
+        if self.isPrimary is None:
+            self.postElectionMsgs.append((msg, sender))
+            logger.debug("Replica {} pended request {} from {}".
+                         format(self, msg, sender))
+            return
         self.dispatchThreePhaseMsg(msg, sender)
 
     def processPrePrepare(self, pp: PrePrepare, sender: str):
@@ -618,26 +628,30 @@ class Replica(HasActionQueue, MessageProcessor):
                                                     for i, r in pp.reqIdr]})
         oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
         if self.canProcessPrePrepare(pp, sender):
+            self.addToPrePrepares(pp)
+            if not self.node.isParticipating:
+                self.stashingWhileCatchingUp.add(key)
+                logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
+                return
+
             if self.isMaster:
                 self.node.onBatchCreated(pp.ledgerId,
                                          self.stateRootHash(pp.ledgerId,
                                                             toHex=False))
-            if not self.node.isParticipating:
-                self.stashingWhileCatchingUp.add(key)
-            self.addToPrePrepares(pp)
             self.trackBatches(pp, oldStateRoot)
-            logger.info("{} processed incoming PRE-PREPARE{}".format(self, key),
-                        extra={"tags": ["processing"]})
+            logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
+                         extra={"tags": ["processing"]})
 
     def tryPrepare(self, pp: PrePrepare):
         """
         Try to send the Prepare message if the PrePrepare message is ready to
         be passed into the Prepare phase.
         """
-        if self.canSendPrepare(pp):
+        rv, msg = self.canPrepare(pp)
+        if rv:
             self.doPrepare(pp)
         else:
-            logger.debug("{} cannot send PREPARE".format(self))
+            logger.debug("{} cannot send PREPARE since {}".format(self, msg))
 
     def processPrepare(self, prepare: Prepare, sender: str) -> None:
         """
@@ -664,7 +678,7 @@ class Replica(HasActionQueue, MessageProcessor):
             else:
                 # TODO let's have isValidPrepare throw an exception that gets
                 # handled and possibly logged higher
-                logger.warning("{} cannot process incoming PREPARE".
+                logger.debug("{} cannot process incoming PREPARE".
                                format(self))
         except SuspiciousNode as ex:
             self.node.reportSuspiciousNodeEx(ex)
@@ -700,7 +714,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if rv:
             self.doCommit(prepare)
         else:
-            logger.debug("{} not yet able to send COMMIT since {}".
+            logger.debug("{} cannot send COMMIT since {}".
                          format(self, reason))
 
     def tryOrder(self, commit: Commit):
@@ -743,6 +757,10 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCommits(commit, self.name)
 
     def nonFinalisedReqs(self, reqKeys: List[Tuple[str, int]]):
+        """
+        Check if there are any requests which are not finalised, i.e for
+        which there are not enough PROPAGATEs
+        """
         return {key for key in reqKeys if not self.requests.isFinalised(key)}
 
     def isNextPrePrepare(self, ppSeqNo: int):
@@ -772,6 +790,11 @@ class Replica(HasActionQueue, MessageProcessor):
         self.node.onBatchRejected(ledgerId)
 
     def validatePrePrepare(self, pp: PrePrepare, sender: str):
+        """
+        This will apply the requests part of the PrePrepare to the ledger
+        and state. It will not commit though (the ledger on disk will not
+        change, neither the committed state root hash will change)
+        """
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -779,8 +802,8 @@ class Replica(HasActionQueue, MessageProcessor):
             # If this PRE-PREPARE is not valid then state and ledger should be
             # reverted
             oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
-            logger.info('{} state root before processing {} is {}'.
-                         format(self, pp, oldStateRoot))
+            logger.debug('{} state root before processing {} is {}'.
+                          format(self, pp, oldStateRoot))
 
         for reqKey in pp.reqIdr:
             req = self.node.requests[reqKey].finalised
@@ -836,6 +859,9 @@ class Replica(HasActionQueue, MessageProcessor):
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
+        if not self.node.isParticipating:
+            return True
+
         nonFinReqs = self.nonFinalisedReqs(pp.reqIdr)
 
         if nonFinReqs:
@@ -867,15 +893,18 @@ class Replica(HasActionQueue, MessageProcessor):
     def hasPrepared(self, request) -> bool:
         return self.prepares.hasPrepareFrom(request, self.name)
 
-    def canSendPrepare(self, ppReq) -> bool:
+    def canPrepare(self, ppReq) -> (bool, str):
         """
         Return whether the batch of requests in the PRE-PREPARE can
         proceed to the PREPARE step.
 
         :param ppReq: any object with identifier and requestId attributes
         """
-        return self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo) \
-            and not self.hasPrepared(ppReq)
+        if not self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo):
+            return False, 'should not participate in consensus for {}'.format(ppReq)
+        if self.hasPrepared(ppReq):
+            return False, 'has already sent PREPARE for {}'.format(ppReq)
+        return True, ''
             # and self.requests.isFinalised((ppReq.identifier,
             #                                ppReq.reqId))
 
@@ -925,9 +954,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if prepare.digest != ppReq.digest:
             raise SuspiciousNode(sender, Suspicions.PR_DIGEST_WRONG, prepare)
 
-        # elif prepare.ppTime != ppReqs[key].ppTime:
-        #     raise SuspiciousNode(sender, Suspicions.PR_TIME_WRONG,
-        #                          prepare)
         elif prepare.stateRootHash != ppReq.stateRootHash:
             raise SuspiciousNode(sender, Suspicions.PR_STATE_WRONG,
                                  prepare)
@@ -982,9 +1008,9 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: the PREPARE
         """
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
-            return False, 'participate in consenesus for {}'.format(prepare)
+            return False, 'participate in consensus for {}'.format(prepare)
         if not self.prepares.hasQuorum(prepare, self.f):
-            return False, 'does not have prepare quorom for {}'.format(prepare)
+            return False, 'does not have prepare quorum for {}'.format(prepare)
         if self.hasCommitted(prepare):
             return False, 'has already sent COMMIT for {}'.format(prepare)
         return True, ''
@@ -1154,6 +1180,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ordered = Ordered(self.instId,
                           pp.viewNo,
                           pp.reqIdr[:pp.discarded],
+                          pp.ppSeqNo,
                           pp.ppTime,
                           pp.ledgerId,
                           pp.stateRootHash,
@@ -1319,9 +1346,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} processing stashed item {} after new stable "
                          "checkpoint".format(self, item))
 
-            if isinstance(item, ReqDigest):
-                self.doPrePrepare(item)
-            elif isinstance(item, tuple) and len(item) == 2:
+            if isinstance(item, tuple) and len(item) == 2:
                 self.dispatchThreePhaseMsg(*item)
             else:
                 logger.error("{} cannot process {} "

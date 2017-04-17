@@ -52,7 +52,9 @@ class RequestHandler:
             self.ledger.commitTxns(txnCount)
         stateRoot = unhexlify(stateRoot.encode())
         txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
-        assert self.ledger.root_hash == txnRoot
+        # Probably the following assertion fail should trigger catchup
+        assert self.ledger.root_hash == txnRoot, '{} {}'.format(
+            self.ledger.root_hash, txnRoot)
         self.state.commit(rootHash=stateRoot)
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
