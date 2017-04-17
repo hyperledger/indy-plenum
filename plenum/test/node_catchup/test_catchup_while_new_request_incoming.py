@@ -1,5 +1,6 @@
 import types
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.types import CatchupReq, f
 from plenum.common.util import randomString
 from plenum.test.delayers import crDelay
@@ -26,9 +27,9 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     def chkAfterCall(self, req, frm):
         r = self.processCatchupReq(req, frm)
         typ = getattr(req, f.LEDGER_ID.nm)
-        if typ == 1:
+        if typ == DOMAIN_LEDGER_ID:
             ledger = self.getLedgerForMsg(req)
-            assert req.catchupTill < ledger.size
+            assert req.catchupTill <= ledger.size
         return r
 
     for node in txnPoolNodeSet:

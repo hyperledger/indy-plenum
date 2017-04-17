@@ -1295,8 +1295,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
-        self.processStashedOrderedReqs()
+        # self.processStashedOrderedReqs()
         # self.sync3PhaseState()
+        pass
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
@@ -1307,6 +1308,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rh.updateState([txn])
             state = self.getState(ledgerId)
             state.commit(rootHash=state.headHash)
+            # ledger = self.getLedger(ledgerId)
+            # logger.debug('{} committing with state hash {} at {}'.format(self, state.headHash, ledger.size))
 
     def postTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
@@ -1321,6 +1324,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def allLedgersCaughtUp(self):
         self.mode = Mode.participating
+        self.processStashedOrderedReqs()
         self.checkInstances()
 
     def getLedger(self, ledgerId):
@@ -1738,6 +1742,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
+        # logger.debug('{} executing domain txns'.format(self))
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
@@ -1859,7 +1864,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 continue
             if not self.gotInCatchupReplies(msg):
                 if msg.instId == 0:
-                    logger.debug('{} applying stashed Ordered msg {}'.format(self, msg))
+                    logger.debug('{} applying stashed Ordered msg {}'.
+                                 format(self, msg))
                     for reqKey in msg.reqIdr:
                         req = self.requests[reqKey].finalised
                         self.applyReq(req)

@@ -1187,9 +1187,17 @@ class Replica(HasActionQueue, MessageProcessor):
                           pp.txnRootHash)
         # TODO: Should not order or add to checkpoint while syncing
         # 3 phase state.
-        self.send(ordered, TPCStat.OrderSent)
         if key in self.stashingWhileCatchingUp:
+            if self.isMaster and self.node.isParticipating:
+                # While this request arrived the node was catching up but the
+                # node has caught up and applied the stash so apply this request
+                logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
+                             'catchup process'.format(self, pp.ppSeqNo))
+                for reqKey in pp.reqIdr[:pp.discarded]:
+                    req = self.requests[reqKey].finalised
+                    self.node.applyReq(req)
             self.stashingWhileCatchingUp.remove(key)
+        self.send(ordered, TPCStat.OrderSent)
         logger.debug("{} ordered request {}".format(self, key))
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
 

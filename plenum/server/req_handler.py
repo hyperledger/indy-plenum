@@ -5,6 +5,9 @@ from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.persistence.state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
+from stp_core.common.log import getlogger
+
+logger = getlogger()
 
 
 class RequestHandler:
@@ -56,6 +59,8 @@ class RequestHandler:
         assert self.ledger.root_hash == txnRoot, '{} {}'.format(
             self.ledger.root_hash, txnRoot)
         self.state.commit(rootHash=stateRoot)
+        # logger.debug('committing with state hash {} at {}'.format(stateRoot,
+        #                                                              self.ledger.size))
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
     def onBatchCreated(self, stateRoot):

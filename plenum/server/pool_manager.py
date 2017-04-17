@@ -287,34 +287,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA]
 
-    def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
-        otherNodeData = existingNodeTxn[DATA]
-        for (ip, port) in [(NODE_IP, NODE_PORT),
-                           (CLIENT_IP, CLIENT_PORT)]:
-            if (otherNodeData.get(ip), otherNodeData.get(port)) == (
-            data.get(ip), data.get(port)):
-                return True
-
-        if otherNodeData.get(ALIAS) == data.get(ALIAS):
-            return True
-
-    def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
-        sameNodeData = existingNodeTxn[DATA]
-        if sameNodeData.get(ALIAS) != data.get(ALIAS):
-            return True
-
-    def isNodeDataConflicting(self, data, nodeNym=None):
-        for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
-                    if t[TXN_TYPE] == NODE]:
-            if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
-                conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
-                if conflictFound:
-                    return conflictFound
-            if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
-                conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
-                if conflictFound:
-                    return conflictFound
-
 
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and
