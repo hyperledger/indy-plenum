@@ -19,7 +19,13 @@ def testUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            sh 'python runner.py --pytest \"python -m pytest\" --output "test-result.txt"'
+            def resFile = "test-result.${NODE_NAME}.txt"
+            try {
+                sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
+            }
         }
     }
     finally {
@@ -68,7 +74,13 @@ def testWindowsNoDocker = {
             testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
+            def resFile = "test-result.${NODE_NAME}.txt"
+            try {
+                bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
+            }
         })
     }
     finally {

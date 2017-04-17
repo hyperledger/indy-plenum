@@ -598,3 +598,22 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
+
+def viewNoForNodes(nodes):
+    viewNos = {node.viewNo for node in nodes}
+    assert 1 == len(viewNos)
+    return next(iter(viewNos))
+
+
+def primaryNodeNameForInstance(nodes, instanceId):
+    primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
+    assert 1 == len(primaryNames)
+    primaryReplicaName = next(iter(primaryNames))
+    return primaryReplicaName[:-2]
+
+
+def nodeByName(nodes, name):
+    for node in nodes:
+        if node.name == name:
+            return node
+    raise Exception("Node with the name '{}' has not been found.".format(name))
