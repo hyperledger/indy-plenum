@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import warnings
+from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from typing import Dict, Any
@@ -60,7 +61,6 @@ def warnfilters():
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
         warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
-        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed file')
         warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
     return _
 
@@ -313,7 +313,9 @@ def delayedPerf(nodeSet):
 
 @pytest.fixture(scope="module")
 def clientAndWallet1(looper, nodeSet, tdir, up):
-    return genTestClient(nodeSet, tmpdir=tdir)
+    client, wallet = genTestClient(nodeSet, tmpdir=tdir)
+    yield client, wallet
+    client.stop()
 
 
 @pytest.fixture(scope="module")
@@ -590,17 +592,19 @@ def txnPoolNodeSet(patchPluginManager,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass):
-    nodes = []
-    for nm in poolTxnNodeNames:
-        node = testNodeClass(nm,
-                             basedirpath=tdirWithPoolTxns,
-                             config=tconf,
-                             pluginPaths=allPluginsPath)
-        txnPoolNodesLooper.add(node)
-        nodes.append(node)
-    txnPoolNodesLooper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
-    return nodes
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(
+                testNodeClass(nm,
+                              basedirpath=tdirWithPoolTxns,
+                              config=tconf,
+                              pluginPaths=allPluginsPath))
+            txnPoolNodesLooper.add(node)
+            nodes.append(node)
+        txnPoolNodesLooper.run(checkNodesConnected(nodes))
+        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
+        yield nodes
 
 
 @pytest.fixture(scope="module")
@@ -677,6 +681,9 @@ def testNode(pluginManager, tdir):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
-    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+    node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
                     primaryDecider=None, pluginPaths=None, seed=randomSeed())
+    node.start(None)
+    yield node
+    node.stop()

@@ -476,7 +476,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
-            self.hashStore = self.getHashStore(self.name)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -521,6 +520,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return len(self.nodestack.conns) + 1
 
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+
+        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
+            try:
+                self.hashStore.close()
+            except Exception as ex:
+                logger.warning('{} got exception while closing hash store: {}'.
+                            format(self, ex))
+
+        if isinstance(self.poolManager, TxnPoolManager):
+            if self.poolManager._ledger is not None:
+                self.poolManager._ledger.stop()
+            if self.poolManager.hashStore is not None:
+                self.poolManager.hashStore.close()
+
     def onStopping(self):
         """
         Actions to be performed on stopping the node.
@@ -536,16 +551,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             self.primaryStorage.stop()
         except Exception as ex:
-            logger.warning('{} got exception while stopping primary storage: {}'.
-                        format(self, ex))
-
-        # Stop hash store
-        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
             try:
-                self.hashStore.close()
+                self.primaryStorage.close()
             except Exception as ex:
-                logger.warning('{} got exception while closing hash store: {}'.
-                            format(self, ex))
+                logger.warning(
+                    '{} got exception while stopping/closing '
+                    'primary storage: {}'.format(self, ex))
+
+        try:
+            self.secondaryStorage.close()
+        except Exception as ex:
+            logger.warning('{} got exception while closing '
+                           'secondary storage: {}'.format(self, ex))
 
         self.nodestack.stop()
         self.clientstack.stop()

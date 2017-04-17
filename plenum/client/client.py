@@ -321,6 +321,14 @@ class Client(Motor,
         # do nothing for now
         pass
 
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+        self.txnLog.close()
+        if self._ledger is not None:
+            self._ledger.stop()
+        if hasattr(self, 'hashStore') and self.hashStore is not None:
+            self.hashStore.close()
+
     def onStopping(self, *args, **kwargs):
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
