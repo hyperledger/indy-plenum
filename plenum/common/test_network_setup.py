@@ -12,7 +12,7 @@ from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.constants import STEWARD
+from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX
 from plenum.common.util import hexToFriendly, adict
 
 
@@ -78,7 +78,10 @@ class TestNetworkSetup:
         for nd in node_defs:
 
             if nd.idx in _localNodes:
-                _, verkey = initLocalKeys(nd.name, baseDir, nd.sigseed, True, config=config)
+                _, verkey = initLocalKeys(nd.name, baseDir,
+                                          nd.sigseed, True, config=config)
+                _, verkey = initLocalKeys(nd.name+CLIENT_STACK_SUFFIX, baseDir,
+                                          nd.sigseed, True, config=config)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
                 print("This node with name {} will use ports {} and {} for "
