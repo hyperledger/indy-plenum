@@ -1,6 +1,10 @@
 from typing import Dict
 
-import pyorient
+try:
+    import pyorient
+except ImportError:
+    print('pyorient is not installed, install it to use this storage')
+    raise
 
 from stp_core.common.log import getlogger
 from plenum.persistence.graph_store import GraphStore

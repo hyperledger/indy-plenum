@@ -6,7 +6,6 @@ from hashlib import sha256
 from os.path import basename, dirname
 from typing import Dict, Iterable
 
-import pyorient
 from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -1956,26 +1955,6 @@ class Cli:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:
             pass
-
-        client = pyorient.OrientDB(self.config.OrientDB["host"],
-                                   self.config.OrientDB["port"])
-        user = self.config.OrientDB["user"]
-        password = self.config.OrientDB["password"]
-        client.connect(user, password)
-
-        def dropdbs():
-            i = 0
-            names = [n for n in
-                     client.db_list().oRecordData['databases'].keys()]
-            for nm in names:
-                try:
-                    client.db_drop(nm)
-                    i += 1
-                except:
-                    continue
-            return i
-
-        dropdbs()
 
     def __hash__(self):
         return hash((self.name, self.unique_name, self.basedirpath))

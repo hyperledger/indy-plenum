@@ -1,5 +1,8 @@
-import pyorient
-
+try:
+    import pyorient
+except:
+    print('Install pyorient to try this')
+    exit(-1)
 client = pyorient.OrientDB("localhost", 2424)
 dbName = "test"
 user = "root"
