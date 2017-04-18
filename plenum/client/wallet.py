@@ -34,9 +34,9 @@ IdData = NamedTuple("IdData", [
 
 class Wallet:
     def __init__(self,
-                 name: str,
+                 name: str=None,
                  supportedDidMethods: DidMethods=None):
-        self._name = name
+        self._name = name or 'wallet' + str(id(self))
         self.ids = {}           # type: Dict[Identifier, IdData]
         self.idsToSigners = {}  # type: Dict[Identifier, Signer]
         self.aliasesToIds = {}  # type: Dict[Alias, Identifier]
