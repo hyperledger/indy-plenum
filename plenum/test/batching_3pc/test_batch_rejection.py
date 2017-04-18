@@ -5,8 +5,8 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import updateNamedTuple
-from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs
-from plenum.test.helper import sendRandomRequests
+from plenum.test.helper import sendRandomRequests, \
+    waitForSufficientRepliesForRequests
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
@@ -17,8 +17,8 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, toHex=False)
 
     origMethod = pr.create3PCBatch
@@ -93,5 +93,5 @@ def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
     :return:
     """
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait)

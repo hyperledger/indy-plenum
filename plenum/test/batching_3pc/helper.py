@@ -5,16 +5,6 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import waitForSufficientRepliesForRequests
 
 
-def checkSufficientRepliesRecvdForReqs(looper, reqs, client, timeout):
-    for req in reqs:
-        looper.run(eventually(waitForSufficientRepliesForRequests,
-                              looper,
-                              client,
-                              requests=[req, ],
-                              fVal=1,
-                              customTimeoutPerReq=timeout))
-
-
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
                             checkCommitted=True):
     def addRoot(root, collection):

@@ -4,10 +4,9 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import UnauthorizedClientRequest
-from plenum.test.batching_3pc.helper import checkSufficientRepliesRecvdForReqs, \
-    checkNodesHaveSameRoots
+from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
-    checkRejectWithReason
+    checkRejectWithReason, waitForSufficientRepliesForRequests
 
 
 def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,
@@ -32,8 +31,8 @@ def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet, client,
     :return:
     """
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       tconf.Max3PCBatchWait-1)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait-1)
 
 
 def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
@@ -44,8 +43,8 @@ def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
     :return:
     """
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize - 1)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       tconf.Max3PCBatchWait + 1)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait + 1)
 
 
 def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
@@ -57,14 +56,14 @@ def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
     """
     # Send 1 batch
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # Send 2 batches
     reqs = sendRandomRequests(wallet1, client, 2 * tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs, client,
-                                       2 * tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                        customTimeoutPerReq=2*tconf.Max3PCBatchWait)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
@@ -91,11 +90,11 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         node.doDynamicValidation = types.MethodType(rejectingMethod, node)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    checkSufficientRepliesRecvdForReqs(looper, reqs[:-1], client,
-                                       tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs[:-1],
+                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
     with pytest.raises(AssertionError):
-        checkSufficientRepliesRecvdForReqs(looper, reqs[-1:], client,
-                                           tconf.Max3PCBatchWait)
+        waitForSufficientRepliesForRequests(looper, client, requests=reqs[-1:],
+                                            customTimeoutPerReq=tconf.Max3PCBatchWait)
     for node in txnPoolNodeSet:
         looper.run(eventually(checkRejectWithReason, client,
                               'Simulated rejection', node.clientstack.name,
