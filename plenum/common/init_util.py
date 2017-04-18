@@ -9,7 +9,6 @@ def cleanup_environment(name, base_dir):
 
 def initialize_node_environment(name, base_dir, sigseed=None,
                                 override_keep=False):
-    # Question: Does this comment belong here? I dont think so.
     """
     transport-agnostic method; in the future when the transport protocol is
     abstracted a bit more, this function and the one below will be the same

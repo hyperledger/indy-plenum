@@ -230,25 +230,6 @@ class OrientDBNotRunning(GraphStorageNotAvailable):
     pass
 
 
-class EndpointException(Exception):
-    pass
-
-
-class MissingEndpoint(EndpointException):
-    def __init__(self):
-        super().__init__('missing endpoint')
-
-
-class InvalidEndpointIpAddress(EndpointException):
-    def __init__(self, endpoint):
-        super().__init__("invalid endpoint address: '{}'".format(endpoint))
-
-
-class InvalidEndpointPort(EndpointException):
-    def __init__(self, endpoint):
-        super().__init__("invalid endpoint port: '{}'".format(endpoint))
-
-
 class WalletError(Exception):
     pass
 
