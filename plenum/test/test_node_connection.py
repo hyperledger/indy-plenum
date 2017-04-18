@@ -31,11 +31,12 @@ def nodeReg():
             'Delta': NodeDetail(genHa(1), "DeltaC", genHa(1))
     }
 
+
 def initLocalKeys(tdir, nodeReg):
     for nName in nodeReg.keys():
         sigseed = randomString(32).encode()
         initNodeKeysForBothStacks(nName, tdir, sigseed, override=True)
-
+        logger.debug('Created keys for {}'.format(nName))
 
 
 # Its a function fixture, deliberately
@@ -47,12 +48,11 @@ def tdirAndLooper(nodeReg):
             yield td, looper
 
 
-
-
-@pytest.mark.skip()
 def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
-                                       nodeReg, conf):
+                                       nodeReg):
     tdir, looper = tdirAndLooper
+    initLocalKeys(tdir, nodeReg)
+
     nodes = []
     names = list(nodeReg.keys())
     logger.debug("Node names: {}".format(names))
@@ -60,11 +60,17 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     def create(name):
         node = TestNode(name, nodeReg, basedirpath=tdir,
                         pluginPaths=allPluginsPath)
-        looper.add(node)
         nodes.append(node)
+        return node
 
     for name in names[:3]:
         create(name)
+
+    logger.debug("Creating keys")
+
+    for node in nodes:
+        tellKeysToOthers(node, nodes)
+        looper.add(node)
 
     looper.run(checkNodesConnected(nodes))
 
@@ -73,7 +79,12 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
 
     # create the fourth and see that it learns who the primaries are
     # from the other nodes
-    create(names[3])
+    lateNode = create(names[3])
+    for node in nodes[:-1]:
+        tellKeysToOthers(lateNode, node)
+        tellKeysToOthers(node, lateNode)
+
+    looper.add(lateNode)
     # TODO set timeout from 'waits' after the test enabled
     checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
     stopNodes(nodes, looper)

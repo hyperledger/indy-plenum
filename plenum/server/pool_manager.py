@@ -184,12 +184,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.connectNewRemote(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
-    def doElectionIfNeeded(self, nodeGoingDown):
-        for instId, replica in enumerate(self.node.replicas):
-            if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
-                self.node.startViewChange(self.node.viewNo+1)
-                return
-
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
@@ -202,7 +196,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-        self.doElectionIfNeeded(nodeName)
+            # self.node.sendPoolInfoToClients(txn)
+        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def nodeKeysChanged(self, txn):
         # TODO: if the node whose keys are being changed is primary for any
@@ -223,7 +218,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             rid = self.stackKeysChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
-        self.doElectionIfNeeded(nodeName)
+            # self.node.sendPoolInfoToClients(txn)
+        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def nodeServicesChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -255,7 +251,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                      format(self, nodeName))
 
                     self.node.nodeLeft(txn)
-            self.doElectionIfNeeded(nodeName)
+            self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change

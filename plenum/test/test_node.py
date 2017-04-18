@@ -242,10 +242,6 @@ class TestNode(TestNodeCore, Node):
         # Txns of all clients, each txn is a tuple like (from, to, amount)
         self.txns = []  # type: List[Tuple]
 
-    # def _getOrientDbStore(self, name, dbType):
-    #     return orientdb_store.createOrientDbInMemStore(
-    #         self.config, name, dbType)
-
     @property
     def nodeStackClass(self):
         return getTestableStack(self.NodeStackClass)

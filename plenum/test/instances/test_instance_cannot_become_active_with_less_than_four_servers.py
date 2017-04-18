@@ -19,7 +19,6 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """

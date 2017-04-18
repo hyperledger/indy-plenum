@@ -7,7 +7,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, TestNode
+from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, \
+    TestNode
 from plenum.test import waits
 
 # Do not remove the next import
