@@ -1,6 +1,12 @@
 from typing import Dict
 
-import pyorient
+try:
+    import pyorient
+except ImportError:
+    print('"pyorient" is not installed. Its not required to use this project '
+          'but if you really need it then install it and add dependency to '
+          'setup.py')
+
 from plenum.common.error import error
 from plenum.common.exceptions import OrientDBNotRunning
 from stp_core.common.log import getlogger

@@ -1,28 +1,19 @@
-from abc import abstractmethod
-from typing import Tuple, Iterable
+from typing import Iterable, Tuple
 
 
-class KVStore:
-    @abstractmethod
+# TODO: WIP below
+class KVStoreRocksdb:
     def set(self, key, value):
         raise NotImplementedError
 
-    @abstractmethod
     def get(self, key):
         raise NotImplementedError
 
-    @abstractmethod
     def remove(self, key):
         raise NotImplementedError
 
-    @abstractmethod
     def setBatch(self, batch: Iterable[Tuple]):
         raise NotImplementedError
 
-    @abstractmethod
-    def open(self):
-        raise NotImplementedError
-
-    @abstractmethod
     def close(self):
         raise NotImplementedError

@@ -1,9 +1,12 @@
-from plenum.client.client import *
+from plenum.client.client import Client
+from plenum.client.wallet import Wallet
+from plenum.test.helper import sendRandomRequests, \
+    waitForSufficientRepliesForRequests
 from stp_core.network.port_dispenser import genHa
 from stp_core.loop.looper import Looper
-from plenum.test.helper import *
 from time import *
 from plenum.common.signer_simple import SimpleSigner
+from stp_core.types import HA
 
 numReqs = 10000
 splits = 5
@@ -25,9 +28,9 @@ def load():
         for i in range(0, numReqs, numReqs // splits):
             print('Will wait for {} now'.format(numReqs // splits))
             s = perf_counter()
-            checkSufficientRepliesForRequests(looper, client, requests[
-                                                              i:i + numReqs // splits + 1],
-                                              2, 3)
+            reqs = requests[i:i + numReqs // splits + 1]
+            waitForSufficientRepliesForRequests(looper, client, requests=reqs,
+                                                fVal=2, customTimeoutPerReq=3)
             print('>>> Got replies for {} requests << in {}'.
                   format(numReqs // splits, perf_counter() - s))
         end = perf_counter()

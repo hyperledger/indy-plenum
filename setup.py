@@ -61,11 +61,12 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-3pc-batch==0.2.5', 'stp-3pc-batch==0.1.5', 'evernym-state==0.1.4',
-                      'jsonpickle', 'portalocker==0.5.7',
-                      'prompt_toolkit==0.57', 'pyorient', 'pygments',
+    install_requires=['ledger-3pc-batch==0.2.5', 'stp-3pc-batch==0.1.5',
+                      'evernym-state==0.1.4', 'jsonpickle',
+                      'portalocker==0.5.7', 'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip', 'leveldb', 'rlp'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip', 'leveldb',
+                      'rlp'],
     extras_require={
         'stats': ['python-firebase']
     },

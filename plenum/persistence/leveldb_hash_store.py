@@ -1,7 +1,7 @@
 import os
 
 from ledger.stores.hash_store import HashStore
-from plenum.persistence.kv_store import KVStoreLeveldb
+from plenum.persistence.kv_store_leveldb import KVStoreLeveldb
 from stp_core.common.log import getlogger
 
 

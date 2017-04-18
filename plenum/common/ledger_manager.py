@@ -86,7 +86,10 @@ class LedgerManager(HasActionQueue):
         self.catchupReplyTimers = {}
         # type: Dict[int, Optional[float]]
 
-        # Largest PPSeqNo received during catchup
+        # Largest Pre-Prepare sequence number received during catchup. T
+        # his field is needed to discard any stashed 3 phase messages or
+        # ordered messages since the transactions part of those messages
+        # will be applied when they are received through the catchup process
         self.lastCaughtUpPpSeqNo = -1
 
     def __repr__(self):

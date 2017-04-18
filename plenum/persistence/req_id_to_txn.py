@@ -1,7 +1,7 @@
 from hashlib import sha256
 from typing import Optional
 
-from plenum.persistence.kv_store import KVStoreLeveldb
+from plenum.persistence.kv_store_leveldb import KVStoreLeveldb
 
 
 class ReqIdrToTxn:
@@ -19,7 +19,7 @@ class ReqIdrToTxn:
         raise NotImplementedError
 
 
-class ReqIdrToTxnLevelDB(ReqIdrToTxn):
+class ReqIdrToTxnKVStore(ReqIdrToTxn):
     def __init__(self, dbPath):
         self.dbPath = dbPath
         self.db = KVStoreLeveldb(dbPath)

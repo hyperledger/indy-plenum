@@ -54,7 +54,7 @@ from plenum.common.types import Propagate, \
 from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
-from plenum.persistence.req_id_to_txn import ReqIdrToTxnLevelDB
+from plenum.persistence.req_id_to_txn import ReqIdrToTxnKVStore
 from plenum.persistence.state import PruningState
 from plenum.persistence.storage import Storage, initStorage
 from plenum.persistence.util import txnsWithMerkleInfo
@@ -369,7 +369,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def loadSeqNoDB(self):
         dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
-        return ReqIdrToTxnLevelDB(dbPath)
+        return ReqIdrToTxnKVStore(dbPath)
 
     # noinspection PyAttributeOutsideInit
     def setF(self):
@@ -558,7 +558,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.stop()
         self.clientstack.stop()
 
-        self.closeAllLevelDBs()
+        self.closeAllKVStores()
 
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
@@ -567,7 +567,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.ledgerManager.setLedgerState(DOMAIN_LEDGER_ID,
                                           LedgerState.not_synced)
 
-    def closeAllLevelDBs(self):
+    def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.info("{} closing level dbs".format(self), extra={"cli": False})
         for ledgerId in self.ledgerManager.ledgers:

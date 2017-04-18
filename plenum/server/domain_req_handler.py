@@ -62,7 +62,11 @@ class DomainRequestHandler(RequestHandler):
                 logger.debug('Cannot apply request of type {} to state'.format(typ))
 
     def countStewards(self) -> int:
-        """Count the number of stewards added to the pool transaction store"""
+        """
+        Count the number of stewards added to the pool transaction store
+        Note: This is inefficient, a production use case of this function
+        should require an efficient storage mechanism
+        """
         allTxns = self.ledger.getAllTxn().values()
         return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
                    (txn.get(ROLE) == STEWARD))

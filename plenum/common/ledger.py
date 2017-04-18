@@ -58,6 +58,10 @@ class Ledger(_Ledger):
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
+        # Do not change `uncommittedTree` or `uncommittedRootHash`
+        # if there are any `uncommittedTxns` since the ledger still has a
+        # valid uncommittedTree and a valid root hash which are
+        # different from the committed ones
         return (committedSize + 1, committedSize + count), committedTxns
 
     def appendCommittedTxns(self, txns: List):
@@ -87,6 +91,9 @@ class Ledger(_Ledger):
         :return:
         """
         currentTree = currentTree or self.tree
+        # Copying the tree is not a problem since its a Compact Merkle Tree
+        # so the size of the tree would be 32*(lg n) bytes where n is the
+        # number of leaves (no. of txns)
         tempTree = copy(currentTree)
         for txn in txns:
             tempTree.append(self.serializeLeaf(txn))

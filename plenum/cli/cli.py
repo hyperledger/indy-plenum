@@ -36,8 +36,9 @@ from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from stp_core.network.port_dispenser import genHa
@@ -511,7 +512,6 @@ class Cli:
         txn = {
             TXN_TYPE: typ,
             TARGET_NYM: destId,
-            # TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
             txn[IDENTIFIER] = getFriendlyIdentifier(matchedVars.get(IDENTIFIER))

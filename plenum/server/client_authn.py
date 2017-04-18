@@ -139,6 +139,11 @@ class SimpleAuthNr(NaclAuthNr):
     def getVerkey(self, identifier):
         nym = self.clients.get(identifier)
         if not nym:
+            # Querying uncommitted identities since a batch might contain
+            # both identity creation request and a request by that newly
+            # created identity, also its possible to have multiple uncommitted
+            # batches in progress and identity creation request might
+            # still be in an earlier uncommited batch
             nym = DomainRequestHandler.getNymDetails(self.state,
                                                      nym, isCommitted=False)
             if not nym:

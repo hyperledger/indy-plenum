@@ -204,11 +204,11 @@ class NameAlreadyExists(Exception):
     pass
 
 
-class GraphStorageNotAvailable(Exception):
+class OrientDBNotRunning(Exception):
     pass
 
 
-class OrientDBNotRunning(GraphStorageNotAvailable):
+class GraphStorageNotAvailable(OrientDBNotRunning):
     pass
 
 
