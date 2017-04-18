@@ -3,7 +3,7 @@ from typing import List
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.persistence.state import PruningState
+from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
 from stp_core.common.log import getlogger
 

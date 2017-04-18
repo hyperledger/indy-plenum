@@ -55,7 +55,7 @@ from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxnKVStore
-from plenum.persistence.state import PruningState
+from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.storage import Storage, initStorage
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server import primary_elector
@@ -91,8 +91,7 @@ logger = getlogger()
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper):
     """
-    A node in a plenum system. Nodes communicate with each other via the
-    RAET protocol. https://github.com/saltstack/raet
+    A node in a plenum system.
     """
 
     suspicions = {s.code: s.reason for s in Suspicions.getList()}

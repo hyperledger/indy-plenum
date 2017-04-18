@@ -9,7 +9,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
-from plenum.persistence.state import PruningState
+from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.req_handler import RequestHandler

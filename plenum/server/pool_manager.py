@@ -11,7 +11,7 @@ from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.types import NodeDetail
-from plenum.persistence.state import PruningState
+from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server.pool_req_handler import PoolRequestHandler
 from stp_core.common.log import getlogger

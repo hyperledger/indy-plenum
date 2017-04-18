@@ -425,12 +425,6 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender:
         :return:
         """
-        # if self.isMsgForLaterView(msg):
-        #     logger.error("{} cannot get primary for a request for a later "
-        #                  "view. Request is {}".format(self, msg))
-        # else:
-        # return self.primaryName == sender if self.isMsgForCurrentView(
-        #     msg) else self.primaryNames[msg.viewNo] == sender
         return self.primaryName == sender
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
@@ -598,14 +592,6 @@ class Replica(HasActionQueue, MessageProcessor):
                          "its a previous view message",
                          logger.debug)
             return
-        # if isinstance(msg, PrePrepare) or not self.getPrePrepare(msg.viewNo,
-        #                                                          msg.ppSeqNo):
-        #     # TODO: This is incomplete
-        #     if self.isPrimary is None:
-        #         self.postElectionMsgs.append((msg, sender))
-        #         logger.debug("Replica {} pended request {} from {}".
-        #                      format(self, msg, sender))
-        #         return
         if self.isPrimary is None:
             self.postElectionMsgs.append((msg, sender))
             logger.debug("Replica {} pended request {} from {}".

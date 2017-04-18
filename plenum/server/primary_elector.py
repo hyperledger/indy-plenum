@@ -708,31 +708,11 @@ class PrimaryElector(PrimaryDecider):
             for replica in self.replicas:
                 replica.primaryName = None
 
-            # Remove all pending messages which came for earlier views
-            # oldViews = []
-            # for v in self.pendingMsgsForViews:
-            #     if v < viewNo:
-            #         oldViews.append(v)
-
-            # for v in oldViews:
-            #     self.pendingMsgsForViews.pop(v)
-
             # Reset to defaults values for different data structures as new
             # elections would begin
             for r in self.replicas:
                 self.setDefaults(r.instId)
             self.replicaNominatedForItself = None
-
-            # Schedule execution of any pending msgs from the new view
-            # if viewNo in self.pendingMsgsForViews:
-            #     logger.debug("Pending election messages found for view {}".
-            #                  format(viewNo))
-            #     pendingMsgs = self.pendingMsgsForViews.pop(viewNo)
-            #     self.inBox.extendleft(pendingMsgs)
-            # else:
-            #     logger.debug(
-            #         "{} found no pending election messages for view {}".
-            #         format(self.name, viewNo))
 
             self.nominateRandomReplica()
         else:
