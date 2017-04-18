@@ -11,6 +11,7 @@ from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
 import json
 
 from plenum.common.stacks import nodeStackClass, clientStackClass
+from plenum.server.domain_req_handler import DomainRequestHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -22,7 +23,7 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail
+from plenum.common.types import TaggedTuples, NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
 from plenum.common.util import Seconds, getMaxFailures, adict
@@ -44,6 +45,21 @@ from plenum.test.testable import Spyable
 from plenum.test import waits
 
 logger = getlogger()
+
+
+class TestDomainRequestHandler(DomainRequestHandler):
+    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+        typ = txn.get(TXN_TYPE)
+        if typ == 'buy':
+            idr = txn.get(f.IDENTIFIER.nm)
+            rId = txn.get(f.REQ_ID.nm)
+            key = '{}:{}'.format(idr, rId).encode()
+            val = self.stateSerializer.serialize({TXN_TYPE: typ})
+            self.state.set(key, val)
+            logger.trace('{} after adding to state, headhash is {}'.
+                         format(self, self.state.headHash))
+        else:
+            super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -185,19 +201,10 @@ class TestNodeCore(StackedTester):
     def ensureKeysAreSetup(self):
         pass
 
-    def domainRequestApplication(self, request):
-        typ = request.operation.get(TXN_TYPE)
-        r = super().domainRequestApplication(request)
-        if typ == 'buy':
-            state = self.getState(DOMAIN_LEDGER_ID)
-            key = '{}:{}'.format(request.identifier, request.reqId).encode()
-            val = self.reqHandler.stateSerializer.serialize(request.operation)
-            state.set(key, val)
-            logger.trace('{} after adding to state, headhash is {}'.
-                         format(self, state.headHash))
-            return True
-        else:
-            return r
+    def getDomainReqHandler(self):
+        return TestDomainRequestHandler(self.domainLedger,
+                                        self.states[DOMAIN_LEDGER_ID],
+                                        self.reqProcessors)
 
 
 @Spyable(methods=[Node.handleOneNodeMsg,

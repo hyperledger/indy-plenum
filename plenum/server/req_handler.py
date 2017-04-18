@@ -59,8 +59,8 @@ class RequestHandler:
         assert self.ledger.root_hash == txnRoot, '{} {}'.format(
             self.ledger.root_hash, txnRoot)
         self.state.commit(rootHash=stateRoot)
-        # logger.debug('committing with state hash {} at {}'.format(stateRoot,
-        #                                                              self.ledger.size))
+        logger.debug('committing with state hash {} at {}'.format(stateRoot,
+                                                                  self.ledger.size))
         return txnsWithSeqNo(seqNoStart, seqNoEnd, committedTxns)
 
     def onBatchCreated(self, stateRoot):

@@ -4,7 +4,7 @@ from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     countDiscarded
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 
@@ -41,7 +41,7 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
     timeout =waits.expectedPoolLedgerCheck(len(txnPoolNodeSet))
-    looper.run(eventually(checkNodeLedgersForEquality, slowNode,
+    looper.run(eventually(checkNodeDataForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
                           retryWait=1, timeout=timeout))
     newStashCount = slowReplica.spylog.count(TestReplica.stashOutsideWatermarks.__name__)

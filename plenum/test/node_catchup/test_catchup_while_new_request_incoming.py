@@ -6,7 +6,7 @@ from plenum.common.util import randomString
 from plenum.test.delayers import crDelay
 from plenum.test.helper import sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, TestNode
 from stp_core.loop.eventually import eventually
@@ -49,6 +49,6 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     looper.runFor(2)
     sendRandomRequests(stewardWallet, steward1, 5)
     # TODO select or create a timeout for this case in 'waits'
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
+    looper.run(eventually(checkNodeDataForEquality, newNode,
                           *txnPoolNodeSet[:-1], retryWait=1, timeout=80))
     assert newNode.spylog.count(TestNode.processStashedOrderedReqs) > 0

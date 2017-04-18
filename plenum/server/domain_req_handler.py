@@ -54,12 +54,15 @@ class DomainRequestHandler(RequestHandler):
 
     def updateState(self, txns, isCommitted=False):
         for txn in txns:
-            typ = txn.get(TXN_TYPE)
-            if typ == NYM:
-                nym = txn.get(TARGET_NYM)
-                self.updateNym(nym, txn, isCommitted=isCommitted)
-            else:
-                logger.debug('Cannot apply request of type {} to state'.format(typ))
+            self._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
+
+    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+        typ = txn.get(TXN_TYPE)
+        if typ == NYM:
+            nym = txn.get(TARGET_NYM)
+            self.updateNym(nym, txn, isCommitted=isCommitted)
+        else:
+            logger.debug('Cannot apply request of type {} to state'.format(typ))
 
     def countStewards(self) -> int:
         """

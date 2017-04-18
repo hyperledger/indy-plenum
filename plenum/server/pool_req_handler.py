@@ -117,7 +117,7 @@ class PoolRequestHandler(RequestHandler):
         # Cannot use lru_cache since a steward might have a node in future and
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
-        for nodeNym, nodeData in self.state.as_dict().items():
+        for nodeNym, nodeData in self.state.as_dict.items():
             nodeData = json.loads(nodeData.decode())
             if nodeData.get(f.IDENTIFIER.nm) == stewardNym:
                 return True
@@ -157,7 +157,7 @@ class PoolRequestHandler(RequestHandler):
                 nodeData.pop(SERVICES, None)
                 nodeData.update(data)
 
-        for otherNode, otherNodeData in self.state.as_dict().items():
+        for otherNode, otherNodeData in self.state.as_dict.items():
             otherNode = otherNode.decode()
             otherNodeData = json.loads(otherNodeData.decode())
             otherNodeData.pop(f.IDENTIFIER.nm, None)

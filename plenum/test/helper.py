@@ -554,6 +554,17 @@ def checkAllLedgersEqual(*ledgers):
         checkLedgerEquality(l1, l2)
 
 
+def checkStateEquality(state1, state2):
+    assertEquality(state1.as_dict, state2.as_dict)
+    assertEquality(state1.committedHeadHash, state2.committedHeadHash)
+    assertEquality(state1.committedHead, state2.committedHead)
+
+
+def checkAllStatesEqual(*states):
+    for s1, s2 in permutations(states, 2):
+        checkStateEquality(s1, s2)
+
+
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 
