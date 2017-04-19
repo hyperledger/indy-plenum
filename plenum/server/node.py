@@ -555,12 +555,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         hashStores = [self.hashStore]
         if self.poolLedger:
             ledgers.append(self.poolLedger)
-        if isinstance(self.hashStore, (FileHashStore, LevelDbHashStore)):
+        if self.hashStore:
             hashStores.append(self.hashStore)
-        if isinstance(self.poolManager, TxnPoolManager):
+        if isinstance(self.poolManager, TxnPoolManager) and self.poolManager.hashStore:
             hashStores.append(self.poolManager.hashStore)
-        hashStores = [hs for hs in hashStores if isinstance(hs, (FileHashStore,
-                                                                 LevelDbHashStore))]
+        hashStores = [hs for hs in hashStores if
+                      isinstance(hs, (FileHashStore, LevelDbHashStore))
+                      and not hs.closed]
         for hs in hashStores:
             try:
                 hs.close()

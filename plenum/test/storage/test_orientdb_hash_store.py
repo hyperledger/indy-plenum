@@ -10,12 +10,13 @@ from plenum.persistence.orientdb_hash_store import OrientDbHashStore
 from plenum.persistence.orientdb_store import OrientDbStore
 
 
-@pytest.fixture(scope="module")
+@pytest.yield_fixture(scope="module")
 def odbhs():
     hs = OrientDbHashStore(
         OrientDbStore(user="root", password="password", dbName="test"))
     cleanup(hs)
-    return hs
+    yield hs
+    hs.close()
 
 
 def cleanup(hs):

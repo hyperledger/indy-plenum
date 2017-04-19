@@ -8,24 +8,17 @@ from ledger.test.test_file_hash_store import nodesLeaves, \
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 
 
-@pytest.fixture(scope="module")
+@pytest.yield_fixture(scope="module")
 def leveldbHashStore(tdir):
     hs = LevelDbHashStore(tdir)
     cleanup(hs)
-    return hs
+    yield hs
+    hs.close()
 
 
 def cleanup(hs):
     hs.reset()
     hs.leafCount = 0
-
-
-# def testHashStoreSetup(leveldbHashStore):
-#     store = odbhs.store
-#     # This seems to be a bug in pyorient. Reported. Bug #186
-#     # assert store.client.db_exists("test", pyorient.STORAGE_TYPE_MEMORY)
-#     assert store.classExists(odbhs.leafHashClass)
-#     assert store.classExists(odbhs.nodeHashClass)
 
 
 def testIndexFrom1(leveldbHashStore):
@@ -43,13 +36,6 @@ def testReadWrite(leveldbHashStore, nodesLeaves):
     multiple = leveldbHashStore.readLeafs(1, 10)
     assert onebyone == leaves
     assert onebyone == multiple
-
-
-# def testUniqueConstraint(leveldbHashStore):
-#     leafHash = generateHashes(1)[0]
-#     leveldbHashStore.writeLeaf(leafHash)
-#     with pytest.raises(Exception):
-#         leveldbHashStore.writeLeaf(leafHash)
 
 
 def testRecoverLedgerFromHashStore(leveldbHashStore, tdir):

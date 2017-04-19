@@ -324,14 +324,6 @@ class Client(Motor,
         # do nothing for now
         pass
 
-    def stop(self, *args, **kwargs):
-        super().stop(*args, **kwargs)
-        self.txnLog.close()
-        if self._ledger is not None:
-            self._ledger.stop()
-        if hasattr(self, 'hashStore') and self.hashStore is not None:
-            self.hashStore.close()
-
     def onStopping(self, *args, **kwargs):
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
@@ -339,6 +331,10 @@ class Client(Motor,
         if self._ledger:
             self.ledgerManager.setLedgerState(POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
+            self._ledger.stop()
+            if self.hashStore and not self.hashStore.closed:
+                self.hashStore.close()
+        self.txnLog.close()
 
     def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
