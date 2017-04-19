@@ -20,7 +20,7 @@ def tconf(conf, tdir, request):
 def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
                                          tdirWithPoolTxns, poolTxnClientData,
                                          steward1, stewardWallet,
-                                         client1, wallet1):
+                                         client1, wallet1, client1Connected):
     addNewClient(STEWARD, looper, steward1, stewardWallet, "testSteward1")
     with pytest.raises(AssertionError):
         addNewClient(STEWARD, looper, client1, wallet1, "testSteward2")
