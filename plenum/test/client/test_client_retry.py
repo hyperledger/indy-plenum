@@ -147,9 +147,8 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
 
-    # Wait for more than REPLY timeout
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + \
-        tconf.CLIENT_REQACK_TIMEOUT * tconf.CLIENT_MAX_RETRY_REPLY
+    # Wait for more than REPLY timeout (including retries)
+    timeout = (tconf.CLIENT_MAX_RETRY_REPLY + 2) * tconf.CLIENT_REPLY_TIMEOUT + 2
     looper.runFor(timeout)
 
     idr, reqId = req.key

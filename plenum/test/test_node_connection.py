@@ -48,6 +48,7 @@ def tdirAndLooper(nodeReg):
             yield td, looper
 
 
+@pytest.mark.skip()
 def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
                                        nodeReg):
     tdir, looper = tdirAndLooper

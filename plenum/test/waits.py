@@ -103,6 +103,9 @@ def expectedClientRequestPropagationTime(nodeCount):
 
 
 def expectedTransactionExecutionTime(nodeCount):
+    # QUESTION: Why is the expected execution time a multiple of
+    # CLIENT_REPLY_TIMEOUT, its huge,
+    # it should be a little less than CLIENT_REPLY_TIMEOUT
     return int(CLIENT_REPLY_TIMEOUT * nodeCount)
 
 

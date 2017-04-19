@@ -33,7 +33,8 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
+    POOL_LEDGER_ID
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
@@ -336,7 +337,7 @@ class Client(Motor,
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
         if self._ledger:
-            self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
+            self.ledgerManager.setLedgerState(POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
 
     def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
@@ -535,6 +536,8 @@ class Client(Motor,
 
         # Dont try for the requests which have gone beyond retry limits
         for k in clearKeys:
+            logger.debug('{} did not get ACK for {} and will not try again'.
+                         format(self, k))
             self.expectingAcksFor.pop(k)
 
         # Collect nodes which did not send REPLY
@@ -549,6 +552,8 @@ class Client(Motor,
                 else:
                     clearKeys.append(reqKey)
         for k in clearKeys:
+            logger.debug('{} did not get REPLY for {} and will not try again'.
+                         format(self, k))
             self.expectingRepliesFor.pop(k)
 
         if nodesNotSendingAck:
@@ -592,7 +597,8 @@ class Client(Motor,
                     self.expectingRepliesFor[key] = (nodes, now, c + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
+        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
+                                    self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.nodestack.send(ledgerStatus, rid)
 

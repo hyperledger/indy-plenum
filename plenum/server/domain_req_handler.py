@@ -84,7 +84,15 @@ class DomainRequestHandler(RequestHandler):
                                           isCommitted=isCommitted)
         newData = {}
         if not existingData:
+            # New nym being added to state, set the TrustAnchor
             newData[f.IDENTIFIER.nm] = txn[f.IDENTIFIER.nm]
+            # New nym being added to state, set the role and verkey to None, this makes
+            # the state data always have a value for `role` and `verkey` since we allow
+            # clients to omit specifying `role` and `verkey` in the request consider a
+            # default value of None
+            newData[ROLE] = None
+            newData[VERKEY] = None
+
         if ROLE in txn:
             newData[ROLE] = txn[ROLE]
         if VERKEY in txn:

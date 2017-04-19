@@ -1320,7 +1320,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             state = self.getState(ledgerId)
             state.commit(rootHash=state.headHash)
             ledger = self.getLedger(ledgerId)
-            logger.debug('{} committing with state hash {} at {}'.format(self, state.headHash, ledger.size))
 
     def postTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
@@ -1774,7 +1773,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
-        logger.debug('{} executing domain txns'.format(self))
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
         for txn in committedTxns:

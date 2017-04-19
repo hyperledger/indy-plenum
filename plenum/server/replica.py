@@ -789,7 +789,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # reverted
             oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
             logger.debug('{} state root before processing {} is {}'.
-                          format(self, pp, oldStateRoot))
+                         format(self, pp, oldStateRoot))
 
         for reqKey in pp.reqIdr:
             req = self.node.requests[reqKey].finalised

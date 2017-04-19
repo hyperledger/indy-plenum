@@ -14,7 +14,7 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkReqNackWithReason, checkRejectWithReason
+    checkRejectWithReason
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
@@ -157,7 +157,7 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                      nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     for node in txnPoolNodeSet:
-        checkReqNackWithReason(steward1, 'is not a steward of node',
+        checkRejectWithReason(steward1, 'is not a steward of node',
                                node.clientstack.name)
 
 
@@ -209,7 +209,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
     initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
-                                  override=True)
+                              override=True)
 
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
