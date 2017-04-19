@@ -20,7 +20,7 @@ def testUbuntu = {
 
             echo 'Ubuntu Test: Test'
             def resFile = "test-result.${NODE_NAME}.txt"
-            testHelpers.testRunner([testFile: resFile, pytest: 'pytest -n 2'])
+            testHelpers.testRunner([testFile: resFile, pytestOptions: '-n 2'])
         }
     }
     finally {
