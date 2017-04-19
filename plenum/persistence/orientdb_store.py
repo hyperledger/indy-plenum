@@ -2,7 +2,11 @@ from typing import Dict
 
 try:
     import pyorient
+    from pyorient import DB_TYPE_GRAPH, STORAGE_TYPE_MEMORY
 except ImportError:
+    pyorient = None
+    DB_TYPE_GRAPH = None
+    STORAGE_TYPE_MEMORY = None
     print('"pyorient" is not installed. Its not required to use this project '
           'but if you really need it then install it and add dependency to '
           'setup.py')
@@ -16,8 +20,8 @@ logger = getlogger()
 
 class OrientDbStore:
     def __init__(self, user, password, dbName, host="localhost", port=2424,
-                 dbType=pyorient.DB_TYPE_GRAPH,
-                 storageType=pyorient.STORAGE_TYPE_MEMORY):
+                 dbType=DB_TYPE_GRAPH,
+                 storageType=STORAGE_TYPE_MEMORY):
         self.dbType = dbType
         try:
             self.client = pyorient.OrientDB(host=host, port=port)
