@@ -1,10 +1,13 @@
 import pytest
 
+from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, stopNodes
 from plenum.test.test_node import TestNode, ensureElectionsDone
+
+logger = getlogger()
 
 
 @pytest.fixture(scope="module")
