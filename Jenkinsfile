@@ -19,8 +19,8 @@ def testUbuntu = {
             testHelpers.install([deps: ['pytest-xdist']])
 
             echo 'Ubuntu Test: Test'
-            def resFile = "test-result.${NODE_NAME}.txt"
-            testHelpers.testRunner([testFile: resFile, pytestOptions: '-n 2'])
+            def resFile = "test-result.${NODE_NAME}.xml"
+            testHelpers.testJUnit([testFile: resFile, pytestOptions: '-n 2'])
         }
     }
     finally {
