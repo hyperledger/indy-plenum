@@ -179,13 +179,13 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        logger.debug("{} forwarding client request {} to its replicas".
-                     format(self, key))
         for idx, repQueue in enumerate(self.msgsToReplicas):
             if self.primaryReplicaNo == idx:
                 # req = weakref.ref(self.requests[key].finalised)
                 req = self.requests[key].finalised
                 repQueue.append(req)
+                logger.debug("{} forwarding client request {} to its replicas".
+                             format(self, key))
         self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
 

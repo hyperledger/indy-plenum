@@ -708,6 +708,8 @@ class PrimaryElector(PrimaryDecider):
             for replica in self.replicas:
                 replica.primaryName = None
 
+            self.node._primaryReplicaNo = None
+
             # Reset to defaults values for different data structures as new
             # elections would begin
             for r in self.replicas:

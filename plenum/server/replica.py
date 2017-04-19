@@ -440,7 +440,7 @@ class Replica(HasActionQueue, MessageProcessor):
         for lid, q in self.requestQueues.items():
             if len(q) >= self.config.Max3PCBatchSize or (
                                 self.lastBatchCreated +
-                                self.config.Max3PCBatchWait >
+                                self.config.Max3PCBatchWait <
                                 time.perf_counter() and len(q) > 0):
                 oldStateRootHash = self.stateRootHash(lid, toHex=False)
                 ppReq = self.create3PCBatch(lid)
@@ -837,7 +837,6 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
-        # if self.isPrimaryForMsg(pp) is True:
         if self.isPrimary is True:
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
@@ -1008,8 +1007,6 @@ class Replica(HasActionQueue, MessageProcessor):
         :param commit: the COMMIT to validate
         :return: True if `request` is valid, False otherwise
         """
-        # primaryStatus = self.isPrimaryForMsg(commit)
-        # ppReqs = self.sentPrePrepares if primaryStatus else self.prePrepares
         key = (commit.viewNo, commit.ppSeqNo)
         ppReq = self.getPrePrepare(*key)
         if not ppReq:

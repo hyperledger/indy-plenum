@@ -328,6 +328,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.adjustReplicas()
 
+        self._primaryReplicaNo = None
+
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
@@ -992,10 +994,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: index of the primary
         """
-        for idx, replica in enumerate(self.replicas):
-            if replica.isPrimary:
-                return idx
-        return None
+        if self._primaryReplicaNo is None:
+            for idx, replica in enumerate(self.replicas):
+                if replica.isPrimary:
+                    self._primaryReplicaNo = idx
+                    return idx
+        return self._primaryReplicaNo
 
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
