@@ -16,16 +16,11 @@ def testUbuntu = {
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.installDeps()
+            testHelpers.install([deps: ['pytest-xdist']])
 
             echo 'Ubuntu Test: Test'
-            def resFile = "test-result.${NODE_NAME}.txt"
-            try {
-                sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
-            }
-            finally {
-                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
-            }
+            def resFile = "test-result.${NODE_NAME}.xml"
+            testHelpers.testJUnit([testFile: resFile, pytestOptions: '-n 2'])
         }
     }
     finally {
