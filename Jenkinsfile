@@ -16,10 +16,10 @@ def testUbuntu = {
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.installDeps()
+            testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            sh 'python runner.py --pytest \"python -m pytest\" --output "test-result.txt"'
+            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt")
         }
     }
     finally {
@@ -65,10 +65,10 @@ def testWindowsNoDocker = {
 
         testHelpers.createVirtualEnvAndExecute({ python, pip ->
             echo 'Windows No Docker Test: Install dependencies'
-            testHelpers.installDepsBat(python, pip)
+            testHelpers.install(python: python, pip: pip, isVEnv: true)
             
             echo 'Windows No Docker Test: Test'
-            bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"test-result.txt\""
+            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt", python: python)
         })
     }
     finally {

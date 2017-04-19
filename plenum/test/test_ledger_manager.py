@@ -1,8 +1,8 @@
 from plenum.common.ledger_manager import LedgerManager
-from plenum.test.testable import Spyable
+from plenum.test.testable import spyable
 
 
-@Spyable(methods=[LedgerManager.startCatchUpProcess,
+@spyable(methods=[LedgerManager.startCatchUpProcess,
                   LedgerManager.catchupCompleted,
                   LedgerManager.processConsistencyProofReq])
 class TestLedgerManager(LedgerManager):

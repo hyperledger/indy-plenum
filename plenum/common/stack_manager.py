@@ -22,6 +22,7 @@ class TxnStackManager:
         self.name = name
         self.basedirpath = basedirpath
         self.isNode = isNode
+        self.hashStore = None
 
     @abstractproperty
     def hasLedger(self) -> bool:
@@ -49,8 +50,8 @@ class TxnStackManager:
                     shutil.copy(defaultTxnFile, self.ledgerLocation)
 
             dataDir = self.ledgerLocation
-            self._ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(
-                dataDir=dataDir)),
+            self.hashStore = FileHashStore(dataDir=dataDir)
+            self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
                 dataDir=dataDir,
                 fileName=self.ledgerFile,
                 ensureDurability=self.config.EnsureLedgerDurability)

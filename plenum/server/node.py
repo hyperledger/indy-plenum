@@ -476,7 +476,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
-            self.hashStore = self.getHashStore(self.name)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -521,6 +520,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return len(self.nodestack.conns) + 1
 
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+
+        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
+            try:
+                self.hashStore.close()
+            except Exception as ex:
+                logger.warning('{} got exception while closing hash store: {}'.
+                            format(self, ex))
+
+        if isinstance(self.poolManager, TxnPoolManager):
+            if self.poolManager._ledger is not None:
+                self.poolManager._ledger.stop()
+            if self.poolManager.hashStore is not None:
+                self.poolManager.hashStore.close()
+
     def onStopping(self):
         """
         Actions to be performed on stopping the node.
@@ -536,16 +551,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             self.primaryStorage.stop()
         except Exception as ex:
-            logger.warning('{} got exception while stopping primary storage: {}'.
-                        format(self, ex))
-
-        # Stop hash store
-        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
             try:
-                self.hashStore.close()
+                self.primaryStorage.close()
             except Exception as ex:
-                logger.warning('{} got exception while closing hash store: {}'.
-                            format(self, ex))
+                logger.warning(
+                    '{} got exception while stopping/closing '
+                    'primary storage: {}'.format(self, ex))
+
+        try:
+            self.secondaryStorage.close()
+        except Exception as ex:
+            logger.warning('{} got exception while closing '
+                           'secondary storage: {}'.format(self, ex))
 
         self.nodestack.stop()
         self.clientstack.stop()
@@ -659,8 +676,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
         self.elector.nodeCount = self.connectedNodeCount
-
-        if self.isReady():
+        viewChangeStarted = self.startViewChangeIfPrimaryWentOffline(left)
+        if not viewChangeStarted and self.isReady():
             self.checkInstances()
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
@@ -668,25 +685,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 msgs = self.elector.getElectionMsgsForLaggedNodes()
                 logger.debug("{} has msgs {} for new nodes {}".
                              format(self, msgs, joined))
-                for n in joined:
-                    self.sendElectionMsgsToLaggingNode(n, msgs)
+                for joinedNode in joined:
+                    self.sendElectionMsgsToLaggingNode(joinedNode, msgs)
                     # Communicate current view number if any view change
                     # happened to the connected node
                     if self.viewNo > 0:
                         logger.debug("{} communicating view number {} to {}"
-                                     .format(self, self.viewNo-1, n))
-                        rid = self.nodestack.getRemote(n).uid
+                                     .format(self, self.viewNo-1, joinedNode))
+                        rid = self.nodestack.getRemote(joinedNode).uid
                         self.send(InstanceChange(self.viewNo), rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
-        for n in joined:
-            self.sendPoolLedgerStatus(n)
+        for joinedNode in joined:
+            self.sendPoolLedgerStatus(joinedNode)
             # Send the domain ledger status only when it has discovered enough
             # peers otherwise very few peers will know that this node is lagging
             # behind and it will not receive sufficient consistency proofs to
             # verify the exact state of the ledger.
             if self.mode in (Mode.discovered, Mode.participating):
-                self.sendDomainLedgerStatus(n)
+                self.sendDomainLedgerStatus(joinedNode)
 
     def newNodeJoined(self, txn):
         self.setF()
@@ -1576,6 +1593,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
             self.viewNo < proposedViewNo
 
+    # TODO: consider moving this to pool manager
+    def startViewChangeIfPrimaryWentOffline(self, nodesGoingDown):
+        """
+        Starts view change if there are primaries among the nodes which have
+        gone down.
+
+        :param nodesGoingDown: the nodes which have gone down
+        :return: whether view change started
+        """
+        for node in nodesGoingDown:
+            for instId, replica in enumerate(self.replicas):
+                leftOne = '{}:{}'.format(node, instId)
+                if replica.primaryName == leftOne:
+                    logger.debug("Primary {} is offline, "
+                                 "{} starting view change"
+                                 .format(leftOne, self.name))
+                    self.startViewChange(self.viewNo + 1)
+                    return True
+        return False
+
+    # TODO: consider moving this to pool manager
     def startViewChange(self, proposedViewNo: int):
         """
         Trigger the view change process.

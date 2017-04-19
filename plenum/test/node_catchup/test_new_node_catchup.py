@@ -6,7 +6,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
+from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, \
+    TestNode
 from plenum.test import waits
 
 # Do not remove the next import
@@ -73,7 +74,8 @@ def testDelayedLedgerStatusNotChangingState():
 # https://www.pivotaltracker.com/story/show/127897273
 @pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
-                                nodeSetWithNodeAddedAfterSomeTxns):
+                                nodeSetWithNodeAddedAfterSomeTxns,
+                                tdirWithPoolTxns, tconf, allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
@@ -83,6 +85,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
     ensureNodeDisconnectedFromPool(looper, txnPoolNodeSet, newNode)
+    looper.removeProdable(newNode)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -92,10 +95,17 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    logger.debug("Starting the stopped node, {}".format(newNode))
-    newNode.start(looper.loop)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:4])
+    restartedNewNode = TestNode(newNode.name,
+                                basedirpath=tdirWithPoolTxns,
+                                config=tconf,
+                                ha=newNode.nodestack.ha,
+                                cliha=newNode.clientstack.ha,
+                                pluginPaths=allPluginsPath)
+    logger.debug("Starting the stopped node, {}".format(restartedNewNode))
+    looper.add(restartedNewNode)
+    looper.run(checkNodesConnected(txnPoolNodeSet[:4] + [restartedNewNode]))
+    waitNodeLedgersEquality(looper, restartedNewNode, *txnPoolNodeSet[:4])
+    restartedNewNode.stop()
 
 
 @pytest.mark.skip(reason='fails, SOV-928, SOV-939')
