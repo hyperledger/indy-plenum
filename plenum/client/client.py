@@ -76,7 +76,7 @@ class Client(Motor,
         # TODO: Have a way for a client to have a user friendly name. Does it
         # matter now, it used to matter in some CLI exampples in the past.
         # self.name = name
-        self.name = self.stackName
+        self.name = self.stackName or 'Client~' + str(id(self))
 
         cha = None
         # If client information already exists is RAET then use that
@@ -127,6 +127,7 @@ class Client(Motor,
         self.created = time.perf_counter()
 
         # noinspection PyCallingNonCallable
+        # TODO I think this is a bug here, sighex is getting passed in the seed parameter
         self.nodestack = self.nodeStackClass(stackargs,
                                              self.handleOneNodeMsg,
                                              self.nodeReg,
@@ -319,6 +320,14 @@ class Client(Motor,
     def _statusChanged(self, old, new):
         # do nothing for now
         pass
+
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+        self.txnLog.close()
+        if self._ledger is not None:
+            self._ledger.stop()
+        if hasattr(self, 'hashStore') and self.hashStore is not None:
+            self.hashStore.close()
 
     def onStopping(self, *args, **kwargs):
         logger.debug('Stopping client {}'.format(self))

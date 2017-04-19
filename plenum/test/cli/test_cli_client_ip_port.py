@@ -11,7 +11,9 @@ def cli1(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl1")
     initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    return newCLI(cliLooper, tempDir)
+    cli = newCLI(cliLooper, tempDir)
+    yield cli
+    cli.close()
 
 
 @pytest.fixture(scope="module")
@@ -19,7 +21,9 @@ def cli2(cliLooper, tdir, tdirWithPoolTxns, tdirWithDomainTxns,
         tdirWithNodeKeepInited, tconf):
     tempDir = os.path.join(tdir, "cl2")
     initDirWithGenesisTxns(tempDir, tconf, tdirWithPoolTxns, tdirWithDomainTxns)
-    return newCLI(cliLooper, tempDir)
+    cli = newCLI(cliLooper, tempDir)
+    yield cli
+    cli.close()
 
 
 def testEachClientOnDifferentPort(cli1, cli2):
