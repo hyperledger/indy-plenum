@@ -630,6 +630,7 @@ def run_script(script, *args):
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
 
+
 def viewNoForNodes(nodes):
     viewNos = {node.viewNo for node in nodes}
     assert 1 == len(viewNos)

@@ -1,4 +1,10 @@
-import pyorient
+try:
+    import pyorient
+except ImportError:
+    print('pyorient is not installed, install it to run this test')
+    pyorient = None
+    pass
+
 import pytest
 
 from ledger.compact_merkle_tree import CompactMerkleTree
