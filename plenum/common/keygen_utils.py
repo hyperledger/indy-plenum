@@ -1,6 +1,7 @@
 import os
 
 from plenum.common.stacks import nodeStackClass
+from stp_core.crypto.util import randomSeed
 from stp_zmq.util import createCertsFromKeys
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
@@ -20,10 +21,14 @@ def initRemoteKeys(name, baseDir, sigseed, verkey, override=False, config=None):
 
 
 def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, config=None):
-    nodeStackClass.initLocalKeys(name, baseDir, sigseed, override=override)
-    nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
-                       override=override)
+    # `sigseed` is initailsed to keep the seed same for both stacks.
+    # Both node and client stacks need to have same keys
+    sigseed = sigseed or randomSeed()
 
+    nodeStackClass.initLocalKeys(name + CLIENT_STACK_SUFFIX, baseDir, sigseed,
+                                 override=override)
+    return nodeStackClass.initLocalKeys(name, baseDir, sigseed,
+                                        override=override)
 
 def areKeysSetup(name, baseDir, config=None):
     return nodeStackClass.areKeysSetup(name, baseDir)

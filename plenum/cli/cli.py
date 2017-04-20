@@ -654,6 +654,11 @@ class Cli:
         mappings['helpAction'] = helpCmd
         mappings['statusAction'] = statusCmd
         mappings['changePrompt'] = changePromptCmd
+        mappings['newNodeAction'] = newNodeCmd
+        mappings['newClientAction'] = newClientCmd
+        mappings['statusNodeAction'] = statusNodeCmd
+        mappings['statusClientAction'] = statusClientCmd
+        # mappings['keyShareAction'] = keyShareCmd
         mappings['loadPluginDirAction'] = loadPluginsCmd
 
         mappings['newKeyring'] = newKeyringCmd

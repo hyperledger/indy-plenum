@@ -1,3 +1,4 @@
+from plenum.server.suspicion_codes import Suspicion
 from re import compile
 
 from plenum.server.suspicion_codes import Suspicion
@@ -7,6 +8,23 @@ class ReqInfo:
     def __init__(self, identifier=None, reqId=None):
         self.identifier = identifier
         self.reqId = reqId
+
+
+class NodeError(Exception):
+    pass
+
+
+class PortNotAvailableForNodeWebServer(NodeError):
+    pass
+
+
+class RemoteError(NodeError):
+    def __init__(self, remote):
+        self.remote = remote
+
+
+class RemoteNotFound(RemoteError):
+    pass
 
 
 class BaseExc(Exception):
@@ -212,6 +230,25 @@ class GraphStorageNotAvailable(OrientDBNotRunning):
     pass
 
 
+class WalletError(Exception):
+    pass
+
+
+class WalletNotSet(WalletError):
+    pass
+
+
+class WalletNotInitialized(WalletError):
+    pass
+
+
+class PortNotAvailable(OSError):
+    def __init__(self, port):
+        self.port = port
+        super().__init__("port not available: {}".format(port))
+
+
 class OperationError(Exception):
     def __init__(self, error):
         super().__init__("error occurred during operation: {}".format(error))
+
