@@ -30,7 +30,6 @@ class Batched(MessageProcessor):
         :param msg: the message to enqueue
         :param rid: the id of the remote node
         """
-        # payload = self.prepForSending(msg, signer)
         if rid not in self.outBoxes:
             self.outBoxes[rid] = deque()
         self.outBoxes[rid].append(msg)
@@ -54,8 +53,8 @@ class Batched(MessageProcessor):
          this message must be enqueued
         """
         # Signing (if required) and serializing before enqueueing otherwise
-        # each call to `_enqueue` will sign it and `transmit` will try
-        # to serialize it
+        # each call to `_enqueue` will have to sign it and `transmit` will try
+        # to serialize it which is waste of resources
         serializedPayload = self.signAndSerialize(msg, signer)
 
         if rids:

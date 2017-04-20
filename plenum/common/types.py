@@ -227,7 +227,8 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO
+    f.VIEW_NO,
+    f.REASON
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [

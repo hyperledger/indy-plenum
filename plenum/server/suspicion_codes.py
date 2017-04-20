@@ -56,8 +56,21 @@ class Suspicions:
         Suspicion(19, "Prepare message has incorrect state trie root")
     PR_TXN_WRONG = \
         Suspicion(20, "Prepare message has incorrect transaction tree root")
+    PRIMARY_DEGRADED = Suspicion(21, 'Primary of master protocol instance '
+                                     'degraded the performance')
+    PRIMARY_DISCONNECTED = Suspicion(22, 'Primary of master protocol instance '
+                                         'disconnected')
+    PRIMARY_ABOUT_TO_BE_DISCONNECTED = Suspicion(23, 'Primary of master '
+                                                     'protocol instance '
+                                                     'about to be disconnected')
 
     @classmethod
-    def getList(cls):
+    def get_list(cls):
         return [member for nm, member in inspect.getmembers(cls) if isinstance(
             member, Suspicion)]
+
+    @classmethod
+    def get_by_code(cls, code):
+        for s in Suspicions.get_list():
+            if code == s.code:
+                return s

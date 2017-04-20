@@ -14,6 +14,7 @@ from plenum.common.types import NodeDetail
 from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server.pool_req_handler import PoolRequestHandler
+from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
@@ -184,6 +185,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.connectNewRemote(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
+    def node_about_to_be_disconnected(self, nodeName):
+        if self.node.master_primary == nodeName:
+            self.node.sendInstanceChange(self.node.viewNo + 1,
+                                         Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
+
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
@@ -197,7 +203,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+        self.node_about_to_be_disconnected(nodeName)
 
     def nodeKeysChanged(self, txn):
         # TODO: if the node whose keys are being changed is primary for any
@@ -219,7 +225,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+        self.node_about_to_be_disconnected(nodeName)
 
     def nodeServicesChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -251,7 +257,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                      format(self, nodeName))
 
                     self.node.nodeLeft(txn)
-            self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+                    self.node_about_to_be_disconnected(nodeName)
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change

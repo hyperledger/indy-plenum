@@ -120,6 +120,10 @@ class InstanceChanges(TrackedMsgs):
     """
     Stores senders of received instance change requests. Key is the view
     no and and value is the set of senders
+    Does not differentiate between reason for view change. Maybe it should,
+    but the current assumption is that since a malicious node can raise
+    different suspicions on different nodes, its ok to consider all suspicions
+    that can trigger a view change as equal
     """
 
     def newVoteMsg(self, msg):

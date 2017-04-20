@@ -631,12 +631,6 @@ def run_script(script, *args):
         assert p.poll() == 0, 'script failed'
 
 
-def viewNoForNodes(nodes):
-    viewNos = {node.viewNo for node in nodes}
-    assert 1 == len(viewNos)
-    return next(iter(viewNos))
-
-
 def primaryNodeNameForInstance(nodes, instanceId):
     primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
     assert 1 == len(primaryNames)

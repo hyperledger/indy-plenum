@@ -1,17 +1,21 @@
+from plenum.test.test_node import ensureElectionsDone
 from stp_core.loop.eventually import eventually
 from plenum.test.conftest import txnPoolNodeSet, txnPoolNodesLooper
-from plenum.test.helper import stopNodes, viewNoForNodes, nodeByName, \
+from plenum.test.helper import stopNodes, checkViewNoForNodes, nodeByName, \
     primaryNodeNameForInstance
 
 
-def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
+def testViewChangesIfMasterPrimaryDisconnected(pool_with_election_done,
                                                txnPoolNodesLooper):
+    """
+    View change occurs when master's primary is disconnected
+    """
 
     # Setup
-    nodes = set(txnPoolNodeSet)
+    nodes = pool_with_election_done
     looper = txnPoolNodesLooper
 
-    viewNoBefore = viewNoForNodes(nodes)
+    viewNoBefore = checkViewNoForNodes(nodes)
     primaryNodeForMasterInstanceBefore = nodeByName(
         nodes, primaryNodeNameForInstance(nodes, 0))
 
@@ -19,10 +23,10 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     stopNodes([primaryNodeForMasterInstanceBefore], looper)
 
     # Verify
-    remainingNodes = nodes - {primaryNodeForMasterInstanceBefore}
+    remainingNodes = set(nodes) - {primaryNodeForMasterInstanceBefore}
 
     def assertNewPrimariesElected():
-        viewNoAfter = viewNoForNodes(remainingNodes)
+        viewNoAfter = checkViewNoForNodes(remainingNodes)
         primaryNodeForMasterInstanceAfter = nodeByName(
             nodes, primaryNodeNameForInstance(remainingNodes, 0))
         assert viewNoBefore + 1 == viewNoAfter

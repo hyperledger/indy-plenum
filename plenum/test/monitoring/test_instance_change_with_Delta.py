@@ -2,16 +2,16 @@ import logging
 
 import pytest
 
-from stp_core.loop.eventually import eventually
-from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests, \
-    checkViewNoForNodes
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
+from plenum.test.view_change.helper import chkViewChange
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventually
 
 
 nodeCount = 7
@@ -102,32 +102,18 @@ def step2(step1, looper):
 
 @pytest.fixture(scope="module")
 def step3(step2):
-
     # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
-    def ifPrePrepare(msg):
-        if isinstance(msg, PrePrepare):
-            return 5
-
-    step2.P.outBoxTestStasher.delay(ifPrePrepare)
-    # send requests to client
+    slow_primary(step2.nodes, 0, 5)
     return step2
 
 
-# This test fails when the whole package is run.
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
 
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
-    # verify all nodes have undergone an instance change
-    for i in range(20):
-        try:
-            waitForViewChange(looper, step3.nodes, expectedViewNo=1)
-        except AssertionError as ex:
-            # send additional request and check view change
-            sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-        else:
-            break
-    else:
-        assert False, ex
+    timeout = waits.expectedViewChangeTime(len(step3.nodes))
+    looper.run(eventually(chkViewChange, step3.nodes, 1, wallet1, client1,
+                          retryWait=1, timeout=timeout))
+

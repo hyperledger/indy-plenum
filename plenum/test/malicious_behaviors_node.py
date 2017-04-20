@@ -14,7 +14,7 @@ from plenum.common.util import updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
-from plenum.test.test_node import TestNode, TestReplica
+from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica
 from plenum.test.delayers import ppDelay
 
 logger = getlogger()
@@ -179,3 +179,14 @@ def faultyReply(node):
         reply.result["declaration"] = "All your base are belong to us."
         return reply
     node.generateReply = types.MethodType(newGenerateReply, node)
+
+
+def slow_primary(nodes, instId=0, delay=5):
+    # make primary replica slow to send PRE-PREPAREs
+    def ifPrePrepare(msg):
+        if isinstance(msg, PrePrepare):
+            return delay
+
+    pr = getPrimaryReplica(nodes, instId)
+    pr.outBoxTestStasher.delay(ifPrePrepare)
+    return pr

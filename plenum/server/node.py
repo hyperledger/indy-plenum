@@ -20,9 +20,10 @@ from ledger.util import F
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
 from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
-    HS_FILE, DATA, ALIAS, NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
+    CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
+    NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -94,7 +95,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     A node in a plenum system.
     """
 
-    suspicions = {s.code: s.reason for s in Suspicions.getList()}
+    suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
 
     def __init__(self,
@@ -328,7 +329,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.adjustReplicas()
 
-        self._primaryReplicaNo = None
+        self._primary_replica_no = None
+
+        # Need to keep track of the time when lost connection with primary,
+        # help in voting for/against a view change.
+        self.lost_primary_at = None
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
@@ -337,8 +342,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._id = None
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
+
         # Stores the last txn seqNo that was executed for a ledger in a batch
-        self.batchToSeqNos = OrderedDict()  # type: Dict[int, int]
+        self.batchToSeqNos = OrderedDict()  # type: OrderedDict[int, int]
 
     @property
     def id(self):
@@ -697,8 +703,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
         self.elector.nodeCount = self.connectedNodeCount
-        viewChangeStarted = self.startViewChangeIfPrimaryWentOffline(left)
-        if not viewChangeStarted and self.isReady():
+
+        if self.master_primary in joined:
+            self.lost_primary_at = None
+        if self.master_primary in left:
+            logger.debug('{} lost connection to primary of master'.format(self))
+            self.lost_master_primary()
+
+        if self.isReady():
             self.checkInstances()
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
@@ -714,7 +726,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, joinedNode))
                         rid = self.nodestack.getRemote(joinedNode).uid
-                        self.send(InstanceChange(self.viewNo), rid)
+                        self.send(InstanceChange(self.viewNo, 0), rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for joinedNode in joined:
@@ -994,12 +1006,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: index of the primary
         """
-        if self._primaryReplicaNo is None:
+        if self._primary_replica_no is None:
             for idx, replica in enumerate(self.replicas):
                 if replica.isPrimary:
-                    self._primaryReplicaNo = idx
+                    self._primary_replica_no = idx
                     return idx
-        return self._primaryReplicaNo
+        return self._primary_replica_no
+
+    @property
+    def master_primary(self) -> Optional[str]:
+        if self.replicas[0].primaryName:
+            return self.replicas[0].getNodeName(self.replicas[0].primaryName)
+        return None
 
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
@@ -1528,7 +1546,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              format(self.name))
             else:
                 logger.warning('{} not retrying processing Ordered any more {} '
-                            'times'.format(self, retryNo))
+                               'times'.format(self, retryNo))
             return True
         else:
             logger.trace("{} got ordered requests from backup replica {}".
@@ -1577,12 +1595,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug(
                     "{} received instance change message {} but did not "
                     "find the master to be slow".format(self, instChg))
-            if self.canViewChange(instChg.viewNo):
-                logger.info("{} initiating a view change with view "
-                             "no {}".format(self, self.viewNo))
-                self.startViewChange(instChg.viewNo)
-            else:
+
+            if not self.do_view_change_if_possible(instChg.viewNo):
                 logger.trace("{} cannot initiate a view change".format(self))
+
+    def do_view_change_if_possible(self, view_no):
+        if self.canViewChange(view_no):
+            logger.info("{} initiating a view change with view "
+                        "no {}".format(self, self.viewNo))
+            self.startViewChange(view_no)
+            return True
+        return False
 
     def checkPerformance(self):
         """
@@ -1626,11 +1649,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.name
         )
 
-    def sendInstanceChange(self, viewNo: int):
+    def sendInstanceChange(self, view_no: int,
+                           suspicion=Suspicions.PRIMARY_DEGRADED):
         """
         Broadcast an instance change request to all the remaining nodes
 
-        :param viewNo: the view number when the instance change is requested
+        :param view_no: the view number when the instance change is requested
         """
 
         # If not found any sent instance change messages in last
@@ -1640,13 +1664,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.info("{} master has lower performance than backups. "
-                        "Sending an instance change with viewNo {}".
-                        format(self, viewNo))
+            logger.info("{} sending an instance change with view_no {} since "
+                        "{}".
+                        format(self, view_no, suspicion.reason))
             logger.info("{} metrics for monitor: {}".
                         format(self, self.monitor.prettymetrics))
-            self.send(InstanceChange(viewNo))
-            self.instanceChanges.addVote(viewNo, self.name)
+            self.send(InstanceChange(view_no, suspicion.code))
+            self.instanceChanges.addVote(view_no, self.name)
         else:
             logger.debug("{} cannot send instance change sooner then {} seconds"
                          .format(self, cooldown))
@@ -1677,24 +1701,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.viewNo < proposedViewNo
 
     # TODO: consider moving this to pool manager
-    def startViewChangeIfPrimaryWentOffline(self, nodesGoingDown):
+    def lost_master_primary(self):
         """
-        Starts view change if there are primaries among the nodes which have
-        gone down.
-
-        :param nodesGoingDown: the nodes which have gone down
+        Schedule an primary connection check which in turn can send a view
+        change message
         :return: whether view change started
         """
-        for node in nodesGoingDown:
-            for instId, replica in enumerate(self.replicas):
-                leftOne = '{}:{}'.format(node, instId)
-                if replica.primaryName == leftOne:
-                    logger.debug("Primary {} is offline, "
-                                 "{} starting view change"
-                                 .format(leftOne, self.name))
-                    self.startViewChange(self.viewNo + 1)
-                    return True
-        return False
+        self.lost_primary_at = time.perf_counter()
+
+        def _trigger_view_change():
+            if self.lost_primary_at and \
+                                    time.perf_counter() - self.lost_primary_at \
+                            >= self.config.ToleratePrimaryDisconnection:
+                view_no = self.viewNo+1
+                self.sendInstanceChange(view_no,
+                                        Suspicions.PRIMARY_DISCONNECTED)
+                logger.debug('{} sent view change since was disconnected '
+                             'from primary for too long'.format(self))
+                self.do_view_change_if_possible(view_no)
+
+        logger.debug('{} scheduling a view change in {}'.
+                     format(self, self.config.ToleratePrimaryDisconnection))
+        self._schedule(_trigger_view_change,
+                       self.config.ToleratePrimaryDisconnection)
 
     # TODO: consider moving this to pool manager
     def startViewChange(self, proposedViewNo: int):
@@ -1771,6 +1800,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
             logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
                          format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
+            if len(self.batchToSeqNos) > self.config.ProcessedBatchMapsToKeep:
+                x = self.batchToSeqNos.popitem(last=False)
+                logger.debug('{} popped {} from batch to txn seqNo map'.
+                             format(self, x))
 
     def updateSeqNoMap(self, committedTxns):
         self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
@@ -1851,7 +1884,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
+                    logger.error("Role if present must be {}".
+                                 format(Roles.STEWARD.name))
                     return
                 self.clientAuthNr.addIdr(identifier, verkey=v.verkey,
                                          role=role)
@@ -1861,7 +1895,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # from genesis transactions
         if not self.hasFile(self.config.domainTransactionsFile):
             defaultTxnFile = os.path.join(self.basedirpath,
-                                      self.config.domainTransactionsFile)
+                                          self.config.domainTransactionsFile)
             if os.path.isfile(defaultTxnFile):
                 shutil.copy(defaultTxnFile, self.dataLocation)
 
@@ -1976,7 +2010,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_STATE_WRONG)):
             logger.info('{} sending instance change since suspicion code {}'
                         .format(self, code))
-            self.sendInstanceChange(self.viewNo + 1)
+            self.sendInstanceChange(self.viewNo + 1, Suspicions.get_by_code(code))
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 
