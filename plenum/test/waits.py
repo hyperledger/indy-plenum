@@ -98,6 +98,10 @@ def expectedClientConnectionTimeout(fVal):
     return 3 * fVal
 
 
+def expectedClientToNodeMessageDeliveryTime(nodeCount):
+    return 1 * nodeCount
+
+
 def expectedClientRequestPropagationTime(nodeCount):
     return int(2.5 * nodeCount)
 

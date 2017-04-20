@@ -350,7 +350,7 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     numerOfNodes = len(nodeSet)
 
     # Wait until request received by all nodes
-    propTimeout = waits.expectedClientRequestPropagationTime(numerOfNodes)
+    propTimeout = waits.expectedClientToNodeMessageDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,
