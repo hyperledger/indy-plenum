@@ -2,7 +2,7 @@ from typing import Dict, Tuple, Union
 
 from plenum.common.types import Propagate
 from plenum.common.request import Request
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.util import checkIfMoreThanFSameItems
 
 logger = getlogger()
@@ -15,6 +15,9 @@ class ReqState:
     def __init__(self, request: Request):
         self.request = request
         self.forwarded = False
+        # forwardedTo helps in finding to how many replicas has this request
+        # been forwarded to, helps in garbage collection, see `gc` of `Replica`
+        self.forwardedTo = 0
         self.propagates = {}
         self.finalised = None
 
@@ -51,11 +54,12 @@ class Requests(Dict[Tuple[str, int], ReqState]):
         """
         return self[req.key].forwarded
 
-    def flagAsForwarded(self, req: Request):
+    def flagAsForwarded(self, req: Request, to: int):
         """
         Set the given request's forwarded attribute to True
         """
         self[req.key].forwarded = True
+        self[req.key].forwardedTo = to
 
     def addPropagate(self, req: Request, sender: str):
         """
@@ -129,7 +133,7 @@ class Propagator:
                 self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], clientName) -> Propagate:
+    def createPropagate(request: Union[Request, dict], identifier) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -140,9 +144,11 @@ class Propagator:
             logger.error("Request not formatted properly to create propagate")
             return
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
-        request = request.__getstate__() if isinstance(request, Request) else \
+        request = request.as_dict if isinstance(request, Request) else \
             request
-        return Propagate(request, clientName)
+        if isinstance(identifier, bytes):
+            identifier = identifier.decode()
+        return Propagate(request, identifier)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request) -> bool:
@@ -176,7 +182,7 @@ class Propagator:
         for repQueue in self.msgsToReplicas:
             repQueue.append(self.requests[key].finalised.reqDigest)
         self.monitor.requestUnOrdered(*key)
-        self.requests.flagAsForwarded(request)
+        self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
 
     # noinspection PyUnresolvedReferences
     def recordAndPropagate(self, request: Request, clientName):

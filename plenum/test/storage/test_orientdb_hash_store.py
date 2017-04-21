@@ -72,3 +72,4 @@ def testRecoverLedgerFromHashStore(odbhs, tdir):
     assert restartedLedger.root_hash == ledger.root_hash
     assert restartedLedger.tree.hashes == updatedTree.hashes
     assert restartedLedger.tree.root_hash == updatedTree.root_hash
+    restartedLedger.stop()

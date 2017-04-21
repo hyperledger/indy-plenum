@@ -2,11 +2,12 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import PrePrepare, f
 from plenum.common.util import adict
-from plenum.test.helper import checkViewNoForNodes, getPrimaryReplica, \
+from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
+from plenum.test.test_node import getPrimaryReplica
 from plenum.test.spy_helpers import getAllReturnVals
 
 nodeCount = 7
@@ -45,9 +46,12 @@ def setup(looper, startedNodes, up, wallet1, client1):
             return 65
 
     P.outBoxTestStasher.delay(by65SpecificPrePrepare)
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
-                                        numReqs=5, timeoutPerReq=80)
+    # TODO select or create a timeout for this case in 'waits'
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        numReqs=5,
+                                        customTimeoutPerReq=80)
 
     return adict(nodes=startedNodes)
 
@@ -58,5 +62,5 @@ def testInstChangeWithMoreReqLat(looper, setup):
         node.checkPerformance()
         assert any(getAllReturnVals(node.monitor,
                                     node.monitor.isMasterReqLatencyTooHigh))
-    looper.run(eventually(partial(checkViewNoForNodes, nodes, 1),
-                          retryWait=1, timeout=20))
+
+    waitForViewChange(looper, nodes)

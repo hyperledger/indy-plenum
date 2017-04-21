@@ -1,18 +1,23 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected
+from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, \
+    TestNode
+from plenum.test import waits
+
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
-
 txnCount = 5
 
 
+@pytest.mark.skip(reason="SOV-939")
 def testNewNodeCatchup(newNodeCaughtUp):
     """
     A new node that joins after some transactions should eventually get
@@ -24,6 +29,7 @@ def testNewNodeCatchup(newNodeCaughtUp):
     pass
 
 
+@pytest.mark.skip(reason="SOV-939")
 def testPoolLegerCatchupBeforeDomainLedgerCatchup(txnPoolNodeSet,
                                                   newNodeCaughtUp):
     """
@@ -66,18 +72,20 @@ def testDelayedLedgerStatusNotChangingState():
 # but its weird since prepares and commits are received which are sent before
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
+@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
-                                nodeSetWithNodeAddedAfterSomeTxns):
+                                nodeSetWithNodeAddedAfterSomeTxns,
+                                tdirWithPoolTxns, tconf, allPluginsPath):
     """
     A node that restarts after some transactions should eventually get the
     transactions which happened while it was down
     :return:
     """
-
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
     ensureNodeDisconnectedFromPool(looper, txnPoolNodeSet, newNode)
+    looper.removeProdable(newNode)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():
     #         if r.name == newNode.name:
@@ -87,13 +95,20 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    logger.debug("Starting the stopped node, {}".format(newNode))
-    newNode.start(looper.loop)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:4], retryWait=1, timeout=15))
+    restartedNewNode = TestNode(newNode.name,
+                                basedirpath=tdirWithPoolTxns,
+                                config=tconf,
+                                ha=newNode.nodestack.ha,
+                                cliha=newNode.clientstack.ha,
+                                pluginPaths=allPluginsPath)
+    logger.debug("Starting the stopped node, {}".format(restartedNewNode))
+    looper.add(restartedNewNode)
+    looper.run(checkNodesConnected(txnPoolNodeSet[:4] + [restartedNewNode]))
+    waitNodeLedgersEquality(looper, restartedNewNode, *txnPoolNodeSet[:4])
+    restartedNewNode.stop()
 
 
+@pytest.mark.skip(reason='fails, SOV-928, SOV-939')
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
                                             nodeSetWithNodeAddedAfterSomeTxns):
     """

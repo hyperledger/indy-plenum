@@ -5,7 +5,7 @@ import pytest
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
 from plenum.common.util import adict
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 from plenum.test.test_node import TestNodeSet
 

@@ -11,7 +11,7 @@ from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
 from plenum.common.util import updateNamedTuple
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica
@@ -27,11 +27,13 @@ def makeNodeFaulty(node, *behaviors):
 
 def changesRequest(node):
     def evilCreatePropagate(self,
-                            request: Request, clientName: str) -> Propagate:
+                            request: Request, identifier: str) -> Propagate:
         logger.debug("EVIL: Creating propagate request for client request {}".
                      format(request))
         request.operation["amount"] += random.random()
-        return Propagate(request.__getstate__(), clientName)
+        if isinstance(identifier, bytes):
+            identifier = identifier.decode()
+        return Propagate(request.__getstate__(), identifier)
 
     evilMethod = types.MethodType(evilCreatePropagate, node)
     node.createPropagate = evilMethod

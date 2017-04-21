@@ -1,6 +1,6 @@
 from collections import deque
 
-from plenum.common.util import MessageProcessor
+from plenum.common.message_processor import MessageProcessor
 from plenum.server.has_action_queue import HasActionQueue
 
 

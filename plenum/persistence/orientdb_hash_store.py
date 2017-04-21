@@ -2,7 +2,7 @@ from base64 import b64encode, b64decode
 
 from ledger.stores.hash_store import HashStore
 from ledger.util import F
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.persistence.orientdb_store import OrientDbStore
 
 
@@ -122,6 +122,9 @@ class OrientDbHashStore(HashStore):
     def classesNeeded(self):
         return [(self.leafHashClass, self.createLeafHashClass),
                 (self.nodeHashClass, self.createNodeHashClass)]
+
+    def close(self):
+        self.store.close()
 
     def reset(self) -> bool:
         def trunc(clazz):

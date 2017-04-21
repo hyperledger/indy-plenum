@@ -1,9 +1,8 @@
 import time
 from collections import deque
-from functools import partial
 from typing import Callable
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 

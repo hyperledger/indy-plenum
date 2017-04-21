@@ -1,10 +1,9 @@
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
-    checkSufficientRepliesForRequests, checkLedgerEquality, getPrimaryReplica, \
-    checkAllLedgersEqual
-from plenum.test.test_node import getNonPrimaryReplicas
+    waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 nodeCount = 7
 
@@ -44,7 +43,6 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     delayedPpSeqNos = set()
 
     requestCount = 15
-    requests = sendRandomRequests(wallet1, client1, requestCount)
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5
@@ -63,14 +61,18 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    checkSufficientRepliesForRequests(looper, client1, requests)
+    requests = sendRandomRequests(wallet1, client1, requestCount)
+    waitForSufficientRepliesForRequests(looper, client1, requests=requests)
 
     def ensureSlowNodesHaveAllTxns():
         nonlocal node1, node2
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    looper.run(eventually(ensureSlowNodesHaveAllTxns, retryWait=1, timeout=15))
+    from plenum.test import waits
+    timeout = waits.expectedCatchupTime(len(nodeSet))
+    looper.run(eventually(ensureSlowNodesHaveAllTxns,
+                          retryWait=1, timeout=timeout))
 
     checkAllLedgersEqual((n.domainLedger for n in (node0, node3, node4,
                                                    node5, node6)))

@@ -2,14 +2,16 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Commit
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.CM_DIGEST_WRONG.reason,
              'cannot process incoming COMMIT']
@@ -48,4 +50,6 @@ def testCommitDigest(setup, looper, sent1):
                                           Suspicions.CM_DIGEST_WRONG.code)
                 assert len(susps) == 1
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

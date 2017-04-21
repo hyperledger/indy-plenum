@@ -1,9 +1,7 @@
 import types
 
-from plenum.common.eventually import eventually
-from plenum.common.util import getMaxFailures
 from plenum.test.cli.helper import checkRequest
-from plenum.test.helper import checkSufficientRepliesRecvd
+from plenum.test.helper import waitForSufficientRepliesForRequests
 
 
 def testLogFiltering(cli, validNodeNames, createAllNodes):
@@ -19,11 +17,9 @@ def testLogFiltering(cli, validNodeNames, createAllNodes):
     client.nodestack.msgHandler = client.handleOneNodeMsg
     msg = '{"Hello": "Where", "type": "greeting"}'
     cli.enterCmd('client {} send {}'.format(client.name, msg))
-    cli.looper.run(eventually(
-        checkSufficientRepliesRecvd,
-        client.inBox,
-        wallet._getIdData().lastReqId,
-        getMaxFailures(len(cli.nodes)),
-        retryWait=2,
-        timeout=10))
+
+    lastRequestId = wallet._getIdData().lastReqId
+    waitForSufficientRepliesForRequests(cli.looper,client,
+                                        requestIds=[lastRequestId])
+
     assert "got msg from node" not in cli.lastCmdOutput

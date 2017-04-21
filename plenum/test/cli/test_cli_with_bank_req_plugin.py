@@ -1,12 +1,9 @@
-from functools import partial
-
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.test.cli.helper import checkReply, \
-    checkSuccess, checkBalance, assertNoClient, loadPlugin, \
+from plenum.test.cli.helper import \
+    waitRequestSuccess, waitBalanceChange, \
+    assertNoClient, loadPlugin, \
     createClientAndConnect
-
 
 @pytest.fixture("module")
 def loadBankReqPlugin(cli):
@@ -24,63 +21,51 @@ def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     assertNoClient(cli)
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
+# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
-    nodeCount = len(validNodeNames)
+    numOfNodes = len(validNodeNames)
+
     createClientAndConnect(cli, validNodeNames, "Alice")
     createClientAndConnect(cli, validNodeNames, "Bob")
+
     cli.enterCmd("client Alice credit 500 to Bob")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 1,
-                              checkSuccess, retryWait=1, timeout=5))
+    waitRequestSuccess(cli, numOfNodes)
+
     cli.enterCmd("client Alice balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 2,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, len(validNodeNames),
-                              partial(checkBalance, 500), retryWait=1,
-                              timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 2)
+    waitBalanceChange(cli, numOfNodes, 500)
+
     cli.enterCmd("client Bob balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 3,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 1500), retryWait=1,
-                              timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 3)
+    waitBalanceChange(cli, numOfNodes, 1500)
+
     cli.enterCmd("client Bob credit 10 to Alice")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 4,
-                              checkSuccess, retryWait=1, timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 4)
+
     cli.enterCmd("client Bob balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 5,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 1490), retryWait=1,
-                              timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 5)
+    waitBalanceChange(cli, numOfNodes, 1490)
+
     cli.enterCmd("client Bob credit 100 to Alice")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 6,
-                              checkSuccess, retryWait=1, timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 6)
+
     cli.enterCmd("client Alice balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 7,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 610), retryWait=1,
-                              timeout=10))
+    waitRequestSuccess(cli, numOfNodes * 7)
+    waitBalanceChange(cli, numOfNodes, 610)
+
     cli.enterCmd("client Bob balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 8,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 1390), retryWait=1,
-                              timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 8)
+    waitBalanceChange(cli, numOfNodes, 1390)
+
     createClientAndConnect(cli, validNodeNames, "Carol")
+
     cli.enterCmd("client Carol credit 50 to Bob")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 9,
-                              checkSuccess, retryWait=1, timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 9)
+
     cli.enterCmd("client Bob balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 10,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 1440), retryWait=1,
-                              timeout=10))
+    waitRequestSuccess(cli, numOfNodes * 10)
+    waitBalanceChange(cli, numOfNodes, 1440)
+
     cli.enterCmd("client Carol balance")
-    cli.looper.run(eventually(checkReply, cli, nodeCount * 11,
-                              checkSuccess, retryWait=1, timeout=5))
-    cli.looper.run(eventually(checkReply, cli, nodeCount,
-                              partial(checkBalance, 950), retryWait=1,
-                              timeout=5))
+    waitRequestSuccess(cli, numOfNodes * 11)
+    waitBalanceChange(cli, numOfNodes, 950)

@@ -7,7 +7,7 @@ from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
 from typing import Dict
 
 from plenum.common.util import objSearchReplace
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -35,7 +35,9 @@ class SpyLog(list):
                     "spylog entry for method {} not found".format(method))
         return entry
 
-    def getAll(self, method: str) -> List[Entry]:
+    def getAll(self, method: SpyableMethod) -> List[Entry]:
+        if callable(method):
+            method = method.__name__
         return list(reversed([x for x in self if x.method == method]))
 
     def getLastParam(self, method: str, paramIndex: int = 0) -> Any:
@@ -45,7 +47,9 @@ class SpyLog(list):
         last = self.getLast(method, required)
         return last.params if last is not None else None
 
-    def count(self, method: str) -> int:
+    def count(self, method: SpyableMethod) -> int:
+        if callable(method):
+            method = method.__name__
         return sum(1 for x in self if x.method == method)
 
 

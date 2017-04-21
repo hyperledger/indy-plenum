@@ -5,7 +5,7 @@ from typing import Optional
 
 from plenum.common.constants import TXN_ID
 from plenum.common.types import Reply, f
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.persistence.storage import Storage
 
 logger = getlogger()

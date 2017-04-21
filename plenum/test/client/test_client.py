@@ -1,18 +1,20 @@
 import pytest
-from plenum.common.crypto import Signer
+from plenum.common.keygen_utils import initRemoteKeys
+
+from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import EmptySignature
 from plenum.common.exceptions import NotConnectedToAny
-from plenum.test.helper import *
-from plenum.test.helper import checkResponseCorrectnessFromNodes
-from plenum.test.helper import randomOperation, \
-    checkLastClientReqForNode, \
-    getRepliesFromClientInbox
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
-    assertLength
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from stp_core.common.log import getlogger
+from plenum.common.constants import OP_FIELD_NAME, REPLY, REQACK, TXN_ID
+from plenum.common.types import f
+from plenum.server.node import Node
+from plenum.test import waits
+from plenum.test.helper import checkResponseCorrectnessFromNodes, getMaxFailures, \
+    randomOperation, checkLastClientReqForNode, getRepliesFromClientInbox, \
+    sendRandomRequest, waitForSufficientRepliesForRequests, assertLength,  \
+    sendReqsToNodesAndVerifySuffReplies
+
 from plenum.test.test_client import genTestClient
-from plenum.test.test_node import TestNodeSet
-from raet.raeting import AutoMode
 
 nodeCount = 7
 
@@ -21,7 +23,13 @@ F = getMaxFailures(nodeCount)
 whitelist = ['signer not configured so not signing',
              'for EmptySignature',
              'discarding message',
-             'found legacy entry']  # warnings
+             'found legacy entry',
+             'public key from disk',
+             'verification key from disk',
+             'got error while verifying message']  # warnings
+
+
+logger = getlogger()
 
 
 def checkResponseRecvdFromNodes(client, expectedCount: int,
@@ -47,47 +55,22 @@ def checkResponseRecvdFromNodes(client, expectedCount: int,
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-550. Implementation changed")
-def testGeneratedRequestSequencing(tdir_for_func):
-    """
-    Request ids must be generated in an increasing order
-    """
-    with TestNodeSet(count=4, tmpdir=tdir_for_func) as nodeSet:
-        w = Wallet("test")
-        w.addIdentifier()
-
-        operation = randomOperation()
-
-        request = w.signOp(operation)
-        assert request.reqId == 1
-
-        request = w.signOp(operation)
-        assert request.reqId == 2
-
-        request = w.signOp(randomOperation())
-        assert request.reqId == 3
-
-        idr, _ = w.addIdentifier()
-
-        request = w.signOp(randomOperation(), idr)
-        assert request.reqId == 1
-
-        request = w.signOp(randomOperation())
-        assert request.reqId == 4
-
-
-# noinspection PyIncorrectDocstring
 def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
     Client should not be able to connect to nodes in the node's nodestack
     """
 
     async def go(ctx):
-        for n in ctx.nodeset:
-            n.nodestack.keep.auto = AutoMode.never
+        # for n in ctx.nodeset:
+        #     n.nodestack.keep.auto = AutoMode.never
 
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
+        for node in ctx.nodeset:
+            stack = node.nodestack
+            args = (client1.name, stack.name, ctx.tmpdir, stack.verhex, True)
+            initRemoteKeys(*args)
+
         ctx.looper.add(client1)
         with pytest.raises(NotConnectedToAny):
             await client1.ensureConnectedToNodes()
@@ -114,24 +97,26 @@ def testSendRequestWithoutSignatureFails(pool):
         request = wallet.signOp(op=randomOperation())
         request.signature = None
         request = client1.submitReqs(request)[0]
+        timeout = waits.expectedClientRequestPropagationTime(nodeCount)
+
         with pytest.raises(AssertionError):
             for node in ctx.nodeset:
                 await eventually(
                         checkLastClientReqForNode, node, request,
-                        retryWait=1, timeout=10)
+                        retryWait=1, timeout=timeout)
 
         for n in ctx.nodeset:
             params = n.spylog.getLastParams(Node.handleInvalidClientMsg)
             ex = params['ex']
-            _, frm = params['wrappedMsg']
+            msg, _ = params['wrappedMsg']
             assert isinstance(ex, EmptySignature)
-            assert frm == client1.stackName
+            assert msg.get(f.IDENTIFIER.nm) == request.identifier
 
             params = n.spylog.getLastParams(Node.discard)
             reason = params["reason"]
             (msg, frm) = params["msg"]
-            assert msg == request.__dict__
-            assert frm == client1.stackName
+            assert msg == request.as_dict
+            assert msg.get(f.IDENTIFIER.nm) == request.identifier
             assert "EmptySignature" in reason
 
     pool.run(go)
@@ -173,10 +158,11 @@ def testReplyWhenRepliesFromAllNodesAreSame(looper, client1, wallet1):
     nodes.
     """
     request = sendRandomRequest(wallet1, client1)
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
                        nodeCount, request.reqId,
-                       retryWait=1, timeout=20))
+                       retryWait=1, timeout=responseTimeout))
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
 
@@ -192,10 +178,11 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # exactly f + 1 => (3) nodes have correct responses
     # modify some (numOfResponses of type REPLY - (f + 1)) => 4 responses to
     # have a different operations
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
     looper.run(
             eventually(checkResponseRecvdFromNodes, client1,
                        nodeCount, request.reqId,
-                       retryWait=1, timeout=20))
+                       retryWait=1, timeout=responseTimeout))
 
     replies = (msg for msg, frm in client1.inBox
                if msg[OP_FIELD_NAME] == REPLY and
@@ -216,13 +203,9 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
     will be sent again to the client. An acknowledgement will not be sent
     for a repeated request.
     """
-    # Since view no is always zero in the current setup
-    looper.run(eventually(checkSufficientRepliesRecvd,
-                          client1.inBox,
-                          sent1.reqId,
-                          2,
-                          retryWait=.5,
-                          timeout=5))
+    waitForSufficientRepliesForRequests(looper, client1,
+                                        requests=[sent1], fVal=2)
+
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
     client1.nodestack._enqueueIntoAllRemotes(sent1, None)
@@ -235,10 +218,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
                        response[0].get(f.REQ_ID.nm) == sent1.reqId)],
                      originalRequestResponsesLen + duplicateRequestRepliesLen)
 
-    looper.run(eventually(
-            chk,
-            retryWait=1,
-            timeout=20))
+    responseTimeout = waits.expectedTransactionExecutionTime(nodeCount)
+    looper.run(eventually( chk, retryWait=1, timeout=responseTimeout))
 
 
 # noinspection PyIncorrectDocstring
@@ -270,7 +251,6 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
         clients.add(client)
 
     for i in range(1, numOfRequests + 1):
-
         # sending requests
         requests = {}
         for client in clients:
@@ -281,21 +261,31 @@ def testReplyMatchesRequest(looper, nodeSet, tdir, up):
             requests[client] = (request.reqId, request.operation['amount'])
 
         # checking results
+        responseTimeout =waits.expectedTransactionExecutionTime(nodeCount)
         for client, (reqId, sentAmount) in requests.items():
             looper.run(eventually(checkResponseRecvdFromNodes,
                                   client,
                                   nodeCount,
                                   reqId,
                                   retryWait=1,
-                                  timeout=25))
+                                  timeout=responseTimeout))
 
             print("Expected amount for request {} is {}".
                   format(reqId, sentAmount))
 
-            replies = [r[0]['result']['amount']
-                       for r in client.inBox
-                       if r[0]['op'] == 'REPLY'
-                       and r[0]['result']['reqId'] == reqId]
+            # This looks like it fails on some python versions
+            # replies = [r[0]['result']['amount']
+            #            for r in client.inBox
+            #            if r[0]['op'] == 'REPLY'
+            #            and r[0]['result']['reqId'] == reqId]
+
+            replies = []
+            for r in client.inBox:
+                if r[0]['op'] == 'REPLY' and r[0]['result']['reqId'] == reqId:
+                    if 'amount' not in r[0]['result']:
+                        logger.debug('{} cannot find amount in {}'.
+                                     format(client, r[0]['result']))
+                    replies.append(r[0]['result']['amount'])
 
             assert all(replies[0] == r for r in replies)
             assert replies[0] == sentAmount
@@ -311,34 +301,3 @@ def testReplyReceivedOnlyByClientWhoSentRequest(looper, nodeSet, tdir,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, newClient, 1)
     assert len(client1.inBox) == client1InboxSize
     assert len(newClient.inBox) > newClientInboxSize
-
-
-def testClientCanSendMessagesIfAnotherClientSendsMessage(looper, nodeSet,
-                                                         tdir, another_tdir,
-                                                         wallet1):
-    assert tdir != another_tdir
-    client1 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               tdir, wallet1, 'TestClient1')
-    client2 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               another_tdir, wallet1,
-                                               'TestClient1')
-    clientSendMessageAndRemove(client1, looper, wallet1)
-
-
-def testClientCanSendMessagesIfInitWithSighex(looper, nodeSet,
-                                                         tdir, another_tdir,
-                                                         wallet1):
-    assert tdir != another_tdir
-    signer1 = Signer()
-    sighex1 = signer1.keyhex
-    client1 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               tdir, wallet1,
-                                               'TestClient1', sighex=sighex1)
-
-    signer2 = Signer()
-    sighex2 = signer2.keyhex
-    assert sighex2 != sighex1
-    client2 = createClientSendMessageAndRemove(looper, nodeSet,
-                                               another_tdir, wallet1,
-                                               'TestClient1', sighex=sighex2)
-    clientSendMessageAndRemove(client1, looper, wallet1)

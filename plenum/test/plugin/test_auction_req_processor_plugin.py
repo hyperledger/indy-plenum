@@ -2,9 +2,9 @@ from uuid import uuid4
 
 import pytest
 
-from plenum.common.eventually import eventually
 from plenum.common.constants import TXN_TYPE, DATA, TARGET_NYM
-from plenum.test.helper import setupClients, checkSufficientRepliesRecvd
+from plenum.test.helper import setupClients, \
+    waitForSufficientRepliesForRequests
 from plenum.test.plugin.auction_req_processor.plugin_auction_req_processor import \
     AUCTION_START, ID, AUCTION_END, GET_BAL, BALANCE, PLACE_BID, AMOUNT
 from plenum.test.plugin.conftest import AUCTION_REQ_VALIDATION_PLUGIN_PATH_VALUE, \
@@ -61,9 +61,8 @@ class AuctionApp(App):
                 ID: aucId
             }
         })
-        self.looper.run(eventually(checkSufficientRepliesRecvd,
-                                   self.client.inBox, req.reqId,
-                                   1, retryWait=1, timeout=10))
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
         return req
 
     def getBalance(self) -> int:
@@ -71,9 +70,8 @@ class AuctionApp(App):
             TXN_TYPE: GET_BAL,
             TARGET_NYM: self.wallet.defaultId
         })
-        self.looper.run(eventually(checkSufficientRepliesRecvd,
-                                   self.client.inBox, req.reqId,
-                                   1, retryWait=1, timeout=10))
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
         return self.client.hasConsensus(*req.key)[BALANCE]
 
     def bid(self, aucId, amount):
@@ -84,9 +82,8 @@ class AuctionApp(App):
                 AMOUNT: amount
             }
         })
-        self.looper.run(eventually(checkSufficientRepliesRecvd,
-                                   self.client.inBox, req.reqId,
-                                   1, retryWait=1, timeout=10))
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
         return req
 
 

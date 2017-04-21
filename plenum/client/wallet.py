@@ -6,9 +6,9 @@ from libnacl import crypto_secretbox_open, randombytes, \
 
 from plenum.common.did_method import DidMethods, DefaultDidMethods
 from plenum.common.exceptions import EmptyIdentifier
-from plenum.common.log import getlogger
-from plenum.common.signer import Signer
-from plenum.common.types import Identifier
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.types import Identifier
 from plenum.common.request import Request
 from plenum.common.util import getTimeBasedId
 
@@ -27,7 +27,7 @@ class EncryptedWallet:
 Alias = str
 
 
-IdData = HA = NamedTuple("IdData", [
+IdData = NamedTuple("IdData", [
     ("signer", Signer),
     ("lastReqId", int)])
 
@@ -73,9 +73,6 @@ class Wallet:
         raw = crypto_secretbox(byts, nonce, key)
         return EncryptedWallet(raw, nonce)
 
-    # def addIdentifier(self, didMethodName=None):
-    #     return self.addSigner(didMethodName).identifier
-    #
     def addIdentifier(self,
                       identifier=None,
                       seed=None,
@@ -89,6 +86,7 @@ class Wallet:
         :param identifier: signer identifier or None to use random one
         :param seed: signer key seed or None to use random one
         :param signer: signer to add
+        :param alias: a friendly readable name for the signer
         :param didMethodName: name of DID Method if not the default
         :return:
         """
@@ -190,8 +188,9 @@ class Wallet:
         idData = self._getIdData(idr)
         req.identifier = idr
         req.reqId = getTimeBasedId()
+        req.digest = req.getDigest()
         self.ids[idr] = IdData(idData.signer, req.reqId)
-        req.signature = self.signMsg(msg=req.getSigningState(),
+        req.signature = self.signMsg(msg=req.signingState,
                                      identifier=idr,
                                      otherIdentifier=req.identifier)
 
@@ -210,9 +209,6 @@ class Wallet:
         """
         request = Request(operation=op)
         return self.signRequest(request, identifier)
-
-    # Removed:
-    # _getIdData - removed in favor of passing RequestIdStore
 
     def _signerById(self, idr: Identifier):
         signer = self.idsToSigners.get(idr)

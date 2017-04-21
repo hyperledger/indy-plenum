@@ -1,17 +1,18 @@
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.port_dispenser import genHa
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality, \
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import changeNodeHa, \
     buildPoolClientAndWallet
 from plenum.test.test_node import TestNode, checkNodesConnected
+from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
 
 
 whitelist = ['found legacy entry', "doesn't match", "reconciling nodeReg",
-             "missing", "conflicts", "matches", "nodeReg", "conflicting address"]
+             "missing", "conflicts", "matches", "nodeReg",
+             "conflicting address", "got error while verifying message"]
 
 
 def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
@@ -25,7 +26,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
 
     # Making the change HA txn an confirming its succeeded
     changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                 nodeHa=nodeNewHa, clientHa=clientNewHa)
+                nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:
@@ -49,8 +50,7 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
     restartedNodes.append(node)
 
     looper.run(checkNodesConnected(restartedNodes))
-    looper.run(eventually(checkNodeLedgersForEquality, node,
-                          *restartedNodes[:-1], retryWait=1, timeout=10))
+    waitNodeLedgersEquality(looper, node, *restartedNodes[:-1])
 
     # Building a new client that reads from the genesis txn file
     # but is able to connect to all nodes
