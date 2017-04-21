@@ -61,8 +61,7 @@ class TestNetworkSetup:
 
         baseDir = cls.setup_base_dir(config)
 
-        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
-                                          domainTxnFieldOrder)
+        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config, envName)
 
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
