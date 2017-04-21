@@ -19,4 +19,4 @@ def testBootstrapTestNode(tconf):
         domainTxnFieldOrder=getTxnOrderedFields(),
         trustee_def=trustee_def, steward_defs=steward_defs,
         node_defs=node_defs, client_defs=client_defs, localNodes=1,
-        nodeParamsFile=nodeParamsFile)
+        nodeParamsFileName=nodeParamsFile)
