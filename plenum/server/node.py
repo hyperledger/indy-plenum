@@ -617,9 +617,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the number of items to be serviced in this attempt
         :return: total number of messages serviced by this node
         """
-        if self.isGoing():
-            self.nodestack.serviceLifecycle()
-            self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceReplicas(limit)
@@ -630,6 +627,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
+        if self.isGoing():
+            self.nodestack.serviceLifecycle()
+            self.clientstack.serviceClientStack()
         return c
 
     async def serviceReplicas(self, limit) -> int:

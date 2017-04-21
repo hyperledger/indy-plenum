@@ -584,6 +584,11 @@ class LedgerManager(HasActionQueue):
         # Consider an f value when this node was not connected
         adjustedF = getMaxFailures(self.owner.totalNodes - 1)
         if len(recvdConsProof) == (adjustedF+1):
+            # At least once correct node believes that this node is behind.
+
+            # Start timer that will expire in some time and if till that time
+            # enough CPs are not received, then explicitly request CPs
+            # from other nodes, see `checkIfCPsNeeded`
             self.consistencyProofsTimers[ledgerId] = time.perf_counter()
             self._schedule(partial(self.checkIfCPsNeeded, ledgerId),
                            self.config.ConsistencyProofsTimeout * (

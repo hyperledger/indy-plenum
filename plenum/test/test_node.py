@@ -530,7 +530,7 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
         except Exception as ex:
             logger.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
-            raise RuntimeError(
+            raise Exception(
                     "Error with {} checking remote {} in {}".format(node.name,
                                                                     remote.name,
                                                                     states
@@ -767,8 +767,9 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 
 
 def get_master_primary_node(nodes):
-    if nodes[0].replicas[0].primaryName is not None:
-        nm = TestReplica.getNodeName(nodes[0].replicas[0].primaryName)
+    node = next(iter(nodes))
+    if node.replicas[0].primaryName is not None:
+        nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
 
 
