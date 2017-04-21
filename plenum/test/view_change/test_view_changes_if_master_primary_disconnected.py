@@ -1,19 +1,21 @@
-from plenum.test.test_node import ensureElectionsDone
+from plenum.test.test_node import ensureElectionsDone, \
+    primaryNodeNameForInstance, nodeByName
 from stp_core.loop.eventually import eventually
-from plenum.test.conftest import txnPoolNodeSet, txnPoolNodesLooper
-from plenum.test.helper import stopNodes, checkViewNoForNodes, nodeByName, \
-    primaryNodeNameForInstance
+from plenum.test.pool_transactions.conftest import clientAndWallet1, \
+    client1, wallet1, client1Connected, looper
+from plenum.test.helper import stopNodes, checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies
 
 
-def testViewChangesIfMasterPrimaryDisconnected(pool_with_election_done,
-                                               txnPoolNodesLooper):
+def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
+                                               looper, wallet1, client1,
+                                               client1Connected):
     """
     View change occurs when master's primary is disconnected
     """
 
     # Setup
-    nodes = pool_with_election_done
-    looper = txnPoolNodesLooper
+    nodes = txnPoolNodeSet
 
     viewNoBefore = checkViewNoForNodes(nodes)
     primaryNodeForMasterInstanceBefore = nodeByName(
@@ -34,3 +36,4 @@ def testViewChangesIfMasterPrimaryDisconnected(pool_with_election_done,
                primaryNodeForMasterInstanceAfter
 
     looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=30))
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)

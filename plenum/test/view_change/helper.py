@@ -4,7 +4,7 @@ from stp_core.common.log import getlogger
 logger = getlogger()
 
 
-def chkViewChange(nodes, newViewNo, wallet, client):
+def chk_view_change(nodes, newViewNo, wallet, client):
     # verify all nodes have undergone an instance change
     if {n.viewNo for n in nodes} != {newViewNo}:
         tr = []

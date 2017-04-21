@@ -8,7 +8,6 @@ from functools import partial
 from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
-import json
 
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.server.domain_req_handler import DomainRequestHandler
@@ -226,7 +225,8 @@ class TestNodeCore(StackedTester):
                   Node.sendInstanceChange,
                   Node.processInstanceChange,
                   Node.checkPerformance,
-                  Node.processStashedOrderedReqs
+                  Node.processStashedOrderedReqs,
+                  Node.lost_master_primary
                   ])
 class TestNode(TestNodeCore, Node):
 
@@ -255,6 +255,9 @@ class TestNode(TestNodeCore, Node):
                                  postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
 
+@spyable(methods=[
+        PrimaryElector.discard
+    ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -760,3 +763,23 @@ def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
         Sequence[TestReplica]:
     return [node.replicas[instId] for node in nodes]
+
+
+def get_master_primary_node(nodes):
+    if nodes[0].replicas[0].primaryName is not None:
+        nm = TestReplica.getNodeName(nodes[0].replicas[0].primaryName)
+        return nodeByName(nodes, nm)
+
+
+def primaryNodeNameForInstance(nodes, instanceId):
+    primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
+    assert 1 == len(primaryNames)
+    primaryReplicaName = next(iter(primaryNames))
+    return primaryReplicaName[:-2]
+
+
+def nodeByName(nodes, name):
+    for node in nodes:
+        if node.name == name:
+            return node
+    raise Exception("Node with the name '{}' has not been found.".format(name))

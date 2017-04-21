@@ -8,34 +8,32 @@ from itertools import permutations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-
-from psutil import Popen
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
+from psutil import Popen
+
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from stp_core.common.log import getlogger
-from stp_core.loop.looper import Looper
+from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME
 from plenum.common.request import Request
-from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, REJECT, OP_FIELD_NAME
 from plenum.common.types import Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.config import poolTransactionsFile, domainTransactionsFile
-from stp_core.loop.eventually import eventuallyAll, eventually
-
-from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
     getAllReturnVals
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkPoolReady, checkNodesConnected, ensureElectionsDone, NodeRef
-from plenum.test import waits
-
+    checkNodesConnected, ensureElectionsDone, NodeRef
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventuallyAll, eventually
+from stp_core.loop.looper import Looper
+from stp_core.network.util import checkPortAvailable
 
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
@@ -629,17 +627,3 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
-
-
-def primaryNodeNameForInstance(nodes, instanceId):
-    primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
-    assert 1 == len(primaryNames)
-    primaryReplicaName = next(iter(primaryNames))
-    return primaryReplicaName[:-2]
-
-
-def nodeByName(nodes, name):
-    for node in nodes:
-        if node.name == name:
-            return node
-    raise Exception("Node with the name '{}' has not been found.".format(name))

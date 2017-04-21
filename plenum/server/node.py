@@ -46,9 +46,7 @@ from plenum.common.types import Propagate, \
     Reply, Nomination, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, HA, \
-    LedgerStatus, ConsistencyProof, \
-    CatchupReq, CatchupRep, \
+    RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
     Reject
@@ -1720,7 +1718,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              'from primary for too long'.format(self))
                 self.do_view_change_if_possible(view_no)
 
-        logger.debug('{} scheduling a view change in {}'.
+        logger.debug('{} scheduling a view change in {} sec'.
                      format(self, self.config.ToleratePrimaryDisconnection))
         self._schedule(_trigger_view_change,
                        self.config.ToleratePrimaryDisconnection)

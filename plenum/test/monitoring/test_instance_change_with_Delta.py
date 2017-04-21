@@ -9,7 +9,7 @@ from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
-from plenum.test.view_change.helper import chkViewChange
+from plenum.test.view_change.helper import chk_view_change
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -114,6 +114,6 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     timeout = waits.expectedViewChangeTime(len(step3.nodes))
-    looper.run(eventually(chkViewChange, step3.nodes, 1, wallet1, client1,
+    looper.run(eventually(chk_view_change, step3.nodes, 1, wallet1, client1,
                           retryWait=1, timeout=timeout))
 

@@ -214,15 +214,8 @@ class PrimaryElector(PrimaryDecider):
                          .format(self))
             return
 
-        undecideds = [i for i, r in enumerate(self.replicas)
-                      if r.isPrimary is None]
-        if 0 in undecideds and self.was_master_primary_in_prev_view:
-            logger.debug('{} was primary for master in previous view, '
-                         'so will not nominate master replica'.format(self))
-            undecideds.remove(0)
-
-        if undecideds:
-            chosen = random.choice(undecideds)
+        undecideds, chosen = self._get_undecided_inst_id()
+        if chosen is not None:
             logger.debug("{} does not have a primary, "
                          "replicas {} are undecided, "
                          "choosing {} to nominate".
@@ -253,6 +246,18 @@ class PrimaryElector(PrimaryDecider):
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
 
+    def _get_undecided_inst_id(self):
+        undecideds = [i for i, r in enumerate(self.replicas)
+                      if r.isPrimary is None]
+        if 0 in undecideds and self.was_master_primary_in_prev_view:
+            logger.debug('{} was primary for master in previous view, '
+                         'so will not nominate master replica'.format(self))
+            undecideds.remove(0)
+
+        if undecideds:
+            return undecideds, random.choice(undecideds)
+        return None, None
+
     # noinspection PyAttributeOutsideInit
     def setElectionDefaults(self, instId):
         """
@@ -274,15 +279,14 @@ class PrimaryElector(PrimaryDecider):
         logger.debug("{}'s elector started processing nominate msg: {}".
                      format(self.name, nom))
         instId = nom.instId
-
-        if instId == 0 and nom.name == self.previous_master_primary:
+        replica = self.replicas[instId]
+        if instId == 0 and replica.getNodeName(nom.name) == self.previous_master_primary:
             self.discard(nom, '{} got Nomination from {} for {} who was primary'
                               ' of master in previous view too'.
                          format(self, sender, nom.name),
                          logMethod=logger.warning)
             return
 
-        replica = self.replicas[instId]
         sndrRep = replica.generateName(sender, nom.instId)
 
         if not self.didReplicaNominate(instId):
@@ -329,14 +333,14 @@ class PrimaryElector(PrimaryDecider):
         logger.debug("{}'s elector started processing primary msg from {} : {}"
                      .format(self.name, sender, prim))
         instId = prim.instId
-        if instId == 0 and prim.name == self.previous_master_primary:
+        replica = self.replicas[instId]
+        if instId == 0 and replica.getNodeName(prim.name) == self.previous_master_primary:
             self.discard(prim, '{} got Primary from {} for {} who was primary'
                               ' of master in previous view too'.
                          format(self, sender, prim.name),
                          logMethod=logger.warning)
             return
 
-        replica = self.replicas[instId]
         sndrRep = replica.generateName(sender, prim.instId)
 
         # Nodes should not be able to declare `Primary` winner more than more

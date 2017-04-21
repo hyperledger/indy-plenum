@@ -1,7 +1,7 @@
 from stp_core.loop.eventually import eventually
 from plenum.test.conftest import txnPoolNodeSet, txnPoolNodesLooper
-from plenum.test.helper import stopNodes, nodeByName, \
-    primaryNodeNameForInstance, checkViewNoForNodes
+from plenum.test.helper import stopNodes, checkViewNoForNodes
+from plenum.test.test_node import primaryNodeNameForInstance, nodeByName
 
 
 def testViewNotChangedIfBackupPrimaryDisconnected(txnPoolNodeSet,
@@ -26,8 +26,6 @@ def testViewNotChangedIfBackupPrimaryDisconnected(txnPoolNodeSet,
 
     def assertNewPrimariesElected():
         viewNoAfter = checkViewNoForNodes(remainingNodes)
-        primaryNodeForBackupInstance1After = nodeByName(
-            nodes, primaryNodeNameForInstance(remainingNodes, 1))
         assert viewNoBefore == viewNoAfter
 
     looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=30))
