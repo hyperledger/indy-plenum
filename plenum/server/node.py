@@ -1698,6 +1698,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
             self.viewNo < proposedViewNo
 
+    def propose_view_change(self):
+        # Sends instance change message when primary has been
+        # disconnected for long enough
+        if self.lost_primary_at and \
+                                time.perf_counter() - self.lost_primary_at \
+                        >= self.config.ToleratePrimaryDisconnection:
+            view_no = self.viewNo + 1
+            self.sendInstanceChange(view_no,
+                                    Suspicions.PRIMARY_DISCONNECTED)
+            logger.debug('{} sent view change since was disconnected '
+                         'from primary for too long'.format(self))
+            self.do_view_change_if_possible(view_no)
+
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
         """
@@ -1707,20 +1720,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.lost_primary_at = time.perf_counter()
 
-        def _trigger_view_change():
-            if self.lost_primary_at and \
-                                    time.perf_counter() - self.lost_primary_at \
-                            >= self.config.ToleratePrimaryDisconnection:
-                view_no = self.viewNo+1
-                self.sendInstanceChange(view_no,
-                                        Suspicions.PRIMARY_DISCONNECTED)
-                logger.debug('{} sent view change since was disconnected '
-                             'from primary for too long'.format(self))
-                self.do_view_change_if_possible(view_no)
+        self.propose_view_change()
 
         logger.debug('{} scheduling a view change in {} sec'.
                      format(self, self.config.ToleratePrimaryDisconnection))
-        self._schedule(_trigger_view_change,
+        self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
     # TODO: consider moving this to pool manager

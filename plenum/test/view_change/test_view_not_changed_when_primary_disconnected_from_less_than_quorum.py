@@ -7,7 +7,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
-from plenum.test.helper import stopNodes, checkViewNoForNodes, \
+from plenum.test.helper import checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies
 
 

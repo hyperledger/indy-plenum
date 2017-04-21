@@ -226,7 +226,8 @@ class TestNodeCore(StackedTester):
                   Node.processInstanceChange,
                   Node.checkPerformance,
                   Node.processStashedOrderedReqs,
-                  Node.lost_master_primary
+                  Node.lost_master_primary,
+                  Node.propose_view_change
                   ])
 class TestNode(TestNodeCore, Node):
 
