@@ -153,6 +153,7 @@ class TestNetworkSetup:
 
     @classmethod
     def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
+
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
 
