@@ -1,5 +1,5 @@
 from plenum.test.test_node import ensureElectionsDone, \
-    primaryNodeNameForInstance, nodeByName
+    primaryNodeNameForInstance, nodeByName, get_master_primary_node
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
@@ -18,22 +18,20 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     nodes = txnPoolNodeSet
 
     viewNoBefore = checkViewNoForNodes(nodes)
-    primaryNodeForMasterInstanceBefore = nodeByName(
-        nodes, primaryNodeNameForInstance(nodes, 0))
+    old_pr_node = get_master_primary_node(nodes)
 
     # Exercise
-    stopNodes([primaryNodeForMasterInstanceBefore], looper)
+    stopNodes([old_pr_node], looper)
 
     # Verify
-    remainingNodes = set(nodes) - {primaryNodeForMasterInstanceBefore}
+    remainingNodes = set(nodes) - {old_pr_node}
 
     def assertNewPrimariesElected():
         viewNoAfter = checkViewNoForNodes(remainingNodes)
-        primaryNodeForMasterInstanceAfter = nodeByName(
-            nodes, primaryNodeNameForInstance(remainingNodes, 0))
+        new_pr_node = get_master_primary_node(nodes)
         assert viewNoBefore + 1 == viewNoAfter
-        assert primaryNodeForMasterInstanceBefore != \
-               primaryNodeForMasterInstanceAfter
+        assert old_pr_node != new_pr_node
 
-    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=30))
+    # Give some time to detect disconnection
+    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=45))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)

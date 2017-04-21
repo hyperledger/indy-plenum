@@ -17,7 +17,6 @@ from plenum.test.node_catchup.conftest import whitelist
 logger = getlogger()
 
 
-# @pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other

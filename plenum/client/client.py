@@ -34,7 +34,7 @@ from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
-    POOL_LEDGER_ID
+    POOL_LEDGER_ID, TXN_TIME
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
@@ -621,16 +621,17 @@ class Client(Motor,
         verifier = MerkleVerifier()
         fields = getTxnOrderedFields()
         serializer = CompactSerializer(fields=fields)
+        ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name, TXN_TIME}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = base64.b64decode(
                 r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
-            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].items()
-                        if k not in
-                        [F.auditPath.name, F.seqNo.name, F.rootHash.name])
-            result = serializer.serialize(dict(filtered))
+            filtered = dict((k, v) for (k, v) in r[f.RESULT.nm].items()
+                        if k not in ignored
+                        )
+            result = serializer.serialize(filtered)
             verifier.verify_leaf_inclusion(result, seqNo - 1,
                                            auditPath,
                                            STH(tree_size=seqNo,
