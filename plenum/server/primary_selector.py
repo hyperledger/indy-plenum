@@ -1,4 +1,4 @@
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 
@@ -13,7 +13,14 @@ class PrimarySelector(PrimaryDecider):
         self.nodeNamesByRank = sorted(self.nodeNames)
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
-        self.startSelection()
+        self.scheduleSelection()
+
+    def scheduleSelection(self):
+        """
+        Schedule election at some time in the future. Currently the election
+        starts immediately.
+        """
+        self._schedule(self.startSelection)
 
     def startSelection(self):
         logger.debug("{} starting selection".format(self))

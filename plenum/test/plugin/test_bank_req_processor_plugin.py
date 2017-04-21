@@ -1,10 +1,11 @@
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA
-from plenum.test.helper import checkSufficientRepliesRecvd, \
-    checkReqNack, setupClients
+from plenum.test import waits
+from plenum.test.helper import waitForSufficientRepliesForRequests, \
+    setupClients, checkReqNack
 from plenum.test.plugin.bank_req_processor.plugin_bank_req_processor import \
     BALANCE, ALL_TXNS
 from plenum.test.plugin.bank_req_validation.plugin_bank_req_validation import \
@@ -69,14 +70,14 @@ class AccountApp(App):
                 AMOUNT: amount
             }})
         if expected:
-            self.looper.run(eventually(checkSufficientRepliesRecvd,
-                                       self.client.inBox, req.reqId, 1,
-                                       retryWait=1, timeout=5))
+            waitForSufficientRepliesForRequests(self.looper, self.client,
+                                                requests=[req], fVal=1)
         else:
+            timeout = waits.expectedReqNAckQuorumTime()
             for node in nodes:
                 self.looper.run(eventually(checkReqNack, self.client, node,
                                            req.identifier, req.reqId, None,
-                                           retryWait=1, timeout=5))
+                                           retryWait=1, timeout=timeout))
         return req
 
     def getBalance(self) -> int:
@@ -84,9 +85,9 @@ class AccountApp(App):
             TXN_TYPE: GET_BAL,
             TARGET_NYM: self.wallet.defaultId
         })
-        self.looper.run(eventually(checkSufficientRepliesRecvd,
-                                   self.client.inBox, req.reqId,
-                                   1, retryWait=1, timeout=10))
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
+
         return self.client.hasConsensus(*req.key)[BALANCE]
 
     def checkTxns(self):
@@ -94,9 +95,9 @@ class AccountApp(App):
             TXN_TYPE: GET_ALL_TXNS,
             TARGET_NYM: self.wallet.defaultId
         })
-        self.looper.run(
-            eventually(checkSufficientRepliesRecvd, self.client.inBox,
-                       req.reqId, 1, retryWait=1, timeout=5))
+        waitForSufficientRepliesForRequests(self.looper, self.client,
+                                            requests=[req], fVal=1)
+
         return req
 
 

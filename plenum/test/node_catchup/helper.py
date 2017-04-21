@@ -1,11 +1,12 @@
 from typing import Iterable
 
-from plenum.common.eventually import eventually
-from plenum.common.types import HA
+from stp_core.loop.eventually import eventually
+from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode
-
+from plenum.test import waits
+from plenum.common import util
 
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
@@ -14,6 +15,24 @@ def checkNodeLedgersForEquality(node: TestNode,
     for n in otherNodes:
         checkLedgerEquality(node.domainLedger, n.domainLedger)
         checkLedgerEquality(node.poolLedger, n.poolLedger)
+
+
+def waitNodeLedgersEquality(looper,
+                            referenceNode: TestNode,
+                            *otherNodes: Iterable[TestNode],
+                            customTimeout = None):
+    """
+    Wait for node ledger to become equal
+
+    :param referenceNode: node whose ledger used as a reference
+    """
+
+    numOfNodes = len(otherNodes) + 1
+    timeout = customTimeout or waits.expectedPoolLedgerCheck(numOfNodes)
+    looper.run(eventually(checkNodeLedgersForEquality,
+                          referenceNode,
+                          *otherNodes,
+                          retryWait=1, timeout=timeout))
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):
@@ -28,9 +47,13 @@ def checkClientPoolLedgerSameAsNodes(client: TestClient,
         checkLedgerEquality(client.ledger, n.poolLedger)
 
 
-def ensureClientConnectedToNodesAndPoolLedgerSame(looper, client: TestClient,
+def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
+                                                  client: TestClient,
                                                   *nodes:Iterable[TestNode]):
-    looper.run(eventually(checkClientPoolLedgerSameAsNodes, client,
-                          *nodes, retryWait=1,
-                          timeout=3*len(nodes)))
+    fVal = util.getMaxFailures(len(nodes))
+    poolCheckTimeout = waits.expectedPoolLedgerCheck(fVal)
+    looper.run(eventually(checkClientPoolLedgerSameAsNodes,
+                          client,
+                          *nodes,
+                          timeout=poolCheckTimeout))
     looper.run(client.ensureConnectedToNodes())

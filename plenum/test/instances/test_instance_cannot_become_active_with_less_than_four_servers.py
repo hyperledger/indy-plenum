@@ -1,14 +1,17 @@
 from typing import Iterable
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
-from plenum.common.looper import Looper
+import pytest
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
+from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import addNodeBack, ordinal
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     checkNodeRemotes
 from plenum.test.test_stack import CONNECTED, JOINED_NOT_ALLOWED
+from plenum.test import waits
+
 
 whitelist = ['discarding message']
 
@@ -16,6 +19,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """
@@ -31,8 +35,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
 
-            for n in nodeSet:
-                n.startKeySharing()
+            # for n in nodeSet:
+            #     n.startKeySharing()
 
             # helpers
 
@@ -52,10 +56,13 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                 logger.info("Add back the {} node and see status of {}".
                              format(ordinal(nodeIdx + 1), expectedStatus))
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
-                looper.run(
-                        eventually(checkNodeStatusRemotesAndF, expectedStatus,
-                                   nodeIdx,
-                                   retryWait=1, timeout=30))
+
+                timeout = waits.expectedNodeStartUpTimeout() + \
+                    waits.expectedNodeInterconnectionTime(len(nodeSet))
+                looper.run(eventually(checkNodeStatusRemotesAndF,
+                                      expectedStatus,
+                                      nodeIdx,
+                                      retryWait=1, timeout=timeout))
 
             # tests
 
@@ -66,6 +73,8 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
             for n in nodeNames:
                 looper.removeProdable(nodeSet.nodes[n])
                 nodeSet.removeNode(n, shouldClean=False)
+
+            looper.runFor(10)
 
             logger.debug("Add nodes back one at a time")
             for i in range(nodeCount):

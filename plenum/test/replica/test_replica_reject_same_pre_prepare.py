@@ -2,16 +2,17 @@ import time
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import getMaxFailures
+from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
     checkPrepareReqSent
-from plenum.test.helper import sendRandomRequest, checkSufficientRepliesRecvd, \
-    getPrimaryReplica
-from plenum.test.test_node import getNonPrimaryReplicas
+
+from plenum.test.helper import sendRandomRequest, checkSufficientRepliesReceived
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
              'cannot process incoming PRE-PREPARE',
@@ -32,10 +33,11 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
     request1 = sendRandomRequest(wallet1, client1)
+    timeout = waits.expectedReqAckQuorumTime()
     result1 = looper.run(
-        eventually(checkSufficientRepliesRecvd, client1.inBox,
+        eventually(checkSufficientRepliesReceived, client1.inBox,
                    request1.reqId, fValue,
-                   retryWait=1, timeout=5))
+                   retryWait=1, timeout=timeout))
     logger.debug("request {} gives result {}".format(request1, result1))
     primaryRepl = getPrimaryReplica(nodeSet)
     logger.debug("Primary Replica: {}".format(primaryRepl))
@@ -44,8 +46,9 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         "one...")
     primaryRepl.lastPrePrepareSeqNo -= 1
     request2 = sendRandomRequest(wallet1, client1)
+    timeout = waits.expectedPrePrepareTime(len(nodeSet))
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
-                          retryWait=1, timeout=10))
+                          retryWait=1, timeout=timeout))
 
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
     logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
@@ -61,14 +64,16 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     logger.debug("""Checking whether all the non primary replicas have received
                 the pre-prepare request with same sequence number""")
+    timeout = waits.expectedPrePrepareTime(len(nodeSet))
     looper.run(eventually(checkPrePrepareReqRecvd,
                           nonPrimaryReplicas,
                           prePrepareReq,
                           retryWait=1,
-                          timeout=10))
+                          timeout=timeout))
     logger.debug("""Check that none of the non primary replicas didn't send
     any prepare message "
                              in response to the pre-prepare message""")
+    timeout = waits.expectedPrePrepareTime(len(nodeSet))
     for npr in nonPrimaryReplicas:
         with pytest.raises(AssertionError):
             looper.run(eventually(checkPrepareReqSent,
@@ -76,4 +81,4 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                                   wallet1.defaultId,
                                   request2.reqId,
                                   retryWait=1,
-                                  timeout=10))
+                                  timeout=timeout))

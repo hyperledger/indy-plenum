@@ -2,14 +2,16 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Prepare
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, getNodeSuspicions
+from plenum.test.helper import getNodeSuspicions
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     send3PhaseMsgWithIncorrectDigest
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
+
 
 whitelist = [Suspicions.PR_DIGEST_WRONG.reason,
              'Invalid prepare message received',
@@ -54,4 +56,6 @@ def testPrepareDigest(setup, looper, sent1):
                 assert len(getNodeSuspicions(r.node,
                                              Suspicions.PR_DIGEST_WRONG.code)) == 1
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

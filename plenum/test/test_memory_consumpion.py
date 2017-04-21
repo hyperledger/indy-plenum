@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import \
@@ -30,13 +30,16 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
                                                       *txnPoolNodeSet)
         clients.append((client, wallet))
 
-    n = 250
-    timeOutPerReq = 3
+    numRequests = 250
+    fVal = 1
     for (client, wallet) in clients:
-        logger.debug("{} sending {} requests".format(client, n))
-        sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper, wallet, client,
-                                            n, 1, timeOutPerReq)
-        logger.debug("{} sent {} requests".format(client, n))
+        logger.debug("{} sending {} requests".format(client, numRequests))
+        sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+                                            wallet,
+                                            client,
+                                            numRequests,
+                                            fVal)
+        logger.debug("{} sent {} requests".format(client, numRequests))
     for node in txnPoolNodeSet:
         logger.debug("{} has requests {} with size {}".
                      format(node, len(node.requests), get_size(node.requests)))

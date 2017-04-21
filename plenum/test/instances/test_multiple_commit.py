@@ -2,15 +2,15 @@ from functools import partial
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
 from plenum.common.types import Commit
 from plenum.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import getPrimaryReplica, \
-    getNodeSuspicions, whitelistNode
+from plenum.test.helper import getNodeSuspicions, whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     sendDuplicate3PhaseMsg
-from plenum.test.test_node import getNonPrimaryReplicas
+from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 whitelist = [Suspicions.DUPLICATE_CM_SENT.reason,
              'cannot process incoming COMMIT']
@@ -58,4 +58,6 @@ def testMultipleCommit(setup, looper, sent1):
                                              Suspicions.DUPLICATE_CM_SENT.code)) \
                        == 2
 
-    looper.run(eventually(chkSusp, retryWait=1, timeout=20))
+    numOfNodes = len(primaryRep.node.nodeReg)
+    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+    looper.run(eventually(chkSusp, retryWait=1, timeout=timeout))

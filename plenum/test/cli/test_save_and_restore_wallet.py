@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.cli.cli import Exit, Cli
+from plenum.common.util import normalizedWalletFileName, getWalletFilePath
 from plenum.test.cli.helper import createAndAssertNewCreation, \
     createAndAssertNewKeyringCreation, useAndAssertKeyring, exitFromCli
 
@@ -11,7 +12,7 @@ def performExit(do):
 
 
 def testPersistentWalletName():
-    walletFileName = Cli._normalizedWalletFileName("Default")
+    walletFileName = normalizedWalletFileName("Default")
     assert "default.wallet" == walletFileName
     assert "default" == Cli.getWalletKeyName(walletFileName)
 
@@ -35,7 +36,7 @@ def testSaveAndRestoreWallet(do, be, cli, aliceCli):
     createNewKey(do, cli, keyringName="Default")
     createNewKeyring("mykr0", do)
     useKeyring("Default", do)
-    filePath = Cli.getWalletFilePath(
+    filePath = getWalletFilePath(
         cli.getContextBasedKeyringsBaseDir(),
         cli.walletFileName)
     exitFromCli(do)

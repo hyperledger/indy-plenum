@@ -2,13 +2,17 @@ import logging
 
 import pytest
 
-from plenum.common.eventually import eventually
-from plenum.common.log import getlogger
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
-from plenum.test.helper import checkViewNoForNodes, \
-    getPrimaryReplica, sendReqsToNodesAndVerifySuffReplies
+from plenum.test import waits
+from plenum.test.helper import waitForViewChange, \
+    sendReqsToNodesAndVerifySuffReplies, sendRandomRequests, \
+    checkViewNoForNodes
+from plenum.test.test_node import getPrimaryReplica
+
 
 nodeCount = 7
 whitelist = ["discarding message"]
@@ -47,11 +51,10 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
                 assert cur[c].endtime > previousPerfChecks[c].endtime
         return cur
 
-    perfCheckFreq = max(n.perfCheckFreq for n in nodes)
-
+    timeout = waits.expectedNextPerfCheck(nodes)
     newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
                                           retryWait=1,
-                                          timeout=perfCheckFreq + 1))
+                                          timeout=timeout))
     return newPerfChecks
 
 
@@ -101,11 +104,11 @@ def step2(step1, looper):
 def step3(step2):
 
     # make P (primary replica on master) faulty, i.e., slow to send PRE-PREPAREs
-    def by3IfPrePrepare(msg):
+    def ifPrePrepare(msg):
         if isinstance(msg, PrePrepare):
-            return 3
+            return 5
 
-    step2.P.outBoxTestStasher.delay(by3IfPrePrepare)
+    step2.P.outBoxTestStasher.delay(ifPrePrepare)
     # send requests to client
     return step2
 
@@ -118,4 +121,13 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
 
     # verify all nodes have undergone an instance change
-    looper.run(eventually(checkViewNoForNodes, step3.nodes, 1, timeout=10))
+    for i in range(20):
+        try:
+            waitForViewChange(looper, step3.nodes, expectedViewNo=1)
+        except AssertionError as ex:
+            # send additional request and check view change
+            sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+        else:
+            break
+    else:
+        assert False, ex

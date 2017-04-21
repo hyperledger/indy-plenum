@@ -7,7 +7,7 @@ from plenum.server.node import Node
 nodeCount = 7
 
 
-def testThroughtputThreshold(nodeSet, requests):
+def testThroughputThreshold(nodeSet, requests):
     for node in nodeSet:  # type: Node
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(
             node.instances.masterId)

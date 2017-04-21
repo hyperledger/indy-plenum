@@ -24,6 +24,9 @@ class ClientTxnLog(HasFileStorage):
                                             "transactions")
         self.serializer = CompactSerializer(fields=self.txnFieldOrdering)
 
+    def close(self):
+        self.transactionLog.close()
+
     @property
     def txnFieldOrdering(self):
         fields = getTxnOrderedFields()

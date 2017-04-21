@@ -4,18 +4,20 @@ from functools import lru_cache
 from copy import deepcopy
 from ledger.util import F
 from plenum.common.txn_util import updateGenesisPoolTxnFile
-from raet.raeting import AutoMode
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest, RemoteNotFound
+    UnauthorizedClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
+from stp_core.network.auth_mode import AuthMode
+from stp_core.network.exceptions import RemoteNotFound
+from stp_core.types import HA
 
-from plenum.common.types import HA, f, Reply
+from plenum.common.types import f
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
     POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR, CLIENT_STACK_SUFFIX
-from plenum.common.log import getlogger
+from stp_core.common.log import getlogger
 
 from plenum.common.types import NodeDetail
 
@@ -92,7 +94,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nstack = dict(name=name,
                       ha=HA('0.0.0.0', ha[1]),
                       main=True,
-                      auto=AutoMode.never)
+                      auth_mode=AuthMode.RESTRICTED.value)
         nodeReg[name] = HA(*ha)
 
         cliname = cliname or (name + CLIENT_STACK_SUFFIX)
@@ -101,7 +103,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         cstack = dict(name=cliname or (name + CLIENT_STACK_SUFFIX),
                       ha=HA('0.0.0.0', cliha[1]),
                       main=True,
-                      auto=AutoMode.always)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
         cliNodeReg[cliname] = HA(*cliha)
 
         if basedirpath:
@@ -175,30 +177,20 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.connectNewRemote(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
 
-    def doElectionIfNeeded(self, nodeGoingDown):
-        for instId, replica in enumerate(self.node.replicas):
-            if replica.primaryName == '{}:{}'.format(nodeGoingDown, instId):
-                self.node.startViewChange(self.node.viewNo+1)
-                return
-
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         # TODO: Check if new HA is same as old HA and only update if
         # new HA is different.
         if nodeName == self.name:
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.nodestack.name))
-            self.node.nodestack.keep.clearLocalData()
-            logger.debug("{} clearing local data in keep".
-                         format(self.node.clientstack.name))
-            self.node.clientstack.keep.clearLocalData()
+            self.node.nodestack.onHostAddressChanged()
+            self.node.clientstack.onHostAddressChanged()
         else:
             rid = self.stackHaChanged(txn, nodeName, self.node)
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.doElectionIfNeeded(nodeName)
+        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def nodeKeysChanged(self, txn):
         # TODO: if the node whose keys are being changed is primary for any
@@ -220,14 +212,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.doElectionIfNeeded(nodeName)
+        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def nodeServicesChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
         _, nodeInfo = self.getNodeInfoFromLedger(nodeNym)
         nodeName = nodeInfo[DATA][ALIAS]
-        oldServices = set(nodeInfo[DATA][SERVICES])
-        newServices = set(txn[DATA][SERVICES])
+        oldServices = set(nodeInfo[DATA].get(SERVICES, []))
+        newServices = set(txn[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.debug("Node {} not changing {} since it is same as existing"
                          .format(nodeNym, SERVICES))
@@ -252,7 +244,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                      format(self, nodeName))
 
                     self.node.nodeLeft(txn)
-            self.doElectionIfNeeded(nodeName)
+            self.node.startViewChangeIfPrimaryWentOffline([nodeName])
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change
@@ -420,7 +412,7 @@ class RegistryPoolManager(PoolManager):
         nstack = dict(name=name,
                       ha=ha,
                       main=True,
-                      auto=AutoMode.never)
+                      auth_mode=AuthMode.RESTRICTED.value)
 
         if basedirpath:
             nstack['basedirpath'] = basedirpath
@@ -451,7 +443,7 @@ class RegistryPoolManager(PoolManager):
         cstack = dict(name=cliname,
                       ha=cliha,
                       main=True,
-                      auto=AutoMode.always)
+                      auth_mode=AuthMode.ALLOW_ANY.value)
 
         if basedirpath:
             cstack['basedirpath'] = basedirpath

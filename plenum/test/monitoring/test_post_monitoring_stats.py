@@ -1,6 +1,6 @@
 from plenum.common.config_util import getConfig
-from plenum.common.eventually import eventually
-from plenum.common.looper import Looper
+from stp_core.loop.eventually import eventually
+from stp_core.loop.looper import Looper
 from plenum.server.monitor import Monitor
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import TestNodeSet
@@ -29,8 +29,11 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
         assert node.monitor.highResThroughput == 0
         assert node.monitor.totalRequests == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount, nodeSet.f,
-                                        timeoutPerReq=20)
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        reqCount,
+                                        nodeSet.f)
 
     for node in nodeSet:
         assert len(node.monitor.orderedRequestsInLast) == reqCount
@@ -55,7 +58,8 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
             assert node.monitor.highResThroughput == 0
             assert node.monitor.totalRequests == reqCount
 
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = config.ThroughputWindowSize
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
 def testPostingLatency(postingStatsEnabled, looper: Looper,
@@ -76,9 +80,11 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
         assert node.monitor.masterLatency == 0
         assert node.monitor.avgBackupLatency == 0
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqCount,
-                                        nodeSet.f,
-                                        timeoutPerReq=20)
+    sendReqsToNodesAndVerifySuffReplies(looper,
+                                        wallet1,
+                                        client1,
+                                        reqCount,
+                                        nodeSet.f)
 
     for node in nodeSet:
         assert node.monitor.masterLatency > 0
@@ -98,4 +104,5 @@ def testPostingLatency(postingStatsEnabled, looper: Looper,
             assert node.monitor.masterLatency == 0
             assert node.monitor.avgBackupLatency == 0
 
-    looper.run(eventually(chk, retryWait=1, timeout=10))
+    timeout = config.LatencyWindowSize
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))

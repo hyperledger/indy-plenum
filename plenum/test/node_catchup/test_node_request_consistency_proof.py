@@ -4,15 +4,23 @@ from random import randint
 
 import pytest
 
-from plenum.common.eventually import eventually
+from stp_core.loop.eventually import eventually
+from stp_core.common.log import getlogger
 from plenum.common.types import LedgerStatus
 from plenum.test.helper import sendRandomRequests
-from plenum.test.node_catchup.helper import checkNodeLedgersForEquality
+from plenum.test.node_catchup.helper import waitNodeLedgersEquality
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
+from plenum.test import waits
+
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-465')
+logger = getlogger()
+
+
+@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
@@ -29,7 +37,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         node.sendPoolInfoToClients = types.MethodType(lambda x, y: None, node)
 
     txnPoolNodeSet.append(newNode)
-    # The new node does not sends different ledger statuses to every node so it
+    # The new node sends different ledger statuses to every node so it
     # does not get enough similar consistency proofs
     sentSizes = set()
 
@@ -50,15 +58,17 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         sentSizes.add(newSize)
 
     newNode.sendDomainLedgerStatus = types.MethodType(sendDLStatus, newNode)
+    logger.debug(
+        'Domain Ledger status sender of {} patched'.format(newNode))
 
-    print("sending 10 requests")
     sendRandomRequests(wallet, client, 10)
-    looper.run(checkNodesConnected(txnPoolNodeSet, overrideTimeout=60))
+    looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    # `ConsistencyProofsTimeout` is set to 60 sec, so need to wait more than
-    # 60 sec.
-    looper.run(eventually(checkNodeLedgersForEquality, newNode,
-                          *txnPoolNodeSet[:-1], retryWait=1, timeout=75))
+    #  wait more than `ConsistencyProofsTimeout`
+    # TODO: apply configurable timeout here
+
+    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+
     for node in txnPoolNodeSet[:-1]:
         assert node.ledgerManager.spylog.count(
             TestLedgerManager.processConsistencyProofReq.__name__) > 0

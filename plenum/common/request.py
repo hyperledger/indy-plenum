@@ -1,9 +1,11 @@
 from hashlib import sha256
 from typing import Mapping, NamedTuple
 
+from stp_core.types import Identifier
+
 from plenum.common.signing import serializeMsg
 from plenum.common.constants import REQDIGEST
-from plenum.common.types import Identifier, f
+from plenum.common.types import f, OPERATION
 
 
 class Request:
@@ -15,27 +17,30 @@ class Request:
         self.identifier = identifier
         self.reqId = reqId
         self.operation = operation
+        self.digest = self.getDigest()
         self.signature = signature
 
+    @property
+    def as_dict(self):
+        return {
+            f.IDENTIFIER.nm: self.identifier,
+            f.REQ_ID.nm: self.reqId,
+            OPERATION: self.operation,
+            f.SIG.nm: self.signature
+        }
+
     def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+        return self.as_dict == other.as_dict
 
     def __repr__(self):
-        return "{}: {}".format(self.__class__.__name__, self.__dict__)
+        return "{}: {}".format(self.__class__.__name__, self.as_dict)
 
     @property
     def key(self):
         return self.identifier, self.reqId
 
-    @property
-    def digest(self):
-        # The digest needs to be of the whole request. If only client id and
-        # request id are used to construct digest, then a malicious client might
-        # send different operations to different nodes and the nodes will not
-        # realize an have different ledgers.
-        return sha256(serializeMsg(self.__dict__)).hexdigest()
-        # DEPR
-        # return sha256("{}{}".format(*self.key).encode('utf-8')).hexdigest()
+    def getDigest(self):
+        return sha256(serializeMsg(self.signingState)).hexdigest()
 
     @property
     def reqDigest(self):
@@ -44,8 +49,13 @@ class Request:
     def __getstate__(self):
         return self.__dict__
 
-    def getSigningState(self):
-        return self.__dict__
+    @property
+    def signingState(self):
+        return {
+            f.IDENTIFIER.nm: self.identifier,
+            f.REQ_ID.nm: self.reqId,
+            OPERATION: self.operation
+        }
 
     def __setstate__(self, state):
         self.__dict__.update(state)

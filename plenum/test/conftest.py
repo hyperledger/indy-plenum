@@ -5,41 +5,108 @@ import json
 import logging
 import os
 import re
+import warnings
+from contextlib import ExitStack
 from copy import copy
 from functools import partial
 from typing import Dict, Any
+from plenum.test import waits
 
+import gc
 import pip
 import pytest
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from stp_core.crypto.util import randomSeed
+from stp_core.network.port_dispenser import genHa
+from stp_core.types import HA
+from _pytest.recwarn import WarningsRecorder
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
-from plenum.common.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from plenum.common.log import getlogger, TestingHandler
-from plenum.common.looper import Looper
-from plenum.common.port_dispenser import genHa
-from plenum.common.raet import initLocalKeep
+from stp_core.common.log import getlogger
+from stp_core.common.logging.handlers import TestingHandler
+from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import HA, PLUGIN_TYPE_STATS_CONSUMER
+from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 from plenum.common.util import getNoInstances, getMaxFailures
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
-    checkReqAck, checkLastClientReqForNode, checkSufficientRepliesRecvd, \
-    checkViewNoForNodes, requestReturnedToNode, randomText, \
+    checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
+    waitForViewChange, requestReturnedToNode, randomText, \
     mockGetInstalledDistributions, mockImportModule
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
-    checkPropagated, checkPrepared, checkCommited
+    checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
 from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
 logger = getlogger()
+config = getConfig()
+
+
+@pytest.fixture(scope="session")
+def warnfilters():
+    def _():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.pickler', message='encodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='jsonpickle\.unpickler', message='decodestring\(\) is a deprecated alias')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.client\.client', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.common\.stacked', message="The 'warn' method is deprecated")
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='plenum\.test\.test_testable', message='Please use assertEqual instead.')
+        warnings.filterwarnings('ignore', category=DeprecationWarning, module='prompt_toolkit\.filters\.base', message='inspect\.getargspec\(\) is deprecated')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed event loop')
+        warnings.filterwarnings('ignore', category=ResourceWarning, message='unclosed.*socket\.socket')
+    return _
+
+
+@pytest.yield_fixture(scope="session", autouse=True)
+def warncheck(warnfilters):
+    with WarningsRecorder() as record:
+        warnfilters()
+        yield
+        gc.collect()
+    to_prints = []
+
+    def keyfunc(_):
+        return _.category.__name__, _.filename, _.lineno
+
+    _sorted = sorted(record, key=keyfunc)
+    _grouped = itertools.groupby(_sorted, keyfunc)
+    for k, g in _grouped:
+        to_prints.append("\n"
+                         "category: {}\n"
+                         "filename: {}\n"
+                         "  lineno: {}".format(*k))
+        messages = itertools.groupby(g, lambda _: str(_.message))
+        for k2, g2 in messages:
+            count = sum(1 for _ in g2)
+            count_str = ' ({} times)'.format(count) if count > 1 else ''
+            to_prints.append("     msg: {}{}".format(k2, count_str))
+    if to_prints:
+        to_prints.insert(0, 'Warnings found:')
+        pytest.fail('\n'.join(to_prints))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setResourceLimits():
+    try:
+        import resource
+    except ImportError:
+        print('Module resource is not available, maybe i am running on Windows')
+        return
+    flimit = 65535
+    plimit = 65535
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (flimit, flimit))
+        resource.setrlimit(resource.RLIMIT_NPROC, (plimit, plimit))
+    except Exception as ex:
+        print('Could not set resource limits due to {}'.format(ex))
 
 
 def getValueFromModule(request, name: str, default: Any = None):
@@ -83,8 +150,8 @@ def allPluginsPath():
 
 @pytest.fixture(scope="module")
 def keySharedNodes(startedNodes):
-    for n in startedNodes:
-        n.startKeySharing()
+    # for n in startedNodes:
+    #     n.startKeySharing()
     return startedNodes
 
 
@@ -118,7 +185,13 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'not trying any more because',
                      # TODO: This is too specific, move it to the particular test
                      "Beta discarding message INSTANCE_CHANGE(viewNo='BAD') "
-                     "because field viewNo has incorrect type: <class 'str'>"
+                     "because field viewNo has incorrect type: <class 'str'>",
+                     'got exception while closing hash store',
+                     # TODO: Remove these once the relevant bugs are fixed
+                     '.+ failed to ping .+ at',
+                     'discarding message (NOMINATE|PRIMARY)',
+                     '.+ rid .+ has been removed',
+                     'last try...'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -141,12 +214,22 @@ def logcapture(request, whitelist, concerningLogLevels):
                               if re.search(w, msg)])
 
         if not (isBenign or isTest or isWhiteListed):
+            # Stopping all loopers, so prodables like nodes, clients, etc stop.
+            #  This helps in freeing ports
+            for fv in request._fixture_values.values():
+                if isinstance(fv, Looper):
+                    fv.stopall()
+                if isinstance(fv, Prodable):
+                    fv.stop()
             raise BlowUp("{}: {} ".format(record.levelname, record.msg))
 
     ch = TestingHandler(tester)
     logging.getLogger().addHandler(ch)
 
-    request.addfinalizer(lambda: logging.getLogger().removeHandler(ch))
+    def cleanup():
+        logging.getLogger().removeHandler(ch)
+
+    request.addfinalizer(cleanup)
     config = getConfig(tdir)
     for k, v in overriddenConfigValues.items():
         setattr(config, k, v)
@@ -209,7 +292,7 @@ def ready(looper, keySharedNodes):
 
 @pytest.fixture(scope="module")
 def up(looper, ready):
-    ensureElectionsDone(looper=looper, nodes=ready, retryWait=1, timeout=30)
+    ensureElectionsDone(looper=looper, nodes=ready)
 
 
 # noinspection PyIncorrectDocstring
@@ -218,7 +301,8 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-    return looper.run(eventually(checkViewNoForNodes, nodeSet, timeout=3))
+
+    return waitForViewChange(looper, nodeSet)
 
 
 @pytest.fixture("module")
@@ -229,7 +313,9 @@ def delayedPerf(nodeSet):
 
 @pytest.fixture(scope="module")
 def clientAndWallet1(looper, nodeSet, tdir, up):
-    return genTestClient(nodeSet, tmpdir=tdir)
+    client, wallet = genTestClient(nodeSet, tmpdir=tdir)
+    yield client, wallet
+    client.stop()
 
 
 @pytest.fixture(scope="module")
@@ -260,18 +346,24 @@ def sent1(client1, request1):
 
 @pytest.fixture(scope="module")
 def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
+
+    numerOfNodes = len(nodeSet)
+
+    # Wait until request received by all nodes
+    propTimeout = waits.expectedClientRequestPropagationTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,
-                             totalTimeout=10,
+                             totalTimeout=propTimeout,
                              acceptableFails=faultyNodes))
 
+    # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
+    ackTimeout = waits.expectedReqAckQuorumTime()
     looper.run(eventuallyAll(*coros2,
-                             totalTimeout=5,
+                             totalTimeout=ackTimeout,
                              acceptableFails=faultyNodes))
-
     return sent1
 
 
@@ -328,31 +420,33 @@ def prepared1(looper, nodeSet, client1, preprepared1, faultyNodes):
 
 @pytest.fixture(scope="module")
 def committed1(looper, nodeSet, client1, prepared1, faultyNodes):
-    checkCommited(looper,
-                  nodeSet,
-                  prepared1,
-                  range(getNoInstances(len(nodeSet))),
-                  faultyNodes)
+    checkCommitted(looper,
+                   nodeSet,
+                   prepared1,
+                   range(getNoInstances(len(nodeSet))),
+                   faultyNodes)
     return prepared1
 
 
 @pytest.fixture(scope="module")
 def replied1(looper, nodeSet, client1, committed1, wallet1, faultyNodes):
+    numOfNodes = len(nodeSet)
+    numOfInstances = getNoInstances(numOfNodes)
+    quorum = numOfInstances * (numOfNodes - faultyNodes)
     def checkOrderedCount():
-        instances = getNoInstances(len(nodeSet))
-        resp = [requestReturnedToNode(node, wallet1.defaultId,
-                                      committed1.reqId, instId) for
-                node in nodeSet for instId in range(instances)]
-        assert resp.count(True) >= (len(nodeSet) - faultyNodes)*instances
+        resp = [requestReturnedToNode(node,
+                                      wallet1.defaultId,
+                                      committed1.reqId,
+                                      instId)
+                for node in nodeSet for instId in range(numOfInstances)]
+        assert resp.count(True) >= quorum
 
-    looper.run(eventually(checkOrderedCount, retryWait=1, timeout=30))
-    looper.run(eventually(
-        checkSufficientRepliesRecvd,
-        client1.inBox,
-        committed1.reqId,
-        getMaxFailures(len(nodeSet)),
-        retryWait=2,
-        timeout=30))
+    orderingTimeout = waits.expectedOrderingTime(numOfInstances)
+    looper.run(eventually(checkOrderedCount,
+                          retryWait=1,
+                          timeout=orderingTimeout))
+
+    waitForSufficientRepliesForRequests(looper, client1, requests=[committed1])
     return committed1
 
 
@@ -402,12 +496,13 @@ def nodeAndClientInfoFilePath(dirName):
 
 @pytest.fixture(scope="module")
 def poolTxnData(nodeAndClientInfoFilePath):
-    data = json.loads(open(nodeAndClientInfoFilePath).read().strip())
-    for txn in data["txns"]:
-        if txn[TXN_TYPE] == NODE:
-            txn[DATA][NODE_PORT] = genHa()[1]
-            txn[DATA][CLIENT_PORT] = genHa()[1]
-    return data
+    with open(nodeAndClientInfoFilePath) as f:
+        data = json.loads(f.read().strip())
+        for txn in data["txns"]:
+            if txn[TXN_TYPE] == NODE:
+                txn[DATA][NODE_PORT] = genHa()[1]
+                txn[DATA][CLIENT_PORT] = genHa()[1]
+        return data
 
 
 @pytest.fixture(scope="module")
@@ -447,7 +542,8 @@ def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
 def tdirWithNodeKeepInited(tdir, poolTxnData, poolTxnNodeNames):
     seeds = poolTxnData["seeds"]
     for nName in poolTxnNodeNames:
-        initLocalKeep(nName, tdir, seeds[nName], override=True)
+        seed = seeds[nName]
+        initNodeKeysForBothStacks(nName, tdir, seed, override=True)
 
 
 @pytest.fixture(scope="module")
@@ -496,16 +592,19 @@ def txnPoolNodeSet(patchPluginManager,
                    allPluginsPath,
                    tdirWithNodeKeepInited,
                    testNodeClass):
-    nodes = []
-    for nm in poolTxnNodeNames:
-        node = testNodeClass(nm, basedirpath=tdirWithPoolTxns,
-                             config=tconf, pluginPaths=allPluginsPath)
-        txnPoolNodesLooper.add(node)
-        nodes.append(node)
-    txnPoolNodesLooper.run(checkNodesConnected(nodes))
-    ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes, retryWait=1,
-                        timeout=20)
-    return nodes
+    with ExitStack() as exitStack:
+        nodes = []
+        for nm in poolTxnNodeNames:
+            node = exitStack.enter_context(
+                testNodeClass(nm,
+                              basedirpath=tdirWithPoolTxns,
+                              config=tconf,
+                              pluginPaths=allPluginsPath))
+            txnPoolNodesLooper.add(node)
+            nodes.append(node)
+        txnPoolNodesLooper.run(checkNodesConnected(nodes))
+        ensureElectionsDone(looper=txnPoolNodesLooper, nodes=nodes)
+        yield nodes
 
 
 @pytest.fixture(scope="module")
@@ -582,6 +681,9 @@ def testNode(pluginManager, tdir):
     name = randomText(20)
     nodeReg = genNodeReg(names=[name])
     ha, cliname, cliha = nodeReg[name]
-    return TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
+    node = TestNode(name=name, ha=ha, cliname=cliname, cliha=cliha,
                     nodeRegistry=copy(nodeReg), basedirpath=tdir,
-                    primaryDecider=None, pluginPaths=None)
+                    primaryDecider=None, pluginPaths=None, seed=randomSeed())
+    node.start(None)
+    yield node
+    node.stop()
