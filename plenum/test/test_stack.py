@@ -63,8 +63,8 @@ class StackedTester:
             assert connected == totalNodes
 
     async def ensureConnectedToNodes(self, customTimeout=None):
-        f = util.getQuorum(len(self.nodeReg))
-        timeout = customTimeout or waits.expectedClientConnectionTimeout(f)
+        timeout = customTimeout or \
+                  waits.expectedClientConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
                 "waiting for {} seconds to check client connections to "

@@ -16,8 +16,7 @@ from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode
 
 
-def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
-                 name: str):
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -34,7 +33,12 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
+    return req, wallet
 
+
+def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
+                 name: str):
+    req, wallet = sendAddNewClient(role, name, creatorClient, creatorWallet)
     waitForSufficientRepliesForRequests(looper, creatorClient,
                                         requests=[req], fVal=1)
 
