@@ -9,7 +9,7 @@ from plenum.test.helper import stopNodes, checkViewNoForNodes, \
 
 def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
                                                looper, wallet1, client1,
-                                               client1Connected):
+                                               client1Connected, tconf):
     """
     View change occurs when master's primary is disconnected
     """
@@ -22,14 +22,14 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
 
     # Exercise
     stopNodes([old_pr_node], looper)
-
     # Verify
     remainingNodes = set(nodes) - {old_pr_node}
 
+    looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
+
     def assertNewPrimariesElected():
-        viewNoAfter = checkViewNoForNodes(remainingNodes)
-        new_pr_node = get_master_primary_node(nodes)
-        assert viewNoBefore + 1 == viewNoAfter
+        checkViewNoForNodes(remainingNodes, viewNoBefore + 1)
+        new_pr_node = get_master_primary_node(remainingNodes)
         assert old_pr_node != new_pr_node
 
     # Give some time to detect disconnection
