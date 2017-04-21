@@ -107,7 +107,7 @@ def expectedClientRequestPropagationTime(nodeCount):
 
 
 def expectedTransactionExecutionTime(nodeCount):
-    return int(2 * CLIENT_REPLY_TIMEOUT * nodeCount)
+    return int(CLIENT_REPLY_TIMEOUT * nodeCount)
 
 
 def expectedReqAckQuorumTime():
