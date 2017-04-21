@@ -93,13 +93,18 @@ def expectedOrderingTime(numInstances):
 # Client timeouts
 #########################
 
-def expectedClientConnectionTimeout(fVal):
-    # TODO calc fVal here, get nodeCount
-    return 3 * fVal
-
-
 def expectedClientToNodeMessageDeliveryTime(nodeCount):
     return 1 * nodeCount
+
+
+def expectedClientCatchupTime(nodeCount):
+    timeout = config.ConsistencyProofsTimeout
+    return timeout * nodeCount
+
+
+def expectedClientConnectionTimeout(nodeCount):
+    return expectedClientToNodeMessageDeliveryTime(nodeCount) + \
+            expectedClientCatchupTime(nodeCount)
 
 
 def expectedClientRequestPropagationTime(nodeCount):

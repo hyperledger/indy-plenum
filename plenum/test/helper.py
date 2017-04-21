@@ -424,6 +424,7 @@ def waitReplyCount(looper, client, idr, reqId, count):
     looper.run(eventually(checkReplyCount, client, idr, reqId, count,
                           timeout=timeout))
 
+
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
@@ -432,6 +433,15 @@ def checkReqNackWithReason(client, reason: str, sender: str):
             found = True
             break
     assert found
+
+
+def waitReqNackWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqNAckQuorumTime()
+    return looper.run(eventually(checkReqNackWithReason,
+                                 client,
+                                 reason,
+                                 sender,
+                                 timeout=timeout))
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):

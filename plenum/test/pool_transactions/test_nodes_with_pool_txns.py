@@ -14,11 +14,11 @@ from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkReqNackWithReason
+    checkReqNackWithReason, waitReqNackWithReason
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -64,22 +64,23 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
                                         stewardWallet, tdirWithPoolTxns, tconf,
                                         allPluginsPath):
     newNodeName = "Epsilon"
-    with pytest.raises(AssertionError):
-        addNewNode(looper, steward1, stewardWallet, newNodeName,
-                   tdirWithPoolTxns, tconf, allPluginsPath)
+    sendAddNewNode(newNodeName, steward1, stewardWallet)
+
+    for node in txnPoolNodeSet:
+        waitReqNackWithReason(looper, steward1,
+                              'already has a node with name',
+                              node.clientstack.name)
 
 
 def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tdirWithPoolTxns,
                                 tconf, allPluginsPath):
     newNodeName = "Epsilon"
-    with pytest.raises(AssertionError):
-        addNewNode(looper, client1, wallet1, newNodeName,
-                   tdirWithPoolTxns, tconf, allPluginsPath)
-
+    sendAddNewNode(newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
-        checkReqNackWithReason(client1, 'is not a steward so cannot add a '
-                                        'new node', node.clientstack.name)
+        waitReqNackWithReason(looper, client1,
+                              'steward so cannot add a new node',
+                              node.clientstack.name)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -152,13 +153,13 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
     nodeNewHa, clientNewHa = genHa(2)
     logger.debug('{} changing HAs to {} {}'.format(newNode, nodeNewHa,
                                                    clientNewHa))
-    with pytest.raises(AssertionError):
-        changeNodeHa(looper, steward1, stewardWallet, newNode,
+    sendChangeNodeHa(steward1, stewardWallet, newNode,
                      nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     for node in txnPoolNodeSet:
-        checkReqNackWithReason(steward1, 'is not a steward of node',
-                               node.clientstack.name)
+        waitReqNackWithReason(looper, steward1,
+                              'is not a steward of node',
+                              node.clientstack.name)
 
 
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
