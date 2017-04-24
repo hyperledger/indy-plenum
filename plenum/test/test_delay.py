@@ -29,7 +29,7 @@ def testTestNodeDelay(tdir_for_func):
 
             # set delay, then send another message
             # and find that it doesn't arrive
-            delay = 10 * slowFactor
+            delay = 5 * waits.expectedNodeToNodeMessageDeliveryTime()
             nodeB.nodeIbStasher.delay(
                 delayerMsgTuple(delay, TestMsg, nodeA.name)
             )
