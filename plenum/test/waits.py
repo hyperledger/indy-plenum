@@ -87,6 +87,11 @@ def expectedPrePrepareTime(nodeCount):
     return expectedNodeToNodeMessageDeliveryTime() * count
 
 
+def expectedPrepareTime(nodeCount):
+    count = totalConnections(nodeCount)
+    return expectedNodeToNodeMessageDeliveryTime() * count
+
+
 def expectedOrderingTime(numInstances):
     return int(2.14 * numInstances)
 

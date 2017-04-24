@@ -42,7 +42,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     commitDelay = 3  # delay each COMMIT by this number of seconds
     delayedPpSeqNos = set()
 
-    requestCount = 15
+    requestCount = 10
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5

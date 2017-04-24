@@ -99,17 +99,19 @@ def warncheck(warnfilters):
 def limitTestRunningTime(tconf):
     st = time.time()
     yield
-    if (time.time() - st) > tconf.TestRunningTimeLimitSec:
+    runningTime = time.time() - st
+    if runningTime > tconf.TestRunningTimeLimitSec:
         pytest.fail(
-            'The running time of each test is limited by {} sec.\n'
+            'The running time of each test is limited by {} sec '
+            '(actually the test has taken {:2.1f} sec).\n'
             'In order to make the test passed there are two options:\n'
             '\t1. Make the test faster (for example: override default '
-            'timeouts ONLY for the tests, do not wait `with pytest.raises(..)` '
-            ' and so on)\n'
+            'timeouts ONLY for the tests, do not wait '
+            '`with pytest.raises(..)` and so on)\n'
             '\t2. Override the `limitTestRunningTime` fixture '
             'for the test module.\n'
             'Option #1 is prefer.'
-            ''.format(tconf.TestRunningTimeLimitSec))
+            ''.format(tconf.TestRunningTimeLimitSec, runningTime))
 
 
 @pytest.fixture(scope="session", autouse=True)
