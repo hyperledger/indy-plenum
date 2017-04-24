@@ -38,8 +38,9 @@ def testTestNodeDelay(tdir_for_func):
 
             # but then find that it arrives after the delay
             # duration has passed
+            timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delay
             looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB,
-                                                   customTimeout=delay))
+                                                   customTimeout=timeout))
 
             # reset the delay, and find another message comes quickly
             nodeB.nodeIbStasher.resetDelays()

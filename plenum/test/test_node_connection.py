@@ -225,6 +225,6 @@ def testNodeRemoveUnknownRemote(allPluginsPath, tdirAndLooper, nodeReg, conf):
         assert C.name not in B.nodestack.nameRemotes
         assert C.name not in A.nodestack.nameRemotes
 
-    timeout = waits.expectedNodeInterconnectionTime(len(nodeReg))
+    timeout = waits.expectedPoolInterconnectionTime(len(nodeReg))
     looper.run(eventually(chk, retryWait=2, timeout=timeout))
     stopNodes([A, B], looper)
