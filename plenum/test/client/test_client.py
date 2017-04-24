@@ -61,9 +61,6 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
 
     async def go(ctx):
-        # for n in ctx.nodeset:
-        #     n.nodestack.keep.auto = AutoMode.never
-
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
         for node in ctx.nodeset:

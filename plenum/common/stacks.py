@@ -66,6 +66,9 @@ class NodeZStack(Batched, KITZStack):
     # TODO: Reconsider defaulting `reSetupAuth` to True.
     def start(self, restricted=None, reSetupAuth=True):
         KITZStack.start(self, restricted=restricted, reSetupAuth=reSetupAuth)
+        # Calling service lifecycle to allow creation of remotes
+        # that this stack needs to connect to
+        self.serviceLifecycle()
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
                     extra={"tags": ["node-listening"]})

@@ -37,14 +37,6 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
     return pr, otherR, stateRoot
 
 
-# def testAllDependentBatchesDiscardedAfterBatchReject(setup):
-#     """
-#     Check if a batch if rejected, each batch that was created based on the
-#     rejected batch is discarded.
-#     :return:
-#     """
-
-
 @pytest.fixture(scope="module")
 def reverted(setup, looper):
     pr, otherR, oldStateRoot = setup

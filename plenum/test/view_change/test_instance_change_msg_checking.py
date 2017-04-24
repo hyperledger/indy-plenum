@@ -14,8 +14,10 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
     
     ridBeta = nodeA.nodestack.getRemote(nodeB.name).uid
     badViewNo = "BAD"
-    nodeA.send(InstanceChange(badViewNo, 0), ridBeta)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(badViewNo, 0)
+    nodeA.send(icMsg, ridBeta)
     looper.runFor(0.2)
+
     params = nodeB.spylog.getLastParams(TestNode.discard)
 
     def chk():

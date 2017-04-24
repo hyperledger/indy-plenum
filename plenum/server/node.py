@@ -333,6 +333,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # help in voting for/against a view change.
         self.lost_primary_at = None
 
+        # First view change message received for a view no
+        # # TODO: A malicious node should not be able to disrupt a
+        # view change by sending a message too early, this decreasing the
+        # available time to get enough view change messages
+        self.view_change_started_at = {}
+
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
@@ -724,7 +730,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, joinedNode))
                         rid = self.nodestack.getRemote(joinedNode).uid
-                        self.send(InstanceChange(self.viewNo, 0), rid)
+                        self.send(
+                            self._create_instance_change_msg(self.viewNo, 0),
+                            rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for joinedNode in joined:
@@ -812,21 +820,43 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         return newReplicas
 
+    def _dispatch_stashed_msg(self, msg, frm):
+        if isinstance(msg, ElectionType):
+            self.sendToElector(msg, frm)
+            return True
+        elif isinstance(msg, ThreePhaseType):
+            self.sendToReplica(msg, frm)
+            return True
+        else:
+            return False
+
     def processStashedMsgsForReplica(self, instId: int):
         if instId not in self.msgsForFutureReplicas:
             return
         i = 0
         while self.msgsForFutureReplicas[instId]:
             msg, frm = self.msgsForFutureReplicas[instId].popleft()
-            if isinstance(msg, ElectionType):
-                self.sendToElector(msg, frm)
-            elif isinstance(msg, ThreePhaseType):
-                self.sendToReplica(msg, frm)
-            else:
-                self.discard(msg, reason="Unknown message type for replica id"
-                             .format(instId), logMethod=logger.warn)
+            if not self._dispatch_stashed_msg(msg, frm):
+                self.discard(msg, reason="Unknown message type for replica id "
+                                         "{}".format(instId),
+                             logMethod=logger.warn)
+            i += 1
         logger.debug("{} processed {} stashed msgs for replica {}".
                      format(self, i, instId))
+
+    def processStashedMsgsForView(self, view_no: int):
+        if view_no not in self.msgsForFutureViews:
+            return
+        i = 0
+        while self.msgsForFutureViews[view_no]:
+            msg, frm = self.msgsForFutureViews[view_no].popleft()
+            if not self._dispatch_stashed_msg(msg, frm):
+                self.discard(msg, reason="Unknown message type for view no "
+                                         "{}".format(view_no),
+                             logMethod=logger.warn)
+            i += 1
+        logger.debug("{} processed {} stashed msgs for view no {}".
+                     format(self, i, view_no))
 
     def decidePrimaries(self):
         """
@@ -1573,17 +1603,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(instChg.viewNo, int):
             self.discard(instChg, "field viewNo has incorrect type: {}".
                          format(type(instChg.viewNo)))
-        elif instChg.viewNo < self.viewNo:
+        elif instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
-                         "which is less than its view no {}".
+                         "which is not more than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
             if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self.instanceChanges.addVote(instChg.viewNo, frm)
+                self.instanceChanges.addVote(instChg, frm)
+
             if self.monitor.isMasterDegraded():
                 logger.info(
                     "{} found master degraded after receiving instance change "
@@ -1599,8 +1630,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def do_view_change_if_possible(self, view_no):
         if self.canViewChange(view_no):
-            logger.info("{} initiating a view change with view "
-                        "no {}".format(self, self.viewNo))
+            logger.info("{} initiating a view change to {} from {}".
+                        format(self, view_no, self.viewNo))
             self.startViewChange(view_no)
             return True
         return False
@@ -1621,6 +1652,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
                 self.sendInstanceChange(self.viewNo+1)
+                logger.debug('{} sent view change performance degraded '
+                             'of master instance'.format(self))
+                self.do_view_change_if_possible(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -1647,6 +1681,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.name
         )
 
+    def _create_instance_change_msg(self, view_no, suspicion_code):
+        return InstanceChange(view_no, suspicion_code,
+                              {r.instId: r.lastOrderedPPSeqNo
+                               for r in self.replicas})
+
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):
         """
@@ -1667,8 +1706,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, view_no, suspicion.reason))
             logger.info("{} metrics for monitor: {}".
                         format(self, self.monitor.prettymetrics))
-            self.send(InstanceChange(view_no, suspicion.code))
-            self.instanceChanges.addVote(view_no, self.name)
+            msg = self._create_instance_change_msg(view_no, suspicion.code)
+            self.send(msg)
+            self.instanceChanges.addVote(msg, self.name)
         else:
             logger.debug("{} cannot send instance change sooner then {} seconds"
                          .format(self, cooldown))
@@ -1739,6 +1779,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self))
         self.monitor.reset()
 
+        self.processStashedMsgsForView(proposedViewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
@@ -2010,9 +2051,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_REJECT_WRONG,
                                      Suspicions.PPR_TXN_WRONG,
                                      Suspicions.PPR_STATE_WRONG)):
-            logger.info('{} sending instance change since suspicion code {}'
-                        .format(self, code))
             self.sendInstanceChange(self.viewNo + 1, Suspicions.get_by_code(code))
+            logger.info('{} sent instance change since suspicion code {}'
+                        .format(self, code))
+
+            if not self.do_view_change_if_possible(self.viewNo + 1):
+                logger.trace("{} cannot initiate a view change".format(self))
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 

@@ -7,7 +7,7 @@ from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.types import CatchupReq, f, CatchupRep
 from plenum.test.helper import sendRandomRequests
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
 
@@ -71,7 +71,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # Since one of the nodes will send a bad catchup reply, this node will
     # request transactions from another node, hence large timeout.
     # Dont reduce it.
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                            customTimeout=45)
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                         customTimeout=45)
 
     assert newNode.isNodeBlacklisted(badNode.name)

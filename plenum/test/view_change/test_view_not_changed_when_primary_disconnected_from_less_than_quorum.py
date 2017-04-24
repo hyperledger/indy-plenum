@@ -2,7 +2,7 @@ import types
 
 import pytest
 
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
@@ -75,5 +75,5 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
 
     # Partitioned node should have the same ledger and state as others
     # eventually
-    waitNodeLedgersEquality(looper, partitioned_node,
-                            *[n for n in txnPoolNodeSet if n != partitioned_node])
+    waitNodeDataEquality(looper, partitioned_node,
+                         *[n for n in txnPoolNodeSet if n != partitioned_node])

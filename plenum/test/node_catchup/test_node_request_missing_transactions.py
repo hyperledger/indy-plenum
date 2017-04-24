@@ -6,7 +6,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import CatchupReq
 from plenum.test.helper import sendRandomRequests
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
 
@@ -48,5 +48,5 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # Since one of the nodes does not reply, this new node will experience a
     # timeout and retry catchup requests, hence a long test timeout.
     # Dont reduce it.
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                            customTimeout=90)
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
+                         customTimeout=90)

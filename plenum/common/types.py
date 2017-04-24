@@ -33,6 +33,7 @@ class f:  # provides a namespace for reusable field constants
     SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
     ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
+    ORD_SEQ_NOS = Field('ordSeqNos', Dict[int, int])  # Last ordered seq no of each protocol instance, sent during view change
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -228,7 +229,8 @@ Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
-    f.REASON
+    f.REASON,
+    f.ORD_SEQ_NOS,
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [

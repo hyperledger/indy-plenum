@@ -15,7 +15,7 @@ from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkRejectWithReason
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
     changeNodeHa, addNewStewardAndNode, changeNodeKeys
@@ -130,7 +130,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
         txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     logger.debug("{} connected to the pool".format(newNode))
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     f = getMaxFailures(len(txnPoolNodeSet))
 
@@ -184,7 +184,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     txnPoolNodeSet[-1] = node
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
-    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
 
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
@@ -219,7 +219,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # stopped
     txnPoolNodeSet[-1] = node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,

@@ -15,15 +15,17 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = InstanceChange(curViewNo - 1, 0)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo - 1, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
     timeout = waits.expectedViewChangeTime(len(nodeSet))
-    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
-                          'less than its view no', nodeSet.Alpha, timeout=timeout))
 
     # Check that that message is discarded.
+    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
+                          'which is not more than its view no',
+                          nodeSet.Alpha, timeout=timeout))
+
     waitForViewChange(looper, nodeSet)
 
 
@@ -45,7 +47,7 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
         sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
 
     # Send an instance change message to all nodes
-    icMsg = InstanceChange(curViewNo, 0)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.

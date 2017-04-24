@@ -1,7 +1,7 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Tuple
+from typing import NamedTuple, Set, Tuple, Dict
 
 from plenum.common.types import Commit, Prepare
 
@@ -11,7 +11,8 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
-    ("voters", Set[str])])
+    ("voters", Set[str]),
+    ('last_ordered', Dict[str, Dict[int, int]])])
 
 
 class TrackedMsgs(dict):
@@ -127,14 +128,14 @@ class InstanceChanges(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return InsChgVotes(msg, set())
+        return InsChgVotes(msg.viewNo, set(), msg.ordSeqNos)
 
-    def getKey(self, viewNo):
-        return viewNo
+    def getKey(self, msg):
+        return msg if isinstance(msg, int) else msg.viewNo
 
     # noinspection PyMethodMayBeStatic
-    def addVote(self, viewNo: int, voter: str):
-        super().addMsg(viewNo, voter)
+    def addVote(self, msg: int, voter: str):
+        super().addMsg(msg, voter)
 
     # noinspection PyMethodMayBeStatic
     def hasView(self, viewNo: int) -> bool:

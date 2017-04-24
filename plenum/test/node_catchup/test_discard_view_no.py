@@ -9,7 +9,7 @@ from plenum.common.util import randomString
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitForViewChange, checkDiscardMsg
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
@@ -49,11 +49,11 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     txnPoolNodeSet.append(nodeTheta)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     looper.run(client.ensureConnectedToNodes())
-    waitNodeLedgersEquality(looper, nodeTheta, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, nodeTheta, *txnPoolNodeSet[:-1])
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1,
                                timeout=10)
     electMsg = Nomination(nodeX.name, 0, viewNo,
-                          nodeX.replicas[0].lastOrderdedPPSeqNo)
+                          nodeX.replicas[0].lastOrderedPPSeqNo)
     threePMsg = PrePrepare(
             0,
             viewNo,

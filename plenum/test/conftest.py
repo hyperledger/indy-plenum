@@ -190,7 +190,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
                      '.+ rid .+ has been removed',
-                     'last try...'
+                     'last try...',
+                     'has uninitialised socket'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -305,7 +306,7 @@ def ensureView(nodeSet, looper, up):
 
 
 @pytest.fixture("module")
-def delayedPerf(nodeSet):
+def delayed_perf_chk(nodeSet):
     for node in nodeSet:
         node.delayCheckPerformance(20)
 

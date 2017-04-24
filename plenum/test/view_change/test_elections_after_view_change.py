@@ -12,7 +12,7 @@ nodeCount = 7
 
 
 # noinspection PyIncorrectDocstring
-def testElectionsAfterViewChange(delayedPerf, looper: Looper,
+def testElectionsAfterViewChange(delayed_perf_chk, looper: Looper,
                                  nodeSet: TestNodeSet, up, wallet1, client1):
     """
     Test that a primary election does happen after a view change

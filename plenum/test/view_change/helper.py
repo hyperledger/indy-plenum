@@ -13,7 +13,7 @@ def chk_view_change(nodes, newViewNo, wallet, client):
         # If throughput of every node has gone down then check that
         # view has changed
         if all(tr):
-            logger.debug('Throughput ratio gone down')
+            logger.debug('Throughput ratio gone down, its {}'.format(','.join(tr)))
             checkViewNoForNodes(nodes, newViewNo)
         else:
             logger.debug('Master instance has not degraded yet, '

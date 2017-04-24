@@ -23,10 +23,10 @@ def checkNodeDataForEquality(node: TestNode,
             checkStateEquality(node.getState(lid), n.getState(lid))
 
 
-def waitNodeLedgersEquality(looper,
-                            referenceNode: TestNode,
-                            *otherNodes: Iterable[TestNode],
-                            customTimeout=None):
+def waitNodeDataEquality(looper,
+                         referenceNode: TestNode,
+                         *otherNodes: Iterable[TestNode],
+                         customTimeout=None):
     """
     Wait for node ledger to become equal
 

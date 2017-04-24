@@ -197,10 +197,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # replica during that view
         self.primaryNames = OrderedDict()  # type: OrderedDict[int, str]
 
-        # Holds msgs that are for later views
-        # self.threePhaseMsgsForLaterView = deque()
-        # type: deque[(ThreePhaseMsg, str)]
-
         # Holds tuple of view no and prepare seq no of 3-phase messages it
         # received while it was not participating
         self.stashingWhileCatchingUp = set()       # type: Set[Tuple]
@@ -226,8 +222,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
-        # TODO: Empty it when view change makes this replica non-primary
-        # from primary
         self.requestQueues = {}  # type: Dict[int, deque]
         for ledgerId in self.node.ledgerManager.ledgers:
             self.requestQueues[ledgerId] = deque()
@@ -240,7 +234,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = time.perf_counter()
 
-        self.lastOrderdedPPSeqNo = 0
+        self.lastOrderedPPSeqNo = 0
 
     def txnRootHash(self, ledgerId, toHex=True):
         if self.isMaster:
@@ -335,13 +329,16 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.removeObsoletePpReqs()
             self._stateChanged()
 
-    def primaryChanged(self, primaryName, lastOrderdedPPSeqNo):
-        if self.lastOrderdedPPSeqNo < lastOrderdedPPSeqNo:
-            self.lastOrderdedPPSeqNo = lastOrderdedPPSeqNo
+    def primaryChanged(self, primaryName, lastOrderedPPSeqNo):
+        if self.lastOrderedPPSeqNo < lastOrderedPPSeqNo:
+            self.lastOrderedPPSeqNo = lastOrderedPPSeqNo
         self.primaryName = primaryName
         if primaryName == self.name:
-            assert self.lastOrderdedPPSeqNo >= lastOrderdedPPSeqNo
-            self.lastPrePrepareSeqNo = self.lastOrderdedPPSeqNo
+            assert self.lastOrderedPPSeqNo >= lastOrderedPPSeqNo
+            self.lastPrePrepareSeqNo = self.lastOrderedPPSeqNo
+        else:
+            for lid in self.requestQueues:
+                self.requestQueues[lid].clear()
 
     def removeObsoletePpReqs(self):
         # If replica was primary in previous view then remove every sent
@@ -753,13 +750,13 @@ class Replica(HasActionQueue, MessageProcessor):
         lastPp = self.lastPrePrepare
         if lastPp:
             # TODO: Is it possible that lastPp.ppSeqNo is less than
-            # self.lastOrderdedPPSeqNo? Maybe if the node does not disconnect
+            # self.lastOrderedPPSeqNo? Maybe if the node does not disconnect
             # but does no work for some time or is missing PRE-PREPARES
             lastPpSeqNo = lastPp.ppSeqNo if lastPp.ppSeqNo > \
-                                            self.lastOrderdedPPSeqNo \
-                                            else self.lastOrderdedPPSeqNo
+                                            self.lastOrderedPPSeqNo \
+                                            else self.lastOrderedPPSeqNo
         else:
-            lastPpSeqNo = self.lastOrderdedPPSeqNo
+            lastPpSeqNo = self.lastOrderedPPSeqNo
 
         if ppSeqNo - lastPpSeqNo != 1:
             return False
@@ -1386,7 +1383,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
-        self.lastOrderdedPPSeqNo = ppSeqNo
+        self.lastOrderedPPSeqNo = ppSeqNo
 
     def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str, nonFinReqs: Set=None):
         if nonFinReqs:

@@ -20,11 +20,10 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     viewNoBefore = checkViewNoForNodes(nodes)
     old_pr_node = get_master_primary_node(nodes)
 
-    # Exercise
+    # Stop primary
     stopNodes([old_pr_node], looper)
-    # Verify
-    remainingNodes = set(nodes) - {old_pr_node}
 
+    remainingNodes = set(nodes) - {old_pr_node}
     looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
 
     def assertNewPrimariesElected():
@@ -32,6 +31,7 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
         new_pr_node = get_master_primary_node(remainingNodes)
         assert old_pr_node != new_pr_node
 
-    # Give some time to detect disconnection
+    # Give some time to detect disconnection and then verify that view has
+    # changed and new primary has been elected
     looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=45))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
