@@ -120,6 +120,8 @@ enableStdOutLogging=True
 
 # OPTIONS RELATED TO TESTS
 
+TestRunningTimeLimitSec = 60
+
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
 

@@ -9,6 +9,8 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
+
+import time
 from typing import Dict, Any
 from plenum.test import waits
 
@@ -91,6 +93,23 @@ def warncheck(warnfilters):
     if to_prints:
         to_prints.insert(0, 'Warnings found:')
         pytest.fail('\n'.join(to_prints))
+
+
+@pytest.fixture(scope="function", autouse=True)
+def limitTestRunningTime(tconf):
+    st = time.time()
+    yield
+    if (time.time() - st) > tconf.TestRunningTimeLimitSec:
+        pytest.fail(
+            'The running time of each test is limited by {} sec.\n'
+            'In order to make the test passed there are two options:\n'
+            '\t1. Make the test faster (for example: override default '
+            'timeouts ONLY for the tests, do not wait `with pytest.raises(..)` '
+            ' and so on)\n'
+            '\t2. Override the `limitTestRunningTime` fixture '
+            'for the test module.\n'
+            'Option #1 is prefer.'
+            ''.format(tconf.TestRunningTimeLimitSec))
 
 
 @pytest.fixture(scope="session", autouse=True)
