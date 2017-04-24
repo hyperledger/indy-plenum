@@ -1,3 +1,5 @@
+from stp_zmq.zstack import KITZStack
+
 from stp_core.common.log import getlogger
 from plenum.common.config_util import getConfig
 from plenum.common.util import totalConnections
@@ -12,9 +14,9 @@ config = getConfig()
 #########################
 
 
-def expectedNodeInterconnectionTime(nodeCount):
+def expectedPoolInterconnectionTime(nodeCount):
     count = totalConnections(nodeCount)
-    return count * config.ExpectedConnectTime
+    return count * config.ExpectedConnectTime + KITZStack.RETRY_TIMEOUT_RESTRICTED
 
 
 def expectedCatchupTime(nodeCount, customConsistencyProofsTimeout=None):
