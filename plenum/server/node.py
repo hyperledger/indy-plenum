@@ -1683,8 +1683,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
         return InstanceChange(view_no, suspicion_code,
-                              {r.instId: r.lastOrderedPPSeqNo
-                               for r in self.replicas})
+                              [r.lastOrderedPPSeqNo for r in self.replicas])
 
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):

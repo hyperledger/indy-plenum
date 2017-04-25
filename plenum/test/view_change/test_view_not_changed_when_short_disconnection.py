@@ -62,7 +62,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
         if node != pr_node:
             node.nodestack.retryDisconnected()
 
-    looper.run(eventually(chk2, retryWait=.2, timeout=timeout))
+    looper.run(eventually(chk2, retryWait=.2, timeout=timeout+1))
 
     def chk3():
         # Check the view does not change

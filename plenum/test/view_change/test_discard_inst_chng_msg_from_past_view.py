@@ -1,5 +1,4 @@
 from stp_core.loop.eventually import eventually
-from plenum.common.types import InstanceChange
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.helper import checkDiscardMsg, waitForViewChange

@@ -5,7 +5,7 @@ from plenum.common.types import HA
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import ensureNodeDisconnectedFromPool
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, \
     TestNode
@@ -82,7 +82,7 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     logger.debug("Stopping node {} with pool ledger size {}".
                  format(newNode, newNode.poolManager.txnSeqNo))
-    ensureNodeDisconnectedFromPool(looper, txnPoolNodeSet, newNode)
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode)
     looper.removeProdable(newNode)
     # for n in txnPoolNodeSet[:4]:
     #     for r in n.nodestack.remotes.values():

@@ -785,3 +785,24 @@ def nodeByName(nodes, name):
         if node.name == name:
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
+
+
+def check_node_disconnected_from(needle: str, haystack: Iterable[TestNode]):
+    """
+    Check if the node name given by `needle` is disconnected from nodes in
+    `haystack`
+    :param needle: Node name which should be disconnected from nodes from
+    `haystack`
+    :param haystack: nodes who should be disconnected from `needle`
+    :return:
+    """
+    assert all([needle not in node.nodestack.connecteds for node in haystack])
+
+
+def ensure_node_disconnected(looper, disconnected_name, other_nodes,
+                             timeout=None):
+    timeout = timeout or (len(other_nodes) - 1)
+    looper.run(eventually(check_node_disconnected_from, disconnected_name,
+                          [n for n in other_nodes
+                           if n.name != disconnected_name],
+                          retryWait=1, timeout=timeout))

@@ -68,7 +68,7 @@ class NodeZStack(Batched, KITZStack):
         KITZStack.start(self, restricted=restricted, reSetupAuth=reSetupAuth)
         # Calling service lifecycle to allow creation of remotes
         # that this stack needs to connect to
-        self.serviceLifecycle()
+        # self.serviceLifecycle()
         logger.info("{} listening for other nodes at {}:{}".
                     format(self, *self.ha),
                     extra={"tags": ["node-listening"]})

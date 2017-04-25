@@ -1,5 +1,6 @@
 from plenum.test.test_node import ensureElectionsDone, \
-    primaryNodeNameForInstance, nodeByName, get_master_primary_node
+    primaryNodeNameForInstance, nodeByName, get_master_primary_node, \
+    ensure_node_disconnected
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
@@ -22,8 +23,11 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
 
     # Stop primary
     stopNodes([old_pr_node], looper)
-
+    looper.removeProdable(old_pr_node)
     remainingNodes = set(nodes) - {old_pr_node}
+    # Sometimes it takes time for nodes to detect disconnection
+    ensure_node_disconnected(looper, old_pr_node, remainingNodes, timeout=20)
+
     looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
 
     def assertNewPrimariesElected():
