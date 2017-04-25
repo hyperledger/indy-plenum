@@ -51,6 +51,8 @@ class TestNetworkSetup:
                                domainTxnFieldOrder, trustee_def, steward_defs,
                                node_defs, client_defs, localNodes, nodeParamsFileName):
 
+        if not localNodes:
+            localNodes = {}
         try:
             if isinstance(localNodes, int):
                 _localNodes = {localNodes}
