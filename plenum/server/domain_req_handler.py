@@ -70,6 +70,7 @@ class DomainRequestHandler(RequestHandler):
         Note: This is inefficient, a production use case of this function
         should require an efficient storage mechanism
         """
+        # TODO: do not load all transactions!!!
         allTxns = self.ledger.getAllTxn().values()
         return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
                    (txn.get(ROLE) == STEWARD))

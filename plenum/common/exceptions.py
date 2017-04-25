@@ -224,14 +224,6 @@ class NameAlreadyExists(Exception):
     pass
 
 
-class OrientDBNotRunning(Exception):
-    pass
-
-
-class GraphStorageNotAvailable(OrientDBNotRunning):
-    pass
-
-
 class WalletError(Exception):
     pass
 

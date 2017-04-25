@@ -116,7 +116,6 @@ NODE_TXN_STORE_SUFFIX = "TS"
 NODE_HASH_STORE_SUFFIX = "HS"
 
 HS_FILE = "file"
-HS_ORIENT_DB = "orientdb"
 HS_MEMORY = "memory"
 HS_LEVELDB = 'leveldb'
 
