@@ -27,8 +27,7 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
-    KeysNotFoundException
+from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from stp_core.crypto.util import cleanSeed, seedFromHex
@@ -914,7 +913,7 @@ class Cli:
                                       basedirpath=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
-            except (GraphStorageNotAvailable, KeysNotFoundException) as e:
+            except KeysNotFoundException as e:
                 self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
