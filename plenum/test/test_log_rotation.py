@@ -1,4 +1,3 @@
-import pytest
 import os
 import logging
 import shutil
@@ -14,7 +13,6 @@ def cleanFolder(path):
     return path
 
 
-@pytest.mark.skip(reason="SOV-950")
 def test_time_log_rotation():
     logDirPath = cleanFolder("/tmp/plenum/test_time_log_rotation")
     logFile = os.path.join(logDirPath, "log")
@@ -29,7 +27,6 @@ def test_time_log_rotation():
     assert len(os.listdir(logDirPath)) == 4 # initial + 3 new
 
 
-@pytest.mark.skip(reason="SOV-950")
 def test_size_log_rotation():
     logDirPath = cleanFolder("/tmp/plenum/test_size_log_rotation")
     logFile = os.path.join(logDirPath, "log")
@@ -46,7 +43,6 @@ def test_size_log_rotation():
     assert len(os.listdir(logDirPath)) == 5
 
 
-@pytest.mark.skip(reason="SOV-950")
 def test_time_and_size_log_rotation():
     logDirPath = cleanFolder("/tmp/plenum/test_time_and_size_log_rotation")
     logFile = os.path.join(logDirPath, "log")

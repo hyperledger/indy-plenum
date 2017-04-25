@@ -49,7 +49,7 @@ class TestNetworkSetup:
     @classmethod
     def bootstrapTestNodesCore(cls, config, envName, appendToLedgers,
                                domainTxnFieldOrder, trustee_def, steward_defs,
-                               node_defs, client_defs, localNodes):
+                               node_defs, client_defs, localNodes, nodeParamsFileName):
 
         try:
             if isinstance(localNodes, int):
@@ -62,7 +62,7 @@ class TestNetworkSetup:
         baseDir = cls.setup_base_dir(config)
 
         poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
-                                          domainTxnFieldOrder)
+                                          envName)
 
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
@@ -84,6 +84,14 @@ class TestNetworkSetup:
                                           nd.sigseed, True, config=config)
                 verkey = verkey.encode()
                 assert verkey == nd.verkey
+
+                if nd.ip != '127.0.0.1':
+                    paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
+                    print('Nodes will not run locally, so writing '
+                          '{}'.format(paramsFilePath))
+                    TestNetworkSetup.writeNodeParamsFile(
+                        paramsFilePath, nd.name, nd.port, nd.client_port)
+
                 print("This node with name {} will use ports {} and {} for "
                       "nodestack and clientstack respectively"
                       .format(nd.name, nd.port, nd.client_port))
@@ -144,7 +152,7 @@ class TestNetworkSetup:
         return baseDir
 
     @classmethod
-    def bootstrapTestNodes(cls, config, startingPort, domainTxnFieldOrder):
+    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
@@ -200,7 +208,7 @@ class TestNetworkSetup:
         cls.bootstrapTestNodesCore(config, envName, appendToLedgers,
                                    domainTxnFieldOrder, trustee_def,
                                    steward_defs, node_defs, client_defs,
-                                   nodeNum)
+                                   nodeNum, nodeParamsFileName)
 
     @classmethod
     def gen_defs(cls, ips, nodeCount, starting_port):
