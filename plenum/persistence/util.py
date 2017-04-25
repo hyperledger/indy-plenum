@@ -5,13 +5,6 @@ from copy import deepcopy
 from ledger.util import F
 
 
-def removeLockFiles(dbPath):
-    if os.path.isdir(dbPath):
-        lockFilePath = os.path.join(dbPath, 'LOCK')
-        if os.path.isfile(lockFilePath):
-            os.remove(lockFilePath)
-
-
 def txnsWithSeqNo(seqNoStart, seqNoEnd, txns):
     txns = deepcopy(txns)
     for txn, seqNo in zip(txns, range(seqNoStart, seqNoEnd + 1)):

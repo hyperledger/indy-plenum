@@ -3,9 +3,10 @@ from typing import List
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
-from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
 from stp_core.common.log import getlogger
+
+from state.state import State
 
 logger = getlogger()
 
@@ -17,8 +18,7 @@ class RequestHandler:
     state control
     """
 
-    def __init__(self, ledger: Ledger, state: PruningState):
-        # TODO: continue using PruningState until State hierarchy fixed
+    def __init__(self, ledger: Ledger, state: State):
         self.ledger = ledger
         self.state = state
 

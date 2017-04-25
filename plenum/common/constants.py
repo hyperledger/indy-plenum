@@ -100,8 +100,10 @@ class ClientBootStrategy(IntEnum):
 class StorageType(IntEnum):
     File = 1
     Ledger = 2
-    OrientDB = 3
 
+class KeyValueStorageType(IntEnum):
+    Leveldb = 1
+    Memory = 2
 
 OP_FIELD_NAME = "op"
 

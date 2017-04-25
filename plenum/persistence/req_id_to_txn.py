@@ -1,7 +1,7 @@
 from hashlib import sha256
 from typing import Optional
 
-from plenum.persistence.kv_store_leveldb import KVStoreLeveldb
+from state.kv.kv_store import KeyValueStorage
 
 
 class ReqIdrToTxn:
@@ -9,20 +9,9 @@ class ReqIdrToTxn:
     Stores a map from client identifier, request id tuple to transaction
     sequence number
     """
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
 
-    def add(self, identifier, reqId, seqNo):
-        raise NotImplementedError
-
-    def get(self, identifier, reqId):
-        raise NotImplementedError
-
-
-class ReqIdrToTxnKVStore(ReqIdrToTxn):
-    def __init__(self, dbPath):
-        self.dbPath = dbPath
-        self.db = KVStoreLeveldb(dbPath)
+    def __init__(self, keyValueStorage: KeyValueStorage):
+        self._keyValueStorage = keyValueStorage
 
     def getKey(self, identifier, reqId):
         h = sha256()
@@ -32,19 +21,19 @@ class ReqIdrToTxnKVStore(ReqIdrToTxn):
 
     def add(self, identifier, reqId, seqNo):
         key = self.getKey(identifier, reqId)
-        self.db.set(key, str(seqNo))
+        self._keyValueStorage.put(key, str(seqNo))
 
     def addBatch(self, batch):
-        self.db.setBatch([(self.getKey(identifier, reqId), str(seqNo))
-                          for identifier, reqId, seqNo in batch])
+        self._keyValueStorage.setBatch([(self.getKey(identifier, reqId), str(seqNo))
+                                        for identifier, reqId, seqNo in batch])
 
     def get(self, identifier, reqId) -> Optional[int]:
         key = self.getKey(identifier, reqId)
         try:
-            val = self.db.get(key)
+            val = self._keyValueStorage.get(key)
             return int(val)
         except (KeyError, ValueError):
             return None
 
     def close(self):
-        self.db.close()
+        self._keyValueStorage.close()

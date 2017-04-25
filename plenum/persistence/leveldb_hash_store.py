@@ -1,7 +1,7 @@
 import os
 
 from ledger.stores.hash_store import HashStore
-from plenum.persistence.kv_store_leveldb import KVStoreLeveldb
+from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
 from stp_core.common.log import getlogger
 
 
@@ -18,13 +18,13 @@ class LevelDbHashStore(HashStore):
         self.open()
 
     def writeLeaf(self, leafHash):
-        self.leavesDb.set(str(self.leafCount + 1), leafHash)
+        self.leavesDb.put(str(self.leafCount + 1), leafHash)
         self.leafCount += 1
 
     def writeNode(self, node):
         start, height, nodeHash = node
         seqNo = self.getNodePosition(start, height)
-        self.nodesDb.set(str(seqNo), nodeHash)
+        self.nodesDb.put(str(seqNo), nodeHash)
 
     def readLeaf(self, seqNo):
         return self._readOne(seqNo, self.leavesDb)
@@ -72,8 +72,8 @@ class LevelDbHashStore(HashStore):
         return self.nodesDb is None and self.leavesDb is None
 
     def open(self):
-        self.nodesDb = KVStoreLeveldb(self.nodesDbPath)
-        self.leavesDb = KVStoreLeveldb(self.leavesDbPath)
+        self.nodesDb = KeyValueStorageLeveldb(self.nodesDbPath)
+        self.leavesDb = KeyValueStorageLeveldb(self.leavesDbPath)
 
     def close(self):
         self.nodesDb.close()

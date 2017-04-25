@@ -53,9 +53,9 @@ from plenum.common.types import Propagate, \
 from plenum.common.util import friendlyEx, getMaxFailures
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
-from plenum.persistence.req_id_to_txn import ReqIdrToTxnKVStore
-from plenum.persistence.pruning_state import PruningState
-from plenum.persistence.storage import Storage, initStorage
+from plenum.persistence.req_id_to_txn import ReqIdrToTxn
+
+from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server import primary_elector
 from plenum.server import replica
@@ -77,11 +77,14 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_zmq.zstack import ZStack
+
+from state.state import State
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -142,7 +145,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.initDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.ledgerManager = self.getLedgerManager()
-        self.states = {}  # type: Dict[int, PruningState]
+        self.states = {}  # type: Dict[int, State]
 
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
                                      postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
@@ -379,8 +382,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     self.reqProcessors)
 
     def loadSeqNoDB(self):
-        dbPath = os.path.join(self.dataLocation, self.config.seqNoDB)
-        return ReqIdrToTxnKVStore(dbPath)
+        return ReqIdrToTxn(
+            initKeyValueStorage(
+                self.config.reqIdToTxnStorage,
+                self.dataLocation,
+                self.config.seqNoDbName)
+        )
 
     # noinspection PyAttributeOutsideInit
     def setF(self):
@@ -475,8 +482,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
     def loadDomainState(self):
-        return PruningState(os.path.join(self.dataLocation,
-                                         self.config.domainStateDbName))
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName)
+        )
 
     @classmethod
     def ledgerIdForRequest(cls, request: Request):
@@ -1942,7 +1953,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 shutil.copy(defaultTxnFile, self.dataLocation)
 
     @staticmethod
-    def initStateFromLedger(state: PruningState, ledger: Ledger, reqHandler):
+    def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
         # If the trie is empty then initialize it by applying
         # txns from ledger
         if state.isEmpty:

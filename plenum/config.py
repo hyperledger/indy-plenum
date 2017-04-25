@@ -5,10 +5,11 @@ from collections import OrderedDict
 
 import logging
 
-from plenum.common.constants import ClientBootStrategy, HS_FILE
+from plenum.common.constants import ClientBootStrategy, HS_FILE, KeyValueStorageType
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
 
 # Each entry in registry is (stack name, ((host, port), verkey, pubkey))
+
 nodeReg = OrderedDict([
     ('Alpha', ('127.0.0.1', 9701)),
     ('Beta', ('127.0.0.1', 9703)),
@@ -31,12 +32,13 @@ walletDir = 'wallet'
 
 poolTransactionsFile = 'pool_transactions_sandbox'
 domainTransactionsFile = 'transactions_sandbox'
+
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'
 
 # There is only one seqNoDB as it maintain the mapping of
 # request id to sequence numbers
-seqNoDB = 'seq_no_db'
+seqNoDbName = 'seq_no_db'
 
 clientBootStrategy = ClientBootStrategy.PoolTxn
 
@@ -46,14 +48,9 @@ hashStore = {
 
 primaryStorage = None
 
-secondaryStorage = None
-
-OrientDB = {
-    "user": "root",
-    "password": "password",
-    "host": "127.0.0.1",
-    "port": 2424
-}
+domainStateStorage = KeyValueStorageType.Leveldb
+poolStateStorage = KeyValueStorageType.Leveldb
+reqIdToTxnStorage = KeyValueStorageType.Leveldb
 
 DefaultPluginPath = {
     # PLUGIN_BASE_DIR_PATH: "<abs path of plugin directory can be given here,

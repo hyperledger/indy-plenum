@@ -11,10 +11,11 @@ from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.types import NodeDetail
-from plenum.persistence.pruning_state import PruningState
+from plenum.persistence.storage import initKeyValueStorage
 from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.suspicion_codes import Suspicions
+from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
@@ -76,8 +77,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                   self.node.states[DOMAIN_LEDGER_ID])
 
     def loadState(self):
-        return PruningState(os.path.join(self.node.dataLocation,
-                                         self.config.poolStateDbName))
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.node.dataLocation,
+                self.config.poolStateDbName)
+        )
 
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)

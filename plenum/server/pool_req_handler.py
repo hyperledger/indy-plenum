@@ -9,10 +9,10 @@ from plenum.common.ledger import Ledger
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn
 from plenum.common.types import f
-from plenum.persistence.pruning_state import PruningState
 from plenum.persistence.util import txnsWithSeqNo
 from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.req_handler import RequestHandler
+from state.state import State
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -20,8 +20,8 @@ logger = getlogger()
 
 class PoolRequestHandler(RequestHandler):
 
-    def __init__(self, ledger: Ledger, state: PruningState,
-                 domainState: PruningState):
+    def __init__(self, ledger: Ledger, state: State,
+                 domainState: State):
         super().__init__(ledger, state)
         self.domainState = domainState
         self.stateSerializer = JsonSerializer()

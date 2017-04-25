@@ -189,6 +189,8 @@ class DataDirectoryNotFound(StorageException):
 class DBConfigNotFound(StorageException):
     pass
 
+class KeyValueStorageConfigNotFound(StorageException):
+    pass
 
 class UnsupportedOperation(Exception):
     pass
