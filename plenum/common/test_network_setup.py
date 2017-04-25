@@ -12,7 +12,7 @@ from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX
+from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
 from plenum.common.util import hexToFriendly, adict
 
 
@@ -69,7 +69,7 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, 'TRUSTEE')
+        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
