@@ -1,11 +1,4 @@
-import os
 from collections import OrderedDict
-
-import portalocker
-
-from ledger.stores.file_hash_store import FileHashStore
-
-from ledger.util import F
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger

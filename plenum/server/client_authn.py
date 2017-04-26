@@ -145,7 +145,7 @@ class SimpleAuthNr(NaclAuthNr):
             # batches in progress and identity creation request might
             # still be in an earlier uncommited batch
             nym = DomainRequestHandler.getNymDetails(self.state,
-                                                     nym, isCommitted=False)
+                                                     identifier, isCommitted=False)
             if not nym:
                 raise UnknownIdentifier(identifier)
         return nym.get(VERKEY)

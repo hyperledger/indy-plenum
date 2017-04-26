@@ -63,10 +63,9 @@ setup(
     )],
     install_requires=['ledger-3pc-batch==0.2.9', 'stp-3pc-batch==0.1.14',
                       'evernym-state==0.1.9', 'jsonpickle',
-                      'portalocker==0.5.7', 'prompt_toolkit==0.57', 'pygments',
+                      'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip', 'leveldb',
-                      'rlp'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip'],
     extras_require={
         'stats': ['python-firebase']
     },
