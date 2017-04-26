@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from plenum.test.view_change.helper import chk_view_change
+from plenum.test.view_change.helper import provoke_and_wait_for_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import getMaxFailures
@@ -65,10 +65,10 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
                  .format(lagging_node))
 
     # Every node except Node A should do a view change
-    looper.run(eventually(chk_view_change,
-                          [n for n in nodeSet if n != lagging_node],
-                          old_view_no + 1, wallet1, client1, retryWait=1,
-                          timeout=60))
+    provoke_and_wait_for_view_change(looper,
+                                     [n for n in nodeSet if n != lagging_node],
+                                     old_view_no + 1,
+                                     wallet1, client1)
 
     for node in nodeSet:
         node.nodeIbStasher.nodelay(pp_delayer)

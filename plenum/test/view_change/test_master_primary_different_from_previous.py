@@ -6,9 +6,10 @@ from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 from plenum.test.pool_transactions.conftest import clientAndWallet1, client1, \
     wallet1, client1Connected, looper
-from plenum.test.view_change.helper import chk_view_change
-from stp_core.loop.eventually import eventually
+from plenum.test.view_change.helper import provoke_and_wait_for_view_change
 
+from stp_core.common.log import getlogger
+logger = getlogger()
 
 def test_master_primary_different_from_previous1(txnPoolNodeSet,
                                                  looper, client1,
@@ -23,9 +24,12 @@ def test_master_primary_different_from_previous1(txnPoolNodeSet,
     old_pr_node_name = pr.node.name
 
     # View change happens
-    looper.run(eventually(chk_view_change, txnPoolNodeSet, old_view_no + 1,
-                          wallet1, client1, retryWait=1, timeout=60))
-
+    provoke_and_wait_for_view_change(looper,
+                                     txnPoolNodeSet,
+                                     old_view_no + 1,
+                                     wallet1,
+                                     client1)
+    logger.debug("VIEW HAS BEEN CHANGED!")
     # Elections done
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     # New primary is not same as old primary
@@ -62,9 +66,11 @@ def test_master_primary_different_from_previous2(txnPoolNodeSet,
         _get_undecided_inst_id, old_pr_node.elector)
 
     # View change happens
-    looper.run(
-        eventually(chk_view_change, txnPoolNodeSet, old_view_no + 1, wallet1, client1,
-                   retryWait=1, timeout=60))
+    provoke_and_wait_for_view_change(looper,
+                                     txnPoolNodeSet,
+                                     old_view_no + 1,
+                                     wallet1,
+                                     client1)
 
     # Elections done
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
