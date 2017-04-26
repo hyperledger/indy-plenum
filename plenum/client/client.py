@@ -221,7 +221,7 @@ class Client(Motor,
         else:
             super().start(loop)
             self.nodestack.start()
-            self.nodestack.maintainConnections()
+            self.nodestack.maintainConnections(force=True)
             if self._ledger:
                 self.ledgerManager.setLedgerCanSync(0, True)
                 self.mode = Mode.starting
