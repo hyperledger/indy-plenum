@@ -115,6 +115,7 @@ class KeysNotFoundException(Exception):
 
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
+        node = node.decode() if isinstance(node, bytes) else node
         self.code = suspicion.code if suspicion else None
         self.reason = suspicion.reason if suspicion else None
         p = compile(r'(\b\w+)(:(\d+))?')

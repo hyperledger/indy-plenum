@@ -337,9 +337,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.lost_primary_at = None
 
         # First view change message received for a view no
-        # # TODO: A malicious node should not be able to disrupt a
-        # view change by sending a message too early, this decreasing the
-        # available time to get enough view change messages
         self.view_change_started_at = {}
 
         tp = loadPlugins(self.basedirpath)
@@ -519,7 +516,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             "".format(self), extra={"cli": "LOW_STATUS",
                                                     "tags": ["node-key-sharing"]})
             else:
-                self.nodestack.maintainConnections()
+                self.nodestack.maintainConnections(force=True)
 
             if isinstance(self.poolManager, RegistryPoolManager):
                 # Node not using pool ledger so start syncing domain ledger

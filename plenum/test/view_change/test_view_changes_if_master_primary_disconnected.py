@@ -37,5 +37,5 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
 
     # Give some time to detect disconnection and then verify that view has
     # changed and new primary has been elected
-    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=45))
+    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=90))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)

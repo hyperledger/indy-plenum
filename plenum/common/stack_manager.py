@@ -147,6 +147,7 @@ class TxnStackManager:
         else:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
 
+        # Attempt connection at the new HA
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
         return rid
@@ -168,6 +169,7 @@ class TxnStackManager:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))
 
+        # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
         return rid
 

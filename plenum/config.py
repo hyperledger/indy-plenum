@@ -140,14 +140,6 @@ CHK_FREQ = 100000
 LOG_SIZE = 3*CHK_FREQ
 
 
-# The client when learns of new nodes or any change in configuration of
-# other nodes, updates the genesis pool transaction file if this option is set
-# to True. This option is overwritten by default for tests to keep multiple
-# clients from reading an updated pool transaction file, this helps us
-# emulate clients on different machines.
-UpdateGenesisPoolTxnFile = False
-
-
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
 # down writes as shown in a test `test_file_store_perf.py` in the ledger

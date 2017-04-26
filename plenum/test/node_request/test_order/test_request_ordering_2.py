@@ -45,7 +45,6 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     requestCount = 15
 
     def specificCommits(wrappedMsg):
-        # TODO: Do not need nonlocal
         nonlocal node3, node4, node5
         msg, sender = wrappedMsg
         if isinstance(msg, PrePrepare):

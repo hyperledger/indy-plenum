@@ -138,7 +138,6 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UpdateGenesisPoolTxnFile': False,
     'EnsureLedgerDurability': False,
     'Max3PCBatchSize': 1
 }

@@ -9,7 +9,6 @@ from plenum.common.exceptions import UnsupportedOperation, \
     InvalidClientRequest
 from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.txn_util import updateGenesisPoolTxnFile
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
 from plenum.persistence.util import txnsWithMerkleInfo
@@ -177,9 +176,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     _updateNode(txn)
 
             self.node.sendPoolInfoToClients(txn)
-            if self.config.UpdateGenesisPoolTxnFile:
-                updateGenesisPoolTxnFile(self.config.baseDir,
-                                         self.config.poolTransactionsFile, txn)
 
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]

@@ -167,7 +167,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
         # pre-prepare seqNo and value is a tuple of Request Digest and time
-        # TODO: GC this
         self.sentPrePrepares = SortedDict(lambda k: k[1])
         # type: Dict[Tuple[int, int], PrePrepare]
 
