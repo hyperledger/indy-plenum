@@ -69,7 +69,7 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, TRUSTEE)
+        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, role=TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
