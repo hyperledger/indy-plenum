@@ -279,15 +279,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if r is None:
             logger.debug("{} master throughput is not measurable.".
                          format(self))
+            return None
+
+        tooLow = r < self.Delta
+        if tooLow:
+            logger.info("{} master throughput ratio {} is lower than "
+                        "Delta {}.".format(self, r, self.Delta))
         else:
-            tooLow = r < self.Delta
-            if tooLow:
-                logger.info("{} master throughput ratio {} is lower than "
-                            "Delta {}.".format(self, r, self.Delta))
-            else:
-                logger.trace("{} master throughput ratio {} is acceptable.".
-                             format(self, r))
-            return tooLow
+            logger.trace("{} master throughput ratio {} is acceptable.".
+                         format(self, r))
+        return tooLow
 
     def isMasterReqLatencyTooHigh(self):
         """
