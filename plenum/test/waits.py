@@ -71,6 +71,10 @@ def expectedPoolInterconnectionTime(nodeCount):
            KITZStack.RETRY_TIMEOUT_RESTRICTED
 
 
+def expectedPoolDisconnectionTime(nodeCount):
+    return __Peer2PeerRequestDeliveryTime * nodeCount
+
+
 def expectedPoolConsistencyProof(nodeCount):
     """
     From: any time the Pool ready for the consistency proof procedure
@@ -145,8 +149,8 @@ def expectedPoolElectionTimeout(nodeCount):
     """
     # not sure what nomination + primary is enough
     interconnectionCount = totalConnections(nodeCount)
-    primarySelectTimeout = expectedNodeToNodeMessageDeliveryTime() * \
-                           interconnectionCount
+    primarySelectTimeout = \
+        expectedNodeToNodeMessageDeliveryTime() * interconnectionCount
     return expectedPoolViewChangeStartedTimeout(nodeCount) + \
            expectedPoolNominationTimeout(nodeCount) + \
            primarySelectTimeout
@@ -266,7 +270,7 @@ def expectedClientRequestPropagationTime(nodeCount):
 
 
 def expectedTransactionExecutionTime(nodeCount):
-    return CLIENT_REPLY_TIMEOUT * nodeCount
+    return CLIENT_REPLY_TIMEOUT * 0.25 * nodeCount
 
 
 def expectedReqAckQuorumTime():

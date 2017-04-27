@@ -635,11 +635,6 @@ def ensureElectionsDone(looper: Looper,
     if timeout is None:
         timeout = waits.expectedPoolElectionTimeout(len(nodes))
 
-    #poolReadyTimeout = 1/3 * timeout
-    #setupCheckTimeout = 2/3 * timeout
-
-    # checkPoolReady(looper, nodes, customTimeout=poolReadyTimeout)
-
     return checkProtocolInstanceSetup(
         looper=looper,
         nodes=nodes,

@@ -8,7 +8,7 @@ from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import getPrimaryReplica
+from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 
 nodeCount = 7
 
@@ -41,7 +41,7 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     Node will change view even though it does not find the master to be degraded
     when a quorum of nodes agree that master performance degraded
     """
-
+    ensureElectionsDone(looper, nodeSet)
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(nodeSet, 0, 10)

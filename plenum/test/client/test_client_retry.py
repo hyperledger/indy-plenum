@@ -125,11 +125,14 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
 @pytest.fixture(scope="function")
 def withFewerRetryReq(tconf, tdir, request):
-    oldRetryReply = tconf.CLIENT_MAX_RETRY_REPLY
+    oldRetryReplyCount = tconf.CLIENT_MAX_RETRY_REPLY
+    oldRetryReplyTimeout = tconf.CLIENT_REPLY_TIMEOUT
     tconf.CLIENT_MAX_RETRY_REPLY = 3
+    tconf.CLIENT_REPLY_TIMEOUT = 5
 
     def reset():
-        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReply
+        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReplyCount
+        tconf.CLIENT_REPLY_TIMEOUT = oldRetryReplyTimeout
 
     request.addfinalizer(reset)
     return tconf
@@ -160,9 +163,12 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     req = sendRandomRequest(wallet1, client1)
 
     # Wait for more than REPLY timeout
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + \
-                withFewerRetryReq.CLIENT_REQACK_TIMEOUT * \
-                    withFewerRetryReq.CLIENT_MAX_RETRY_REPLY
+    # +1 because we have to wait one more retry timeout to make sure what
+    # client cleaned his buffers (expectingAcksFor, expectingRepliesFor)
+    retryTime = withFewerRetryReq.CLIENT_REPLY_TIMEOUT * \
+        (withFewerRetryReq.CLIENT_MAX_RETRY_REPLY + 1)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + retryTime
+
     looper.runFor(timeout)
 
     idr, reqId = req.key

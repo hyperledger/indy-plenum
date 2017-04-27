@@ -21,7 +21,7 @@ whitelist = ['because already got primary declaration',
 logger = getlogger()
 
 # the total delay of election done
-delayOfElectionDone = 5
+delayOfElectionDone = 20
 
 
 @pytest.fixture()
@@ -41,14 +41,14 @@ def case5Setup(startedNodes: TestNodeSet):
         node.whitelistNode(B.name, Suspicions.DUPLICATE_PRI_SENT.code)
 
     for node in [A, C, D]:
-        B.nodeIbStasher.delay(delayerMsgTuple(30,
+        B.nodeIbStasher.delay(delayerMsgTuple(delayOfElectionDone,
                                               Nomination,
                                               senderFilter=node.name,
                                               instFilter=0))
 
     for node in [C, D]:
         # Nodes C and D delay NOMINATE from node A
-        node.nodeIbStasher.delay(delayerMsgTuple(delayOfElectionDone,
+        node.nodeIbStasher.delay(delayerMsgTuple(5,
                                                  Nomination,
                                                  senderFilter=A.name,
                                                  instFilter=0))
@@ -79,7 +79,10 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     B.send(Primary(DRep, 0, B.viewNo))
 
     # Ensure elections are done
-    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + delayOfElectionDone
+    # also have to take into account the catchup procedure
+    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
+              waits.expectedPoolCatchupTime(len(nodeSet)) + \
+              delayOfElectionDone
     ensureElectionsDone(looper=looper, nodes=nodeSet, timeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
