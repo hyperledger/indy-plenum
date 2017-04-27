@@ -76,12 +76,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                   self.node.states[DOMAIN_LEDGER_ID])
 
     def loadState(self):
-        return PruningState(
-            initKeyValueStorage(
-                self.config.poolStateStorage,
-                self.node.dataLocation,
-                self.config.poolStateDbName)
-        )
+        # return PruningState(
+        #     initKeyValueStorage(
+        #         self.config.poolStateStorage,
+        #         self.node.dataLocation,
+        #         self.config.poolStateDbName)
+        # )
+        return PruningState(os.path.join(self.node.dataLocation,
+                                         self.config.poolStateDbName))
 
     def initPoolState(self):
         self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)

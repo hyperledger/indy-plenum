@@ -27,6 +27,7 @@ class Storage(ABC):
     async def get(self, identifier: str, reqId: int, **kwargs):
         pass
 
+
 def initKeyValueStorage(keyValueType, dataLocation, keyValueStorageName) -> KeyValueStorage:
     if keyValueType == KeyValueStorageType.Leveldb:
         kvPath = os.path.join(dataLocation, keyValueStorageName)
