@@ -28,7 +28,7 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from stp_core.common.log import getlogger
+from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
@@ -47,6 +47,7 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
+Logger.setLogLevel(logging.DEBUG)
 logger = getlogger()
 config = getConfig()
 
