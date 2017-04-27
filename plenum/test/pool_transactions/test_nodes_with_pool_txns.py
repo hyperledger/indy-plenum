@@ -1,6 +1,9 @@
 from copy import copy
 
 import pytest
+import time
+
+from stp_zmq.zstack import KITZStack
 
 from plenum.common import util
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
@@ -104,8 +107,7 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
         assert (len(steward1.nodeReg) - len(oldNodeReg)) == 1
         assert (newNode.name + CLIENT_STACK_SUFFIX) in steward1.nodeReg
 
-    fVal = util.getMaxFailures(len(txnPoolNodeSet))
-    timeout = waits.expectedClientConnectionTimeout(fVal)
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=timeout))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
@@ -140,7 +142,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
             assert node.f == f
             assert len(node.replicas) == (f + 1)
 
-    timeout = waits.expectedClientConnectionTimeout(len(txnPoolNodeSet))
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkFValue, retryWait=1, timeout=timeout))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 

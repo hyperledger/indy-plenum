@@ -110,7 +110,7 @@ def limitTestRunningTime(tconf):
             '`with pytest.raises(..)` and so on)\n'
             '\t2. Override the `limitTestRunningTime` fixture '
             'for the test module.\n'
-            'Option #1 is prefer.'
+            'Firstly, try to use the option #1.'
             ''.format(tconf.TestRunningTimeLimitSec, runningTime))
 
 
@@ -371,7 +371,7 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     numerOfNodes = len(nodeSet)
 
     # Wait until request received by all nodes
-    propTimeout = waits.expectedClientToNodeMessageDeliveryTime(numerOfNodes)
+    propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,

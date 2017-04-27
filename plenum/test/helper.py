@@ -109,7 +109,13 @@ def waitForSufficientRepliesForRequests(looper,
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerRequest * len(requestIds)
+    # here we try to take into account what timeout for execution
+    # N request - totalTimeout should be in
+    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
+    # we cannot just take (timeoutPerRequest * N) because it is so huge.
+    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
+    # lets start with some simple formula:
+    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -471,7 +477,7 @@ def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None
     Raises exception when time is out
     """
 
-    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodeSet))
     return looper.run(eventually(checkViewNoForNodes,
                                  nodeSet,
                                  expectedViewNo,

@@ -20,6 +20,7 @@ whitelist = ['already got nomination',
 
 logger = getlogger()
 
+delayOfNomination = 5
 
 @pytest.fixture()
 def case1Setup(startedNodes: TestNodeSet):
@@ -31,7 +32,7 @@ def case1Setup(startedNodes: TestNodeSet):
     # Node B delays self nomination so A's nomination reaches everyone
     nodeB.delaySelfNomination(10)
     # Node B delays nomination from all nodes
-    nodeB.nodeIbStasher.delay(delayerMsgTuple(5, Nomination))
+    nodeB.nodeIbStasher.delay(delayerMsgTuple(delayOfNomination, Nomination))
 
     # Add node C and node D
     nodeC = nodes.getNode(nodeNames[2])
@@ -70,7 +71,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     # Node B sends multiple NOMINATE msgs for Node D but only after A has
     # nominated itself
-    timeout = waits.expectedNominationTimeout(nodeCount=1)
+    timeout = waits.expectedPoolNominationTimeout(nodeCount=1)
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
                           retryWait=.25,
                           timeout=timeout))
@@ -90,7 +91,9 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
             Replica.generateName(nodeD.name, instId)) \
                <= 1
 
-    primaryReplicas = ensureElectionsDone(looper=looper, nodes=nodes)
+    timeout = waits.expectedPoolElectionTimeout(nodeCount) + delayOfNomination
+    primaryReplicas = ensureElectionsDone(looper=looper,
+                                          nodes=nodes, timeout=timeout)
 
     for node in nodes:
         logger.debug(

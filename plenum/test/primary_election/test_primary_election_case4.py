@@ -61,7 +61,7 @@ def testPrimaryElectionCase4(case4Setup, looper):
         primDecs = list(node.elector.primaryDeclarations[0].values())
         assert primDecs.count(D.name) <= 1
 
-    timeout = waits.expectedNominationTimeout(len(allNodes))
+    timeout = waits.expectedPoolNominationTimeout(len(allNodes))
     for node in (A, C, D):
         looper.run(eventually(x, retryWait=.5, timeout=timeout))
 

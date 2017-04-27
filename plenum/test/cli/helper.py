@@ -227,8 +227,7 @@ def waitClientConnected(cli, nodeNames, clientName):
     Wait for moment when client connected to pool
     """
 
-    fVal = util.getMaxFailures(len(nodeNames))
-    timeout = waits.expectedClientConnectionTimeout(fVal)
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(nodeNames))
     cli.looper.run(eventually(checkClientConnected, cli,
                               nodeNames, clientName,
                               timeout=timeout))
@@ -242,11 +241,6 @@ def createClientAndConnect(cli, nodeNames, clientName):
     cli.enterCmd("new client {}".format(clientName))
     createNewKeyring(clientName, cli)
     cli.enterCmd("new key clientName{}".format("key"))
-
-    from plenum.common import util
-
-    fVal = util.getMaxFailures(len(cli.nodeReg))
-    timeout = waits.expectedClientConnectionTimeout(fVal)
 
     waitClientConnected(cli, nodeNames, clientName)
 

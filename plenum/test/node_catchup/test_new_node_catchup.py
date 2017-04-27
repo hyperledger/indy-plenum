@@ -1,4 +1,5 @@
 import pytest
+from stp_zmq.zstack import KITZStack
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -100,8 +101,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet,
                                 pluginPaths=allPluginsPath)
     logger.debug("Starting the stopped node, {}".format(restartedNewNode))
     looper.add(restartedNewNode)
-    looper.run(checkNodesConnected(txnPoolNodeSet[:4] + [restartedNewNode]))
-    waitNodeLedgersEquality(looper, restartedNewNode, *txnPoolNodeSet[:4])
+    newTxnPoolNodeSet = txnPoolNodeSet[:4] + [restartedNewNode]
+    waitNodeLedgersEquality(looper, restartedNewNode, *newTxnPoolNodeSet)
     restartedNewNode.stop()
 
 

@@ -1,3 +1,4 @@
+import time
 import types
 
 import pytest
@@ -15,6 +16,19 @@ from plenum.test.node_catchup.conftest import whitelist
 
 
 logger = getlogger()
+
+
+@pytest.fixture(scope="module")
+def catchupTimeoutReduced(conf, tdir, request):
+    defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
+    conf.baseDir = tdir
+    conf.CatchupTransactionsTimeout = 1
+
+    def reset():
+        conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
+
+    request.addfinalizer(reset)
+    return conf
 
 
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
@@ -39,7 +53,7 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # One of the node does not process catchup request.
     txnPoolNodeSet[0].nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, txnPoolNodeSet[0].ledgerManager)
-    sendRandomRequests(wallet, client, 10)
+    sendRandomRequests(wallet, client, 5)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])

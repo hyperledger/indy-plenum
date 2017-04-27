@@ -4,6 +4,7 @@ from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 nodeCount = 7
 
@@ -69,8 +70,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    from plenum.test import waits
-    timeout = waits.expectedCatchupTime(len(nodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
     looper.run(eventually(ensureSlowNodesHaveAllTxns,
                           retryWait=1, timeout=timeout))
 
