@@ -479,14 +479,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
     def loadDomainState(self):
-        # return PruningState(
-        #     initKeyValueStorage(
-        #         self.config.domainStateStorage,
-        #         self.dataLocation,
-        #         self.config.domainStateDbName)
-        # )
-        return PruningState(os.path.join(self.dataLocation,
-                                         self.config.domainStateDbName))
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName)
+        )
 
     @classmethod
     def ledgerIdForRequest(cls, request: Request):
