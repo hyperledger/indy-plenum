@@ -1,19 +1,29 @@
 import types
 
+import pytest
+
 from plenum.test.helper import checkViewNoForNodes, \
     sendReqsToNodesAndVerifySuffReplies, countDiscarded
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 from plenum.test.pool_transactions.conftest import clientAndWallet1, client1, \
     wallet1, client1Connected, looper
-from plenum.test.view_change.helper import provoke_and_wait_for_view_change
+from plenum.test.view_change.helper import provoke_and_wait_for_view_change, \
+    elongate_view_change_timeout
 
 from stp_core.common.log import getlogger
 logger = getlogger()
 
+
+@pytest.fixture(scope="module")
+def tconf(tconf, request):
+    return elongate_view_change_timeout(tconf, request, by=10)
+
+
 def test_master_primary_different_from_previous(txnPoolNodeSet,
                                                  looper, client1,
-                                                 wallet1, client1Connected):
+                                                 wallet1, client1Connected,
+                                                 tconf):
     """
     After a view change, primary must be different from previous primary for
     master instance, it does not matter for other instance. The primary is
@@ -41,14 +51,15 @@ def test_master_primary_different_from_previous(txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
 
-def test_master_primary_different_from_previous_view_for_itself(txnPoolNodeSet,
-                                                 looper, client1,
-                                                 wallet1, client1Connected):
+def test_malicious_master_primary_different_from_previous(txnPoolNodeSet,
+                                                          looper, client1,
+                                                          wallet1,
+                                                          client1Connected,
+                                                          tconf):
     """
     After a view change, primary must be different from previous primary for
-    master instance, it does not matter for other instance. Break it into
-    2 tests, one where the primary is malign and votes for itself but is still
-    not made primary in the next view.
+    master instance, it does not matter for other instance. The primary is
+    malign and votes for itself but is still not made primary in the next view.
     """
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
     pr = slow_primary(txnPoolNodeSet, 0, delay=10)

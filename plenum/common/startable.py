@@ -51,8 +51,7 @@ class Mode(IntEnum):
     starting = 1
     discovering = 2     # catching up on pool txn ledger
     discovered = 3      # caught up with pool txn ledger
-    syncing = 4         # catching up on domain txn ledger
-    participating = 5   # caught up with domain txn ledger
+    participating = 4   # caught up with all ledgers
 
 
 @unique

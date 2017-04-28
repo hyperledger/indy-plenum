@@ -62,7 +62,7 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     for n in nodeSet:
         sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
 
-    # Node reluctant to change view, never says master is degraded
+    # Node reluctant to change view, never considers master to be degraded
     relucatantNode.monitor.isMasterDegraded = types.MethodType(
         lambda x: False, relucatantNode.monitor)
 

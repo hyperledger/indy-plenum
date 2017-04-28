@@ -3,6 +3,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.util import totalConnections
 from plenum.config import CLIENT_REQACK_TIMEOUT, CLIENT_REPLY_TIMEOUT
 
+# TODO: This will not be able to accommodate overridden timeouts in tests
 logger = getlogger()
 config = getConfig()
 
@@ -64,7 +65,7 @@ def expectedNextPerfCheck(nodes):
 
 
 def expectedViewChangeTime(nodeCount):
-    return int(0.75 * nodeCount)
+    return int(0.75 * nodeCount) + config.PerfCheckFreq + config.ViewChangeTimeout
 
 
 #########################

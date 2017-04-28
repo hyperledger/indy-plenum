@@ -8,6 +8,7 @@ from binascii import unhexlify
 from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
+from functools import partial
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
@@ -50,7 +51,7 @@ from plenum.common.types import Propagate, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
     Reject
-from plenum.common.util import friendlyEx, getMaxFailures
+from plenum.common.util import friendlyEx, getMaxFailures, pop_keys
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
@@ -320,12 +321,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Helps in cases where a new protocol instance have been added by a
         # majority of nodes due to joining of a new node, but some slow nodes
         # are not aware of it. Key is instance id and value is a deque
-        # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
 
         # Any messages that are intended for view numbers higher than the
         # current view.
-        # TODO: Do GC for `msgsForFutureViews`
         self.msgsForFutureViews = {}
 
         self.adjustReplicas()
@@ -336,8 +335,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # help in voting for/against a view change.
         self.lost_primary_at = None
 
-        # First view change message received for a view no
-        self.view_change_started_at = {}
+        # View change message received times for a view no
+        self.view_change_times = {}
+
+        # Its True when a view change is in progress. Being in progress means
+        # still waiting for 3PC messages from previous view.
+        self.view_change_in_progress = False
+
+        # The ppSeqNo a node expects before it can call the view change
+        # complete.
+        self.expecting_during_view_change = []
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
@@ -619,8 +626,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} clearing aqStash of size {}".format(self,
                                                              len(self.aqStash)))
         self.nodestack.conns.clear()
-        # TODO: Should `self.clientstack.conns` be cleared too
-        # self.clientstack.conns.clear()
         self.aqStash.clear()
         self.actionQueue.clear()
         self.elector = None
@@ -828,6 +833,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.removeReplica()
             newReplicas -= 1
 
+        pop_keys(self.msgsForFutureReplicas, lambda x: x < len(self.replicas))
         return newReplicas
 
     def _dispatch_stashed_msg(self, msg, frm):
@@ -1057,6 +1063,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return self.replicas[0].getNodeName(self.replicas[0].primaryName)
         return None
 
+    @staticmethod
+    def is_valid_view_or_inst(n):
+        return not(n is None or not isinstance(n, int) or n < 0)
+
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
         """
         Return true if the instance id of message corresponds to a correct
@@ -1066,7 +1076,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         instId = getattr(msg, f.INST_ID.nm, None)
-        if instId is None or not isinstance(instId, int) or instId < 0:
+        if not self.is_valid_view_or_inst(instId):
             return False
         if instId >= len(self.msgsToReplicas):
             if instId not in self.msgsForFutureReplicas:
@@ -1085,9 +1095,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         viewNo = getattr(msg, f.VIEW_NO.nm, None)
-        if viewNo is None or not isinstance(viewNo, int) or viewNo < 0:
+        if not self.is_valid_view_or_inst(viewNo):
             return False
         if viewNo < self.viewNo:
+            if isinstance(msg, ThreePhaseType):
+                inst_id = getattr(msg, f.INST_ID.nm, None)
+                if self.is_valid_view_or_inst(inst_id):
+                    return False
+                if len(self.expecting_during_view_change) > inst_id and \
+                                self.expecting_during_view_change[inst_id] >= msg.ppSeqNo:
+                    return True
             self.discard(msg, "un-acceptable viewNo {}"
                          .format(viewNo), logMethod=logger.info)
         elif viewNo > self.viewNo:
@@ -1556,39 +1573,42 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, reqIdrs, ppSeqNo, ppTime, ledgerId, stateRoot, txnRoot \
-            = tuple(ordered)
-
-        self.monitor.requestOrdered(reqIdrs,
-                                    instId,
-                                    byMaster=(instId == self.instances.masterId))
+        inst_id, view_no, req_idrs, pp_seq_no, pp_time, ledger_id, \
+            state_root, txn_root = tuple(ordered)
 
         # Only the request ordered by master protocol instance are executed by
         # the client
-        if instId == self.instances.masterId:
-            reqs = [self.requests[i, r].request for (i, r) in reqIdrs
+        r = None
+        if inst_id == self.instances.masterId:
+            reqs = [self.requests[i, r].request for (i, r) in req_idrs
                     if (i, r) in self.requests]
-            if len(reqs) == len(reqIdrs):
+            if len(reqs) == len(req_idrs):
                 logger.debug("{} executing Ordered batch {} of {} requests".
-                             format(self.name, ppSeqNo, len(reqIdrs)))
-                self.executeBatch(ppSeqNo, ppTime, reqs, ledgerId, stateRoot,
-                                  txnRoot)
+                             format(self.name, pp_seq_no, len(req_idrs)))
+                self.executeBatch(pp_seq_no, pp_time, reqs, ledger_id, state_root,
+                                  txn_root)
                 # If the client request hasn't reached the node but corresponding
                 # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
                 # then retry 3 times
             elif retryNo < 3:
                 retryNo += 1
                 asyncio.sleep(random.randint(2, 4))
-                self.processOrdered(ordered, retryNo)
                 logger.debug('{} retrying executing ordered client requests'.
                              format(self.name))
+                self.processOrdered(ordered, retryNo)
             else:
                 logger.warning('{} not retrying processing Ordered any more {} '
                                'times'.format(self, retryNo))
-            return True
+            r = True
         else:
             logger.trace("{} got ordered requests from backup replica {}".
-                         format(self, instId))
+                         format(self, inst_id))
+            r = False
+
+        self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
+        if view_no < self.viewNo:
+            self.ordered_prev_view_msgs(inst_id, pp_seq_no)
+        return r
 
     def processEscalatedException(self, ex):
         """
@@ -1623,7 +1643,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
             if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self.instanceChanges.addVote(instChg, frm)
+                self._record_inst_change_msg(instChg, frm)
 
             if self.monitor.isMasterDegraded():
                 logger.info(
@@ -1635,16 +1655,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "{} received instance change message {} but did not "
                     "find the master to be slow".format(self, instChg))
 
-            if not self.do_view_change_if_possible(instChg.viewNo):
-                logger.trace("{} cannot initiate a view change".format(self))
+            # if not self.do_view_change_if_possible(instChg.viewNo):
+            #     logger.trace("{} cannot initiate a view change".format(self))
 
     def do_view_change_if_possible(self, view_no):
-        if self.canViewChange(view_no):
+        # TODO: Need to handle skewed distributions which can arise due to
+        # malicious nodes sending messages early on
+        if view_no not in self.view_change_times:
+            logger.debug('{} attempted to change to view {} when timer '
+                         'was not set'.format(self, view_no))
+        r, msg = self.canViewChange(view_no)
+        if r:
             logger.info("{} initiating a view change to {} from {}".
                         format(self, view_no, self.viewNo))
             self.startViewChange(view_no)
-            return True
-        return False
+        else:
+            logger.debug(msg)
+        self.view_change_times.pop(view_no, None)
+        self.instanceChanges.pop(view_no)
+        return r
 
     def checkPerformance(self):
         """
@@ -1664,7 +1693,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendInstanceChange(self.viewNo+1)
                 logger.debug('{} sent view change performance degraded '
                              'of master instance'.format(self))
-                self.do_view_change_if_possible(self.viewNo+1)
+                # self.do_view_change_if_possible(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -1695,6 +1724,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return InstanceChange(view_no, suspicion_code,
                               [r.lastOrderedPPSeqNo for r in self.replicas])
 
+    def _record_inst_change_msg(self, msg, frm):
+        view_no = msg.viewNo
+        if not self.instanceChanges.hasView(view_no):
+            self.view_change_times[view_no] = {}
+            self._schedule(partial(self.do_view_change_if_possible, view_no),
+                           self.config.ViewChangeTimeout)
+
+        self.instanceChanges.addVote(msg, frm)
+        self.view_change_times[view_no][frm] = time.perf_counter()
+        if len(self.view_change_times[view_no]) == self.totalNodes:
+            logger.debug('{} got view change message for view {} from all '
+                         'nodes, so triggering view change'.format(self, view_no))
+            self.do_view_change_if_possible(view_no)
+
     def sendInstanceChange(self, view_no: int,
                            suspicion=Suspicions.PRIMARY_DEGRADED):
         """
@@ -1717,7 +1760,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, self.monitor.prettymetrics))
             msg = self._create_instance_change_msg(view_no, suspicion.code)
             self.send(msg)
-            self.instanceChanges.addVote(msg, self.name)
+            self._record_inst_change_msg(msg, self.name)
         else:
             logger.debug("{} cannot send instance change sooner then {} seconds"
                          .format(self, cooldown))
@@ -1739,13 +1782,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # If the node has primary replica of master instance
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
 
-    def canViewChange(self, proposedViewNo: int) -> bool:
+    def canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
         number and its view is less than or equal to the proposed view
         """
-        return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
-            self.viewNo < proposedViewNo
+        msg = None
+        if not self.instanceChanges.hasQuorum(proposedViewNo, self.f):
+            msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
+        elif not proposedViewNo > self.viewNo:
+            msg = '{} is in higher view more than {}'.format(self, proposedViewNo)
+
+        return not bool(msg), msg
 
     def propose_view_change(self):
         # Sends instance change message when primary has been
@@ -1758,7 +1806,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     Suspicions.PRIMARY_DISCONNECTED)
             logger.debug('{} sent view change since was disconnected '
                          'from primary for too long'.format(self))
-            self.do_view_change_if_possible(view_no)
+            # self.do_view_change_if_possible(view_no)
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
@@ -1783,17 +1831,45 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :param proposedViewNo: the new view number after view change.
         """
+        self.view_change_in_progress = True
         self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
-
         self.processStashedMsgsForView(proposedViewNo)
+        self.set_new_view_expected_state(proposedViewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
+        pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.initInsChngThrottling()
         self.logNodeInfo()
+
+    def ordered_prev_view_msgs(self, inst_id, pp_seqno):
+        logger.debug('{} ordered previous view batch {} by instance {}'.
+                     format(self, pp_seqno, inst_id))
+        if self.expecting_during_view_change[inst_id] < pp_seqno:
+            self.expecting_during_view_change[inst_id] = -1
+            if set(self.expecting_during_view_change) == {-1}:
+                self.view_change_in_progress = False
+
+    def set_new_view_expected_state(self, view_no):
+        last_ordered = [_ for _ in
+                        self.instanceChanges.get(view_no).last_ordered.values()]
+        for i, rep in enumerate(self.replicas):
+            if not i < len(self.expecting_during_view_change):
+                self.expecting_during_view_change.append(-1)
+            pp_seqs = [lst[i] for lst in last_ordered if i < len(lst)]
+            if len(pp_seqs) <= self.f:
+                self.expecting_during_view_change[i] = rep.lastOrderedPPSeqNo
+            else:
+                max_acceptable_pp_seq = sorted(pp_seqs)[-(self.f+1)]
+                self.expecting_during_view_change[i] = max(
+                    max_acceptable_pp_seq, rep.lastOrderedPPSeqNo)
+            logger.debug('{} expecting till {} for instance {} to start '
+                         'in view {}'.
+                         format(self, self.expecting_during_view_change[i], i,
+                                view_no))
 
     def verifySignature(self, msg):
         """
@@ -2064,8 +2140,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{} sent instance change since suspicion code {}'
                         .format(self, code))
 
-            if not self.do_view_change_if_possible(self.viewNo + 1):
-                logger.trace("{} cannot initiate a view change".format(self))
+            # if not self.do_view_change_if_possible(self.viewNo + 1):
+            #     logger.trace("{} cannot initiate a view change".format(self))
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 
