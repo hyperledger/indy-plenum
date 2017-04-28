@@ -16,8 +16,7 @@ from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode
 
 
-def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
-                 name: str):
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -34,18 +33,21 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
+    return req, wallet
 
+
+def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
+                 name: str):
+    req, wallet = sendAddNewClient(role, name, creatorClient, creatorWallet)
     waitForSufficientRepliesForRequests(looper, creatorClient,
                                         requests=[req], fVal=1)
 
     return wallet
 
 
-def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
+def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
-
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
 
     op = {
@@ -63,7 +65,13 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
+    return req, nodeIp, nodePort, clientIp, clientPort, sigseed
 
+
+def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
+               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
+    req, nodeIp, nodePort, clientIp, clientPort, sigseed \
+        = sendAddNewNode(newNodeName, stewardClient, stewardWallet)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
 
@@ -94,7 +102,7 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
     return newSteward, newStewardWallet, newNode
 
 
-def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
+def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
     nodeNym = hexToFriendly(node.nodestack.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
@@ -111,9 +119,13 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
+    return req
+
+
+def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
+    req = sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
-
     # TODO: Not needed in ZStack, remove once raet is removed
     node.nodestack.clearLocalKeep()
     node.nodestack.clearRemoteKeeps()

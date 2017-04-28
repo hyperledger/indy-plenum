@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from plenum.common.types import Primary, Nomination
+from plenum.test import waits
 from stp_core.common.log import getlogger
 
 from plenum.server.replica import Replica
@@ -18,6 +19,9 @@ whitelist = ['because already got primary declaration',
 
 
 logger = getlogger()
+
+# the total delay of election done
+delayOfElectionDone = 20
 
 
 @pytest.fixture()
@@ -37,7 +41,7 @@ def case5Setup(startedNodes: TestNodeSet):
         node.whitelistNode(B.name, Suspicions.DUPLICATE_PRI_SENT.code)
 
     for node in [A, C, D]:
-        B.nodeIbStasher.delay(delayerMsgTuple(30,
+        B.nodeIbStasher.delay(delayerMsgTuple(delayOfElectionDone,
                                               Nomination,
                                               senderFilter=node.name,
                                               instFilter=0))
@@ -75,7 +79,11 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     B.send(Primary(DRep, 0, B.viewNo))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    # also have to take into account the catchup procedure
+    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
+              waits.expectedPoolCatchupTime(len(nodeSet)) + \
+              delayOfElectionDone
+    ensureElectionsDone(looper=looper, nodes=nodeSet, timeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have primary declarations for node C from node B

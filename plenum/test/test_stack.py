@@ -46,25 +46,26 @@ class TestStack(BaseStackClass):
 
 class StackedTester:
     def checkIfConnectedTo(self, count=None):
-        connected = 0
+        connected = set()
         # TODO refactor to not use values
         for address in self.nodeReg.values():
             for remote in self.nodestack.remotes.values():
                 if HA(*remote.ha) == address:
                     if BaseStackClass.isRemoteConnected(remote):
-                        connected += 1
+                        connected.add(remote.name)
                         break
+        allRemotes = set(self.nodeReg)
         totalNodes = len(self.nodeReg) if count is None else count
-        if count is None and connected == 0:
-            raise NotConnectedToAny()
-        elif connected < totalNodes:
-            raise NotFullyConnected()
+        if count is None and len(connected) == 0:
+            raise NotConnectedToAny(allRemotes)
+        elif len(connected) < totalNodes:
+            raise NotFullyConnected(allRemotes - connected)
         else:
-            assert connected == totalNodes
+            assert len(connected) == totalNodes
 
     async def ensureConnectedToNodes(self, customTimeout=None):
-        f = util.getQuorum(len(self.nodeReg))
-        timeout = customTimeout or waits.expectedClientConnectionTimeout(f)
+        timeout = customTimeout or \
+                  waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
                 "waiting for {} seconds to check client connections to "

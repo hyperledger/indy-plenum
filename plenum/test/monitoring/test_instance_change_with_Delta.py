@@ -51,7 +51,7 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
                 assert cur[c].endtime > previousPerfChecks[c].endtime
         return cur
 
-    timeout = waits.expectedNextPerfCheck(nodes)
+    timeout = waits.expectedPoolNextPerfCheck(nodes)
     newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
                                           retryWait=1,
                                           timeout=timeout))
@@ -115,19 +115,22 @@ def step3(step2):
 
 # This test fails when the whole package is run.
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
 
-    # wait for every node to run another checkPerformance
-    waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
-
-    # verify all nodes have undergone an instance change
-    for i in range(20):
-        try:
-            waitForViewChange(looper, step3.nodes, expectedViewNo=1)
-        except AssertionError as ex:
-            # send additional request and check view change
-            sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+    def chkViewChange(newViewNo):
+        if {n.viewNo for n in step3.nodes} != {newViewNo}:
+            tr = []
+            for n in step3.nodes:
+                tr.append(n.monitor.isMasterThroughputTooLow())
+            if all(tr):
+                logger.debug('Throughput ratio gone down')
+                checkViewNoForNodes(step3.nodes, newViewNo)
+            else:
+                logger.debug('Master instance has not degraded yet, '
+                             'sending more requests')
+                sendRandomRequests(wallet1, client1, 1)
+                assert False
         else:
-            break
-    else:
-        assert False, ex
+            assert True
+    # lets wait 3 perfChecks before declare the fail
+    timeout = 3 * waits.expectedPoolNextPerfCheck(step3.nodes)
+    looper.run(eventually(chkViewChange, 1, retryWait=1, timeout=timeout))

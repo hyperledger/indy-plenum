@@ -1,10 +1,7 @@
-import shutil
-import sys
 import os
-from setuptools import setup, find_packages, __version__
-from pip.req import parse_requirements
-import data
+import sys
 
+from setuptools import setup, find_packages, __version__
 
 v = sys.version_info
 if sys.version_info < (3, 5):
@@ -61,7 +58,7 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-dev==0.2.4', 'stp-dev==0.1.42',
+    install_requires=['ledger-dev==0.2.4', 'stp-dev==0.1.43',
                       'jsonpickle', 'portalocker==0.5.7',
                       'prompt_toolkit==0.57', 'pyorient', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
@@ -87,10 +84,6 @@ if not os.path.exists(CONFIG_FILE):
               "# Any entry you add here would override that from config " \
               "example\n"
         f.write(msg)
-
-DATA_DIR = os.path.dirname(data.__file__)
-shutil.copyfile(os.path.join(DATA_DIR, "pool_transactions_sandbox"),
-                POOL_TXN_FILE)
 
 
 # TODO: This code should not be copied here.

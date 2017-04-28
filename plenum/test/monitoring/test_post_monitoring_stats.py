@@ -8,7 +8,9 @@ from plenum.test.test_node import TestNodeSet
 config = getConfig()
 
 
-def testPostingThroughput(postingStatsEnabled, looper: Looper,
+def testPostingThroughput(postingStatsEnabled,
+                          decreasedMonitoringTimeouts,
+                          looper: Looper,
                           nodeSet: TestNodeSet,
                           wallet1, client1):
     """
@@ -62,9 +64,11 @@ def testPostingThroughput(postingStatsEnabled, looper: Looper,
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
-def testPostingLatency(postingStatsEnabled, looper: Looper,
-                          nodeSet: TestNodeSet,
-                          wallet1, client1):
+def testPostingLatency(postingStatsEnabled,
+                       decreasedMonitoringTimeouts,
+                       looper: Looper,
+                       nodeSet: TestNodeSet,
+                       wallet1, client1):
     """
     The latencies (master as well as average of backups) after
     `DashboardUpdateFreq` seconds and before sending any requests should be zero.

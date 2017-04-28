@@ -45,7 +45,7 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
                                         customTimeoutPerReq=timeout)
 
     # Every node except Node A should have a view change
-    timeout = waits.expectedViewChangeTime(len(nodeSet))
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
     for node in nodeSet:
         if node.name == nodeA.name:
             # Node A's view should not have changed yet
@@ -82,5 +82,5 @@ def testQueueingReqFromFutureView(delayedPerf, looper, nodeSet, up,
             assert len(r.threePhaseMsgsForLaterView) > 0
 
     # NodeA should now have pending 3 phase request for a later view
-    timeout = waits.expectedViewChangeTime(len(nodeSet)) + delayIcA
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet)) + delayIcA
     looper.run(eventually(checkPending3PhaseReqs, retryWait=1, timeout=timeout))

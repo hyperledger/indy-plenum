@@ -12,6 +12,6 @@ def checkReplyIsPersisted(nodes, lpr, reply1):
         assert result.get(f.IDENTIFIER.nm) == reply1.identifier
         assert result.get(TXN_TYPE) == reply1.operation.get(TXN_TYPE)
 
-    timeout = waits.expectedPoolLedgerCheck(len(nodes))
+    timeout = waits.expectedPoolLedgerRepliedMsgPersisted(len(nodes))
     for node in nodes:
         lpr.run(eventually(chk, node, retryWait=1, timeout=timeout))

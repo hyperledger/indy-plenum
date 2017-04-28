@@ -120,6 +120,9 @@ enableStdOutLogging=True
 
 # OPTIONS RELATED TO TESTS
 
+# todo test 60sec after https://evernym.atlassian.net/browse/SOV-995 closed
+TestRunningTimeLimitSec = 100
+
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
 
