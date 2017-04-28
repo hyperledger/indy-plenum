@@ -116,16 +116,15 @@ CatchupTransactionsTimeout = 5
 # Timeout after which the view change is performed
 ViewChangeTimeout = 10
 
-
 # Log configuration
 logRotationWhen = 'D'
 logRotationInterval = 1
 logRotationBackupCount = 10
 logRotationMaxBytes = 100 * 1024 * 1024
 logFormat = '{asctime:s} | {levelname:8s} | {filename:20s} ({lineno: >4}) | {funcName:s} | {message:s}'
-logFormatStyle='{'
+logFormatStyle = '{'
 logLevel=logging.NOTSET
-enableStdOutLogging=True
+enableStdOutLogging = True
 
 # OPTIONS RELATED TO TESTS
 

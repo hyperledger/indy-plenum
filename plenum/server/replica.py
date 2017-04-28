@@ -274,9 +274,18 @@ class Replica(HasActionQueue, MessageProcessor):
     def requests(self):
         return self.node.requests
 
-    def shouldParticipate(self, viewNo: int, ppSeqNo: int):
-        # Replica should only participating in the consensus process and the
-        # replica did not stash any of this request's 3-phase request
+    def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
+        """
+        Replica should only participating in the consensus process and the
+        replica did not stash any of this request's 3-phase request
+        """
+        # msg = None
+        # if self.node.view_change_in_progress:
+        #     msg = 'view change in progress'
+        # if not self.node.isParticipating:
+        #     msg = 'node not participating'
+        # if (viewNo, ppSeqNo) in self.stashingWhileCatchingUp:
+        #     msg = 'already stashing'
         return self.node.isParticipating and (viewNo, ppSeqNo) \
                                              not in self.stashingWhileCatchingUp
 
@@ -339,6 +348,41 @@ class Replica(HasActionQueue, MessageProcessor):
             for lid in self.requestQueues:
                 self.requestQueues[lid].clear()
 
+    def isPrimaryInView(self, viewNo: int) -> Optional[bool]:
+        """
+        Return whether a primary has been selected for this view number.
+        """
+        return self.primaryNames[viewNo] == self.name
+
+    def isMsgForCurrentView(self, msg):
+        """
+        Return whether this request's view number is equal to the current view
+        number of this replica.
+        """
+        viewNo = getattr(msg, "viewNo", None)
+        return viewNo == self.viewNo
+
+    def isPrimaryForMsg(self, msg) -> Optional[bool]:
+        """
+        Return whether this replica is primary if the request's view number is
+        equal this replica's view number and primary has been selected for
+        the current view.
+        Return None otherwise.
+        :param msg: message
+        """
+        return self.isPrimary if self.isMsgForCurrentView(msg) \
+            else self.isPrimaryInView(msg.viewNo)
+
+    def isMsgFromPrimary(self, msg, sender: str) -> bool:
+        """
+        Return whether this message was from primary replica
+        :param msg:
+        :param sender:
+        :return:
+        """
+        return self.primaryName == sender if self.isMsgForCurrentView(
+            msg) else self.primaryNames[msg.viewNo] == sender
+
     def removeObsoletePpReqs(self):
         # If replica was primary in previous view then remove every sent
         # Pre-Prepare with less than f+1 Prepares.
@@ -354,6 +398,8 @@ class Replica(HasActionQueue, MessageProcessor):
                     if not self.prepares.hasEnoughVotes(pp, self.f):
                         obs.add((pp.viewNo, pp.ppSeqNo))
 
+                logger.debug('{} Removing obsolete PRE-PREPAREs {}'.
+                             format(self, obs))
                 for key in sorted(list(obs), key=itemgetter(1), reverse=True):
                     ppReq = self.sentPrePrepares[key]
                     count, _, prevStateRoot = self.batches[key[1]]
@@ -413,15 +459,6 @@ class Replica(HasActionQueue, MessageProcessor):
         Return the current view number of this replica.
         """
         return self.node.viewNo
-
-    def isMsgFromPrimary(self, msg, sender: str) -> bool:
-        """
-        Return whether this message was from primary replica
-        :param msg:
-        :param sender:
-        :return:
-        """
-        return self.primaryName == sender
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -584,9 +621,11 @@ class Replica(HasActionQueue, MessageProcessor):
         # received then proceed otherwise only proceed further if primary
         # is known
         if msg.viewNo < self.viewNo:
-            self.discard(msg,
-                         "its a previous view message",
-                         logger.debug)
+            # self.discard(msg,
+            #              "its a previous view message",
+            #              logger.debug)
+            # For older view messages, dispatch
+            self.dispatchThreePhaseMsg(msg, sender)
             return
         if self.isPrimary is None:
             self.postElectionMsgs.append((msg, sender))
@@ -827,13 +866,15 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: the name of the node that sent the PRE-PREPARE msg
         :return: True if processing is allowed, False otherwise
         """
-        # TODO: Check whether it is rejecting PRE-PREPARE from previous view
+
+        primaryStatus = self.isPrimaryForMsg(pp)
+
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pp, sender):
             raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
-        if self.isPrimary is True:
+        if self.isPrimaryForMsg(pp) is True:
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # A PRE-PREPARE is sent that has already been received
@@ -898,10 +939,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :return: True if PREPARE is valid, False otherwise
         """
         key = (prepare.viewNo, prepare.ppSeqNo)
-        # primaryStatus = self.isPrimaryForMsg(prepare)
-        primaryStatus = self.isPrimary
+        primaryStatus = self.isPrimaryForMsg(prepare)
 
-        # ppReqs = self.sentPrePrepares if primaryStatus else self.prePrepares
         ppReq = self.getPrePrepare(*key)
 
         # If a non primary replica and receiving a PREPARE request before a

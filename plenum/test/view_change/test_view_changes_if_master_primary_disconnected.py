@@ -1,5 +1,4 @@
-from plenum.test.test_node import ensureElectionsDone, \
-    primaryNodeNameForInstance, nodeByName, get_master_primary_node, \
+from plenum.test.test_node import get_master_primary_node, \
     ensure_node_disconnected
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \

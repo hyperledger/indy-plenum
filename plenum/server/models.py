@@ -1,7 +1,7 @@
 """
 Some model objects used in Plenum protocol.
 """
-from typing import NamedTuple, Set, Tuple, Dict
+from typing import NamedTuple, Set, Tuple, Dict, List
 
 from plenum.common.types import Commit, Prepare
 
@@ -12,7 +12,7 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
     ("voters", Set[str]),
-    ('last_ordered', Dict[str, Dict[int, int]])])
+    ('last_ordered', Dict[str, List[int]])])
 
 
 class TrackedMsgs(dict):
@@ -128,7 +128,7 @@ class InstanceChanges(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return InsChgVotes(msg.viewNo, set(), msg.ordSeqNos)
+        return InsChgVotes(msg.viewNo, set(), {})
 
     def getKey(self, msg):
         return msg if isinstance(msg, int) else msg.viewNo
@@ -136,6 +136,8 @@ class InstanceChanges(TrackedMsgs):
     # noinspection PyMethodMayBeStatic
     def addVote(self, msg: int, voter: str):
         super().addMsg(msg, voter)
+        key = self.getKey(msg)
+        self[key].last_ordered[voter] = msg.ordSeqNos
 
     # noinspection PyMethodMayBeStatic
     def hasView(self, viewNo: int) -> bool:
@@ -147,3 +149,6 @@ class InstanceChanges(TrackedMsgs):
 
     def hasQuorum(self, viewNo: int, f: int) -> bool:
         return self.hasEnoughVotes(viewNo, 2 * f + 1)
+
+    def pop(self, key):
+        super().pop(key, None)
