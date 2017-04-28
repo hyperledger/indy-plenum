@@ -276,8 +276,8 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
-def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
-                   timeout=60):
+def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
+    timeout = waits.expectedCommittedTime(len(nodeSet))
     nodeCount = len((list(nodeSet)))
     f = getMaxFailures(nodeCount)
 

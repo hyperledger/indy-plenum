@@ -26,8 +26,8 @@ Verify a view change happens
 """
 
 
-@pytest.fixture(scope="module")
-def setup(looper, startedNodes, up, wallet1, client1):
+@pytest.fixture('module')
+def setup(looper, tconf, startedNodes, up, wallet1, client1):
     # Get the master replica of the master protocol instance
     P = getPrimaryReplica(startedNodes)
 
@@ -35,23 +35,28 @@ def setup(looper, startedNodes, up, wallet1, client1):
     for node in startedNodes:
         node.monitor.Delta = .001
 
+    # set LAMBDA not so huge like it set in the production config
+    testLambda = 30
+    for node in startedNodes:
+        node.monitor.Lambda = testLambda
+
     slowRequest = None
 
     # make P (primary replica on master) faulty, i.e., slow to send
     # PRE-PREPARE for a specific client request only
-    def by65SpecificPrePrepare(msg):
+    def specificPrePrepare(msg):
         nonlocal slowRequest
         if isinstance(msg, PrePrepare) and slowRequest is None:
             slowRequest = getattr(msg, f.REQ_ID.nm)
-            return 65
+            return testLambda + 5  # just more that LAMBDA
 
-    P.outBoxTestStasher.delay(by65SpecificPrePrepare)
+    P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
     sendReqsToNodesAndVerifySuffReplies(looper,
                                         wallet1,
                                         client1,
                                         numReqs=5,
-                                        customTimeoutPerReq=80)
+                                        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
     return adict(nodes=startedNodes)
 

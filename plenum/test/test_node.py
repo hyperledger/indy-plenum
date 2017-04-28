@@ -454,7 +454,7 @@ def checkPoolReady(looper: Looper,
     Check that pool is in Ready state
     """
 
-    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(len(nodes))
+    timeout = customTimeout or waits.expectedPoolStartUpTimeout(len(nodes))
     looper.run(
             eventually(checkNodesAreReady, nodes,
                        retryWait=.25,
@@ -481,8 +481,7 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               customTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
-    timeout = customTimeout or \
-              (waits.expectedNodeInterconnectionTime(len(stacks)) * len(stacks))
+    timeout = customTimeout or waits.expectedPoolInterconnectionTime(len(stacks))
     logger.debug("waiting for {} seconds to check connections...".format(timeout))
     # verify every node can see every other as a remote
     funcs = [
@@ -587,7 +586,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
         prims = [r for r in node.replicas if r.isPrimary]
         assert len(prims) <= 1
 
-    timeout = customTimeout or waits.expectedElectionTimeout(len(nodes))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
     for node in nodes:
         looper.run(eventually(checkAtMostOnePrim,
                               node,
@@ -599,20 +598,17 @@ def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None):
 
-    totalTimeout = customTimeout or waits.expectedElectionTimeout(len(nodes))
-    instanceTimeout = totalTimeout * 4/5
-    nodeTimeout = totalTimeout * 1/5
-
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
                                                 nodes=nodes,
                                                 retryWait=retryWait,
-                                                timeout=instanceTimeout)
+                                                timeout=timeout)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
-                                      customTimeout=nodeTimeout)
+                                      customTimeout=timeout)
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
@@ -637,18 +633,13 @@ def ensureElectionsDone(looper: Looper,
         retryWait = 1
 
     if timeout is None:
-        timeout = waits.expectedElectionTimeout(len(nodes))
-
-    poolReadyTimeout = 1/3 * timeout
-    setupCheckTimeout = 2/3 * timeout
-
-    checkPoolReady(looper, nodes, customTimeout=poolReadyTimeout)
+        timeout = waits.expectedPoolElectionTimeout(len(nodes))
 
     return checkProtocolInstanceSetup(
         looper=looper,
         nodes=nodes,
         retryWait=retryWait,
-        customTimeout=setupCheckTimeout)
+        customTimeout=timeout)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:

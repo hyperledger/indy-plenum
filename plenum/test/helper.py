@@ -109,7 +109,13 @@ def waitForSufficientRepliesForRequests(looper,
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerRequest * len(requestIds)
+    # here we try to take into account what timeout for execution
+    # N request - totalTimeout should be in
+    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
+    # we cannot just take (timeoutPerRequest * N) because it is so huge.
+    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
+    # lets start with some simple formula:
+    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -424,6 +430,7 @@ def waitReplyCount(looper, client, idr, reqId, count):
     looper.run(eventually(checkReplyCount, client, idr, reqId, count,
                           timeout=timeout))
 
+
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
@@ -432,6 +439,15 @@ def checkReqNackWithReason(client, reason: str, sender: str):
             found = True
             break
     assert found
+
+
+def waitReqNackWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqNAckQuorumTime()
+    return looper.run(eventually(checkReqNackWithReason,
+                                 client,
+                                 reason,
+                                 sender,
+                                 timeout=timeout))
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -461,7 +477,7 @@ def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None
     Raises exception when time is out
     """
 
-    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodeSet))
     return looper.run(eventually(checkViewNoForNodes,
                                  nodeSet,
                                  expectedViewNo,

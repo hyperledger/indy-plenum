@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from plenum.test.spy_helpers import getAllArgs, getAllReturnVals
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
@@ -73,12 +74,14 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     logger.debug("""Check that none of the non primary replicas didn't send
     any prepare message "
                              in response to the pre-prepare message""")
-    timeout = waits.expectedPrePrepareTime(len(nodeSet))
+    timeout = waits.expectedPrepareTime(len(nodeSet))
+    looper.runFor(timeout)  # expect prepare processing timeout
+
+    # check if prepares have not been sent
     for npr in nonPrimaryReplicas:
-        with pytest.raises(AssertionError):
-            looper.run(eventually(checkPrepareReqSent,
-                                  npr,
-                                  wallet1.defaultId,
-                                  request2.reqId,
-                                  retryWait=1,
-                                  timeout=timeout))
+        paramsList = getAllArgs(npr, npr.canSendPrepare)
+        rv = getAllReturnVals(npr, npr.canSendPrepare)
+        for params in paramsList:
+            req = params['request']
+            assert req.reqId != request2.reqId
+        assert all(rv)

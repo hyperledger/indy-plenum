@@ -1,3 +1,4 @@
+from stp_zmq.zstack import KITZStack
 from typing import Iterable
 
 from stp_core.loop.eventually import eventually
@@ -28,7 +29,7 @@ def waitNodeLedgersEquality(looper,
     """
 
     numOfNodes = len(otherNodes) + 1
-    timeout = customTimeout or waits.expectedPoolLedgerCheck(numOfNodes)
+    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
     looper.run(eventually(checkNodeLedgersForEquality,
                           referenceNode,
                           *otherNodes,
@@ -50,10 +51,9 @@ def checkClientPoolLedgerSameAsNodes(client: TestClient,
 def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
                                                   client: TestClient,
                                                   *nodes:Iterable[TestNode]):
-    fVal = util.getMaxFailures(len(nodes))
-    poolCheckTimeout = waits.expectedPoolLedgerCheck(fVal)
+    looper.run(client.ensureConnectedToNodes())
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodes))
     looper.run(eventually(checkClientPoolLedgerSameAsNodes,
                           client,
                           *nodes,
-                          timeout=poolCheckTimeout))
-    looper.run(client.ensureConnectedToNodes())
+                          timeout=timeout))

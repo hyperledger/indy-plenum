@@ -118,8 +118,8 @@ def testStatusAfterClientAdded(cli, validNodeNames, createAllNodes):
     clientName = "Joe"
     cli.enterCmd("new client {}".format(clientName))
 
-    fVal = util.getMaxFailures(len(validNodeNames))
-    connectionTimeout = waits.expectedClientConnectionTimeout(fVal)
+    connectionTimeout = \
+        waits.expectedClientToPoolConnectionTimeout(len(validNodeNames))
 
     waitClientConnected(cli, validNodeNames, clientName)
 

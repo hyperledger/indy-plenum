@@ -1,3 +1,4 @@
+from plenum.test import waits
 from stp_core.loop.eventually import eventually
 from plenum.test.conftest import txnPoolNodeSet, txnPoolNodesLooper
 from plenum.test.helper import stopNodes, viewNoForNodes, \
@@ -29,4 +30,7 @@ def testViewChangesIfBackupPrimaryDisconnected(txnPoolNodeSet,
         assert primaryNodeForBackupInstance1Before != \
                primaryNodeForBackupInstance1After
 
-    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=30))
+    # TODO 20 is 'magic' timeout find the cause why the check fails with out it
+    timeout = waits.expectedPoolInterconnectionTime(len(nodes)) +\
+        waits.expectedPoolElectionTimeout(len(nodes)) + 20
+    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=timeout))

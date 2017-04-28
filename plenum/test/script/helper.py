@@ -98,7 +98,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
-    timeout = waits.expectedPoolLedgerCheck(len(txnPoolNodeSet) + 1)
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet) + 1)
     looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
                           stewardClient, anotherClient, retryWait=1,
                           timeout=timeout))

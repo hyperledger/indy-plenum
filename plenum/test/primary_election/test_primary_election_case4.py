@@ -13,6 +13,8 @@ whitelist = ['because already got primary declaration',
              'doing nothing for now',
              'know how to handle it']
 
+delaySelfNomination = 5
+
 
 @pytest.fixture()
 def case4Setup(keySharedNodes: TestNodeSet):
@@ -22,7 +24,7 @@ def case4Setup(keySharedNodes: TestNodeSet):
     # Delay each of the nodes A, B and C's self nomination so Node B gets to
     # declare a primary before a primary is selected
     for n in (A, B, C):
-        n.delaySelfNomination(5)
+        n.delaySelfNomination(delaySelfNomination)
 
     # Node D is slow so it nominates itself after long time
     D.delaySelfNomination(25)
@@ -61,11 +63,15 @@ def testPrimaryElectionCase4(case4Setup, looper):
         primDecs = list(node.elector.primaryDeclarations[0].values())
         assert primDecs.count(D.name) <= 1
 
-    timeout = waits.expectedNominationTimeout(len(allNodes))
+    # also have to take into account the catchup procedure
+    timeout = waits.expectedPoolNominationTimeout(len(allNodes)) + \
+              waits.expectedPoolCatchupTime(len(allNodes))
+
     for node in (A, C, D):
         looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
-    ensureElectionsDone(looper=looper, nodes=allNodes)
+    timeout = waits.expectedPoolElectionTimeout(len(allNodes)) + delaySelfNomination
+    ensureElectionsDone(looper=looper, nodes=allNodes, timeout=timeout)
 
     # Node D should not have any primary replica
     assert not D.hasPrimary

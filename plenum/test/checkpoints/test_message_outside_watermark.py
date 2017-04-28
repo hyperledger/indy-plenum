@@ -40,7 +40,7 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
                                      'achieved stable checkpoint')
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    timeout =waits.expectedPoolLedgerCheck(len(txnPoolNodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkNodeLedgersForEquality, slowNode,
                           *[_ for _ in txnPoolNodeSet if _ != slowNode],
                           retryWait=1, timeout=timeout))
@@ -54,5 +54,5 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
         for nm, count in counts.items():
             assert count > oldDiscardCounts[nm]
 
-    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * len(txnPoolNodeSet)
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() * len(txnPoolNodeSet) + delay
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

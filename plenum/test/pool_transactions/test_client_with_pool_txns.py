@@ -83,7 +83,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         for node in txnPoolNodeSet:
             assert node.isParticipating
 
-    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
