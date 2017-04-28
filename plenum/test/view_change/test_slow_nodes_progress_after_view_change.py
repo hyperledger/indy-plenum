@@ -15,6 +15,7 @@ def tconf(tconf, request):
     return elongate_view_change_timeout(tconf, request, by=10)
 
 
+@pytest.mark.skip(reason="Not fully implemented")
 def test_slow_nodes_progress_after_view_change(txnPoolNodeSet, looper,
                                                tconf, client1, wallet1,
                                                client1Connected):
