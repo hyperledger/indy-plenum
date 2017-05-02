@@ -521,10 +521,14 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     # on same primary
 
     def checkElectionDone():
-        unknowns = sum(1 for r in replicas if r.isPrimary is None)
-        assert unknowns == 0, "election should be complete, but {} out of {} " \
-                              "don't know who the primary is for " \
-                              "protocol no {}".\
+        unknowns = sum(1 for r in replicas if r.primaryName is None)
+
+        logger.info("PointX-H-1 {}".format([r.primaryName for r in replicas]))
+        logger.info("PointX-H-2 {}".format([r.name for r in replicas]))
+
+        assert unknowns == 0, "election should be complete, " \
+                              "but {} out of {} don't know who the primary " \
+                              "is for protocol instance {}".\
             format(unknowns, len(replicas), replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
