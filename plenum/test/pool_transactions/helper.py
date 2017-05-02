@@ -13,7 +13,7 @@ from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, AL
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode
+from plenum.test.test_node import TestNode, checkNodesConnected
 
 
 def sendAddNewClient(role, name, creatorClient, creatorWallet):
@@ -131,6 +131,30 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
     node.clientstack.clearRemoteKeeps()
+
+
+def changeNodeHaAndReconnect(looper, steward, stewardWallet, node,
+                             nodeHa, clientHa,
+                             tdirWithPoolTxns, tconf, txnPoolNodeSet):
+    changeNodeHa(looper, steward, stewardWallet, node,
+                 nodeHa=nodeHa, clientHa=clientHa)
+    # restart the Node with new HA
+    node.stop()
+    looper.removeProdable(name=node.name)
+    restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
+                             config=tconf, ha=nodeHa, cliha=clientHa)
+    looper.add(restartedNode)
+
+    # replace node in txnPoolNodeSet
+    try:
+        idx = next(i for i, n in enumerate(txnPoolNodeSet)
+                   if n.name == node.name)
+    except StopIteration:
+        raise Exception('{} is not the pool'.format(node))
+    txnPoolNodeSet[idx] = restartedNode
+
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    return restartedNode
 
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):

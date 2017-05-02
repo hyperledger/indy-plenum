@@ -21,7 +21,7 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, changeNodeHaAndReconnect
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -171,21 +171,11 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     nodeNewHa, clientNewHa = genHa(2)
-    logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
-                                                   clientNewHa))
-    changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                 nodeHa=nodeNewHa, clientHa=clientNewHa)
-    newNode.stop()
-    looper.removeProdable(name=newNode.name)
-    logger.debug("{} starting with HAs {} {}".format(newNode, nodeNewHa,
-                                                     clientNewHa))
-    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                    ha=nodeNewHa, cliha=clientNewHa)
-    looper.add(node)
-    # The last element of `txnPoolNodeSet` is the node Theta that was just
-    # stopped
-    txnPoolNodeSet[-1] = node
-    looper.run(checkNodesConnected(txnPoolNodeSet))
+    node = changeNodeHaAndReconnect(looper, newSteward,
+                                    newStewardWallet, newNode,
+                                    nodeNewHa, clientNewHa,
+                                    tdirWithPoolTxns, tconf,
+                                    txnPoolNodeSet)
 
     waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
 
@@ -227,3 +217,5 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
+
+
