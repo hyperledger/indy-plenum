@@ -1581,8 +1581,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             reqs = [self.requests[i, r].request for (i, r) in req_idrs
                     if (i, r) in self.requests]
             if len(reqs) == len(req_idrs):
-                logger.debug("{} executing Ordered batch {} of {} requests".
-                             format(self.name, pp_seq_no, len(req_idrs)))
+                logger.debug("{} executing Ordered batch {} {} of {} requests".
+                             format(self.name, view_no, pp_seq_no, len(req_idrs)))
                 self.executeBatch(pp_seq_no, pp_time, reqs, ledger_id, state_root,
                                   txn_root)
                 # If the client request hasn't reached the node but corresponding
@@ -1643,7 +1643,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
                 self._record_inst_change_msg(instChg, frm)
 
-            if self.monitor.isMasterDegraded():
+            if self.monitor.isMasterDegraded() and not \
+                    self.instanceChanges.hasInstChngFrom(instChg.viewNo,
+                                                         self.name):
                 logger.info(
                     "{} found master degraded after receiving instance change "
                     "message from {}".format(self, frm))
@@ -1652,9 +1654,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug(
                     "{} received instance change message {} but did not "
                     "find the master to be slow".format(self, instChg))
-
-            # if not self.do_view_change_if_possible(instChg.viewNo):
-            #     logger.trace("{} cannot initiate a view change".format(self))
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
@@ -1691,7 +1690,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.sendInstanceChange(self.viewNo+1)
                 logger.debug('{} sent view change performance degraded '
                              'of master instance'.format(self))
-                # self.do_view_change_if_possible(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -1719,15 +1717,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         )
 
     def _create_instance_change_msg(self, view_no, suspicion_code):
-        return InstanceChange(view_no, suspicion_code,
-                              [r.lastOrderedPPSeqNo for r in self.replicas])
+        return InstanceChange(view_no, suspicion_code)
 
     def _record_inst_change_msg(self, msg, frm):
         view_no = msg.viewNo
         if not self.instanceChanges.hasView(view_no):
             self.view_change_times[view_no] = {}
-            self._schedule(partial(self.do_view_change_if_possible, view_no),
-                           self.config.ViewChangeTimeout)
 
         self.instanceChanges.addVote(msg, frm)
         self.view_change_times[view_no][frm] = time.perf_counter()
@@ -1804,7 +1799,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     Suspicions.PRIMARY_DISCONNECTED)
             logger.debug('{} sent view change since was disconnected '
                          'from primary for too long'.format(self))
-            # self.do_view_change_if_possible(view_no)
 
     # TODO: consider moving this to pool manager
     def lost_master_primary(self):
@@ -1835,7 +1829,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self))
         self.monitor.reset()
         self.processStashedMsgsForView(proposedViewNo)
-        self.set_new_view_expected_state(proposedViewNo)
+        # self.set_new_view_expected_state(proposedViewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
@@ -2138,8 +2132,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.info('{} sent instance change since suspicion code {}'
                         .format(self, code))
 
-            # if not self.do_view_change_if_possible(self.viewNo + 1):
-            #     logger.trace("{} cannot initiate a view change".format(self))
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 

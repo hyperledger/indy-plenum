@@ -97,10 +97,14 @@ RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
+
 # Controls sending of view change messages, a node will only send view change
 # messages if it did not send any sent instance change messages in last
 # `ViewChangeWindowSize` seconds
 ViewChangeWindowSize = 60
+
+# Timeout after which the view change is performed
+ViewChangeTimeout = 10
 
 # A node if finds itself disconnected from primary of the master instance will
 # wait for `ToleratePrimaryDisconnection` before sending a view change message
@@ -113,8 +117,6 @@ ConsistencyProofsTimeout = 5
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
 
-# Timeout after which the view change is performed
-ViewChangeTimeout = 10
 
 # Log configuration
 logRotationWhen = 'D'

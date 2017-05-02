@@ -11,8 +11,7 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
-    ("voters", Set[str]),
-    ('last_ordered', Dict[str, List[int]])])
+    ("voters", Set[str])])
 
 
 class TrackedMsgs(dict):
@@ -128,7 +127,7 @@ class InstanceChanges(TrackedMsgs):
     """
 
     def newVoteMsg(self, msg):
-        return InsChgVotes(msg.viewNo, set(), {})
+        return InsChgVotes(msg.viewNo, set())
 
     def getKey(self, msg):
         return msg if isinstance(msg, int) else msg.viewNo
@@ -136,8 +135,6 @@ class InstanceChanges(TrackedMsgs):
     # noinspection PyMethodMayBeStatic
     def addVote(self, msg: int, voter: str):
         super().addMsg(msg, voter)
-        key = self.getKey(msg)
-        self[key].last_ordered[voter] = msg.ordSeqNos
 
     # noinspection PyMethodMayBeStatic
     def hasView(self, viewNo: int) -> bool:

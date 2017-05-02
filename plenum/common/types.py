@@ -102,15 +102,27 @@ def TaggedTuple(typename, fields) -> NamedTuple:
     cls.typename = typename
     return cls
 
+
+Batch = TaggedTuple(BATCH, [
+    f.MSGS,
+    f.SIG])
+
+
+# Nominating a primary for the next view
 Nomination = TaggedTuple(NOMINATE, [
     f.NAME,
     f.INST_ID,
     f.VIEW_NO,
     f.ORD_SEQ_NO])
 
-Batch = TaggedTuple(BATCH, [
-    f.MSGS,
-    f.SIG])
+
+# Declaration of a winner for the next view
+Primary = TaggedTuple(PRIMARY, [
+    f.NAME,
+    f.INST_ID,
+    f.VIEW_NO,
+    f.ORD_SEQ_NO])
+
 
 # Reelection messages that nodes send when they find the 2 or more nodes have
 # equal nominations for primary. `round` indicates the reelection round
@@ -124,12 +136,6 @@ Reelection = TaggedTuple(REELECTION, [
     f.TIE_AMONG,
     f.VIEW_NO])
 
-# Declaration of a winner
-Primary = TaggedTuple(PRIMARY, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -229,8 +235,7 @@ Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
-    f.REASON,
-    f.ORD_SEQ_NOS,
+    f.REASON
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [

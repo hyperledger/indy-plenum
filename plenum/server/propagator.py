@@ -84,13 +84,19 @@ class Requests(OrderedDict):
             votes = 0
         return votes
 
-    def canForward(self, req: Request, requiredVotes: int) -> bool:
+    def canForward(self, req: Request, requiredVotes: int) -> (bool, str):
         """
         Check whether the request specified is eligible to be forwarded to the
         protocol instances.
         """
         state = self[req.key]
-        return not state.forwarded and state.isFinalised(requiredVotes)
+        if state.forwarded:
+            msg = 'already forwarded'
+        elif not state.isFinalised(requiredVotes):
+            msg = 'not finalised'
+        else:
+            msg = None
+        return not bool(msg), msg
 
     def hasPropagated(self, req: Request, sender: str) -> bool:
         """
@@ -153,7 +159,7 @@ class Propagator:
         return Propagate(request, identifier)
 
     # noinspection PyUnresolvedReferences
-    def canForward(self, request: Request) -> bool:
+    def canForward(self, request: Request) -> (bool, str):
         """
         Determine whether to forward client REQUESTs to replicas, based on the
         following logic:
@@ -209,11 +215,12 @@ class Propagator:
         See the method `canForward` for the conditions to check before
         forwarding a request.
         """
-        if self.canForward(request):
+        r, msg = self.canForward(request)
+        if r:
             # If haven't got the client request(REQUEST) for the corresponding
             # propagate request(PROPAGATE) but have enough propagate requests
             # to move ahead
             self.forward(request)
         else:
-            logger.trace("{} cannot yet forward request {} to its replicas".
-                         format(self, request))
+            logger.trace("{} not forwarding request {} to its replicas "
+                         "since {}".format(self, request, msg))

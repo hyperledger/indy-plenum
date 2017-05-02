@@ -218,7 +218,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Set high water mark (`H`) too
         self.h = 0   # type: int
 
-        self.lastPrePrepareSeqNo = self.h  # type: int
+        self._lastPrePrepareSeqNo = self.h  # type: int
 
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, deque]
@@ -269,6 +269,23 @@ class Replica(HasActionQueue, MessageProcessor):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
+
+    @property
+    def lastPrePrepareSeqNo(self):
+        return self._lastPrePrepareSeqNo
+
+    @lastPrePrepareSeqNo.setter
+    def lastPrePrepareSeqNo(self, n):
+        """
+        This will _lastPrePrepareSeqNo to values greater than its previous
+        values else it will not. To forcefully override as in case of `revert`,
+        directly set `self._lastPrePrepareSeqNo`
+        """
+        if n > self._lastPrePrepareSeqNo:
+            self._lastPrePrepareSeqNo = n
+        else:
+            logger.debug('{} cannot set lastPrePrepareSeqNo to {} as its '
+                         'already {}'.format(self, n, self._lastPrePrepareSeqNo))
 
     @property
     def requests(self):
@@ -333,11 +350,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
-            if self.isMaster:
-                self.removeObsoletePpReqs()
+            self.removeObsoletePpReqs()
             self._stateChanged()
 
     def primaryChanged(self, primaryName, lastOrderedPPSeqNo):
+        # TODO: this needs to change
         if self.lastOrderedPPSeqNo < lastOrderedPPSeqNo:
             self.lastOrderedPPSeqNo = lastOrderedPPSeqNo
         self.primaryName = primaryName
@@ -404,7 +421,8 @@ class Replica(HasActionQueue, MessageProcessor):
                     ppReq = self.sentPrePrepares[key]
                     count, _, prevStateRoot = self.batches[key[1]]
                     self.batches.pop(key[1])
-                    self.revert(ppReq.ledgerId, prevStateRoot, count)
+                    if self.isMaster:
+                        self.revert(ppReq.ledgerId, prevStateRoot, count)
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
 
@@ -797,6 +815,8 @@ class Replica(HasActionQueue, MessageProcessor):
             lastPpSeqNo = self.lastOrderedPPSeqNo
 
         if ppSeqNo - lastPpSeqNo != 1:
+            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
+                         format(self, ppSeqNo, lastPpSeqNo))
             return False
         return True
 
@@ -907,6 +927,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
+        self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.dequeuePrepares(*key)
         self.dequeueCommits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
