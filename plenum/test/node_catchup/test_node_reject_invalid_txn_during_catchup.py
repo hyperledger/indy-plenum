@@ -21,7 +21,6 @@ logger = getlogger()
 txnCount = 10
 
 
-@pytest.mark.skip(reason='fails, https://evernym.atlassian.net/browse/SOV-928')
 def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
