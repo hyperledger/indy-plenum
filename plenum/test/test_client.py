@@ -14,14 +14,14 @@ from plenum.common.constants import REQACK, REQNACK, REPLY
 from plenum.common.types import f
 from plenum.common.util import bootstrapClientKeys
 from plenum.test.test_stack import StackedTester, getTestableStack
-from plenum.test.testable import spyable
+from plenum.test.testable import Spyable
 from plenum.common.constants import OP_FIELD_NAME
 
 
 logger = getlogger()
 
 
-@spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
+@Spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
 class TestClient(Client, StackedTester):
     def __init__(self, *args, **kwargs):
         self.NodeStackClass = nodeStackClass

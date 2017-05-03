@@ -14,7 +14,8 @@ class OrientDbStore:
                  storageType=pyorient.STORAGE_TYPE_MEMORY):
         self.dbType = dbType
         try:
-            self.client = self.new_orientdb_client(host, port, user, password)
+            self.client = pyorient.OrientDB(host=host, port=port)
+            self.session_id = self.client.connect(user, password)
         except pyorient.exceptions.PyOrientConnectionException:
             raise OrientDBNotRunning("OrientDB connection failed. Check if DB is running "
                   "on port {}".format(port))
@@ -81,28 +82,6 @@ class OrientDbStore:
             valPlaceHolder = "{}" if (isinstance(val, (int, float)) or val is None) else "'{}'"
             items.append(("{} = " + valPlaceHolder).format(key, val))
         return joiner.join(items)
-
-    @staticmethod
-    def new_orientdb_client(host, port, user, password):
-        client = pyorient.OrientDB(host=host, port=port)
-        session_id = client.connect(user, password)
-        assert session_id, 'Problem with connecting to OrientDB'
-        return client
-
-    def wipe(self):
-        """
-        IMPORTANT: this is destructive; use at your own risk
-        """
-        assert self.client._connection, 'Client must be connected to the db'
-        self.wipe_db(self.client, self.client._connection.db_opened)
-
-    @staticmethod
-    def wipe_db(client, dbName):
-        try:
-            client.db_drop(dbName)
-            logger.debug("Dropped db {}".format(dbName))
-        except Exception as ex:
-            logger.debug("Error while dropping db {}: {}".format(dbName, ex))
 
     def close(self):
         if self.client._connection.connected:

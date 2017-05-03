@@ -16,10 +16,16 @@ def testUbuntu = {
 
         testEnv.inside('--network host') {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
+            testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt")
+            def resFile = "test-result.${NODE_NAME}.txt"
+            try {
+                sh "python runner.py --pytest \"python -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
+            }
         }
     }
     finally {
@@ -65,10 +71,16 @@ def testWindowsNoDocker = {
 
         testHelpers.createVirtualEnvAndExecute({ python, pip ->
             echo 'Windows No Docker Test: Install dependencies'
-            testHelpers.install(python: python, pip: pip, isVEnv: true)
+            testHelpers.installDepsBat(python, pip)
             
             echo 'Windows No Docker Test: Test'
-            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt", python: python)
+            def resFile = "test-result.${NODE_NAME}.txt"
+            try {
+                bat "${python} runner.py --pytest \"${python} -m pytest\" --output \"$resFile\""
+            }
+            finally {
+                archiveArtifacts allowEmptyArchive: true, artifacts: "$resFile"
+            }
         })
     }
     finally {

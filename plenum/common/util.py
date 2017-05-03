@@ -240,12 +240,6 @@ class adict(dict):
             super(adict, self).__setitem__(key, found)
         return found
 
-    def copy(self):
-        return self.__copy__()
-
-    def __copy__(self):
-        return adict(**self)
-
     __setattr__ = __setitem__
     __getattr__ = __getitem__
 
