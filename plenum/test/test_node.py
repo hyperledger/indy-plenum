@@ -566,7 +566,6 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
 
     coro = eventually(instances, nodes, retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
-    logger.info("PointX-H-time-passed {}/{}".format(timeConsumed,timeout))
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
