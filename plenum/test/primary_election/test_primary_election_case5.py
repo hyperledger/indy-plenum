@@ -83,7 +83,7 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
               waits.expectedPoolCatchupTime(len(nodeSet)) + \
               delayOfElectionDone
-    ensureElectionsDone(looper=looper, nodes=nodeSet, timeout=timeout)
+    ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have primary declarations for node C from node B

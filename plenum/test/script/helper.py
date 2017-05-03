@@ -84,11 +84,16 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)
-
     txnPoolNodeSet[nodeIndex] = restartedNode
-
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
-    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1)
+
+    electionTimeout = waits.expectedPoolElectionTimeout(
+        nodeCount=len(txnPoolNodeSet),
+        numOfReelections=3)
+    ensureElectionsDone(looper,
+                        txnPoolNodeSet,
+                        retryWait=1,
+                        customTimeout=electionTimeout)
 
     # start client and check the node HA
     anotherClient, _ = genTestClient(tmpdir=tdirWithPoolTxns,
@@ -99,6 +104,7 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet) + 1)
-    looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
-                          stewardClient, anotherClient, retryWait=1,
-                          timeout=timeout))
+    if tconf.UpdateGenesisPoolTxnFile:
+        looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
+                              stewardClient, anotherClient, retryWait=1,
+                              timeout=timeout))
