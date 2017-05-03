@@ -97,7 +97,14 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     logger.info("PointX - G")
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
     logger.info("PointX - H")
-    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1)
+    electionTimeout = \
+        waits.expectedPoolElectionTimeout(
+            nodeCount=len(txnPoolNodeSet),
+            numOfReelections=3)
+    ensureElectionsDone(looper,
+                        txnPoolNodeSet,
+                        retryWait=1,
+                        customTimeout=electionTimeout)
     logger.info("PointX - I")
 
     # start client and check the node HA
