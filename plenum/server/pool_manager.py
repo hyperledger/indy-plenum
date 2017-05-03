@@ -1,3 +1,4 @@
+import base58
 from typing import Dict, Tuple
 from functools import lru_cache
 
@@ -6,7 +7,7 @@ from ledger.util import F
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest
+    UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
 from stp_core.network.auth_mode import AuthMode
@@ -252,10 +253,16 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return nodeTxn[DATA][ALIAS]
 
     def checkValidOperation(self, operation):
-        checks = []
+        # data exists and is dict
         if operation[TXN_TYPE] == NODE:
-            checks.append(DATA in operation and isinstance(operation[DATA], dict))
-        return all(checks)
+            if DATA not in operation:
+                return "'{}' is missed".format(DATA)
+            if not isinstance(operation[DATA], dict):
+                return "'{}' is not a dict".format(DATA)
+
+        # VerKey must be base58
+        if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
+            return "'{}' is not a base58 string".format(TARGET_NYM)
 
     def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)

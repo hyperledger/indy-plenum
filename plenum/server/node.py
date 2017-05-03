@@ -1667,8 +1667,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def checkValidOperation(self, clientId, reqId, operation):
         if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            if not self.poolManager.checkValidOperation(operation):
-                raise InvalidClientRequest(clientId, reqId)
+            error = self.poolManager.checkValidOperation(operation)
+            if error is not None:
+                raise InvalidClientRequest(clientId, reqId, error)
 
         if self.opVerifiers:
             try:
