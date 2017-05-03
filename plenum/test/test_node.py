@@ -521,15 +521,11 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     # on same primary
 
     def checkElectionDone():
-        unknowns = sum(1 for r in replicas if r.primaryName is None)
-
-        logger.info("PointX-H-1 {}".format([r.primaryName for r in replicas]))
-        logger.info("PointX-H-2 {}".format([r.name for r in replicas]))
-
-        assert unknowns == 0, "election should be complete, " \
-                              "but {} out of {} don't know who the primary " \
+        unknowns = [r for r in replicas if r.primaryName is None]
+        assert len(unknowns) == 0, "election should be complete, " \
+                              "but {} out of {} ({}) don't know who the primary " \
                               "is for protocol instance {}".\
-            format(unknowns, len(replicas), replicas[0].instId)
+            format(len(unknowns), len(replicas), unknowns, replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
         pris = sum(1 for r in replicas if r.isPrimary)
@@ -570,10 +566,8 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
 
     coro = eventually(instances, nodes, retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
-
-    # TODO refactor this to just user eventuallyAll
+    logger.info("PointX-H-time-passed {}/{}".format(timeConsumed,timeout))
     newTimeout = timeout - timeConsumed if timeout is not None else None
-
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
         checkIfSameReplicaIPrimary(looper=looper,
@@ -598,7 +592,8 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
-def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
+def checkProtocolInstanceSetup(looper: Looper,
+                               nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None):
 
@@ -624,26 +619,26 @@ def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        timeout: float = None) -> Sequence[TestNode]:
+                        customTimeout: float = None) -> Sequence[TestNode]:
     """
     Wait for elections to be complete
 
     :param retryWait:
-    :param timeout: specific timeout
+    :param customTimeout: specific timeout
     :return: primary replica for each protocol instance
     """
 
     if retryWait is None:
         retryWait = 1
 
-    if timeout is None:
-        timeout = waits.expectedPoolElectionTimeout(len(nodes))
+    if customTimeout is None:
+        customTimeout = waits.expectedPoolElectionTimeout(len(nodes))
 
     return checkProtocolInstanceSetup(
         looper=looper,
         nodes=nodes,
         retryWait=retryWait,
-        customTimeout=timeout)
+        customTimeout=customTimeout)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -706,8 +701,7 @@ def instances(nodes: Sequence[Node]) -> Dict[int, List[replica.Replica]]:
     instCount = getRequiredInstances(len(nodes))
     for n in nodes:
         assert len(n.replicas) == instCount
-    return {i: [n.replicas[i] for n in nodes]
-            for i in range(instCount)}
+    return {i: [n.replicas[i] for n in nodes] for i in range(instCount)}
 
 
 def getRequiredInstances(nodeCount: int) -> int:
