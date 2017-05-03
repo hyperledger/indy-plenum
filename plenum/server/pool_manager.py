@@ -320,10 +320,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeNym = operation.get(TARGET_NYM)
         if not self.isStewardOfNode(origin, nodeNym):
             return "{} is not a steward of node {}".format(origin, nodeNym)
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]:
-                if txn[DATA] == operation.get(DATA, {}):
-                    return "node already has the same data as requested"
+
+        previousNodeTxns = [txn for txn in self.ledger.getAllTxn().values()
+                            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]]
+        # check only the last node txn
+        lastNodeTxnData = previousNodeTxns[-1].get(DATA, {}) if previousNodeTxns else None
+        if lastNodeTxnData is not None and lastNodeTxnData == operation.get(DATA, {}):
+            return "node already has the same data as requested"
         if self.isNodeDataConflicting(data, nodeNym):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))
