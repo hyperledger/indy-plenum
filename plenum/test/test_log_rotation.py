@@ -2,8 +2,10 @@ import os
 import logging
 import shutil
 import time
+import pytest
 from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
+
 
 
 def cleanFolder(path):

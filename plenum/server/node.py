@@ -559,7 +559,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     'primary storage: {}'.format(self, ex))
 
         try:
-            self.secondaryStorage.close()
+            if callable(getattr(self.secondaryStorage, 'close', None)):
+                self.secondaryStorage.close()
         except Exception as ex:
             logger.warning('{} got exception while closing '
                            'secondary storage: {}'.format(self, ex))

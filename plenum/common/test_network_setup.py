@@ -1,19 +1,19 @@
 import argparse
 import os
-from hashlib import sha256
+from collections import namedtuple
+
+from ledger.ledger import Ledger
 
 from ledger.serializers.compact_serializer import CompactSerializer
 from stp_core.crypto.nacl_wrappers import Signer
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
+from plenum.common.member.member import Member
+from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initLocalKeys
-from plenum.common.constants import TARGET_NYM, TXN_TYPE, DATA, ALIAS, \
-    TXN_ID, NODE, CLIENT_IP, CLIENT_PORT, NODE_IP, NODE_PORT, CLIENT_STACK_SUFFIX, NYM, \
-    STEWARD, ROLE, SERVICES, VALIDATOR, TRUSTEE
-from plenum.common.types import f
-from plenum.common.util import hexToFriendly
+from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
+from plenum.common.util import hexToFriendly, adict
 
 
 class TestNetworkSetup:
@@ -46,142 +46,115 @@ class TestNetworkSetup:
         with open(filePath, 'w') as f:
             f.writelines(os.linesep.join(contents))
 
-    @staticmethod
-    def bootstrapTestNodesCore(config, envName, appendToLedgers,
-                               domainTxnFieldOrder,
-                               ips, nodeCount, clientCount,
-                               nodeNum, startingPort, nodeParamsFileName):
-        baseDir = config.baseDir
-        if not os.path.exists(baseDir):
-            os.makedirs(baseDir, exist_ok=True)
+    @classmethod
+    def bootstrapTestNodesCore(cls, config, envName, appendToLedgers,
+                               domainTxnFieldOrder, trustee_def, steward_defs,
+                               node_defs, client_defs, localNodes, nodeParamsFileName):
 
-        localNodes = not ips
-
-        if localNodes:
-            ips = ['127.0.0.1'] * nodeCount
-        else:
-            ips = ips.split(",")
-            if len(ips) != nodeCount:
-                if len(ips) > nodeCount:
-                    ips = ips[:nodeCount]
-                else:
-                    ips += ['127.0.0.1'] * (nodeCount - len(ips))
-
-        if hasattr(config, "ENVS") and envName:
-            poolTxnFile = config.ENVS[envName].poolLedger
-            domainTxnFile = config.ENVS[envName].domainLedger
-        else:
-            poolTxnFile = config.poolTransactionsFile
-            domainTxnFile = config.domainTransactionsFile
-
-        poolLedger = Ledger(CompactMerkleTree(),
-                            dataDir=baseDir,
-                            fileName=poolTxnFile)
-
-        domainLedger = Ledger(CompactMerkleTree(),
-                              serializer=CompactSerializer(fields=
-                                                           domainTxnFieldOrder),
-                              dataDir=baseDir,
-                              fileName=domainTxnFile)
-
-        if not appendToLedgers:
-            poolLedger.reset()
-            domainLedger.reset()
-
-        trusteeName = "Trustee1"
-        sigseed = TestNetworkSetup.getSigningSeed(trusteeName)
-        verkey = Signer(sigseed).verhex
-        trusteeNym = TestNetworkSetup.getNymFromVerkey(verkey)
-        txn = {
-            TARGET_NYM: trusteeNym,
-            TXN_TYPE: NYM,
-            # TODO: Trustees dont exist in Plenum, but only in Sovrin.
-            # This should be moved to Sovrin
-            ROLE: TRUSTEE,
-            ALIAS: trusteeName,
-            TXN_ID: sha256(trusteeName.encode()).hexdigest()
-        }
-        domainLedger.add(txn)
-
-        steward1Nym = None
-        for num in range(1, nodeCount + 1):
-            stewardName = "Steward" + str(num)
-            sigseed = TestNetworkSetup.getSigningSeed(stewardName)
-            verkey = Signer(sigseed).verhex
-            stewardNym = TestNetworkSetup.getNymFromVerkey(verkey)
-            txn = {
-                TARGET_NYM: stewardNym,
-                TXN_TYPE: NYM,
-                ROLE: STEWARD,
-                ALIAS: stewardName,
-                TXN_ID: sha256(stewardName.encode()).hexdigest()
-            }
-            if num == 1:
-                steward1Nym = stewardNym
+        if not localNodes:
+            localNodes = {}
+        try:
+            if isinstance(localNodes, int):
+                _localNodes = {localNodes}
             else:
-                # The first steward adds every steward
-                txn[f.IDENTIFIER.nm] = steward1Nym
-            domainLedger.add(txn)
+                _localNodes = {int(_) for _ in localNodes}
+        except BaseException as exc:
+            raise RuntimeError('nodeNum must be an int or set of ints') from exc
 
-            nodeName = "Node" + str(num)
-            nodePort, clientPort = startingPort + (num * 2 - 1), startingPort \
-                                   + (num * 2)
-            ip = ips[num - 1]
-            sigseed = TestNetworkSetup.getSigningSeed(nodeName)
-            if nodeNum == num:
-                _, verkey = initLocalKeys(nodeName, baseDir, sigseed, True,
-                                     config=config)
-                _, verkey = initLocalKeys(nodeName+CLIENT_STACK_SUFFIX, baseDir,
-                                     sigseed, True, config=config)
+        baseDir = cls.setup_base_dir(config)
+
+        poolLedger = cls.init_pool_ledger(appendToLedgers, baseDir, config,
+                                          envName)
+
+        domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
+                                              envName, domainTxnFieldOrder)
+
+        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, role=TRUSTEE)
+        domainLedger.add(trustee_txn)
+
+        for sd in steward_defs:
+            nym_txn = Member.nym_txn(sd.nym, sd.name, role=STEWARD,
+                                     creator=trustee_def.nym)
+            domainLedger.add(nym_txn)
+
+        for nd in node_defs:
+
+            if nd.idx in _localNodes:
+                _, verkey = initLocalKeys(nd.name, baseDir,
+                                          nd.sigseed, True, config=config)
+                _, verkey = initLocalKeys(nd.name+CLIENT_STACK_SUFFIX, baseDir,
+                                          nd.sigseed, True, config=config)
                 verkey = verkey.encode()
-                print("This node with name {} will use ports {} and {} for "
-                      "nodestack and clientstack respectively"
-                      .format(nodeName, nodePort, clientPort))
+                assert verkey == nd.verkey
 
-                if not localNodes:
+                if nd.ip != '127.0.0.1':
                     paramsFilePath = os.path.join(baseDir, nodeParamsFileName)
                     print('Nodes will not run locally, so writing '
                           '{}'.format(paramsFilePath))
                     TestNetworkSetup.writeNodeParamsFile(
-                        paramsFilePath, nodeName, nodePort, clientPort)
+                        paramsFilePath, nd.name, nd.port, nd.client_port)
 
+                print("This node with name {} will use ports {} and {} for "
+                      "nodestack and clientstack respectively"
+                      .format(nd.name, nd.port, nd.client_port))
             else:
-                verkey = Signer(sigseed).verhex
-            txn = {
-                TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
-                TXN_TYPE: NODE,
-                f.IDENTIFIER.nm: stewardNym,
-                DATA: {
-                    CLIENT_IP: ip,
-                    ALIAS: nodeName,
-                    CLIENT_PORT: clientPort,
-                    NODE_IP: ip,
-                    NODE_PORT: nodePort,
-                    SERVICES: [VALIDATOR]
-                },
-                TXN_ID: sha256(nodeName.encode()).hexdigest()
-            }
-            poolLedger.add(txn)
+                verkey = nd.verkey
+            node_nym = cls.getNymFromVerkey(verkey)
 
-        for num in range(1, clientCount + 1):
-            clientName = "Client" + str(num)
-            sigseed = TestNetworkSetup.getSigningSeed(clientName)
-            verkey = Signer(sigseed).verhex
-            txn = {
-                f.IDENTIFIER.nm: steward1Nym,
-                TARGET_NYM: TestNetworkSetup.getNymFromVerkey(verkey),
-                TXN_TYPE: NYM,
-                ALIAS: clientName,
-                TXN_ID: sha256(clientName.encode()).hexdigest()
-            }
+            node_txn = Steward.node_txn(nd.steward_nym, nd.name, node_nym,
+                                        nd.ip, nd.port, nd.client_port)
+            poolLedger.add(node_txn)
+
+        for cd in client_defs:
+            txn = Member.nym_txn(cd.nym, cd.name, creator=trustee_def.nym)
             domainLedger.add(txn)
 
         poolLedger.stop()
         domainLedger.stop()
 
-    @staticmethod
-    def bootstrapTestNodes(config, startingPort, nodeParamsFileName,
+    @classmethod
+    def init_pool_ledger(cls, appendToLedgers, baseDir, config, envName):
+        poolTxnFile = cls.pool_ledger_file_name(config, envName)
+        pool_ledger = Ledger(CompactMerkleTree(), dataDir=baseDir,
+                             fileName=poolTxnFile)
+        if not appendToLedgers:
+            pool_ledger.reset()
+        return pool_ledger
+
+    @classmethod
+    def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
                            domainTxnFieldOrder):
+        domainTxnFile = cls.domain_ledger_file_name(config, envName)
+        ser = CompactSerializer(fields=domainTxnFieldOrder)
+        domain_ledger = Ledger(CompactMerkleTree(), serializer=ser,
+                               dataDir=baseDir, fileName=domainTxnFile)
+        if not appendToLedgers:
+            domain_ledger.reset()
+        return domain_ledger
+
+    @classmethod
+    def pool_ledger_file_name(cls, config, envName):
+        if hasattr(config, "ENVS") and envName:
+            return config.ENVS[envName].poolLedger
+        else:
+            return config.poolTransactionsFile
+
+    @classmethod
+    def domain_ledger_file_name(cls, config, envName):
+        if hasattr(config, "ENVS") and envName:
+            return config.ENVS[envName].domainLedger
+        else:
+            return config.domainTransactionsFile
+
+    @classmethod
+    def setup_base_dir(cls, config):
+        baseDir = config.baseDir
+        if not os.path.exists(baseDir):
+            os.makedirs(baseDir, exist_ok=True)
+        return baseDir
+
+    @classmethod
+    def bootstrapTestNodes(cls, config, startingPort, nodeParamsFileName, domainTxnFieldOrder):
 
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
@@ -231,8 +204,78 @@ class TestNetworkSetup:
             assert nodeNum <= nodeCount, "nodeNum should be less than equal " \
                                          "to nodeCount"
 
-        TestNetworkSetup.bootstrapTestNodesCore(config, envName, appendToLedgers,
-                                                domainTxnFieldOrder,
-                                                ips, nodeCount, clientCount,
-                                                nodeNum, startingPort,
-                                                nodeParamsFileName)
+        steward_defs, node_defs = cls.gen_defs(ips, nodeCount, startingPort)
+        client_defs = cls.gen_client_defs(clientCount)
+        trustee_def = cls.gen_trustee_def(1)
+        cls.bootstrapTestNodesCore(config, envName, appendToLedgers,
+                                   domainTxnFieldOrder, trustee_def,
+                                   steward_defs, node_defs, client_defs,
+                                   nodeNum, nodeParamsFileName)
+
+    @classmethod
+    def gen_defs(cls, ips, nodeCount, starting_port):
+        """
+        Generates some default steward and node definitions for tests
+        :param ips: array of ip addresses
+        :param nodeCount: number of stewards/nodes
+        :param starting_port: ports are assigned incremental starting with this
+        :return: duple of steward and node definitions
+        """
+        if not ips:
+            ips = ['127.0.0.1'] * nodeCount
+        else:
+            ips = ips.split(",")
+            if len(ips) != nodeCount:
+                if len(ips) > nodeCount:
+                    ips = ips[:nodeCount]
+                else:
+                    ips += ['127.0.0.1'] * (nodeCount - len(ips))
+
+        steward_defs = []
+        node_defs = []
+        for i in range(1, nodeCount + 1):
+            d = adict()
+            d.name = "Steward" + str(i)
+            s_sigseed = cls.getSigningSeed(d.name)
+            s_verkey = Signer(s_sigseed).verhex
+            d.nym = cls.getNymFromVerkey(s_verkey)
+            steward_defs.append(d)
+
+            name = "Node" + str(i)
+            sigseed = cls.getSigningSeed(name)
+            node_defs.append(NodeDef(
+                name=name,
+                ip=ips[i - 1],
+                port=starting_port + (i * 2) - 1,
+                client_port=starting_port + (i * 2),
+                idx=i,
+                sigseed=sigseed,
+                verkey=Signer(sigseed).verhex,
+                steward_nym=d.nym))
+        return steward_defs, node_defs
+
+    @classmethod
+    def gen_client_def(cls, idx):
+        d = adict()
+        d.name = "Client" + str(idx)
+        d.sigseed = cls.getSigningSeed(d.name)
+        d.verkey = Signer(d.sigseed).verhex
+        d.nym = cls.getNymFromVerkey(d.verkey)
+        return d
+
+    @classmethod
+    def gen_client_defs(cls, clientCount):
+        return [cls.gen_client_def(idx) for idx in range(1, clientCount + 1)]
+
+    @classmethod
+    def gen_trustee_def(cls, idx):
+        d = adict()
+        d.name = 'Trustee' + str(idx)
+        d.sigseed = cls.getSigningSeed(d.name)
+        d.verkey = Signer(d.sigseed).verhex
+        d.nym = cls.getNymFromVerkey(d.verkey)
+        return d
+
+
+NodeDef = namedtuple('NodeDef', 'name, ip, port, client_port, '
+                                'idx, sigseed, verkey, steward_nym')
