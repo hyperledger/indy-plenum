@@ -55,12 +55,11 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardsSeed = None
 
     for nodeIndex, n in enumerate(txnPoolNodeSet):
-        if (shouldBePrimary and n.primaryReplicaNo == 0) or \
-                (not shouldBePrimary and n.primaryReplicaNo != 0):
-            subjectedNode = n
-            stewardName = poolTxnStewardNames[nodeIndex]
-            stewardsSeed = poolTxnData["seeds"][stewardName].encode()
-            break
+        if shouldBePrimary == (n.primaryReplicaNo == 0):
+           subjectedNode = n
+           stewardName = poolTxnStewardNames[nodeIndex]
+           stewardsSeed = poolTxnData["seeds"][stewardName].encode()
+           break
 
     nodeStackNewHA, clientStackNewHA = genHa(2)
     logger.debug("change HA for node: {} to {}".
