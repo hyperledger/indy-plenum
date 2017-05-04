@@ -84,10 +84,9 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     return node
 
 
-def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf, allPluginsPath=None,
-                         autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient):
+def addNewSteward(looper, tdir,
+                  creatorClient, creatorWallet, stewardName,
+                  clientClass=TestClient):
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
     newSteward = clientClass(name=stewardName,
@@ -96,6 +95,18 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
+    return newSteward, newStewardWallet
+
+
+def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
+                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         autoStart=True, nodeClass=TestNode,
+                         clientClass=TestClient):
+
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, creatorClient,
+                                                 creatorWallet, stewardName,
+                                                 clientClass=clientClass)
+
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
                          tdir, tconf, allPluginsPath, autoStart=autoStart,
                          nodeClass=nodeClass)

@@ -1,5 +1,6 @@
 from copy import copy
 
+import base58
 import pytest
 import time
 
@@ -13,15 +14,16 @@ from stp_core.types import HA
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.constants import *
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkReqNackWithReason, waitReqNackWithReason
+    checkReqNackWithReason, waitReqNackWithReason, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, changeNodeHaAndReconnect
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, \
+    changeNodeHaAndReconnect, addNewSteward
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -61,6 +63,52 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
+
+
+def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
+                                                txnPoolNodeSet,
+                                                steward1, stewardWallet):
+    """
+    Case (https://evernym.atlassian.net/browse/SOV-988):
+        Steward accidentally sends the NODE txn with a non base58 verkey.
+    The expected result:
+        Steward gets NAck response from the pool.
+    """
+    # create a new steward
+    newStewardName = "testClientSteward" + randomString(3)
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, steward1,
+                                                 stewardWallet,
+                                                 newStewardName)
+
+    newNodeName = "Epsilon"
+    (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
+
+    # get hex VerKey
+    sigseed = randomString(32).encode()
+    nodeSigner = SimpleSigner(seed=sigseed)
+    b = base58.b58decode(nodeSigner.identifier)
+    hexVerKey = bytearray(b).hex()
+
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: hexVerKey,
+        DATA: {
+            NODE_IP: nodeIp,
+            NODE_PORT: nodePort,
+            CLIENT_IP: clientIp,
+            CLIENT_PORT: clientPort,
+            ALIAS: newNodeName,
+            SERVICES: [VALIDATOR, ]
+        }
+    }
+
+    req = newStewardWallet.signOp(op)
+    newSteward.submitReqs(req)
+
+    for node in txnPoolNodeSet:
+        waitReqNackWithReason(looper, newSteward,
+                              'is not a base58 string',
+                              node.clientstack.name)
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
