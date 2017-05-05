@@ -62,7 +62,7 @@ setup(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
     install_requires=['ledger-3pc-batch==0.2.14', 'stp-3pc-batch==0.1.14',
-                      'evernym-state==0.1.11', 'jsonpickle',
+                      'state-trie==0.1.14', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip'],
