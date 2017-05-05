@@ -1603,6 +1603,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param nodesGoingDown: the nodes which have gone down
         :return: whether view change started
         """
+
+        if self.name in nodesGoingDown:
+            # Node which is going down should not
+            # participate in a view change
+            return
+
         for node in nodesGoingDown:
             for instId, replica in enumerate(self.replicas):
                 leftOne = '{}:{}'.format(node, instId)
