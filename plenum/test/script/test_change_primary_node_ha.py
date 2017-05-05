@@ -17,5 +17,10 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # @pytest.mark.skip(reason="SOV-972")
 def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                poolTxnData, poolTxnStewardNames, tconf):
-    changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                 poolTxnData, poolTxnStewardNames, tconf, shouldBePrimary=True)
+    changeNodeHa(looper,
+                 txnPoolNodeSet,
+                 tdirWithPoolTxns,
+                 poolTxnData,
+                 poolTxnStewardNames,
+                 tconf,
+                 shouldBePrimary=True)
