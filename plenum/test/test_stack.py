@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any, Optional, NamedTuple
 
 from stp_core.network.network_interface import NetworkInterface
@@ -63,14 +64,15 @@ class StackedTester:
         else:
             assert len(connected) == totalNodes
 
-    async def ensureConnectedToNodes(self, customTimeout=None):
+    async def ensureConnectedToNodes(self, customTimeout=None, count=None):
         timeout = customTimeout or \
                   waits.expectedClientToPoolConnectionTimeout(len(self.nodeReg))
 
         logger.debug(
                 "waiting for {} seconds to check client connections to "
                 "nodes...".format(timeout))
-        await eventuallyAll(self.checkIfConnectedTo,
+        chk_connected = partial(self.checkIfConnectedTo, count)
+        await eventuallyAll(chk_connected,
                             retryWait=.5,
                             totalTimeout=timeout)
 

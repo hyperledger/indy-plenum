@@ -475,7 +475,6 @@ class LedgerManager(HasActionQueue):
         # proof, by inserting transactions. Duplicating a merkle tree is not
         # expensive since we are using a compact merkle tree.
         tempTree = copy(ledger.tree)
-
         # Get the batch of transactions in the catchup reply which has sequence
         # number `seqNo`
         nodeName, catchupReply = self._getCatchupReplyForSeqNo(ledgerType,

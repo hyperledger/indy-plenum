@@ -1299,10 +1299,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledgerType == 0:
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerType == 1:
-            if txn.get(TXN_TYPE) == NYM:
-                self.addNewRole(txn)
+            self.post_txn_from_catchup_added_to_domain_ledger(txn)
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
+
+    def post_txn_from_catchup_added_to_domain_ledger(self, txn):
+        if txn.get(TXN_TYPE) == NYM:
+            self.addNewRole(txn)
 
     def sendPoolLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, 0)
