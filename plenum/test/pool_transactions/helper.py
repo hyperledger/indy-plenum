@@ -45,7 +45,8 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     return wallet
 
 
-def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
+def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
+                   transformOpFunc=None):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
@@ -62,10 +63,15 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
             SERVICES: [VALIDATOR, ]
         }
     }
+    if transformOpFunc is not None:
+        transformOpFunc(op)
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
-    return req, nodeIp, nodePort, clientIp, clientPort, sigseed
+    return req, \
+           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
+           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
+           sigseed
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
@@ -124,7 +130,8 @@ def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
             NODE_PORT: nodePort,
             CLIENT_IP: clientIp,
             CLIENT_PORT: clientPort,
-            ALIAS: node.name
+            ALIAS: node.name,
+            SERVICES: [VALIDATOR]
         }
     }
 
