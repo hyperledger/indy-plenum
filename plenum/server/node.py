@@ -1373,7 +1373,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(RequestAck(*request.key), frm)
 
     # noinspection PyUnusedLocal
-    async def processPropagate(self, msg: Propagate, frm):
+    def processPropagate(self, msg: Propagate, frm):
         """
         Process one propagateRequest sent to this node asynchronously
 

@@ -424,6 +424,7 @@ def checkReplyCount(client, idr, reqId, count):
             senders.add(sdr)
     assertLength(senders, count)
 
+
 def waitReplyCount(looper, client, idr, reqId, count):
     numOfNodes = len(client.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)
@@ -614,6 +615,7 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
+
 
 def viewNoForNodes(nodes):
     viewNos = {node.viewNo for node in nodes}
