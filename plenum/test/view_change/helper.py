@@ -30,7 +30,7 @@ def provoke_and_wait_for_view_change(looper,
                                      wallet,
                                      client,
                                      customTimeout=None):
-    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
     timeout *= 30
     return looper.run(eventually(provoke_and_check_view_change,
                                  nodeSet,

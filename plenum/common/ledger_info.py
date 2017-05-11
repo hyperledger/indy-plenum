@@ -1,5 +1,6 @@
 from collections import deque
 
+
 class LedgerInfo:
     def __init__(self,
                  ledger,

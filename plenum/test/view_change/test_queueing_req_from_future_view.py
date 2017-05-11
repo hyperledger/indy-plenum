@@ -87,7 +87,7 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
     logger.debug('{} exhausted pending messages for future views'
                  .format(lagging_node))
 
-    # timeout = waits.expectedViewChangeTime(len(nodeSet)-1)
+    # timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet)-1)
     # # for node in nodeSet:
     # #     if node.name == nodeA.name:
     # #         # Node A's view should not have changed yet
@@ -125,5 +125,5 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
     #         assert len(r.threePhaseMsgsForLaterView) > 0
     #
     # # NodeA should now have pending 3 phase request for a later view
-    # timeout = waits.expectedViewChangeTime(len(nodeSet)) + delayIcA
+    # timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet)) + delayIcA
     # looper.run(eventually(checkPending3PhaseReqs, retryWait=1, timeout=timeout))

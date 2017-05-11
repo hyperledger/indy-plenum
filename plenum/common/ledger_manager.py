@@ -113,6 +113,7 @@ class LedgerManager(HasActionQueue):
     def checkIfTxnsNeeded(self, ledgerId):
 
         ledgerInfo = self.ledgerRegistry.get(ledgerId)
+        ledger = ledgerInfo.ledger
         if ledgerInfo.catchupReplyTimer is None:
             return
 
@@ -120,7 +121,7 @@ class LedgerManager(HasActionQueue):
         end = getattr(ledgerInfo.catchUpTill, f.SEQ_NO_END.nm)
 
         catchUpReplies = ledgerInfo.receivedCatchUpReplies
-        totalMissing = (end - ledgerInfo.size) - len(catchUpReplies)
+        totalMissing = (end - ledger.size) - len(catchUpReplies)
 
         if totalMissing == 0:
             ledgerInfo.catchupReplyTimer = None
@@ -148,7 +149,7 @@ class LedgerManager(HasActionQueue):
         shuffle(eligibleNodes)
         batchSize = math.ceil(totalMissing/len(eligibleNodes))
         cReqs = []
-        lastSeenSeqNo = ledgerInfo.size
+        lastSeenSeqNo = ledger.size
         leftMissing = totalMissing
 
         def addReqsForMissing(frm, to):
@@ -179,8 +180,8 @@ class LedgerManager(HasActionQueue):
                          "looking at receivedCatchUpReplies".
                          format(self, leftMissing))
             # `catchUpReplies` was empty
-            if lastSeenSeqNo == ledgerInfo.size:
-                missing = addReqsForMissing(ledgerInfo.size+1, end)
+            if lastSeenSeqNo == ledger.size:
+                missing = addReqsForMissing(ledger.size+1, end)
                 leftMissing -= missing
             # did not have transactions till `end`
             elif lastSeenSeqNo != end:
