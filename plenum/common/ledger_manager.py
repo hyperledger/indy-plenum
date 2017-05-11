@@ -44,7 +44,7 @@ class LedgerManager(HasActionQueue):
 
         # Holds ledgers of different types with
         # their info like callbacks, state, etc
-        self.ledgers = {}   # type: Dict[int, LedgerInfo]
+        self.ledgerRegistry = {}   # type: Dict[int, LedgerInfo]
 
         # Largest Pre-Prepare sequence number received during catchup.
         # This field is needed to discard any stashed 3PC messages or
@@ -65,12 +65,12 @@ class LedgerManager(HasActionQueue):
                   postCatchupCompleteClbk: Callable=None,
                   postTxnAddedToLedgerClbk: Callable=None):
 
-        if iD in self.ledgers:
+        if iD in self.ledgerRegistry:
             logger.error("{} already present in ledgers "
                          "so cannot replace that ledger".format(iD))
             return
 
-        self.ledgers[iD] = LedgerInfo(
+        self.ledgerRegistry[iD] = LedgerInfo(
             ledger=ledger,
             state=LedgerState.not_synced,
             canSync=False,
@@ -87,7 +87,7 @@ class LedgerManager(HasActionQueue):
         # consistency proof exchange process
         # It should be renamed or splat on two different methods
 
-        ledger = self.ledgers.get(ledgerId)
+        ledger = self.ledgerRegistry.get(ledgerId)
         if ledger.consistencyProofsTimer is None:
             return
 
@@ -111,7 +111,7 @@ class LedgerManager(HasActionQueue):
 
     def checkIfTxnsNeeded(self, ledgerId):
 
-        ledger = self.ledgers.get(ledgerId)
+        ledger = self.ledgerRegistry.get(ledgerId)
         if ledger.catchupReplyTimer is None:
             return
 
@@ -206,14 +206,14 @@ class LedgerManager(HasActionQueue):
         self._schedule(partial(self.checkIfTxnsNeeded, ledgerId), timeout)
 
     def setLedgerState(self, ledgerType: int, state: LedgerState):
-        if ledgerType not in self.ledgers:
+        if ledgerType not in self.ledgerRegistry:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledgerType))
             return
         self.getLedgerInfoByType(ledgerType).state = state
 
     def setLedgerCanSync(self, ledgerType: int, canSync: bool):
-        if ledgerType not in self.ledgers:
+        if ledgerType not in self.ledgerRegistry:
             logger.error("ledger type {} not present in ledgers so "
                          "cannot set state".format(ledgerType))
             return
@@ -661,7 +661,7 @@ class LedgerManager(HasActionQueue):
     def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
         logger.debug("{} started catching up with consistency proof {}".
                      format(self, proof))
-        if ledgerId not in self.ledgers:
+        if ledgerId not in self.ledgerRegistry:
             self.discard(proof, reason="Unknown ledger type {}".
                          format(ledgerId))
             return
@@ -703,7 +703,7 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.catchupReplyTimer = None
         logger.debug("{} completed catching up ledger {}"
                      .format(self, ledgerId))
-        if ledgerId not in self.ledgers:
+        if ledgerId not in self.ledgerRegistry:
             logger.error("{} called catchup completed for ledger {}".
                          format(self, ledgerId))
             return
@@ -714,7 +714,7 @@ class LedgerManager(HasActionQueue):
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
-                   for l in self.ledgers.values()):
+                   for l in self.ledgerRegistry.values()):
                 self.postAllLedgersCaughtUp()
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
@@ -802,14 +802,14 @@ class LedgerManager(HasActionQueue):
 
     def getLedgerForMsg(self, msg: Any) -> Ledger:
         ledgerType = getattr(msg, f.LEDGER_ID.nm)
-        if ledgerType in self.ledgers:
-            return self.ledgers[ledgerType].ledger
+        if ledgerType in self.ledgerRegistry:
+            return self.ledgerRegistry[ledgerType].ledger
         self.discard(msg, reason="Invalid ledger msg type")
 
     def getLedgerInfoByType(self, ledgerType):
-        if ledgerType not in self.ledgers:
+        if ledgerType not in self.ledgerRegistry:
             raise ValueError("Invalid ledger type: {}".format(ledgerType))
-        return self.ledgers[ledgerType]
+        return self.ledgerRegistry[ledgerType]
 
     def appendToLedger(self, ledgerId: int, txn: Any) -> Dict:
         ledgerInfo = self.getLedgerInfoByType(ledgerId)

@@ -417,7 +417,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             self.domainLedger.root_hash)
 
     def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledger = self.ledgerManager.ledgers.get(ledgerId)
+        ledger = self.ledgerManager.ledgerRegistry.get(ledgerId)
         if not ledger:
             raise RuntimeError('Ledger with id {} does not exist')
         ledger = ledger.ledger
@@ -604,7 +604,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def closeAllKVStores(self):
         # Clear leveldb lock files
         logger.info("{} closing level dbs".format(self), extra={"cli": False})
-        for ledgerId in self.ledgerManager.ledgers:
+        for ledgerId in self.ledgerManager.ledgerRegistry:
             state = self.getState(ledgerId)
             if state:
                 state.close()
@@ -1395,7 +1395,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def getLedger(self, ledgerId):
-        return self.ledgerManager.ledgers.get(ledgerId, {}).ledger
+        return self.ledgerManager.ledgerRegistry.get(ledgerId, {}).ledger
 
     def getState(self, ledgerId):
         return self.states.get(ledgerId)
