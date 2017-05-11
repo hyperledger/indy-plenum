@@ -107,7 +107,13 @@ def waitForSufficientRepliesForRequests(looper,
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerRequest * len(requestIds)
+    # here we try to take into account what timeout for execution
+    # N request - totalTimeout should be in
+    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
+    # we cannot just take (timeoutPerRequest * N) because it is so huge.
+    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
+    # lets start with some simple formula:
+    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -435,6 +441,20 @@ def checkReqNackWithReason(client, reason: str, sender: str):
     assert found
 
 
+def wait_negative_resp(looper, client, reason, sender, timeout, chk_method):
+    return looper.run(eventually(chk_method,
+                                 client,
+                                 reason,
+                                 sender,
+                                 timeout=timeout))
+
+
+def waitReqNackWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqNAckQuorumTime()
+    return wait_negative_resp(looper, client, reason, sender, timeout,
+                              checkReqNackWithReason)
+
+
 def checkRejectWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
@@ -443,6 +463,12 @@ def checkRejectWithReason(client, reason: str, sender: str):
             found = True
             break
     assert found
+
+
+def waitRejectWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqRejectQuorumTime()
+    return wait_negative_resp(looper, client, reason, sender, timeout,
+                              checkRejectWithReason)
 
 
 def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
@@ -479,7 +505,7 @@ def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None
     Raises exception when time is out
     """
 
-    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodeSet))
     return looper.run(eventually(checkViewNoForNodes,
                                  nodeSet,
                                  expectedViewNo,
@@ -627,3 +653,23 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
+
+
+def viewNoForNodes(nodes):
+    viewNos = {node.viewNo for node in nodes}
+    assert 1 == len(viewNos)
+    return next(iter(viewNos))
+
+
+def primaryNodeNameForInstance(nodes, instanceId):
+    primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
+    assert 1 == len(primaryNames)
+    primaryReplicaName = next(iter(primaryNames))
+    return primaryReplicaName[:-2]
+
+
+def nodeByName(nodes, name):
+    for node in nodes:
+        if node.name == name:
+            return node
+    raise Exception("Node with the name '{}' has not been found.".format(name))

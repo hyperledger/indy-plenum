@@ -250,7 +250,7 @@ class Client(Motor,
         for request in reqs:
             if self.mode == Mode.discovered and self.hasSufficientConnections:
                 logger.debug('Client {} sending request {}'.format(self, request))
-                self.nodestack.send(request)
+                self.send(request)
                 self.expectingFor(request)
             else:
                 logger.debug("{} pending request since in mode {} and "
@@ -470,7 +470,7 @@ class Client(Motor,
                          .format(queueSize))
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                self.nodestack.send(req, signer=signer)
+                self.send(req, signer=signer)
 
     def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
         nodes = nodes or {r.name for r in self.nodestack.remotes.values()
@@ -597,14 +597,14 @@ class Client(Motor,
         ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
                                     self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
-        self.nodestack.send(ledgerStatus, rid)
+        self.send(ledgerStatus, rid)
 
     def send(self, msg: Any, *rids: Iterable[int], signer: Signer = None):
         self.nodestack.send(msg, *rids, signer=signer)
 
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
-        self.nodestack.send(msg, *rids)
+        self.send(msg, *rids)
 
     @staticmethod
     def verifyMerkleProof(*replies: Tuple[Reply]) -> bool:

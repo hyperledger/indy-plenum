@@ -253,7 +253,7 @@ def changeHA(looper, config, nodeName, nodeSeed, newNodeHA,
     client = Client(stewardName,
                     ha=('0.0.0.0', randomClientPort), config=config)
     looper.add(client)
-    timeout = waits.expectedClientConnectionTimeout(3)
+    timeout = waits.expectedClientToPoolConnectionTimeout(4)
     looper.run(eventually(__checkClientConnected, client,
                           retryWait=1, timeout=timeout))
 

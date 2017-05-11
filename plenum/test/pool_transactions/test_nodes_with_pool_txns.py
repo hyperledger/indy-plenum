@@ -1,6 +1,10 @@
 from copy import copy
 
+import base58
 import pytest
+import time
+
+from stp_zmq.zstack import KITZStack
 
 from plenum.common import util
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
@@ -10,15 +14,17 @@ from stp_core.types import HA
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.constants import *
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkRejectWithReason
+    checkRejectWithReason, waitReqNackWithReason, waitRejectWithReason, \
+    waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, \
+    changeNodeHaAndReconnect, addNewSteward
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -60,25 +66,71 @@ def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
 
+def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
+                                                txnPoolNodeSet,
+                                                steward1, stewardWallet):
+    """
+    Case (https://evernym.atlassian.net/browse/SOV-988):
+        Steward accidentally sends the NODE txn with a non base58 verkey.
+    The expected result:
+        Steward gets NAck response from the pool.
+    """
+    # create a new steward
+    newStewardName = "testClientSteward" + randomString(3)
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, steward1,
+                                                 stewardWallet,
+                                                 newStewardName)
+
+    newNodeName = "Epsilon"
+    (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
+
+    # get hex VerKey
+    sigseed = randomString(32).encode()
+    nodeSigner = SimpleSigner(seed=sigseed)
+    b = base58.b58decode(nodeSigner.identifier)
+    hexVerKey = bytearray(b).hex()
+
+    op = {
+        TXN_TYPE: NODE,
+        TARGET_NYM: hexVerKey,
+        DATA: {
+            NODE_IP: nodeIp,
+            NODE_PORT: nodePort,
+            CLIENT_IP: clientIp,
+            CLIENT_PORT: clientPort,
+            ALIAS: newNodeName,
+            SERVICES: [VALIDATOR, ]
+        }
+    }
+
+    req = newStewardWallet.signOp(op)
+    newSteward.submitReqs(req)
+
+    for node in txnPoolNodeSet:
+        waitReqNackWithReason(looper, newSteward,
+                              'is not a base58 string',
+                              node.clientstack.name)
+
+
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
                                         stewardWallet, tdirWithPoolTxns, tconf,
                                         allPluginsPath):
     newNodeName = "Epsilon"
-    with pytest.raises(AssertionError):
-        addNewNode(looper, steward1, stewardWallet, newNodeName,
-                   tdirWithPoolTxns, tconf, allPluginsPath)
+    sendAddNewNode(newNodeName, steward1, stewardWallet)
+
+    for node in txnPoolNodeSet:
+        waitRejectWithReason(looper, steward1,
+                              'already has a node with name',
+                              node.clientstack.name)
 
 
 def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tdirWithPoolTxns,
                                 tconf, allPluginsPath):
     newNodeName = "Epsilon"
-    with pytest.raises(AssertionError):
-        addNewNode(looper, client1, wallet1, newNodeName,
-                   tdirWithPoolTxns, tconf, allPluginsPath)
-
+    sendAddNewNode(newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
-        checkRejectWithReason(client1, 'is not a steward so cannot add a '
+        waitRejectWithReason(client1, 'is not a steward so cannot add a '
                                         'new node', node.clientstack.name)
 
 
@@ -103,8 +155,7 @@ def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
         assert (len(steward1.nodeReg) - len(oldNodeReg)) == 1
         assert (newNode.name + CLIENT_STACK_SUFFIX) in steward1.nodeReg
 
-    fVal = util.getMaxFailures(len(txnPoolNodeSet))
-    timeout = waits.expectedClientConnectionTimeout(fVal)
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chkNodeRegRecvd, retryWait=1, timeout=timeout))
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
@@ -139,7 +190,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
             assert node.f == f
             assert len(node.replicas) == (f + 1)
 
-    timeout = waits.expectedClientConnectionTimeout(f)
+    timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkFValue, retryWait=1, timeout=timeout))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
@@ -152,12 +203,11 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
     nodeNewHa, clientNewHa = genHa(2)
     logger.debug('{} changing HAs to {} {}'.format(newNode, nodeNewHa,
                                                    clientNewHa))
-    with pytest.raises(AssertionError):
-        changeNodeHa(looper, steward1, stewardWallet, newNode,
+    sendChangeNodeHa(steward1, stewardWallet, newNode,
                      nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     for node in txnPoolNodeSet:
-        checkRejectWithReason(steward1, 'is not a steward of node',
+        waitRejectWithReason(steward1, 'is not a steward of node',
                                node.clientstack.name)
 
 
@@ -168,21 +218,11 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
     nodeNewHa, clientNewHa = genHa(2)
-    logger.debug("{} changing HAs to {} {}".format(newNode, nodeNewHa,
-                                                   clientNewHa))
-    changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                 nodeHa=nodeNewHa, clientHa=clientNewHa)
-    newNode.stop()
-    looper.removeProdable(name=newNode.name)
-    logger.debug("{} starting with HAs {} {}".format(newNode, nodeNewHa,
-                                                     clientNewHa))
-    node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
-                    ha=nodeNewHa, cliha=clientNewHa)
-    looper.add(node)
-    # The last element of `txnPoolNodeSet` is the node Theta that was just
-    # stopped
-    txnPoolNodeSet[-1] = node
-    looper.run(checkNodesConnected(txnPoolNodeSet))
+    node = changeNodeHaAndReconnect(looper, newSteward,
+                                    newStewardWallet, newNode,
+                                    nodeNewHa, clientNewHa,
+                                    tdirWithPoolTxns, tconf,
+                                    txnPoolNodeSet)
 
     waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
 
@@ -224,3 +264,5 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
+
+

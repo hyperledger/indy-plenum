@@ -34,12 +34,11 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardsSeed = None
 
     for nodeIndex, n in enumerate(txnPoolNodeSet):
-        if (shouldBePrimary and n.primaryReplicaNo == 0) or \
-                (not shouldBePrimary and n.primaryReplicaNo != 0):
-            subjectedNode = n
-            stewardName = poolTxnStewardNames[nodeIndex]
-            stewardsSeed = poolTxnData["seeds"][stewardName].encode()
-            break
+        if shouldBePrimary == (n.primaryReplicaNo == 0):
+           subjectedNode = n
+           stewardName = poolTxnStewardNames[nodeIndex]
+           stewardsSeed = poolTxnData["seeds"][stewardName].encode()
+           break
 
     nodeStackNewHA, clientStackNewHA = genHa(2)
     logger.debug("change HA for node: {} to {}".
@@ -63,11 +62,16 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
                              config=tconf, ha=nodeStackNewHA,
                              cliha=clientStackNewHA)
     looper.add(restartedNode)
-
     txnPoolNodeSet[nodeIndex] = restartedNode
-
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=70))
-    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=1)
+
+    electionTimeout = waits.expectedPoolElectionTimeout(
+        nodeCount=len(txnPoolNodeSet),
+        numOfReelections=3)
+    ensureElectionsDone(looper,
+                        txnPoolNodeSet,
+                        retryWait=1,
+                        customTimeout=electionTimeout)
 
     # start client and check the node HA
     anotherClient, _ = genTestClient(tmpdir=tdirWithPoolTxns,

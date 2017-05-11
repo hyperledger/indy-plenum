@@ -1,3 +1,4 @@
+import time
 import types
 
 import pytest
@@ -15,6 +16,19 @@ from plenum.test.node_catchup.conftest import whitelist
 
 
 logger = getlogger()
+
+
+@pytest.fixture(scope="module")
+def catchupTimeoutReduced(conf, tdir, request):
+    defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
+    conf.baseDir = tdir
+    conf.CatchupTransactionsTimeout = 1
+
+    def reset():
+        conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
+
+    request.addfinalizer(reset)
+    return conf
 
 
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):

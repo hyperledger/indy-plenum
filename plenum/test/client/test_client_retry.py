@@ -123,11 +123,26 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
     alpha.transmitToClient = origTrans
 
 
+@pytest.fixture(scope="function")
+def withFewerRetryReq(tconf, tdir, request):
+    oldRetryReplyCount = tconf.CLIENT_MAX_RETRY_REPLY
+    oldRetryReplyTimeout = tconf.CLIENT_REPLY_TIMEOUT
+    tconf.CLIENT_MAX_RETRY_REPLY = 3
+    tconf.CLIENT_REPLY_TIMEOUT = 5
+
+    def reset():
+        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReplyCount
+        tconf.CLIENT_REPLY_TIMEOUT = oldRetryReplyTimeout
+
+    request.addfinalizer(reset)
+    return tconf
+
+
 def testClientNotRetryingRequestAfterMaxTriesDone(looper,
                                                   nodeSet,
                                                   client1,
                                                   wallet1,
-                                                  tconf):
+                                                  withFewerRetryReq):
     """
     A client sends Request to a node but the node never responds to client.
     The client resends the request but only the number of times defined in its
@@ -147,15 +162,20 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     totalResends = client1.spylog.count(client1.resendRequests.__name__)
     req = sendRandomRequest(wallet1, client1)
 
-    # Wait for more than REPLY timeout (including retries)
-    timeout = (tconf.CLIENT_MAX_RETRY_REPLY + 2) * tconf.CLIENT_REPLY_TIMEOUT + 2
+    # Wait for more than REPLY timeout
+    # +1 because we have to wait one more retry timeout to make sure what
+    # client cleaned his buffers (expectingAcksFor, expectingRepliesFor)
+    retryTime = withFewerRetryReq.CLIENT_REPLY_TIMEOUT * \
+        (withFewerRetryReq.CLIENT_MAX_RETRY_REPLY + 1)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + retryTime
+
     looper.runFor(timeout)
 
     idr, reqId = req.key
     waitReplyCount(looper, client1, idr, reqId, 3)
 
     assert client1.spylog.count(client1.resendRequests.__name__) == \
-        (totalResends + tconf.CLIENT_MAX_RETRY_REPLY)
+        (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor
     assert req.key not in client1.expectingRepliesFor
     alpha.processRequest = origTrans

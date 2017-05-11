@@ -61,6 +61,6 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     looper.run(eventually(checkFlakyConnected, True, retryWait=2, timeout=50))
     # TODO Select or create the timeout from 'waits'. Don't use constant.
-    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2, timeout=50)
+    ensureElectionsDone(looper, txnPoolNodeSet, retryWait=2, customTimeout=50)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     checkNodesSendingCommits(txnPoolNodeSet)

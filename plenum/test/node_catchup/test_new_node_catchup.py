@@ -1,4 +1,5 @@
 import pytest
+from stp_zmq.zstack import KITZStack
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA

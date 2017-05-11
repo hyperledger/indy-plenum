@@ -52,7 +52,7 @@ def waitForNextPerfCheck(looper, nodes, previousPerfChecks):
                 assert cur[c].endtime > previousPerfChecks[c].endtime
         return cur
 
-    timeout = waits.expectedNextPerfCheck(nodes)
+    timeout = waits.expectedPoolNextPerfCheck(nodes)
     newPerfChecks = looper.run(eventually(ensureAnotherPerfCheck,
                                           retryWait=1,
                                           timeout=timeout))
@@ -113,6 +113,5 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     timeout = waits.expectedViewChangeTime(len(step3.nodes))
-    # waitForViewChange(looper, step3.nodes, 1)
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
 

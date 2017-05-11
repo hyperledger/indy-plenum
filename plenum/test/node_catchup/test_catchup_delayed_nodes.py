@@ -53,7 +53,7 @@ def testCatchupDelayedNodes(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns,
     txnPoolNodeSet.append(nodeX)
     txnPoolNodeSet.append(nodeY)
 
-    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet)) + delayX + delayY
+    timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + delayX + delayY
     looper.run(checkNodesConnected(txnPoolNodeSet, customTimeout=timeout))
     logger.debug("Stopping 2 newest nodes, {} and {}".format(nodeX.name,
                                                              nodeY.name))

@@ -25,6 +25,7 @@ from plenum.common.ledger_info import LedgerInfo
 
 logger = getlogger()
 
+
 class LedgerManager(HasActionQueue):
 
     def __init__(self,

@@ -32,7 +32,7 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         assert len(newNode.stashedOrderedReqs) > 0
         assert len(newNode.reqsFromCatchupReplies) > 0
 
-    timeout = waits.expectedRequestStashingTime()
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(stashing, retryWait=1, timeout=timeout))
 
 

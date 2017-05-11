@@ -1,3 +1,4 @@
+from stp_zmq.zstack import KITZStack
 from typing import Iterable
 
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
@@ -9,6 +10,7 @@ from plenum.test.test_node import TestNode
 from plenum.test import waits
 from plenum.common import util
 
+
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
 
@@ -18,9 +20,10 @@ def checkNodeDataForEquality(node: TestNode,
     # Checks for node's ledgers and state's to be equal
     for n in otherNodes:
         checkLedgerEquality(node.domainLedger, n.domainLedger)
-        checkLedgerEquality(node.poolLedger, n.poolLedger)
-        for lid in (POOL_LEDGER_ID, DOMAIN_LEDGER_ID):
-            checkStateEquality(node.getState(lid), n.getState(lid))
+        checkStateEquality(node.getState(DOMAIN_LEDGER_ID), n.getState(DOMAIN_LEDGER_ID))
+        if n.poolLedger:
+            checkLedgerEquality(node.poolLedger, n.poolLedger)
+            checkStateEquality(node.getState(POOL_LEDGER_ID), n.getState(POOL_LEDGER_ID))
 
 
 def waitNodeDataEquality(looper,
@@ -34,7 +37,7 @@ def waitNodeDataEquality(looper,
     """
 
     numOfNodes = len(otherNodes) + 1
-    timeout = customTimeout or waits.expectedPoolLedgerCheck(numOfNodes)
+    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
     looper.run(eventually(checkNodeDataForEquality,
                           referenceNode,
                           *otherNodes,
@@ -56,10 +59,9 @@ def checkClientPoolLedgerSameAsNodes(client: TestClient,
 def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
                                                   client: TestClient,
                                                   *nodes:Iterable[TestNode]):
-    fVal = util.getMaxFailures(len(nodes))
-    poolCheckTimeout = waits.expectedPoolLedgerCheck(fVal)
+    looper.run(client.ensureConnectedToNodes())
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodes))
     looper.run(eventually(checkClientPoolLedgerSameAsNodes,
                           client,
                           *nodes,
-                          timeout=poolCheckTimeout))
-    looper.run(client.ensureConnectedToNodes())
+                          timeout=timeout))

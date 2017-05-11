@@ -16,8 +16,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 
 
-def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
-                 name: str):
+def sendAddNewClient(role, name, creatorClient, creatorWallet):
     wallet = Wallet(name)
     wallet.addIdentifier()
     idr = wallet.defaultId
@@ -34,18 +33,21 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
 
     req = creatorWallet.signOp(op)
     creatorClient.submitReqs(req)
+    return req, wallet
 
+
+def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
+                 name: str):
+    req, wallet = sendAddNewClient(role, name, creatorClient, creatorWallet)
     waitForSufficientRepliesForRequests(looper, creatorClient,
                                         requests=[req], fVal=1)
 
     return wallet
 
 
-def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
+def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
-
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
 
     op = {
@@ -63,7 +65,13 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
+    return req, nodeIp, nodePort, clientIp, clientPort, sigseed
 
+
+def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
+               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
+    req, nodeIp, nodePort, clientIp, clientPort, sigseed \
+        = sendAddNewNode(newNodeName, stewardClient, stewardWallet)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
 
@@ -76,10 +84,9 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     return node
 
 
-def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf, allPluginsPath=None,
-                         autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient):
+def addNewSteward(looper, tdir,
+                  creatorClient, creatorWallet, stewardName,
+                  clientClass=TestClient):
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
     newSteward = clientClass(name=stewardName,
@@ -88,13 +95,25 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
+    return newSteward, newStewardWallet
+
+
+def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
+                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         autoStart=True, nodeClass=TestNode,
+                         clientClass=TestClient):
+
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, creatorClient,
+                                                 creatorWallet, stewardName,
+                                                 clientClass=clientClass)
+
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
                          tdir, tconf, allPluginsPath, autoStart=autoStart,
                          nodeClass=nodeClass)
     return newSteward, newStewardWallet, newNode
 
 
-def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
+def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
     nodeNym = hexToFriendly(node.nodestack.verhex)
     (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
@@ -111,14 +130,42 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
+    return req
+
+
+def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
+    req = sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
-
     # TODO: Not needed in ZStack, remove once raet is removed
     node.nodestack.clearLocalKeep()
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
     node.clientstack.clearRemoteKeeps()
+
+
+def changeNodeHaAndReconnect(looper, steward, stewardWallet, node,
+                             nodeHa, clientHa,
+                             tdirWithPoolTxns, tconf, txnPoolNodeSet):
+    changeNodeHa(looper, steward, stewardWallet, node,
+                 nodeHa=nodeHa, clientHa=clientHa)
+    # restart the Node with new HA
+    node.stop()
+    looper.removeProdable(name=node.name)
+    restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
+                             config=tconf, ha=nodeHa, cliha=clientHa)
+    looper.add(restartedNode)
+
+    # replace node in txnPoolNodeSet
+    try:
+        idx = next(i for i, n in enumerate(txnPoolNodeSet)
+                   if n.name == node.name)
+    except StopIteration:
+        raise Exception('{} is not the pool'.format(node))
+    txnPoolNodeSet[idx] = restartedNode
+
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    return restartedNode
 
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):

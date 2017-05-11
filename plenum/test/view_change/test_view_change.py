@@ -10,6 +10,7 @@ from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
     ensureElectionsDone
+from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 
 nodeCount = 7
 

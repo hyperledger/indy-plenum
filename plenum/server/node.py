@@ -420,7 +420,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger = self.ledgerManager.ledgers.get(ledgerId)
         if not ledger:
             raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledger['ledger']
+        ledger = ledger.ledger
         if isCommitted:
             return ledger.root_hash
         else:
@@ -1378,7 +1378,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rh.updateState([txn])
             state = self.getState(ledgerId)
             state.commit(rootHash=state.headHash)
-            ledger = self.getLedger(ledgerId)
 
     def postTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
@@ -1386,8 +1385,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.poolManager.onPoolMembershipChange(txn)
             rh = self.poolManager.reqHandler
         if ledgerId == DOMAIN_LEDGER_ID:
-            if txn.get(TXN_TYPE) == NYM:
-                self.addNewRole(txn)
+            self.post_txn_from_catchup_added_to_domain_ledger(txn)
             rh = self.reqHandler
         return rh
 
@@ -1397,10 +1395,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def getLedger(self, ledgerId):
-        return self.ledgerManager.ledgers.get(ledgerId, {}).get('ledger')
+        return self.ledgerManager.ledgers.get(ledgerId, {}).ledger
 
     def getState(self, ledgerId):
         return self.states.get(ledgerId)
+
+    def post_txn_from_catchup_added_to_domain_ledger(self, txn):
+        if txn.get(TXN_TYPE) == NYM:
+            self.addNewRole(txn)
 
     def sendPoolLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
@@ -1505,7 +1507,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(RequestAck(*request.key), frm)
 
     # noinspection PyUnusedLocal
-    async def processPropagate(self, msg: Propagate, frm):
+    def processPropagate(self, msg: Propagate, frm):
         """
         Process one propagateRequest sent to this node asynchronously
 
@@ -1813,8 +1815,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(req, Mapping):
             # req = msg.__getstate__()
             req = msg.as_dict
-
-        # Since clients send si
 
         identifier = self.authNr(req).authenticate(req)
         logger.display("{} authenticated {} signature on {} request {}".

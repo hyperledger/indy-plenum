@@ -51,7 +51,7 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     looper.run(checkNodesConnected(nodeSet))
 
     # Node B sends multiple NOMINATE msgs but only after A has nominated itself
-    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     looper.run(eventually(checkNomination, A, A.name,
                           retryWait=.25, timeout=timeout))
 

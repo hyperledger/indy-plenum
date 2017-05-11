@@ -9,6 +9,8 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
+
+import time
 from typing import Dict, Any
 from plenum.test import waits
 
@@ -92,6 +94,25 @@ def warncheck(warnfilters):
     if to_prints:
         to_prints.insert(0, 'Warnings found:')
         pytest.fail('\n'.join(to_prints))
+
+
+@pytest.fixture(scope="function", autouse=True)
+def limitTestRunningTime(tconf):
+    st = time.time()
+    yield
+    runningTime = time.time() - st
+    if runningTime > tconf.TestRunningTimeLimitSec:
+        pytest.fail(
+            'The running time of each test is limited by {} sec '
+            '(actually the test has taken {:2.1f} sec).\n'
+            'In order to make the test passed there are two options:\n'
+            '\t1. Make the test faster (for example: override default '
+            'timeouts ONLY for the tests, do not wait '
+            '`with pytest.raises(..)` and so on)\n'
+            '\t2. Override the `limitTestRunningTime` fixture '
+            'for the test module.\n'
+            'Firstly, try to use the option #1.'
+            ''.format(tconf.TestRunningTimeLimitSec, runningTime))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -350,7 +371,7 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     numerOfNodes = len(nodeSet)
 
     # Wait until request received by all nodes
-    propTimeout = waits.expectedClientToNodeMessageDeliveryTime(numerOfNodes)
+    propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,
