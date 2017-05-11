@@ -417,14 +417,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             self.domainLedger.root_hash)
 
     def getLedgerRootHash(self, ledgerId, isCommitted=True):
-        ledger = self.ledgerManager.ledgerRegistry.get(ledgerId)
-        if not ledger:
+        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
+        if not ledgerInfo:
             raise RuntimeError('Ledger with id {} does not exist')
-        ledger = ledger.ledger
+        ledger = ledgerInfo.ledger
         if isCommitted:
             return ledger.root_hash
-        else:
-            return ledger.uncommittedRootHash or ledger.root_hash
+        return ledger.uncommittedRootHash or ledger.root_hash
 
     def stateRootHash(self, ledgerId, isCommitted=True):
         state = self.states.get(ledgerId)
@@ -474,7 +473,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             return MemoryHashStore()
 
-    def getLedgerManager(self):
+    def getLedgerManager(self) -> LedgerManager:
         return LedgerManager(self, ownedByNode=True,
                              postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
@@ -1395,7 +1394,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.checkInstances()
 
     def getLedger(self, ledgerId):
-        return self.ledgerManager.ledgerRegistry.get(ledgerId, {}).ledger
+        return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
 
     def getState(self, ledgerId):
         return self.states.get(ledgerId)

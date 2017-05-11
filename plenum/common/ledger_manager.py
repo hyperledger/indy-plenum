@@ -87,42 +87,43 @@ class LedgerManager(HasActionQueue):
         # consistency proof exchange process
         # It should be renamed or splat on two different methods
 
-        ledger = self.ledgerRegistry.get(ledgerId)
-        if ledger.consistencyProofsTimer is None:
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+
+        if ledgerInfo.consistencyProofsTimer is None:
             return
 
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
         adjustedF = getMaxFailures(self.owner.totalNodes - 1)
-        proofs = ledger.recvdConsistencyProofs
+        proofs = ledgerInfo.recvdConsistencyProofs
         groupedProofs, nullProofs = self._groupConsistencyProofs(proofs)
         if nullProofs > adjustedF:
             return
-        result = self._latestReliableProof(groupedProofs, ledger)
+        result = self._latestReliableProof(groupedProofs, ledgerInfo)
         if not result:
             cpReq = self.getConsistencyProofRequest(ledgerId, groupedProofs)
             logger.debug("{} sending consistency proof request: {}".
                          format(self, cpReq))
             self.send(cpReq)
-        ledger.recvdConsistencyProofs = {}
-        ledger.consistencyProofsTimer = None
-        ledger.recvdCatchupRepliesFrm = {}
+        ledgerInfo.recvdConsistencyProofs = {}
+        ledgerInfo.consistencyProofsTimer = None
+        ledgerInfo.recvdCatchupRepliesFrm = {}
 
     def checkIfTxnsNeeded(self, ledgerId):
 
-        ledger = self.ledgerRegistry.get(ledgerId)
-        if ledger.catchupReplyTimer is None:
+        ledgerInfo = self.ledgerRegistry.get(ledgerId)
+        if ledgerInfo.catchupReplyTimer is None:
             return
 
-        start = getattr(ledger.catchUpTill, f.SEQ_NO_START.nm)
-        end = getattr(ledger.catchUpTill, f.SEQ_NO_END.nm)
+        start = getattr(ledgerInfo.catchUpTill, f.SEQ_NO_START.nm)
+        end = getattr(ledgerInfo.catchUpTill, f.SEQ_NO_END.nm)
 
-        catchUpReplies = ledger.receivedCatchUpReplies
-        totalMissing = (end - ledger.size) - len(catchUpReplies)
+        catchUpReplies = ledgerInfo.receivedCatchUpReplies
+        totalMissing = (end - ledgerInfo.size) - len(catchUpReplies)
 
         if totalMissing == 0:
-            ledger.catchupReplyTimer = None
+            ledgerInfo.catchupReplyTimer = None
             return
 
         logger.debug("{} requesting {} missing transactions "
@@ -147,7 +148,7 @@ class LedgerManager(HasActionQueue):
         shuffle(eligibleNodes)
         batchSize = math.ceil(totalMissing/len(eligibleNodes))
         cReqs = []
-        lastSeenSeqNo = ledger.size
+        lastSeenSeqNo = ledgerInfo.size
         leftMissing = totalMissing
 
         def addReqsForMissing(frm, to):
@@ -178,8 +179,8 @@ class LedgerManager(HasActionQueue):
                          "looking at receivedCatchUpReplies".
                          format(self, leftMissing))
             # `catchUpReplies` was empty
-            if lastSeenSeqNo == ledger.size:
-                missing = addReqsForMissing(ledger.size+1, end)
+            if lastSeenSeqNo == ledgerInfo.size:
+                missing = addReqsForMissing(ledgerInfo.size+1, end)
                 leftMissing -= missing
             # did not have transactions till `end`
             elif lastSeenSeqNo != end:
@@ -201,7 +202,7 @@ class LedgerManager(HasActionQueue):
             nodeName = eligibleNodes[i%numElgNodes]
             self.send(req, self.nodestack.getRemote(nodeName).uid)
 
-        ledger.catchupReplyTimer = time.perf_counter()
+        ledgerInfo.catchupReplyTimer = time.perf_counter()
         timeout = int(self._getCatchupTimeout(len(cReqs), batchSize))
         self._schedule(partial(self.checkIfTxnsNeeded, ledgerId), timeout)
 
@@ -803,10 +804,10 @@ class LedgerManager(HasActionQueue):
     def getLedgerForMsg(self, msg: Any) -> Ledger:
         ledgerType = getattr(msg, f.LEDGER_ID.nm)
         if ledgerType in self.ledgerRegistry:
-            return self.ledgerRegistry[ledgerType].ledger
+            return self.getLedgerInfoByType(ledgerType).ledger
         self.discard(msg, reason="Invalid ledger msg type")
 
-    def getLedgerInfoByType(self, ledgerType):
+    def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
         if ledgerType not in self.ledgerRegistry:
             raise ValueError("Invalid ledger type: {}".format(ledgerType))
         return self.ledgerRegistry[ledgerType]

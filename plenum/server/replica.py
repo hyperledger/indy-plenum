@@ -222,7 +222,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Queues used in PRE-PREPARE for each ledger,
         self.requestQueues = {}  # type: Dict[int, deque]
-        for ledgerId in self.node.ledgerManager.ledgers:
+        for ledgerId in self.node.ledgerManager.ledgerRegistry:
             self.requestQueues[ledgerId] = deque()
 
         # Batches with key as ppSeqNo of batch and value as a tuple of number
