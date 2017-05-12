@@ -151,7 +151,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
     waitRejectFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
                                   "Missing some of")
 
-    for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT, SERVICES):
+    for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         def _tnf(op): del op[DATA][fn]
         sendAddNewNode(newNodeName, newSteward, newStewardWallet,
                        transformOpFunc=_tnf)
