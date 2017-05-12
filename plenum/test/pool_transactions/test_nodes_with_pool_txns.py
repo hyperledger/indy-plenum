@@ -23,8 +23,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, \
-    changeNodeHaAndReconnect, addNewSteward
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, \
+    sendAddNewNode, changeNodeHaAndReconnect, addNewSteward
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -120,8 +120,8 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
 
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, steward1,
-                              'already has a node with name',
-                              node.clientstack.name)
+                             'already has a node',
+                             node.clientstack.name)
 
 
 def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
@@ -130,7 +130,7 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
     newNodeName = "Epsilon"
     sendAddNewNode(newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
-        waitRejectWithReason(client1, 'is not a steward so cannot add a '
+        waitRejectWithReason(looper, client1, 'is not a steward so cannot add a '
                                         'new node', node.clientstack.name)
 
 
@@ -207,8 +207,8 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                      nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     for node in txnPoolNodeSet:
-        waitRejectWithReason(steward1, 'is not a steward of node',
-                               node.clientstack.name)
+        waitRejectWithReason(looper, steward1, 'is not a steward of node',
+                             node.clientstack.name)
 
 
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -232,7 +232,6 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-@pytest.mark.skip(reason="SOV-881")
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                         tconf, steward1, nodeThetaAdded,
                         allPluginsPath=None):

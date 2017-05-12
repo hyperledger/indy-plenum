@@ -11,7 +11,7 @@ from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, check_node_disconnected_from, \
-    ensure_node_disconnected
+    ensure_node_disconnected, checkNodesConnected
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 

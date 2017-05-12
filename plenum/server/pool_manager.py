@@ -270,11 +270,14 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return nodeTxn[DATA][ALIAS]
 
     def doStaticValidation(self, identifier, reqId, operation):
-        checks = []
         if operation[TXN_TYPE] == NODE:
-            checks.append(DATA in operation and isinstance(operation[DATA], dict))
-        if not all(checks):
-            raise InvalidClientRequest(identifier, reqId)
+            if not (DATA in operation and isinstance(operation[DATA], dict)):
+                error = "'{}' is missed or not a dict".format(DATA)
+                raise InvalidClientRequest(identifier, reqId, error)
+            # VerKey must be base58
+            if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
+                error = "'{}' is not a base58 string".format(TARGET_NYM)
+                raise InvalidClientRequest(identifier, reqId, error)
 
     def doDynamicValidation(self, request: Request):
         self.reqHandler.validate(request)
