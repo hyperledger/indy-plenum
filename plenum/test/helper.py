@@ -424,6 +424,7 @@ def checkReplyCount(client, idr, reqId, count):
             senders.add(sdr)
     assertLength(senders, count)
 
+
 def waitReplyCount(looper, client, idr, reqId, count):
     numOfNodes = len(client.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)
@@ -438,7 +439,7 @@ def checkReqNackWithReason(client, reason: str, sender: str):
                 and sdr == sender:
             found = True
             break
-    assert found
+    assert found, "there is no NAck with reason: {}".format(reason)
 
 
 def waitReqNackWithReason(looper, client, reason: str, sender: str):
@@ -448,6 +449,12 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
                                  reason,
                                  sender,
                                  timeout=timeout))
+
+
+def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
+    for node in nodes:
+        waitReqNackWithReason(looper, client, reason,
+                              node.clientstack.name)
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -614,6 +621,7 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
+
 
 def viewNoForNodes(nodes):
     viewNos = {node.viewNo for node in nodes}

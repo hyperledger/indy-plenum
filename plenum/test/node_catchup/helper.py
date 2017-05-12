@@ -9,13 +9,15 @@ from plenum.test.test_node import TestNode
 from plenum.test import waits
 from plenum.common import util
 
+
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
 def checkNodeLedgersForEquality(node: TestNode,
                                 *otherNodes: Iterable[TestNode]):
     for n in otherNodes:
         checkLedgerEquality(node.domainLedger, n.domainLedger)
-        checkLedgerEquality(node.poolLedger, n.poolLedger)
+        if n.poolLedger:
+            checkLedgerEquality(node.poolLedger, n.poolLedger)
 
 
 def waitNodeLedgersEquality(looper,

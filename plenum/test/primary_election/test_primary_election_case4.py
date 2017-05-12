@@ -71,7 +71,7 @@ def testPrimaryElectionCase4(case4Setup, looper):
         looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
     timeout = waits.expectedPoolElectionTimeout(len(allNodes)) + delaySelfNomination
-    ensureElectionsDone(looper=looper, nodes=allNodes, timeout=timeout)
+    ensureElectionsDone(looper=looper, nodes=allNodes, customTimeout=timeout)
 
     # Node D should not have any primary replica
     assert not D.hasPrimary

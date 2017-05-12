@@ -19,7 +19,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-940")
+# @pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """
@@ -27,9 +27,9 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     The status of the nodes will change from starting to started only after the
     addition of the fourth node to the system.
     """
-    nodeCount = 16
-    f = 5
-    minimumNodesToBeUp = 16 - f
+    nodeCount = 13
+    f = 4
+    minimumNodesToBeUp = nodeCount - f
 
     nodeNames = genNodeNames(nodeCount)
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:

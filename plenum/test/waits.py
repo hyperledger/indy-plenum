@@ -142,7 +142,7 @@ def expectedPoolNominationTimeout(nodeCount):
     return expectedNodeToNodeMessageDeliveryTime() * interconnectionCount
 
 
-def expectedPoolElectionTimeout(nodeCount):
+def expectedPoolElectionTimeout(nodeCount, numOfReelections=0):
     """
     From: the Pool ready for the view change procedure
     To: the Pool changed the View
@@ -151,9 +151,13 @@ def expectedPoolElectionTimeout(nodeCount):
     interconnectionCount = totalConnections(nodeCount)
     primarySelectTimeout = \
         expectedNodeToNodeMessageDeliveryTime() * interconnectionCount
-    return expectedPoolViewChangeStartedTimeout(nodeCount) + \
-           expectedPoolNominationTimeout(nodeCount) + \
-           primarySelectTimeout
+
+    oneElectionTimeout = \
+        expectedPoolViewChangeStartedTimeout(nodeCount) + \
+        expectedPoolNominationTimeout(nodeCount) + \
+        primarySelectTimeout
+
+    return (1 + numOfReelections) * oneElectionTimeout
 
 
 def expectedPoolNextPerfCheck(nodes):

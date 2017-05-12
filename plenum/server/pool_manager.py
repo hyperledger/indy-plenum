@@ -1,3 +1,6 @@
+import ipaddress
+
+import base58
 from typing import Dict, Tuple
 from functools import lru_cache
 
@@ -6,7 +9,7 @@ from ledger.util import F
 from plenum.common.txn_util import updateGenesisPoolTxnFile
 
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest
+    UnauthorizedClientRequest, InvalidClientRequest
 
 from plenum.common.stack_manager import TxnStackManager
 from stp_core.network.auth_mode import AuthMode
@@ -68,6 +71,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
+        self._dataFieldsValidators = (
+            (NODE_IP, self._isIpAddressValid),
+            (CLIENT_IP, self._isIpAddressValid),
+            (NODE_PORT, self._isPortValid),
+            (CLIENT_PORT, self._isPortValid),
+        )
+
 
     @property
     def hasLedger(self):
@@ -252,10 +262,16 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return nodeTxn[DATA][ALIAS]
 
     def checkValidOperation(self, operation):
-        checks = []
+        # data exists and is dict
         if operation[TXN_TYPE] == NODE:
-            checks.append(DATA in operation and isinstance(operation[DATA], dict))
-        return all(checks)
+            if DATA not in operation:
+                return "'{}' is missed".format(DATA)
+            if not isinstance(operation[DATA], dict):
+                return "'{}' is not a dict".format(DATA)
+
+        # VerKey must be base58
+        if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
+            return "'{}' is not a base58 string".format(TARGET_NYM)
 
     def checkRequestAuthorized(self, request):
         typ = request.operation.get(TXN_TYPE)
@@ -301,11 +317,32 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 return True
         return False
 
-    @staticmethod
-    def _validateNodeData(data):
-        if data.get(NODE_IP, "nodeip") == data.get(CLIENT_IP, "clientip") and \
-                        data.get(NODE_PORT, "nodeport") == data.get(CLIENT_PORT, "clientport"):
+    def _validateNodeData(self, data):
+        # 'data' contains all required fields
+        for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT, SERVICES):
+            if fn not in data:
+                return "field '{}' is missed".format(fn)
+
+        if data[NODE_IP] == data[CLIENT_IP] and data[NODE_PORT] == data[CLIENT_PORT]:
             return "node and client ha can't be same"
+
+        # check a content of the fields
+        for fn, validator in self._dataFieldsValidators:
+            if not validator(data[fn]):
+                return "'{}' ('{}') is invalid".format(fn, data[fn])
+
+    @staticmethod
+    def _isIpAddressValid(ipAddress):
+        try:
+            ipaddress.ip_address(ipAddress)
+        except ValueError:
+            return False
+        else:
+            return ipAddress != '0.0.0.0'
+
+    @staticmethod
+    def _isPortValid(port):
+        return isinstance(port, int) and 0 < port <= 65535
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier
@@ -320,10 +357,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         nodeNym = operation.get(TARGET_NYM)
         if not self.isStewardOfNode(origin, nodeNym):
             return "{} is not a steward of node {}".format(origin, nodeNym)
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]:
-                if txn[DATA] == operation.get(DATA, {}):
-                    return "node already has the same data as requested"
+
+        previousNodeTxns = [txn for txn in self.ledger.getAllTxn().values()
+                            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]]
+        # check only the last node txn
+        lastNodeTxnData = previousNodeTxns[-1].get(DATA, {}) if previousNodeTxns else None
+        if lastNodeTxnData is not None and lastNodeTxnData == operation.get(DATA, {}):
+            return "node already has the same data as requested"
         if self.isNodeDataConflicting(data, nodeNym):
             return "existing data has conflicts with " \
                    "request data {}".format(operation.get(DATA))

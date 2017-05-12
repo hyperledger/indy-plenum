@@ -13,7 +13,7 @@ from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, AL
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode
+from plenum.test.test_node import TestNode, checkNodesConnected
 
 
 def sendAddNewClient(role, name, creatorClient, creatorWallet):
@@ -45,7 +45,8 @@ def addNewClient(role, looper, creatorClient: Client, creatorWallet: Wallet,
     return wallet
 
 
-def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
+def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
+                   transformOpFunc=None):
     sigseed = randomString(32).encode()
     nodeSigner = SimpleSigner(seed=sigseed)
     (nodeIp, nodePort), (clientIp, clientPort) = genHa(2)
@@ -62,10 +63,15 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet):
             SERVICES: [VALIDATOR, ]
         }
     }
+    if transformOpFunc is not None:
+        transformOpFunc(op)
 
     req = stewardWallet.signOp(op)
     stewardClient.submitReqs(req)
-    return req, nodeIp, nodePort, clientIp, clientPort, sigseed
+    return req, \
+           op[DATA].get(NODE_IP), op[DATA].get(NODE_PORT), \
+           op[DATA].get(CLIENT_IP), op[DATA].get(CLIENT_PORT), \
+           sigseed
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
@@ -84,10 +90,9 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
     return node
 
 
-def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
-                         newNodeName, tdir, tconf, allPluginsPath=None,
-                         autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient):
+def addNewSteward(looper, tdir,
+                  creatorClient, creatorWallet, stewardName,
+                  clientClass=TestClient):
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
     newSteward = clientClass(name=stewardName,
@@ -96,6 +101,18 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
     looper.add(newSteward)
     looper.run(newSteward.ensureConnectedToNodes())
+    return newSteward, newStewardWallet
+
+
+def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
+                         newNodeName, tdir, tconf, allPluginsPath=None,
+                         autoStart=True, nodeClass=TestNode,
+                         clientClass=TestClient):
+
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, creatorClient,
+                                                 creatorWallet, stewardName,
+                                                 clientClass=clientClass)
+
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
                          tdir, tconf, allPluginsPath, autoStart=autoStart,
                          nodeClass=nodeClass)
@@ -113,7 +130,8 @@ def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
             NODE_PORT: nodePort,
             CLIENT_IP: clientIp,
             CLIENT_PORT: clientPort,
-            ALIAS: node.name
+            ALIAS: node.name,
+            SERVICES: [VALIDATOR]
         }
     }
 
@@ -131,6 +149,30 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     node.nodestack.clearRemoteKeeps()
     node.clientstack.clearLocalKeep()
     node.clientstack.clearRemoteKeeps()
+
+
+def changeNodeHaAndReconnect(looper, steward, stewardWallet, node,
+                             nodeHa, clientHa,
+                             tdirWithPoolTxns, tconf, txnPoolNodeSet):
+    changeNodeHa(looper, steward, stewardWallet, node,
+                 nodeHa=nodeHa, clientHa=clientHa)
+    # restart the Node with new HA
+    node.stop()
+    looper.removeProdable(name=node.name)
+    restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
+                             config=tconf, ha=nodeHa, cliha=clientHa)
+    looper.add(restartedNode)
+
+    # replace node in txnPoolNodeSet
+    try:
+        idx = next(i for i, n in enumerate(txnPoolNodeSet)
+                   if n.name == node.name)
+    except StopIteration:
+        raise Exception('{} is not the pool'.format(node))
+    txnPoolNodeSet[idx] = restartedNode
+
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    return restartedNode
 
 
 def changeNodeKeys(looper, stewardClient, stewardWallet, node, verkey):

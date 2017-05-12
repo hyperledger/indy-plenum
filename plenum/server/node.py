@@ -1299,10 +1299,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if ledgerType == 0:
             self.poolManager.onPoolMembershipChange(txn)
         if ledgerType == 1:
-            if txn.get(TXN_TYPE) == NYM:
-                self.addNewRole(txn)
+            self.post_txn_from_catchup_added_to_domain_ledger(txn)
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
+
+    def post_txn_from_catchup_added_to_domain_ledger(self, txn):
+        if txn.get(TXN_TYPE) == NYM:
+            self.addNewRole(txn)
 
     def sendPoolLedgerStatus(self, nodeName):
         self.sendLedgerStatus(nodeName, 0)
@@ -1373,7 +1376,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.transmitToClient(RequestAck(*request.key), frm)
 
     # noinspection PyUnusedLocal
-    async def processPropagate(self, msg: Propagate, frm):
+    def processPropagate(self, msg: Propagate, frm):
         """
         Process one propagateRequest sent to this node asynchronously
 
@@ -1603,6 +1606,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param nodesGoingDown: the nodes which have gone down
         :return: whether view change started
         """
+
+        if self.name in nodesGoingDown:
+            # Node which is going down should not
+            # participate in a view change
+            return
+
         for node in nodesGoingDown:
             for instId, replica in enumerate(self.replicas):
                 leftOne = '{}:{}'.format(node, instId)
@@ -1667,8 +1676,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def checkValidOperation(self, clientId, reqId, operation):
         if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            if not self.poolManager.checkValidOperation(operation):
-                raise InvalidClientRequest(clientId, reqId)
+            error = self.poolManager.checkValidOperation(operation)
+            if error is not None:
+                raise InvalidClientRequest(clientId, reqId, error)
 
         if self.opVerifiers:
             try:

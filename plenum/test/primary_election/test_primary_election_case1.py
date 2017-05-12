@@ -93,7 +93,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     timeout = waits.expectedPoolElectionTimeout(nodeCount) + delayOfNomination
     primaryReplicas = ensureElectionsDone(looper=looper,
-                                          nodes=nodes, timeout=timeout)
+                                          nodes=nodes, customTimeout=timeout)
 
     for node in nodes:
         logger.debug(
