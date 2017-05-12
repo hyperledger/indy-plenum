@@ -30,7 +30,7 @@ def catchupTimeoutReduced(conf, tdir, request):
     request.addfinalizer(reset)
     return conf
 
-
+@pytest.mark.skip(reason='SOV-1020')
 def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
