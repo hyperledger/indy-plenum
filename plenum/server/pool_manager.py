@@ -1,3 +1,5 @@
+import ipaddress
+
 import base58
 from typing import Dict, Tuple
 from functools import lru_cache
@@ -69,6 +71,13 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
+        self._dataFieldsValidators = (
+            (NODE_IP, self._isIpAddressValid),
+            (CLIENT_IP, self._isIpAddressValid),
+            (NODE_PORT, self._isPortValid),
+            (CLIENT_PORT, self._isPortValid),
+        )
+
 
     @property
     def hasLedger(self):
@@ -308,11 +317,32 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 return True
         return False
 
-    @staticmethod
-    def _validateNodeData(data):
-        if data.get(NODE_IP, "nodeip") == data.get(CLIENT_IP, "clientip") and \
-                        data.get(NODE_PORT, "nodeport") == data.get(CLIENT_PORT, "clientport"):
+    def _validateNodeData(self, data):
+        # 'data' contains all required fields
+        for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT, SERVICES):
+            if fn not in data:
+                return "field '{}' is missed".format(fn)
+
+        if data[NODE_IP] == data[CLIENT_IP] and data[NODE_PORT] == data[CLIENT_PORT]:
             return "node and client ha can't be same"
+
+        # check a content of the fields
+        for fn, validator in self._dataFieldsValidators:
+            if not validator(data[fn]):
+                return "'{}' ('{}') is invalid".format(fn, data[fn])
+
+    @staticmethod
+    def _isIpAddressValid(ipAddress):
+        try:
+            ipaddress.ip_address(ipAddress)
+        except ValueError:
+            return False
+        else:
+            return ipAddress != '0.0.0.0'
+
+    @staticmethod
+    def _isPortValid(port):
+        return isinstance(port, int) and 0 < port <= 65535
 
     def authErrorWhileUpdatingNode(self, request):
         origin = request.identifier

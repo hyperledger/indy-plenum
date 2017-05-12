@@ -439,7 +439,7 @@ def checkReqNackWithReason(client, reason: str, sender: str):
                 and sdr == sender:
             found = True
             break
-    assert found
+    assert found, "there is no NAck with reason: {}".format(reason)
 
 
 def waitReqNackWithReason(looper, client, reason: str, sender: str):
@@ -449,6 +449,12 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
                                  reason,
                                  sender,
                                  timeout=timeout))
+
+
+def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
+    for node in nodes:
+        waitReqNackWithReason(looper, client, reason,
+                              node.clientstack.name)
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
