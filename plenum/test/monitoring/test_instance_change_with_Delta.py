@@ -109,7 +109,10 @@ def step3(step2):
 
 
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
+    # from plenum.test.test_node import ensureElectionsDone
+    # ensureElectionsDone(looper, [])
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 9)
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     timeout = waits.expectedPoolViewChangeStartedTimeout(len(step3.nodes))
