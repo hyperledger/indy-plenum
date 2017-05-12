@@ -58,7 +58,7 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-3pc-batch==0.2.16', 'stp-3pc-batch==0.1.15',
+    install_requires=['ledger-dev==0.2.11', 'stp-dev==0.1.47',
                       'state-trie==0.1.14', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
