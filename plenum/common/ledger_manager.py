@@ -100,7 +100,7 @@ class LedgerManager(HasActionQueue):
         groupedProofs, nullProofs = self._groupConsistencyProofs(proofs)
         if nullProofs > adjustedF:
             return
-        result = self._latestReliableProof(groupedProofs, ledgerInfo)
+        result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
         if not result:
             cpReq = self.getConsistencyProofRequest(ledgerId, groupedProofs)
             logger.debug("{} sending consistency proof request: {}".

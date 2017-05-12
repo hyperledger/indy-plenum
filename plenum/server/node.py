@@ -742,14 +742,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
-        for joinedNode in joined:
-            self.sendPoolLedgerStatus(joinedNode)
-            # Send the domain ledger status only when it has discovered enough
-            # peers otherwise very few peers will know that this node is lagging
-            # behind and it will not receive sufficient consistency proofs to
-            # verify the exact state of the ledger.
-            if self.mode in (Mode.discovered, Mode.participating):
-                self.sendDomainLedgerStatus(joinedNode)
+        for n in joined:
+            self.send_ledger_status_to_newly_connected_node(n)
+
+    def send_ledger_status_to_newly_connected_node(self, node_name):
+        self.sendPoolLedgerStatus(node_name)
+        # Send the domain ledger status only when it has discovered enough
+        # peers otherwise very few peers will know that this node is lagging
+        # behind and it will not receive sufficient consistency proofs to
+        # verify the exact state of the ledger.
+        if self.mode in (Mode.discovered, Mode.participating):
+            self.sendDomainLedgerStatus(node_name)
 
     def newNodeJoined(self, txn):
         self.setF()
@@ -1374,7 +1377,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         rh = self.postTxnFromCatchup(ledgerId, txn)
         if rh:
-            rh.updateState([txn])
+            rh.updateState([txn], isCommitted=True)
             state = self.getState(ledgerId)
             state.commit(rootHash=state.headHash)
 
@@ -1812,7 +1815,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg
 
         if not isinstance(req, Mapping):
-            # req = msg.__getstate__()
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
