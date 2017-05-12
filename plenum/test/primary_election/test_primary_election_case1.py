@@ -8,7 +8,7 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.helper import whitelistNode
 from plenum.test.primary_election.helpers import checkNomination, \
-    getSelfNominationByNode
+    getSelfNominationByNode, nominationByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
@@ -79,7 +79,8 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     instId = getSelfNominationByNode(nodeA)
 
     for i in range(5):
-        nodeB.send(Nomination(nodeD.name, instId, nodeB.viewNo))
+        # nodeB.send(Nomination(nodeD.name, instId, nodeB.viewNo))
+        nodeB.send(nominationByNode(nodeD.name, nodeB, instId))
     nodeB.nodestack.flushOutBoxes()
 
     # No node from node A, node C, node D(node B is malicious anyway so not
@@ -87,7 +88,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     # node D is slow. The one nomination for D, that nodes A, C
     # and D might have would be because of node B
     for node in [nodeA, nodeC, nodeD]:
-        assert list(node.elector.nominations[instId].values()).count(
+        assert [n[0] for n in node.elector.nominations[instId].values()].count(
             Replica.generateName(nodeD.name, instId)) \
                <= 1
 

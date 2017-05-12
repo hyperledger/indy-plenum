@@ -5,22 +5,13 @@ import random
 import shutil
 import time
 from binascii import unhexlify
+from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
-from hashlib import sha256
 from typing import Dict, Any, Mapping, Iterable, List, Optional, \
     Sequence, Set, Tuple
 
-import pyorient
-from plenum.common.stacks import nodeStackClass, clientStackClass
-from stp_core.crypto.signer import Signer
-from stp_core.network.network_interface import NetworkInterface
-from stp_core.ratchet import Ratchet
-
-from plenum.common.roles import Roles
-
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
@@ -28,49 +19,50 @@ from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
+from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
+    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
+    CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
+    NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
-    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp, \
-    UnauthorizedClientRequest
+    InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
+from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
-from stp_core.common.log import getlogger
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
+from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
+from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode, LedgerState
 from plenum.common.throttler import Throttler
-from plenum.common.constants import TXN_TYPE, TXN_ID, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, CLIENT_BLACKLISTER_SUFFIX, \
-    NODE_BLACKLISTER_SUFFIX, NODE_PRIMARY_STORAGE_SUFFIX, NODE_SECONDARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, \
-    HS_FILE, HS_ORIENT_DB
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
     Reply, Nomination, TaggedTuples, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, HA, \
-    LedgerStatus, ConsistencyProof, \
-    CatchupReq, CatchupRep, \
+    RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState
+    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
+    Reject
 from plenum.common.util import friendlyEx, getMaxFailures
-from plenum.common.message_processor import MessageProcessor
 from plenum.common.verifier import DidVerifier
-from plenum.common.constants import DATA, ALIAS, NODE_IP
+from plenum.persistence.leveldb_hash_store import LevelDbHashStore
+from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 
-from plenum.persistence.orientdb_hash_store import OrientDbHashStore
-from plenum.persistence.orientdb_store import OrientDbStore
-from plenum.persistence.secondary_storage import SecondaryStorage
-from plenum.persistence.storage import Storage, initStorage
+from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
+from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server import primary_elector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
 from plenum.server.client_authn import ClientAuthNr, SimpleAuthNr
+from plenum.server.domain_req_handler import DomainRequestHandler
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.instances import Instances
 from plenum.server.models import InstanceChanges
@@ -85,6 +77,14 @@ from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from state.pruning_state import PruningState
+from stp_core.common.log import getlogger
+from stp_core.crypto.signer import Signer
+from stp_core.network.network_interface import NetworkInterface
+from stp_core.ratchet import Ratchet
+from stp_zmq.zstack import ZStack
+
+from state.state import State
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -93,11 +93,10 @@ logger = getlogger()
 class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
            HasPoolManager, PluginLoaderHelper):
     """
-    A node in a plenum system. Nodes communicate with each other via the
-    RAET protocol. https://github.com/saltstack/raet
+    A node in a plenum system.
     """
 
-    suspicions = {s.code: s.reason for s in Suspicions.getList()}
+    suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
 
     def __init__(self,
@@ -138,13 +137,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqProcessors = self.getPluginsByType(pluginPaths,
                                                    PLUGIN_TYPE_PROCESSING)
 
-        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
-
-        self.requestExecuter = defaultdict(lambda: self.doCustomAction)
+        self.requestExecuter = defaultdict(lambda: self.executeDomainTxns)
 
         Motor.__init__(self)
 
-        # HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
+        self.hashStore = self.getHashStore(self.name)
+        self.initDomainLedger()
+        self.primaryStorage = storage or self.getPrimaryStorage()
+        self.ledgerManager = self.getLedgerManager()
+        self.states = {}  # type: Dict[int, State]
+
+        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
+                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+        self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
+        self.reqHandler = self.getDomainReqHandler()
+        self.initDomainState()
+
+        self.clientAuthNr = clientAuthNr or self.defaultAuthNr()
+
+        self.addGenesisNyms()
+
         self.initPoolManager(nodeRegistry, ha, cliname, cliha)
 
         if isinstance(self.poolManager, RegistryPoolManager):
@@ -169,8 +182,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # noinspection PyCallingNonCallable
         self.clientstack = cls(**kwargs)
-        # self.clientstack = self.clientStackClass(self.poolManager.cstack,
-        #                                          self.handleOneClientMsg)
 
         self.cliNodeReg = self.poolManager.cliNodeReg
 
@@ -224,10 +235,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'accum': 0
         }
 
-        # TODO: Create a RecurringCaller that takes a method to call after
-        # every `n` seconds, also support start and stop methods
-        # self._schedule(self.checkPerformance, self.perfCheckFreq)
         self.startRepeating(self.checkPerformance, self.perfCheckFreq)
+
         self.startRepeating(self.checkNodeRequestSpike,
                             self.config
                             .notifierEventTriggeringConfig[
@@ -265,10 +274,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # which both require client signature verification
         self.authnWhitelist = (Nomination, Primary, Reelection,
                                Batch,
-                               PrePrepare, Prepare,
+                               PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ConsProofRequest, Checkpoint, ThreePCState)
+                               ConsProofRequest, ThreePCState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -276,20 +285,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case the node crashes before sending the reply to the client
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        self.hashStore = self.getHashStore(self.name)
-        self.initDomainLedger()
-        self.primaryStorage = storage or self.getPrimaryStorage()
-        self.secondaryStorage = self.getSecondaryStorage()
-        self.addGenesisNyms()
-        self.ledgerManager = self.getLedgerManager()
-
         if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.addLedger(0, self.poolLedger,
+            self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
-        self.ledgerManager.addLedger(1, self.domainLedger,
-                postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-                postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+            self.states[POOL_LEDGER_ID] = self.poolManager.state
 
         nodeRoutes.extend([
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
@@ -323,13 +323,32 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Do GC for `msgsForFutureReplicas`
         self.msgsForFutureReplicas = {}
 
+        # Any messages that are intended for view numbers higher than the
+        # current view.
+        # TODO: Do GC for `msgsForFutureViews`
+        self.msgsForFutureViews = {}
+
         self.adjustReplicas()
+
+        self._primary_replica_no = None
+
+        # Need to keep track of the time when lost connection with primary,
+        # help in voting for/against a view change.
+        self.lost_primary_at = None
+
+        # First view change message received for a view no
+        self.view_change_started_at = {}
 
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
+        # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
         self._id = None
         self._wallet = None
+        self.seqNoDB = self.loadSeqNoDB()
+
+        # Stores the last txn seqNo that was executed for a ledger in a batch
+        self.batchToSeqNos = OrderedDict()  # type: OrderedDict[int, int]
 
     @property
     def id(self):
@@ -354,6 +373,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def __repr__(self):
         return self.name
 
+    def getDomainReqHandler(self):
+        return DomainRequestHandler(self.domainLedger,
+                                    self.states[DOMAIN_LEDGER_ID],
+                                    self.reqProcessors)
+
+    def loadSeqNoDB(self):
+        return ReqIdrToTxn(
+            initKeyValueStorage(
+                self.config.reqIdToTxnStorage,
+                self.dataLocation,
+                self.config.seqNoDbName)
+        )
+
     # noinspection PyAttributeOutsideInit
     def setF(self):
         nodeNames = set(self.nodeReg.keys())
@@ -375,14 +407,29 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def poolLedgerStatus(self):
-        return LedgerStatus(0, self.poolLedger.size,
+        return LedgerStatus(POOL_LEDGER_ID, self.poolLedger.size,
                             self.poolLedger.root_hash) \
             if self.poolLedger else None
 
     @property
     def domainLedgerStatus(self):
-        return LedgerStatus(1, self.domainLedger.size,
+        return LedgerStatus(DOMAIN_LEDGER_ID, self.domainLedger.size,
                             self.domainLedger.root_hash)
+
+    def getLedgerRootHash(self, ledgerId, isCommitted=True):
+        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
+        if not ledgerInfo:
+            raise RuntimeError('Ledger with id {} does not exist')
+        ledger = ledgerInfo.ledger
+        if isCommitted:
+            return ledger.root_hash
+        return ledger.uncommittedRootHash or ledger.root_hash
+
+    def stateRootHash(self, ledgerId, isCommitted=True):
+        state = self.states.get(ledgerId)
+        if not state:
+            raise RuntimeError('State with id {} does not exist')
+        return state.committedHeadHash if isCommitted else state.headHash
 
     @property
     def isParticipating(self):
@@ -421,50 +468,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if hsConfig == HS_FILE:
             return FileHashStore(dataDir=self.dataLocation,
                                  fileNamePrefix=NODE_HASH_STORE_SUFFIX)
-        elif hsConfig == HS_ORIENT_DB:
-            if hasattr(self, '_orientDbStore'):
-                store = self._orientDbStore
-            else:
-                store = self._getOrientDbStore(name,
-                                               pyorient.DB_TYPE_GRAPH)
-            return OrientDbHashStore(store)
+        elif hsConfig == HS_LEVELDB:
+            return LevelDbHashStore(dataDir=self.dataLocation)
         else:
             return MemoryHashStore()
 
-    def getSecondaryStorage(self) -> SecondaryStorage:
-        """
-        Create and return an instance of secondaryStorage to be
-        used by this Node.
-        """
-        if self.config.secondaryStorage:
-            return initStorage(self.config.secondaryStorage,
-                               name=self.name+NODE_SECONDARY_STORAGE_SUFFIX,
-                               dataDir=self.dataLocation,
-                               config=self.config)
-        else:
-            return SecondaryStorage(txnStore=None,
-                                    primaryStorage=self.primaryStorage)
+    def getLedgerManager(self) -> LedgerManager:
+        return LedgerManager(self, ownedByNode=True,
+                             postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
-    def _getOrientDbStore(self, name, dbType) -> OrientDbStore:
-        """
-        Helper method that creates an instance of OrientdbStore.
+    def loadDomainState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.domainStateStorage,
+                self.dataLocation,
+                self.config.domainStateDbName)
+        )
 
-        :param name: name of the orientdb database
-        :param dbType: orientdb database type
-        :return: orientdb store
-        """
-        self._orientDbStore = OrientDbStore(
-            user=self.config.OrientDB["user"],
-            password=self.config.OrientDB["password"],
-            host=self.config.OrientDB["host"],
-            port=self.config.OrientDB["port"],
-            dbName=name,
-            dbType=dbType,
-            storageType=pyorient.STORAGE_TYPE_PLOCAL)
-        return self._orientDbStore
-
-    def getLedgerManager(self):
-        return LedgerManager(self, ownedByNode=True)
+    @classmethod
+    def ledgerIdForRequest(cls, request: Request):
+        assert request.operation[TXN_TYPE]
+        typ = request.operation[TXN_TYPE]
+        return cls.ledgerId(typ)
 
     def start(self, loop):
         oldstatus = self.status
@@ -476,6 +501,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.primaryStorage.start(loop,
                                       ensureDurability=
                                       self.config.EnsureLedgerDurability)
+            if self.hashStore.closed:
+                self.hashStore = self.getHashStore(self.name)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -488,16 +515,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             "".format(self), extra={"cli": "LOW_STATUS",
                                                     "tags": ["node-key-sharing"]})
             else:
-                self.nodestack.maintainConnections()
+                self.nodestack.maintainConnections(force=True)
 
             if isinstance(self.poolManager, RegistryPoolManager):
                 # Node not using pool ledger so start syncing domain ledger
                 self.mode = Mode.discovered
-                self.ledgerManager.setLedgerCanSync(1, True)
+                self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
             else:
                 # Node using pool ledger so first sync pool ledger
                 self.mode = Mode.starting
-                self.ledgerManager.setLedgerCanSync(0, True)
+                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
 
         self.logNodeInfo()
 
@@ -520,22 +547,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return len(self.nodestack.conns) + 1
 
-    def stop(self, *args, **kwargs):
-        super().stop(*args, **kwargs)
-
-        if isinstance(self.hashStore, (FileHashStore, OrientDbHashStore)):
-            try:
-                self.hashStore.close()
-            except Exception as ex:
-                logger.warning('{} got exception while closing hash store: {}'.
-                            format(self, ex))
-
-        if isinstance(self.poolManager, TxnPoolManager):
-            if self.poolManager._ledger is not None:
-                self.poolManager._ledger.stop()
-            if self.poolManager.hashStore is not None:
-                self.poolManager.hashStore.close()
-
     def onStopping(self):
         """
         Actions to be performed on stopping the node.
@@ -547,31 +558,57 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.reset()
 
-        # Stop the txn store
-        try:
-            self.primaryStorage.stop()
-        except Exception as ex:
-            try:
-                self.primaryStorage.close()
-            except Exception as ex:
-                logger.warning(
-                    '{} got exception while stopping/closing '
-                    'primary storage: {}'.format(self, ex))
+        # Stop the ledgers
+        ledgers = [self.domainLedger]
+        if self.poolLedger:
+            ledgers.append(self.poolLedger)
 
-        try:
-            if callable(getattr(self.secondaryStorage, 'close', None)):
-                self.secondaryStorage.close()
-        except Exception as ex:
-            logger.warning('{} got exception while closing '
-                           'secondary storage: {}'.format(self, ex))
+        for ledger in ledgers:
+            try:
+                ledger.stop()
+            except Exception as ex:
+                logger.warning('{} got exception while stopping ledger: {}'.
+                               format(self, ex))
+
+        # Stop the hash stores
+        hashStores = [self.hashStore]
+        if self.poolLedger:
+            ledgers.append(self.poolLedger)
+        if self.hashStore:
+            hashStores.append(self.hashStore)
+        if isinstance(self.poolManager, TxnPoolManager) and self.poolManager.hashStore:
+            hashStores.append(self.poolManager.hashStore)
+        hashStores = [hs for hs in hashStores if
+                      isinstance(hs, (FileHashStore, LevelDbHashStore))
+                      and not hs.closed]
+        for hs in hashStores:
+            try:
+                hs.close()
+            except Exception as ex:
+                logger.warning('{} got exception while closing hash store: {}'.
+                               format(self, ex))
 
         self.nodestack.stop()
         self.clientstack.stop()
 
+        self.closeAllKVStores()
+
         self.mode = None
         if isinstance(self.poolManager, TxnPoolManager):
-            self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
-        self.ledgerManager.setLedgerState(1, LedgerState.not_synced)
+            self.ledgerManager.setLedgerState(POOL_LEDGER_ID,
+                                              LedgerState.not_synced)
+        self.ledgerManager.setLedgerState(DOMAIN_LEDGER_ID,
+                                          LedgerState.not_synced)
+
+    def closeAllKVStores(self):
+        # Clear leveldb lock files
+        logger.info("{} closing level dbs".format(self), extra={"cli": False})
+        for ledgerId in self.ledgerManager.ledgerRegistry:
+            state = self.getState(ledgerId)
+            if state:
+                state.close()
+        if self.seqNoDB:
+            self.seqNoDB.close()
 
     def reset(self):
         logger.info("{} reseting...".format(self), extra={"cli": False})
@@ -593,9 +630,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param limit: the number of items to be serviced in this attempt
         :return: total number of messages serviced by this node
         """
-        if self.isGoing():
-            self.nodestack.serviceLifecycle()
-            self.clientstack.serviceClientStack()
         c = 0
         if self.status is not Status.stopped:
             c += await self.serviceReplicas(limit)
@@ -606,6 +640,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             c += self.monitor._serviceActions()
             c += await self.serviceElector()
             self.nodestack.flushOutBoxes()
+        if self.isGoing():
+            self.nodestack.serviceLifecycle()
+            self.clientstack.serviceClientStack()
         return c
 
     async def serviceReplicas(self, limit) -> int:
@@ -677,8 +714,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 self.status = Status.starting
         self.elector.nodeCount = self.connectedNodeCount
-        viewChangeStarted = self.startViewChangeIfPrimaryWentOffline(left)
-        if not viewChangeStarted and self.isReady():
+
+        if self.master_primary in joined:
+            self.lost_primary_at = None
+        if self.master_primary in left:
+            logger.debug('{} lost connection to primary of master'.format(self))
+            self.lost_master_primary()
+
+        if self.isReady():
             self.checkInstances()
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
@@ -694,17 +737,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         logger.debug("{} communicating view number {} to {}"
                                      .format(self, self.viewNo-1, joinedNode))
                         rid = self.nodestack.getRemote(joinedNode).uid
-                        self.send(InstanceChange(self.viewNo), rid)
+                        self.send(
+                            self._create_instance_change_msg(self.viewNo, 0),
+                            rid)
 
         # Send ledger status whether ready (connected to enough nodes) or not
-        for joinedNode in joined:
-            self.sendPoolLedgerStatus(joinedNode)
-            # Send the domain ledger status only when it has discovered enough
-            # peers otherwise very few peers will know that this node is lagging
-            # behind and it will not receive sufficient consistency proofs to
-            # verify the exact state of the ledger.
-            if self.mode in (Mode.discovered, Mode.participating):
-                self.sendDomainLedgerStatus(joinedNode)
+        for n in joined:
+            self.send_ledger_status_to_newly_connected_node(n)
+
+    def send_ledger_status_to_newly_connected_node(self, node_name):
+        self.sendPoolLedgerStatus(node_name)
+        # Send the domain ledger status only when it has discovered enough
+        # peers otherwise very few peers will know that this node is lagging
+        # behind and it will not receive sufficient consistency proofs to
+        # verify the exact state of the ledger.
+        if self.mode in (Mode.discovered, Mode.participating):
+            self.sendDomainLedgerStatus(node_name)
 
     def newNodeJoined(self, txn):
         self.setF()
@@ -782,21 +830,43 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         return newReplicas
 
+    def _dispatch_stashed_msg(self, msg, frm):
+        if isinstance(msg, ElectionType):
+            self.sendToElector(msg, frm)
+            return True
+        elif isinstance(msg, ThreePhaseType):
+            self.sendToReplica(msg, frm)
+            return True
+        else:
+            return False
+
     def processStashedMsgsForReplica(self, instId: int):
         if instId not in self.msgsForFutureReplicas:
             return
         i = 0
         while self.msgsForFutureReplicas[instId]:
             msg, frm = self.msgsForFutureReplicas[instId].popleft()
-            if isinstance(msg, ElectionType):
-                self.sendToElector(msg, frm)
-            elif isinstance(msg, ThreePhaseType):
-                self.sendToReplica(msg, frm)
-            else:
-                self.discard(msg, reason="Unknown message type for replica id"
-                             .format(instId), logMethod=logger.warn)
+            if not self._dispatch_stashed_msg(msg, frm):
+                self.discard(msg, reason="Unknown message type for replica id "
+                                         "{}".format(instId),
+                             logMethod=logger.warn)
+            i += 1
         logger.debug("{} processed {} stashed msgs for replica {}".
                      format(self, i, instId))
+
+    def processStashedMsgsForView(self, view_no: int):
+        if view_no not in self.msgsForFutureViews:
+            return
+        i = 0
+        while self.msgsForFutureViews[view_no]:
+            msg, frm = self.msgsForFutureViews[view_no].popleft()
+            if not self._dispatch_stashed_msg(msg, frm):
+                self.discard(msg, reason="Unknown message type for view no "
+                                         "{}".format(view_no),
+                             logMethod=logger.warn)
+            i += 1
+        logger.debug("{} processed {} stashed msgs for view no {}".
+                     format(self, i, view_no))
 
     def decidePrimaries(self):
         """
@@ -894,9 +964,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         self.processOrdered(msg)
                     else:
                         logger.debug("{} stashing {} since mode is {} and {}".
-                                     format(self, msg, self.mode,
-                                            recvd))
+                                     format(self, msg, self.mode, recvd))
                         self.stashedOrderedReqs.append(msg)
+                elif isinstance(msg, Reject):
+                    reqKey = (msg.identifier, msg.reqId)
+                    reject = Reject(*reqKey,
+                                    self.reasonForClientFromException(msg.reason))
+                    self.transmitToClient(reject, self.requestSender[reqKey])
+                    self.doneProcessingReq(*reqKey)
                 elif isinstance(msg, Exception):
                     self.processEscalatedException(msg)
                 else:
@@ -969,9 +1044,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         :return: index of the primary
         """
-        for idx, replica in enumerate(self.replicas):
-            if replica.isPrimary:
-                return idx
+        if self._primary_replica_no is None:
+            for idx, replica in enumerate(self.replicas):
+                if replica.isPrimary:
+                    self._primary_replica_no = idx
+                    return idx
+        return self._primary_replica_no
+
+    @property
+    def master_primary(self) -> Optional[str]:
+        if self.replicas[0].primaryName:
+            return self.replicas[0].getNodeName(self.replicas[0].primaryName)
         return None
 
     def msgHasAcceptableInstId(self, msg, frm) -> bool:
@@ -982,7 +1065,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
-        instId = getattr(msg, "instId", None)
+        instId = getattr(msg, f.INST_ID.nm, None)
         if instId is None or not isinstance(instId, int) or instId < 0:
             return False
         if instId >= len(self.msgsToReplicas):
@@ -994,39 +1077,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return False
         return True
 
-    def msgHasAcceptableViewNo(self, msg) -> bool:
+    def msgHasAcceptableViewNo(self, msg, frm) -> bool:
         """
         Return true if the view no of message corresponds to the current view
-        no, or a view no in the past that the replicas know of or a view no in
-        the future
-
+        no or a view no in the future
         :param msg: the node message to validate
         :return:
         """
-        viewNo = getattr(msg, "viewNo", None)
+        viewNo = getattr(msg, f.VIEW_NO.nm, None)
         if viewNo is None or not isinstance(viewNo, int) or viewNo < 0:
             return False
-        corrects = []
-        for r in self.replicas:
-            if not r.primaryNames:
-                # The replica and thus this node does not know any viewNos
-                corrects.append(True)
-                continue
-            if viewNo in r.primaryNames.keys():
-                # Replica has seen primary with this view no
-                corrects.append(True)
-            elif viewNo > max(r.primaryNames.keys()):
-                # msg for a future view no
-                corrects.append(True)
-            else:
-                # Replica has not seen any primary for this `viewNo` and its
-                # less than the current `viewNo`
-                corrects.append(False)
-        r = all(corrects)
-        if not r:
+        if viewNo < self.viewNo:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logger.debug)
-        return r
+                         .format(viewNo), logMethod=logger.info)
+        elif viewNo > self.viewNo:
+            if viewNo not in self.msgsForFutureViews:
+                self.msgsForFutureViews[viewNo] = deque()
+            self.msgsForFutureViews[viewNo].append((msg, frm))
+        else:
+            return True
+        return False
 
     def sendToReplica(self, msg, frm):
         """
@@ -1036,7 +1106,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if self.msgHasAcceptableInstId(msg, frm) and \
-                self.msgHasAcceptableViewNo(msg):
+                self.msgHasAcceptableViewNo(msg, frm):
             self.msgsToReplicas[msg.instId].append((msg, frm))
 
     def sendToElector(self, msg, frm):
@@ -1047,7 +1117,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if self.msgHasAcceptableInstId(msg, frm) and \
-                self.msgHasAcceptableViewNo(msg):
+                self.msgHasAcceptableViewNo(msg, frm):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
@@ -1118,6 +1188,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if isinstance(msg, Batch):
             logger.debug("{} processing a batch {}".format(self, msg))
             for m in msg.messages:
+                m = self.nodestack.deserializeMsg(m)
                 self.handleOneNodeMsg((m, frm))
         else:
             self.postToNodeInBox(msg, frm)
@@ -1168,7 +1239,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
-        reason = "client request invalid: {}".format(friendly)
+        reason = self.reasonForClientFromException(ex)
         if isinstance(msg, Request):
             msg = msg.__getstate__()
         identifier = msg.get(f.IDENTIFIER.nm)
@@ -1195,9 +1266,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         if all(attr in msg.keys()
                for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
-            self.checkValidOperation(msg[f.IDENTIFIER.nm],
-                                     msg[f.REQ_ID.nm],
-                                     msg[OPERATION])
+            self.doStaticValidation(msg[f.IDENTIFIER.nm],
+                                    msg[f.REQ_ID.nm],
+                                    msg[OPERATION])
             cls = Request
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
@@ -1239,6 +1310,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if isinstance(msg, Batch):
             for m in msg.messages:
+                # This check is done since Client uses NodeStack (which can
+                # send and receive BATCH) to talk to nodes but Node uses
+                # ClientStack (which cannot send or receive BATCH).
+                # TODO: The solution is to have both kind of stacks be able to
+                # parse BATCH messages
+                if m in (ZStack.pingMessage, ZStack.pongMessage):
+                    continue
+                m = self.clientstack.deserializeMsg(m)
                 self.handleOneClientMsg((m, frm))
         else:
             self.postToClientInBox(msg, frm)
@@ -1270,13 +1349,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
 
-    def postPoolLedgerCaughtUp(self):
+    def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered
-        self.ledgerManager.setLedgerCanSync(1, True)
+        self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
         # Node has discovered other nodes now sync up domain ledger
         for nm in self.nodestack.connecteds:
             self.sendDomainLedgerStatus(nm)
-        self.ledgerManager.processStashedLedgerStatuses(1)
+        self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
         # Initialising node id in case where node's information was not present
@@ -1284,49 +1363,107 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # node starts
         self.id
 
-    def postDomainLedgerCaughtUp(self):
+    def postDomainLedgerCaughtUp(self, **kwargs):
         """
         Process any stashed ordered requests and set the mode to
         `participating`
         :return:
         """
-        self.processStashedOrderedReqs()
-        self.mode = Mode.participating
-        # self.sync3PhaseState()
-        self.checkInstances()
+        pass
 
-    def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
-        if ledgerType == 0:
-            self.poolManager.onPoolMembershipChange(txn)
-        if ledgerType == 1:
-            self.post_txn_from_catchup_added_to_domain_ledger(txn)
+    def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
+
+        rh = self.postTxnFromCatchup(ledgerId, txn)
+        if rh:
+            rh.updateState([txn], isCommitted=True)
+            state = self.getState(ledgerId)
+            state.commit(rootHash=state.headHash)
+
+    def postTxnFromCatchup(self, ledgerId: int, txn: Any):
+        rh = None
+        if ledgerId == POOL_LEDGER_ID:
+            self.poolManager.onPoolMembershipChange(txn)
+            rh = self.poolManager.reqHandler
+        if ledgerId == DOMAIN_LEDGER_ID:
+            self.post_txn_from_catchup_added_to_domain_ledger(txn)
+            rh = self.reqHandler
+        return rh
+
+    def allLedgersCaughtUp(self):
+        self.mode = Mode.participating
+        self.processStashedOrderedReqs()
+        self.checkInstances()
+
+    def getLedger(self, ledgerId):
+        return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
+
+    def getState(self, ledgerId):
+        return self.states.get(ledgerId)
 
     def post_txn_from_catchup_added_to_domain_ledger(self, txn):
         if txn.get(TXN_TYPE) == NYM:
             self.addNewRole(txn)
 
     def sendPoolLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, 0)
+        self.sendLedgerStatus(nodeName, POOL_LEDGER_ID)
 
     def sendDomainLedgerStatus(self, nodeName):
-        self.sendLedgerStatus(nodeName, 1)
+        self.sendLedgerStatus(nodeName, DOMAIN_LEDGER_ID)
 
-    def getLedgerStatus(self, ledgerType: int):
-        if ledgerType == 0:
+    def getLedgerStatus(self, ledgerId: int):
+        if ledgerId == POOL_LEDGER_ID:
             return self.poolLedgerStatus
-        if ledgerType == 1:
+        if ledgerId == DOMAIN_LEDGER_ID:
             return self.domainLedgerStatus
 
-    def sendLedgerStatus(self, nodeName: str, ledgerType: int):
-        ledgerStatus = self.getLedgerStatus(ledgerType)
+    def sendLedgerStatus(self, nodeName: str, ledgerId: int):
+        ledgerStatus = self.getLedgerStatus(ledgerId)
         if ledgerStatus:
             rid = self.nodestack.getRemote(nodeName).uid
             self.send(ledgerStatus, rid)
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
-                         .format(self, ledgerType, nodeName))
+                         .format(self, ledgerId, nodeName))
+
+    def doStaticValidation(self, identifier, reqId, operation):
+        if TXN_TYPE not in operation:
+            raise InvalidClientRequest(identifier, reqId)
+
+        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
+            self.poolManager.doStaticValidation(identifier, reqId, operation)
+
+        if self.opVerifiers:
+            try:
+                for v in self.opVerifiers:
+                    v.verify(operation)
+            except Exception as ex:
+                raise InvalidClientRequest(identifier, reqId) from ex
+
+    def doDynamicValidation(self, request: Request):
+        """
+        State based validation
+        """
+        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
+            self.poolManager.doDynamicValidation(request)
+        else:
+            self.domainDynamicValidation(request)
+
+    def applyReq(self, request: Request):
+        """
+        Apply request to appropriate ledger and state
+        """
+        if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
+            return self.poolManager.applyReq(request)
+        else:
+            return self.domainRequestApplication(request)
+
+    def domainDynamicValidation(self, request: Request):
+        self.reqHandler.validate(request, self.config)
+
+    def domainRequestApplication(self, request: Request):
+        return self.reqHandler.apply(request)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -1356,18 +1493,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: What if the reply was a REQNACK? Its not gonna be found in the
         # replies.
 
-        typ = request.operation.get(TXN_TYPE)
-        if typ in POOL_TXN_TYPES:
-            reply = self.poolManager.getReplyFor(request)
-        else:
-            reply = self.getReplyFor(request)
-
+        ledgerId = self.ledgerIdForRequest(request)
+        ledger = self.getLedger(ledgerId)
+        reply = self.getReplyFromLedger(ledger, request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
-            self.checkRequestAuthorized(request)
             if not self.isProcessingReq(*request.key):
                 self.startedProcessingReq(*request.key, frm)
             # If not already got the propagate request(PROPAGATE) for the
@@ -1425,35 +1558,39 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return: True if successful, None otherwise
         """
 
-        instId, viewNo, identifier, reqId, ppTime = tuple(ordered)
+        instId, viewNo, reqIdrs, ppSeqNo, ppTime, ledgerId, stateRoot, txnRoot \
+            = tuple(ordered)
 
-        self.monitor.requestOrdered(identifier,
-                                    reqId,
+        self.monitor.requestOrdered(reqIdrs,
                                     instId,
                                     byMaster=(instId == self.instances.masterId))
 
         # Only the request ordered by master protocol instance are executed by
         # the client
         if instId == self.instances.masterId:
-            key = (identifier, reqId)
-            if key in self.requests:
-                req = self.requests[key].request
-                self.executeRequest(ppTime, req)
-                logger.debug("{} executed client request {} {}".
-                             format(self.name, identifier, reqId))
-            # If the client request hasn't reached the node but corresponding
-            # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
-            # then retry 3 times
+            reqs = [self.requests[i, r].request for (i, r) in reqIdrs
+                    if (i, r) in self.requests]
+            if len(reqs) == len(reqIdrs):
+                logger.debug("{} executing Ordered batch {} of {} requests".
+                             format(self.name, ppSeqNo, len(reqIdrs)))
+                self.executeBatch(ppSeqNo, ppTime, reqs, ledgerId, stateRoot,
+                                  txnRoot)
+                # If the client request hasn't reached the node but corresponding
+                # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
+                # then retry 3 times
             elif retryNo < 3:
                 retryNo += 1
                 asyncio.sleep(random.randint(2, 4))
                 self.processOrdered(ordered, retryNo)
-                logger.debug("{} retrying executing client request {} {}".
-                             format(self.name, identifier, reqId))
+                logger.debug('{} retrying executing ordered client requests'.
+                             format(self.name))
+            else:
+                logger.warning('{} not retrying processing Ordered any more {} '
+                               'times'.format(self, retryNo))
             return True
         else:
-            logger.trace("{} got ordered request from backup replica".
-                         format(self))
+            logger.trace("{} got ordered requests from backup replica {}".
+                         format(self, instId))
 
     def processEscalatedException(self, ex):
         """
@@ -1478,19 +1615,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not isinstance(instChg.viewNo, int):
             self.discard(instChg, "field viewNo has incorrect type: {}".
                          format(type(instChg.viewNo)))
-        elif instChg.viewNo < self.viewNo:
+        elif instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
-                         "which is less than its view no {}".
+                         "which is not more than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
         else:
             # Record instance changes for views but send instance change
             # only when found master to be degraded. if quorum of view changes
             #  found then change view even if master not degraded
             if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self.instanceChanges.addVote(instChg.viewNo, frm)
+                self.instanceChanges.addVote(instChg, frm)
+
             if self.monitor.isMasterDegraded():
-                logger.debug(
+                logger.info(
                     "{} found master degraded after receiving instance change "
                     "message from {}".format(self, frm))
                 self.sendInstanceChange(instChg.viewNo)
@@ -1498,12 +1636,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug(
                     "{} received instance change message {} but did not "
                     "find the master to be slow".format(self, instChg))
-            if self.canViewChange(instChg.viewNo):
-                logger.debug("{} initiating a view change with view "
-                             "no {}".format(self, self.viewNo))
-                self.startViewChange(instChg.viewNo)
-            else:
+
+            if not self.do_view_change_if_possible(instChg.viewNo):
                 logger.trace("{} cannot initiate a view change".format(self))
+
+    def do_view_change_if_possible(self, view_no):
+        if self.canViewChange(view_no):
+            logger.info("{} initiating a view change to {} from {}".
+                        format(self, view_no, self.viewNo))
+            self.startViewChange(view_no)
+            return True
+        return False
 
     def checkPerformance(self):
         """
@@ -1521,6 +1664,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendNodeRequestSpike()
             if self.monitor.isMasterDegraded():
                 self.sendInstanceChange(self.viewNo+1)
+                logger.debug('{} sent view change performance degraded '
+                             'of master instance'.format(self))
+                self.do_view_change_if_possible(self.viewNo+1)
                 return False
             else:
                 logger.debug("{}'s master has higher performance than backups".
@@ -1547,11 +1693,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.name
         )
 
-    def sendInstanceChange(self, viewNo: int):
+    def _create_instance_change_msg(self, view_no, suspicion_code):
+        return InstanceChange(view_no, suspicion_code,
+                              [r.lastOrderedPPSeqNo for r in self.replicas])
+
+    def sendInstanceChange(self, view_no: int,
+                           suspicion=Suspicions.PRIMARY_DEGRADED):
         """
         Broadcast an instance change request to all the remaining nodes
 
-        :param viewNo: the view number when the instance change is requested
+        :param view_no: the view number when the instance change is requested
         """
 
         # If not found any sent instance change messages in last
@@ -1561,13 +1712,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         canSendInsChange, cooldown = self.insChngThrottler.acquire()
 
         if canSendInsChange:
-            logger.info("{} master has lower performance than backups. "
-                        "Sending an instance change with viewNo {}".
-                        format(self, viewNo))
+            logger.info("{} sending an instance change with view_no {} since "
+                        "{}".
+                        format(self, view_no, suspicion.reason))
             logger.info("{} metrics for monitor: {}".
                         format(self, self.monitor.prettymetrics))
-            self.send(InstanceChange(viewNo))
-            self.instanceChanges.addVote(viewNo, self.name)
+            msg = self._create_instance_change_msg(view_no, suspicion.code)
+            self.send(msg)
+            self.instanceChanges.addVote(msg, self.name)
         else:
             logger.debug("{} cannot send instance change sooner then {} seconds"
                          .format(self, cooldown))
@@ -1597,31 +1749,34 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.instanceChanges.hasQuorum(proposedViewNo, self.f) and \
             self.viewNo < proposedViewNo
 
-    # TODO: consider moving this to pool manager
-    def startViewChangeIfPrimaryWentOffline(self, nodesGoingDown):
-        """
-        Starts view change if there are primaries among the nodes which have
-        gone down.
+    def propose_view_change(self):
+        # Sends instance change message when primary has been
+        # disconnected for long enough
+        if self.lost_primary_at and \
+                                time.perf_counter() - self.lost_primary_at \
+                        >= self.config.ToleratePrimaryDisconnection:
+            view_no = self.viewNo + 1
+            self.sendInstanceChange(view_no,
+                                    Suspicions.PRIMARY_DISCONNECTED)
+            logger.debug('{} sent view change since was disconnected '
+                         'from primary for too long'.format(self))
+            self.do_view_change_if_possible(view_no)
 
-        :param nodesGoingDown: the nodes which have gone down
+    # TODO: consider moving this to pool manager
+    def lost_master_primary(self):
+        """
+        Schedule an primary connection check which in turn can send a view
+        change message
         :return: whether view change started
         """
+        self.lost_primary_at = time.perf_counter()
 
-        if self.name in nodesGoingDown:
-            # Node which is going down should not
-            # participate in a view change
-            return
+        self.propose_view_change()
 
-        for node in nodesGoingDown:
-            for instId, replica in enumerate(self.replicas):
-                leftOne = '{}:{}'.format(node, instId)
-                if replica.primaryName == leftOne:
-                    logger.debug("Primary {} is offline, "
-                                 "{} starting view change"
-                                 .format(leftOne, self.name))
-                    self.startViewChange(self.viewNo + 1)
-                    return True
-        return False
+        logger.debug('{} scheduling a view change in {} sec'.
+                     format(self, self.config.ToleratePrimaryDisconnection))
+        self._schedule(self.propose_view_change,
+                       self.config.ToleratePrimaryDisconnection)
 
     # TODO: consider moving this to pool manager
     def startViewChange(self, proposedViewNo: int):
@@ -1635,6 +1790,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      format(self))
         self.monitor.reset()
 
+        self.processStashedMsgsForView(proposedViewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
@@ -1659,7 +1815,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg
 
         if not isinstance(req, Mapping):
-            # req = msg.__getstate__()
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
@@ -1674,100 +1829,98 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def checkValidOperation(self, clientId, reqId, operation):
-        if operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            error = self.poolManager.checkValidOperation(operation)
-            if error is not None:
-                raise InvalidClientRequest(clientId, reqId, error)
+    def ppSeqNoForTxnSeqNo(self, ledgerId, seqNo):
+        for ppSeqNo, (lid, txnSeqNo) in reversed(self.batchToSeqNos.items()):
+            if lid == ledgerId and txnSeqNo == seqNo:
+                return ppSeqNo
+        return -1
 
-        if self.opVerifiers:
-            try:
-                for v in self.opVerifiers:
-                    v.verify(operation)
-            except Exception as ex:
-                raise InvalidClientRequest(clientId, reqId) from ex
-
-    def checkRequestAuthorized(self, request):
-        """
-        Subclasses can implement this method to throw an
-        UnauthorizedClientRequest if the request is not authorized.
-
-        If a request makes it this far, the signature has been verified
-        to match the identifier.
-        """
-        if request.operation.get(TXN_TYPE) in POOL_TXN_TYPES:
-            return self.poolManager.checkRequestAuthorized(request)
-        if request.operation.get(TXN_TYPE) == NYM:
-            origin = request.identifier
-            error = None
-            if not self.secondaryStorage.isSteward(origin):
-                error = "Only Steward is allowed to do this transactions"
-            if request.operation.get(ROLE) == STEWARD:
-                error = self.authErrorWhileAddingSteward(request)
-            if error:
-                raise UnauthorizedClientRequest(request.identifier,
-                                                request.reqId,
-                                                error)
-
-    def executeRequest(self, ppTime: float, req: Request) -> None:
+    def executeBatch(self, ppSeqNo: int, ppTime: float, reqs: List[Request],
+                     ledgerId, stateRoot, txnRoot) -> None:
         """
         Execute the REQUEST sent to this Node
 
         :param viewNo: the view number (See glossary)
         :param ppTime: the time at which PRE-PREPARE was sent
-        :param req: the client REQUEST
+        :param reqs: list of client REQUESTs
         """
+        committedTxns = self.requestExecuter[ledgerId](ppTime, reqs, stateRoot,
+                                                       txnRoot)
+        if committedTxns:
+            lastTxnSeqNo = committedTxns[-1][F.seqNo.name]
+            self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
+            logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
+                         format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
+            if len(self.batchToSeqNos) > self.config.ProcessedBatchMapsToKeep:
+                x = self.batchToSeqNos.popitem(last=False)
+                logger.debug('{} popped {} from batch to txn seqNo map'.
+                             format(self, x))
 
-        self.requestExecuter[req.operation.get(TXN_TYPE)](ppTime, req)
+    def updateSeqNoMap(self, committedTxns):
+        self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
+                               txn[F.seqNo.name]) for txn in committedTxns)
 
-    # TODO: Find a better name for the function
-    def doCustomAction(self, ppTime, req):
-        reply = self.generateReply(ppTime, req)
-        merkleProof = self.appendResultToLedger(reply.result)
-        reply.result.update(merkleProof)
-        self.sendReplyToClient(reply, req.key)
-        if reply.result.get(TXN_TYPE) == NYM:
-            self.addNewRole(reply.result)
+    def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
+                          txnRoot) -> List:
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        self.updateSeqNoMap(committedTxns)
+        for txn in committedTxns:
+            if txn[TXN_TYPE] == NYM:
+                self.addNewRole(txn)
+        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
+        self.sendRepliesToClients(committedTxns, ppTime)
+        return committedTxns
 
-    @staticmethod
-    def ledgerTypeForTxn(txnType: str):
-        return 0 if txnType in POOL_TXN_TYPES else 1
+    def onBatchCreated(self, ledgerId, stateRoot):
+        """
+        A batch of requests has been created and has been applied but
+        committed to ledger and state.
+        :param ledgerId:
+        :param stateRoot: state root after the batch creation
+        :return:
+        """
+        if ledgerId == POOL_LEDGER_ID:
+            if isinstance(self.poolManager, TxnPoolManager):
+                self.poolManager.reqHandler.onBatchCreated(stateRoot)
+        elif ledgerId == DOMAIN_LEDGER_ID:
+            self.reqHandler.onBatchCreated(stateRoot)
+        else:
+            logger.debug('{} did not know how to handle for ledger {}'.
+                         format(self, ledgerId))
 
-    def appendResultToLedger(self, data):
-        ledgerType = self.ledgerTypeForTxn(data[TXN_TYPE])
-        return self.ledgerManager.appendToLedger(ledgerType, data)
+    def onBatchRejected(self, ledgerId, stateRoot=None):
+        """
+        A batch of requests has been rejected, if stateRoot is None, reject
+        the current batch.
+        :param ledgerId:
+        :param stateRoot: state root after the batch was created
+        :return:
+        """
+        if ledgerId == POOL_LEDGER_ID:
+            if isinstance(self.poolManager, TxnPoolManager):
+                self.poolManager.reqHandler.onBatchRejected(stateRoot)
+        elif ledgerId == DOMAIN_LEDGER_ID:
+            self.reqHandler.onBatchRejected(stateRoot)
+        else:
+            logger.debug('{} did not know how to handle for ledger {}'.
+                         format(self, ledgerId))
+
+    @classmethod
+    def ledgerId(cls, txnType: str):
+        return POOL_LEDGER_ID if txnType in POOL_TXN_TYPES else DOMAIN_LEDGER_ID
+
+    def sendRepliesToClients(self, committedTxns, ppTime):
+        for txn in committedTxns:
+            # TODO: Send txn and state proof to the client
+            txn[TXN_TIME] = ppTime
+            self.sendReplyToClient(Reply(txn), (txn[f.IDENTIFIER.nm],
+                                                txn[f.REQ_ID.nm]))
 
     def sendReplyToClient(self, reply, reqKey):
         if self.isProcessingReq(*reqKey):
+            logger.debug('{} sending reply for {} to client'.format(self, reqKey))
             self.transmitToClient(reply, self.requestSender[reqKey])
             self.doneProcessingReq(*reqKey)
-
-    @staticmethod
-    def genTxnId(identifier, reqId):
-        return sha256("{}{}".format(identifier, reqId).encode()).hexdigest()
-
-    def generateReply(self, ppTime: float, req: Request) -> Reply:
-        """
-        Return a new clientReply created using the viewNo, request and the
-        computed txnId of the request
-
-        :param ppTime: the time at which PRE-PREPARE was sent
-        :param req: the REQUEST
-        :return: a Reply generated from the request
-        """
-        logger.debug("{} generating reply for {}".format(self, req))
-        txnId = self.genTxnId(req.identifier, req.reqId)
-        result = {
-            f.IDENTIFIER.nm: req.identifier,
-            f.REQ_ID.nm: req.reqId,
-            TXN_ID: txnId,
-            TXN_TIME: int(ppTime)
-        }
-        result.update(req.operation)
-        for processor in self.reqProcessors:
-            result.update(processor.process(req))
-
-        return Reply(result)
 
     def addNewRole(self, txn):
         """
@@ -1782,54 +1935,60 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be {}".format(Roles.STEWARD.name))
+                    logger.error("Role if present must be {}".
+                                 format(Roles.STEWARD.name))
                     return
-                self.clientAuthNr.addClient(identifier, verkey=v.verkey,
-                                            role=role)
+                self.clientAuthNr.addIdr(identifier, verkey=v.verkey,
+                                         role=role)
 
     def initDomainLedger(self):
         # If the domain ledger file is not present initialize it by copying
         # from genesis transactions
         if not self.hasFile(self.config.domainTransactionsFile):
             defaultTxnFile = os.path.join(self.basedirpath,
-                                      self.config.domainTransactionsFile)
+                                          self.config.domainTransactionsFile)
             if os.path.isfile(defaultTxnFile):
                 shutil.copy(defaultTxnFile, self.dataLocation)
+
+    @staticmethod
+    def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
+        # If the trie is empty then initialize it by applying
+        # txns from ledger
+        if state.isEmpty:
+            txns = [_ for _ in ledger.getAllTxn().values()]
+            reqHandler.updateState(txns, isCommitted=True)
+            state.commit(rootHash=state.headHash)
+
+    def initDomainState(self):
+        self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
+                                 self.domainLedger, self.reqHandler)
 
     def addGenesisNyms(self):
         for _, txn in self.domainLedger.getAllTxn().items():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
-    def authErrorWhileAddingSteward(self, request):
-        origin = request.identifier
-        if not self.secondaryStorage.isSteward(origin):
-            return "{} is not a steward so cannot add a new steward". \
-                format(origin)
-        if self.stewardThresholdExceeded():
-            return "New stewards cannot be added by other stewards as "\
-                "there are already {} stewards in the system".format(
-                    self.config.stewardThreshold)
-
-    def stewardThresholdExceeded(self) -> bool:
-        """We allow at most `stewardThreshold` number of  stewards to be added
-        by other stewards"""
-        return self.secondaryStorage.countStewards() > \
-               self.config.stewardThreshold
-
     def defaultAuthNr(self):
-        return SimpleAuthNr()
-
-    def getReplyFor(self, request):
-        result = self.secondaryStorage.getReply(request.identifier,
-                                                request.reqId)
-        return Reply(result) if result else None
+        state = self.getState(DOMAIN_LEDGER_ID)
+        return SimpleAuthNr(state=state)
 
     def processStashedOrderedReqs(self):
         i = 0
         while self.stashedOrderedReqs:
             msg = self.stashedOrderedReqs.popleft()
+            if msg.ppSeqNo <= self.ledgerManager.lastCaughtUpPpSeqNo:
+                logger.debug('{} ignoring stashed ordered msg {} since ledger '
+                             'manager has lastCaughtUpPpSeqNo as {}'.
+                             format(self, msg,
+                                    self.ledgerManager.lastCaughtUpPpSeqNo))
+                continue
             if not self.gotInCatchupReplies(msg):
+                if msg.instId == 0:
+                    logger.debug('{} applying stashed Ordered msg {}'.
+                                 format(self, msg))
+                    for reqKey in msg.reqIdr:
+                        req = self.requests[reqKey].finalised
+                        self.applyReq(req)
                 self.processOrdered(msg)
             i += 1
         logger.debug("{} processed {} stashed ordered requests".format(self, i))
@@ -1839,8 +1998,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return i
 
     def gotInCatchupReplies(self, msg):
-        key = (getattr(msg, f.IDENTIFIER.nm), getattr(msg, f.REQ_ID.nm))
-        return key in self.reqsFromCatchupReplies
+        reqIdr = getattr(msg, f.REQ_IDR.nm)
+        return set(reqIdr).intersection(self.reqsFromCatchupReplies)
 
     def sync3PhaseState(self):
         for replica in self.replicas:
@@ -1854,6 +2013,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         name, baseDir = self.name, self.basedirpath
         if not areKeysSetup(name, baseDir, self.config):
             raise REx(REx.reason.format(name) + self.keygenScript)
+
+    @staticmethod
+    def reasonForClientFromException(ex: Exception):
+        friendly = friendlyEx(ex)
+        reason = "client request invalid: {}".format(friendly)
+        return reason
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """
@@ -1884,15 +2049,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         #                        reason=InvalidSignature.reason,
         #                        code=InvalidSignature.code)
 
-        if code in self.suspicions:
-            # TODO: Reconsider tolerating some suspicions, and if you tolerate,
-            #  why are they suspicions?
-            if code not in (Suspicions.DUPLICATE_PPR_SENT,
-                            Suspicions.DUPLICATE_PR_SENT,
-                            Suspicions.DUPLICATE_CM_SENT):
-                self.blacklistNode(nodeName,
-                                   reason=self.suspicions[code],
-                                   code=code)
+        # TODO: Consider blacklisting nodes again.
+        # if code in self.suspicions:
+        #     self.blacklistNode(nodeName,
+        #                        reason=self.suspicions[code],
+        #                        code=code)
+
+        if code in (s.code for s in (Suspicions.PPR_DIGEST_WRONG,
+                                     Suspicions.PPR_REJECT_WRONG,
+                                     Suspicions.PPR_TXN_WRONG,
+                                     Suspicions.PPR_STATE_WRONG)):
+            self.sendInstanceChange(self.viewNo + 1, Suspicions.get_by_code(code))
+            logger.info('{} sent instance change since suspicion code {}'
+                        .format(self, code))
+
+            if not self.do_view_change_if_possible(self.viewNo + 1):
+                logger.trace("{} cannot initiate a view change".format(self))
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.warning)
 
@@ -1970,9 +2142,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    @staticmethod
-    def getReplyFromLedger(ledger, request):
-        txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
+    def getReplyFromLedger(self, ledger, request):
+        seqNo = self.seqNoDB.get(request.identifier, request.reqId)
+        if seqNo:
+            txn = ledger.getBySeqNo(int(seqNo))
+        else:
+            txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
         if txn:
             txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
             return Reply(txn)

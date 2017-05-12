@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import STEWARD
-from plenum.test.helper import waitReqNackWithReason
+from plenum.test.helper import waitRejectWithReason
 from plenum.test.pool_transactions.helper import addNewClient, sendAddNewClient
 
 
@@ -21,17 +21,13 @@ def tconf(conf, tdir, request):
 def testOnlyAStewardCanAddAnotherSteward(looper, txnPoolNodeSet,
                                          tdirWithPoolTxns, poolTxnClientData,
                                          steward1, stewardWallet,
-                                         client1, wallet1):
-    # some how client1 is not connected here
-    looper.add(client1)
-    looper.run(client1.ensureConnectedToNodes())
-
+                                         client1, wallet1, client1Connected):
     addNewClient(STEWARD, looper, steward1, stewardWallet, "testSteward1")
 
     sendAddNewClient(STEWARD, "testSteward2", client1, wallet1)
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, client1,
-                              'is not a steward so cannot add a new steward',
+        waitRejectWithReason(looper, client1,
+                              'Only Steward is allowed to do these transactions',
                               node.clientstack.name)
 
 
@@ -44,7 +40,7 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper, tconf,
 
     sendAddNewClient(STEWARD, "testSteward4", steward1, stewardWallet)
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1,
+        waitRejectWithReason(looper, steward1,
                               'New stewards cannot be added by other '
                               'stewards as there are already {} '
                               'stewards in the system'.format(tconf.stewardThreshold),

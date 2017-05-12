@@ -7,6 +7,7 @@ from stp_core.common.log import getlogger
 
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
+from plenum.test.primary_election.helpers import primaryByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.delayers import delayerMsgTuple
@@ -74,9 +75,11 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     DRep = Replica.generateName(D.name, 0)
 
     # Node B first sends PRIMARY msgs for Node C to all nodes
-    B.send(Primary(CRep, 0, B.viewNo))
+    # B.send(Primary(CRep, 0, B.viewNo))
+    B.send(primaryByNode(CRep, B, 0))
     # Node B sends PRIMARY msgs for Node D to all nodes
-    B.send(Primary(DRep, 0, B.viewNo))
+    # B.send(Primary(DRep, 0, B.viewNo))
+    B.send(primaryByNode(DRep, B, 0))
 
     # Ensure elections are done
     # also have to take into account the catchup procedure
@@ -92,4 +95,4 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
         logger.debug(
             "node {} should have primary declaration for C from node B"
             .format(node))
-        assert node.elector.primaryDeclarations[0][BRep] == CRep
+        assert node.elector.primaryDeclarations[0][BRep][0] == CRep

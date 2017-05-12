@@ -17,7 +17,7 @@ nodeCount = 7
 def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     maliciousNode = nodeSet.Alpha
     for i in range(0, 5):
-        maliciousNode.send(InstanceChange(i))
+        maliciousNode.send(maliciousNode._create_instance_change_msg(i, 0))
 
     def chk(instId):
         for node in nodeSet:

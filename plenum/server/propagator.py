@@ -1,4 +1,6 @@
+from collections import OrderedDict
 from typing import Dict, Tuple, Union
+import weakref
 
 from plenum.common.types import Propagate
 from plenum.common.request import Request
@@ -30,7 +32,7 @@ class ReqState:
         return self.finalised
 
 
-class Requests(Dict[Tuple[str, int], ReqState]):
+class Requests(OrderedDict):
     """
     Storing client request object corresponding to each client and its
     request id. Key of the dictionary is a Tuple2 containing identifier,
@@ -177,10 +179,13 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        logger.debug("{} forwarding client request {} to its replicas".
-                     format(self, key))
-        for repQueue in self.msgsToReplicas:
-            repQueue.append(self.requests[key].finalised.reqDigest)
+        for idx, repQueue in enumerate(self.msgsToReplicas):
+            if self.primaryReplicaNo == idx:
+                # req = weakref.ref(self.requests[key].finalised)
+                req = self.requests[key].finalised
+                repQueue.append(req)
+                logger.debug("{} forwarding client request {} to its replicas".
+                             format(self, key))
         self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
 

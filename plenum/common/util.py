@@ -71,8 +71,8 @@ def updateNamedTuple(tupleToUpdate: NamedTuple, **kwargs):
     return tupleToUpdate.__class__(**tplData)
 
 
-def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set(),
-                     logMsg: str = None, deepLevel: int = None) -> None:
+def objSearchReplace(obj: Any, toFrom: Dict[Any, Any], checked: Set[Any] = set()
+                     , logMsg: str = None, deepLevel: int = None) -> None:
     """
     Search for an attribute in an object and replace it with another.
 
@@ -345,10 +345,26 @@ def updateFieldsWithSeqNo(fields):
     return r
 
 
+def compareNamedTuple(tuple1: NamedTuple, tuple2: NamedTuple, *fields):
+    """
+    Compare provided fields of 2 named tuples for equality and returns true
+    :param tuple1:
+    :param tuple2:
+    :param fields:
+    :return:
+    """
+    tuple1 = tuple1._asdict()
+    tuple2 = tuple2._asdict()
+    comp = []
+    for field in fields:
+        comp.append(tuple1[field] == tuple2[field])
+    return all(comp)
+
+
 def bootstrapClientKeys(identifier, verkey, nodes):
     # bootstrap client verification key to all nodes
     for n in nodes:
-        n.clientAuthNr.addClient(identifier, verkey)
+        n.clientAuthNr.addIdr(identifier, verkey)
 
 
 def prettyDateDifference(startTime, finishTime=None):
@@ -425,6 +441,11 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     curTimeRounded = round(time.time() * 1000)
     startTimeRounded = round(startTime * 1000)
     return startTimeRounded + maxCheckForMillis < curTimeRounded
+
+
+def randomSeed(size=32):
+    return ''.join(random.choice(string.hexdigits)
+                   for _ in range(size)).encode()
 
 
 def lxor(a, b):

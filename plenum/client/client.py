@@ -33,7 +33,8 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
 from plenum.common.startable import Status, LedgerState, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, OP_FIELD_NAME
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
+    POOL_LEDGER_ID, TXN_TIME
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
@@ -220,7 +221,7 @@ class Client(Motor,
         else:
             super().start(loop)
             self.nodestack.start()
-            self.nodestack.maintainConnections()
+            self.nodestack.maintainConnections(force=True)
             if self._ledger:
                 self.ledgerManager.setLedgerCanSync(0, True)
                 self.mode = Mode.starting
@@ -273,7 +274,7 @@ class Client(Motor,
                           CATCHUP_REP)
         printOnCli = not excludeFromCli and msg.get(OP_FIELD_NAME) not \
                                             in ledgerTxnTypes
-        logger.debug("Client {} got msg from node {}: {}".
+        logger.info("Client {} got msg from node {}: {}".
                      format(self.name, frm, msg),
                      extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
@@ -300,6 +301,9 @@ class Client(Motor,
             elif msg[OP_FIELD_NAME] == REQNACK:
                 self.reqRepStore.addNack(msg, frm)
                 self.gotExpected(msg, frm)
+            elif msg[OP_FIELD_NAME] == REJECT:
+                self.reqRepStore.addReject(msg, frm)
+                self.gotExpected(msg, frm)
             elif msg[OP_FIELD_NAME] == REPLY:
                 result = msg[f.RESULT.nm]
                 identifier = msg[f.RESULT.nm][f.IDENTIFIER.nm]
@@ -321,21 +325,17 @@ class Client(Motor,
         # do nothing for now
         pass
 
-    def stop(self, *args, **kwargs):
-        super().stop(*args, **kwargs)
-        self.txnLog.close()
-        if self._ledger is not None:
-            self._ledger.stop()
-        if hasattr(self, 'hashStore') and self.hashStore is not None:
-            self.hashStore.close()
-
     def onStopping(self, *args, **kwargs):
         logger.debug('Stopping client {}'.format(self))
         self.nodestack.nextCheck = 0
         self.nodestack.stop()
         if self._ledger:
-            self.ledgerManager.setLedgerState(0, LedgerState.not_synced)
+            self.ledgerManager.setLedgerState(POOL_LEDGER_ID, LedgerState.not_synced)
             self.mode = None
+            self._ledger.stop()
+            if self.hashStore and not self.hashStore.closed:
+                self.hashStore.close()
+        self.txnLog.close()
 
     def getReply(self, identifier: str, reqId: int) -> Optional[Reply]:
         """
@@ -491,7 +491,7 @@ class Client(Motor,
             # would fetch the reply or the client might just lose REQACK and not
             # REPLY so when REPLY received, request does not need to be resent
             colls = (self.expectingAcksFor, self.expectingRepliesFor)
-        elif msg[OP_FIELD_NAME] == REQNACK:
+        elif msg[OP_FIELD_NAME] in (REQNACK, REJECT):
             container = msg
             colls = (self.expectingAcksFor, self.expectingRepliesFor)
         else:
@@ -530,7 +530,11 @@ class Client(Motor,
                     nodesNotSendingAck.update(expectedFrom)
                 else:
                     clearKeys.append(reqKey)
+
+        # Dont try for the requests which have gone beyond retry limits
         for k in clearKeys:
+            logger.debug('{} did not get ACK for {} and will not try again'.
+                         format(self, k))
             self.expectingAcksFor.pop(k)
 
         # Collect nodes which did not send REPLY
@@ -545,8 +549,13 @@ class Client(Motor,
                 else:
                     clearKeys.append(reqKey)
         for k in clearKeys:
+            logger.debug('{} did not get REPLY for {} and will not try again'.
+                         format(self, k))
             self.expectingRepliesFor.pop(k)
 
+        if nodesNotSendingAck:
+            logger.debug('{} going to retry for {}'.format(self,
+                                                           self.expectingAcksFor.keys()))
         for nm in nodesNotSendingAck:
             try:
                 remote = self.nodestack.getRemote(nm)
@@ -562,8 +571,8 @@ class Client(Motor,
             # nodes, a better way is not to assume the delay value but only
             # send requests once the connection is established. Also it is
             # assumed that connection is not established if a node not sending
-            # REQACK/REQNACK/REPLY, but a little better way is to compare the
-            # value in stats of the stack and look for changes in count of
+            # REQACK/REQNACK/REJECT/REPLY, but a little better way is to compare
+            # the value in stats of the stack and look for changes in count of
             # `message_reject_rx` but that is not very helpful either since
             # it does not record which node rejected
             delay = 3 if nodesNotSendingAck else 0
@@ -585,7 +594,8 @@ class Client(Motor,
                     self.expectingRepliesFor[key] = (nodes, now, c + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(0, self.ledger.size, self.ledger.root_hash)
+        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
+                                    self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)
 
@@ -611,16 +621,17 @@ class Client(Motor,
         verifier = MerkleVerifier()
         fields = getTxnOrderedFields()
         serializer = CompactSerializer(fields=fields)
+        ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name, TXN_TIME}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = base64.b64decode(
                 r[f.RESULT.nm][F.rootHash.name].encode())
             auditPath = [base64.b64decode(
                 a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
-            filtered = ((k, v) for (k, v) in r[f.RESULT.nm].items()
-                        if k not in
-                        [F.auditPath.name, F.seqNo.name, F.rootHash.name])
-            result = serializer.serialize(dict(filtered))
+            filtered = dict((k, v) for (k, v) in r[f.RESULT.nm].items()
+                        if k not in ignored
+                        )
+            result = serializer.serialize(filtered)
             verifier.verify_leaf_inclusion(result, seqNo - 1,
                                            auditPath,
                                            STH(tree_size=seqNo,
