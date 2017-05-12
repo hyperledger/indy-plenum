@@ -10,12 +10,6 @@ from plenum.test.msgs import randomMsg
 nodeCount = 4
 
 
-# @pytest.fixture(scope="module")
-# def setup(request, tdir, nodeReg):
-#     for name in nodeReg:
-#         pass
-
-
 @pytest.fixture(scope="module")
 def pool(looper, nodeSet):
     # for n in nodeSet:  # type: TestNode

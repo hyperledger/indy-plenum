@@ -59,7 +59,7 @@ def expectedPoolStartUpTimeout(nodeCount):
 def expectedPoolInterconnectionTime(nodeCount):
     """
     From: the Pool up
-    To: the Pool is fully connected 
+    To: the Pool is fully connected
     """
     interconnectionCount = totalConnections(nodeCount)
     nodeConnectionTimeout = config.ExpectedConnectTime
@@ -78,7 +78,7 @@ def expectedPoolDisconnectionTime(nodeCount):
 def expectedPoolConsistencyProof(nodeCount):
     """
     From: any time the Pool ready for the consistency proof procedure
-    To: each of the Nodes finish the consistency proof procedure 
+    To: each of the Nodes finish the consistency proof procedure
         (ready for catchup if it is needed)
     """
     nodeCPTimeout = __Peer2PeerRequestExchangeTime + \
@@ -89,7 +89,7 @@ def expectedPoolConsistencyProof(nodeCount):
 def expectedPoolCatchupTime(nodeCount):
     """
     From: the consistency proof procedure is finished
-    To: each of the Nodes finished the the catchup procedure  
+    To: each of the Nodes finished the the catchup procedure
     """
     nodeCatchupTimeout = __Peer2PeerRequestExchangeTime + \
                          config.CatchupTransactionsTimeout
@@ -114,7 +114,7 @@ def expectedPoolLedgerCheck(nodeCount):
 
 def expectedPoolLedgerRepliedMsgPersisted(nodeCount):
     """
-    From: a message is replied to client 
+    From: a message is replied to client
     To: the message is stored in the ledger
     """
     return nodeCount * __PersistRepliedTime
@@ -136,7 +136,7 @@ def expectedPoolViewChangeStartedTimeout(nodeCount):
 def expectedPoolNominationTimeout(nodeCount):
     """
     From: the NOMINATE is sent
-    To: the NOMINATE is received by each node in the Pool 
+    To: the NOMINATE is received by each node in the Pool
     """
     interconnectionCount = totalConnections(nodeCount)
     return expectedNodeToNodeMessageDeliveryTime() * interconnectionCount
@@ -267,13 +267,17 @@ def expectedClientToPoolRequestDeliveryTime(nodeCount):
 
 def expectedClientRequestPropagationTime(nodeCount):
     """
-    From: The requests are sent 
+    From: The requests are sent
     To: The Propagation procedure finish
     """
     return expectedPropagateTime(nodeCount)
 
 
 def expectedTransactionExecutionTime(nodeCount):
+    # QUESTION: Why is the expected execution time a multiple of
+    # CLIENT_REPLY_TIMEOUT, its huge,
+    # it should be a little less than CLIENT_REPLY_TIMEOUT
+    # return int(CLIENT_REPLY_TIMEOUT * nodeCount)
     return CLIENT_REPLY_TIMEOUT * 0.25 * nodeCount
 
 
@@ -283,6 +287,11 @@ def expectedReqAckQuorumTime():
 
 
 def expectedReqNAckQuorumTime():
+    # TODO depends from nodeCount
+    return CLIENT_REQACK_TIMEOUT
+
+
+def expectedReqRejectQuorumTime():
     # TODO depends from nodeCount
     return CLIENT_REQACK_TIMEOUT
 

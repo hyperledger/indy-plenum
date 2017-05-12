@@ -1,19 +1,19 @@
 from typing import Iterable, Union
 
-from plenum.common.keygen_utils import initNodeKeysForBothStacks
-from stp_core.network.port_dispenser import genHa
-
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from stp_core.loop.eventually import eventually
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.constants import STEWARD, TXN_TYPE, NYM, ROLE, TARGET_NYM, ALIAS, \
     NODE_PORT, CLIENT_IP, NODE_IP, DATA, NODE, CLIENT_PORT, VERKEY, SERVICES, \
     VALIDATOR
+from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString, hexToFriendly
 from plenum.test.helper import waitForSufficientRepliesForRequests
 from plenum.test.test_client import TestClient, genTestClient
-from plenum.test.test_node import TestNode, checkNodesConnected
+from plenum.test.test_node import TestNode, check_node_disconnected_from, \
+    ensure_node_disconnected, checkNodesConnected
+from stp_core.loop.eventually import eventually
+from stp_core.network.port_dispenser import genHa
 
 
 def sendAddNewClient(role, name, creatorClient, creatorWallet):
@@ -257,26 +257,13 @@ def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode]):
             node.nodestack.disconnectByName(disconnect)
 
 
-def checkNodeDisconnectedFrom(needle: str, haystack: Iterable[TestNode]):
-    """
-    Check if the node name given by `needle` is disconnected from nodes in
-    `haystack`
-    :param needle: Node name which should be disconnected from nodes from
-    `haystack`
-    :param haystack: nodes who should be disconnected from `needle`
-    :return:
-    """
-    assert all([needle not in node.nodestack.connecteds for node in haystack])
-
-
-def ensureNodeDisconnectedFromPool(looper, poolNodes,
-                                   disconnect: Union[str, TestNode]):
+def disconnect_node_and_ensure_disconnected(looper, poolNodes,
+                                            disconnect: Union[str, TestNode],
+                                            timeout=None):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
 
     disconnectPoolNode(poolNodes, disconnect)
-    looper.run(eventually(checkNodeDisconnectedFrom, disconnect,
-                                                    [n for n in poolNodes
-                                                     if n.name != disconnect],
-                          retryWait=1, timeout=len(poolNodes)-1))
+    ensure_node_disconnected(looper, disconnect, poolNodes,
+                             timeout=timeout)

@@ -67,6 +67,9 @@ class Request:
         cls.__setstate__(obj, state)
         return obj
 
+    def serialized(self):
+        return serializeMsg(self.__getstate__())
+
 
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
                                        f.REQ_ID,

@@ -1,13 +1,13 @@
+from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict, \
+    Tuple
+
 import sys
 from collections import namedtuple
-from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict
-
 from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
-    CHECKPOINT_STATE, THREE_PC_STATE, OP_FIELD_NAME
-
+    CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME
 from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
@@ -32,6 +32,8 @@ class f:  # provides a namespace for reusable field constants
     RECEIVED_DIGESTS = Field('receivedDigests', Dict[str, str])
     SEQ_NO = Field('seqNo', int)
     PP_SEQ_NO = Field('ppSeqNo', int)  # Pre-Prepare sequence number
+    ORD_SEQ_NO = Field('ordSeqNo', int)     # Last PP_SEQ_NO that was ordered
+    ORD_SEQ_NOS = Field('ordSeqNos', List[int])  # Last ordered seq no of each protocol instance, sent during view change
     RESULT = Field('result', Any)
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
@@ -46,12 +48,16 @@ class f:  # provides a namespace for reusable field constants
     REASON = Field('reason', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)
+    REQ_IDR = Field("reqIdr", List[Tuple[str, int]])
+    DISCARDED = Field("discarded", int)
+    STATE_ROOT = Field("stateRootHash", str)
+    TXN_ROOT = Field("txnRootHash", str)
     MERKLE_ROOT = Field("merkleRoot", str)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
     TXN_SEQ_NO = Field("txnSeqNo", int)
     # 0 for pool transaction ledger, 1 for domain transaction ledger
-    LEDGER_TYPE = Field("ledgerType", int)
+    LEDGER_ID = Field("ledgerId", int)
     SEQ_NO_START = Field("seqNoStart", int)
     SEQ_NO_END = Field("seqNoEnd", int)
     CATCHUP_TILL = Field("catchupTill", int)
@@ -87,7 +93,7 @@ class TaggedTupleBase:
 
 
 # noinspection PyProtectedMember
-def TaggedTuple(typename, fields):
+def TaggedTuple(typename, fields) -> NamedTuple:
     cls = NamedTuple(typename, fields)
     if OP_FIELD_NAME in cls._fields:
         raise RuntimeError("field name '{}' is reserved in TaggedTuple"
@@ -99,7 +105,8 @@ def TaggedTuple(typename, fields):
 Nomination = TaggedTuple(NOMINATE, [
     f.NAME,
     f.INST_ID,
-    f.VIEW_NO])
+    f.VIEW_NO,
+    f.ORD_SEQ_NO])
 
 Batch = TaggedTuple(BATCH, [
     f.MSGS,
@@ -121,7 +128,8 @@ Reelection = TaggedTuple(REELECTION, [
 Primary = TaggedTuple(PRIMARY, [
     f.NAME,
     f.INST_ID,
-    f.VIEW_NO])
+    f.VIEW_NO,
+    f.ORD_SEQ_NO])
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -139,6 +147,11 @@ RequestNack = TaggedTuple(REQNACK, [
     f.REQ_ID,
     f.REASON])
 
+Reject = TaggedTuple(REJECT, [
+    f.IDENTIFIER,
+    f.REQ_ID,
+    f.REASON])
+
 PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
     f.TXN
 ])
@@ -146,9 +159,13 @@ PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
 Ordered = NamedTuple(ORDERED, [
     f.INST_ID,
     f.VIEW_NO,
-    f.IDENTIFIER,
-    f.REQ_ID,
-    f.PP_TIME])
+    f.REQ_IDR,
+    f.PP_SEQ_NO,
+    f.PP_TIME,
+    f.LEDGER_ID,
+    f.STATE_ROOT,
+    f.TXN_ROOT,
+    ])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
@@ -164,10 +181,13 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.INST_ID,
     f.VIEW_NO,
     f.PP_SEQ_NO,
-    f.IDENTIFIER,
-    f.REQ_ID,
+    f.PP_TIME,
+    f.REQ_IDR,
+    f.DISCARDED,
     f.DIGEST,
-    f.PP_TIME
+    f.LEDGER_ID,
+    f.STATE_ROOT,
+    f.TXN_ROOT,
     ])
 
 Prepare = TaggedTuple(PREPARE, [
@@ -175,14 +195,15 @@ Prepare = TaggedTuple(PREPARE, [
     f.VIEW_NO,
     f.PP_SEQ_NO,
     f.DIGEST,
-    f.PP_TIME])
+    f.STATE_ROOT,
+    f.TXN_ROOT,
+    ])
 
 Commit = TaggedTuple(COMMIT, [
     f.INST_ID,
     f.VIEW_NO,
-    f.PP_SEQ_NO,
-    f.DIGEST,
-    f.PP_TIME])
+    f.PP_SEQ_NO
+    ])
 
 Checkpoint = TaggedTuple(CHECKPOINT, [
     f.INST_ID,
@@ -200,27 +221,28 @@ CheckpointState = NamedTuple(CHECKPOINT_STATE, [
     f.IS_STABLE
     ])
 
-
 ThreePCState = TaggedTuple(THREE_PC_STATE, [
     f.INST_ID,
     f.MSGS])
-
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
+    f.REASON,
+    f.ORD_SEQ_NOS,
 ])
 
 LedgerStatus = TaggedTuple(LEDGER_STATUS, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.TXN_SEQ_NO,
     f.MERKLE_ROOT])
 
 ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
+    f.PP_SEQ_NO,
     f.OLD_MERKLE_ROOT,
     f.NEW_MERKLE_ROOT,
     f.HASHES
@@ -230,21 +252,21 @@ ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
 # is familiar
 
 CatchupReq = TaggedTuple(CATCHUP_REQ, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END,
     f.CATCHUP_TILL
 ])
 
 CatchupRep = TaggedTuple(CATCHUP_REP, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.TXNS,
     f.CONS_PROOF
 ])
 
 
 ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-    f.LEDGER_TYPE,
+    f.LEDGER_ID,
     f.SEQ_NO_START,
     f.SEQ_NO_END
 ])

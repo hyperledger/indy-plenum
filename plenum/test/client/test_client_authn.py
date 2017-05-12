@@ -16,7 +16,7 @@ def cli():
 @pytest.fixture(scope="module")
 def sa(cli):
     sa = SimpleAuthNr()
-    sa.addClient(cli.identifier, cli.verkey)
+    sa.addIdr(cli.identifier, cli.verkey)
     return sa
 
 
@@ -46,7 +46,7 @@ def testMessageModified(sa, cli, msg, sig):
 
 def testAnotherAuthenticatorCanAuthenticate(sa, cli, msg, sig):
     sa2 = SimpleAuthNr()
-    sa2.addClient(cli.identifier, cli.verkey)
+    sa2.addIdr(cli.identifier, cli.verkey)
     sa.authenticate(msg, idr, sig)
 
 

@@ -9,6 +9,17 @@ from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
     buildPoolClientAndWallet, addNewSteward
 
 
+@pytest.fixture(scope="module")
+def tconf(conf, tdir, request):
+    conf.baseDir = tdir
+    # Lowering DELTA since some requests will result in validation errors and
+    # that will decrease master throughput.
+    # TODO: When monitoring metrics are calibrated, these things
+    # should be taken care of.
+    conf.DELTA = .6
+    return conf
+
+
 @pytest.yield_fixture(scope="module")
 def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper

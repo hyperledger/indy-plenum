@@ -6,6 +6,7 @@ from plenum.test.spy_helpers import getAllArgs, getAllReturnVals
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import PrePrepare
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
@@ -53,14 +54,18 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
     logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
+    reqIdr = [(request2.identifier, request2.reqId)]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.lastPrePrepareSeqNo,
-        wallet1.defaultId,
-        request2.reqId,
-        request2.digest,
-        time.time()
+        time.time(),
+        reqIdr,
+        1,
+        primaryRepl.batchDigest([request2]),
+        DOMAIN_LEDGER_ID,
+        primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
+        primaryRepl.txnRootHash(DOMAIN_LEDGER_ID)
     )
 
     logger.debug("""Checking whether all the non primary replicas have received
@@ -79,9 +84,10 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
 
     # check if prepares have not been sent
     for npr in nonPrimaryReplicas:
-        paramsList = getAllArgs(npr, npr.canSendPrepare)
-        rv = getAllReturnVals(npr, npr.canSendPrepare)
-        for params in paramsList:
-            req = params['request']
-            assert req.reqId != request2.reqId
-        assert all(rv)
+        with pytest.raises(AssertionError):
+            looper.run(eventually(checkPrepareReqSent,
+                                  npr,
+                                  request2.identifier,
+                                  request2.reqId,
+                                  retryWait=1,
+                                  timeout=timeout))

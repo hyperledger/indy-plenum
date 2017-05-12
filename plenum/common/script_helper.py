@@ -9,14 +9,12 @@ from stp_raet.util import getLocalVerKey, getLocalPubKey
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common import util
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
 from plenum.test import waits
-from plenum.test.test_node import getAllReplicas
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
