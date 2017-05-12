@@ -3,7 +3,7 @@ from plenum.test.client.conftest import passThroughReqAcked1
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.malicious_behaviors_client import \
     genDoesntSendRequestToSomeNodes
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 
 nodeCount = 4
@@ -36,12 +36,12 @@ def testReplyWhenRequestSentToMoreThanFPlusOneNodes(looper, nodeSet,
             assert node.spylog.count(prc_ppg) == req_count*(nodeCount - 1)
 
     # Ledger is same for all nodes
-    waitNodeLedgersEquality(looper, alpha, *other_nodes)
+    waitNodeDataEquality(looper, alpha, *other_nodes)
     chk(1)
 
     more_reqs_count = 5
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, fClient,
                                                more_reqs_count, 1)
     # Ledger is same for all nodes
-    waitNodeLedgersEquality(looper, alpha, *other_nodes)
+    waitNodeDataEquality(looper, alpha, *other_nodes)
     chk(6)  # Since one request is already sent as part of `replied1`

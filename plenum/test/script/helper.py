@@ -20,30 +20,9 @@ from stp_core.network.port_dispenser import genHa
 logger = getlogger()
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf, request):
-    oldVal = tconf.UpdateGenesisPoolTxnFile
-    tconf.UpdateGenesisPoolTxnFile = True
-
-    def reset():
-        tconf.UpdateGenesisPoolTxnFile = oldVal
-
-    request.addfinalizer(reset)
-    return tconf
-
-
 @pytest.yield_fixture(scope="module")
 def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper
-
-
-def checkIfGenesisPoolTxnFileUpdated(*nodesAndClients):
-    for item in nodesAndClients:
-        poolTxnFileName = item.poolManager.ledgerFile if \
-            isinstance(item, TestNode) else item.ledgerFile
-        genFile = os.path.join(item.basedirpath, poolTxnFileName)
-        ledgerFile = os.path.join(item.dataLocation, poolTxnFileName)
-        assert filecmp.cmp(genFile, ledgerFile, shallow=False)
 
 
 def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -102,8 +81,3 @@ def changeNodeHa(looper, txnPoolNodeSet, tdirWithPoolTxns,
     stewardWallet = Wallet(stewardName)
     stewardWallet.addIdentifier(signer=SimpleSigner(seed=stewardsSeed))
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, stewardClient, 8)
-    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet) + 1)
-    if tconf.UpdateGenesisPoolTxnFile:
-        looper.run(eventually(checkIfGenesisPoolTxnFileUpdated, *txnPoolNodeSet,
-                              stewardClient, anotherClient, retryWait=1,
-                              timeout=timeout))

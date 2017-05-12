@@ -18,12 +18,13 @@ from plenum.common.constants import *
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    checkReqNackWithReason, waitReqNackWithReason, waitForSufficientRepliesForRequests
-from plenum.test.node_catchup.helper import waitNodeLedgersEquality, \
+    checkRejectWithReason, waitReqNackWithReason, waitRejectWithReason, \
+    waitForSufficientRepliesForRequests
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, sendAddNewNode, \
-    changeNodeHaAndReconnect, addNewSteward
+    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, \
+    sendAddNewNode, changeNodeHaAndReconnect, addNewSteward
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -118,9 +119,9 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
     sendAddNewNode(newNodeName, steward1, stewardWallet)
 
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1,
-                              'already has a node with name',
-                              node.clientstack.name)
+        waitRejectWithReason(looper, steward1,
+                             'already has a node',
+                             node.clientstack.name)
 
 
 def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
@@ -129,9 +130,8 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
     newNodeName = "Epsilon"
     sendAddNewNode(newNodeName, client1, wallet1)
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, client1,
-                              'steward so cannot add a new node',
-                              node.clientstack.name)
+        waitRejectWithReason(looper, client1, 'is not a steward so cannot add a '
+                                        'new node', node.clientstack.name)
 
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -181,7 +181,7 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
         txnPoolNodeSet.append(newNode)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     logger.debug("{} connected to the pool".format(newNode))
-    waitNodeLedgersEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     f = getMaxFailures(len(txnPoolNodeSet))
 
@@ -207,9 +207,8 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                      nodeHa=nodeNewHa, clientHa=clientNewHa)
 
     for node in txnPoolNodeSet:
-        waitReqNackWithReason(looper, steward1,
-                              'is not a steward of node',
-                              node.clientstack.name)
+        waitRejectWithReason(looper, steward1, 'is not a steward of node',
+                             node.clientstack.name)
 
 
 def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
@@ -225,7 +224,7 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                     tdirWithPoolTxns, tconf,
                                     txnPoolNodeSet)
 
-    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
 
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
@@ -233,7 +232,6 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-@pytest.mark.skip(reason="SOV-881")
 def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                         tconf, steward1, nodeThetaAdded,
                         allPluginsPath=None):
@@ -250,7 +248,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
     initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
-                                  override=True)
+                              override=True)
 
     logger.debug("{} starting with HAs {} {}".format(newNode, nodeHa, nodeCHa))
     node = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
@@ -260,7 +258,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     # stopped
     txnPoolNodeSet[-1] = node
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    waitNodeLedgersEquality(looper, node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, node, *txnPoolNodeSet[:-1])
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, steward1,
                                                   *txnPoolNodeSet)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,

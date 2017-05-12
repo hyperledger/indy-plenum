@@ -30,7 +30,7 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from stp_core.common.log import getlogger
+from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
@@ -49,6 +49,7 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
+Logger.setLogLevel(logging.DEBUG)
 logger = getlogger()
 config = getConfig()
 
@@ -159,8 +160,8 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UpdateGenesisPoolTxnFile': False,
-    'EnsureLedgerDurability': False
+    'EnsureLedgerDurability': False,
+    'Max3PCBatchSize': 1
 }
 
 
@@ -171,8 +172,6 @@ def allPluginsPath():
 
 @pytest.fixture(scope="module")
 def keySharedNodes(startedNodes):
-    # for n in startedNodes:
-    #     n.startKeySharing()
     return startedNodes
 
 
@@ -212,7 +211,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
                      '.+ rid .+ has been removed',
-                     'last try...'
+                     'last try...',
+                     'has uninitialised socket'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -327,7 +327,7 @@ def ensureView(nodeSet, looper, up):
 
 
 @pytest.fixture("module")
-def delayedPerf(nodeSet):
+def delayed_perf_chk(nodeSet):
     for node in nodeSet:
         node.delayCheckPerformance(20)
 

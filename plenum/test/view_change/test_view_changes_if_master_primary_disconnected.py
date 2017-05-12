@@ -1,36 +1,42 @@
+from plenum.test.test_node import ensureElectionsDone, \
+    primaryNodeNameForInstance, nodeByName, get_master_primary_node, \
+    ensure_node_disconnected
 from plenum.test import waits
 from stp_core.loop.eventually import eventually
-from plenum.test.conftest import txnPoolNodeSet, txnPoolNodesLooper
-from plenum.test.helper import stopNodes, viewNoForNodes, nodeByName, \
-    primaryNodeNameForInstance
+from plenum.test.pool_transactions.conftest import clientAndWallet1, \
+    client1, wallet1, client1Connected, looper
+from plenum.test.helper import stopNodes, checkViewNoForNodes, \
+    sendReqsToNodesAndVerifySuffReplies
 
 
 def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
-                                               txnPoolNodesLooper):
+                                               looper, wallet1, client1,
+                                               client1Connected, tconf):
+    """
+    View change occurs when master's primary is disconnected
+    """
 
     # Setup
-    nodes = set(txnPoolNodeSet)
-    looper = txnPoolNodesLooper
+    nodes = txnPoolNodeSet
 
-    viewNoBefore = viewNoForNodes(nodes)
-    primaryNodeForMasterInstanceBefore = nodeByName(
-        nodes, primaryNodeNameForInstance(nodes, 0))
+    viewNoBefore = checkViewNoForNodes(nodes)
+    old_pr_node = get_master_primary_node(nodes)
 
-    # Exercise
-    stopNodes([primaryNodeForMasterInstanceBefore], looper)
+    # Stop primary
+    stopNodes([old_pr_node], looper)
+    looper.removeProdable(old_pr_node)
+    remainingNodes = set(nodes) - {old_pr_node}
+    # Sometimes it takes time for nodes to detect disconnection
+    ensure_node_disconnected(looper, old_pr_node, remainingNodes, timeout=20)
 
-    # Verify
-    remainingNodes = nodes - {primaryNodeForMasterInstanceBefore}
+    looper.runFor(tconf.ToleratePrimaryDisconnection + 2)
 
     def assertNewPrimariesElected():
-        viewNoAfter = viewNoForNodes(remainingNodes)
-        primaryNodeForMasterInstanceAfter = nodeByName(
-            nodes, primaryNodeNameForInstance(remainingNodes, 0))
-        assert viewNoBefore + 1 == viewNoAfter
-        assert primaryNodeForMasterInstanceBefore != \
-               primaryNodeForMasterInstanceAfter
+        checkViewNoForNodes(remainingNodes, viewNoBefore + 1)
+        new_pr_node = get_master_primary_node(remainingNodes)
+        assert old_pr_node != new_pr_node
 
-    # TODO 20 is 'magic' timeout find the cause why the check fails with out it
-    timeout = waits.expectedPoolInterconnectionTime(len(nodes)) +\
-        waits.expectedPoolElectionTimeout(len(nodes)) + 20
-    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=timeout))
+    # Give some time to detect disconnection and then verify that view has
+    # changed and new primary has been elected
+    looper.run(eventually(assertNewPrimariesElected, retryWait=1, timeout=90))
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)

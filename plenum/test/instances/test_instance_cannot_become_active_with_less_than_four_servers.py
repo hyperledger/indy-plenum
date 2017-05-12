@@ -19,7 +19,6 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-# @pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """
@@ -34,9 +33,6 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     nodeNames = genNodeNames(nodeCount)
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-
-            # for n in nodeSet:
-            #     n.startKeySharing()
 
             # helpers
 
@@ -63,8 +59,6 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                                       expectedStatus,
                                       nodeIdx,
                                       retryWait=1, timeout=timeout))
-
-            # tests
 
             logger.debug("Sharing keys")
             looper.run(checkNodesConnected(nodeSet))

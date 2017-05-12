@@ -30,7 +30,6 @@ def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, config=Non
     return nodeStackClass.initLocalKeys(name, baseDir, sigseed,
                                         override=override)
 
-
 def areKeysSetup(name, baseDir, config=None):
     return nodeStackClass.areKeysSetup(name, baseDir)
 

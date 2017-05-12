@@ -10,8 +10,6 @@ def testUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        orientdb.start()
-
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside('--network host') {
@@ -24,7 +22,6 @@ def testUbuntu = {
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
-        orientdb.stop()
         step([$class: 'WsCleanup'])
     }
 }
@@ -60,9 +57,6 @@ def testWindowsNoDocker = {
         echo 'Windows No Docker Test: Checkout csm'
         checkout scm
 
-        echo 'Windows No Docker Test: drop orientdb databases'
-        orientdb.cleanupWindows()
-
         testHelpers.createVirtualEnvAndExecute({ python, pip ->
             echo 'Windows No Docker Test: Install dependencies'
             testHelpers.install(python: python, pip: pip, isVEnv: true)
@@ -77,7 +71,10 @@ def testWindowsNoDocker = {
     }
 }
 
-
-
 //testAndPublish(name, [ubuntu: testUbuntu, windows: testWindowsNoDocker, windowsNoDocker: testWindowsNoDocker])
-testAndPublish(name, [ubuntu: testUbuntu])
+
+options = new TestAndPublishOptions()
+options.skip([StagesEnum.GITHUB_RELEASE])
+options.setPublishableBranches(['3pc-batch']) //REMOVE IT BEFORE MERGE
+options.setPostfixes([master: '3pc-batch']) //REMOVE IT BEFORE MERGE
+testAndPublish(name, [ubuntu: testUbuntu], true, options)

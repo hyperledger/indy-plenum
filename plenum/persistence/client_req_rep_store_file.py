@@ -1,12 +1,11 @@
 import json
 import os
-from collections import OrderedDict, namedtuple
-from typing import Any, Sequence, List, Dict
+from collections import namedtuple
+from typing import Any, List, Dict
 
-from plenum.common.constants import REQACK, REQNACK, REPLY
+from plenum.common.constants import REQACK, REQNACK, REPLY, REJECT
 
 from ledger.stores.directory_store import DirectoryStore
-from ledger.util import F
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
@@ -16,7 +15,7 @@ from plenum.persistence.client_req_rep_store import ClientReqRepStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
-    LinePrefixes = namedtuple('LP', ['Request', REQACK, REQNACK, REPLY])
+    LinePrefixes = namedtuple('LP', ['Request', REQACK, REQNACK, REJECT, REPLY])
 
     def __init__(self, name, baseDir):
         self.baseDir = baseDir
@@ -28,8 +27,8 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
             os.makedirs(self.dataLocation)
         self.reqStore = DirectoryStore(self.dataLocation, "Requests")
         self._serializer = None
+        self.linePrefixes = self.LinePrefixes('0', 'A', 'N', 'J', 'R')
         self.delimiter = '~'
-        self.linePrefixes = self.LinePrefixes('0', 'A', 'N', 'R')
 
     @property
     def lastReqId(self) -> int:
@@ -60,6 +59,16 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         reason = msg[f.REASON.nm]
         self.reqStore.appendToValue(key, "{}{}{}{}{}".
                                     format(self.linePrefixes.REQNACK,
+                                           self.delimiter, sender,
+                                           self.delimiter, reason))
+
+    def addReject(self, msg: Any, sender: str):
+        idr = msg[f.IDENTIFIER.nm]
+        reqId = msg[f.REQ_ID.nm]
+        key = "{}{}".format(idr, reqId)
+        reason = msg[f.REASON.nm]
+        self.reqStore.appendToValue(key, "{}{}{}{}{}".
+                                    format(self.linePrefixes.REJECT,
                                            self.delimiter, sender,
                                            self.delimiter, reason))
 
@@ -99,6 +108,15 @@ class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):
         nackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
                                              format(self.linePrefixes.REQNACK,
                                                     self.delimiter))
+        result = {}
+        for line in nackLines:
+            sender, reason = line[2:].split(self.delimiter, 1)
+            result[sender] = reason
+        return result
+
+    def getRejects(self, identifier: str, reqId: int) -> dict:
+        nackLines = self._getLinesWithPrefix(identifier, reqId, "{}{}".
+                                             format(self.linePrefixes.REJECT, self.delimiter))
         result = {}
         for line in nackLines:
             sender, reason = line[2:].split(self.delimiter, 1)

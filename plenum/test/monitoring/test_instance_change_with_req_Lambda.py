@@ -40,14 +40,14 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
     for node in startedNodes:
         node.monitor.Lambda = testLambda
 
-    slowRequest = None
+    slowed_request = False
 
     # make P (primary replica on master) faulty, i.e., slow to send
     # PRE-PREPARE for a specific client request only
     def specificPrePrepare(msg):
-        nonlocal slowRequest
-        if isinstance(msg, PrePrepare) and slowRequest is None:
-            slowRequest = getattr(msg, f.REQ_ID.nm)
+        nonlocal slowed_request
+        if isinstance(msg, PrePrepare) and slowed_request is False:
+            slowed_request = True
             return testLambda + 5  # just more that LAMBDA
 
     P.outBoxTestStasher.delay(specificPrePrepare)
