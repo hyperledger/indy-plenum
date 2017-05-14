@@ -1,4 +1,7 @@
-from plenum.test.helper import checkViewNoForNodes, sendRandomRequests
+import types
+
+from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
+    sendReqsToNodesAndVerifySuffReplies
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -39,3 +42,26 @@ def provoke_and_wait_for_view_change(looper,
                                  client,
                                  timeout=timeout))
 
+def ensure_view_change(looper, nodes, client, wallet):
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
+    old_view_no = checkViewNoForNodes(nodes)
+
+    old_meths = {}
+    view_changes = {}
+    for node in nodes:
+        old_meths[node.name] = node.monitor.isMasterDegraded
+        view_changes[node.name] = node.monitor.totalViewChanges
+
+        def slow_master(self):
+            # Only allow one view change
+            return self.totalViewChanges == view_changes[self.name]
+
+        node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
+
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
+              client.config.PerfCheckFreq
+    looper.run(eventually(checkViewNoForNodes, nodes, old_view_no+1,
+                          retryWait=1, timeout=timeout))
+    for node in nodes:
+        node.monitor.isMasterDegraded = old_meths[node.name]
+    return old_view_no + 1

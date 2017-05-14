@@ -1,6 +1,5 @@
 import heapq
 import operator
-from base64 import b64encode, b64decode
 from collections import Callable
 from functools import partial
 from random import shuffle
@@ -9,14 +8,13 @@ import math
 from typing import Optional
 
 import time
-from ledger.ledger import Ledger
+from plenum.common.ledger import Ledger
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 
-from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq, ConsProofRequest
-from plenum.common.constants import POOL_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, LedgerState
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -352,7 +350,7 @@ class LedgerManager(HasActionQueue):
 
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
-        consProof = [b64encode(p).decode() for p in
+        consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
@@ -481,13 +479,13 @@ class LedgerManager(HasActionQueue):
         try:
             logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
                          format(self, tempTree.tree_size, finalSize,
-                                tempTree.root_hash, b64decode(finalMTH),
-                                [b64decode(p) for p in proof]))
+                                tempTree.root_hash, Ledger.strToHash(finalMTH),
+                                [Ledger.strToHash(p) for p in proof]))
             verified = verifier.verify_tree_consistency(tempTree.tree_size,
                                                         finalSize,
                                                         tempTree.root_hash,
-                                                        b64decode(finalMTH),
-                                                        [b64decode(p) for p in
+                                                        Ledger.strToHash(finalMTH),
+                                                        [Ledger.strToHash(p) for p in
                                                          proof])
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
@@ -778,10 +776,9 @@ class LedgerManager(HasActionQueue):
             seqNoStart,
             seqNoEnd,
             ppSeqNo,
-            b64encode(oldRoot).decode(),
-            b64encode(newRoot).decode(),
-            [b64encode(p).decode() for p in
-             proof]
+            Ledger.hashToStr(oldRoot),
+            Ledger.hashToStr(newRoot),
+            [Ledger.hashToStr(p) for p in proof]
         )
 
     def _compareLedger(self, status: LedgerStatus):

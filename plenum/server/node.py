@@ -23,7 +23,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -39,7 +39,7 @@ from plenum.common.request import Request
 from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
-from plenum.common.startable import Status, Mode, LedgerState
+from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
@@ -1737,11 +1737,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return (2 * self.f) + 1
 
-    def primaryFound(self):
+    def primary_found(self):
         # If the node has primary replica of master instance
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+        self.process_reqs_stashed_for_primary()
 
-    def canViewChange(self, proposedViewNo: int) -> bool:
+    @property
+    def all_instances_have_primary(self):
+        return all(r.primaryName is not None for r in self.replicas)
+
+    def canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
         number and its view is less than or equal to the proposed view

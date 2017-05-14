@@ -1,8 +1,6 @@
 import types
-from base64 import b64encode
 
-import pytest
-
+from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
 from plenum.common.types import CatchupReq, f, CatchupRep
@@ -49,7 +47,7 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                 # Since the type of random request is `buy`
                 if txns[seqNo].get(TXN_TYPE) == "buy":
                     txns[seqNo][TXN_TYPE] = "randomtype"
-            consProof = [b64encode(p).decode() for p in
+            consProof = [Ledger.hashToStr(p) for p in
                          ledger.tree.consistency_proof(end, ledger.size)]
             self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                        consProof), to=frm)

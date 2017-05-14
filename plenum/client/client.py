@@ -12,6 +12,7 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
+from plenum.common.ledger import Ledger
 from plenum.common.stacks import nodeStackClass
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
@@ -31,10 +32,10 @@ from stp_core.common.log import getlogger
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
-from plenum.common.startable import Status, LedgerState, Mode
+from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
-    POOL_LEDGER_ID, TXN_TIME
+    POOL_LEDGER_ID, TXN_TIME, LedgerState
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
@@ -106,7 +107,7 @@ class Client(Motor,
             self.mode = None
             HasPoolManager.__init__(self)
             self.ledgerManager = LedgerManager(self, ownedByNode=False)
-            self.ledgerManager.addLedger(0, self.ledger,
+            self.ledgerManager.addLedger(POOL_LEDGER_ID, self.ledger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
                 postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         else:
@@ -624,13 +625,12 @@ class Client(Motor,
         ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name, TXN_TIME}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
-            rootHash = base64.b64decode(
-                r[f.RESULT.nm][F.rootHash.name].encode())
-            auditPath = [base64.b64decode(
-                a.encode()) for a in r[f.RESULT.nm][F.auditPath.name]]
+            rootHash = Ledger.strToHash(
+                r[f.RESULT.nm][F.rootHash.name])
+            auditPath = [Ledger.strToHash(a) for a in
+                         r[f.RESULT.nm][F.auditPath.name]]
             filtered = dict((k, v) for (k, v) in r[f.RESULT.nm].items()
-                        if k not in ignored
-                        )
+                            if k not in ignored)
             result = serializer.serialize(filtered)
             verifier.verify_leaf_inclusion(result, seqNo - 1,
                                            auditPath,

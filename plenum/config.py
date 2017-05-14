@@ -164,7 +164,7 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 5
+Max3PCBatchWait = 1
 
 # Maximum lifespan for a batch, this needs to be changed if
 # `Max3PCBatchSize` is changed
