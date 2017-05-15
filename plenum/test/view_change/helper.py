@@ -42,6 +42,7 @@ def provoke_and_wait_for_view_change(looper,
                                  client,
                                  timeout=timeout))
 
+
 def ensure_view_change(looper, nodes, client, wallet):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
     old_view_no = checkViewNoForNodes(nodes)

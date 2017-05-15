@@ -424,9 +424,9 @@ def checkReplyCount(client, idr, reqId, count):
     assertLength(senders, count)
 
 
-def waitReplyCount(looper, client, idr, reqId, count):
-    numOfNodes = len(client.nodeReg)
-    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
+    timeout = custom_timeout or waits.expectedTransactionExecutionTime(
+        len(client.nodeReg))
     looper.run(eventually(checkReplyCount, client, idr, reqId, count,
                           timeout=timeout))
 
