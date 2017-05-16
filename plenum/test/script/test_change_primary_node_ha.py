@@ -12,7 +12,8 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'conflicting address', 'unable to send message',
              'got error while verifying message']
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
+
+@pytest.mark.skip(reason='SOV-330')
 def testChangeNodeHaForPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                poolTxnData, poolTxnStewardNames, tconf):
     changeNodeHa(looper,

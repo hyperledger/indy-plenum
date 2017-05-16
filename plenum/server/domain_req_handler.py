@@ -48,8 +48,17 @@ class DomainRequestHandler(RequestHandler):
 
     def apply(self, req: Request):
         txn = self._reqToTxn(req)
-        (start, end), _ = self.ledger.appendTxns([txn])
+        (start, end), _ = self.ledger.appendTxns([self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
+        return txn
+
+    @staticmethod
+    def transform_txn_for_ledger(txn):
+        """
+        Some transactions need to be updated before they can be stored in the
+        ledger, eg. storing certain payload in another data store and only its
+        hash in the ledger
+        """
         return txn
 
     def updateState(self, txns, isCommitted=False):

@@ -13,7 +13,7 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
              'got error while verifying message']
 
 
-@pytest.mark.skipif('sys.platform == "win32"', reason='SOV-330')
+@pytest.mark.skip(reason='SOV-330')
 def testChangeNodeHaForNonPrimary(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                   poolTxnData, poolTxnStewardNames, tconf):
 

@@ -4,7 +4,7 @@ import random
 import string
 from _signal import SIGINT
 from functools import partial
-from itertools import permutations
+from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
 from time import sleep
@@ -588,7 +588,7 @@ def checkLedgerEquality(ledger1, ledger2):
 
 
 def checkAllLedgersEqual(*ledgers):
-    for l1, l2 in permutations(ledgers, 2):
+    for l1, l2 in combinations(ledgers, 2):
         checkLedgerEquality(l1, l2)
 
 
@@ -598,9 +598,10 @@ def checkStateEquality(state1, state2):
     assertEquality(state1.committedHead, state2.committedHead)
 
 
-def checkAllStatesEqual(*states):
-    for s1, s2 in permutations(states, 2):
-        checkStateEquality(s1, s2)
+def check_seqno_db_equality(db1, db2):
+    assert db1.size == db2.size
+    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
+           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
 
 
 def randomText(size):

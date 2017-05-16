@@ -321,6 +321,10 @@ class LedgerManager(HasActionQueue):
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
                      format(self, req, frm))
+        if not self.ownedByNode:
+            self.discard(req, reason="Only node can serve catchup requests",
+                         logMethod=logger.warn)
+            return
 
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
@@ -352,6 +356,9 @@ class LedgerManager(HasActionQueue):
                      format(self, end, req.catchupTill))
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
+
+        for seq_no in txns:
+            txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
 
@@ -420,7 +427,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        merkleInfo = ledger.add(txn)
+                        merkleInfo = ledger.add(self._transform(txn))
                         txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
                         ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
@@ -448,6 +455,14 @@ class LedgerManager(HasActionQueue):
                 break
         ledgerInfo.recvdCatchupRepliesFrm[node].pop(i)
 
+    def _transform(self, txn):
+        # Certain transactions other than pool ledger might need to be
+        # transformed to certain format before applying to the ledger
+        if not self.ownedByNode:
+            return txn
+        else:
+            return self.owner.transform_txn_for_ledger(txn)
+
     def hasValidCatchupReplies(self, ledgerId, ledger, seqNo, catchUpReplies):
         # Here seqNo has to be the seqNo of first transaction of
         # `catchupReplies`
@@ -458,10 +473,13 @@ class LedgerManager(HasActionQueue):
                                                                seqNo)
 
         txns = getattr(catchupReply, f.TXNS.nm)
+
         # Add only those transaction in the temporary tree from the above
         # batch
+
         # Transfers of odcits in RAET converts integer keys to string
-        txns = [txn for s, txn in catchUpReplies[:len(txns)] if str(s) in txns]
+        txns = [self._transform(txn) for s, txn in catchUpReplies[:len(txns)]
+                if str(s) in txns]
 
         # Creating a temporary tree which will be used to verify consistency
         # proof, by inserting transactions. Duplicating a merkle tree is not
@@ -469,8 +487,6 @@ class LedgerManager(HasActionQueue):
         tempTree = ledger.treeWithAppliedTxns(txns)
 
         proof = getattr(catchupReply, f.CONS_PROOF.nm)
-
-
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         verifier = ledgerInfo.verifier
         cp = ledgerInfo.catchUpTill

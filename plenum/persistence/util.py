@@ -6,6 +6,9 @@ from ledger.util import F
 
 
 def txnsWithSeqNo(seqNoStart, seqNoEnd, txns):
+    """
+    Update each transaction with a sequence number field
+    """
     txns = deepcopy(txns)
     for txn, seqNo in zip(txns, range(seqNoStart, seqNoEnd + 1)):
         txn[F.seqNo.name] = seqNo
@@ -13,6 +16,9 @@ def txnsWithSeqNo(seqNoStart, seqNoEnd, txns):
 
 
 def txnsWithMerkleInfo(ledger, committedTxns):
+    """
+    Update each transaction with the merkle root hash and audit path
+    """
     committedTxns = deepcopy(committedTxns)
     for txn in committedTxns:
         mi = ledger.merkleInfo(txn.get(F.seqNo.name))
