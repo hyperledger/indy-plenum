@@ -568,7 +568,11 @@ class Client(Motor,
                          'received for request'.format(remote, self))
 
 
-            self.nodestack.connect(name=remote.name)
+            # This makes client to reconnect
+            # even if pool is just busy and cannot answer quickly,
+            # that's why using maintainConnections instead
+            # self.nodestack.connect(name=remote.name)
+            self.nodestack.maintainConnections()
 
         if aliveRequests:
             # Need a delay in case connection has to be established with some
