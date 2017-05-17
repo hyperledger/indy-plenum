@@ -3,11 +3,14 @@ from typing import NamedTuple, Any, List, Mapping, Optional, TypeVar, Dict, \
 
 import sys
 from collections import namedtuple
+
 from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME
+from plenum.common.messages.field_types import *
+from plenum.common.messages.message_base import MessageBase
 from stp_core.types import HA
 
 NodeDetail = NamedTuple("NodeDetail", [
@@ -102,11 +105,22 @@ def TaggedTuple(typename, fields) -> NamedTuple:
     cls.typename = typename
     return cls
 
-Nomination = TaggedTuple(NOMINATE, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
+
+class Nomination(MessageBase):
+    typename = NOMINATE
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Nomination = TaggedTuple(NOMINATE, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
+
 
 Batch = TaggedTuple(BATCH, [
     f.MSGS,
@@ -118,11 +132,18 @@ Batch = TaggedTuple(BATCH, [
 # that would have round number 2. If a node receives a reelection message with
 # a round number that is not 1 greater than the reelections rounds it has
 # already seen then it rejects that message
-Reelection = TaggedTuple(REELECTION, [
-    f.INST_ID,
-    f.ROUND,
-    f.TIE_AMONG,
-    f.VIEW_NO])
+
+
+class Reelection(MessageBase):
+    typename = REELECTION
+
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.ROUND.nm, NonNegativeNumberField()),
+        (f.TIE_AMONG.nm, IterableField(NonEmptyStringField())),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+    )
+
 
 # Declaration of a winner
 Primary = TaggedTuple(PRIMARY, [
@@ -283,6 +304,13 @@ def loadRegistry():
                         for x in dir(this) if
                         callable(getattr(getattr(this, x), "melted", None))
                         and getattr(getattr(this, x), "_fields", None)}
+        # attach MessageBase, for pre-testing procedure
+        # TODO: add MessageBase classes another way
+        TaggedTuples.update(
+            {getattr(this, x).typename: getattr(this, x)
+             for x in dir(this)
+             if getattr(getattr(this, x), "schema", None) and issubclass(getattr(this, x), MessageBase)}
+        )
 
 loadRegistry()
 
