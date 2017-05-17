@@ -588,18 +588,17 @@ class Client(Motor,
 
     def resendRequests(self, keys):
         for key, nodes in keys.items():
-            if nodes:
-                request = self.reqRepStore.getRequest(*key)
-                logger.debug('{} resending request {} to {}'.
-                             format(self, request, nodes))
-                self.sendToNodes(request, nodes)
-                now = time.perf_counter()
-                if key in self.expectingAcksFor:
-                    _, _, c = self.expectingAcksFor[key]
-                    self.expectingAcksFor[key] = (nodes, now, c + 1)
-                if key in self.expectingRepliesFor:
-                    _, _, c = self.expectingRepliesFor[key]
-                    self.expectingRepliesFor[key] = (nodes, now, c + 1)
+            if not nodes:
+                continue
+            request = self.reqRepStore.getRequest(*key)
+            logger.debug('{} resending request {} to {}'.
+                         format(self, request, nodes))
+            self.sendToNodes(request, nodes)
+            now = time.perf_counter()
+            for queue in [self.expectingAcksFor, self.expectingRepliesFor]:
+                if key in queue:
+                    _, _, retries = queue[key]
+                    queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
