@@ -2166,6 +2166,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.send(msg, *rids, signer=signer)
 
     def getReplyFromLedger(self, ledger, request):
+        # DoS attack vector, client requesting already processed request id
+        # results in iterating over ledger (or its subset)
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))

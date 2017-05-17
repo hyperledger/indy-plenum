@@ -64,7 +64,10 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
-DELTA = 0.8
+
+# Temporarily reducing DELTA till the calculations for extra work are not
+# incorporated
+DELTA = 0.4
 LAMBDA = 60
 OMEGA = 5
 SendMonitorStats = False
