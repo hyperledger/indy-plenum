@@ -64,7 +64,10 @@ stewardThreshold = 20
 
 # Monitoring configuration
 PerfCheckFreq = 10
-DELTA = 0.8
+
+# Temporarily reducing DELTA till the calculations for extra work are not
+# incorporated
+DELTA = 0.4
 LAMBDA = 60
 OMEGA = 5
 SendMonitorStats = False
@@ -164,7 +167,7 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 5
+Max3PCBatchWait = 1
 
 # Maximum lifespan for a batch, this needs to be changed if
 # `Max3PCBatchSize` is changed

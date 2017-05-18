@@ -161,7 +161,8 @@ overriddenConfigValues = {
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
     'EnsureLedgerDurability': False,
-    'Max3PCBatchSize': 1
+    'Max3PCBatchSize': 1,
+    'DELTA': .8
 }
 
 

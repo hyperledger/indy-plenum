@@ -35,5 +35,9 @@ class ReqIdrToTxn:
         except (KeyError, ValueError):
             return None
 
+    @property
+    def size(self):
+        return self._keyValueStorage.size
+
     def close(self):
         self._keyValueStorage.close()

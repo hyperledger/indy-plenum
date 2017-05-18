@@ -1,6 +1,5 @@
 import heapq
 import operator
-from base64 import b64encode, b64decode
 from collections import Callable
 from functools import partial
 from random import shuffle
@@ -9,14 +8,13 @@ import math
 from typing import Optional
 
 import time
-from ledger.ledger import Ledger
+from plenum.common.ledger import Ledger
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 
-from plenum.common.startable import LedgerState
 from plenum.common.types import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq, ConsProofRequest
-from plenum.common.constants import POOL_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, LedgerState
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -323,6 +321,10 @@ class LedgerManager(HasActionQueue):
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
                      format(self, req, frm))
+        if not self.ownedByNode:
+            self.discard(req, reason="Only node can serve catchup requests",
+                         logMethod=logger.warn)
+            return
 
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
@@ -352,8 +354,11 @@ class LedgerManager(HasActionQueue):
 
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
-        consProof = [b64encode(p).decode() for p in
+        consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
+
+        for seq_no in txns:
+            txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
 
@@ -422,7 +427,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        merkleInfo = ledger.add(txn)
+                        merkleInfo = ledger.add(self._transform(txn))
                         txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
                         ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
@@ -450,6 +455,14 @@ class LedgerManager(HasActionQueue):
                 break
         ledgerInfo.recvdCatchupRepliesFrm[node].pop(i)
 
+    def _transform(self, txn):
+        # Certain transactions other than pool ledger might need to be
+        # transformed to certain format before applying to the ledger
+        if not self.ownedByNode:
+            return txn
+        else:
+            return self.owner.transform_txn_for_ledger(txn)
+
     def hasValidCatchupReplies(self, ledgerId, ledger, seqNo, catchUpReplies):
         # Here seqNo has to be the seqNo of first transaction of
         # `catchupReplies`
@@ -460,10 +473,13 @@ class LedgerManager(HasActionQueue):
                                                                seqNo)
 
         txns = getattr(catchupReply, f.TXNS.nm)
+
         # Add only those transaction in the temporary tree from the above
         # batch
+
         # Transfers of odcits in RAET converts integer keys to string
-        txns = [txn for s, txn in catchUpReplies[:len(txns)] if str(s) in txns]
+        txns = [self._transform(txn) for s, txn in catchUpReplies[:len(txns)]
+                if str(s) in txns]
 
         # Creating a temporary tree which will be used to verify consistency
         # proof, by inserting transactions. Duplicating a merkle tree is not
@@ -471,8 +487,6 @@ class LedgerManager(HasActionQueue):
         tempTree = ledger.treeWithAppliedTxns(txns)
 
         proof = getattr(catchupReply, f.CONS_PROOF.nm)
-
-
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         verifier = ledgerInfo.verifier
         cp = ledgerInfo.catchUpTill
@@ -481,13 +495,13 @@ class LedgerManager(HasActionQueue):
         try:
             logger.debug("{} verifying proof for {}, {}, {}, {}, {}".
                          format(self, tempTree.tree_size, finalSize,
-                                tempTree.root_hash, b64decode(finalMTH),
-                                [b64decode(p) for p in proof]))
+                                tempTree.root_hash, Ledger.strToHash(finalMTH),
+                                [Ledger.strToHash(p) for p in proof]))
             verified = verifier.verify_tree_consistency(tempTree.tree_size,
                                                         finalSize,
                                                         tempTree.root_hash,
-                                                        b64decode(finalMTH),
-                                                        [b64decode(p) for p in
+                                                        Ledger.strToHash(finalMTH),
+                                                        [Ledger.strToHash(p) for p in
                                                          proof])
         except Exception as ex:
             logger.info("{} could not verify catchup reply {} since {}".
@@ -778,10 +792,9 @@ class LedgerManager(HasActionQueue):
             seqNoStart,
             seqNoEnd,
             ppSeqNo,
-            b64encode(oldRoot).decode(),
-            b64encode(newRoot).decode(),
-            [b64encode(p).decode() for p in
-             proof]
+            Ledger.hashToStr(oldRoot),
+            Ledger.hashToStr(newRoot),
+            [Ledger.hashToStr(p) for p in proof]
         )
 
     def _compareLedger(self, status: LedgerStatus):

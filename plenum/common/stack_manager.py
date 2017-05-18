@@ -1,6 +1,6 @@
 import os
 import shutil
-from abc import abstractproperty
+from abc import abstractmethod
 from collections import OrderedDict
 
 from plenum.common.keygen_utils import initRemoteKeys
@@ -25,15 +25,18 @@ class TxnStackManager:
         self.isNode = isNode
         self.hashStore = None
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def hasLedger(self) -> bool:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ledgerLocation(self) -> str:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ledgerFile(self) -> str:
         raise NotImplementedError
 

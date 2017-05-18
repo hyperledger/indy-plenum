@@ -1,5 +1,5 @@
 # inter-node communication
-from enum import IntEnum
+from enum import IntEnum, unique
 
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
@@ -101,9 +101,18 @@ class StorageType(IntEnum):
     File = 1
     Ledger = 2
 
+
 class KeyValueStorageType(IntEnum):
     Leveldb = 1
     Memory = 2
+
+
+@unique
+class LedgerState(IntEnum):
+    not_synced = 1
+    syncing = 2
+    synced = 3
+
 
 OP_FIELD_NAME = "op"
 

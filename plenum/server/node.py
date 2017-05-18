@@ -23,7 +23,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -39,7 +39,7 @@ from plenum.common.request import Request
 from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
-from plenum.common.startable import Status, Mode, LedgerState
+from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
@@ -1200,7 +1200,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} appending to nodeinxbox {}".format(self, msg))
+        logger.debug("{} appending to nodeInbox {}".format(self, msg))
         self.nodeInBox.append((msg, frm))
 
     async def processNodeInBox(self):
@@ -1351,17 +1351,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered
-        self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
-        # Node has discovered other nodes now sync up domain ledger
-        for nm in self.nodestack.connecteds:
-            self.sendDomainLedgerStatus(nm)
-        self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
+        # The node might have discovered more nodes, so see if schedule
+        # election if needed.
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
         # Initialising node id in case where node's information was not present
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
         self.id
+        self.catchup_next_ledger_after_pool()
+
+    def catchup_next_ledger_after_pool(self):
+        self.start_domain_ledger_sync()
+
+    def start_domain_ledger_sync(self):
+        self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
+        for nm in self.nodestack.connecteds:
+            self.sendDomainLedgerStatus(nm)
+        self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -1375,13 +1382,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
                                          txn.get(f.REQ_ID.nm)))
 
-        rh = self.postTxnFromCatchup(ledgerId, txn)
+        rh = self.postRecvTxnFromCatchup(ledgerId, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
             state = self.getState(ledgerId)
             state.commit(rootHash=state.headHash)
+        self.updateSeqNoMap([txn])
 
-    def postTxnFromCatchup(self, ledgerId: int, txn: Any):
+    def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
         if ledgerId == POOL_LEDGER_ID:
             self.poolManager.onPoolMembershipChange(txn)
@@ -1394,6 +1402,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def allLedgersCaughtUp(self):
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
+        # TODO: next line not needed
         self.checkInstances()
 
     def getLedger(self, ledgerId):
@@ -1737,11 +1746,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return (2 * self.f) + 1
 
-    def primaryFound(self):
+    def primary_found(self):
         # If the node has primary replica of master instance
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+        self.process_reqs_stashed_for_primary()
 
-    def canViewChange(self, proposedViewNo: int) -> bool:
+    @property
+    def all_instances_have_primary(self):
+        return all(r.primaryName is not None for r in self.replicas)
+
+    def canViewChange(self, proposedViewNo: int) -> (bool, str):
         """
         Return whether there's quorum for view change for the proposed view
         number and its view is less than or equal to the proposed view
@@ -1860,15 +1874,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
                                txn[F.seqNo.name]) for txn in committedTxns)
 
+    def commitAndSendReplies(self, reqHandler, ppTime, reqs: List[Request],
+                             stateRoot, txnRoot) -> List:
+        committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        self.updateSeqNoMap(committedTxns)
+        committedTxns = txnsWithMerkleInfo(reqHandler.ledger,
+                                           committedTxns)
+        self.sendRepliesToClients(
+            map(self.update_txn_with_extra_data, committedTxns),
+            ppTime)
+        return committedTxns
+
     def executeDomainTxns(self, ppTime, reqs: List[Request], stateRoot,
                           txnRoot) -> List:
-        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
-        self.updateSeqNoMap(committedTxns)
+        committedTxns = self.commitAndSendReplies(self.reqHandler, ppTime, reqs,
+                                                  stateRoot, txnRoot)
         for txn in committedTxns:
             if txn[TXN_TYPE] == NYM:
                 self.addNewRole(txn)
-        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
-        self.sendRepliesToClients(committedTxns, ppTime)
         return committedTxns
 
     def onBatchCreated(self, ledgerId, stateRoot):
@@ -2143,6 +2166,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.send(msg, *rids, signer=signer)
 
     def getReplyFromLedger(self, ledger, request):
+        # DoS attack vector, client requesting already processed request id
+        # results in iterating over ledger (or its subset)
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
@@ -2150,7 +2175,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
         if txn:
             txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
+            txn = self.update_txn_with_extra_data(txn)
             return Reply(txn)
+
+    def update_txn_with_extra_data(self, txn):
+        """
+        All the data of the transaction might not be stored in ledger so the
+        extra data that is omitted from ledger needs to be fetched from the
+        appropriate data store
+        :param txn:
+        :return:
+        """
+        # All the data of any transaction is stored in the ledger
+        return txn
+
+    def transform_txn_for_ledger(self, txn):
+        return self.reqHandler.transform_txn_for_ledger(txn)
 
     def __enter__(self):
         return self
