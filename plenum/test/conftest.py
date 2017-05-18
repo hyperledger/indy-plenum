@@ -97,11 +97,13 @@ def warncheck(warnfilters):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime(tconf):
+def limitTestRunningTime(request, tconf):
     st = time.time()
     yield
     runningTime = time.time() - st
-    if runningTime > tconf.TestRunningTimeLimitSec:
+    time_limit = getValueFromModule(request, "TestRunningTimeLimitSec",
+                                    tconf.TestRunningTimeLimitSec)
+    if runningTime > time_limit:
         pytest.fail(
             'The running time of each test is limited by {} sec '
             '(actually the test has taken {:2.1f} sec).\n'

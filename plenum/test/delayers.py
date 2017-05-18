@@ -1,8 +1,9 @@
+import random
 from typing import Iterable
 
 from plenum.common.types import f, Propagate, PrePrepare, \
     Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, \
-    Nomination, CatchupRep
+    Nomination, CatchupRep, Primary, Reelection
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
@@ -63,9 +64,19 @@ def delayerMethod(method, delay):
     return inner
 
 
-def nom_delay(delay: float):
+def nom_delay(delay: float, inst_id=None):
     # Delayer of NOMINATE requests
-    return delayerMsgTuple(delay, Nomination)
+    return delayerMsgTuple(delay, Nomination, instFilter=inst_id)
+
+
+def prim_delay(delay: float, inst_id=None):
+    # Delayer of PRIMARY requests
+    return delayerMsgTuple(delay, Primary, instFilter=inst_id)
+
+
+def rel_delay(delay: float, inst_id=None):
+    # Delayer of REELECTION requests
+    return delayerMsgTuple(delay, Reelection, instFilter=inst_id)
 
 
 def ppgDelay(delay: float):
@@ -142,3 +153,33 @@ def delayNonPrimaries(nodeSet, instId, delay):
     nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
     for r in nonPrimReps:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
+    return nonPrimReps
+
+
+def delay_messages(typ, nodes, inst_id, delay=None, min_delay=None, max_delay=None):
+    if typ == 'election':
+        delay_meths = (nom_delay, prim_delay, rel_delay)
+    elif typ == '3pc':
+        delay_meths = (ppDelay, pDelay, cDelay)
+    else:
+        RuntimeError('Unknown type')
+    assert delay or (min_delay and max_delay)
+    for node in nodes:
+        if delay:
+            d = delay
+        else:
+            d = min_delay + random.randint(0, max_delay - min_delay)
+        for meth in delay_meths:
+            node.nodeIbStasher.delay(meth(d, inst_id))
+
+
+def delay_election_messages(nodes, inst_id, delay=None, min_delay=None,
+                            max_delay=None):
+    # Delay election message
+    delay_messages('election', nodes, inst_id, delay, min_delay, max_delay)
+
+
+def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
+                       max_delay=None):
+    # Delay 3 phase commit message
+    delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)

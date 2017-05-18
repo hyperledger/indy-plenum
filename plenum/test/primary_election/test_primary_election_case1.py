@@ -22,6 +22,7 @@ logger = getlogger()
 
 delayOfNomination = 5
 
+
 @pytest.fixture()
 def case1Setup(startedNodes: TestNodeSet):
     nodes = startedNodes
@@ -71,10 +72,9 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     # Node B sends multiple NOMINATE msgs for Node D but only after A has
     # nominated itself
-    timeout = waits.expectedPoolNominationTimeout(nodeCount=1)
+    timeout = waits.expectedPoolNominationTimeout(nodeCount=len(keySharedNodes))
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
-                          retryWait=.25,
-                          timeout=timeout))
+                          retryWait=.25, timeout=timeout))
 
     instId = getSelfNominationByNode(nodeA)
 

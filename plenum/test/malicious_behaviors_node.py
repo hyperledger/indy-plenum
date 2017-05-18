@@ -14,7 +14,8 @@ from plenum.common.util import updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
-from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica
+from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
+    getNonPrimaryReplicas
 from plenum.test.delayers import ppDelay
 
 logger = getlogger()
@@ -57,15 +58,18 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
 
-    def evilSendPrepare(self, request):
+    def evilSendPrepare(self, pp):
         prepare = Prepare(self.instId,
-                          request.viewNo,
-                          request.ppSeqNo,
-                          request.digest,
-                          request.stateRootHash,
-                          request.txnRootHash)
+                          pp.viewNo,
+                          pp.ppSeqNo,
+                          pp.digest,
+                          pp.pre_state_root,
+                          pp.pre_txn_root,
+                          pp.post_state_root,
+                          pp.post_txn_root,
+                          pp.post_ledger_size)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(request, prepare))
+                     format(pp, prepare))
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -132,16 +136,19 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         self.send(ppReq, TPCStat.PrePrepareSent)
 
-    def evilSendPrepare(self, ppReq):
+    def evilSendPrepare(self, pp):
         digest = "random"
         prepare = Prepare(self.instId,
-                          ppReq.viewNo,
-                          ppReq.ppSeqNo,
+                          pp.viewNo,
+                          pp.ppSeqNo,
                           digest,
-                          ppReq.stateRootHash,
-                          ppReq.txnRootHash)
+                          pp.pre_state_root,
+                          pp.pre_txn_root,
+                          pp.post_state_root,
+                          pp.post_txn_root,
+                          pp.post_ledger_size)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(ppReq, prepare))
+                     format(pp, prepare))
         self.addToPrepares(prepare, self.name)
         self.send(prepare, TPCStat.PrepareSent)
 
@@ -181,12 +188,20 @@ def faultyReply(node):
     node.generateReply = types.MethodType(newGenerateReply, node)
 
 
-def slow_primary(nodes, instId=0, delay=5):
+def slow_primary(nodes, inst_id=0, delay=5):
     # make primary replica slow to send PRE-PREPAREs
     def ifPrePrepare(msg):
         if isinstance(msg, PrePrepare):
             return delay
 
-    pr = getPrimaryReplica(nodes, instId)
+    pr = getPrimaryReplica(nodes, inst_id)
     pr.outBoxTestStasher.delay(ifPrePrepare)
     return pr
+
+
+def slow_non_primary(nodes, inst_id=0, delay=5):
+    # make non-primary replica slow to receive PRE-PREPAREs
+    npr = getNonPrimaryReplicas(nodes, inst_id)[0]
+    slow_node = npr.node
+    slow_node.nodeIbStasher.delay(ppDelay(delay, inst_id))
+    return npr

@@ -100,6 +100,9 @@ RAETLogFilePath = os.path.join(os.path.expanduser(baseDir), "raet.log")
 RAETLogFilePathCli = None
 RAETMessageTimeout = 60
 
+# An election should not last for more than `MaxElectionTimeoutFactor`*(num of nodes) for a single protocol instance
+MaxElectionTimeoutFactor = 3
+
 # Controls sending of view change messages, a node will only send view change
 # messages if it did not send any sent instance change messages in last
 # `ViewChangeWindowSize` seconds

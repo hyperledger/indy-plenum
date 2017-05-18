@@ -26,6 +26,10 @@ class Ledger(_Ledger):
         self.uncommittedRootHash = None
         self.uncommittedTree = None
 
+    @property
+    def uncommitted_size(self) -> int:
+        return self.size + len(self.uncommittedTxns)
+
     def appendTxns(self, txns: List):
         # These transactions are not yet committed so they do not go to
         # the ledger

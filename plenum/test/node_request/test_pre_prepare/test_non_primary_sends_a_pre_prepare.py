@@ -42,7 +42,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
     remainingNpr = nonPrimaryReplicas[1:]
 
     def sendPrePrepareFromNonPrimary():
-        firstNpr.requestQueues[DOMAIN_LEDGER_ID].append(propagated1)
+        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1)
         ppReq = firstNpr.create3PCBatch(DOMAIN_LEDGER_ID)
         firstNpr.sendPrePrepare(ppReq)
         return ppReq
@@ -54,8 +54,8 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
             recvdPps = recvdPrePrepare(r)
             assert len(recvdPps) == 1
             assert compareNamedTuple(recvdPps[0]['pp'], ppr,
-                                     f.DIGEST.nm, f.STATE_ROOT.nm,
-                                     f.TXN_ROOT.nm)
+                                     f.DIGEST.nm, f.POST_STATE_ROOT.nm,
+                                     f.POST_TXN_ROOT.nm, f.POST_LEDGER_SIZE.nm)
             nodeSuspicions = len(getNodeSuspicions(
                 r.node, Suspicions.PPR_FRM_NON_PRIMARY.code))
             assert nodeSuspicions == 1

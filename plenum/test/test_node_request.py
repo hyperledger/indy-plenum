@@ -44,51 +44,9 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                         if arg.instId == node.instances.masterId:
                             assert result
                         else:
-                            assert result is None
+                            assert result is False
             timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
-
-
-# noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-539. Implementation changed")
-def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
-    """Test no T-3"""
-    nodeNames = genNodeNames(7)
-    nodeReg = genNodeReg(names=nodeNames)
-    with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
-            prepareNodeSet(looper, nodeSet)
-            logger.debug("Add the seven nodes back in")
-            # Every node except A delays self nomination so A can become primary
-            nodeA = addNodeBack(nodeSet, looper, nodeNames[0])
-            for i in range(1, 7):
-                node = addNodeBack(nodeSet, looper, nodeNames[i])
-                node.delaySelfNomination(15)
-
-            nodeB = nodeSet.getNode(nodeNames[1])
-            # Node B delays PREPREPARE from node A(which would be the primary)
-            # for a long time.
-            nodeB.nodeIbStasher.delay(
-                delayerMsgTuple(120, PrePrepare, nodeA.name))
-
-            # Ensure elections are done
-            ensureElectionsDone(looper=looper, nodes=nodeSet)
-            assert nodeA.hasPrimary
-
-            instNo = nodeA.primaryReplicaNo
-            client1, wallet1 = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
-            req = sendRandomRequest(wallet1, client1)
-
-            # All nodes including B should return their ordered requests
-            for node in nodeSet:
-                # TODO set timeout from 'waits' after the test enabled
-                looper.run(eventually(checkRequestReturnedToNode, node,
-                                      wallet1.defaultId, req.reqId,
-                                      instNo, retryWait=1, timeout=30))
-
-            # Node B should not have received the PRE-PREPARE request yet
-            replica = nodeB.replicas[instNo]  # type: Replica
-            assert len(replica.prePrepares) == 0
 
 
 def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):

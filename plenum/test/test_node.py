@@ -257,7 +257,10 @@ class TestNode(TestNodeCore, Node):
 
 
 @spyable(methods=[
-        PrimaryElector.discard
+        PrimaryElector.discard,
+        PrimaryElector.processReelection,
+        PrimaryElector.get_acceptable_last_ordered_pp_seq_no,
+        PrimaryElector.get_min_safe_last_ordered_pp_seq_no
     ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
@@ -282,7 +285,10 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
-                  replica.Replica.stashOutsideWatermarks
+                  replica.Replica.stashOutsideWatermarks,
+                  replica.Replica.primary_changed,
+                  replica.Replica.remove_old_view_messages,
+                  replica.Replica.revert,
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):

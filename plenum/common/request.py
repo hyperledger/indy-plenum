@@ -4,7 +4,7 @@ from typing import Mapping, NamedTuple
 from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
-from plenum.common.constants import REQDIGEST
+from plenum.common.constants import REQDIGEST, REQKEY
 from plenum.common.types import f, OPERATION
 
 
@@ -77,3 +77,7 @@ class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
     @property
     def key(self):
         return self.identifier, self.reqId
+
+
+class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
+    pass

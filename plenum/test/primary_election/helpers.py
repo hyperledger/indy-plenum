@@ -1,5 +1,8 @@
+import random
+
 from plenum.common.types import Nomination, Primary
 from plenum.server.replica import Replica
+from plenum.test.delayers import nom_delay, prim_delay, rel_delay
 from plenum.test.test_node import TestNode
 
 
@@ -27,10 +30,14 @@ def getSelfNominationByNode(node: TestNode) -> int:
 
 
 def nominationByNode(name: str, byNode: TestNode, instId: int):
-    return Nomination(name, instId, byNode.viewNo,
-                      byNode.replicas[instId].lastOrderedPPSeqNo)
+    replica = byNode.replicas[instId]
+    summary = replica.last_ordered_summary
+    return Nomination(name, instId, byNode.viewNo, replica.lastOrderedPPSeqNo,
+                      summary)
 
 
 def primaryByNode(name: str, byNode: TestNode, instId: int):
-    return Primary(name, instId, byNode.viewNo,
-                   byNode.replicas[instId].lastOrderedPPSeqNo)
+    replica = byNode.replicas[instId]
+    summary = replica.last_ordered_summary
+    return Primary(name, instId, byNode.viewNo, replica.lastOrderedPPSeqNo,
+                   summary)

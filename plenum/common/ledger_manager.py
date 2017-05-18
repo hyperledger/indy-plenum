@@ -832,7 +832,7 @@ class LedgerManager(HasActionQueue):
 
     def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
         if ledgerType not in self.ledgerRegistry:
-            raise ValueError("Invalid ledger type: {}".format(ledgerType))
+            raise KeyError("Invalid ledger type: {}".format(ledgerType))
         return self.ledgerRegistry[ledgerType]
 
     def appendToLedger(self, ledgerId: int, txn: Any) -> Dict:
