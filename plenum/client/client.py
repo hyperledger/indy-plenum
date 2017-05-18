@@ -542,7 +542,7 @@ class Client(Motor,
         requestsWithNoReply, aliveRequests, notRepliedNodes = \
             self._filterExpected(now,
                                  self.expectingRepliesFor,
-                                 self.config.CLIENT_REQACK_TIMEOUT,
+                                 self.config.CLIENT_REPLY_TIMEOUT,
                                  self.config.CLIENT_MAX_RETRY_REPLY)
 
         for requestKey in requestsWithNoAck:
