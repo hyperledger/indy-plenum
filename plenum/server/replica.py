@@ -236,27 +236,23 @@ class Replica(HasActionQueue, MessageProcessor):
         self.lastOrderedPPSeqNo = 0
 
     def txnRootHash(self, ledgerId, toHex=True):
-        if self.isMaster:
-            ledger = self.node.getLedger(ledgerId)
-            h = ledger.uncommittedRootHash
-            # If no uncommittedHash since this is the beginning of the tree
-            # or no transactions affecting the ledger were made after the
-            # last changes were committed
-            root = h if h else ledger.tree.root_hash
-        else:
-            root = None
-
-        if root and toHex:
+        if not self.isMaster:
+            return None
+        ledger = self.node.getLedger(ledgerId)
+        h = ledger.uncommittedRootHash
+        # If no uncommittedHash since this is the beginning of the tree
+        # or no transactions affecting the ledger were made after the
+        # last changes were committed
+        root = h if h else ledger.tree.root_hash
+        if toHex:
             root = hexlify(root).decode()
         return root
 
     def stateRootHash(self, ledgerId, toHex=True):
-        if self.isMaster:
-            root = self.node.getState(ledgerId).headHash
-        else:
-            root = None
-
-        if root and toHex:
+        if not self.isMaster:
+            return None
+        root = self.node.getState(ledgerId).headHash
+        if toHex:
             root = hexlify(root).decode()
         return root
 
@@ -458,12 +454,13 @@ class Replica(HasActionQueue, MessageProcessor):
             if self.isMaster:
                 self.node.doDynamicValidation(req)
                 self.node.applyReq(req)
-            validReqs.append(req)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                         'will reject'.format(self, ex, req))
             rejects.append(Reject(req.identifier, req.reqId, ex))
             inValidReqs.append(req)
+        else:
+            validReqs.append(req)
 
     def create3PCBatch(self, ledgerId):
         # TODO: If no valid requests then PRE-PREPARE should be sent but rejects
@@ -841,6 +838,10 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
         if not self.node.isParticipating:
+            # Let the node stash the pre-prepare
+            # TODO: The next processed pre-prepare needs to take consider if
+            # the last pre-prepare was stashed or not since stashed requests
+            # do not make change to state or ledger
             return True
 
         nonFinReqs = self.nonFinalisedReqs(pp.reqIdr)
@@ -989,7 +990,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: the PREPARE
         """
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
-            return False, 'participate in consensus for {}'.format(prepare)
+            return False, 'should not participate in consensus for {}'.format(prepare)
         if not self.prepares.hasQuorum(prepare, self.f):
             return False, 'does not have prepare quorum for {}'.format(prepare)
         if self.hasCommitted(prepare):

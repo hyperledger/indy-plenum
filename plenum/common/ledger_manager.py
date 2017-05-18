@@ -265,6 +265,8 @@ class LedgerManager(HasActionQueue):
         # the received ledger status
         if self.ownedByNode and self.isLedgerNew(ledgerStatus):
             consistencyProof = self.getConsistencyProof(ledgerStatus)
+            if not consistencyProof:
+                return None
             self.sendTo(consistencyProof, frm)
 
         if self.isLedgerOld(ledgerStatus) or statusFromClient:
@@ -300,6 +302,7 @@ class LedgerManager(HasActionQueue):
             logger.debug("{} cannot process consistency "
                          "proof since in state {} and canSync is {}"
                          .format(self, ledgerInfo.state, ledgerInfo.canSync))
+            return False
 
         start = getattr(proof, f.SEQ_NO_START.nm)
         end = getattr(proof, f.SEQ_NO_END.nm)
@@ -526,9 +529,10 @@ class LedgerManager(HasActionQueue):
                      format(self, req, frm))
         if not self.ownedByNode:
             self.discard(req,
-                         reason='this ledger manager is not owned by node',
+                         reason='Only nodes can service this request',
                          logMethod=logger.warning)
             return
+
         ledgerId = getattr(req, f.LEDGER_ID.nm)
         seqNoStart = getattr(req, f.SEQ_NO_START.nm)
         seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
@@ -569,7 +573,6 @@ class LedgerManager(HasActionQueue):
                          logMethod=logger.info)
         if anyNew and noGapsOrDups:
             return txns
-
 
     # ASSUMING NO MALICIOUS NODES
     # Assuming that all nodes have the same state of the system and no node
@@ -682,16 +685,15 @@ class LedgerManager(HasActionQueue):
                          format(ledgerId))
             return
 
+        if proof is None:
+            self.catchupCompleted(ledgerId)
+            return
+        
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.state = LedgerState.syncing
         ledgerInfo.consistencyProofsTimer = None
         ledgerInfo.recvdConsistencyProofs = {}
 
-        if proof is None:
-            self.catchupCompleted(ledgerId)
-            return
-
-        ledgerInfo.state = LedgerState.syncing
         p = ConsistencyProof(*proof)
         rids = [self.nodestack.getRemote(nm).uid for nm in
                 self.nodestack.conns]
@@ -712,6 +714,9 @@ class LedgerManager(HasActionQueue):
                              0.1 * batchSize)
 
     def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=-1):
+        # Since multiple ledger will be caught up and catchups might happen
+        # multiple times for a single ledger, the largest seen
+        # ppSeqNo needs to be known.
         if self.lastCaughtUpPpSeqNo < lastPpSeqNo:
             self.lastCaughtUpPpSeqNo = lastPpSeqNo
 
@@ -771,6 +776,10 @@ class LedgerManager(HasActionQueue):
             logger.error("{} cannot build consistency "
                          "proof till {} since its ledger size is {}"
                          .format(self, seqNoEnd, ledgerSize))
+            return
+        if seqNoEnd < seqNoStart:
+            self.error('{} cannot build consistency proof since end {} is '
+                       'lesser than start {}'.format(self, seqNoEnd, seqNoStart))
             return
 
         if seqNoStart == 0:

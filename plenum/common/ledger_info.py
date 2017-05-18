@@ -1,10 +1,13 @@
 from collections import deque
 
+from plenum.common.constants import LedgerState
+from plenum.common.ledger import Ledger
+
 
 class LedgerInfo:
     def __init__(self,
-                 ledger,
-                 state,
+                 ledger: Ledger,
+                 state: LedgerState,
                  canSync,
                  preCatchupStartClbk,
                  postCatchupStartClbk,
