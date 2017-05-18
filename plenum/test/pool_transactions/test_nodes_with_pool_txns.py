@@ -94,8 +94,9 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
                                   'is not a base58 string')
 
 
-def testStewardCannotAddNodeWithInvalidHa(looper, tdir, txnPoolNodeSet,
-                                          newAdHocSteward):
+def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
+                                           txnPoolNodeSet,
+                                           newAdHocSteward):
     """
     Case (https://evernym.atlassian.net/browse/SOV-1046):
         Steward accidentally sends the NODE txn with an invalid HA.
