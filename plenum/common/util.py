@@ -294,6 +294,17 @@ def hexToFriendly(hx):
     return rawToFriendly(raw)
 
 
+def friendlyToHex(f):
+    if not isinstance(f, str):
+        f = f.decode('ascii')
+    raw = friendlyToRaw(f)
+    return hexlify(raw)
+
+
+def friendlyToHexStr(f):
+    return friendlyToHex(f).decode()
+
+
 def rawToFriendly(raw):
     return base58.b58encode(raw)
 
