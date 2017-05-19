@@ -109,9 +109,9 @@ class KeyValueStorageType(IntEnum):
 
 @unique
 class LedgerState(IntEnum):
-    not_synced = 1
-    syncing = 2
-    synced = 3
+    not_synced = 1  # Still gathering consistency proofs
+    syncing = 2     # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
+    synced = 3      # Got replies for all catchup requests, indicating catchup complete for the ledger
 
 
 OP_FIELD_NAME = "op"

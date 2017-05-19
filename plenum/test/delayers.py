@@ -2,7 +2,7 @@ from typing import Iterable
 
 from plenum.common.types import f, Propagate, PrePrepare, \
     Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, \
-    Nomination
+    Nomination, CatchupRep
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
@@ -103,9 +103,14 @@ def cpDelay(delay: float):
     return delayerMsgTuple(delay, ConsistencyProof)
 
 
-def crDelay(delay: float):
+def cqDelay(delay: float):
     # Delayer of CATCHUP_REQ requests
     return delayerMsgTuple(delay, CatchupReq)
+
+
+def cr_delay(delay: float):
+    # Delayer of CATCHUP_REP requests
+    return delayerMsgTuple(delay, CatchupRep)
 
 
 def delay(what, frm, to, howlong):

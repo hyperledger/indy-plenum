@@ -3,7 +3,7 @@ import types
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.types import CatchupReq, f
 from plenum.common.util import randomString
-from plenum.test.delayers import crDelay
+from plenum.test.delayers import cqDelay
 from plenum.test.helper import sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
@@ -35,7 +35,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
     for node in txnPoolNodeSet:
         node.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
             chkAfterCall, node.ledgerManager)
-        node.nodeIbStasher.delay(crDelay(3))
+        node.nodeIbStasher.delay(cqDelay(3))
 
     print('Sending 10 requests')
     sendRandomRequests(stewardWallet, steward1, 5)

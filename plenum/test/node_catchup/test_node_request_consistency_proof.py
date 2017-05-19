@@ -70,6 +70,7 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=75)
 
+    # Other nodes should have received a `ConsProofRequest` and processed it.
     for node in txnPoolNodeSet[:-1]:
         assert node.ledgerManager.spylog.count(
             TestLedgerManager.processConsistencyProofReq.__name__) > 0
