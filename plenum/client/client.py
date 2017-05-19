@@ -514,50 +514,51 @@ class Client(Motor,
     def stopRetrying(self):
         self.stopRepeating(self.retryForExpected, strict=False)
 
+    def _filterExpected(self, now, queue, retryTimeout, maxRetry):
+        deadRequests = []
+        aliveRequests = {}
+        notAnsweredNodes = set()
+        for requestKey, (expectedFrom, lastTried, retries) in queue.items():
+            if now < lastTried + retryTimeout:
+                continue
+            if retries >= maxRetry:
+                deadRequests.append(requestKey)
+                continue
+            if requestKey not in aliveRequests:
+                aliveRequests[requestKey] = set()
+            aliveRequests[requestKey].update(expectedFrom)
+            notAnsweredNodes.update(expectedFrom)
+        return deadRequests, aliveRequests, notAnsweredNodes
+
     def retryForExpected(self):
         now = time.perf_counter()
-        keys = {}
-        nodesNotSendingAck = set()
 
-        # Collect nodes which did not send REQACK
-        clearKeys = []
-        for reqKey, (expectedFrom, lastTried, retries) in \
-                self.expectingAcksFor.items():
-            if now > (lastTried + self.config.CLIENT_REQACK_TIMEOUT):
-                if retries < self.config.CLIENT_MAX_RETRY_ACK:
-                    if reqKey not in keys:
-                        keys[reqKey] = set()
-                    keys[reqKey].update(expectedFrom)
-                    nodesNotSendingAck.update(expectedFrom)
-                else:
-                    clearKeys.append(reqKey)
+        requestsWithNoAck, aliveRequests, notAckedNodes = \
+            self._filterExpected(now,
+                                 self.expectingAcksFor,
+                                 self.config.CLIENT_REQACK_TIMEOUT,
+                                 self.config.CLIENT_MAX_RETRY_ACK)
 
-        # Dont try for the requests which have gone beyond retry limits
-        for k in clearKeys:
-            logger.debug('{} did not get ACK for {} and will not try again'.
-                         format(self, k))
-            self.expectingAcksFor.pop(k)
+        requestsWithNoReply, aliveRequests, notRepliedNodes = \
+            self._filterExpected(now,
+                                 self.expectingRepliesFor,
+                                 self.config.CLIENT_REPLY_TIMEOUT,
+                                 self.config.CLIENT_MAX_RETRY_REPLY)
 
-        # Collect nodes which did not send REPLY
-        clearKeys = []
-        for reqKey, (expectedFrom, lastTried, retries) in \
-                self.expectingRepliesFor.items():
-            if now > (lastTried + self.config.CLIENT_REPLY_TIMEOUT):
-                if retries < self.config.CLIENT_MAX_RETRY_REPLY:
-                    if reqKey not in keys:
-                        keys[reqKey] = set()
-                    keys[reqKey].update(expectedFrom)
-                else:
-                    clearKeys.append(reqKey)
-        for k in clearKeys:
-            logger.debug('{} did not get REPLY for {} and will not try again'.
-                         format(self, k))
-            self.expectingRepliesFor.pop(k)
+        for requestKey in requestsWithNoAck:
+            logger.debug('{} have got no ACKs for {} and will not try again'
+                         .format(self, requestKey))
+            self.expectingAcksFor.pop(requestKey)
 
-        if nodesNotSendingAck:
-            logger.debug('{} going to retry for {}'.format(self,
-                                                           self.expectingAcksFor.keys()))
-        for nm in nodesNotSendingAck:
+        for requestKey in requestsWithNoReply:
+            logger.debug('{} have got no REPLYs for {} and will not try again'
+                         .format(self, requestKey))
+            self.expectingRepliesFor.pop(requestKey)
+
+        if notAckedNodes:
+            logger.debug('{} going to retry for {}'
+                         .format(self, self.expectingAcksFor.keys()))
+        for nm in notAckedNodes:
             try:
                 remote = self.nodestack.getRemote(nm)
             except RemoteNotFound:
@@ -565,9 +566,15 @@ class Client(Motor,
                 continue
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
-            self.nodestack.connect(name=remote.name)
 
-        if keys:
+
+            # This makes client to reconnect
+            # even if pool is just busy and cannot answer quickly,
+            # that's why using maintainConnections instead
+            # self.nodestack.connect(name=remote.name)
+            self.nodestack.maintainConnections()
+
+        if aliveRequests:
             # Need a delay in case connection has to be established with some
             # nodes, a better way is not to assume the delay value but only
             # send requests once the connection is established. Also it is
@@ -576,23 +583,22 @@ class Client(Motor,
             # the value in stats of the stack and look for changes in count of
             # `message_reject_rx` but that is not very helpful either since
             # it does not record which node rejected
-            delay = 3 if nodesNotSendingAck else 0
-            self._schedule(partial(self.resendRequests, keys), delay)
+            delay = 3 if notAckedNodes else 0
+            self._schedule(partial(self.resendRequests, aliveRequests), delay)
 
     def resendRequests(self, keys):
         for key, nodes in keys.items():
-            if nodes:
-                request = self.reqRepStore.getRequest(*key)
-                logger.debug('{} resending request {} to {}'.
-                             format(self, request, nodes))
-                self.sendToNodes(request, nodes)
-                now = time.perf_counter()
-                if key in self.expectingAcksFor:
-                    _, _, c = self.expectingAcksFor[key]
-                    self.expectingAcksFor[key] = (nodes, now, c + 1)
-                if key in self.expectingRepliesFor:
-                    _, _, c = self.expectingRepliesFor[key]
-                    self.expectingRepliesFor[key] = (nodes, now, c + 1)
+            if not nodes:
+                continue
+            request = self.reqRepStore.getRequest(*key)
+            logger.debug('{} resending request {} to {}'.
+                         format(self, request, nodes))
+            self.sendToNodes(request, nodes)
+            now = time.perf_counter()
+            for queue in [self.expectingAcksFor, self.expectingRepliesFor]:
+                if key in queue:
+                    _, _, retries = queue[key]
+                    queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
         ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
