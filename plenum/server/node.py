@@ -450,12 +450,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.config.primaryStorage is None:
             fields = getTxnOrderedFields()
+            defaultTxnFile = os.path.join(self.config.baseDir,
+                                       self.config.domainTransactionsFile)
+            if not os.path.exists(defaultTxnFile):
+                logger.debug("Not using default initialization file for "
+                             "domain ledger, since it does not exist: {}"
+                             .format(defaultTxnFile))
+                defaultTxnFile = None
+
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.dataLocation,
                           serializer=CompactSerializer(fields=fields),
                           fileName=self.config.domainTransactionsFile,
                           ensureDurability=self.config.EnsureLedgerDurability,
-                          defaultFile=self.config.domainTransactionsFile)
+                          defaultFile=defaultTxnFile)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,
