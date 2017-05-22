@@ -21,30 +21,30 @@ def test_message_missed_optional_field_pass(descriptor):
 @pytest.mark.parametrize('descriptor', argvalues=messages, ids=messages_names_shortcut)
 def test_message_invalid_value_fail(descriptor):
     for m in descriptor.negative_test_cases_invalid_value:
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(TypeError, message='did not raise {}'.format(m)) as exc_info:
             descriptor.klass(**m)
-        assert exc_info.match(r'Field \'.*\' validation error: .*')
+        assert exc_info.match(r'validation error: .*')
             
 
 @pytest.mark.parametrize('descriptor', argvalues=messages, ids=messages_names_shortcut)
 def test_message_missed_required_field_fail(descriptor):
     for m in descriptor.negative_test_cases_missed_required_field:
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(TypeError, message='did not raise {}'.format(m)) as exc_info:
             descriptor.klass(**m)
-        assert exc_info.match(r'Missed fields: .*')
+        assert exc_info.match(r'validation error: missed fields .*')
 
 
 @pytest.mark.parametrize('descriptor', argvalues=messages, ids=messages_names_shortcut)
 def test_message_extra_field_fail(descriptor):
     for m in descriptor.negative_test_cases_extra_field:
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(TypeError, message='did not raise {}'.format(m)) as exc_info:
             descriptor.klass(**m)
-        assert exc_info.match(r'Unknown field: .*')
+        assert exc_info.match(r'validation error: unknown field .*')
 
 
 @pytest.mark.parametrize('descriptor', argvalues=messages, ids=messages_names_shortcut)
 def test_message_wrong_type_fail(descriptor):
     for m in descriptor.negative_test_cases_wrong_type:
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(TypeError, message='did not raise {}'.format(m)) as exc_info:
             descriptor.klass(**m)
-        assert exc_info.match(r'Field \'.*\' validation error: expected types .*')
+        assert exc_info.match(r'validation error: .*')

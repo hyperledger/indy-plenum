@@ -35,7 +35,7 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
-from plenum.common.request import Request
+from plenum.common.request import Request, SafeRequest
 from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
@@ -1280,7 +1280,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.doStaticValidation(msg[f.IDENTIFIER.nm],
                                     msg[f.REQ_ID.nm],
                                     msg[OPERATION])
-            cls = Request
+            cls = SafeRequest
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
             cls = TaggedTuples.get(op, None)
@@ -1543,7 +1543,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
         reqDict = msg.request
-        request = Request(**reqDict)
+        request = SafeRequest(**reqDict)
 
         clientName = msg.senderClient
 

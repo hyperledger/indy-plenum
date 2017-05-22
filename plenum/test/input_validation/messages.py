@@ -181,6 +181,9 @@ messages = (
     # client NODE request
     build_client_request_message(node_operation_field),
 
+    # client NYM request
+    build_client_request_message(nym_operation_field),
+
 )
 
 messages_names_shortcut = list(map(lambda x: x.klass.__name__, messages))

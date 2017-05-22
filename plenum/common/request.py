@@ -1,6 +1,7 @@
 from hashlib import sha256
 from typing import Mapping, NamedTuple
 
+from plenum.common.messages.client_request import ClientMessageValidator
 from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
@@ -77,3 +78,10 @@ class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
     @property
     def key(self):
         return self.identifier, self.reqId
+
+
+class SafeRequest(Request, ClientMessageValidator):
+
+    def __init__(self, **kwargs):
+        self.validate(kwargs)
+        super().__init__(**kwargs)

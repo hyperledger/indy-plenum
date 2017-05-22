@@ -1,3 +1,4 @@
+from collections import namedtuple
 from copy import deepcopy
 
 import itertools
@@ -22,6 +23,22 @@ class TestFieldBase(TestCases):
     @property
     def field_type(self):
         raise NotImplementedError
+
+
+class ConstantField(TestFieldBase):
+    field_type = None
+
+    def __init__(self, name, value):
+        self.value = value
+        super().__init__(name)
+
+    @property
+    def negative_test_cases(self):
+        return []
+
+    @property
+    def positive_test_cases(self):
+        return [self.value]
 
 
 class PositiveNumberField(TestFieldBase):
@@ -151,9 +168,29 @@ class ServicesNodeOperation(TestFieldBase):
         return [
             [],
             [self.VALIDATOR],
-            [self.VALIDATOR, self.OBSERVER],
-            [self.VALIDATOR, self.VALIDATOR, self.OBSERVER],
+            [self.VALIDATOR, self.VALIDATOR],
         ]
+
+
+class VerkeyField(NonEmptyStringField):
+    # TODO implement
+    pass
+
+
+class RoleField(TestFieldBase):
+    field_type = str
+    roles = ('0', '2')
+
+    @property
+    def negative_test_cases(self):
+        return ['', 'foo', '3']
+
+    @property
+    def positive_test_cases(self):
+        return self.roles
+
+
+TestCase = namedtuple('TestCase', ['case', 'description'])
 
 
 class MessageDescriptor(TestFieldBase):
@@ -224,7 +261,7 @@ class MessageDescriptor(TestFieldBase):
         for field in self.fields:
             m = self._any_positive_case_copy
             for test_type in self._types_list:
-                if test_type == field.field_type:
+                if field.field_type is None or test_type == field.field_type:
                     continue
                 m[field.name] = test_type()
                 yield m

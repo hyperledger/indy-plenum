@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK,\
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME
-from plenum.common.messages.field_types import *
+from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase
 from stp_core.types import HA
 

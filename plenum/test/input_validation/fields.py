@@ -1,8 +1,5 @@
-from plenum.common.request import Request
-from plenum.test.input_validation.helper import NonEmptyStringField, PositiveNumberField, \
-    TimestampField, RequestIdrField, HexString64Field, LedgerIdFiled, \
-    ListField, IdentifierField, NetworkPortField, NetworkIpAddressField, \
-    ServicesNodeOperation, MessageDescriptor
+from plenum.common.request import SafeRequest
+from plenum.test.input_validation.helper import *
 
 name_field = NonEmptyStringField('name')
 
@@ -74,10 +71,15 @@ alias_field = NonEmptyStringField('alias')
 
 services_field = ServicesNodeOperation('services')
 
+dest_field = IdentifierField('dest')
+
+verkey_field = VerkeyField('verkey')
+
+role_field = RoleField('role')
+
 
 # creates node operation field
-def create_node_op(name=None):
-    return MessageDescriptor(
+client_node_op_data = MessageDescriptor(
         dict,
         fields=[
             node_port_field,
@@ -87,19 +89,46 @@ def create_node_op(name=None):
             alias_field,
             services_field,
         ],
+        name='data'
+    )
+
+
+def create_nym_op(name=None):
+    return MessageDescriptor(
+        dict,
+        fields=[
+            ConstantField('type', '1'),
+            alias_field,
+            verkey_field,
+            dest_field,
+            role_field,
+        ],
+        name=name,
+    )
+
+
+def create_node_op(name=None):
+    return MessageDescriptor(
+        dict,
+        fields=[
+            ConstantField('type', '0'),
+            dest_field,
+            client_node_op_data,
+        ],
         name=name
     )
 
 
 def build_client_request_message(op_field, name=None):
     return MessageDescriptor(
-        klass=Request,
+        klass=SafeRequest,
         fields=[
             identifier_field,
             req_id_field,
             op_field,
             signature_field,
         ],
+        optional_fields=(signature_field,),
         name=name
     )
 
@@ -107,7 +136,9 @@ def build_client_request_message(op_field, name=None):
 # check complex field using NODE op
 node_operation_field = create_node_op('operation')
 
-client_request_field = build_client_request_message(create_node_op(), 'request')
+nym_operation_field = create_nym_op('operation')
+
+client_request_field = build_client_request_message(create_node_op('op'), 'request')
 
 tnxs_field = ListField('txns', build_client_request_message(create_node_op()))
 
