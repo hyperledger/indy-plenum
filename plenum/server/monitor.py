@@ -69,6 +69,15 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # the time the master instance took for ordering it
         self.masterReqLatencies = {}  # type: Dict[Tuple[str, int], float]
 
+        # Request extra latencies for the master protocol instances. Key of the
+        # dictionary is a tuple of client id and request id and the value is
+        # the extra time (time to create a batch, for state interactions) the master
+        # instance took for ordering it
+        self.masterReqExtraLatencies = {}  # type: Dict[Tuple[str, int], float]
+
+        # Total request extra latencies for the master protocol instances
+        self.totalMasterReqExtraLatency = 0
+
         # Indicates that request latency in previous snapshot of master req
         # latencies was too high
         self.masterReqLatencyTooHigh = False
@@ -146,6 +155,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
             ("ordered request durations",
              {i: r[1] for i, r in enumerate(self.numOrderedRequests)}),
             ("master request latencies", self.masterReqLatencies),
+            ("master request extra latencies", self.masterReqExtraLatencies),
+            ("total master request extra latencies", self.totalMasterReqExtraLatency),
             ("client avg request latencies", self.clientAvgReqLatencies),
             ("throughput", {i: self.getThroughput(i)
                             for i in self.instances.ids}),
@@ -177,6 +188,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests = [(0, 0) for _ in self.instances.started]
         self.requestOrderingStarted = {}
         self.masterReqLatencies = {}
+        self.masterReqExtraLatencies = {}
+        self.totalMasterReqExtraLatency = 0
         self.masterReqLatencyTooHigh = False
         self.clientAvgReqLatencies = [{} for _ in self.instances.started]
         self.totalViewChanges += 1
@@ -190,6 +203,18 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
+
+    def addMasterReqExtraLatency(self, reqId: Tuple[str, int], latency: float):
+        """
+        Add new extra latency from master
+        """
+        if reqId not in self.masterReqExtraLatencies:
+            self.masterReqExtraLatencies[reqId] = 0
+        self.masterReqExtraLatencies[reqId] += latency
+
+        self.totalMasterReqExtraLatency += latency
+
+
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False) -> Dict:
         """
@@ -200,15 +225,22 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         now = time.perf_counter()
         durations = {}
         for identifier, reqId in reqIdrs:
-            if (identifier, reqId) not in self.requestOrderingStarted:
+            reqId = (identifier, reqId)
+            if reqId not in self.requestOrderingStarted:
                 logger.debug(
                     "Got ordered request with identifier {} and reqId {} "
                     "but it was from a previous view".
                     format(identifier, reqId))
                 continue
-            duration = now - self.requestOrderingStarted[(identifier, reqId)]
+            duration = now - self.requestOrderingStarted[reqId]
             if byMaster:
-                self.masterReqLatencies[(identifier, reqId)] = duration
+                if reqId in self.masterReqExtraLatencies:
+                    duration -= self.masterReqExtraLatencies[reqId]
+                    # TODO: retry from node.processOrdered seems incorrect
+                    # and will break the following deletion logic
+                    del self.masterReqExtraLatencies[reqId]
+
+                self.masterReqLatencies[reqId] = duration
                 self.orderedRequestsInLast.append(now)
                 self.latenciesByMasterInLast.append((now, duration))
             else:
@@ -342,7 +374,8 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         :param instId: the id of the protocol instance
         """
 
-        masterThrp = self.getThroughput(masterInstId)
+        masterThrp = self.getThroughput(masterInstId,
+                        self.totalMasterReqExtraLatency)
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
@@ -353,7 +386,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         backupThrp = totalReqs / totalTm if totalTm else None
         return masterThrp, backupThrp
 
-    def getThroughput(self, instId: int) -> float:
+    def getThroughput(self, instId: int, extraLatency: float = 0.0) -> float:
         """
         Return the throughput of the specified instance.
 
@@ -365,7 +398,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if instId >= self.instances.count:
             return None
         reqs, tm = self.numOrderedRequests[instId]
-        return reqs / tm if tm else None
+        return reqs / (tm - extraLatency) if tm else None
 
     def getInstanceMetrics(self, forAllExcept: int) -> float:
         """

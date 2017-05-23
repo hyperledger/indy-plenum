@@ -358,6 +358,9 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
 
+    def _perf_now(self):
+        return time.perf_counter()
+
     def _stateChanged(self):
         """
         A series of actions to be performed when the state of this replica
@@ -448,12 +451,17 @@ class Replica(HasActionQueue, MessageProcessor):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
+    def _addExtraTime(self, req: Request, tstart: float):
+        self.node.monitor.addMasterReqExtraLatency(req.key, self._perf_now() - tstart)
+
     def processReqDuringBatch(self, req: Request, validReqs: List,
                               inValidReqs: List, rejects: List):
         try:
             if self.isMaster:
+                now = self._perf_now()
                 self.node.doDynamicValidation(req)
                 self.node.applyReq(req)
+                self._addExtraTime(req, now)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                         'will reject'.format(self, ex, req))
@@ -1174,8 +1182,10 @@ class Replica(HasActionQueue, MessageProcessor):
                 logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
                              'catchup process'.format(self, pp.ppSeqNo))
                 for reqKey in pp.reqIdr[:pp.discarded]:
+                    now = self._perf_now()
                     req = self.requests[reqKey].finalised
                     self.node.applyReq(req)
+                    self._addExtraTime(req, now)
             self.stashingWhileCatchingUp.remove(key)
         self.send(ordered, TPCStat.OrderSent)
         logger.debug("{} ordered request {}".format(self, key))
