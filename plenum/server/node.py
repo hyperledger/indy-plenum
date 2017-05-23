@@ -142,12 +142,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Motor.__init__(self)
 
         self.hashStore = self.getHashStore(self.name)
-        self.initDomainLedger()
         self.primaryStorage = storage or self.getPrimaryStorage()
         self.ledgerManager = self.getLedgerManager()
         self.states = {}  # type: Dict[int, State]
 
-        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID, self.domainLedger,
+        self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
+                                     self.domainLedger,
                                      postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
                                      postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
@@ -285,6 +285,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # case the node crashes before sending the reply to the client
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
+        # TODO: this and tons of akin stuff should be exterminated
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
                 postCatchupCompleteClbk=self.postPoolLedgerCaughtUp,
@@ -397,8 +398,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def poolLedger(self):
-        return self.poolManager.ledger if isinstance(self.poolManager,
-                                                     TxnPoolManager) \
+        return self.poolManager.ledger \
+            if isinstance(self.poolManager, TxnPoolManager) \
             else None
 
     @property
@@ -449,12 +450,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.config.primaryStorage is None:
             fields = getTxnOrderedFields()
+            defaultTxnFile = os.path.join(self.config.baseDir,
+                                       self.config.domainTransactionsFile)
+            if not os.path.exists(defaultTxnFile):
+                logger.debug("Not using default initialization file for "
+                             "domain ledger, since it does not exist: {}"
+                             .format(defaultTxnFile))
+                defaultTxnFile = None
+
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.dataLocation,
                           serializer=CompactSerializer(fields=fields),
                           fileName=self.config.domainTransactionsFile,
-                          ensureDurability=self.config.EnsureLedgerDurability)
+                          ensureDurability=self.config.EnsureLedgerDurability,
+                          defaultFile=defaultTxnFile)
         else:
+            # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,
                                name=self.name+NODE_PRIMARY_STORAGE_SUFFIX,
                                dataDir=self.dataLocation,
@@ -1961,17 +1972,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     logger.error("Role if present must be {}".
                                  format(Roles.STEWARD.name))
                     return
-                self.clientAuthNr.addIdr(identifier, verkey=v.verkey,
+                self.clientAuthNr.addIdr(identifier,
+                                         verkey=v.verkey,
                                          role=role)
-
-    def initDomainLedger(self):
-        # If the domain ledger file is not present initialize it by copying
-        # from genesis transactions
-        if not self.hasFile(self.config.domainTransactionsFile):
-            defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.config.domainTransactionsFile)
-            if os.path.isfile(defaultTxnFile):
-                shutil.copy(defaultTxnFile, self.dataLocation)
 
     @staticmethod
     def initStateFromLedger(state: State, ledger: Ledger, reqHandler):

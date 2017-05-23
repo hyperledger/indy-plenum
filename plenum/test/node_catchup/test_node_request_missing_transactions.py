@@ -63,4 +63,4 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # timeout and retry catchup requests, hence a long test timeout.
     # Dont reduce it.
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                         customTimeout=90)
+                         customTimeout=100)

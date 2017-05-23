@@ -11,12 +11,16 @@ from ledger.ledger import Ledger as _Ledger
 
 class Ledger(_Ledger):
     @staticmethod
-    def _defaultStore(dataDir, logName, ensureDurability) -> FileStore:
+    def _defaultStore(dataDir,
+                      logName,
+                      ensureDurability,
+                      defaultFile=None) -> FileStore:
         return ChunkedFileStore(dataDir,
                                 logName,
                                 isLineNoKey=True,
                                 storeContentHash=False,
-                                ensureDurability=ensureDurability)
+                                ensureDurability=ensureDurability,
+                                defaultFile=defaultFile)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

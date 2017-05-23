@@ -108,6 +108,7 @@ def step3(step2):
     return step2
 
 
+@pytest.mark.skip(reason="SOV-1123 - fails intermittently")
 def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     # from plenum.test.test_node import ensureElectionsDone
     # ensureElectionsDone(looper, [])
@@ -115,6 +116,5 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, wallet1, client1):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 9)
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
-    timeout = waits.expectedPoolViewChangeStartedTimeout(len(step3.nodes))
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, wallet1, client1)
 
