@@ -26,10 +26,12 @@ class ClientNodeOperation(MessageValidator):
 class ClientNYMOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(NYM)),
-        (ALIAS, NonEmptyStringField()),
-        (VERKEY, VerkeyField()),
+        (ALIAS, NonEmptyStringField(optional=True)),
+        (VERKEY, VerkeyField(optional=True)),
         (TARGET_NYM, IdentifierField()),
-        (ROLE, ChooseField([Roles.TRUSTEE.value, Roles.STEWARD.value], optional=True)),
+        (ROLE, RoleField(optional=True)),
+        # TODO: validate role using ChooseField,
+        # do roles list expandable form outer context
     )
 
 

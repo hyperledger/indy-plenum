@@ -55,6 +55,14 @@ class SignatureField(FieldBase):
         return
 
 
+class RoleField(FieldBase):
+    _base_types = (str, type(None))
+    # TODO implement
+
+    def _specific_validation(self, val):
+        return
+
+
 class NonNegativeNumberField(FieldBase):
 
     _base_types = (int,)
@@ -171,9 +179,12 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
-class VerkeyField(NonEmptyStringField):
+class VerkeyField(FieldBase):
     _base_types = (str, )
     # TODO implement the rules
+
+    def _specific_validation(self, val):
+        return None
 
 
 class HexField(FieldBase):
