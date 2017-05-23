@@ -28,7 +28,7 @@ class ClientNYMOperation(MessageValidator):
         (ALIAS, NonEmptyStringField()),
         (VERKEY, VerkeyField()),
         (TARGET_NYM, IdentifierField()),
-        (ROLE, ChooseField([Roles.TRUSTEE.value, Roles.STEWARD.value])),
+        (ROLE, ChooseField([Roles.TRUSTEE.value, Roles.STEWARD.value], optional=True)),
     )
 
 
