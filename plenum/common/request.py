@@ -1,12 +1,11 @@
 from hashlib import sha256
 from typing import Mapping, NamedTuple
 
-from plenum.common.messages.client_request import ClientMessageValidator
 from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
 from plenum.common.constants import REQDIGEST
-from plenum.common.types import f, OPERATION
+from plenum.common.types import f, OPERATION, ClientMessageValidator
 
 
 class Request:

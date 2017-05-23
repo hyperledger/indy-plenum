@@ -1,6 +1,8 @@
 import ipaddress
 import re
 
+from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+
 
 class FieldValidator:
 
@@ -46,7 +48,7 @@ class NonEmptyStringField(FieldBase):
 
 
 class SignatureField(FieldBase):
-    _base_types = None
+    _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
 
     def _specific_validation(self, val):
@@ -78,14 +80,14 @@ class IterableField(FieldBase):
 
     _base_types = (list, tuple)
 
-    def __init__(self, inner_field_type: FieldBase, optional=False):
+    def __init__(self, inner_field_type: FieldValidator, optional=False):
         self.optional = optional
         self.inner_field_type = inner_field_type
         super().__init__(optional=optional)
 
     def _specific_validation(self, val):
         for v in val:
-            check_er = self.inner_field_type._specific_validation(v)
+            check_er = self.inner_field_type.validate(v)
             if check_er:
                 return check_er
 
@@ -121,13 +123,52 @@ class ChooseField(FieldBase):
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
-            return "expected '{}' " \
-                   "unknown value '{}'".format(', '.join(self._possible_values), val)
+            return "expected '{}' unknown value '{}'" \
+                   "".format(', '.join(map(str, self._possible_values)), val)
+
+
+class LedgerIdField(ChooseField):
+    _base_types = (int,)
+    ledger_ids = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
+
+    def __init__(self, optional=False):
+        super().__init__(self.ledger_ids, optional=optional)
 
 
 class IdentifierField(NonEmptyStringField):
     _base_types = (str, )
     # TODO implement the rules
+
+
+class RequestIdentifierField(FieldBase):
+    _base_types = (list, tuple)
+    _length = 2
+
+    def _specific_validation(self, val):
+        if len(val) != self._length:
+            return "should have length {}".format(self._length)
+        idr_error = NonEmptyStringField().validate(val[0])
+        if idr_error:
+            return idr_error
+        ts_error = TimestampField().validate(val[1])
+        if ts_error:
+            return ts_error
+
+
+class TieAmongField(FieldBase):
+    _base_types = (list, tuple)
+    _length = 2
+    # TODO eliminate duplication with RequestIdentifierField
+
+    def _specific_validation(self, val):
+        if len(val) != self._length:
+            return "should have length {}".format(self._length)
+        idr_error = NonEmptyStringField().validate(val[0])
+        if idr_error:
+            return idr_error
+        ts_error = TimestampField().validate(val[1])
+        if ts_error:
+            return ts_error
 
 
 class VerkeyField(NonEmptyStringField):
@@ -138,7 +179,7 @@ class VerkeyField(NonEmptyStringField):
 class HexField(FieldBase):
     _base_types = (str, )
 
-    def __init__(self, length, optional=False):
+    def __init__(self, length=None, optional=False):
         super().__init__(optional)
         self._length = length
 
@@ -147,6 +188,25 @@ class HexField(FieldBase):
             int(val, 16)
         except ValueError:
             return "invalid hex number '{}'".format(val)
-        if len(val) != self._length:
+        if self._length is not None and len(val) != self._length:
             return "length should be {} length".format(self._length)
 
+
+class MerkleRootField(FieldBase):
+    _base_types = (str, type(None))
+
+    def _specific_validation(self, val):
+        # TODO implement
+        return None
+    # def _specific_validation(self, val):
+    #     if len(val) != 46:
+    #         return 'length should be 46'
+
+
+class TimestampField(FieldBase):
+    _base_types = (float, int)
+
+    def _specific_validation(self, val):
+        # TODO finish implementation
+        if val < 0:
+            return 'should be a positive number'

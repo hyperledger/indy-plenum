@@ -11,7 +11,7 @@ ord_seq_no_field = PositiveNumberField('ordSeqNo')
 
 round_field = PositiveNumberField('round')
 
-tie_among_field = ListField('tieAmong', NonEmptyStringField())
+tie_among_field = ListField('tieAmong', TieAmongField())
 
 req_idr_field = RequestIdrField("reqIdr")
 
@@ -21,15 +21,15 @@ pp_time_field = TimestampField('ppTime')
 
 ledger_id_field = LedgerIdFiled("ledgerId")
 
-state_root_field = HexString64Field('stateRootHash')
+state_root_field = MerkleRootField('stateRootHash')
 
-txn_root_hash_field = HexString64Field("txnRootHash")
+txn_root_hash_field = MerkleRootField("txnRootHash")
 
 sender_client_field = NonEmptyStringField('senderClient')
 
 discarded_field = PositiveNumberField('discarded')
 
-digest_field = HexString64Field('digest')
+digest_field = NonEmptyStringField('digest')
 
 reason_field = PositiveNumberField('reason')
 
@@ -41,11 +41,11 @@ seq_no_stop_field = PositiveNumberField('seqNoEnd')
 
 txn_seq_no_field = PositiveNumberField('txnSeqNo')
 
-merkle_root_field = HexString64Field('merkleRoot')
+merkle_root_field = MerkleRootField('merkleRoot')
 
-old_merkle_root_field = HexString64Field('oldMerkleRoot')
+old_merkle_root_field = MerkleRootField('oldMerkleRoot')
 
-new_merkle_root_field = HexString64Field('newMerkleRoot')
+new_merkle_root_field = MerkleRootField('newMerkleRoot')
 
 hashes_field = ListField('hashes', HexString64Field())
 
@@ -57,7 +57,7 @@ identifier_field = IdentifierField('identifier')
 
 req_id_field = PositiveNumberField('reqId')
 
-signature_field = HexString64Field('signature')
+signature_field = SignatureField('signature')
 
 node_port_field = NetworkPortField('node_port')
 
@@ -89,7 +89,9 @@ client_node_op_data = MessageDescriptor(
             alias_field,
             services_field,
         ],
-        name='data'
+        name='data',
+        optional_fields=(node_port_field, client_port_field, node_ip_field,
+                         client_ip_field, alias_field, services_field),
     )
 
 
@@ -138,8 +140,8 @@ node_operation_field = create_node_op('operation')
 
 nym_operation_field = create_nym_op('operation')
 
-client_request_field = build_client_request_message(create_node_op('op'), 'request')
+client_request_field = build_client_request_message(create_node_op('operation'), 'request')
 
-tnxs_field = ListField('txns', build_client_request_message(create_node_op()))
+tnxs_field = ListField('txns', build_client_request_message(create_node_op('operation')))
 
-messages_field = ListField('messages', build_client_request_message(create_node_op()))
+messages_field = ListField('messages', build_client_request_message(create_node_op('operation')))

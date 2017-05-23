@@ -1293,6 +1293,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                        msg.get(f.REQ_ID.nm))
         try:
             cMsg = cls(**msg)
+        except TypeError as ex:
+            raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
+                                       msg.get(f.REQ_ID.nm),
+                                       str(ex))
         except Exception as ex:
             raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
                                        msg.get(f.REQ_ID.nm)) from ex

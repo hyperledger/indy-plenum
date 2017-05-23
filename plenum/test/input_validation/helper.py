@@ -26,7 +26,7 @@ class TestFieldBase(TestCases):
 
 
 class ConstantField(TestFieldBase):
-    field_type = None
+    field_types = None
 
     def __init__(self, name, value):
         self.value = value
@@ -44,37 +44,64 @@ class ConstantField(TestFieldBase):
 class PositiveNumberField(TestFieldBase):
     negative_test_cases = (-1,)
     positive_test_cases = (0, 1)
-    field_type = int
+    field_types = (int,)
 
 
 class NonEmptyStringField(TestFieldBase):
     negative_test_cases = ('',)
     positive_test_cases = ('foo',)
-    field_type = str
+    field_types = (str,)
 
 
 class HexString64Field(TestFieldBase):
+    # TODO implement
     negative_test_cases = (
-        '',
-        'fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 63 characters
-        '77fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 65 characters
-        'xfba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # first char is 'x'
+        #'',
+        #'fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 63 characters
+        #'77fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # 65 characters
+        #'xfba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # first char is 'x'
     )
     positive_test_cases = (
         '7fba333c13994f63edd900cdc625b88d0dcee6dda7df2c6e9b5bcd5c1072c04f',  # lower case
         '7FBA333C13994F63EDD900CDC625B88D0DCEE6DDA7DF2C6E9B5BCD5C1072C04F'  # upper case
     )
-    field_type = str
+    field_types = (str,)
+
+
+class SignatureField(TestFieldBase):
+    # TODO implement
+    negative_test_cases = ()
+    positive_test_cases = (
+        '2JAVzLWFWxAC6anXKaBZAsKDCoJn7y6z8Q3AjxsrDn7'
+        'U2NRRcjiCVpexhh6urx2Uc8HCmdW7U1pmiCLNjePEBMkR'
+    )
+    field_types = (str,)
+
+
+class MerkleRootField(TestFieldBase):
+    negative_test_cases = ()
+    positive_test_cases = ('47DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',)
+    field_types = (str,)
+    pass
+    # TODO implement
+    # negative_test_cases = (
+    #     '',
+    #     '7DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=',  # 43 characters
+    # )
+    # positive_test_cases = (
+    #     '47DEQpj8HBSa+\\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='
+    # )
+    # field_types = str
 
 
 class TimestampField(TestFieldBase):
-    negative_test_cases = (-1, 0)
-    positive_test_cases = (1492619799822.973,)
-    field_type = float
+    negative_test_cases = (-1,)
+    positive_test_cases = (0, 1492619799822.973,)
+    field_types = (float, int)
 
 
 class ListField(TestFieldBase):
-    field_type = list
+    field_types = (list,)
 
     def __init__(self, name, inner_field):
         super().__init__(name)
@@ -95,7 +122,7 @@ class ListField(TestFieldBase):
 class LedgerIdFiled(TestFieldBase):
     negative_test_cases = (-1, 2, 3)
     positive_test_cases = (0, 1)
-    field_type = int
+    field_types = (int,)
 
 
 class IdrField(NonEmptyStringField):
@@ -104,7 +131,7 @@ class IdrField(NonEmptyStringField):
 
 
 class RequestIdrField(TestFieldBase):
-    field_type = list
+    field_types = (list,)
     idr_field = IdrField()
     ts_field = TimestampField()
 
@@ -122,13 +149,32 @@ class RequestIdrField(TestFieldBase):
         ]
 
 
+class TieAmongField(TestFieldBase):
+    field_types = (list,)
+    name_field = NonEmptyStringField()
+    ts_field = TimestampField()
+
+    @property
+    def negative_test_cases(self):
+        return [
+            [self.name_field.positive_test_cases[0], self.ts_field.negative_test_cases[0]],
+            [self.name_field.negative_test_cases[0], self.ts_field.positive_test_cases[0]],
+        ]
+
+    @property
+    def positive_test_cases(self):
+        return [
+            [self.name_field.positive_test_cases[0], self.ts_field.positive_test_cases[0]],
+        ]
+
+
 class IdentifierField(NonEmptyStringField):
     # TODO NonEmptyStringField definitely not enough
     pass
 
 
 class NetworkPortField(TestFieldBase):
-    field_type = int
+    field_types = (int,)
 
     @property
     def negative_test_cases(self):
@@ -140,7 +186,7 @@ class NetworkPortField(TestFieldBase):
 
 
 class NetworkIpAddressField(TestFieldBase):
-    field_type = str
+    field_types = (str,)
 
     @property
     def negative_test_cases(self):
@@ -152,7 +198,7 @@ class NetworkIpAddressField(TestFieldBase):
 
 
 class ServicesNodeOperation(TestFieldBase):
-    field_type = list
+    field_types = (list,)
     VALIDATOR = 'VALIDATOR'
     OBSERVER = 'OBSERVER'
 
@@ -178,7 +224,7 @@ class VerkeyField(NonEmptyStringField):
 
 
 class RoleField(TestFieldBase):
-    field_type = str
+    field_types = (str,)
     roles = ('0', '2')
 
     @property
@@ -194,7 +240,7 @@ TestCase = namedtuple('TestCase', ['case', 'description'])
 
 
 class MessageDescriptor(TestFieldBase):
-    field_type = dict
+    field_types = (dict, )
 
     def __init__(self, klass, fields, optional_fields=None, name=None):
         self.klass = klass
@@ -239,6 +285,7 @@ class MessageDescriptor(TestFieldBase):
         for field in self.fields:
             for val in field.negative_test_cases:
                 m = self._any_positive_case_copy
+                print(field.name, val)
                 m[field.name] = val
                 yield m
 
@@ -261,7 +308,7 @@ class MessageDescriptor(TestFieldBase):
         for field in self.fields:
             m = self._any_positive_case_copy
             for test_type in self._types_list:
-                if field.field_type is None or test_type == field.field_type:
+                if field.field_types is None or test_type in field.field_types:
                     continue
                 m[field.name] = test_type()
                 yield m
