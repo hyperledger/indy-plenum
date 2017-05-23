@@ -285,7 +285,6 @@ class MessageDescriptor(TestFieldBase):
         for field in self.fields:
             for val in field.negative_test_cases:
                 m = self._any_positive_case_copy
-                print(field.name, val)
                 m[field.name] = val
                 yield m
 
