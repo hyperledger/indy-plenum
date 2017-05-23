@@ -19,6 +19,7 @@ class ClientNodeOperation(MessageValidator):
         (TXN_TYPE, ConstantField(NODE)),
         (DATA, ClientNodeOperationData()),
         (TARGET_NYM, IdentifierField()),
+        (VERKEY, VerkeyField(optional=True)),
     )
 
 
