@@ -358,17 +358,17 @@ InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
 ])
 
 
-# class LedgerStatus(MessageBase):
-#     typename = LEDGER_STATUS
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
-#         (f.MERKLE_ROOT.nm, MerkleRootField()),
-#     )
-LedgerStatus = TaggedTuple(LEDGER_STATUS, [
-    f.LEDGER_ID,
-    f.TXN_SEQ_NO,
-    f.MERKLE_ROOT])
+class LedgerStatus(MessageBase):
+    typename = LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.MERKLE_ROOT.nm, MerkleRootField()),
+    )
+# LedgerStatus = TaggedTuple(LEDGER_STATUS, [
+#     f.LEDGER_ID,
+#     f.TXN_SEQ_NO,
+#     f.MERKLE_ROOT])
 
 
 class ConsistencyProof(MessageBase):
