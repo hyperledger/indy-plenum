@@ -16,10 +16,4 @@ def test_chaotic(looper, txnPoolNodeSet, client1, wallet1,
     such that f changes and it still processes requests.
     This test would remain a WIP till some time, break it into multiple tests
     """
-    min_delay = 3
-    max_delay = 6
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2)
-    delay_3pc_messages(txnPoolNodeSet, 0, min_delay=min_delay,
-                       max_delay=max_delay)
 

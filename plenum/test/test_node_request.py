@@ -67,7 +67,6 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Node D delays receiving PRIMARY messages from all nodes so it
             # will not know whether it is primary or not
 
-            # nodeD.nodestack.delay(delayer(20, PRIMARY))
             delayD = 20
             nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
@@ -112,7 +111,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=delayD))
+                    0), retryWait=1, timeout=delayD+3)) # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,

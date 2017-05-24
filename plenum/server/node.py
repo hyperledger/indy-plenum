@@ -1668,7 +1668,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             else:
                 logger.debug(
                     "{} received instance change message {} but did not "
-                    "find the master to be slow".format(self, instChg))
+                    "find the master to be slow or has already sent an instance"
+                    " change message".format(self, instChg))
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
