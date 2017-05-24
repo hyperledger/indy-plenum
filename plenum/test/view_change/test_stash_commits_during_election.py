@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.delayers import cDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
@@ -5,6 +7,7 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
+@pytest.mark.skip()
 def test_stash_order_commits_during_election(looper, txnPoolNodeSet, client1,
                                                 wallet1, client1Connected):
     """

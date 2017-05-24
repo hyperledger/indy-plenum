@@ -44,21 +44,21 @@ class TxnStackManager:
     @property
     def ledger(self):
         if self._ledger is None:
-            if not self.hasLedger:
-                defaultTxnFile = os.path.join(self.basedirpath,
-                                              self.ledgerFile)
-                if not os.path.isfile(defaultTxnFile):
-                    raise FileNotFoundError("Pool transactions file not "
-                                            "found: {}".format(defaultTxnFile))
-                else:
-                    shutil.copy(defaultTxnFile, self.ledgerLocation)
+            defaultTxnFile = os.path.join(self.basedirpath,
+                                          self.ledgerFile)
+            if not os.path.exists(defaultTxnFile):
+                logger.debug("Not using default initialization file for "
+                             "pool ledger, since it does not exist: {}"
+                             .format(defaultTxnFile))
+                defaultTxnFile = None
 
             dataDir = self.ledgerLocation
             self.hashStore = FileHashStore(dataDir=dataDir)
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
-                                  ensureDurability=self.config.EnsureLedgerDurability)
+                                  ensureDurability=self.config.EnsureLedgerDurability,
+                                  defaultFile=defaultTxnFile)
         return self._ledger
 
     @staticmethod
