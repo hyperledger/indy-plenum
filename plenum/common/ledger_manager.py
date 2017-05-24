@@ -270,12 +270,13 @@ class LedgerManager(HasActionQueue):
             self.sendTo(consistencyProof, frm)
 
         if self.isLedgerOld(ledgerStatus):
-            self.setLedgerCanSync(ledgerId, True)
-            ledger = self.getLedgerForMsg(ledgerStatus)
-            ledgerStatus = LedgerStatus(ledgerId,
-                                        ledger.size,
-                                        ledger.root_hash)
-            self.sendTo(ledgerStatus, frm)
+            if ledgerInfo.state == LedgerState.synced:
+                self.setLedgerCanSync(ledgerId, True)
+                ledger = self.getLedgerForMsg(ledgerStatus)
+                ledgerStatus = LedgerStatus(ledgerId,
+                                            ledger.size,
+                                            ledger.root_hash)
+                self.sendTo(ledgerStatus, frm)
             return
 
         if statusFromClient:
