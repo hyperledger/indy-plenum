@@ -272,24 +272,24 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     ])
 
 
-# class Prepare(MessageBase):
-#     typename = PREPARE
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-#         (f.DIGEST.nm, NonEmptyStringField()),
-#         (f.STATE_ROOT.nm, MerkleRootField()),
-#         (f.TXN_ROOT.nm, MerkleRootField()),
-#     )
-Prepare = TaggedTuple(PREPARE, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.PP_SEQ_NO,
-    f.DIGEST,
-    f.STATE_ROOT,
-    f.TXN_ROOT,
-    ])
+class Prepare(MessageBase):
+    typename = PREPARE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+# Prepare = TaggedTuple(PREPARE, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.PP_SEQ_NO,
+#     f.DIGEST,
+#     f.STATE_ROOT,
+#     f.TXN_ROOT,
+#     ])
 
 
 # class Commit(MessageBase):

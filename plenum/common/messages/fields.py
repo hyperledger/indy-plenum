@@ -227,7 +227,7 @@ class HexField(FieldBase):
 
 
 class MerkleRootField(FieldBase):
-    _base_types = (str, type(None))
+    _base_types = (str, )
 
     # Raw merkle root is 32 bytes length,
     # but when it is base58'ed it is 44 bytes
@@ -235,7 +235,6 @@ class MerkleRootField(FieldBase):
     alphabet = base58.alphabet
 
     def _specific_validation(self, val):
-
         if len(val) not in self.hashSizes:
             return 'length should be one of {}'.format(self.hashSizes)
         if set(val).isdisjoint(self.alphabet):
