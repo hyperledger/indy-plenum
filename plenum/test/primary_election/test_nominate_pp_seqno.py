@@ -9,7 +9,8 @@ from plenum.test.view_change.helper import ensure_view_change, \
     check_each_node_reaches_same_end_for_view
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-
+from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
+    client1, wallet1, client1Connected
 
 logger = getlogger()
 
