@@ -64,15 +64,16 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         # the request was submitted for ordering
         self.requestOrderingStarted = {}  # type: Dict[Tuple[str, int], float]
 
-        # Request latencies for the master protocol instances. Key of the
-        # dictionary is a tuple of client id and request id and the value is
-        # the time the master instance took for ordering it
+        # Request latencies for the master protocol instances in current
+        # snapshot. Key of the dictionary is a tuple of client id and
+        # request id and the value is the time the master instance took
+        # for ordering it
         self.masterReqLatencies = {}  # type: Dict[Tuple[str, int], float]
 
         # Request extra latencies for the master protocol instances. Key of the
         # dictionary is a tuple of client id and request id and the value is
-        # the extra time (time to create a batch, for state interactions) the master
-        # instance took for ordering it
+        # the extra time (time to create a batch, time for state interactions)
+        # the master instance took for ordering it
         self.masterReqExtraLatencies = {}  # type: Dict[Tuple[str, int], float]
 
         # Total request extra latencies for the master protocol instances
@@ -204,13 +205,18 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.clientAvgReqLatencies.append({})
 
 
-    def addMasterReqExtraLatency(self, reqId: Tuple[str, int], latency: float):
+    def addMasterReqExtraLatency(self, latency: float):
         """
         Add new extra latency from master
+
+        Master instance does some additional routine in comparison to backup
+        ones. It's expectable but could lead to incorrect results in monitoring
+        view change rules if no adjustment provided.
+
+        :param latency: extra time the master've taken
         """
-        if reqId not in self.masterReqExtraLatencies:
-            self.masterReqExtraLatencies[reqId] = 0
-        self.masterReqExtraLatencies[reqId] += latency
+        for k in self.masterReqExtraLatencies.keys():
+            self.masterReqExtraLatencies[k] += latency
 
         self.totalMasterReqExtraLatency += latency
 
@@ -234,10 +240,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 continue
             duration = now - self.requestOrderingStarted[reqId]
             if byMaster:
+                # TODO: retry from node.processOrdered seems incorrect
+                # and will break the following logic, we need only the final
+                # turn here to measure the duration (latency)
                 if reqId in self.masterReqExtraLatencies:
                     duration -= self.masterReqExtraLatencies[reqId]
-                    # TODO: retry from node.processOrdered seems incorrect
-                    # and will break the following deletion logic
                     del self.masterReqExtraLatencies[reqId]
 
                 self.masterReqLatencies[reqId] = duration
@@ -280,6 +287,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         Record the time at which request ordering started.
         """
         self.requestOrderingStarted[(identifier, reqId)] = time.perf_counter()
+        self.masterReqExtraLatencies[(identifier, reqId)] = 0
 
     def isMasterDegraded(self):
         """
