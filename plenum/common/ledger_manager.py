@@ -320,7 +320,7 @@ class LedgerManager(HasActionQueue):
                          .format(self, ledgerInfo.state))
             return False
         if ledgerInfo.state == LedgerState.synced:
-            if self.checkLedgerIsOutOfSync(ledgerInfo):
+            if not self.checkLedgerIsOutOfSync(ledgerInfo):
                 logger.debug("{} cannot process consistency "
                              "proof since in state {} and not enough "
                              "CPs received"
@@ -358,7 +358,7 @@ class LedgerManager(HasActionQueue):
         currTotalNodes = self.owner.totalNodes - 1
         adjustedF = getMaxFailures(currTotalNodes)
         filtered = self._getNotEmptyProofs(recvdConsProof)
-        return len(filtered) < (currTotalNodes - adjustedF)
+        return len(filtered) >= (currTotalNodes - adjustedF)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
