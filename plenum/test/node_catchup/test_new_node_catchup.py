@@ -12,8 +12,8 @@ from plenum.common.types import HA
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    check_ledger_state, waitNodeDataUnequality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
+    check_ledger_state
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
