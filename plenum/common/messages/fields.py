@@ -206,12 +206,19 @@ class HexField(FieldBase):
 class MerkleRootField(FieldBase):
     _base_types = (str, type(None))
 
+    # Raw merkle root is 32 bytes length,
+    # but when it is base58'ed it is 44 bytes
+    hashSize = 44
+
+    # base58 alphabet
+    alphabet = set('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz')
+
     def _specific_validation(self, val):
-        # TODO implement
-        return None
-    # def _specific_validation(self, val):
-    #     if len(val) != 46:
-    #         return 'length should be 46'
+        if len(val) != self.hashSize:
+            return 'length should be {}'.format(self.hashSize)
+        if set("-").isdisjoint(self.alphabet):
+            return 'should not contains chars other than {}' \
+                .format(self.alphabet)
 
 
 class TimestampField(FieldBase):
