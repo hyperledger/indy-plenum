@@ -204,7 +204,6 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
-
     def addMasterReqExtraLatency(self, latency: float):
         """
         Add new extra latency from master
@@ -215,11 +214,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         :param latency: extra time the master've taken
         """
+
+        # each master extra work lead to extra latency for all
+        # active (not ordered) requests
         for k in self.masterReqExtraLatencies.keys():
             self.masterReqExtraLatencies[k] += latency
 
         self.totalMasterReqExtraLatency += latency
-
 
     def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False) -> Dict:

@@ -71,6 +71,7 @@ class Stats:
         return OrderedDict((TPCStat(k).name, v)
                            for k, v in self.stats.items())
 
+
 class Replica(HasActionQueue, MessageProcessor):
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
@@ -515,7 +516,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.isMaster:
             with ReplicaExtraWork(self):
                 self.outBox.extend(rejects)
-                import pdb; pdb.set_trace()
                 self.node.onBatchCreated(ledgerId,
                                          self.stateRootHash(ledgerId, toHex=False))
         return prePrepareReq
@@ -1552,6 +1552,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.stats.inc(stat)
         self.outBox.append(msg)
 
+
 class ReplicaExtraWork:
     def __init__(self, replica: Replica):
         self.replica = replica
@@ -1569,5 +1570,6 @@ class ReplicaExtraWork:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._tstart is not None:
             self.replica.isWorkingExtra = False
-            self.replica.node.monitor.addMasterReqExtraLatency(self._perf_now() - self._tstart)
-
+            self.replica.node.monitor.addMasterReqExtraLatency(
+                    self._perf_now() - self._tstart
+            )
