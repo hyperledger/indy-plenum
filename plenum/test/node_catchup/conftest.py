@@ -63,6 +63,5 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 @pytest.fixture("module")
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
-
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
     return newNode

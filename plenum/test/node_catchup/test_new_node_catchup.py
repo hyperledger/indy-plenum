@@ -12,11 +12,10 @@ from plenum.common.types import HA
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    check_ledger_state
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+    check_ledger_state, waitNodeDataUnequality
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 from plenum.test.test_ledger_manager import TestLedgerManager
-from plenum.test.test_node import checkNodesConnected, ensureElectionsDone, \
-    TestNode
+from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
 
 # Do not remove the next import
@@ -155,6 +154,29 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     # cons_proof = updateNamedTuple(cons_proof, seqNoEnd=cons_proof.seqNoStart,
     #                               seqNoStart=cons_proof.seqNoEnd)
     # send_and_chk(LedgerState.synced)
+
+
+def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
+                                   nodeSetWithNodeAddedAfterSomeTxns):
+    """
+    A node that restarts after some transactions should eventually get the
+    transactions which happened while it was disconnected
+    :return:
+    """
+    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+    logger.debug("Stopping node {} with pool ledger size {}".
+                 format(newNode, newNode.poolManager.txnSeqNo))
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode, stopNode=False)
+    looper.removeProdable(newNode)
+    # TODO: Check if the node has really stopped processing requests?
+    logger.debug("Sending requests")
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    # Make sure new node got out of sync
+    waitNodeDataUnequality(looper, newNode, *txnPoolNodeSet[:-1])
+    logger.debug("Starting the stopped node, {}".format(newNode))
+    looper.add(newNode)
+    reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, newNode)
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
