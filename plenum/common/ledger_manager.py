@@ -357,7 +357,8 @@ class LedgerManager(HasActionQueue):
         # Consider an f value when this node was not connected
         currTotalNodes = self.owner.totalNodes - 1
         adjustedF = getMaxFailures(currTotalNodes)
-        return len(self._getNotEmptyProofs(recvdConsProof)) >= (currTotalNodes - adjustedF)
+        filtered = self._getNotEmptyProofs(recvdConsProof)
+        return len(filtered) < (currTotalNodes - adjustedF)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
