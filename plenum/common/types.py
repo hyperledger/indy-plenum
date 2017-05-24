@@ -371,26 +371,26 @@ LedgerStatus = TaggedTuple(LEDGER_STATUS, [
     f.MERKLE_ROOT])
 
 
-# class ConsistencyProof(MessageBase):
-#     typename = CONSISTENCY_PROOF
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-#         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
-#         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
-#         (f.HASHES.nm, IterableField(NonEmptyStringField())),
-#     )
-ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
-    f.LEDGER_ID,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END,
-    f.PP_SEQ_NO,
-    f.OLD_MERKLE_ROOT,
-    f.NEW_MERKLE_ROOT,
-    f.HASHES
-])
+class ConsistencyProof(MessageBase):
+    typename = CONSISTENCY_PROOF
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
+        (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
+        (f.HASHES.nm, IterableField(NonEmptyStringField())),
+    )
+# ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
+#     f.LEDGER_ID,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END,
+#     f.PP_SEQ_NO,
+#     f.OLD_MERKLE_ROOT,
+#     f.NEW_MERKLE_ROOT,
+#     f.HASHES
+# ])
 
 # TODO: Catchup is not a good name, replace it with `sync` or something which
 # is familiar
