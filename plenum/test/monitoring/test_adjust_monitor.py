@@ -16,12 +16,15 @@ nodeCount = 4
 
 
 logger = getlogger()
+
+
 class TestNodeLocal(TestNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.adjust_times_test = {}
 
     def doDynamicValidation(self, *args, **kwargs):
+        time.sleep(0.1)
         return super().doDynamicValidation(*args, **kwargs)
 
     def applyReq(self, *args, **kwargs):
@@ -37,22 +40,25 @@ def nodeSet(request, tdir, nodeReg, allPluginsPath, patchPluginManager):
                      testNodeClass=TestNodeLocal) as ns:
         yield ns
 
+
 # noinspection PyIncorrectDocstring
 def testAdjustMonitor(looper: Looper, nodeSet: TestNodeSet, wallet1, client1):
     """
     Checking if average latency is being set
     """
 
-    for i in range(5):
+    for i in range(10):
         req = sendRandomRequest(wallet1, client1)
         waitForSufficientRepliesForRequests(looper, client1,
                                             requests=[req], fVal=1)
     for node in nodeSet:  # type: Node
         logger.debug("adjust_times {}: isMasterDegraded {} "
-                     "masterReqExtraLatencies {} totalMasterReqExtraLatency {}".format(
+                     "masterReqExtraLatencies {} "
+                     "totalMasterReqExtraLatency {}".format(
                         node,
                         node.monitor.isMasterDegraded(),
                         node.monitor.masterReqExtraLatencies,
                         node.monitor.totalMasterReqExtraLatency))
+        assert node.monitor.totalMasterReqExtraLatency > 0
         assert node.viewNo == 0
         assert not node.monitor.isMasterDegraded()
