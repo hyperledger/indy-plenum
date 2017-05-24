@@ -60,4 +60,4 @@ class ClientOperationField(MessageValidator):
             op = self.operations[schema_type]
             if 'dest' not in dct:
                 pass
-            self._validate_with_schema(dct, op.schema)
+            self._validate_fields_with_schema(dct, op.schema)

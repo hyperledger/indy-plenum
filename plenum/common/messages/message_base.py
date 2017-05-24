@@ -15,9 +15,10 @@ class MessageValidator(FieldValidator):
     optional = False
 
     def validate(self, dct):
-        self._validate_with_schema(dct, self.schema)
+        self._validate_fields_with_schema(dct, self.schema)
+        self._validate_message(dct)
 
-    def _validate_with_schema(self, dct, schema):
+    def _validate_fields_with_schema(self, dct, schema):
         if not isinstance(dct, dict):
             # TODO raise invalid type exception
             self._raise_invalid_fields('', dct, 'wrong type')
@@ -34,6 +35,9 @@ class MessageValidator(FieldValidator):
             if validation_error:
                 self._raise_invalid_fields(k, v, validation_error)
 
+    def _validate_message(self, dct):
+        return None
+
     def _raise_missed_fields(self, *fields):
         raise TypeError("validation error: missed fields "
                         "'{}'".format(', '.join(map(str, fields))))
@@ -45,6 +49,9 @@ class MessageValidator(FieldValidator):
     def _raise_invalid_fields(self, field, value, reason):
         raise TypeError("validation error: {} "
                         "({}={})".format(reason, field, value))
+
+    def _raise_invalid_message(self, reason):
+        raise TypeError("validation error: {}".format(reason))
 
 
 class MessageBase(Mapping, MessageValidator):
