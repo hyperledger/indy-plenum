@@ -31,4 +31,5 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Starting the stopped node, {}".format(newNode))
     looper.add(newNode)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, newNode)
+    logger.debug("Waiting for the node to catch up, {}".format(newNode))
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])

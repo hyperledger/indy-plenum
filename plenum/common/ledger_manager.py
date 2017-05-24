@@ -322,12 +322,16 @@ class LedgerManager(HasActionQueue):
         if ledgerInfo.state == LedgerState.synced:
             if self.checkLedgerIsOutOfSync(ledgerInfo):
                 logger.debug("{} cannot process consistency "
-                             "proof since in state {} and no CPs received"
+                             "proof since in state {} and not enough "
+                             "CPs received"
                              .format(self, ledgerInfo.state))
                 return False
-            logger.debug("{} is out of sync -> updating ledger"
+            logger.debug("{} is out of sync (based on CPs {} and total "
+                         "node cnt {}) -> updating ledger"
                          " state from {} to {}"
-                         .format(self, ledgerInfo.state, LedgerState.not_synced))
+                         .format(self, ledgerInfo.recvdConsistencyProofs,
+                                 self.owner.totalNodes,
+                                 ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
             return self.canProcessConsistencyProof(proof)
 
