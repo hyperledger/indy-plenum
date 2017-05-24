@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
@@ -250,3 +251,13 @@ class TimestampField(FieldBase):
         # TODO finish implementation
         if val < 0:
             return 'should be a positive number'
+
+
+class JsonField(FieldBase):
+    _base_types = (str,)
+
+    def _specific_validation(self, val):
+        try:
+            json.loads(val)
+        except json.decoder.JSONDecodeError:
+            return 'should be valid JSON string'
