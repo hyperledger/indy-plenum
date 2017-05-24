@@ -235,9 +235,10 @@ class MerkleRootField(FieldBase):
     alphabet = set('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz')
 
     def _specific_validation(self, val):
+
         if len(val) != self.hashSize:
             return 'length should be {}'.format(self.hashSize)
-        if set("-").isdisjoint(self.alphabet):
+        if set(val).isdisjoint(self.alphabet):
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
 
