@@ -803,7 +803,7 @@ class LedgerManager(HasActionQueue):
         return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
 
     def _getNotEmptyProofs(self, proofs):
-        return [proof for proof in proofs if proof]
+        return [proof for frm, proof in proofs.items() if proof]
 
     def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
 
