@@ -236,8 +236,8 @@ class MerkleRootField(FieldBase):
 
     def _specific_validation(self, val):
 
-        if len(val) not in self.hashSize:
-            return 'length should be {}'.format(self.hashSize)
+        if len(val) not in self.hashSizes:
+            return 'length should be one of {}'.format(self.hashSizes)
         if set(val).isdisjoint(self.alphabet):
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
