@@ -98,6 +98,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
+    _client_request_class = SafeRequest
 
     def __init__(self,
                  name: str,
@@ -1280,7 +1281,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.doStaticValidation(msg[f.IDENTIFIER.nm],
                                     msg[f.REQ_ID.nm],
                                     msg[OPERATION])
-            cls = SafeRequest
+            cls = self._client_request_class
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
             cls = TaggedTuples.get(op, None)

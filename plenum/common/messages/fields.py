@@ -13,10 +13,13 @@ class FieldValidator:
 class FieldBase(FieldValidator):
     _base_types = ()
 
-    def __init__(self, optional=False):
+    def __init__(self, optional=False, nullable=False):
         self.optional = optional
+        self.nullable = nullable
 
     def validate(self, val):
+        if self.nullable and val is None:
+            return
         type_er = self.__type_check(val)
         if type_er:
             return type_er
@@ -75,8 +78,8 @@ class NonNegativeNumberField(FieldBase):
 class ConstantField(FieldBase):
     _base_types = None
 
-    def __init__(self, value, optional=False):
-        super().__init__(optional=optional)
+    def __init__(self, value, **kwargs):
+        super().__init__(**kwargs)
         self.value = value
 
     def _specific_validation(self, val):
@@ -88,16 +91,34 @@ class IterableField(FieldBase):
 
     _base_types = (list, tuple)
 
-    def __init__(self, inner_field_type: FieldValidator, optional=False):
-        self.optional = optional
+    def __init__(self, inner_field_type: FieldValidator, **kwargs):
         self.inner_field_type = inner_field_type
-        super().__init__(optional=optional)
+        super().__init__(**kwargs)
 
     def _specific_validation(self, val):
         for v in val:
             check_er = self.inner_field_type.validate(v)
             if check_er:
                 return check_er
+
+
+class MapField(FieldBase):
+    _base_types = (dict, )
+
+    def __init__(self, key_field: FieldBase, value_field: FieldBase,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self._key_field = key_field
+        self._value_field = value_field
+
+    def _specific_validation(self, val):
+        for k, v in val.items():
+            key_error = self._key_field.validate(k)
+            if key_error:
+                return key_error
+            val_error = self._value_field.validate(v)
+            if val_error:
+                return val_error
 
 
 class NetworkPortField(FieldBase):
@@ -125,9 +146,9 @@ class NetworkIpAddressField(FieldBase):
 class ChooseField(FieldBase):
     _base_types = None
 
-    def __init__(self, values, optional=None):
+    def __init__(self, values, **kwargs):
         self._possible_values = values
-        super().__init__(optional=optional)
+        super().__init__(**kwargs)
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
@@ -139,8 +160,8 @@ class LedgerIdField(ChooseField):
     _base_types = (int,)
     ledger_ids = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
 
-    def __init__(self, optional=False):
-        super().__init__(self.ledger_ids, optional=optional)
+    def __init__(self, **kwargs):
+        super().__init__(self.ledger_ids, **kwargs)
 
 
 class IdentifierField(NonEmptyStringField):
@@ -190,8 +211,8 @@ class VerkeyField(FieldBase):
 class HexField(FieldBase):
     _base_types = (str, )
 
-    def __init__(self, length=None, optional=False):
-        super().__init__(optional)
+    def __init__(self, length=None, **kwargs):
+        super().__init__(**kwargs)
         self._length = length
 
     def _specific_validation(self, val):
