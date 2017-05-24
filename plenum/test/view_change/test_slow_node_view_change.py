@@ -81,13 +81,14 @@ def test_fast_nodes_remove_non_ordered_messages(looper, txnPoolNodeSet, client1,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2)
     delay = 3
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
-    fast_node = getPrimaryReplica(txnPoolNodeSet, 0).node
+    pr_replica = getPrimaryReplica(txnPoolNodeSet, 0)
+    pr_node = pr_replica.node
 
     slow_nodes = [r.node for r in nprs[:2]]
     for node in slow_nodes:
         for typ in ThreePhaseType:
             node.nodeIbStasher.delay(delayerMsgTuple(delay, typ,
-                                                     fast_node.name, 0))
+                                                     pr_node.name, 0))
 
     time_before_reqs = perf_counter()
     reqs = []
@@ -104,9 +105,10 @@ def test_fast_nodes_remove_non_ordered_messages(looper, txnPoolNodeSet, client1,
                           timeout=5 + 3 * delay))
 
     # The fast node (primary in an earlier view) would call revert
-    r = fast_node.replicas[0]
     later = []
-    for e in r.spylog.getAll(r.revert.__name__):
-        if e.starttime > time_before_reqs:
-            later.append(True)
-    assert later, '{} did not call revert'.format(r)
+    fast = [n.replicas[0] for n in txnPoolNodeSet if n not in slow_nodes]
+    for r in fast:
+        for e in r.spylog.getAll(r.revert.__name__):
+            if e.starttime > time_before_reqs:
+                later.append(True)
+    assert later, 'No replica called revert'

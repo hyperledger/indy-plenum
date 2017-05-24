@@ -1581,7 +1581,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def doneProcessingReq(self, identifier, reqId):
         self.requestSender.pop((identifier, reqId))
 
-    def processOrdered(self, ordered: Ordered, retryNo: int = 0):
+    def processOrdered(self, ordered: Ordered):
         """
         Process and orderedRequest.
 
@@ -1601,34 +1601,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # the client
         r = None
         if inst_id == self.instances.masterId:
-            reqs = [self.requests[i, r].request for (i, r) in req_idrs
-                    if (i, r) in self.requests]
+            reqs = [self.requests[i, r].finalised for (i, r) in req_idrs
+                    if (i, r) in self.requests and self.requests[i, r].finalised]
             if len(reqs) == len(req_idrs):
                 logger.debug("{} executing Ordered batch {} {} of {} requests".
                              format(self.name, view_no, pp_seq_no, len(req_idrs)))
                 self.executeBatch(pp_seq_no, pp_time, reqs, ledger_id, state_root,
                                   txn_root)
-                # If the client request hasn't reached the node but corresponding
-                # PROPAGATE, PRE-PREPARE, PREPARE and COMMIT request did,
-                # then retry 3 times
-            elif retryNo < 3:
-                retryNo += 1
-                asyncio.sleep(random.randint(2, 4))
-                logger.debug('{} retrying executing ordered client requests'.
-                             format(self.name))
-                self.processOrdered(ordered, retryNo)
+                if view_no < self.viewNo:
+                    self.ordered_prev_view_msgs(inst_id, pp_seq_no)
+                r = True
             else:
-                logger.warning('{} not retrying processing Ordered any more {} '
-                               'times'.format(self, retryNo))
-            r = True
+                logger.warning('{} did not find {} finalized requests, but '
+                               'still ordered'.format(self, len(req_idrs) -
+                                                      len(reqs)))
+                return None
         else:
             logger.trace("{} got ordered requests from backup replica {}".
                          format(self, inst_id))
             r = False
-
         self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
-        if view_no < self.viewNo:
-            self.ordered_prev_view_msgs(inst_id, pp_seq_no)
         return r
 
     def processEscalatedException(self, ex):
