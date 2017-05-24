@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import base58
 import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
@@ -230,14 +231,12 @@ class MerkleRootField(FieldBase):
 
     # Raw merkle root is 32 bytes length,
     # but when it is base58'ed it is 44 bytes
-    hashSize = 44
-
-    # base58 alphabet
-    alphabet = set('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz')
+    hashSizes = range(43, 46)
+    alphabet = base58.alphabet
 
     def _specific_validation(self, val):
 
-        if len(val) != self.hashSize:
+        if len(val) not in self.hashSize:
             return 'length should be {}'.format(self.hashSize)
         if set(val).isdisjoint(self.alphabet):
             return 'should not contains chars other than {}' \
