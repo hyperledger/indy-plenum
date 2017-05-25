@@ -10,6 +10,7 @@ from plenum.test.test_client import TestClient
 from plenum.test.test_node import TestNode
 from plenum.test import waits
 from plenum.common import util
+import pytest
 
 
 # TODO: This should just take an arbitrary number of nodes and check for their
@@ -28,6 +29,13 @@ def checkNodeDataForEquality(node: TestNode,
             checkStateEquality(node.getState(POOL_LEDGER_ID), n.getState(POOL_LEDGER_ID))
 
 
+def checkNodeDataForUnequality(node: TestNode,
+                             *otherNodes: Iterable[TestNode]):
+    # Checks for node's ledgers and state's to be unequal
+    with pytest.raises(AssertionError):
+        checkNodeDataForEquality(node, *otherNodes)
+
+
 def waitNodeDataEquality(looper,
                          referenceNode: TestNode,
                          *otherNodes: Iterable[TestNode],
@@ -41,6 +49,24 @@ def waitNodeDataEquality(looper,
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
     looper.run(eventually(checkNodeDataForEquality,
+                          referenceNode,
+                          *otherNodes,
+                          retryWait=1, timeout=timeout))
+
+
+def waitNodeDataUnequality(looper,
+                         referenceNode: TestNode,
+                         *otherNodes: Iterable[TestNode],
+                         customTimeout=None):
+    """
+    Wait for node ledger to become equal
+
+    :param referenceNode: node whose ledger used as a reference
+    """
+
+    numOfNodes = len(otherNodes) + 1
+    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
+    looper.run(eventually(checkNodeDataForUnequality,
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))
