@@ -2,6 +2,7 @@ import ipaddress
 import json
 import base58
 import re
+from datetime import datetime
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 
@@ -25,7 +26,10 @@ class FieldBase(FieldValidator):
         type_er = self.__type_check(val)
         if type_er:
             return type_er
-        return self._specific_validation(val)
+
+        spec_err = self._specific_validation(val)
+        if spec_err:
+            return spec_err
 
     def _specific_validation(self, val):
         raise NotImplementedError
@@ -247,13 +251,14 @@ class MerkleRootField(FieldBase):
 class TimestampField(FieldBase):
     _base_types = (float, int)
 
-    timeLimit = 253402290000.0
-
     def _specific_validation(self, val):
-
-        if val < 0 or val >= self.timeLimit:
-            return 'should be a positive number lower then {}, but was {}' \
-                .format(val, val)
+        normal_val = val
+        if isinstance(val, int):
+            # This is needed because timestamp is usually multiplied
+            # by 1000 to "make it compatible to JavaScript Date()"
+            normal_val /= 1000
+        if normal_val <= 0:
+            return 'should be a positive number but was {}'.format(val)
 
 
 class JsonField(FieldBase):
