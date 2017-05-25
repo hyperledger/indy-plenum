@@ -148,8 +148,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
 
     sendAddNewNode(newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_renameNodePortField)
-    waitRejectFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  "Missing some of")
+    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                  "unknown field")
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         def _tnf(op): del op[DATA][fn]
@@ -157,8 +157,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        waitRejectFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "Missing some of")
+        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                      "unknown field")
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,

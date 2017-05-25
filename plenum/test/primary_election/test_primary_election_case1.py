@@ -69,7 +69,7 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     # Doesn't matter if nodes reach the ready state or not. Just start them
     looper.run(checkNodesConnected(nodes))
 
-    # Node B sends multiple NOMINATE msgs for Node D but only after A has
+    # Node B sends multiple NOMINATE messages for Node D but only after A has
     # nominated itself
     timeout = waits.expectedPoolNominationTimeout(nodeCount=1)
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
