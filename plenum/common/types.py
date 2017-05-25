@@ -255,8 +255,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, MerkleRootField()),
-        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
     )
 # PrePrepare = TaggedTuple(PREPREPARE, [
 #     f.INST_ID,
