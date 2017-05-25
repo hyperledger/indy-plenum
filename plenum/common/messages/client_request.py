@@ -58,6 +58,4 @@ class ClientOperationField(MessageValidator):
         if schema_type in self.operations:
             # check only if the schema is defined
             op = self.operations[schema_type]
-            if 'dest' not in dct:
-                pass
             self._validate_fields_with_schema(dct, op.schema)
