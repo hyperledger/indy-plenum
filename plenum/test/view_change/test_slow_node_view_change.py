@@ -1,6 +1,5 @@
 from time import perf_counter
 
-from plenum.common.request import Request
 from plenum.common.types import ThreePhaseType
 from plenum.test import waits
 from plenum.test.delayers import delay_3pc_messages, delayerMsgTuple

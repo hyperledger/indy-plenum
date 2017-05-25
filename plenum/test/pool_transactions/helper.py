@@ -245,25 +245,49 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     return client, w
 
 
-def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode]):
+def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
 
     for node in poolNodes:
-        if node.name == disconnect:
+        if node.name == disconnect and stopNode:
             node.stop()
         else:
             node.nodestack.disconnectByName(disconnect)
 
 
+def reconnectPoolNode(poolNodes: Iterable, connect: Union[str, TestNode], looper):
+    if isinstance(connect, TestNode):
+        connect = connect.name
+    assert isinstance(connect, str)
+
+    for node in poolNodes:
+        if node.name == connect:
+            node.start(looper)
+        else:
+            node.nodestack.reconnectRemoteWithName(connect)
+
+
 def disconnect_node_and_ensure_disconnected(looper, poolNodes,
                                             disconnect: Union[str, TestNode],
-                                            timeout=None):
+                                            timeout=None,
+                                            stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
 
-    disconnectPoolNode(poolNodes, disconnect)
+    disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
     ensure_node_disconnected(looper, disconnect, poolNodes,
                              timeout=timeout)
+
+
+def reconnect_node_and_ensure_connected(looper, poolNodes,
+                                            connect: Union[str, TestNode],
+                                            timeout=None):
+    if isinstance(connect, TestNode):
+        connect = connect.name
+    assert isinstance(connect, str)
+
+    reconnectPoolNode(poolNodes, connect, looper)
+    looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))

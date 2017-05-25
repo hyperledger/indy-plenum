@@ -766,7 +766,8 @@ class PrimaryElector(PrimaryDecider):
         for c, o, s in self.nominations[inst_id].values():
             if [o, s] == acceptable_state:
                 candidates.append(c)
-
+        logger.debug('{} found primary candidates {} for instance {}'
+                     .format(self, candidates, inst_id))
         candidates = Counter(candidates).most_common()
         # Candidates with max no. of votes
         return [c for c in candidates if c[1] == candidates[0][1]]
