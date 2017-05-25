@@ -251,8 +251,8 @@ class TimestampField(FieldBase):
 
     def _specific_validation(self, val):
 
-        if 0.0 > float(val) < 1.9:
-            return 'should be a positive number lower then {}, but was {}'\
+        if val < 0 or val >= self.timeLimit:
+            return 'should be a positive number lower then {}, but was {}' \
                 .format(val, val)
 
 
