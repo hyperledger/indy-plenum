@@ -230,13 +230,15 @@ class MerkleRootField(FieldBase):
     _base_types = (str, )
 
     # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 44 bytes
+    # but when it is base58'ed it is 43-45 bytes
     hashSizes = range(43, 46)
     alphabet = base58.alphabet
 
     def _specific_validation(self, val):
-        if len(val) not in self.hashSizes:
-            return 'length should be one of {}'.format(self.hashSizes)
+        valSize = len(val)
+        if valSize not in self.hashSizes:
+            return 'length should be one of {}, but it was {}'\
+                .format(self.hashSizes, valSize)
         if set(val).isdisjoint(self.alphabet):
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
