@@ -1,18 +1,22 @@
 import pytest
-import base58
 import string
 from plenum.common.messages.fields import MerkleRootField
 from plenum.common.util import randomString
 from plenum.test.input_validation.utils import *
 
-validLength = 44
-invalidLength = 22
+
+VALID_HASH_LENGTH = 44
+INVALID_HASH_LENGTH = 22
 
 
 def test_length_validation():
     validator = MerkleRootField()
-    assert_valid(validator.validate('1' * validLength))
-    assert_invalid(validator.validate('1' * invalidLength))
+
+    valid_hash = randomString(VALID_HASH_LENGTH, validator.alphabet)
+    invalid_hash = randomString(INVALID_HASH_LENGTH, validator.alphabet)
+
+    assert_valid(validator.validate(valid_hash))
+    assert_invalid(validator.validate(invalid_hash))
 
 
 def test_alphabet_validation():
@@ -25,8 +29,8 @@ def test_alphabet_validation():
 
     assert invalid_chars
 
-    valid_hash = randomString(validLength, ''.join(valid_chars))
-    assert_valid(validator.validate(valid_hash))
+    valid_hash = randomString(VALID_HASH_LENGTH, valid_chars)
+    invalid_hash = randomString(VALID_HASH_LENGTH, invalid_chars)
 
-    invalid_hash = randomString(validLength, ''.join(invalid_chars))
+    assert_valid(validator.validate(valid_hash))
     assert_invalid(validator.validate(invalid_hash))
