@@ -232,7 +232,7 @@ class MerkleRootField(FieldBase):
     # Raw merkle root is 32 bytes length,
     # but when it is base58'ed it is 43-45 bytes
     hashSizes = range(43, 46)
-    alphabet = base58.alphabet
+    alphabet = set(base58.alphabet)
 
     def _specific_validation(self, val):
         valSize = len(val)
