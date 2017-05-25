@@ -40,7 +40,7 @@ Seconds = TypeVar("Seconds", int, float)
 
 
 def randomString(size: int = 20,
-                 chars: str = string.ascii_letters + string.digits) -> str:
+                 chars = string.ascii_letters + string.digits) -> str:
     """
     Generate a random string of the specified size
 
@@ -48,6 +48,10 @@ def randomString(size: int = 20,
     :param chars: the set of characters to use to generate the random string. Uses alphanumerics by default.
     :return: the random string generated
     """
+
+    if not hasattr(chars, "__getitem__"):
+        # choice does not work with non indexed containers
+        chars = list(chars)
 
     def randomChar():
         return random.choice(chars)
