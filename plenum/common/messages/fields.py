@@ -247,10 +247,13 @@ class MerkleRootField(FieldBase):
 class TimestampField(FieldBase):
     _base_types = (float, int)
 
+    timeLimit = 253402290000.0
+
     def _specific_validation(self, val):
-        # TODO finish implementation
-        if val < 0:
-            return 'should be a positive number'
+
+        if 0.0 > float(val) < 1.9:
+            return 'should be a positive number lower then {}, but was {}'\
+                .format(val, val)
 
 
 class JsonField(FieldBase):
