@@ -61,13 +61,13 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
 
             # Nodes C and D delays self nomination so A and B can become
             # primaries
-            nodeC.delaySelfNomination(30)
-            nodeD.delaySelfNomination(30)
+            nodeC.delaySelfNomination(10)
+            nodeD.delaySelfNomination(10)
 
             # Node D delays receiving PRIMARY messages from all nodes so it
             # will not know whether it is primary or not
 
-            delayD = 20
+            delayD = 5
             nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
             checkPoolReady(looper=looper, nodes=nodeSet)
@@ -105,13 +105,18 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             timeout = waits.expectedPrePrepareTime(len(nodeSet))
             looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=timeout))
 
+            # Its been checked above that replica stashes 3 phase messages in
+            # lack of primary, now avoid delay (fix the network)
+            nodeD.nodeIbStasher.resetDelays()
+            nodeD.nodeIbStasher.process()
+
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
             for reqType in [PrePrepare, Prepare, Commit]:
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=delayD+3)) # wait little more than delay
+                    0), retryWait=1, timeout=delayD)) # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,

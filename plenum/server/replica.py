@@ -398,8 +398,6 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
-            # if self.isMaster:
-            #     self.removeObsoletePpReqs()
             self._stateChanged()
 
     def primary_changed(self, primary_name, view_no,
@@ -1056,8 +1054,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.hasPrepared(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
-            # and self.requests.isFinalised((ppReq.identifier,
-            #                                ppReq.reqId))
 
     def validatePrepare(self, prepare: Prepare, sender: str) -> bool:
         """

@@ -692,9 +692,6 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
 
-    # for n in nodeSet:
-    #     n.startKeySharing()
-
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))
 
