@@ -9,7 +9,7 @@ from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, f
 from plenum.common.util import mostCommonElement, getQuorum, \
-    checkIfMoreThanFSameItems
+    checkIfMoreThanFSameItems, updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -127,6 +127,13 @@ class PrimaryElector(PrimaryDecider):
         while wrappedMsgs:
             wrappedMsg = wrappedMsgs.popleft()
             msg, sender = wrappedMsg
+            if hasattr(msg, f.LEDGERS.nm) and msg.ledgers:
+                # Since sending of messages over transport which in turns
+                # converts the message to JSON, results in converting
+                # integer keys of dictionary to string
+                msg = updateNamedTuple(msg, **{f.LEDGERS.nm: {
+                    int(k): v for k, v in msg.ledgers.items()
+                    }})
             if hasattr(msg, f.VIEW_NO.nm):
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
                 if reqViewNo == self.viewNo:
@@ -784,13 +791,13 @@ class PrimaryElector(PrimaryDecider):
         Return the list of primary candidates, i.e. the candidates with the
         maximum number of votes
         """
-        candidates = []
+        acceptable_nominations = []
         for c, o, s in self.nominations[inst_id].values():
             if [o, s] == acceptable_state:
-                candidates.append(c)
-        logger.debug('{} found primary candidates {} for instance {}'
-                     .format(self, candidates, inst_id))
-        candidates = Counter(candidates).most_common()
+                acceptable_nominations.append(c)
+        logger.debug('{} found acceptable nominations {} for instance {}'
+                     .format(self, acceptable_nominations, inst_id))
+        candidates = Counter(acceptable_nominations).most_common()
         # Candidates with max no. of votes
         return [c for c in candidates if c[1] == candidates[0][1]]
 

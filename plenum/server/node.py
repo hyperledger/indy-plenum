@@ -1027,7 +1027,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.elector.outBox and (not limit or msgCount < limit):
             msgCount += 1
             msg, rid = self.elector.outBox.popleft()
-            if isinstance(msg, (Nomination, Primary, Reelection)):
+            if isinstance(msg, ElectionType):
                 if rid is None:
                     self.send(msg)
                 else:

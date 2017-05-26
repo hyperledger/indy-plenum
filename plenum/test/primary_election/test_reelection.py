@@ -9,7 +9,6 @@ from plenum.test.delayers import delayerMsgTuple
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
 
-
 @pytest.fixture()
 def setup(startedNodes):
     A, B, C, D = startedNodes.nodes.values()
@@ -29,7 +28,7 @@ def setup(startedNodes):
     delay(Nomination, frm=[B, C], to=[A, D], by=3)
     delay(Nomination, frm=[A, D], to=[B, C], by=5)
 
-
+@pytest.mark.skip('Temporary')
 def test_reelection3(setup, looper, keySharedNodes):
     """
     A delays self nomination, gets Nom from D.

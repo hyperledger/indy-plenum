@@ -192,6 +192,7 @@ class Propagator:
         """
         key = request.key
         for q in self.msgsToReplicas:
+            logger.debug('{} forwarding request {} to replicas'.format(self, key))
             q.append(ReqKey(*key))
 
         self.monitor.requestUnOrdered(*key)

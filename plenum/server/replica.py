@@ -758,8 +758,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent this message
         """
         key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug("{} Receiving PRE-PREPARE{} at {} from {}".
-                     format(self, key, time.perf_counter(), sender))
+        logger.debug("{} received PRE-PREPARE{} from {} at {}".
+                     format(self, key, sender, time.perf_counter()))
         # Converting each req_idrs from list to tuple
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
@@ -826,7 +826,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
-        logger.debug("{} received COMMIT {} from {}".
+        logger.debug("{} received COMMIT{} from {}".
                      format(self, commit, sender))
         if self.isPpSeqNoStable(commit.ppSeqNo):
             self.discard(commit,
@@ -1287,7 +1287,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def process_stashed_out_of_order_commits(self):
         # This method is called periodically to check for any commits that
         # were stashed due to lack of commits before them and orders them if it can
-        logger.debug('{} trying to order from stashed commits. {} {}'.
+        logger.debug('{} trying to order from out of order commits. {} {}'.
                      format(self, self.ordered, self.stashed_out_of_order_commits))
         if self.ordered:
             lastOrdered = self.ordered[-1]
@@ -1749,7 +1749,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: This is not complete
         pass
 
-    def send(self, msg, stat=None, rid: int=None) -> None:
+    def send(self, msg, stat=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
@@ -1762,4 +1762,4 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)
-        self.outBox.append((msg, rid))
+        self.outBox.append(msg)

@@ -234,8 +234,10 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         # TODO: Inefficient, as on every request a minimum of a large list is
         # calculated
-        # If any
         if min(r[0] for r in self.numOrderedRequests) == (reqs + orderedNow):
+            # If these requests is ordered by the last instance then increment
+            # total requests, but why is this important, why cant is ordering
+            # by master not enough?
             self.totalRequests += orderedNow
             self.postOnReqOrdered()
             if 0 == reqs:
@@ -296,10 +298,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         than the acceptable threshold
         """
         r = self.masterReqLatencyTooHigh or \
-            any([lat > self.Lambda for lat in self.masterReqLatencies.values()])
+            next(((key, lat) for key, lat in self.masterReqLatencies.items() if
+                  lat > self.Lambda), None)
         if r:
-            logger.info("{} found master's latency to be higher than the "
-                         "threshold for some or all requests.".format(self))
+            logger.info("{} found master's latency {} to be higher than the "
+                         "threshold for request {}.".format(self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "
                          "threshold for all requests.".format(self))
