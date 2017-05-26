@@ -21,8 +21,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    changeNodeHa, addNewStewardAndNode, changeNodeKeys, sendChangeNodeHa, \
-    sendAddNewNode, changeNodeHaAndReconnect, addNewSteward
+    updateNodeData, addNewStewardAndNode, changeNodeKeys, sendUpdateNode, \
+    sendAddNewNode, updateNodeDataAndReconnect, addNewSteward
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
@@ -68,7 +68,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
                                                 txnPoolNodeSet,
                                                 newAdHocSteward):
     """
-    Case (https://evernym.atlassian.net/browse/SOV-988):
+    The Case:
         Steward accidentally sends the NODE txn with a non base58 verkey.
     The expected result:
         Steward gets NAck response from the pool.
@@ -98,7 +98,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
                                            txnPoolNodeSet,
                                            newAdHocSteward):
     """
-    Case (https://evernym.atlassian.net/browse/SOV-1046):
+    The case:
         Steward accidentally sends the NODE txn with an invalid HA.
     The expected result:
         Steward gets NAck response from the pool.
@@ -132,7 +132,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
                                  txnPoolNodeSet,
                                  newAdHocSteward):
     """
-    Case (https://evernym.atlassian.net/browse/SOV-1064):
+    The case:
         Steward accidentally sends the NODE txn without full fields set.
     The expected result:
         Steward gets NAck response from the pool.
@@ -148,8 +148,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
 
     sendAddNewNode(newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_renameNodePortField)
-    waitRejectFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  "Missing some of")
+    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                  "unknown field")
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         def _tnf(op): del op[DATA][fn]
@@ -157,8 +157,8 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
                        transformOpFunc=_tnf)
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
-        waitRejectFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "Missing some of")
+        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                      "unknown field")
 
 
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
@@ -228,8 +228,8 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
                                                                      tconf,
                                                                      allPluginsPath)
         txnPoolNodeSet.append(newNode)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    logger.debug("{} connected to the pool".format(newNode))
+        looper.run(checkNodesConnected(txnPoolNodeSet))
+        logger.debug("{} connected to the pool".format(newNode))
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     f = getMaxFailures(len(txnPoolNodeSet))
@@ -249,14 +249,41 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                                                 steward1, stewardWallet,
                                                 nodeThetaAdded):
     _, _, newNode = nodeThetaAdded
-    nodeNewHa, clientNewHa = genHa(2)
-    logger.debug('{} changing HAs to {} {}'.format(newNode, nodeNewHa,
-                                                   clientNewHa))
-    sendChangeNodeHa(steward1, stewardWallet, newNode,
-                     nodeHa=nodeNewHa, clientHa=clientNewHa)
+    nodeNewHa = genHa(1)
+    new_port = nodeNewHa.port
+    node_ha = txnPoolNodeSet[0].nodeReg[newNode.name]
+    cli_ha = txnPoolNodeSet[0].cliNodeReg[newNode.name + CLIENT_STACK_SUFFIX]
+    node_data = {
+        ALIAS: newNode.name,
+        NODE_PORT: new_port,
+        NODE_IP: node_ha.host,
+        CLIENT_PORT: cli_ha.port,
+        CLIENT_IP: cli_ha.host,
+    }
+
+    logger.debug('{} changing port to {} {}'.format(newNode, new_port,
+                                                    newNode.nodestack.ha.port))
+    sendUpdateNode(steward1, stewardWallet, newNode,
+                   node_data)
 
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, steward1, 'is not a steward of node',
+                             node.clientstack.name)
+
+
+def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
+                                      tdirWithPoolTxns,
+                                      tconf, nodeThetaAdded):
+    """
+    The node alias cannot be changed.
+    """
+    newSteward, newStewardWallet, newNode = nodeThetaAdded
+    node_data = {ALIAS: 'foo'}
+    sendUpdateNode(newSteward, newStewardWallet, newNode,
+                   node_data)
+    for node in txnPoolNodeSet:
+        waitRejectWithReason(looper, newSteward,
+                             'data has conflicts with request data',
                              node.clientstack.name)
 
 
@@ -266,10 +293,22 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     An running node's port is changed
     """
     newSteward, newStewardWallet, newNode = nodeThetaAdded
-    nodeNewHa, clientNewHa = genHa(2)
-    node = changeNodeHaAndReconnect(looper, newSteward,
+    nodeNewHa = genHa(1)
+    new_port = nodeNewHa.port
+
+    node_ha = txnPoolNodeSet[0].nodeReg[newNode.name]
+    cli_ha = txnPoolNodeSet[0].cliNodeReg[newNode.name + CLIENT_STACK_SUFFIX]
+    node_data = {
+        ALIAS: newNode.name,
+        NODE_PORT: new_port,
+        NODE_IP: node_ha.host,
+        CLIENT_PORT: cli_ha.port,
+        CLIENT_IP: cli_ha.host,
+    }
+
+    node = updateNodeDataAndReconnect(looper, newSteward,
                                     newStewardWallet, newNode,
-                                    nodeNewHa, clientNewHa,
+                                    node_data,
                                     tdirWithPoolTxns, tconf,
                                     txnPoolNodeSet)
 

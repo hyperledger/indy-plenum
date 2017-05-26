@@ -1,3 +1,4 @@
+from stp_core.types import HA
 from typing import Iterable, Union
 
 from plenum.client.client import Client
@@ -119,20 +120,12 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
     return newSteward, newStewardWallet, newNode
 
 
-def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
+def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
     nodeNym = hexToFriendly(node.nodestack.verhex)
-    (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
         TXN_TYPE: NODE,
         TARGET_NYM: nodeNym,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: nodePort,
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: clientPort,
-            ALIAS: node.name,
-            SERVICES: [VALIDATOR]
-        }
+        DATA: node_data,
     }
 
     req = stewardWallet.signOp(op)
@@ -140,8 +133,8 @@ def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
     return req
 
 
-def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
-    req = sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa)
+def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
+    req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
     # TODO: Not needed in ZStack, remove once raet is removed
@@ -151,16 +144,22 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     node.clientstack.clearRemoteKeeps()
 
 
-def changeNodeHaAndReconnect(looper, steward, stewardWallet, node,
-                             nodeHa, clientHa,
-                             tdirWithPoolTxns, tconf, txnPoolNodeSet):
-    changeNodeHa(looper, steward, stewardWallet, node,
-                 nodeHa=nodeHa, clientHa=clientHa)
+def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
+                               node_data,
+                               tdirWithPoolTxns, tconf, txnPoolNodeSet):
+    updateNodeData(looper, steward, stewardWallet, node, node_data)
     # restart the Node with new HA
     node.stop()
+    node_alias = node_data.get(ALIAS, None) or node.name
+    node_ip = node_data.get(NODE_IP, None) or node.nodestack.ha.host
+    node_port = node_data.get(NODE_PORT, None) or node.nodestack.ha.port
+    client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
+    client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
-                             config=tconf, ha=nodeHa, cliha=clientHa)
+    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns,
+                             config=tconf,
+                             ha=HA(node_ip, node_port),
+                             cliha=HA(client_ip, client_port))
     looper.add(restartedNode)
 
     # replace node in txnPoolNodeSet
@@ -245,25 +244,49 @@ def buildPoolClientAndWallet(clientData, tempDir, clientClass=None,
     return client, w
 
 
-def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode]):
+def disconnectPoolNode(poolNodes: Iterable, disconnect: Union[str, TestNode], stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
 
     for node in poolNodes:
-        if node.name == disconnect:
+        if node.name == disconnect and stopNode:
             node.stop()
         else:
             node.nodestack.disconnectByName(disconnect)
 
 
+def reconnectPoolNode(poolNodes: Iterable, connect: Union[str, TestNode], looper):
+    if isinstance(connect, TestNode):
+        connect = connect.name
+    assert isinstance(connect, str)
+
+    for node in poolNodes:
+        if node.name == connect:
+            node.start(looper)
+        else:
+            node.nodestack.reconnectRemoteWithName(connect)
+
+
 def disconnect_node_and_ensure_disconnected(looper, poolNodes,
                                             disconnect: Union[str, TestNode],
-                                            timeout=None):
+                                            timeout=None,
+                                            stopNode=True):
     if isinstance(disconnect, TestNode):
         disconnect = disconnect.name
     assert isinstance(disconnect, str)
 
-    disconnectPoolNode(poolNodes, disconnect)
+    disconnectPoolNode(poolNodes, disconnect, stopNode=stopNode)
     ensure_node_disconnected(looper, disconnect, poolNodes,
                              timeout=timeout)
+
+
+def reconnect_node_and_ensure_connected(looper, poolNodes,
+                                            connect: Union[str, TestNode],
+                                            timeout=None):
+    if isinstance(connect, TestNode):
+        connect = connect.name
+    assert isinstance(connect, str)
+
+    reconnectPoolNode(poolNodes, connect, looper)
+    looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))

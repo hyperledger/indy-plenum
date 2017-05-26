@@ -269,7 +269,17 @@ class LedgerManager(HasActionQueue):
                 return None
             self.sendTo(consistencyProof, frm)
 
-        if self.isLedgerOld(ledgerStatus) or statusFromClient:
+        if self.isLedgerOld(ledgerStatus):
+            if ledgerInfo.state == LedgerState.synced:
+                self.setLedgerCanSync(ledgerId, True)
+                ledger = self.getLedgerForMsg(ledgerStatus)
+                ledgerStatus = LedgerStatus(ledgerId,
+                                            ledger.size,
+                                            ledger.root_hash)
+                self.sendTo(ledgerStatus, frm)
+            return
+
+        if statusFromClient:
             return
 
         # This node's ledger is not older so it will not receive a
@@ -288,9 +298,10 @@ class LedgerManager(HasActionQueue):
         logger.debug("{} received consistency proof: {} from {}".
                      format(self, proof, frm))
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        ledgerInfo.recvdConsistencyProofs[frm] = ConsistencyProof(*proof)
+
         if self.canProcessConsistencyProof(proof):
-            ledgerInfo = self.getLedgerInfoByType(ledgerId)
-            ledgerInfo.recvdConsistencyProofs[frm] = ConsistencyProof(*proof)
             canCatchup, catchUpFrm = self.canStartCatchUpProcess(ledgerId)
             if canCatchup:
                 self.startCatchUpProcess(ledgerId, catchUpFrm)
@@ -298,11 +309,31 @@ class LedgerManager(HasActionQueue):
     def canProcessConsistencyProof(self, proof: ConsistencyProof) -> bool:
         ledgerId = getattr(proof, f.LEDGER_ID.nm)
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        if ledgerInfo.state != LedgerState.not_synced or not ledgerInfo.canSync:
+        if not ledgerInfo.canSync:
             logger.debug("{} cannot process consistency "
-                         "proof since in state {} and canSync is {}"
-                         .format(self, ledgerInfo.state, ledgerInfo.canSync))
+                         "proof since canSync is {}"
+                         .format(self, ledgerInfo.canSync))
             return False
+        if ledgerInfo.state == LedgerState.syncing:
+            logger.debug("{} cannot process consistency "
+                         "proof since ledger state is {}"
+                         .format(self, ledgerInfo.state))
+            return False
+        if ledgerInfo.state == LedgerState.synced:
+            if not self.checkLedgerIsOutOfSync(ledgerInfo):
+                logger.debug("{} cannot process consistency "
+                             "proof since in state {} and not enough "
+                             "CPs received"
+                             .format(self, ledgerInfo.state))
+                return False
+            logger.debug("{} is out of sync (based on CPs {} and total "
+                         "node cnt {}) -> updating ledger"
+                         " state from {} to {}"
+                         .format(self, ledgerInfo.recvdConsistencyProofs,
+                                 self.owner.totalNodes,
+                                 ledgerInfo.state, LedgerState.not_synced))
+            self.setLedgerState(ledgerId, LedgerState.not_synced)
+            return self.canProcessConsistencyProof(proof)
 
         start = getattr(proof, f.SEQ_NO_START.nm)
         end = getattr(proof, f.SEQ_NO_END.nm)
@@ -320,6 +351,14 @@ class LedgerManager(HasActionQueue):
                          logMethod=logger.warn)
             return False
         return True
+
+    def checkLedgerIsOutOfSync(self, ledgerInfo) -> bool:
+        recvdConsProof = ledgerInfo.recvdConsistencyProofs
+        # Consider an f value when this node was not connected
+        currTotalNodes = self.owner.totalNodes - 1
+        adjustedF = getMaxFailures(currTotalNodes)
+        filtered = self._getNotEmptyProofs(recvdConsProof)
+        return len(filtered) >= (currTotalNodes - adjustedF)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
@@ -732,6 +771,8 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.canSync = False
         ledgerInfo.state = LedgerState.synced
         ledgerInfo.postCatchupCompleteClbk()
+        ledgerInfo.ledgerStatusOk = set()
+        ledgerInfo.recvdConsistencyProofs = {}
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
@@ -761,6 +802,9 @@ class LedgerManager(HasActionQueue):
         seqNoStart = getattr(status, f.TXN_SEQ_NO.nm)
         seqNoEnd = ledger.size
         return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
+
+    def _getNotEmptyProofs(self, proofs):
+        return [proof for frm, proof in proofs.items() if proof]
 
     def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
 
