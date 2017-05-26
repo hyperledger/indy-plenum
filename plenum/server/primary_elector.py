@@ -8,8 +8,8 @@ from operator import itemgetter
 from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, f
-from plenum.common.util import mostCommonElement, getQuorum, \
-    checkIfMoreThanFSameItems, updateNamedTuple
+from plenum.common.util import mostCommonElement, get_strong_quorum, \
+    checkIfMoreThanFSameItems, updateNamedTuple, get_weak_quorum
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -181,7 +181,7 @@ class PrimaryElector(PrimaryDecider):
         r"""
         Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
         """
-        return getQuorum(f=self.f)
+        return get_strong_quorum(f=self.f)
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self.scheduleElection()
@@ -298,7 +298,7 @@ class PrimaryElector(PrimaryDecider):
         self.scheduledPrimaryDecisions[instId] = None
         self.reElectionProposals[instId] = OrderedDict()
         self.duplicateMsgs = {}
-        # self.
+        self.last_primary_sent = {}
 
     def processNominate(self, nom: Nomination, sender: str):
         """
@@ -412,6 +412,15 @@ class PrimaryElector(PrimaryDecider):
                         replica))
                 return
 
+            # If sent a Re-election but more than f nodes send a Primary for
+            # the same node then discard the re-election and send Primary
+            if replica.isPrimary is None and \
+                    self.hasPrimaryQuorum(instId, strong=False) and \
+                    self.has_sent_reelection(instId):
+                logger.debug('{} breaking re-election tie with {} from {}'.
+                             format(self, prim, sender))
+                self.sendPrimary(instId, prim.name, prim.ordSeqNo, prim.ledgers)
+
             if self.hasPrimaryQuorum(instId):
                 if replica.isPrimary is None:
                     transformed = []
@@ -485,10 +494,11 @@ class PrimaryElector(PrimaryDecider):
         # reelection round message
         inst_id = reelection.instId
         replica = self.replicas[inst_id]
-        if replica.isPrimary is not None:
+        # if replica.isPrimary is not None:
+        if inst_id in self.last_primary_sent:
             """
-            Primary has already been elected for this instId. So send
-            PRIMARY msg back.
+            Primary has already been sent for this instId.
+            So send PRIMARY msg again.
             """
             self.resend_primary(inst_id, sender)
             return
@@ -580,7 +590,7 @@ class PrimaryElector(PrimaryDecider):
         """
         return len(self.nominations[instId]) >= self.quorum
 
-    def hasPrimaryQuorum(self, instId: int) -> bool:
+    def hasPrimaryQuorum(self, instId: int, strong=True) -> bool:
         """
         Are there at least `quorum` number of primary declarations received by
         this replica?
@@ -589,7 +599,7 @@ class PrimaryElector(PrimaryDecider):
          False otherwise
         """
         pd = len(self.primaryDeclarations[instId])
-        q = self.quorum
+        q = self.quorum if strong else get_weak_quorum(f=self.f)
         result = pd >= q
         if result:
             logger.trace("{} primary declarations {} meet required "
@@ -738,8 +748,11 @@ class PrimaryElector(PrimaryDecider):
     def resend_primary(self, inst_id: int, sender):
         try:
             lps = self.last_primary_sent[inst_id]
-        except ValueError:
-            raise RuntimeError("No previous Primary message sent for inst_id {}".format(inst_id))
+            logger.debug('{} resending primary for instance {} to {}'.
+                         format(self, inst_id, sender))
+        except KeyError:
+            raise RuntimeError("No previous Primary message sent for inst_id {}".
+                               format(inst_id))
         self.send(lps, sender)
 
     def sendPrimary(self, inst_id: int, primary_name: str,
@@ -898,6 +911,10 @@ class PrimaryElector(PrimaryDecider):
         :param instId: id of the instance for which elections are happening.
         """
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) > (1 * self.nodeCount)
+
+    def has_sent_reelection(self, inst_id):
+        replica = self.replicas[inst_id]
+        return inst_id in self.reElectionProposals and replica.name in self.reElectionProposals[inst_id]
 
     def send(self, msg, rid: int=None):
         """

@@ -260,7 +260,9 @@ class TestNode(TestNodeCore, Node):
         PrimaryElector.discard,
         PrimaryElector.processReelection,
         PrimaryElector.get_acceptable_last_ordered_pp_seq_no,
-        PrimaryElector.get_min_safe_last_ordered_pp_seq_no
+        PrimaryElector.get_min_safe_last_ordered_pp_seq_no,
+        PrimaryElector.resend_primary,
+        PrimaryElector.sendReelection
     ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):

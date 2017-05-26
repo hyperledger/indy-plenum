@@ -167,7 +167,7 @@ def getMaxFailures(nodeCount: int) -> int:
         return 0
 
 
-def getQuorum(nodeCount: int = None, f: int = None) -> int:
+def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
     r"""
     Return the minimum number of nodes where the number of correct nodes is
     greater than the number of faulty nodes.
@@ -180,6 +180,13 @@ def getQuorum(nodeCount: int = None, f: int = None) -> int:
         f = getMaxFailures(nodeCount)
     if f is not None:
         return 2 * f + 1
+
+
+def get_weak_quorum(nodeCount: int = None, f: int = None) -> int:
+    if nodeCount is not None:
+        f = getMaxFailures(nodeCount)
+    if f is not None:
+        return f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:
