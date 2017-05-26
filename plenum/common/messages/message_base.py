@@ -59,6 +59,13 @@ class MessageBase(Mapping, MessageValidator):
 
     def __init__(self, *args, **kwargs):
         assert not (args and kwargs), '*args, **kwargs cannot be used together'
+
+        argsLen = len(args or kwargs)
+        assert argsLen == len(self.schema), \
+            "number of parameters should be the " \
+            "same as a number of fields in schema, but it was {}"\
+            .format(argsLen)
+
         if args:
             input_as_dict = dict(zip(map(itemgetter(0), self.schema), args))
         else:
