@@ -73,22 +73,18 @@ class MessageBase(Mapping, MessageValidator):
         # remove op field before the validation procedure
         input_as_dict.pop(OP_FIELD_NAME, None)
         self.validate(input_as_dict)
-        self._fields = [(k, input_as_dict[k]) for k, _ in self.schema if k in input_as_dict]
+        self._fields = OrderedDict((name, input_as_dict[name]) for name, _ in self.schema)
 
     def __getattr__(self, item):
-        for k, v in self._fields:
-            if item == k:
-                return v
-        raise AttributeError
+        return self._fields[item]
 
     def __getitem__(self, key):
+        values = list(self._fields.values())
         if isinstance(key, slice):
-            r = range(key.start or 0, min([len(self), key.stop or len(self)]), key.step or 1)
-            return [self._fields[i][1] for i in r]
-        elif isinstance(key, int):
-            return self._fields[key][1]
-        else:
-            raise TypeError("Invalid argument type.")
+            return values[key]
+        if isinstance(key, int):
+            return values[key]
+        raise TypeError("Invalid argument type.")
 
     def _asdict(self):
         """
@@ -101,7 +97,7 @@ class MessageBase(Mapping, MessageValidator):
         """
         Return a dictionary form.
         """
-        m = OrderedDict(self._fields)
+        m = self._fields.copy()
         m[OP_FIELD_NAME] = self.typename
         m.move_to_end(OP_FIELD_NAME, False)
         return m
@@ -111,8 +107,7 @@ class MessageBase(Mapping, MessageValidator):
         return self.typename
 
     def __iter__(self):
-        for k, v in self._fields:
-            yield v
+        return self._fields.values().__iter__()
 
     def __len__(self):
         return len(self._fields)
