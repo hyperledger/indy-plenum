@@ -1,3 +1,4 @@
+from stp_core.types import HA
 from typing import Iterable, Union
 
 from plenum.client.client import Client
@@ -119,20 +120,12 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
     return newSteward, newStewardWallet, newNode
 
 
-def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
+def sendUpdateNode(stewardClient, stewardWallet, node, node_data):
     nodeNym = hexToFriendly(node.nodestack.verhex)
-    (nodeIp, nodePort), (clientIp, clientPort) = nodeHa, clientHa
     op = {
         TXN_TYPE: NODE,
         TARGET_NYM: nodeNym,
-        DATA: {
-            NODE_IP: nodeIp,
-            NODE_PORT: nodePort,
-            CLIENT_IP: clientIp,
-            CLIENT_PORT: clientPort,
-            ALIAS: node.name,
-            SERVICES: [VALIDATOR]
-        }
+        DATA: node_data,
     }
 
     req = stewardWallet.signOp(op)
@@ -140,8 +133,8 @@ def sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa):
     return req
 
 
-def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
-    req = sendChangeNodeHa(stewardClient, stewardWallet, node, nodeHa, clientHa)
+def updateNodeData(looper, stewardClient, stewardWallet, node, node_data):
+    req = sendUpdateNode(stewardClient, stewardWallet, node, node_data)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
     # TODO: Not needed in ZStack, remove once raet is removed
@@ -151,16 +144,22 @@ def changeNodeHa(looper, stewardClient, stewardWallet, node, nodeHa, clientHa):
     node.clientstack.clearRemoteKeeps()
 
 
-def changeNodeHaAndReconnect(looper, steward, stewardWallet, node,
-                             nodeHa, clientHa,
-                             tdirWithPoolTxns, tconf, txnPoolNodeSet):
-    changeNodeHa(looper, steward, stewardWallet, node,
-                 nodeHa=nodeHa, clientHa=clientHa)
+def updateNodeDataAndReconnect(looper, steward, stewardWallet, node,
+                               node_data,
+                               tdirWithPoolTxns, tconf, txnPoolNodeSet):
+    updateNodeData(looper, steward, stewardWallet, node, node_data)
     # restart the Node with new HA
     node.stop()
+    node_alias = node_data.get(ALIAS, None) or node.name
+    node_ip = node_data.get(NODE_IP, None) or node.nodestack.ha.host
+    node_port = node_data.get(NODE_PORT, None) or node.nodestack.ha.port
+    client_ip = node_data.get(CLIENT_IP, None) or node.clientstack.ha.host
+    client_port = node_data.get(CLIENT_PORT, None) or node.clientstack.ha.port
     looper.removeProdable(name=node.name)
-    restartedNode = TestNode(node.name, basedirpath=tdirWithPoolTxns,
-                             config=tconf, ha=nodeHa, cliha=clientHa)
+    restartedNode = TestNode(node_alias, basedirpath=tdirWithPoolTxns,
+                             config=tconf,
+                             ha=HA(node_ip, node_port),
+                             cliha=HA(client_ip, client_port))
     looper.add(restartedNode)
 
     # replace node in txnPoolNodeSet
