@@ -243,7 +243,8 @@ class MerkleRootField(FieldBase):
         if valSize not in self.hashSizes:
             return 'length should be one of {}, but it was {}'\
                 .format(self.hashSizes, valSize)
-        if set(val).isdisjoint(self.alphabet):
+
+        if set(val) - self.alphabet:
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
 
