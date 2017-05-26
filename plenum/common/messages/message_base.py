@@ -2,7 +2,7 @@ from operator import itemgetter
 
 import itertools
 from typing import Mapping
-
+from collections import OrderedDict
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
 
@@ -101,7 +101,10 @@ class MessageBase(Mapping, MessageValidator):
         """
         Return a dictionary form.
         """
-        return dict(self._fields + [(OP_FIELD_NAME, self.typename)])
+        m = OrderedDict(self._fields)
+        m[OP_FIELD_NAME] = self.typename
+        m.move_to_end(OP_FIELD_NAME, False)
+        return m
 
     @property
     def __name__(self):
