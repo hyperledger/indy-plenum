@@ -1,3 +1,5 @@
+from itertools import product
+
 import pytest
 
 from plenum.common.types import Nomination
@@ -15,17 +17,28 @@ def setup(startedNodes):
     # A.nodeIbStasher.delay(delayerMsgTuple(3, Nomination, B.name))
     A.delaySelfNomination(2)
 
-    for n in [C, B]:
-        A.nodeIbStasher.delay(delayerMsgTuple(3, Nomination, n.name))
-        D.nodeIbStasher.delay(delayerMsgTuple(3, Nomination, n.name))
-    for n in [C, B]:
-        n.nodeIbStasher.delay(delayerMsgTuple(5, Nomination, D.name))
-        n.nodeIbStasher.delay(delayerMsgTuple(5, Nomination, A.name))
+    """
+    A and D will see Nominations from B and C 3 seconds late
+    B and C will see Nominations from A and D 5 seconds late
+    """
+
+    def delay(msg_type, frm, to, by):
+        for f, t in product(frm, to):
+            t.nodeIbStasher.delay(delayerMsgTuple(by, msg_type, f.name))
+
+    delay(Nomination, frm=[B, C], to=[A, D], by=3)
+    delay(Nomination, frm=[A, D], to=[B, C], by=5)
 
 
 def test_reelection3(setup, looper, keySharedNodes):
     """
     A delays self nomination, gets Nom from D.
+
+    A Reelection message received by a node that has already selected a primary
+    should have the recipient send back who it picked as primary. The node
+    proposing reelection when it sees f+1 consistent PRIMARY msgs from other
+    nodes should accept that node as PRIMARY.
+
     """
     looper.run(checkNodesConnected(keySharedNodes))
     ensureElectionsDone(looper, keySharedNodes)

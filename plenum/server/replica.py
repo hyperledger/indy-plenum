@@ -1749,10 +1749,12 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: This is not complete
         pass
 
-    def send(self, msg, stat=None) -> None:
+    def send(self, msg, stat=None, rid: int=None) -> None:
         """
         Send a message to the node on which this replica resides.
 
+        :param stat:
+        :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
         logger.display("{} sending {}".format(self, msg.__class__.__name__),
@@ -1760,4 +1762,4 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)
-        self.outBox.append(msg)
+        self.outBox.append((msg, rid))

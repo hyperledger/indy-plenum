@@ -1026,9 +1026,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msgCount = 0
         while self.elector.outBox and (not limit or msgCount < limit):
             msgCount += 1
-            msg = self.elector.outBox.popleft()
+            msg, rid = self.elector.outBox.popleft()
             if isinstance(msg, (Nomination, Primary, Reelection)):
-                self.send(msg)
+                if rid is None:
+                    self.send(msg)
+                else:
+                    self.send(msg, rid)
             elif isinstance(msg, BlacklistMsg):
                 nodeName = getattr(msg, f.NODE_NAME.nm)
                 code = getattr(msg, f.SUSP_CODE.nm)
