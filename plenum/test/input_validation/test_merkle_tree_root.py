@@ -5,32 +5,25 @@ from plenum.common.util import randomString
 from plenum.test.input_validation.utils import *
 
 
-VALID_HASH_LENGTH = 44
-INVALID_HASH_LENGTH = 22
+LENGTH_MIN = 43
+LENGTH_MAX = 45
+
+valid_merkle_root = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+validator = MerkleRootField()
 
 
-def test_length_validation():
-    validator = MerkleRootField()
-
-    valid_hash = randomString(VALID_HASH_LENGTH, validator.alphabet)
-    invalid_hash = randomString(INVALID_HASH_LENGTH, validator.alphabet)
-
-    assert_valid(validator.validate(valid_hash))
-    assert_invalid(validator.validate(invalid_hash))
+def test_valid_merkle_root():
+    assert not validator.validate(valid_merkle_root[:LENGTH_MIN])
 
 
-def test_alphabet_validation():
-    validator = MerkleRootField()
+def test_empty_string():
+    assert validator.validate('')
 
-    universal_alphabet = set(string.printable)
 
-    valid_chars = validator.alphabet
-    invalid_chars = universal_alphabet - valid_chars
+def test_wrong_lengths():
+    assert validator.validate(valid_merkle_root[:LENGTH_MIN - 1])
+    assert validator.validate(valid_merkle_root[:LENGTH_MAX + 1])
 
-    assert invalid_chars
 
-    valid_hash = randomString(VALID_HASH_LENGTH, valid_chars)
-    invalid_hash = randomString(VALID_HASH_LENGTH, invalid_chars)
-
-    assert_valid(validator.validate(valid_hash))
-    assert_invalid(validator.validate(invalid_hash))
+def test_invalid_symbol():
+    assert validator.validate(valid_merkle_root[:LENGTH_MIN - 1] + '0')
