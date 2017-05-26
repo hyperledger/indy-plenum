@@ -5,7 +5,7 @@ from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
 from plenum.common.constants import REQDIGEST, REQKEY
-from plenum.common.types import f, OPERATION
+from plenum.common.types import f, OPERATION, ClientMessageValidator
 
 
 class Request:
@@ -81,3 +81,13 @@ class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
 
 class ReqKey(NamedTuple(REQKEY, [f.IDENTIFIER, f.REQ_ID])):
     pass
+
+
+class SafeRequest(Request, ClientMessageValidator):
+
+    def __init__(self, **kwargs):
+        self.validate(kwargs)
+        super().__init__(**kwargs)
+
+
+
