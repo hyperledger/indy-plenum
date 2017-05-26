@@ -324,10 +324,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.trace("{} found master had no record yet for {}".
                              format(self, cid))
                 return False
-            if avgLatM[cid] - lat > self.Omega:
+            d = avgLatM[cid] - lat
+            if d > self.Omega:
                 logger.info("{} found difference between master's and "
-                             "backups's avg latency to be higher than the "
-                             "threshold".format(self))
+                             "backups's avg latency {} to be higher than the "
+                             "threshold".format(self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
@@ -370,7 +371,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         reqs, tm = self.numOrderedRequests[instId]
         return reqs / tm if tm else None
 
-    def getInstanceMetrics(self, forAllExcept: int) -> float:
+    def getInstanceMetrics(self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
         """
         Calculate and return the average throughput of all the instances except
         the one specified as `forAllExcept`.
