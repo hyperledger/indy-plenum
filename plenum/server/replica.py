@@ -827,7 +827,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent the COMMIT
         """
         logger.debug("{} received COMMIT{} from {}".
-                     format(self, commit, sender))
+                     format(self, (commit.viewNo, commit.ppSeqNo), sender))
         if self.isPpSeqNoStable(commit.ppSeqNo):
             self.discard(commit,
                          "achieved stable checkpoint for Commit",

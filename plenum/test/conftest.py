@@ -331,8 +331,10 @@ def ensureView(nodeSet, looper, up):
 
 @pytest.fixture("module")
 def delayed_perf_chk(nodeSet):
+    d = 20
     for node in nodeSet:
-        node.delayCheckPerformance(20)
+        node.delayCheckPerformance(d)
+    return d
 
 
 @pytest.fixture(scope="module")

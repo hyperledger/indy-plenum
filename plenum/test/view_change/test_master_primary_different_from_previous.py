@@ -35,5 +35,3 @@ def test_master_primary_different_from_previous(txnPoolNodeSet,
     # The new primary can still process requests
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
-
-

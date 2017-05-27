@@ -103,6 +103,7 @@ def do_vc(looper, nodes, client, wallet, old_view_no=None):
     new_view_no = ensure_view_change(looper, nodes, client, wallet)
     if old_view_no:
         assert new_view_no - old_view_no >= 1
+    return new_view_no
 
 
 def disconnect_master_primary(nodes):
