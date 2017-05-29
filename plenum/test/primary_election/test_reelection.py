@@ -2,7 +2,7 @@ from itertools import product
 
 import pytest
 
-from plenum.common.types import Nomination
+from plenum.common.types import Nomination, Reelection
 from plenum.test.delayers import delayerMsgTuple
 # from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 #     client1, wallet1, client1Connected, looper
@@ -22,14 +22,8 @@ def fill_counters(nodes):
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A, B, C, D = startedNodes.nodes.values()
-    # A.delaySelfNomination(5)
-    # A.nodeIbStasher.delay(delayerMsgTuple(3, Nomination, B.name))
-    # A.delaySelfNomination(2)
-
     """
-    A and D will see Nominations from B and C 3 seconds late
-    B and C will see Nominations from A and D 5 seconds late
+    Each node sees Nomination from others delayed by a few seconds
     """
 
     counters = fill_counters(startedNodes)
@@ -38,10 +32,8 @@ def setup(startedNodes):
         for f, t in product(frm, to):
             t.nodeIbStasher.delay(delayerMsgTuple(by, msg_type, f.name, 0))
 
-    delay(Nomination, frm=[A,], to=[B, C, D], by=2)
-    delay(Nomination, frm=[B], to=[A, C, D], by=2)
-    delay(Nomination, frm=[C], to=[A, B, D], by=2)
-    delay(Nomination, frm=[D], to=[A, B, C], by=2)
+    for n in startedNodes:
+        delay(Nomination, frm=[n, ], to=[_ for _ in startedNodes if _ != n], by=2)
     return counters
 
 
@@ -59,7 +51,7 @@ def test_reelection3(setup, looper, keySharedNodes):
     old_counter_resend, old_counter_relec = setup
     looper.run(checkNodesConnected(keySharedNodes))
     ensureElectionsDone(looper, keySharedNodes)
-    # Check that both the number of call to `sendReelection` and
+    # Check that both the number of call to `resend_primary` and
     # `sendReelection` have increased
     new_counter_resend, new_counter_relec = fill_counters(keySharedNodes)
     assert new_counter_resend > old_counter_resend

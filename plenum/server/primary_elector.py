@@ -494,7 +494,7 @@ class PrimaryElector(PrimaryDecider):
         # reelection round message
         inst_id = reelection.instId
         replica = self.replicas[inst_id]
-        # if replica.isPrimary is not None:
+
         if inst_id in self.last_primary_sent:
             """
             Primary has already been sent for this instId.
