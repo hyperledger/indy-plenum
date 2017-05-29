@@ -9,6 +9,9 @@ from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 
 
+TestRunningTimeLimitSec = 500
+
+
 def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
                                                       txnPoolNodeSet, client1,
                                                       wallet1, client1Connected):

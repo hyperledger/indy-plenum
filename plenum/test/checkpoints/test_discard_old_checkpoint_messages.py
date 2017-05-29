@@ -5,6 +5,8 @@ from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkDiscardMsg
 
+TestRunningTimeLimitSec = 300
+
 
 def testDiscardCheckpointMsgForStableCheckpoint(chkFreqPatched, looper,
                                                 txnPoolNodeSet, client1,

@@ -3,7 +3,7 @@ import pytest
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 
-CHK_FREQ = 5
+CHK_FREQ = 3
 
 
 @pytest.fixture(scope="module")

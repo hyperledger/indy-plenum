@@ -8,6 +8,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 TestRunningTimeLimitSec = 300
 
+
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
                                                    txnPoolNodeSet, client1,
                                                    wallet1, client1Connected):

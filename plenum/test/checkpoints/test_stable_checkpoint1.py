@@ -8,6 +8,9 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getPrimaryReplica
 
 
+TestRunningTimeLimitSec = 300
+
+
 def testStableCheckpointWhenOneInstanceSlow(chkFreqPatched, looper,
                                             txnPoolNodeSet, client1,
                                             wallet1, client1Connected):

@@ -10,6 +10,8 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
+TestRunningTimeLimitSec = 300
+
 
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tconf):
