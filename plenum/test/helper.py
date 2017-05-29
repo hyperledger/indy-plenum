@@ -87,7 +87,8 @@ def waitForSufficientRepliesForRequests(looper,
                                         requestIds = None,
                                         fVal=None,
                                         customTimeoutPerReq=None,
-                                        add_delay_to_timeout: float = 0):
+                                        add_delay_to_timeout: float = 0,
+                                        override_timeout_limit=False):
     """
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
@@ -125,7 +126,8 @@ def waitForSufficientRepliesForRequests(looper,
 
     looper.run(eventuallyAll(*coros,
                              retryWait=1,
-                             totalTimeout=totalTimeout))
+                             totalTimeout=totalTimeout,
+                             override_timeout_limit=override_timeout_limit))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
@@ -134,7 +136,8 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         numReqs: int,
                                         fVal: int=None,
                                         customTimeoutPerReq: float=None,
-                                        add_delay_to_timeout: float=0):
+                                        add_delay_to_timeout: float=0,
+                                        override_timeout_limit=False):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
@@ -142,7 +145,8 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         requests=requests,
                                         fVal=fVal,
                                         customTimeoutPerReq=customTimeoutPerReq,
-                                        add_delay_to_timeout=add_delay_to_timeout)
+                                        add_delay_to_timeout=add_delay_to_timeout,
+                                        override_timeout_limit=override_timeout_limit)
     return requests
 
 

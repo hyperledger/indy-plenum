@@ -4,16 +4,14 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
 from plenum.test.batching_3pc.conftest import tconf
 
-CHK_FREQ_FACTOR = 3
-
 
 @pytest.fixture(scope="module")
 def chkFreqPatched(tconf, request):
     oldChkFreq = tconf.CHK_FREQ
     oldLogSize = tconf.LOG_SIZE
 
-    tconf.CHK_FREQ = CHK_FREQ_FACTOR*tconf.Max3PCBatchSize
-    tconf.LOG_SIZE = 3*tconf.CHK_FREQ
+    tconf.CHK_FREQ = 2
+    tconf.LOG_SIZE = 2*tconf.CHK_FREQ
 
     def reset():
         tconf.CHK_FREQ = oldChkFreq
@@ -22,3 +20,13 @@ def chkFreqPatched(tconf, request):
     request.addfinalizer(reset)
 
     return tconf
+
+
+@pytest.fixture(scope="module")
+def reqs_for_checkpoint(chkFreqPatched):
+    return chkFreqPatched.CHK_FREQ * chkFreqPatched.Max3PCBatchSize
+
+
+@pytest.fixture(scope="module")
+def reqs_for_logsize(chkFreqPatched):
+    return chkFreqPatched.LOG_SIZE * chkFreqPatched.Max3PCBatchSize

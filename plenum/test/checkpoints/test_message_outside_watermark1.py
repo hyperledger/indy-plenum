@@ -11,7 +11,8 @@ TestRunningTimeLimitSec = 300
 
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
                                                    txnPoolNodeSet, client1,
-                                                   wallet1, client1Connected):
+                                                   wallet1, client1Connected,
+                                                   reqs_for_logsize):
     """
     One of the primary starts getting lot of requests, more than his log size
     and queues up requests since they will go beyond its watermarks. This
@@ -19,9 +20,9 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     Eventually this primary will send PRE-PREPARE for all requests and those
     requests will complete
     """
-    delay = 5
+    delay = 3
     instId = 1
-    reqsToSend = 2*chkFreqPatched.LOG_SIZE + 1
+    reqsToSend = 2*reqs_for_logsize + 1
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
     from plenum.server.replica import TPCStat
@@ -33,6 +34,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     def chk():
         assert orderedCount + reqsToSend == pr.stats.get(TPCStat.OrderSent)
 
-    print('Sending {} requests'.format(reqsToSend))
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend,
+                                        1, add_delay_to_timeout=delay,
+                                        override_timeout_limit=True)
     looper.run(eventually(chk, retryWait=1, timeout=3))

@@ -1,55 +1,43 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test import waits
-from plenum.test.delayers import nom_delay
+from plenum.test.delayers import nom_delay, delay_3pc_messages
 from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests, sendReqsToNodesAndVerifySuffReplies
+    waitForSufficientRepliesForRequests
+from plenum.test.batching_3pc.conftest import tconf
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
-from plenum.test.batching_3pc.conftest import tconf
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf, request):
-    old_wait = tconf.Max3PCBatchWait
-    # Increasing wait time so that a check can be made on request queues
-    tconf.Max3PCBatchWait = 3
-
-    def reset():
-        tconf.Max3PCBatchWait = old_wait
-
-    request.addfinalizer(reset)
-    return tconf
-
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
-                                wallet1, client1Connected, tconf):
+                                        wallet1, client1Connected, tconf):
     """
     All replicas whether primary or non primary hold request keys of forwarded
     requests. Once requests are ordered, they request keys are removed from replica.
     """
-    def chk(count, all_same=True):
+    delay_3pc_messages(txnPoolNodeSet, 0, 2)
+    delay_3pc_messages(txnPoolNodeSet, 1, 2)
+
+    def chk(count):
         # All replicas have same amount of forwarded request keys and all keys
         # are finalised.
         for node in txnPoolNodeSet:
             for r in node.replicas:
-                if all_same or r.isPrimary is False:
+                if r.isPrimary is False:
                     assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == count
                     for i in range(count):
                         k = r.requestQueues[DOMAIN_LEDGER_ID][i]
                         assert r.requests[k].finalised
+                elif r.isPrimary is True:
+                    assert len(r.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
-    # Send less that batch number of request so batch is not immediately sent
-    # and primary can be checked
-    reqs = sendRandomRequests(wallet1, client1, tconf.Max3PCBatchSize-1)
-    # All replicas should have all request keys with them
-    looper.run(eventually(chk, tconf.Max3PCBatchSize-1))
+    reqs = sendRandomRequests(wallet1, client1, tconf.Max3PCBatchSize - 1)
     # Only non primary replicas should have all request keys with them
-    looper.run(eventually(chk, tconf.Max3PCBatchSize - 1, False))
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+    looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
+    waitForSufficientRepliesForRequests(looper, client1, requests=reqs, add_delay_to_timeout=2)
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
     # have processed it.
@@ -59,8 +47,8 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
         node.nodeIbStasher.delay(nom_delay(delay))
 
     ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
-    reqs = sendRandomRequests(wallet1, client1, 2*tconf.Max3PCBatchSize)
-    looper.run(eventually(chk, 2*tconf.Max3PCBatchSize))
+    reqs = sendRandomRequests(wallet1, client1, 2 * tconf.Max3PCBatchSize)
+    looper.run(eventually(chk, 2 * tconf.Max3PCBatchSize))
     ensureElectionsDone(looper, txnPoolNodeSet)
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
+    waitForSufficientRepliesForRequests(looper, client1, requests=reqs, add_delay_to_timeout=2)
     looper.run(eventually(chk, 0))

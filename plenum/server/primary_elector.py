@@ -150,6 +150,7 @@ class PrimaryElector(PrimaryDecider):
                                  .format(reqViewNo, self.viewNo),
                                  logger.debug)
             else:
+                
                 filtered.append(wrappedMsg)
 
         return filtered
