@@ -141,14 +141,6 @@ TestRunningTimeLimitSec = 100
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
 
-
-# After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
-CHK_FREQ = 1000
-
-# Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
-
-
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
@@ -184,6 +176,13 @@ ProcessedBatchMapsToKeep = 100
 MaxStateProofSize = 10
 # State proof timeout
 MaxStateProofTime = 3
+
+
+# After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
+CHK_FREQ = 1000*Max3PCBatchSize
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3*CHK_FREQ
 
 
 CLIENT_REQACK_TIMEOUT = 5

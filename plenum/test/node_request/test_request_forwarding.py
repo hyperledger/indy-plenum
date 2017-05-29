@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
 from plenum.test.delayers import nom_delay
@@ -10,6 +12,18 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
+
+@pytest.fixture(scope="module")
+def tconf(tconf, request):
+    old_wait = tconf.Max3PCBatchWait
+    # Increasing wait time so that a check can be made on request queues
+    tconf.Max3PCBatchWait = 3
+
+    def reset():
+        tconf.Max3PCBatchWait = old_wait
+
+    request.addfinalizer(reset)
+    return tconf
 
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tconf):
