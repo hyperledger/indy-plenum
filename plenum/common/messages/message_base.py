@@ -114,3 +114,12 @@ class MessageBase(Mapping, MessageValidator):
 
     def __len__(self):
         return len(self._fields)
+
+    def items(self):
+        return self._fields.items()
+
+    def keys(self):
+        return self._fields.keys()
+
+    def values(self):
+        return self._fields.values()
