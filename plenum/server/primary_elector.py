@@ -116,6 +116,13 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
+    @staticmethod
+    def convert_ledger_summary(ledger_summary):
+        """
+        Converting string keys (denoting ledger id) of ledger summary to integer
+        """
+        return {int(k): v for k, v in ledger_summary.items()}
+
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
         Filters messages by view number so that only the messages that have the
@@ -131,9 +138,8 @@ class PrimaryElector(PrimaryDecider):
                 # Since sending of messages over transport which in turns
                 # converts the message to JSON, results in converting
                 # integer keys of dictionary to string
-                msg = updateNamedTuple(msg, **{f.LEDGERS.nm: {
-                    int(k): v for k, v in msg.ledgers.items()
-                    }})
+                msg = updateNamedTuple(msg, **{f.LEDGERS.nm: self.convert_ledger_summary(msg.ledgers)})
+                wrappedMsg = (msg, sender)
             if hasattr(msg, f.VIEW_NO.nm):
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
                 if reqViewNo == self.viewNo:
@@ -879,6 +885,8 @@ class PrimaryElector(PrimaryDecider):
             if not acceptable_summary:
                 return None
             else:
+                # Since the above method `checkIfMoreThanFSameItems` does json conversion
+                acceptable_summary = self.convert_ledger_summary(acceptable_summary)
                 r.append(acceptable_summary)
         else:
             r.append({})

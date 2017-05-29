@@ -1,8 +1,9 @@
+from plenum.common.constants import ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import changeNodeHa, \
+from plenum.test.pool_transactions.helper import updateNodeData, \
     buildPoolClientAndWallet
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
@@ -25,8 +26,15 @@ def testChangeHaPersistsPostNodesRestart(looper, txnPoolNodeSet,
                                                    clientNewHa))
 
     # Making the change HA txn an confirming its succeeded
-    changeNodeHa(looper, newSteward, newStewardWallet, newNode,
-                 nodeHa=nodeNewHa, clientHa=clientNewHa)
+    op = {
+        ALIAS: newNode.name,
+        NODE_IP: nodeNewHa.host,
+        NODE_PORT: nodeNewHa.port,
+        CLIENT_IP: clientNewHa.host,
+        CLIENT_PORT: clientNewHa.port,
+    }
+    updateNodeData(looper, newSteward, newStewardWallet, newNode,
+                   op)
 
     # Stopping existing nodes
     for node in txnPoolNodeSet:
