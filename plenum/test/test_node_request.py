@@ -166,8 +166,8 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="ZStack does not have any mechanism to have stats "
-                         "either remove this once raet is removed "
+@pytest.mark.skip(reason="INDY-76. ZStack does not have any mechanism to have "
+                         "stats either remove this once raet is removed "
                          "or implement a `stats` feature in ZStack")
 def testMultipleRequests(tdir_for_func):
     """
