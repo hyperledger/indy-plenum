@@ -133,7 +133,7 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
                          "or implement a `stats` feature in ZStack")
 def testMultipleRequests(tdir_for_func):
     """
-    Send multiple requests to the client
+    Send multiple requests to the node
     """
     with TestNodeSet(count=7, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:

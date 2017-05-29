@@ -14,6 +14,8 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 
 logger = getlogger()
 
+TestRunningTimeLimitSec = 200
+
 
 def test_nominate_only_advanced(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected):
@@ -25,7 +27,7 @@ def test_nominate_only_advanced(looper, txnPoolNodeSet, client1,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2)
     # Long delay so that election messages reach the node but it is still
     # behind others
-    c_delay = 3
+    c_delay = 5
     e_delay = 1
     npr = slow_non_primary(txnPoolNodeSet, 0, c_delay)
     lagging_node = npr.node
@@ -37,7 +39,7 @@ def test_nominate_only_advanced(looper, txnPoolNodeSet, client1,
             for o in [n for n in txnPoolNodeSet if n not in (node, lagging_node)]:
                 node.nodeIbStasher.delay(delayerMsgTuple(e_delay, Nomination, o.name))
 
-    reqs = sendRandomRequests(wallet1, client1, 10)
+    reqs = sendRandomRequests(wallet1, client1, 20)
     new_view_no = ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
     timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + len(txnPoolNodeSet)*e_delay
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)

@@ -93,7 +93,7 @@ def test_fast_nodes_remove_non_ordered_messages(looper, txnPoolNodeSet, client1,
     reqs = []
     for i in range(4):
         reqs.extend(sendRandomRequests(wallet1, client1, 10))
-        looper.runFor(.1)
+        looper.runFor(.01)
 
     ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
     ensureElectionsDone(looper, txnPoolNodeSet)

@@ -764,6 +764,7 @@ def get_master_primary_node(nodes):
     if node.replicas[0].primaryName is not None:
         nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
+    raise AssertionError('No primary found for master')
 
 
 def primaryNodeNameForInstance(nodes, instanceId):

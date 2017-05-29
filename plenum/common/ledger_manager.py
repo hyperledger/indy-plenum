@@ -388,17 +388,15 @@ class LedgerManager(HasActionQueue):
                          .format(self, end, ledger.size))
             end = ledger.size
 
-        # TODO: This is very inefficient for long ledgers
-        txns = ledger.getAllTxn(start, end)
-
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start+1, start, end))
-
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
+        # TODO: This is very inefficient for long ledgers if the ledger does not use `ChunkedFileStore`
+        txns = ledger.getAllTxn(start, end)
         for seq_no in txns:
             txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,

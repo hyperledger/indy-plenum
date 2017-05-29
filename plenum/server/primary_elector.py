@@ -469,7 +469,7 @@ class PrimaryElector(PrimaryDecider):
                                  logger.debug)
             else:
                 logger.debug(
-                    "{} received {} but does it not have primary quorum "
+                    "{} received {} but it does not have primary quorum "
                     "yet".format(self.name, prim))
         else:
             self.discard(prim,
