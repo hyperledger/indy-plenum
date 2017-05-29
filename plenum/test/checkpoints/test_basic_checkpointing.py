@@ -6,9 +6,6 @@ from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
 
-TestRunningTimeLimitSec = 200
-
-
 def testCheckpointCreated(chkFreqPatched, looper, txnPoolNodeSet, client1,
                           wallet1, client1Connected, reqs_for_checkpoint):
     """

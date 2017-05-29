@@ -6,7 +6,7 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
-TestRunningTimeLimitSec = 300
+TestRunningTimeLimitSec = 200
 
 
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
@@ -22,7 +22,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     """
     delay = 3
     instId = 1
-    reqsToSend = 2*reqs_for_logsize + 1
+    reqsToSend = 2*reqs_for_logsize + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
     from plenum.server.replica import TPCStat
@@ -34,7 +34,8 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     def chk():
         assert orderedCount + reqsToSend == pr.stats.get(TPCStat.OrderSent)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend,
-                                        1, add_delay_to_timeout=delay,
-                                        override_timeout_limit=True)
+    for i in range(2):
+        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend//2,
+                                            1, add_delay_to_timeout=delay,
+                                            override_timeout_limit=True)
     looper.run(eventually(chk, retryWait=1, timeout=3))
