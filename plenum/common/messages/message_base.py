@@ -60,18 +60,21 @@ class MessageBase(Mapping, MessageValidator):
     def __init__(self, *args, **kwargs):
         assert not (args and kwargs), '*args, **kwargs cannot be used together'
 
+        if kwargs:
+            # op field is not required since there is self.typename
+            kwargs.pop(OP_FIELD_NAME, None)
+
         argsLen = len(args or kwargs)
         assert argsLen == len(self.schema), \
             "number of parameters should be the " \
-            "same as a number of fields in schema, but it was {}"\
-            .format(argsLen)
+            "same as a number of fields in schema, but it was {}" \
+                .format(argsLen)
 
         if args:
             input_as_dict = dict(zip(map(itemgetter(0), self.schema), args))
         else:
             input_as_dict = kwargs
-        # remove op field before the validation procedure
-        input_as_dict.pop(OP_FIELD_NAME, None)
+
         self.validate(input_as_dict)
         self._fields = OrderedDict((name, input_as_dict[name]) for name, _ in self.schema)
 
