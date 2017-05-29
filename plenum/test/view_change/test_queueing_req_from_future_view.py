@@ -20,7 +20,7 @@ logger = getlogger()
 
 # TODO: This test needs to be implemented
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip()
+@pytest.mark.skip(reason='INDY-84. Complete implementation')
 def testQueueingReqFromFutureView(delayed_perf_chk, looper, nodeSet, up,
                                   wallet1, client1):
     """
