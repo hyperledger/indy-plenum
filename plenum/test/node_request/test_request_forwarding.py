@@ -10,8 +10,6 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-TestRunningTimeLimitSec = 300
-
 
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected, tconf):
@@ -36,8 +34,7 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     # All replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize-1))
     # Only non primary replicas should have all request keys with them
-    looper.run(eventually(chk, tconf.Max3PCBatchSize - 1, False,
-                          timeout=tconf.Max3PCBatchWait))
+    looper.run(eventually(chk, tconf.Max3PCBatchSize - 1, False))
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not

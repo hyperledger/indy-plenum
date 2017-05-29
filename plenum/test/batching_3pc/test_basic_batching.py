@@ -9,7 +9,7 @@ from plenum.test.helper import checkReqNackWithReason, sendRandomRequests, \
     checkRejectWithReason, waitForSufficientRepliesForRequests
 
 
-TestRunningTimeLimitSec = 300
+TestRunningTimeLimitSec = 200
 
 
 def testRequestStaticValidation(tconf, looper, txnPoolNodeSet, client,

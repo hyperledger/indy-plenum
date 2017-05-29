@@ -17,8 +17,7 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
     stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, toHex=False)
 
     origMethod = pr.create3PCBatch
@@ -81,5 +80,4 @@ def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged, wallet1,
     :return:
     """
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs)

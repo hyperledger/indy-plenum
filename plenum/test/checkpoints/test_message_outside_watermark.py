@@ -9,7 +9,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
 from stp_core.loop.eventually import eventually
 
 
-TestRunningTimeLimitSec = 500
+TestRunningTimeLimitSec = 300
 
 
 def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,

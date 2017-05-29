@@ -417,7 +417,10 @@ class Replica(HasActionQueue, MessageProcessor):
                      format(self))
         self.process_stashed_commits_during_election()
 
+        # The next statement will process all stashed messages that were received while primary
+        # was being decided
         self.primaryName = primary_name
+
         if primary_name == self.name:
             assert self.lastOrderedPPSeqNo == last_ordered_pp_seq_no
             # The primary should mark its last pre-prepare sequence number

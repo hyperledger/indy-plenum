@@ -461,6 +461,8 @@ class PrimaryElector(PrimaryDecider):
 
                     self.node.primary_found()
 
+                    # Nominate itself if not yet nominated for itself, needed in a scenario if each replica
+                    # nominated itself for the same instance when election started.
                     self.scheduleElection()
                 else:
                     self.discard(prim,
@@ -494,7 +496,7 @@ class PrimaryElector(PrimaryDecider):
         # reelection round message
         inst_id = reelection.instId
         replica = self.replicas[inst_id]
-        # if replica.isPrimary is not None:
+
         if inst_id in self.last_primary_sent:
             """
             Primary has already been sent for this instId.

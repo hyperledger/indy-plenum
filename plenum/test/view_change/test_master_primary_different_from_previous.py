@@ -31,6 +31,7 @@ def test_master_primary_different_from_previous(txnPoolNodeSet,
     assert getPrimaryReplica(txnPoolNodeSet, 0).node.name != old_pr_node_name
 
     pr.outBoxTestStasher.resetDelays()
+    pr.outBoxTestStasher.force_unstash()
 
     # The new primary can still process requests
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)

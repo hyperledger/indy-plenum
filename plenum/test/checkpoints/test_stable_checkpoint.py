@@ -5,7 +5,7 @@ from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 
 
-TestRunningTimeLimitSec = 400
+TestRunningTimeLimitSec = 300
 
 
 def checkRequestCounts(nodes, count):

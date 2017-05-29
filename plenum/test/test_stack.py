@@ -44,6 +44,9 @@ class TestStack(BaseStackClass):
     def resetDelays(self):
         self.stasher.resetDelays()
 
+    def force_process_delayeds(self):
+        return self.stasher.force_unstash()
+
 
 class StackedTester:
     def checkIfConnectedTo(self, count=None):
