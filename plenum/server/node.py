@@ -1400,7 +1400,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         `participating`
         :return:
         """
-        self.mode = Mode.participating
+        pass
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
