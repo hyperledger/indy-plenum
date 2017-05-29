@@ -48,6 +48,7 @@ def test_reelection_when_nodes_send_different_ledger_summary(looper,
 
     for node in txnPoolNodeSet:
         node.resetDelays()
+        node.force_process_delayeds()
 
     ensureElectionsDone(looper, txnPoolNodeSet)
     looper.run(eventually(check_each_node_reaches_same_end_for_view,

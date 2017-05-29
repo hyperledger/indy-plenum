@@ -108,7 +108,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Its been checked above that replica stashes 3 phase messages in
             # lack of primary, now avoid delay (fix the network)
             nodeD.nodeIbStasher.resetDelays()
-            nodeD.nodeIbStasher.process()
+            nodeD.nodeIbStasher.force_unstash()
 
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests

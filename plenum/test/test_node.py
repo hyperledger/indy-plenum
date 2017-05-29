@@ -148,6 +148,15 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def force_process_delayeds(self):
+        c = self.nodestack.force_process_delayeds()
+        c += self.nodeIbStasher.force_unstash()
+        for r in self.replicas:
+            c += r.outBoxTestStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages, {} processed in total".
+                     format(self, c))
+        return c
+
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()

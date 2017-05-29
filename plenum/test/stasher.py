@@ -45,7 +45,7 @@ class Stasher:
                     self.delayeds.append((age + secondsToDelay, rx))
                     self.queue.remove(rx)
 
-    def unstashAll(self, age):
+    def unstashAll(self, age, ignore_age_check=False):
         """
         Not terribly efficient, but for now, this is only used for testing.
         HasActionQueue is more efficient about knowing when to iterate through
@@ -53,16 +53,24 @@ class Stasher:
 
         :param age: seconds since Stasher started
         """
+        unstashed = 0
         for d in self.delayeds:
-            if age >= d[0]:
+            # This is in-efficient as `ignore_age_check` wont change during loop
+            # but its ok since its a testing util.
+            if ignore_age_check or age >= d[0]:
+                msg = '(forced)' if ignore_age_check else '({:.0f} milliseconds overdue)'\
+                    .format((age - d[0]) * 1000)
                 logger.debug(
-                        "{} unstashing message {} ({:.0f} milliseconds overdue)".
-                            format(self.name, d[1], (age - d[0]) * 1000))
+                        "{} unstashing message {} {}".
+                            format(self.name, d[1], msg))
                 self.queue.appendleft(d[1])
                 self.delayeds.remove(d)
+                unstashed += 1
+        return unstashed
 
     def resetDelays(self):
         logger.debug("{} resetting delays".format(self.name))
         self.delayRules = set()
 
-
+    def force_unstash(self):
+        return self.unstashAll(0, ignore_age_check=True)

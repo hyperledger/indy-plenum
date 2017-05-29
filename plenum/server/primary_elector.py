@@ -461,6 +461,8 @@ class PrimaryElector(PrimaryDecider):
 
                     self.node.primary_found()
 
+                    # Nominate itself if not yet nominated for itself, needed in a scenario if each replica
+                    # nominated itself for the same instance when election started.
                     self.scheduleElection()
                 else:
                     self.discard(prim,

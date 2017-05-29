@@ -41,7 +41,7 @@ def test_slow_node_start_view_same_pp_seq_no(txnPoolNodeSet, looper, wallet1,
     waitNodeDataEquality(looper, slow_node,
                          *[n for n in txnPoolNodeSet if n != slow_node])
     slow_node.resetDelays()
-
+    slow_node.force_process_delayeds()
 
 def test_slow_nodes_consistent_view(looper, txnPoolNodeSet, client1, wallet1,
                                     client1Connected):
@@ -67,6 +67,7 @@ def test_slow_nodes_consistent_view(looper, txnPoolNodeSet, client1, wallet1,
     waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[1:])
     for node in txnPoolNodeSet:
         node.resetDelays()
+        node.force_process_delayeds()
 
 
 def test_fast_nodes_remove_non_ordered_messages(looper, txnPoolNodeSet, client1,
