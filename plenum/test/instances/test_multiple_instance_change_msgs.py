@@ -13,7 +13,7 @@ from plenum.test import waits
 nodeCount = 7
 
 
-@pytest.mark.skip(reason="Not yet implemented")
+@pytest.mark.skip(reason="INDY-80. Not yet implemented")
 def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     maliciousNode = nodeSet.Alpha
     for i in range(0, 5):

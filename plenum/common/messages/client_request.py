@@ -9,9 +9,15 @@ class ClientNodeOperationData(MessageValidator):
         (NODE_PORT, NetworkPortField(optional=True)),
         (CLIENT_IP, NetworkIpAddressField(optional=True)),
         (CLIENT_PORT, NetworkPortField(optional=True)),
-        (ALIAS, NonEmptyStringField(optional=True)),
+        (ALIAS, NonEmptyStringField()),
         (SERVICES, IterableField(ChooseField(values=(VALIDATOR,)), optional=True)),
     )
+
+    def _validate_message(self, dct):
+        required_ha_fields = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}
+        ha_fields = {f for f in required_ha_fields if f in dct}
+        if ha_fields and len(ha_fields) != len(required_ha_fields):
+            self._raise_missed_fields(*list(required_ha_fields - ha_fields))
 
 
 class ClientNodeOperation(MessageValidator):
@@ -59,3 +65,4 @@ class ClientOperationField(MessageValidator):
             # check only if the schema is defined
             op = self.operations[schema_type]
             self._validate_fields_with_schema(dct, op.schema)
+            self._validate_message(dct)
