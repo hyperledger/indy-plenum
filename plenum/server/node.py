@@ -149,6 +149,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
                                      self.domainLedger,
+                                     preCatchupStartClbk=self.preDomainLedgerCatchUp,
                                      postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
                                      postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.states[DOMAIN_LEDGER_ID] = self.loadDomainState()
@@ -1386,13 +1387,20 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendDomainLedgerStatus(nm)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
+    def preDomainLedgerCatchUp(self):
+        """
+        Ledger got out of sync. Setting node's state accordingly
+        :return:
+        """
+        self.mode = Mode.syncing
+
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
         Process any stashed ordered requests and set the mode to
         `participating`
         :return:
         """
-        pass
+        self.mode = Mode.participating
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
