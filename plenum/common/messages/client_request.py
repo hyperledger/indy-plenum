@@ -14,6 +14,7 @@ class ClientNodeOperationData(MessageValidator):
     )
 
     def _validate_message(self, dct):
+        # TODO: make ha fields truly optional (needs changes in stackHaChanged)
         required_ha_fields = {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}
         ha_fields = {f for f in required_ha_fields if f in dct}
         if ha_fields and len(ha_fields) != len(required_ha_fields):
