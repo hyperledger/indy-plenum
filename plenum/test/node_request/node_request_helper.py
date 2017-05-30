@@ -1,13 +1,13 @@
 import time
 from functools import partial
 
-from stp_core.loop.eventually import eventuallyAll
-from plenum.common.types import PrePrepare, OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.types import OPERATION, f
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
+from plenum.test.helper import chk_all_coros
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
@@ -41,9 +41,7 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
 
     timeout = waits.expectedPropagateTime(len(nodeSet))
     coros = [partial(g, node) for node in nodeSet]
-    looper.run(eventuallyAll(*coros,
-                             totalTimeout=timeout,
-                             acceptableFails=faultyNodes))
+    chk_all_coros(looper, coros, faultyNodes, timeout)
 
 
 def checkPrePrepared(looper,
@@ -170,7 +168,8 @@ def checkPrePrepared(looper,
 
     coros = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    chk_all_coros(looper, coros, faultyNodes, timeout)
 
 
 def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
@@ -278,7 +277,8 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
 
     coros = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    chk_all_coros(looper, coros, faultyNodes, timeout)
 
 
 def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
@@ -346,7 +346,8 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
 
     coros = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+    chk_all_coros(looper, coros, faultyNodes, timeout)
 
 
 def msgCountOK(nodesSize,

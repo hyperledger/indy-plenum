@@ -131,10 +131,13 @@ def waitForSufficientRepliesForRequests(looper,
                              requestId,
                              fVal))
 
-    looper.run(eventuallyAll(*coros,
-                             retryWait=1,
-                             totalTimeout=total_timeout,
-                             override_timeout_limit=override_timeout_limit))
+    chk_all_coros(looper, coros, retry_wait=1, timeout=total_timeout,
+                  override_eventually_timeout=override_timeout_limit)
+
+    # looper.run(eventuallyAll(*coros,
+    #                          retryWait=1,
+    #                          totalTimeout=total_timeout,
+    #                          override_timeout_limit=override_timeout_limit))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
@@ -697,3 +700,26 @@ def nodeByName(nodes, name):
         if node.name == name:
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
+
+
+def chk_all_coros(looper, funcs, acceptable_fails=0, retry_wait=None,
+                  timeout=None, override_eventually_timeout=False):
+    # TODO: Move this logic to eventuallyAll
+    def chk():
+        fails = 0
+        for func in funcs:
+            try:
+                func()
+            except Exception:
+                fails += 1
+        assert fails <= acceptable_fails
+
+    kwargs = {}
+    if retry_wait:
+        kwargs['retryWait'] = retry_wait
+    if timeout:
+        kwargs['timeout'] = timeout
+    if override_eventually_timeout:
+        kwargs['override_timeout_limit'] = override_eventually_timeout
+
+    looper.run(eventually(chk, **kwargs))

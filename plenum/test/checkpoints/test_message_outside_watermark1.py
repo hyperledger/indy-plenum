@@ -24,7 +24,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     """
     delay = 3
     instId = 1
-    reqsToSend = reqs_for_logsize + 2
+    reqsToSend = 2*reqs_for_logsize + 1
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
     from plenum.server.replica import TPCStat
@@ -33,12 +33,13 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     for r in npr:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
 
-    def chk():
-        assert orderedCount + reqsToSend == pr.stats.get(TPCStat.OrderSent)
-
-    tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + 10
-    batch_count = math.ceil(reqsToSend/tconf.Max3PCBatchSize)
+    tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    batch_count = math.ceil(reqsToSend / tconf.Max3PCBatchSize)
     total_timeout = (tm_exec_1_batch + delay) * batch_count
+
+    def chk():
+        assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
+
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend,
                                         1, override_timeout_limit=True,
                                         total_timeout=total_timeout)

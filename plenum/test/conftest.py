@@ -41,7 +41,7 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule
+    mockGetInstalledDistributions, mockImportModule, chk_all_coros
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -378,17 +378,19 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
-    looper.run(eventuallyAll(*coros,
-                             totalTimeout=propTimeout,
-                             acceptableFails=faultyNodes))
+    # looper.run(eventuallyAll(*coros,
+    #                          totalTimeout=propTimeout,
+    #                          acceptableFails=faultyNodes))
+    chk_all_coros(looper, coros, acceptable_fails=faultyNodes, timeout=propTimeout)
 
     # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
     ackTimeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*coros2,
-                             totalTimeout=ackTimeout,
-                             acceptableFails=faultyNodes))
+    # looper.run(eventuallyAll(*coros2,
+    #                          totalTimeout=ackTimeout,
+    #                          acceptableFails=faultyNodes))
+    chk_all_coros(looper, coros2, acceptable_fails=faultyNodes, timeout=ackTimeout)
     return sent1
 
 
