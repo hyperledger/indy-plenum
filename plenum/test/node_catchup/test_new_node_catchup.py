@@ -69,7 +69,7 @@ def testDelayedLedgerStatusNotChangingState():
     `participating` mode, the mode should not change to `discovered` if found
     the arriving `LedgerStatus` to be ok.
     """
-    pass
+    raise NotImplementedError
 
 
 # TODO: This test passes but it is observed that PREPAREs are not received at

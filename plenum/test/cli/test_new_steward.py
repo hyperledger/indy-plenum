@@ -11,7 +11,7 @@ def testNewStewardKeysWithSeeds(cli, validNodeNames, createAllNodes):
     cli.enterCmd('new client {}'.format(cName))
     printeds = cli.printeds
     cli.looper.runFor(8)
-    assert False
+    raise NotImplementedError
 
 
 @pytest.mark.skip(reason="SOV-545. Not implemented")
