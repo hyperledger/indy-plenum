@@ -24,7 +24,7 @@ class ClientNodeOperation(MessageValidator):
     schema = (
         (TXN_TYPE, ConstantField(NODE)),
         (DATA, ClientNodeOperationData()),
-        (TARGET_NYM, IdentifierField()),
+        (TARGET_NYM, DestNodeField()),
         (VERKEY, VerkeyField(optional=True)),
     )
 
@@ -34,7 +34,7 @@ class ClientNYMOperation(MessageValidator):
         (TXN_TYPE, ConstantField(NYM)),
         (ALIAS, NonEmptyStringField(optional=True)),
         (VERKEY, VerkeyField(optional=True)),
-        (TARGET_NYM, IdentifierField()),
+        (TARGET_NYM, DestNymField()),
         (ROLE, RoleField(optional=True)),
         # TODO: validate role using ChooseField,
         # do roles list expandable form outer context

@@ -175,6 +175,47 @@ class IdentifierField(NonEmptyStringField):
     # TODO implement the rules
 
 
+class Base58Field(FieldBase):
+    _base_types = (str,)
+
+    alphabet = set(base58.alphabet)
+
+    def _specific_validation(self, val):
+        if set(val) - self.alphabet:
+            return 'should not contains chars other than {}' \
+                .format(self.alphabet)
+
+
+class DestNodeField(NonEmptyStringField, Base58Field):
+    _base_types = (str, )
+
+    hashSizes = range(43, 46)
+
+    def validate(self, val):
+        err = super(NonEmptyStringField, self).validate(val)
+        if err:
+            return err
+        err = super(Base58Field, self).validate(val)
+        if err:
+            return err
+
+    def _specific_validation(self, val):
+        if len(val) not in self.hashSizes:
+            return 'length should be one of {}'.format(self.hashSizes)
+
+
+class DestNymField(NonEmptyStringField, Base58Field):
+    _base_types = (str, )
+
+    def validate(self, val):
+        err = super(NonEmptyStringField, self).validate(val)
+        if err:
+            return err
+        err = super(Base58Field, self).validate(val)
+        if err:
+            return err
+
+
 class RequestIdentifierField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
@@ -230,23 +271,18 @@ class HexField(FieldBase):
             return "length should be {} length".format(self._length)
 
 
-class MerkleRootField(FieldBase):
+class MerkleRootField(Base58Field):
     _base_types = (str, )
 
     # Raw merkle root is 32 bytes length,
     # but when it is base58'ed it is 43-45 bytes
     hashSizes = range(43, 46)
-    alphabet = set(base58.alphabet)
 
     def _specific_validation(self, val):
         valSize = len(val)
         if valSize not in self.hashSizes:
             return 'length should be one of {}, but it was {}'\
                 .format(self.hashSizes, valSize)
-
-        if set(val) - self.alphabet:
-            return 'should not contains chars other than {}' \
-                .format(self.alphabet)
 
 
 class TimestampField(FieldBase):
