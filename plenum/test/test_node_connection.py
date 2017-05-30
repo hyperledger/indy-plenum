@@ -48,7 +48,6 @@ def tdirAndLooper(nodeReg):
             yield td, looper
 
 
-@pytest.mark.skip(reason='INDY-75')
 def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
                                        nodeReg):
     tdir, looper = tdirAndLooper
@@ -64,28 +63,26 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
         nodes.append(node)
         return node
 
-    for name in names[:3]:
+    for name in names:
         create(name)
 
     logger.debug("Creating keys")
 
     for node in nodes:
         tellKeysToOthers(node, nodes)
+
+    for node in nodes[:3]:
         looper.add(node)
 
-    looper.run(checkNodesConnected(nodes))
+    looper.run(checkNodesConnected(nodes[:3]))
 
     # wait for the election to complete with the first three nodes
     looper.runFor(10)
 
-    # create the fourth and see that it learns who the primaries are
+    # start the fourth and see that it learns who the primaries are
     # from the other nodes
-    lateNode = create(names[3])
-    for node in nodes[:-1]:
-        tellKeysToOthers(lateNode, node)
-        tellKeysToOthers(node, lateNode)
+    looper.add(nodes[3])
 
-    looper.add(lateNode)
     # TODO set timeout from 'waits' after the test enabled
     checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
     stopNodes(nodes, looper)
