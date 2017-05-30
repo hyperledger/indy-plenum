@@ -14,7 +14,7 @@ from ledger.util import F
 
 from plenum.common.types import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq, ConsProofRequest
-from plenum.common.constants import POOL_LEDGER_ID, LedgerState
+from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -333,6 +333,8 @@ class LedgerManager(HasActionQueue):
                                  self.owner.totalNodes,
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
+            if ledgerId == DOMAIN_LEDGER_ID:
+                ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
 
         start = getattr(proof, f.SEQ_NO_START.nm)
@@ -768,9 +770,9 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo.canSync = False
         ledgerInfo.state = LedgerState.synced
-        ledgerInfo.postCatchupCompleteClbk()
         ledgerInfo.ledgerStatusOk = set()
         ledgerInfo.recvdConsistencyProofs = {}
+        ledgerInfo.postCatchupCompleteClbk()
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
