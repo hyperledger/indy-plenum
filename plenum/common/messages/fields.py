@@ -180,16 +180,7 @@ class Base58Field(FieldBase):
 
     alphabet = set(base58.alphabet)
 
-    def validate(self, val):
-        err = super().validate(val)
-        if err:
-            return err
-        err = self._alphabet_check(val)
-        if err:
-            return err
-        return self._specific_validation(val)
-
-    def _alphabet_check(self, val):
+    def _specific_validation(self, val):
         if set(val) - self.alphabet:
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
@@ -200,15 +191,13 @@ class DestNodeField(NonEmptyStringField, Base58Field):
 
     hashSizes = range(43, 46)
 
-    def validate(self, val):
-        err = super(NonEmptyStringField, self).validate(val)
-        if err:
-            return err
-        err = super(Base58Field, self).validate(val)
-        if err:
-            return err
-
     def _specific_validation(self, val):
+        err = super(NonEmptyStringField, self)._specific_validation(val)
+        if err:
+            return err
+        err = super(Base58Field, self)._specific_validation(val)
+        if err:
+            return err
         if len(val) not in self.hashSizes:
             return 'length should be one of {}'.format(self.hashSizes)
 
@@ -216,11 +205,11 @@ class DestNodeField(NonEmptyStringField, Base58Field):
 class DestNymField(NonEmptyStringField, Base58Field):
     _base_types = (str, )
 
-    def validate(self, val):
-        err = super(NonEmptyStringField, self).validate(val)
+    def _specific_validation(self, val):
+        err = super(NonEmptyStringField, self)._specific_validation(val)
         if err:
             return err
-        err = super(Base58Field, self).validate(val)
+        err = super(Base58Field, self)._specific_validation(val)
         if err:
             return err
 
@@ -288,6 +277,9 @@ class MerkleRootField(Base58Field):
     hashSizes = range(43, 46)
 
     def _specific_validation(self, val):
+        err = super()._specific_validation(val)
+        if err:
+            return err
         valSize = len(val)
         if valSize not in self.hashSizes:
             return 'length should be one of {}, but it was {}'\
