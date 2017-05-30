@@ -158,8 +158,8 @@ class ChooseField(FieldBase):
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
-            return "expected '{}' unknown value '{}'" \
-                   "".format(', '.join(map(str, self._possible_values)), val)
+            return "expected one of '{}', unknown value '{}'" \
+                   .format(', '.join(map(str, self._possible_values)), val)
 
 
 class LedgerIdField(ChooseField):
