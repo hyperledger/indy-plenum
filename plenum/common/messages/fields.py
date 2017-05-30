@@ -180,7 +180,16 @@ class Base58Field(FieldBase):
 
     alphabet = set(base58.alphabet)
 
-    def _specific_validation(self, val):
+    def validate(self, val):
+        err = super().validate(val)
+        if err:
+            return err
+        err = self._alphabet_check(val)
+        if err:
+            return err
+        return self._specific_validation(val)
+
+    def _alphabet_check(self, val):
         if set(val) - self.alphabet:
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
