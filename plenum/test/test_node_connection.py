@@ -13,7 +13,7 @@ from plenum.common.types import NodeDetail
 from plenum.test import waits
 from plenum.test.helper import stopNodes
 from plenum.test.test_node import TestNode, checkNodesConnected, \
-    checkProtocolInstanceSetup
+    checkProtocolInstanceSetup, ensureElectionsDone
 from stp_core.network.port_dispenser import genHa
 
 logger = getlogger()
@@ -77,14 +77,14 @@ def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
     looper.run(checkNodesConnected(nodes[:3]))
 
     # wait for the election to complete with the first three nodes
-    looper.runFor(10)
+    ensureElectionsDone(looper, nodes[:3], numInstances=2)
 
     # start the fourth and see that it learns who the primaries are
     # from the other nodes
     looper.add(nodes[3])
 
-    # TODO set timeout from 'waits' after the test enabled
-    checkProtocolInstanceSetup(looper, nodes, customTimeout=10)
+    # ensure election is done for updated pool
+    ensureElectionsDone(looper, nodes)
     stopNodes(nodes, looper)
 
 
