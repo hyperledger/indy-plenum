@@ -1377,7 +1377,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.requestQueues[pp.ledgerId].discard(k)
 
         self.send(ordered, TPCStat.OrderSent)
-        logger.debug("{} ordered request {}".format(self, key))
+        logger.debug("{} ordered batch {}".format(self, key))
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
         return True
 

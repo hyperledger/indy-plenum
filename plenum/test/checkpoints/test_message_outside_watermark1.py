@@ -1,3 +1,5 @@
+import math
+
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
@@ -6,7 +8,7 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
-TestRunningTimeLimitSec = 200
+TestRunningTimeLimitSec = 300
 
 
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
@@ -22,7 +24,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     """
     delay = 3
     instId = 1
-    reqsToSend = 2*reqs_for_logsize + 2
+    reqsToSend = reqs_for_logsize + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     pr = getPrimaryReplica(txnPoolNodeSet, instId)
     from plenum.server.replica import TPCStat
@@ -34,8 +36,10 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     def chk():
         assert orderedCount + reqsToSend == pr.stats.get(TPCStat.OrderSent)
 
-    for i in range(2):
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend//2,
-                                            1, add_delay_to_timeout=delay,
-                                            override_timeout_limit=True)
+    tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + 10
+    batch_count = math.ceil(reqsToSend/tconf.Max3PCBatchSize)
+    total_timeout = (tm_exec_1_batch + delay) * batch_count
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend,
+                                        1, override_timeout_limit=True,
+                                        total_timeout=total_timeout)
     looper.run(eventually(chk, retryWait=1, timeout=3))

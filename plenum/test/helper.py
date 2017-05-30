@@ -7,7 +7,7 @@ from functools import partial
 from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
-from time import sleep
+from time import sleep, perf_counter
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
@@ -63,16 +63,21 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
 
     :returns: response for request
     """
-
+    start = perf_counter()
     receivedReplies = getRepliesFromClientInbox(inbox=receivedMsgs,
                                                 reqId=reqId)
-    logger.debug("received replies for reqId {}: {}".
-                 format(reqId, receivedReplies))
+    end = perf_counter()
+    logger.debug("received replies for reqId {}: {} out of {} total in {}".
+                 format(reqId, receivedReplies, len(receivedMsgs), end-start))
     assert len(receivedReplies) > fValue, "Received {} replies but expected " \
                                           "at-least {} for reqId {}".\
         format(len(receivedReplies), fValue+1, reqId)
+
+    start = perf_counter()
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
+    end = perf_counter()
+    logger.debug('Checked for more than {} same from {} in {}'.format(fValue, receivedReplies, end-start))
     assert result
 
     assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
@@ -88,7 +93,8 @@ def waitForSufficientRepliesForRequests(looper,
                                         fVal=None,
                                         customTimeoutPerReq=None,
                                         add_delay_to_timeout: float = 0,
-                                        override_timeout_limit=False):
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     """
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
@@ -106,16 +112,17 @@ def waitForSufficientRepliesForRequests(looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
 
-    timeoutPerRequest = customTimeoutPerReq or \
-                        waits.expectedTransactionExecutionTime(nodeCount)
-    timeoutPerRequest += add_delay_to_timeout
-    # here we try to take into account what timeout for execution
-    # N request - totalTimeout should be in
-    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
-    # we cannot just take (timeoutPerRequest * N) because it is so huge.
-    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
-    # lets start with some simple formula:
-    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
+    if not total_timeout:
+        timeoutPerRequest = customTimeoutPerReq or \
+                            waits.expectedTransactionExecutionTime(nodeCount)
+        timeoutPerRequest += add_delay_to_timeout
+        # here we try to take into account what timeout for execution
+        # N request - total_timeout should be in
+        # timeoutPerRequest < total_timeout < timeoutPerRequest * N
+        # we cannot just take (timeoutPerRequest * N) because it is so huge.
+        # (for timeoutPerRequest=5 and N=10, total_timeout=50sec)
+        # lets start with some simple formula:
+        total_timeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -126,7 +133,7 @@ def waitForSufficientRepliesForRequests(looper,
 
     looper.run(eventuallyAll(*coros,
                              retryWait=1,
-                             totalTimeout=totalTimeout,
+                             totalTimeout=total_timeout,
                              override_timeout_limit=override_timeout_limit))
 
 
@@ -137,7 +144,8 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         fVal: int=None,
                                         customTimeoutPerReq: float=None,
                                         add_delay_to_timeout: float=0,
-                                        override_timeout_limit=False):
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
@@ -146,7 +154,8 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         fVal=fVal,
                                         customTimeoutPerReq=customTimeoutPerReq,
                                         add_delay_to_timeout=add_delay_to_timeout,
-                                        override_timeout_limit=override_timeout_limit)
+                                        override_timeout_limit=override_timeout_limit,
+                                        total_timeout=total_timeout)
     return requests
 
 
