@@ -19,7 +19,7 @@ from plenum.test import waits
 whitelist = ['found legacy entry']  # warnings
 
 
-@pytest.mark.skip(reason='SOV-456')
+@pytest.mark.skip(reason='INDY-90')
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,

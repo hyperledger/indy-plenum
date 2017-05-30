@@ -27,7 +27,7 @@ class MessageValidator(FieldValidator):
         required_field_names = map(lambda x: x[0], required_fields)
         missed_required_fields = set(required_field_names) - set(dct)
         if missed_required_fields:
-            self._raise_missed_fields(missed_required_fields)
+            self._raise_missed_fields(*missed_required_fields)
         for k, v in dct.items():
             if k not in schema_dct:
                 self._raise_unknown_fields(k, v)
@@ -40,7 +40,7 @@ class MessageValidator(FieldValidator):
 
     def _raise_missed_fields(self, *fields):
         raise TypeError("validation error: missed fields "
-                        "'{}'".format(', '.join(map(str, fields))))
+                        "{}".format(', '.join(map(str, fields))))
 
     def _raise_unknown_fields(self, field, value):
         raise TypeError("validation error: unknown field "

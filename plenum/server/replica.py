@@ -601,8 +601,8 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent this message
         """
         key = (pp.viewNo, pp.ppSeqNo)
-        logger.debug("{} Receiving PRE-PREPARE{} at {} from {}".
-                     format(self, key, time.perf_counter(), sender))
+        logger.debug("{} received PRE-PREPARE{} from {} at {}".
+                     format(self, key, sender, time.perf_counter()))
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
         oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
@@ -670,7 +670,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param commit: an incoming COMMIT message
         :param sender: name of the node that sent the COMMIT
         """
-        logger.debug("{} received COMMIT {} from {}".
+        logger.debug("{} received COMMIT{} from {}".
                      format(self, commit, sender))
         if self.isPpSeqNoStable(commit.ppSeqNo):
             self.discard(commit,
