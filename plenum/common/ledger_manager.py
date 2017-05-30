@@ -29,8 +29,7 @@ class LedgerManager(HasActionQueue):
     def __init__(self,
                  owner,
                  ownedByNode: bool=True,
-                 postAllLedgersCaughtUp:
-                 Optional[Callable]=None):
+                 postAllLedgersCaughtUp:Optional[Callable]=None):
 
         self.owner = owner
         self.ownedByNode = ownedByNode

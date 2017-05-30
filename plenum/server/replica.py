@@ -230,11 +230,6 @@ class Replica(HasActionQueue, MessageProcessor):
             # the request key needs to be removed once its ordered
             self.requestQueues[ledger_id] = OrderedSet()
 
-        # Batches with key as ppSeqNo of batch and value as a tuple of number
-        # of txns and the time as batch was created/received and the state root
-        # hash for the batch
-        # self.batches = OrderedDict()   # type: OrderedDict[int, Tuple[int, float, bytes]]
-
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = time.perf_counter()
 
