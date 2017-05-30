@@ -7,7 +7,7 @@ from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
 from plenum.test import waits
-from plenum.test.helper import chk_all_coros
+from plenum.test.helper import chk_all_funcs
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
@@ -40,8 +40,8 @@ def checkPropagated(looper, nodeSet, request, faultyNodes=0):
                           numOfMsgsWithFaults)
 
     timeout = waits.expectedPropagateTime(len(nodeSet))
-    coros = [partial(g, node) for node in nodeSet]
-    chk_all_coros(looper, coros, faultyNodes, timeout)
+    funcs = [partial(g, node) for node in nodeSet]
+    chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def checkPrePrepared(looper,
@@ -166,10 +166,10 @@ def checkPrePrepared(looper,
         primarySentsCorrectNumberOfPREPREPAREs()
         nonPrimaryReceivesCorrectNumberOfPREPREPAREs()
 
-    coros = [partial(g, instId) for instId in instIds]
+    funcs = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
-    chk_all_coros(looper, coros, faultyNodes, timeout)
+    chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
@@ -275,10 +275,10 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
         primaryReceivesCorrectNumberOfPREPAREs()
         nonPrimaryReplicasReceiveCorrectNumberOfPREPAREs()
 
-    coros = [partial(g, instId) for instId in instIds]
+    funcs = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
-    chk_all_coros(looper, coros, faultyNodes, timeout)
+    chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
@@ -290,6 +290,8 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
         allReplicas = getAllReplicas(nodeSet, instId)
         primaryReplica = getPrimaryReplica(nodeSet, instId)
 
+        # Question: Why 2 checks are being made, one with the data structure
+        # and then the spylog
         def replicasSeesCorrectNumOfCOMMITs():
             """
             num of commit messages must be = n when zero fault;
@@ -344,10 +346,10 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
         replicasReceivesCorrectNumberOfCOMMITs()
         replicasSeesCorrectNumOfCOMMITs()
 
-    coros = [partial(g, instId) for instId in instIds]
+    funcs = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
     # looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
-    chk_all_coros(looper, coros, faultyNodes, timeout)
+    chk_all_funcs(looper, funcs, faultyNodes, timeout)
 
 
 def msgCountOK(nodesSize,

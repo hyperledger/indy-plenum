@@ -131,7 +131,7 @@ def waitForSufficientRepliesForRequests(looper,
                              requestId,
                              fVal))
 
-    chk_all_coros(looper, coros, retry_wait=1, timeout=total_timeout,
+    chk_all_funcs(looper, coros, retry_wait=1, timeout=total_timeout,
                   override_eventually_timeout=override_timeout_limit)
 
     # looper.run(eventuallyAll(*coros,
@@ -702,7 +702,7 @@ def nodeByName(nodes, name):
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
 
-def chk_all_coros(looper, funcs, acceptable_fails=0, retry_wait=None,
+def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                   timeout=None, override_eventually_timeout=False):
     # TODO: Move this logic to eventuallyAll
     def chk():
