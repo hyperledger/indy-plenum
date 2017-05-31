@@ -344,6 +344,7 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
+
 class InstanceChange(MessageBase):
     typename = INSTANCE_CHANGE
     schema = (
