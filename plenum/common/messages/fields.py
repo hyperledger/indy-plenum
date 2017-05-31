@@ -181,37 +181,30 @@ class Base58Field(FieldBase):
     alphabet = set(base58.alphabet)
 
     def _specific_validation(self, val):
+        if len(val) == 0:
+            return 'provided value of zero length'
         if set(val) - self.alphabet:
             return 'should not contains chars other than {}' \
                 .format(self.alphabet)
 
 
-class DestNodeField(NonEmptyStringField, Base58Field):
+class DestNodeField(Base58Field):
     _base_types = (str, )
 
     hashSizes = range(43, 46)
 
     def _specific_validation(self, val):
-        err = super(NonEmptyStringField, self)._specific_validation(val)
+        err = super()._specific_validation(val)
         if err:
             return err
-        err = super(Base58Field, self)._specific_validation(val)
-        if err:
-            return err
-        if len(val) not in self.hashSizes:
-            return 'length should be one of {}'.format(self.hashSizes)
+        valSize = len(val)
+        if valSize not in self.hashSizes:
+            return 'length should be one of {}, but it was {}'\
+                .format(self.hashSizes, valSize)
 
 
-class DestNymField(NonEmptyStringField, Base58Field):
+class DestNymField(Base58Field):
     _base_types = (str, )
-
-    def _specific_validation(self, val):
-        err = super(NonEmptyStringField, self)._specific_validation(val)
-        if err:
-            return err
-        err = super(Base58Field, self)._specific_validation(val)
-        if err:
-            return err
 
 
 class RequestIdentifierField(FieldBase):
