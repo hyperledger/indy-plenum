@@ -128,6 +128,11 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.isMaster = isMaster
 
+        # Indicates whether the replica is doing extra work right now or not.
+        # 'Extra' means it should be excluded from monitoring measurements
+        # For now only master does that.
+        self._isWorkingExtra = False  # type: bool
+
         # Indicates name of the primary replica of this protocol instance.
         # None in case the replica does not know who the primary of the
         # instance is
@@ -238,23 +243,27 @@ class Replica(HasActionQueue, MessageProcessor):
     def txnRootHash(self, ledgerId, toHex=True):
         if not self.isMaster:
             return None
-        ledger = self.node.getLedger(ledgerId)
-        h = ledger.uncommittedRootHash
-        # If no uncommittedHash since this is the beginning of the tree
-        # or no transactions affecting the ledger were made after the
-        # last changes were committed
-        root = h if h else ledger.tree.root_hash
-        if toHex:
-            root = hexlify(root).decode()
-        return root
+
+        with ReplicaExtraWork(self):
+            ledger = self.node.getLedger(ledgerId)
+            h = ledger.uncommittedRootHash
+            # If no uncommittedHash since this is the beginning of the tree
+            # or no transactions affecting the ledger were made after the
+            # last changes were committed
+            root = h if h else ledger.tree.root_hash
+            if toHex:
+                root = hexlify(root).decode()
+            return root
 
     def stateRootHash(self, ledgerId, toHex=True):
         if not self.isMaster:
             return None
-        root = self.node.getState(ledgerId).headHash
-        if toHex:
-            root = hexlify(root).decode()
-        return root
+
+        with ReplicaExtraWork(self):
+            root = self.node.getState(ledgerId).headHash
+            if toHex:
+                root = hexlify(root).decode()
+            return root
 
     @property
     def h(self) -> int:
@@ -265,6 +274,14 @@ class Replica(HasActionQueue, MessageProcessor):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
+
+    @property
+    def isWorkingExtra(self):
+        return self._isWorkingExtra
+
+    @isWorkingExtra.setter
+    def isWorkingExtra(self, value: bool):
+        self._isWorkingExtra = value
 
     @property
     def requests(self):
@@ -321,7 +338,8 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             if self.isMaster:
-                self.removeObsoletePpReqs()
+                with ReplicaExtraWork(self):
+                    self.removeObsoletePpReqs()
             self._stateChanged()
 
     def primaryChanged(self, primaryName, lastOrderedPPSeqNo):
@@ -452,8 +470,9 @@ class Replica(HasActionQueue, MessageProcessor):
                               inValidReqs: List, rejects: List):
         try:
             if self.isMaster:
-                self.node.doDynamicValidation(req)
-                self.node.applyReq(req)
+                with ReplicaExtraWork(self):
+                    self.node.doDynamicValidation(req)
+                    self.node.applyReq(req)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                         'will reject'.format(self, ex, req))
@@ -495,9 +514,10 @@ class Replica(HasActionQueue, MessageProcessor):
                      .format(self, len(validReqs), ledgerId))
         self.lastPrePrepareSeqNo = ppSeqNo
         if self.isMaster:
-            self.outBox.extend(rejects)
-            self.node.onBatchCreated(ledgerId,
-                                     self.stateRootHash(ledgerId, toHex=False))
+            with ReplicaExtraWork(self):
+                self.outBox.extend(rejects)
+                self.node.onBatchCreated(ledgerId,
+                                         self.stateRootHash(ledgerId, toHex=False))
         return prePrepareReq
 
     def sendPrePrepare(self, ppReq: PrePrepare):
@@ -614,9 +634,10 @@ class Replica(HasActionQueue, MessageProcessor):
                 return
 
             if self.isMaster:
-                self.node.onBatchCreated(pp.ledgerId,
-                                         self.stateRootHash(pp.ledgerId,
-                                                            toHex=False))
+                with ReplicaExtraWork(self):
+                    self.node.onBatchCreated(pp.ledgerId,
+                                             self.stateRootHash(pp.ledgerId,
+                                                                toHex=False))
             self.trackBatches(pp, oldStateRoot)
             logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                          extra={"tags": ["processing"]})
@@ -778,11 +799,12 @@ class Replica(HasActionQueue, MessageProcessor):
         inValidReqs = []
         rejects = []
         if self.isMaster:
-            # If this PRE-PREPARE is not valid then state and ledger should be
-            # reverted
-            oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
-            logger.debug('{} state root before processing {} is {}'.
-                         format(self, pp, oldStateRoot))
+            with ReplicaExtraWork(self):
+                # If this PRE-PREPARE is not valid then state and ledger should be
+                # reverted
+                oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
+                logger.debug('{} state root before processing {} is {}'.
+                             format(self, pp, oldStateRoot))
 
         for reqKey in pp.reqIdr:
             req = self.node.requests[reqKey].finalised
@@ -797,19 +819,21 @@ class Replica(HasActionQueue, MessageProcessor):
         # A PRE-PREPARE is sent that does not match request digest
         if digest != pp.digest:
             if self.isMaster:
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
+                with ReplicaExtraWork(self):
+                    self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
             raise SuspiciousNode(sender, Suspicions.PPR_DIGEST_WRONG, pp)
 
         if self.isMaster:
-            if pp.stateRootHash != self.stateRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_STATE_WRONG, pp)
+            with ReplicaExtraWork(self):
+                if pp.stateRootHash != self.stateRootHash(pp.ledgerId):
+                    self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
+                    raise SuspiciousNode(sender, Suspicions.PPR_STATE_WRONG, pp)
 
-            if pp.txnRootHash != self.txnRootHash(pp.ledgerId):
-                self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
-                raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
+                if pp.txnRootHash != self.txnRootHash(pp.ledgerId):
+                    self.revert(pp.ledgerId, oldStateRoot, len(validReqs))
+                    raise SuspiciousNode(sender, Suspicions.PPR_TXN_WRONG, pp)
 
-            self.outBox.extend(rejects)
+                self.outBox.extend(rejects)
 
     def canProcessPrePrepare(self, pp: PrePrepare, sender: str) -> bool:
         """
@@ -1169,13 +1193,14 @@ class Replica(HasActionQueue, MessageProcessor):
         # 3 phase state.
         if key in self.stashingWhileCatchingUp:
             if self.isMaster and self.node.isParticipating:
-                # While this request arrived the node was catching up but the
-                # node has caught up and applied the stash so apply this request
-                logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
-                             'catchup process'.format(self, pp.ppSeqNo))
-                for reqKey in pp.reqIdr[:pp.discarded]:
-                    req = self.requests[reqKey].finalised
-                    self.node.applyReq(req)
+                with ReplicaExtraWork(self):
+                    # While this request arrived the node was catching up but the
+                    # node has caught up and applied the stash so apply this request
+                    logger.debug('{} found that 3PC of ppSeqNo {} outlived the '
+                                 'catchup process'.format(self, pp.ppSeqNo))
+                    for reqKey in pp.reqIdr[:pp.discarded]:
+                        req = self.requests[reqKey].finalised
+                        self.node.applyReq(req)
             self.stashingWhileCatchingUp.remove(key)
         self.send(ordered, TPCStat.OrderSent)
         logger.debug("{} ordered request {}".format(self, key))
@@ -1526,3 +1551,25 @@ class Replica(HasActionQueue, MessageProcessor):
         if stat:
             self.stats.inc(stat)
         self.outBox.append(msg)
+
+
+class ReplicaExtraWork:
+    def __init__(self, replica: Replica):
+        self.replica = replica
+        self._tstart = None
+
+    def _perf_now(self):
+        return time.perf_counter()
+
+    def __enter__(self):
+        if not self.replica.isWorkingExtra:
+            self.replica.isWorkingExtra = True
+            self._tstart = self._perf_now()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._tstart is not None:
+            self.replica.isWorkingExtra = False
+            self.replica.node.monitor.addMasterReqExtraLatency(
+                    self._perf_now() - self._tstart
+            )
