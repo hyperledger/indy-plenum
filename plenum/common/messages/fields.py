@@ -98,6 +98,9 @@ class IterableField(FieldBase):
     _base_types = (list, tuple)
 
     def __init__(self, inner_field_type: FieldValidator, **kwargs):
+        assert inner_field_type
+        assert isinstance(inner_field_type, FieldValidator)
+
         self.inner_field_type = inner_field_type
         super().__init__(**kwargs)
 
