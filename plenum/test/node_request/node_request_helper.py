@@ -76,7 +76,7 @@ def checkPrePrepared(looper,
             non-primaries must be greater than or equal to 0;
             with faults in system.
             """
-            expectedPrePrepareRequest = PrePrepare(
+            expectedPrePrepareRequest = (
                     instId,
                     primary.viewNo,
                     primary.lastPrePrepareSeqNo,
@@ -87,13 +87,14 @@ def checkPrePrepared(looper,
                     DOMAIN_LEDGER_ID,
                     primary.stateRootHash(DOMAIN_LEDGER_ID),
                     primary.txnRootHash(DOMAIN_LEDGER_ID),
+                    primary.ledger_uncommitted_size(DOMAIN_LEDGER_ID)
                     )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][0:3]+param['pp'][4:],
+                                  if (param['pp'][0:3]+param['pp'][4:8]+param['pp'][10:],
                                       param['sender']) == (
                                       expectedPrePrepareRequest[0:3] + expectedPrePrepareRequest[4:],
                                       primary.name)])

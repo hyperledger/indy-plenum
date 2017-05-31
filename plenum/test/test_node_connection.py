@@ -146,14 +146,17 @@ def testNodesComingUpAtDifferentTimes(allPluginsPath, tdirAndLooper,
     logger.debug("waits: {}".format(waits))
 
     stopNodes(nodes, looper)
+    for node in nodes:
+        looper.removeProdable(node)
 
-    # # Giving some time for sockets to close, use eventually
-    # time.sleep(1)
-
-    for i, n in enumerate(nodes):
-        n.start(looper.loop)
+    nodes = []
+    for name in names:
+        node = TestNode(name, nodeReg, basedirpath=tdir,
+                        pluginPaths=allPluginsPath)
+        nodes.append(node)
+        looper.add(node)
         looper.runFor(rwaits[i])
-    looper.runFor(3)
+
     looper.run(checkNodesConnected(nodes))
     stopNodes(nodes, looper)
     logger.debug("reconnects")

@@ -36,11 +36,12 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
         node.monitor.Delta = .001
 
     # set LAMBDA not so huge like it set in the production config
-    testLambda = 30
+    testLambda = 15
     for node in startedNodes:
         node.monitor.Lambda = testLambda
 
     slowed_request = False
+    slow_by = testLambda + 5
 
     # make P (primary replica on master) faulty, i.e., slow to send
     # PRE-PREPARE for a specific client request only
@@ -48,7 +49,7 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
         nonlocal slowed_request
         if isinstance(msg, PrePrepare) and slowed_request is False:
             slowed_request = True
-            return testLambda + 5  # just more that LAMBDA
+            return slow_by  # just more that LAMBDA
 
     P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
@@ -56,7 +57,7 @@ def setup(looper, tconf, startedNodes, up, wallet1, client1):
                                         wallet1,
                                         client1,
                                         numReqs=5,
-                                        customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
+                                        add_delay_to_timeout=slow_by)
 
     return adict(nodes=startedNodes)
 

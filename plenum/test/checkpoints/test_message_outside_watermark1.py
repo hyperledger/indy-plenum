@@ -6,6 +6,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
+TestRunningTimeLimitSec = 300
+
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
                                                    txnPoolNodeSet, client1,
                                                    wallet1, client1Connected):
@@ -32,4 +34,4 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
 
     print('Sending {} requests'.format(reqsToSend))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    looper.run(eventually(chk, retryWait=1, timeout=tconf.TestRunningTimeLimitSec))
+    looper.run(eventually(chk, retryWait=1, timeout=3))
