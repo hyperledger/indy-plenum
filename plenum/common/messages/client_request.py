@@ -1,3 +1,5 @@
+from sovrin_common.constants import ATTRIB
+
 from plenum.common.constants import *
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageValidator
@@ -65,5 +67,4 @@ class ClientOperationField(MessageValidator):
         if schema_type in self.operations:
             # check only if the schema is defined
             op = self.operations[schema_type]
-            self._validate_fields_with_schema(dct, op.schema)
-            self._validate_message(dct)
+            op.validate(dct)
