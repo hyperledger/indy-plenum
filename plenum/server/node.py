@@ -1871,7 +1871,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for ppSeqNo, (lid, txnSeqNo) in reversed(self.batchToSeqNos.items()):
             if lid == ledgerId and txnSeqNo == seqNo:
                 return ppSeqNo
-        return -1
+        return 0
 
     def executeBatch(self, ppSeqNo: int, ppTime: float, reqs: List[Request],
                      ledgerId, stateRoot, txnRoot) -> None:

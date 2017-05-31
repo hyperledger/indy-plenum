@@ -2,10 +2,9 @@ from operator import itemgetter
 
 import itertools
 from typing import Mapping
-
+from collections import OrderedDict
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
-
 
 class MessageValidator(FieldValidator):
 
@@ -58,30 +57,38 @@ class MessageBase(Mapping, MessageValidator):
     typename = None
 
     def __init__(self, *args, **kwargs):
-        assert not (args and kwargs), '*args, **kwargs cannot be used together'
-        if args:
-            input_as_dict = dict(zip(map(itemgetter(0), self.schema), args))
-        else:
-            input_as_dict = kwargs
-        # remove op field before the validation procedure
-        input_as_dict.pop(OP_FIELD_NAME, None)
+        assert not (args and kwargs), \
+            '*args, **kwargs cannot be used together'
+
+        if kwargs:
+            # op field is not required since there is self.typename
+            kwargs.pop(OP_FIELD_NAME, None)
+
+        argsLen = len(args or kwargs)
+        assert argsLen == len(self.schema), \
+            "number of parameters should be the " \
+            "same as a number of fields in schema, but it was {}" \
+                .format(argsLen)
+
+        input_as_dict = kwargs if kwargs else self._join_with_schema(args)
+
         self.validate(input_as_dict)
-        self._fields = [(k, input_as_dict[k]) for k, _ in self.schema if k in input_as_dict]
+
+        self._fields = OrderedDict((name, input_as_dict[name]) for name, _ in self.schema)
+
+    def _join_with_schema(self, args):
+        return dict(zip(map(itemgetter(0), self.schema), args))
 
     def __getattr__(self, item):
-        for k, v in self._fields:
-            if item == k:
-                return v
-        raise AttributeError
+        return self._fields[item]
 
     def __getitem__(self, key):
+        values = list(self._fields.values())
         if isinstance(key, slice):
-            r = range(key.start or 0, min([len(self), key.stop or len(self)]), key.step or 1)
-            return [self._fields[i][1] for i in r]
-        elif isinstance(key, int):
-            return self._fields[key][1]
-        else:
-            raise TypeError("Invalid argument type.")
+            return values[key]
+        if isinstance(key, int):
+            return values[key]
+        raise TypeError("Invalid argument type.")
 
     def _asdict(self):
         """
@@ -94,15 +101,29 @@ class MessageBase(Mapping, MessageValidator):
         """
         Return a dictionary form.
         """
-        return dict(self._fields + [(OP_FIELD_NAME, self.typename)])
+        m = self._fields.copy()
+        m[OP_FIELD_NAME] = self.typename
+        m.move_to_end(OP_FIELD_NAME, False)
+        return m
 
     @property
     def __name__(self):
         return self.typename
 
     def __iter__(self):
-        for k, v in self._fields:
-            yield v
+        return self._fields.values().__iter__()
 
     def __len__(self):
         return len(self._fields)
+
+    def items(self):
+        return self._fields.items()
+
+    def keys(self):
+        return self._fields.keys()
+
+    def values(self):
+        return self._fields.values()
+
+    def __str__(self):
+        return "{}{}".format(self.typename, dict(self.items()))

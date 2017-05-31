@@ -2,6 +2,7 @@ import ipaddress
 import json
 import base58
 import re
+from datetime import datetime
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 
@@ -25,7 +26,10 @@ class FieldBase(FieldValidator):
         type_er = self.__type_check(val)
         if type_er:
             return type_er
-        return self._specific_validation(val)
+
+        spec_err = self._specific_validation(val)
+        if spec_err:
+            return spec_err
 
     def _specific_validation(self, val):
         raise NotImplementedError
@@ -171,6 +175,38 @@ class IdentifierField(NonEmptyStringField):
     # TODO implement the rules
 
 
+class Base58Field(FieldBase):
+    _base_types = (str,)
+
+    alphabet = set(base58.alphabet)
+
+    def _specific_validation(self, val):
+        if len(val) == 0:
+            return 'provided value of zero length'
+        if set(val) - self.alphabet:
+            return 'should not contains chars other than {}' \
+                .format(self.alphabet)
+
+
+class DestNodeField(Base58Field):
+    _base_types = (str, )
+
+    hashSizes = range(43, 46)
+
+    def _specific_validation(self, val):
+        err = super()._specific_validation(val)
+        if err:
+            return err
+        valSize = len(val)
+        if valSize not in self.hashSizes:
+            return 'length should be one of {}, but it was {}'\
+                .format(self.hashSizes, valSize)
+
+
+class DestNymField(Base58Field):
+    _base_types = (str, )
+
+
 class RequestIdentifierField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
@@ -226,29 +262,34 @@ class HexField(FieldBase):
             return "length should be {} length".format(self._length)
 
 
-class MerkleRootField(FieldBase):
+class MerkleRootField(Base58Field):
     _base_types = (str, )
 
     # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 44 bytes
+    # but when it is base58'ed it is 43-45 bytes
     hashSizes = range(43, 46)
-    alphabet = base58.alphabet
 
     def _specific_validation(self, val):
-        if len(val) not in self.hashSizes:
-            return 'length should be one of {}'.format(self.hashSizes)
-        if set(val).isdisjoint(self.alphabet):
-            return 'should not contains chars other than {}' \
-                .format(self.alphabet)
+        err = super()._specific_validation(val)
+        if err:
+            return err
+        valSize = len(val)
+        if valSize not in self.hashSizes:
+            return 'length should be one of {}, but it was {}'\
+                .format(self.hashSizes, valSize)
 
 
 class TimestampField(FieldBase):
     _base_types = (float, int)
 
     def _specific_validation(self, val):
-        # TODO finish implementation
-        if val < 0:
-            return 'should be a positive number'
+        normal_val = val
+        if isinstance(val, int):
+            # This is needed because timestamp is usually multiplied
+            # by 1000 to "make it compatible to JavaScript Date()"
+            normal_val /= 1000
+        if normal_val <= 0:
+            return 'should be a positive number but was {}'.format(val)
 
 
 class JsonField(FieldBase):

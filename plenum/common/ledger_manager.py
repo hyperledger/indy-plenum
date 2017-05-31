@@ -754,7 +754,7 @@ class LedgerManager(HasActionQueue):
         return numRequest * (self.config.CatchupTransactionsTimeout +
                              0.1 * batchSize)
 
-    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=-1):
+    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=0):
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
