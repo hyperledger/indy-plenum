@@ -13,4 +13,4 @@ def testPrimaryForfeit(looper, nodeSet, up, client1, wallet1):
     pr = getPrimaryReplica(nodeSet, instId=0)
     prNode = pr.node
     # TODO: Incomplete
-    pass
+    raise NotImplementedError
