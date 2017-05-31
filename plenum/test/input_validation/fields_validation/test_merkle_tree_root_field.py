@@ -1,9 +1,5 @@
 import pytest
-import string
 from plenum.common.messages.fields import MerkleRootField
-from plenum.common.util import randomString
-from plenum.test.input_validation.utils import *
-
 
 LENGTH_MIN = 43
 LENGTH_MAX = 45
