@@ -1,5 +1,3 @@
-from sovrin_common.constants import ATTRIB
-
 from plenum.common.constants import *
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageValidator
