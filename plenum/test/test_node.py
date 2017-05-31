@@ -148,6 +148,15 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def force_process_delayeds(self):
+        c = self.nodestack.force_process_delayeds()
+        c += self.nodeIbStasher.force_unstash()
+        for r in self.replicas:
+            c += r.outBoxTestStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages, {} processed in total".
+                     format(self, c))
+        return c
+
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
@@ -257,7 +266,12 @@ class TestNode(TestNodeCore, Node):
 
 
 @spyable(methods=[
-        PrimaryElector.discard
+        PrimaryElector.discard,
+        PrimaryElector.processReelection,
+        PrimaryElector.get_acceptable_last_ordered_pp_seq_no,
+        PrimaryElector.get_min_safe_last_ordered_pp_seq_no,
+        PrimaryElector.resend_primary,
+        PrimaryElector.sendReelection
     ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
@@ -282,7 +296,10 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
-                  replica.Replica.stashOutsideWatermarks
+                  replica.Replica.stashOutsideWatermarks,
+                  replica.Replica.primary_changed,
+                  replica.Replica.remove_old_view_messages,
+                  replica.Replica.revert,
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
@@ -693,9 +710,6 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
 
-    # for n in nodeSet:
-    #     n.startKeySharing()
-
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))
 
@@ -768,6 +782,7 @@ def get_master_primary_node(nodes):
     if node.replicas[0].primaryName is not None:
         nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
+    raise AssertionError('No primary found for master')
 
 
 def primaryNodeNameForInstance(nodes, instanceId):

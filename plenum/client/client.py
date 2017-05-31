@@ -567,12 +567,11 @@ class Client(Motor,
             logger.debug('Remote {} of {} being joined since REQACK for not '
                          'received for request'.format(remote, self))
 
-
             # This makes client to reconnect
             # even if pool is just busy and cannot answer quickly,
             # that's why using maintainConnections instead
             # self.nodestack.connect(name=remote.name)
-            self.nodestack.maintainConnections()
+            self.nodestack.maintainConnections(force=True)
 
         if aliveRequests:
             # Need a delay in case connection has to be established with some

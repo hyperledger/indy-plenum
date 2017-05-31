@@ -41,7 +41,7 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule
+    mockGetInstalledDistributions, mockImportModule, chk_all_funcs
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -49,7 +49,7 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
-Logger.setLogLevel(logging.DEBUG)
+Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
 config = getConfig()
 
@@ -97,11 +97,13 @@ def warncheck(warnfilters):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime(tconf):
+def limitTestRunningTime(request, tconf):
     st = time.time()
     yield
     runningTime = time.time() - st
-    if runningTime > tconf.TestRunningTimeLimitSec:
+    time_limit = getValueFromModule(request, "TestRunningTimeLimitSec",
+                                    tconf.TestRunningTimeLimitSec)
+    if runningTime > time_limit:
         pytest.fail(
             'The running time of each test is limited by {} sec '
             '(actually the test has taken {:2.1f} sec).\n'
@@ -160,9 +162,8 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'EnsureLedgerDurability': False,
-    'Max3PCBatchSize': 1,
-    'DELTA': .8
+    # 'Max3PCBatchSize': 1,
+    # 'DELTA': .8
 }
 
 
@@ -329,8 +330,10 @@ def ensureView(nodeSet, looper, up):
 
 @pytest.fixture("module")
 def delayed_perf_chk(nodeSet):
+    d = 20
     for node in nodeSet:
-        node.delayCheckPerformance(20)
+        node.delayCheckPerformance(d)
+    return d
 
 
 @pytest.fixture(scope="module")
@@ -375,17 +378,19 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
-    looper.run(eventuallyAll(*coros,
-                             totalTimeout=propTimeout,
-                             acceptableFails=faultyNodes))
+    # looper.run(eventuallyAll(*coros,
+    #                          totalTimeout=propTimeout,
+    #                          acceptableFails=faultyNodes))
+    chk_all_funcs(looper, coros, acceptable_fails=faultyNodes, timeout=propTimeout)
 
     # Wait until sufficient number of acks received
     coros2 = [partial(checkReqAck, client1, node, sent1.identifier, sent1.reqId)
               for node in nodeSet]
     ackTimeout = waits.expectedReqAckQuorumTime()
-    looper.run(eventuallyAll(*coros2,
-                             totalTimeout=ackTimeout,
-                             acceptableFails=faultyNodes))
+    # looper.run(eventuallyAll(*coros2,
+    #                          totalTimeout=ackTimeout,
+    #                          acceptableFails=faultyNodes))
+    chk_all_funcs(looper, coros2, acceptable_fails=faultyNodes, timeout=ackTimeout)
     return sent1
 
 

@@ -48,14 +48,22 @@ class Suspicions:
         Suspicion(5, "COMMIT time does not match with PRE-PREPARE")
     PPR_REJECT_WRONG = \
         Suspicion(16, "Pre-Prepare message has incorrect reject")
-    PPR_STATE_WRONG = \
-        Suspicion(17, "Pre-Prepare message has incorrect state trie root")
-    PPR_TXN_WRONG = \
-        Suspicion(18, "Pre-Prepare message has incorrect transaction tree root")
-    PR_STATE_WRONG = \
-        Suspicion(19, "Prepare message has incorrect state trie root")
-    PR_TXN_WRONG = \
-        Suspicion(20, "Prepare message has incorrect transaction tree root")
+    PPR_PRE_STATE_WRONG = \
+        Suspicion(17, "Pre-Prepare message has incorrect pre-state trie root")
+    PPR_PRE_TXN_WRONG = \
+        Suspicion(18, "Pre-Prepare message has incorrect pre-transaction tree root")
+    PR_PRE_STATE_WRONG = \
+        Suspicion(19, "Prepare message has incorrect pre-state trie root")
+    PR_PRE_TXN_WRONG = \
+        Suspicion(20, "Prepare message has incorrect pre-transaction tree root")
+    PPR_POST_STATE_WRONG = \
+        Suspicion(21, "Pre-Prepare message has incorrect post-state trie root")
+    PPR_POST_TXN_WRONG = \
+        Suspicion(22, "Pre-Prepare message has incorrect post-transaction tree root")
+    PR_POST_STATE_WRONG = \
+        Suspicion(23, "Prepare message has incorrect post-state trie root")
+    PR_POST_TXN_WRONG = \
+        Suspicion(24, "Prepare message has incorrect post-transaction tree root")
     PRIMARY_DEGRADED = Suspicion(21, 'Primary of master protocol instance '
                                      'degraded the performance')
     PRIMARY_DISCONNECTED = Suspicion(22, 'Primary of master protocol instance '

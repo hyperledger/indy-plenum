@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.view_change.helper import disconnect_master_primary
 from stp_core.loop.eventually import eventually
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
@@ -9,7 +10,6 @@ from plenum.test.helper import checkViewNoForNodes, \
 from plenum.test.test_node import get_master_primary_node
 
 
-@pytest.mark.skip(reason='SOV-1020')
 def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
                                                    wallet1, client1,
                                                    client1Connected, tconf):
@@ -17,9 +17,8 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
     When primary is disconnected but not long enough to trigger the timeout,
     view change should not happen
     """
-    pr_node = get_master_primary_node(txnPoolNodeSet)
     view_no = checkViewNoForNodes(txnPoolNodeSet)
-
+    pr_node = get_master_primary_node(txnPoolNodeSet)
     lost_pr_calls = {node.name: node.spylog.count(
         node.lost_master_primary.__name__) for node in txnPoolNodeSet
                            if node != pr_node}
@@ -51,10 +50,7 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
                        == recv_inst_chg_calls[node.name]
 
     # Disconnect master's primary
-    for node in txnPoolNodeSet:
-        if node != pr_node:
-            node.nodestack.getRemote(pr_node.nodestack.name).disconnect()
-
+    pr_node = disconnect_master_primary(txnPoolNodeSet)
     timeout = min(tconf.ToleratePrimaryDisconnection-1, 1)
     looper.run(eventually(chk1, retryWait=.2, timeout=timeout))
 

@@ -57,6 +57,11 @@ class f:  # provides a namespace for reusable field constants
     STATE_ROOT = Field("stateRootHash", str)
     TXN_ROOT = Field("txnRootHash", str)
     MERKLE_ROOT = Field("merkleRoot", str)
+    PRE_TXN_ROOT = Field("pre_txn_root", str)
+    PRE_STATE_ROOT = Field("pre_state_root", str)
+    POST_TXN_ROOT = Field("post_txn_root", str)
+    POST_STATE_ROOT = Field("post_state_root", str)
+    POST_LEDGER_SIZE = Field("post_ledger_size", int)
     OLD_MERKLE_ROOT = Field("oldMerkleRoot", str)
     NEW_MERKLE_ROOT = Field("newMerkleRoot", str)
     TXN_SEQ_NO = Field("txnSeqNo", int)
@@ -78,6 +83,10 @@ class f:  # provides a namespace for reusable field constants
     DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", Any)
     POOL_CATCHUP_REP = Field("poolCatchupRep", Any)
     DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
+    # Contains a list where each items is a tuple of 3 elements, a ledger size,
+    #  its txn root and state root
+    LEDGERS = Field('ledgers', Any)
+    CONFLICTS = Field('conflicts', Any)
 
 
 class TaggedTupleBase:
@@ -118,6 +127,9 @@ class ClientMessageValidator(MessageValidator):
         (f.DIGEST.nm, NonEmptyStringField(optional=True)),
     )
 
+Batch = TaggedTuple(BATCH, [
+    f.MSGS,
+    f.SIG])
 
 # class Nomination(MessageBase):
 #     typename = NOMINATE
@@ -128,16 +140,14 @@ class ClientMessageValidator(MessageValidator):
 #         (f.VIEW_NO.nm, NonNegativeNumberField()),
 #         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
 #     )
+# Nominating a primary for the next view
 Nomination = TaggedTuple(NOMINATE, [
     f.NAME,
     f.INST_ID,
     f.VIEW_NO,
-    f.ORD_SEQ_NO])
+    f.ORD_SEQ_NO,
+    f.LEDGERS])
 
-
-Batch = TaggedTuple(BATCH, [
-    f.MSGS,
-    f.SIG])
 
 # Reelection messages that nodes send when they find the 2 or more nodes have
 # equal nominations for primary. `round` indicates the reelection round
@@ -159,10 +169,8 @@ Batch = TaggedTuple(BATCH, [
 Reelection = TaggedTuple(REELECTION, [
     f.INST_ID,
     f.ROUND,
-    f.TIE_AMONG,
-    f.VIEW_NO])
-
-# Declaration of a winner
+    f.VIEW_NO,
+    f.TIE_AMONG])
 
 # class Primary(MessageBase):
 #     typename = PRIMARY
@@ -173,11 +181,14 @@ Reelection = TaggedTuple(REELECTION, [
 #         (f.VIEW_NO.nm, NonNegativeNumberField()),
 #         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
 #     )
+# Declaration of a winner for the next view
 Primary = TaggedTuple(PRIMARY, [
     f.NAME,
     f.INST_ID,
     f.VIEW_NO,
-    f.ORD_SEQ_NO])
+    f.ORD_SEQ_NO,
+    f.LEDGERS])
+
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -267,8 +278,11 @@ PrePrepare = TaggedTuple(PREPREPARE, [
     f.DISCARDED,
     f.DIGEST,
     f.LEDGER_ID,
-    f.STATE_ROOT,
-    f.TXN_ROOT,
+    f.PRE_STATE_ROOT,
+    f.PRE_TXN_ROOT,
+    f.POST_STATE_ROOT,
+    f.POST_TXN_ROOT,
+    f.POST_LEDGER_SIZE
     ])
 
 
@@ -287,8 +301,11 @@ Prepare = TaggedTuple(PREPARE, [
     f.VIEW_NO,
     f.PP_SEQ_NO,
     f.DIGEST,
-    f.STATE_ROOT,
-    f.TXN_ROOT,
+    f.PRE_STATE_ROOT,
+    f.PRE_TXN_ROOT,
+    f.POST_STATE_ROOT,
+    f.POST_TXN_ROOT,
+    f.POST_LEDGER_SIZE
     ])
 
 
@@ -353,8 +370,7 @@ Reply = TaggedTuple(REPLY, [f.RESULT])
 #     )
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
-    f.REASON,
-    f.ORD_SEQ_NOS,
+    f.REASON
 ])
 
 

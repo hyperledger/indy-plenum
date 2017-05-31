@@ -2,7 +2,8 @@ import pytest
 
 from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    sendRandomRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import buildPoolClientAndWallet
@@ -50,3 +51,24 @@ def testRequestsSize(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
             logger.debug("{} has commits {} with size {}".
                          format(replica, len(replica.commits),
                                 get_size(replica.commits)))
+
+
+# def testRequests(txnPoolNodesLooper, txnPoolNodeSet, poolTxnClientNames,
+#                      tdirWithPoolTxns, poolTxnData, noRetryReq):
+#     clients = []
+#     for name in poolTxnClientNames:
+#         seed = poolTxnData["seeds"][name].encode()
+#         client, wallet = buildPoolClientAndWallet((name, seed),
+#                                                   tdirWithPoolTxns)
+#         txnPoolNodesLooper.add(client)
+#         ensureClientConnectedToNodesAndPoolLedgerSame(txnPoolNodesLooper,
+#                                                       client,
+#                                                       *txnPoolNodeSet)
+#         clients.append((client, wallet))
+#
+#     numRequests = 50
+#     for (client, wallet) in clients:
+#         logger.debug("{} sending {} requests".format(client, numRequests))
+#         sendRandomRequests(wallet, client, numRequests)
+#         txnPoolNodesLooper.runFor(1)
+#     txnPoolNodesLooper.runFor(20)

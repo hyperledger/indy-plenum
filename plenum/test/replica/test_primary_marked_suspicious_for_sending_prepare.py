@@ -16,13 +16,16 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, preprepared1):
     def sendPrepareFromPrimary(instId):
         primary = getPrimaryReplica(nodeSet, instId)
         viewNo, ppSeqNo = next(iter(primary.sentPrePrepares.keys()))
-        ppReq = primary.sentPrePrepares[viewNo, ppSeqNo]
+        pp = primary.sentPrePrepares[viewNo, ppSeqNo]
         prepare = Prepare(instId,
                           viewNo,
                           ppSeqNo,
-                          ppReq.digest,
-                          ppReq.stateRootHash,
-                          ppReq.txnRootHash)
+                          pp.digest,
+                          pp.pre_state_root,
+                          pp.pre_txn_root,
+                          pp.post_state_root,
+                          pp.post_txn_root,
+                          pp.post_ledger_size)
         primary.doPrepare(prepare)
 
         def chk():
