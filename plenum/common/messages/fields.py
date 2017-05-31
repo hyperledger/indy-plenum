@@ -233,7 +233,7 @@ class TieAmongField(FieldBase):
         idr_error = NonEmptyStringField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
