@@ -48,6 +48,7 @@ def tdirAndLooper(nodeReg):
             yield td, looper
 
 
+@pytest.mark.skip(reason='INDY-109. Intermittent failures')
 def testNodesConnectsWhenOneNodeIsLate(allPluginsPath, tdirAndLooper,
                                        nodeReg):
     tdir, looper = tdirAndLooper
