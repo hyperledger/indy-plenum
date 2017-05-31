@@ -225,7 +225,6 @@ class RequestIdentifierField(FieldBase):
 class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
-    # TODO eliminate duplication with RequestIdentifierField
 
     def _specific_validation(self, val):
         if len(val) != self._length:
