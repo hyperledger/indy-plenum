@@ -179,7 +179,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if len(seqNos) == 1:
                     # Since only one transaction has been made, this is a new
                     # node transaction
-                    self.addNewNodeAndConnect(txn)
+                    if VALIDATOR in txn[DATA].get(SERVICES, []):
+                        self.addNewNodeAndConnect(txn)
                 else:
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
