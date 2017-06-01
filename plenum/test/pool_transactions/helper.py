@@ -1,3 +1,4 @@
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.types import HA
 from typing import Iterable, Union
 
@@ -290,3 +291,24 @@ def reconnect_node_and_ensure_connected(looper, poolNodes,
 
     reconnectPoolNode(poolNodes, connect, looper)
     looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))
+
+
+def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
+                tdir_with_pool_txns, conf, all_plugins_path):
+    new_nodes = []
+    for node_name in ("Zeta", "Eta"):
+        new_steward_name = "testClientSteward"+randomString(3)
+        new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
+                                                                         steward,
+                                                                         steward_wallet,
+                                                                         new_steward_name,
+                                                                         node_name,
+                                                                         tdir_with_pool_txns,
+                                                                         conf,
+                                                                         all_plugins_path)
+        existing_nodes.append(new_node)
+        looper.run(checkNodesConnected(existing_nodes))
+        waitNodeDataEquality(looper, new_node, *existing_nodes[:-1])
+        new_nodes.append(new_node)
+
+    return new_nodes

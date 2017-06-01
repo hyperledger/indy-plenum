@@ -24,8 +24,9 @@ def setup(startedNodes):
     G = startedNodes.Gamma
     for node in A, B, G:
         makeNodeFaulty(node,
-                       changesRequest,
-                       partial(delaysPrePrepareProcessing, delay=delayPrePrepareSec))
+                       changesRequest, partial(delaysPrePrepareProcessing,
+                                               delay=delayPrePrepareSec))
+        # Delaying nomination to avoid becoming primary
         node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 

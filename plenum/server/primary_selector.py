@@ -1,6 +1,6 @@
-from typing import Iterable
+from typing import Iterable, List
 
-from plenum.common.types import ViewChangeReady
+from plenum.common.types import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server import replica
@@ -14,13 +14,17 @@ logger = getlogger()
 class PrimarySelector(PrimaryDecider):
     def __init__(self, node):
         super().__init__(node)
-        self.nodeNamesByRank = sorted(self.nodeNames)
+        # Stores the last `ViewChangeDone` message sent, if no view change
+        # has happened, a node simply send a ViewChangeDone with view no 0 to a
+        # newly joined node
+        self.view_change_done_messages = {}
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeReady, self.processViewChangeReady)]
+        return [(ViewChangeDone, self.processViewChangeReady)]
 
-    def processViewChangeReady(self, msg: ViewChangeReady, sender: str) -> None:
+    def processViewChangeReady(self, msg: ViewChangeDone,
+                               sender: str) -> None:
         """
         Process a vote from a replica to select a particular replica as primary.
         Once 2f + 1 primary declarations have been received, decide on a
@@ -131,13 +135,17 @@ class PrimarySelector(PrimaryDecider):
 
     def startSelection(self):
         logger.debug("{} starting selection".format(self))
+
         for idx, r in enumerate(self.replicas):
-            prim = (self.viewNo + idx) % self.nodeCount
-            primaryName = replica.Replica.generateName(
-                self.nodeNamesByRank[prim],
-                idx)
-            logger.debug("{} has primary {}".format(r.name, primaryName))
-            r.primaryName = primaryName
+            prim = (self.viewNo + idx) % self.node.totalNodes
+            primary_name = replica.Replica.generateName(
+                self.node.get_name_by_rank(prim), idx)
+            logger.display("{} selected primary {} for instance {} "
+                           "(view {})".format(r, primary_name,
+                                              idx, self.viewNo),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
+            r.primaryName = primary_name
 
     def viewChanged(self, viewNo: int):
         if viewNo > self.viewNo:
@@ -146,3 +154,14 @@ class PrimarySelector(PrimaryDecider):
         else:
             logger.warning("Provided view no {} is not greater than the "
                            "current view no {}".format(viewNo, self.viewNo))
+
+    def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
+        msgs = []
+        for inst_id, r in enumerate(self.replicas):
+            msg = self.view_change_done_messages.get(inst_id,
+                                                     ViewChangeDone(
+                                                         r.primaryName,
+                                                         inst_id,
+                                                         self.viewNo, None))
+            msgs.append(msg)
+        return msgs

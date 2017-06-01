@@ -23,6 +23,7 @@ def setup(startedNodes):
     for node in A, B:
         makeNodeFaulty(node,
                        partial(delaysPrePrepareProcessing, delay=60))
+        # Delaying nomination to avoid becoming primary
         node.delaySelfNomination(10)
     return adict(faulties=(A, B))
 

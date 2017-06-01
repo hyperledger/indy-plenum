@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
-    VIEW_CHANGE_READY
+    VIEW_CHANGE_DONE
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField
@@ -359,7 +359,7 @@ InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
 
 # TODO Why don't we just use the existing Primary message? Any reason to create a new type?
 # TODO determine if these are the correct fields
-ViewChangeReady = TaggedTuple(VIEW_CHANGE_READY, [
+ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
     f.NAME,
     f.INST_ID,
     f.VIEW_NO,

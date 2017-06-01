@@ -19,6 +19,7 @@ def setup(startedNodes):
     # seconds since the timeout for checking sufficient commits is 60 seconds
     makeNodeFaulty(A, partial(delaysPrePrepareProcessing, delay=90))
     makeNodeFaulty(B, partial(delaysPrePrepareProcessing, delay=90))
+    # Delaying nomination to avoid becoming primary
     A.delaySelfNomination(10)
     B.delaySelfNomination(10)
     return adict(faulties=(A, B))

@@ -14,6 +14,7 @@ whitelist = ['cannot process incoming PREPARE']
 @pytest.fixture(scope="module")
 def setup(startedNodes):
     A = startedNodes.Alpha
+    # Delaying nomination to avoid becoming primary
     A.delaySelfNomination(10)
     makeNodeFaulty(A,
                    partial(delaysPrePrepareProcessing, delay=60))

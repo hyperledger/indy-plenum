@@ -9,6 +9,9 @@ from plenum.server.router import Router, Route
 class PrimaryDecider(HasActionQueue, MessageProcessor):
     def __init__(self, node):
         HasActionQueue.__init__(self)
+        # TODO: How does primary decider ensure that a node does not have a
+        # primary while its catching up
+        self.node = node
 
         self.name = node.name
         self.f = node.f
@@ -20,6 +23,9 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         self.inBox = deque()
         self.outBox = deque()
         self.inBoxRouter = Router(*self.routes)
+
+    def __repr__(self):
+        return "{}".format(self.name)
 
     @property
     def routes(self) -> Iterable[Route]:

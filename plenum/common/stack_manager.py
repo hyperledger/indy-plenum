@@ -2,6 +2,7 @@ import os
 import shutil
 from abc import abstractmethod
 from collections import OrderedDict
+from typing import List
 
 from plenum.common.keygen_utils import initRemoteKeys
 from stp_core.types import HA
@@ -214,6 +215,7 @@ class TxnStackManager:
                 return True
         return False
 
+    # TODO: Consider removing `nodeIds` and using `node_ids_in_order`
     @property
     def nodeIds(self) -> set:
         return {txn[TARGET_NYM] for txn in self.ledger.getAllTxn().values()}

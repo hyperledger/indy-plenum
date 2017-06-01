@@ -34,10 +34,6 @@ class PrimaryElector(PrimaryDecider):
     def __init__(self, node):
         super().__init__(node)
 
-        # TODO: How does primary decider ensure that a node does not have a
-        # primary while its catching up
-        self.node = node
-
         # Flag variable which indicates which replica has nominated for itself
         self.replicaNominatedForItself = None
 
@@ -74,9 +70,6 @@ class PrimaryElector(PrimaryDecider):
         # election and will reset it after primary is decided for master
         # instance
         self.previous_master_primary = None
-
-    def __repr__(self):
-        return "{}".format(self.name)
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -790,7 +783,8 @@ class PrimaryElector(PrimaryDecider):
                 msgs.append(Primary(nm, instId, self.viewNo, seqNo))
         return msgs
 
-    def getElectionMsgsForLaggedNodes(self) -> \
+    # TODO: Return value is different from PrimarySelector
+    def get_msgs_for_lagged_nodes(self) -> \
             List[Union[Nomination, Primary]]:
         """
         Get nomination and primary messages for instance with id `instId` that

@@ -48,6 +48,7 @@ def testTestNodeDelay(tdir_for_func):
             looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
 
 
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testSelfNominationDelay(tdir_for_func):
     nodeNames = ["testA", "testB", "testC", "testD"]
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:

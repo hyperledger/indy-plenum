@@ -131,10 +131,17 @@ class TestNodeCore(StackedTester):
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
-        logger.debug("{} delaying start election".format(self))
-        delayerElection = partial(delayers.delayerMethod,
-                                  TestPrimaryElector.startElection)
-        self.elector.actionQueueStasher.delay(delayerElection(delay))
+        if isinstance(self.primaryDecider, PrimaryElector):
+            logger.debug("{} delaying start election".format(self))
+            delayerElection = partial(delayers.delayerMethod,
+                                      TestPrimaryElector.startElection)
+            self.elector.actionQueueStasher.delay(delayerElection(delay))
+        elif isinstance(self.primaryDecider, PrimarySelector):
+            raise RuntimeError('Does not support nomination since primary is '
+                               'selected deterministically')
+        else:
+            raise RuntimeError('Unknown primary decider encountered {}'.
+                               format(self.primaryDecider))
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))

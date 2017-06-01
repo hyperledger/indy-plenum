@@ -1,15 +1,12 @@
 import asyncio
 import json
 import os
-import random
-import shutil
 import time
 from binascii import unhexlify
 from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
-from typing import Dict, Any, Mapping, Iterable, List, Optional, \
-    Sequence, Set, Tuple
+from typing import Dict, Any, Mapping, Iterable, List, Optional, Set
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.serializers.compact_serializer import CompactSerializer
@@ -51,7 +48,7 @@ from plenum.common.types import Propagate, \
     RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    Reject
+    Reject, ViewChangeDone
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
@@ -238,8 +235,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.viewNo = 0                             # type: int
 
-        self.rank = self.getRank(self.name, self.nodeReg)
-
         # Requests that are to be given to the elector by the node
         self.msgsToElector = deque()
 
@@ -278,7 +273,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prohibited from being in this is ClientRequest and Propagation,
         # which both require client signature verification
         self.authnWhitelist = (Nomination, Primary, Reelection,
-                               Batch,
+                               Batch, ViewChangeDone,
                                PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
@@ -332,7 +327,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
         self.logNodeInfo()
-        self._id = None
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
 
@@ -342,11 +336,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def id(self):
-        if not self._id and isinstance(self.poolManager, TxnPoolManager):
-            for txn in self.poolLedger.getAllTxn().values():
-                if self.name == txn[DATA][ALIAS]:
-                    self._id = txn[TARGET_NYM]
-        return self._id
+        if isinstance(self.poolManager, TxnPoolManager):
+            return self.poolManager.id
+        return None
 
     @property
     def wallet(self):
@@ -569,9 +561,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.logNodeInfo()
 
-    @staticmethod
-    def getRank(name: str, allNames: Sequence[str]):
-        return sorted(allNames).index(name)
+    @property
+    def rank(self) -> int:
+        return self.poolManager.rank
+
+    def get_name_by_rank(self, rank):
+        return self.poolManager.get_name_by_rank(rank)
 
     def newPrimaryDecider(self):
         if self.primaryDecider:
@@ -766,7 +761,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
             # if isinstance(self.elector, PrimaryElector) and joined:
-            #     msgs = self.elector.getElectionMsgsForLaggedNodes()
+            #     msgs = self.elector.get_msgs_for_lagged_nodes()
             #     logger.debug("{} has msgs {} for new nodes {}".
             #                  format(self, msgs, joined))
             #     for joinedNode in joined:
@@ -782,6 +777,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             #                 rid)
             # TODO: Make sure newly joined nodes are able to select the
             # correct primary
+            for n in joined:
+                msgs = self.elector.get_msgs_for_lagged_nodes()
+                self.sendElectionMsgsToLaggingNode(n, msgs)
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:

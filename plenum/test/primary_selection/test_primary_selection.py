@@ -2,6 +2,9 @@ import operator
 
 import pytest
 
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.primary_selection.helper import \
+    check_rank_consistent_across_each_node
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getNoInstances
 from plenum.server.primary_selector import PrimarySelector
@@ -24,7 +27,7 @@ def primaryReplicas(nodeSet, up):
 
 
 # noinspection PyIncorrectDocstring
-def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
+def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1):
     """
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
@@ -57,12 +60,14 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready):
                 assert not node.replicas[1].isPrimary
                 assert node.replicas[2].isPrimary
 
+    check_rank_consistent_across_each_node(nodeSet)
     # Check if the primary is on the correct node
     timeout = waits.expectedPoolElectionTimeout(len(nodeSet))
     looper.run(eventually(checkPrimaryPlacement, retryWait=1, timeout=timeout))
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
 
 # noinspection PyIncorrectDocstring
@@ -84,4 +89,5 @@ def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
     for br, ar in zip(prBeforeVC, prAfterVC):
         assert ar.node.rank - br.node.rank == 1
 
+    check_rank_consistent_across_each_node(nodeSet)
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1)
