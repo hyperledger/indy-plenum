@@ -7,9 +7,8 @@ from stp_core.loop.eventually import eventually
 from plenum.common.types import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import delayNonPrimaries
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    waitForViewChange, checkDiscardMsg
+from plenum.test.helper import checkDiscardMsg
+from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
 from plenum.test.test_node import checkNodesConnected, \
@@ -31,34 +30,12 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     looper, nodeX, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     viewNo = nodeX.viewNo
 
-    # Delay processing of PRE-PREPARE from all non primary replicas of master
-    # so master's performance falls and view changes
-
-    def forceViewChange(delay):
-        try:
-            cancelDelays = delayNonPrimaries(txnPoolNodeSet, 0,delay)
-            sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
-            waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=viewNo+1)
-        finally:
-            cancelDelays()
-
-    # TODO it's a workaround until view change related issues are resolved
-    # the goal is to force view change BUT after all responses are passed
-    # to client
-    delay = 0.1
-    numTries = 3
-    while True:
-        numTries -= 1
-        try:
-            forceViewChange(delay)
-        except AssertionError:
-            if numTries > 0:
-                delay += 0.1
-                pass
-            else:
-                raise
-        else:
-            break
+    # Force two view changes: node discards msgs which have viewNo
+    # at least two less than node's. Current protocol implementation
+    # needs to hold messages from the previous view as well as
+    # from the current view.
+    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
+    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
 
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"
