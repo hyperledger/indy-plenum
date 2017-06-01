@@ -21,6 +21,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
+from libnacl import randombytes_uniform
 import psutil
 from jsonpickle import encode, decode
 from six import iteritems, string_types
@@ -54,10 +55,12 @@ def randomString(size: int = 20,
         chars = list(chars)
 
     def randomChar():
-        return random.choice(chars)
+        # DONOT use random.choice its as PRNG not secure enough for our needs
+        # return random.choice(chars)
+        rn = randombytes_uniform(len(chars))
+        return chars[rn]
 
     return ''.join(randomChar() for _ in range(size))
-
 
 def mostCommonElement(elements: Iterable[T]) -> T:
     """
@@ -171,7 +174,7 @@ def getMaxFailures(nodeCount: int) -> int:
         return 0
 
 
-def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
+def getQuorum(nodeCount: int = None, f: int = None) -> int:
     r"""
     Return the minimum number of nodes where the number of correct nodes is
     greater than the number of faulty nodes.
@@ -184,13 +187,6 @@ def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
         f = getMaxFailures(nodeCount)
     if f is not None:
         return 2 * f + 1
-
-
-def get_weak_quorum(nodeCount: int = None, f: int = None) -> int:
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:
@@ -538,7 +534,6 @@ def getFormattedErrorMsg(msg):
     errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
     return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
 
-
 def normalizedWalletFileName(walletName):
     return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
 
@@ -571,12 +566,3 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
-
-
-def pop_keys(mapping: Dict, cond: Callable):
-    rem = []
-    for k in mapping:
-        if cond(k):
-            rem.append(k)
-    for i in rem:
-        mapping.pop(i)
