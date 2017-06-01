@@ -173,11 +173,6 @@ class LedgerIdField(ChooseField):
         super().__init__(self.ledger_ids, **kwargs)
 
 
-class IdentifierField(NonEmptyStringField):
-    _base_types = (str, )
-    # TODO implement the rules
-
-
 class Base58Field(FieldBase):
     _base_types = (str,)
 
@@ -191,19 +186,21 @@ class Base58Field(FieldBase):
                 .format(self.alphabet)
 
 
-class DestNodeField(Base58Field):
+class IdentifierField(Base58Field):
     _base_types = (str, )
 
-    hashSizes = range(43, 46)
+    _valid_lengths = {16, 32}
 
     def _specific_validation(self, val):
-        err = super()._specific_validation(val)
-        if err:
-            return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
+        length = len(val)
+        if length not in self._valid_lengths:
+            return 'value length should be one of {}, but was {}'\
+                .format(self._valid_lengths, length)
+        return super()._specific_validation(val)
+
+
+class DestNodeField(IdentifierField):
+    _valid_lengths = range(43, 46)
 
 
 class DestNymField(Base58Field):
