@@ -10,6 +10,7 @@ from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
     List
 
 from plenum.common.stacks import nodeStackClass, clientStackClass
+from plenum.server.domain_req_handler import DomainRequestHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 
@@ -21,10 +22,10 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail
-from plenum.common.constants import CLIENT_STACK_SUFFIX
+from plenum.common.types import TaggedTuples, NodeDetail, f
+from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
+    DOMAIN_LEDGER_ID
 from plenum.common.util import Seconds, getMaxFailures, adict
-from plenum.persistence import orientdb_store
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -43,6 +44,21 @@ from plenum.test.testable import spyable
 from plenum.test import waits
 
 logger = getlogger()
+
+
+class TestDomainRequestHandler(DomainRequestHandler):
+    def _updateStateWithSingleTxn(self, txn, isCommitted=False):
+        typ = txn.get(TXN_TYPE)
+        if typ == 'buy':
+            idr = txn.get(f.IDENTIFIER.nm)
+            rId = txn.get(f.REQ_ID.nm)
+            key = '{}:{}'.format(idr, rId).encode()
+            val = self.stateSerializer.serialize({TXN_TYPE: typ})
+            self.state.set(key, val)
+            logger.trace('{} after adding to state, headhash is {}'.
+                         format(self, self.state.headHash))
+        else:
+            super()._updateStateWithSingleTxn(txn, isCommitted=isCommitted)
 
 
 NodeRef = TypeVar('NodeRef', Node, str)
@@ -137,7 +153,7 @@ class TestNodeCore(StackedTester):
             self.whitelistedClients[nodeName] = set()
         self.whitelistedClients[nodeName].update(codes)
         logger.debug("{} whitelisting {} for codes {}"
-                      .format(self, nodeName, codes))
+                     .format(self, nodeName, codes))
 
     def blacklistNode(self, nodeName: str, reason: str=None, code: int=None):
         if nodeName in self.whitelistedClients:
@@ -154,7 +170,7 @@ class TestNodeCore(StackedTester):
             self.whitelistedClients[clientName] = set()
         self.whitelistedClients[clientName].update(codes)
         logger.debug("{} whitelisting {} for codes {}"
-                      .format(self, clientName, codes))
+                     .format(self, clientName, codes))
 
     def blacklistClient(self, clientName: str, reason: str=None, code: int=None):
         if clientName in self.whitelistedClients:
@@ -174,7 +190,7 @@ class TestNodeCore(StackedTester):
 
     async def eatTestMsg(self, msg, frm):
         logger.debug("{0} received Test message: {1} from {2}".
-                      format(self.nodestack.name, msg, frm))
+                     format(self.nodestack.name, msg, frm))
 
     def serviceReplicaOutBox(self, *args, **kwargs) -> int:
         for r in self.replicas:  # type: TestReplica
@@ -183,6 +199,11 @@ class TestNodeCore(StackedTester):
 
     def ensureKeysAreSetup(self):
         pass
+
+    def getDomainReqHandler(self):
+        return TestDomainRequestHandler(self.domainLedger,
+                                        self.states[DOMAIN_LEDGER_ID],
+                                        self.reqProcessors)
 
 
 @spyable(methods=[Node.handleOneNodeMsg,
@@ -204,7 +225,9 @@ class TestNodeCore(StackedTester):
                   Node.sendInstanceChange,
                   Node.processInstanceChange,
                   Node.checkPerformance,
-                  Node.processStashedOrderedReqs
+                  Node.processStashedOrderedReqs,
+                  Node.lost_master_primary,
+                  Node.propose_view_change
                   ])
 class TestNode(TestNodeCore, Node):
 
@@ -220,10 +243,6 @@ class TestNode(TestNodeCore, Node):
         # Txns of all clients, each txn is a tuple like (from, to, amount)
         self.txns = []  # type: List[Tuple]
 
-    def _getOrientDbStore(self, name, dbType):
-        return orientdb_store.createOrientDbInMemStore(
-            self.config, name, dbType)
-
     @property
     def nodeStackClass(self):
         return getTestableStack(self.NodeStackClass)
@@ -233,9 +252,13 @@ class TestNode(TestNodeCore, Node):
         return getTestableStack(self.ClientStackClass)
 
     def getLedgerManager(self):
-        return TestLedgerManager(self, ownedByNode=True)
+        return TestLedgerManager(self, ownedByNode=True,
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
 
 
+@spyable(methods=[
+        PrimaryElector.discard
+    ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -248,10 +271,10 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@spyable(methods=[replica.Replica.doPrePrepare,
+@spyable(methods=[replica.Replica.sendPrePrepare,
                   replica.Replica.canProcessPrePrepare,
-                  replica.Replica.canSendPrepare,
-                  replica.Replica.isValidPrepare,
+                  replica.Replica.canPrepare,
+                  replica.Replica.validatePrepare,
                   replica.Replica.addToPrePrepares,
                   replica.Replica.processPrePrepare,
                   replica.Replica.processPrepare,
@@ -260,7 +283,6 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doOrder,
                   replica.Replica.discard,
                   replica.Replica.stashOutsideWatermarks
-                  # replica.Replica.orderPendingCommit
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
@@ -405,11 +427,12 @@ class TestMonitor(Monitor):
         super().__init__(*args, **kwargs)
         self.masterReqLatenciesTest = {}
 
-    def requestOrdered(self, identifier: str, reqId: int, instId: int,
+    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
                        byMaster: bool = False):
-        duration = super().requestOrdered(identifier, reqId, instId, byMaster)
-        if byMaster and duration is not None:
-            self.masterReqLatenciesTest[(identifier, reqId)] = duration
+        durations = super().requestOrdered(reqIdrs, instId, byMaster)
+        if byMaster and durations:
+            for (identifier, reqId), duration in durations.items():
+                self.masterReqLatenciesTest[identifier, reqId] = duration
 
     def reset(self):
         super().reset()
@@ -454,7 +477,7 @@ def checkPoolReady(looper: Looper,
     Check that pool is in Ready state
     """
 
-    timeout = customTimeout or waits.expectedPoolGetReadyTimeout(len(nodes))
+    timeout = customTimeout or waits.expectedPoolStartUpTimeout(len(nodes))
     looper.run(
             eventually(checkNodesAreReady, nodes,
                        retryWait=.25,
@@ -481,8 +504,7 @@ async def checkNodesConnected(stacks: Iterable[Union[TestNode, TestClient]],
                               customTimeout=None):
     expectedRemoteState = expectedRemoteState if expectedRemoteState else CONNECTED
     # run for how long we expect all of the connections to take
-    timeout = customTimeout or \
-              (waits.expectedNodeInterconnectionTime(len(stacks)) * len(stacks))
+    timeout = customTimeout or waits.expectedPoolInterconnectionTime(len(stacks))
     logger.debug("waiting for {} seconds to check connections...".format(timeout))
     # verify every node can see every other as a remote
     funcs = [
@@ -507,7 +529,7 @@ def checkNodeRemotes(node: TestNode, states: Dict[str, RemoteState]=None,
         except Exception as ex:
             logger.debug("state checking exception is {} and args are {}"
                           "".format(ex, ex.args))
-            raise RuntimeError(
+            raise Exception(
                     "Error with {} checking remote {} in {}".format(node.name,
                                                                     remote.name,
                                                                     states
@@ -522,11 +544,11 @@ def checkIfSameReplicaIPrimary(looper: Looper,
     # on same primary
 
     def checkElectionDone():
-        unknowns = sum(1 for r in replicas if r.isPrimary is None)
-        assert unknowns == 0, "election should be complete, but {} out of {} " \
-                              "don't know who the primary is for " \
-                              "protocol no {}".\
-            format(unknowns, len(replicas), replicas[0].instId)
+        unknowns = [r for r in replicas if r.primaryName is None]
+        assert len(unknowns) == 0, "election should be complete, " \
+                              "but {} out of {} ({}) don't know who the primary " \
+                              "is for protocol instance {}".\
+            format(len(unknowns), len(replicas), unknowns, replicas[0].instId)
 
     def checkPrisAreOne():  # number of expected primaries
         pris = sum(1 for r in replicas if r.isPrimary)
@@ -567,10 +589,7 @@ def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
 
     coro = eventually(instances, nodes, retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
-
-    # TODO refactor this to just user eventuallyAll
     newTimeout = timeout - timeConsumed if timeout is not None else None
-
     for instId, replicas in insts.items():
         logger.debug("Checking replicas in instance: {}".format(instId))
         checkIfSameReplicaIPrimary(looper=looper,
@@ -587,7 +606,7 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
         prims = [r for r in node.replicas if r.isPrimary]
         assert len(prims) <= 1
 
-    timeout = customTimeout or waits.expectedElectionTimeout(len(nodes))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
     for node in nodes:
         looper.run(eventually(checkAtMostOnePrim,
                               node,
@@ -595,24 +614,22 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
-def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
+def checkProtocolInstanceSetup(looper: Looper,
+                               nodes: Sequence[TestNode],
                                retryWait: float = 1,
                                customTimeout: float = None):
 
-    totalTimeout = customTimeout or waits.expectedElectionTimeout(len(nodes))
-    instanceTimeout = totalTimeout * 4/5
-    nodeTimeout = totalTimeout * 1/5
-
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
                                                 nodes=nodes,
                                                 retryWait=retryWait,
-                                                timeout=instanceTimeout)
+                                                timeout=timeout)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper,
                                       nodes=nodes,
                                       retryWait=retryWait,
-                                      customTimeout=nodeTimeout)
+                                      customTimeout=timeout)
 
     primaryReplicas = {replica.instId: replica
                        for node in nodes
@@ -624,31 +641,26 @@ def checkProtocolInstanceSetup(looper: Looper, nodes: Sequence[TestNode],
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        timeout: float = None) -> Sequence[TestNode]:
+                        customTimeout: float = None) -> Sequence[TestNode]:
     """
     Wait for elections to be complete
 
     :param retryWait:
-    :param timeout: specific timeout
+    :param customTimeout: specific timeout
     :return: primary replica for each protocol instance
     """
 
     if retryWait is None:
         retryWait = 1
 
-    if timeout is None:
-        timeout = waits.expectedElectionTimeout(len(nodes))
-
-    poolReadyTimeout = 1/3 * timeout
-    setupCheckTimeout = 2/3 * timeout
-
-    checkPoolReady(looper, nodes, customTimeout=poolReadyTimeout)
+    if customTimeout is None:
+        customTimeout = waits.expectedPoolElectionTimeout(len(nodes))
 
     return checkProtocolInstanceSetup(
         looper=looper,
         nodes=nodes,
         retryWait=retryWait,
-        customTimeout=setupCheckTimeout)
+        customTimeout=customTimeout)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -711,8 +723,7 @@ def instances(nodes: Sequence[Node]) -> Dict[int, List[replica.Replica]]:
     instCount = getRequiredInstances(len(nodes))
     for n in nodes:
         assert len(n.replicas) == instCount
-    return {i: [n.replicas[i] for n in nodes]
-            for i in range(instCount)}
+    return {i: [n.replicas[i] for n in nodes] for i in range(instCount)}
 
 
 def getRequiredInstances(nodeCount: int) -> int:
@@ -741,3 +752,45 @@ def getNonPrimaryReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
         Sequence[TestReplica]:
     return [node.replicas[instId] for node in nodes]
+
+
+def get_master_primary_node(nodes):
+    node = next(iter(nodes))
+    if node.replicas[0].primaryName is not None:
+        nm = TestReplica.getNodeName(node.replicas[0].primaryName)
+        return nodeByName(nodes, nm)
+
+
+def primaryNodeNameForInstance(nodes, instanceId):
+    primaryNames = {node.replicas[instanceId].primaryName for node in nodes}
+    assert 1 == len(primaryNames)
+    primaryReplicaName = next(iter(primaryNames))
+    return primaryReplicaName[:-2]
+
+
+def nodeByName(nodes, name):
+    for node in nodes:
+        if node.name == name:
+            return node
+    raise Exception("Node with the name '{}' has not been found.".format(name))
+
+
+def check_node_disconnected_from(needle: str, haystack: Iterable[TestNode]):
+    """
+    Check if the node name given by `needle` is disconnected from nodes in
+    `haystack`
+    :param needle: Node name which should be disconnected from nodes from
+    `haystack`
+    :param haystack: nodes who should be disconnected from `needle`
+    :return:
+    """
+    assert all([needle not in node.nodestack.connecteds for node in haystack])
+
+
+def ensure_node_disconnected(looper, disconnected_name, other_nodes,
+                             timeout=None):
+    timeout = timeout or (len(other_nodes) - 1)
+    looper.run(eventually(check_node_disconnected_from, disconnected_name,
+                          [n for n in other_nodes
+                           if n.name != disconnected_name],
+                          retryWait=1, timeout=timeout))

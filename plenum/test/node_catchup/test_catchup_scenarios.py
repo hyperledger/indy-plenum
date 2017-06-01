@@ -3,7 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.startable import Mode
-from plenum.test.delayers import crDelay
+from plenum.test.delayers import cqDelay
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
@@ -20,7 +20,7 @@ txnCount = 10
 def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
     for node in txnPoolNodeSet:
-        node.nodeIbStasher.delay(crDelay(5))
+        node.nodeIbStasher.delay(cqDelay(5))
     txnPoolNodeSet.append(newNode)
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, client,
                                                   *txnPoolNodeSet[:-1])
@@ -32,7 +32,7 @@ def nodeStashingOrderedRequests(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         assert len(newNode.stashedOrderedReqs) > 0
         assert len(newNode.reqsFromCatchupReplies) > 0
 
-    timeout = waits.expectedRequestStashingTime()
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(stashing, retryWait=1, timeout=timeout))
 
 

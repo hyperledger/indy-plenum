@@ -27,13 +27,14 @@ from stp_core.common.log import getlogger
 from plenum.common.types import f
 from plenum.common.error import error
 
+
 logger = getlogger()
 
 # by allowing only primitives, it ensures we're signing the whole message
 acceptableTypes = (str, int, float, list, dict, type(None))
 
 
-def serialize(obj, level=0, objname=None):
+def serialize(obj, level=0, objname=None, topLevelKeysToIgnore=None):
     """
     Create a string representation of the given object.
 
@@ -49,7 +50,10 @@ def serialize(obj, level=0, objname=None):
     '1:a|2:b|3:1,2:k'
 
     :param obj: the object to serlize
-    :param level: a parameter used internally for recursion to serialize nested data structures
+    :param level: a parameter used internally for recursion to serialize nested
+     data structures
+     :param topLevelKeysToIgnore: the list of top level keys to ignore for
+     serialization
     :return: a string representation of `obj`
     """
     if not isinstance(obj, acceptableTypes):
@@ -57,7 +61,11 @@ def serialize(obj, level=0, objname=None):
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):
-        keys = [k for k in obj.keys() if level > 0 or k != f.SIG.nm]  # remove signature if top level
+        if level > 0:
+            keys = list(obj.keys())
+        else:
+            topLevelKeysToIgnore = topLevelKeysToIgnore or []
+            keys = [k for k in obj.keys() if k not in topLevelKeysToIgnore]
         keys.sort()
         strs = []
         for k in keys:
@@ -73,15 +81,19 @@ def serialize(obj, level=0, objname=None):
         return ""
     else:
         return str(obj)
+    # topLevelKeysToIgnore = topLevelKeysToIgnore or []
+    # return ujson.dumps({k:obj[k] for k in obj.keys() if k not in topLevelKeysToIgnore}, sort_keys=True)
 
 
-def serializeMsg(msg: Mapping):
+def serializeMsg(msg: Mapping, topLevelKeysToIgnore=None):
     """
     Serialize a message for signing.
 
     :param msg: the message to sign
+    :param topLevelKeysToIgnore: the top level keys of the Mapping that should
+    not be included in the serialized form
     :return: a uft-8 encoded version of `msg`
     """
-    ser = serialize(msg)
+    ser = serialize(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
     logger.trace("serialized msg {} into {}".format(msg, ser))
     return ser.encode('utf-8')

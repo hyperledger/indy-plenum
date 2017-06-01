@@ -6,7 +6,6 @@ from hashlib import sha256
 from os.path import basename, dirname
 from typing import Dict, Iterable
 
-import pyorient
 from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
@@ -28,16 +27,16 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet
-from plenum.common.exceptions import NameAlreadyExists, GraphStorageNotAvailable, \
-    KeysNotFoundException
+from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, TXN_ID, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, CLIENT_STACK_SUFFIX
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
 from stp_core.network.port_dispenser import genHa
@@ -523,7 +522,6 @@ class Cli:
         txn = {
             TXN_TYPE: typ,
             TARGET_NYM: destId,
-            TXN_ID: sha256(randomString(6).encode()).hexdigest(),
         }
         if matchedVars.get(IDENTIFIER):
             txn[IDENTIFIER] = getFriendlyIdentifier(matchedVars.get(IDENTIFIER))
@@ -915,7 +913,7 @@ class Cli:
                                       basedirpath=self.basedirpath,
                                       pluginPaths=self.pluginPaths,
                                       config=self.config)
-            except (GraphStorageNotAvailable, KeysNotFoundException) as e:
+            except KeysNotFoundException as e:
                 self.print(str(e), Token.BoldOrange)
                 return
             self.nodes[name] = node
@@ -928,7 +926,7 @@ class Cli:
                 self.bootstrapKey(self.activeWallet, node)
 
             for identifier, verkey in self.externalClientKeys.items():
-                node.clientAuthNr.addClient(identifier, verkey)
+                node.clientAuthNr.addIdr(identifier, verkey)
             nodes.append(node)
         return nodes
 
@@ -1051,7 +1049,7 @@ class Cli:
     def bootstrapKey(wallet, node, identifier=None):
         identifier = identifier or wallet.defaultId
         assert identifier, "Client has no identifier"
-        node.clientAuthNr.addClient(identifier, wallet.getVerkey(identifier))
+        node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
 
     def clientExists(self, clientName):
         return clientName in self.clients
@@ -1278,7 +1276,7 @@ class Cli:
                 return
             self.externalClientKeys[identifier] = verkey
             for n in self.nodes.values():
-                n.clientAuthNr.addClient(identifier, verkey)
+                n.clientAuthNr.addIdr(identifier, verkey)
             return True
 
     def _addSignerToGivenWallet(self, signer, wallet: Wallet=None,
@@ -1973,26 +1971,6 @@ class Cli:
             shutil.rmtree(dataPath, ignore_errors=True)
         except FileNotFoundError:
             pass
-
-        client = pyorient.OrientDB(self.config.OrientDB["host"],
-                                   self.config.OrientDB["port"])
-        user = self.config.OrientDB["user"]
-        password = self.config.OrientDB["password"]
-        client.connect(user, password)
-
-        def dropdbs():
-            i = 0
-            names = [n for n in
-                     client.db_list().oRecordData['databases'].keys()]
-            for nm in names:
-                try:
-                    client.db_drop(nm)
-                    i += 1
-                except:
-                    continue
-            return i
-
-        dropdbs()
 
     def __hash__(self):
         return hash((self.name, self.unique_name, self.basedirpath))

@@ -10,7 +10,6 @@ from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NOD
     NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.types import PoolLedgerTxns, f, HA
 from plenum.common.util import getMaxFailures
-from plenum.common.txn_util import updateGenesisPoolTxnFile
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -54,13 +53,6 @@ class HasPoolManager(TxnStackManager):
                 if len(txns) > 0:
                     txn = json.loads(txns[0])
                     self.addToLedger(txn)
-                    if self.config.UpdateGenesisPoolTxnFile:
-                        # Adding sequence number field since needed for safely
-                        # updating genesis file
-                        txn[F.seqNo.name] = len(self.ledger)
-                        updateGenesisPoolTxnFile(self.config.baseDir,
-                                                 self.config.poolTransactionsFile,
-                                                 txn)
                     self.tempNodeTxns.pop(seqNo)
                 else:
                     logger.error("{} has not got enough similar node "

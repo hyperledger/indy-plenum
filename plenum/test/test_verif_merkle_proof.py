@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.client.client import Client
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
     sendRandomRequest

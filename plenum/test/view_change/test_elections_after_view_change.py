@@ -12,7 +12,7 @@ nodeCount = 7
 
 
 # noinspection PyIncorrectDocstring
-def testElectionsAfterViewChange(delayedPerf, looper: Looper,
+def testElectionsAfterViewChange(delayed_perf_chk, looper: Looper,
                                  nodeSet: TestNodeSet, up, wallet1, client1):
     """
     Test that a primary election does happen after a view change
@@ -29,12 +29,12 @@ def testElectionsAfterViewChange(delayedPerf, looper: Looper,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # Ensure view change happened for both node and its primary elector
-    timeout = waits.expectedViewChangeTime(len(nodeSet))
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
     for node in nodeSet:
         looper.run(eventually(partial(checkViewChangeInitiatedForNode, node, 1),
                               retryWait=1, timeout=timeout))
 
     # Ensure elections are done again and pool is setup again with appropriate
     # protocol instances and each protocol instance is setup properly too
-    timeout = waits.expectedElectionTimeout(len(nodeSet)) + delay
+    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + delay
     checkProtocolInstanceSetup(looper, nodeSet, retryWait=1, customTimeout=timeout)

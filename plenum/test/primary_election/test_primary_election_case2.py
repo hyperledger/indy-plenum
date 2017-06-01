@@ -6,7 +6,7 @@ from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination, \
-    getSelfNominationByNode
+    getSelfNominationByNode, nominationByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test import waits
@@ -51,7 +51,7 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     looper.run(checkNodesConnected(nodeSet))
 
     # Node B sends multiple NOMINATE msgs but only after A has nominated itself
-    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     looper.run(eventually(checkNomination, A, A.name,
                           retryWait=.25, timeout=timeout))
 
@@ -62,9 +62,11 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     DRep = Replica.generateName(D.name, instId)
 
     # Node B first sends NOMINATE msgs for Node C to all nodes
-    B.send(Nomination(CRep, instId, B.viewNo))
+    # B.send(Nomination(CRep, instId, B.viewNo))
+    B.send(nominationByNode(CRep, B, instId))
     # Node B sends NOMINATE msgs for Node D to all nodes
-    B.send(Nomination(DRep, instId, B.viewNo))
+    # B.send(Nomination(DRep, instId, B.viewNo))
+    B.send(nominationByNode(DRep, B, instId))
 
     # Ensure elections are done
     ensureElectionsDone(looper=looper, nodes=nodeSet)
@@ -73,4 +75,4 @@ def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     # not considering it) should have nomination for node C from node B since
     #  node B first nominated node C
     for node in [A, C, D]:
-        assert node.elector.nominations[instId][BRep] == CRep
+        assert node.elector.nominations[instId][BRep][0] == CRep

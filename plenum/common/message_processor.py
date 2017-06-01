@@ -28,7 +28,6 @@ class MessageProcessor:
         logMethod("{} discarding message {}{}".format(self, msg, reason),
                   extra={"cli": cliOutput})
 
-
     def toDict(self, msg: Dict) -> Dict:
         """
         Return a dictionary form of the message
@@ -52,7 +51,6 @@ class MessageProcessor:
         else:
             tmsg = msg
         return tmsg
-
 
     def prepForSending(self, msg: Dict, signer: Signer = None) -> Dict:
         msg = self.toDict(msg)

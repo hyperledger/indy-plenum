@@ -9,6 +9,8 @@ import warnings
 from contextlib import ExitStack
 from copy import copy
 from functools import partial
+
+import time
 from typing import Dict, Any
 from plenum.test import waits
 
@@ -28,7 +30,7 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.exceptions import BlowUp
-from stp_core.common.log import getlogger
+from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
 from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
@@ -47,6 +49,7 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
+Logger.setLogLevel(logging.DEBUG)
 logger = getlogger()
 config = getConfig()
 
@@ -91,6 +94,25 @@ def warncheck(warnfilters):
     if to_prints:
         to_prints.insert(0, 'Warnings found:')
         pytest.fail('\n'.join(to_prints))
+
+
+@pytest.fixture(scope="function", autouse=True)
+def limitTestRunningTime(tconf):
+    st = time.time()
+    yield
+    runningTime = time.time() - st
+    if runningTime > tconf.TestRunningTimeLimitSec:
+        pytest.fail(
+            'The running time of each test is limited by {} sec '
+            '(actually the test has taken {:2.1f} sec).\n'
+            'In order to make the test passed there are two options:\n'
+            '\t1. Make the test faster (for example: override default '
+            'timeouts ONLY for the tests, do not wait '
+            '`with pytest.raises(..)` and so on)\n'
+            '\t2. Override the `limitTestRunningTime` fixture '
+            'for the test module.\n'
+            'Firstly, try to use the option #1.'
+            ''.format(tconf.TestRunningTimeLimitSec, runningTime))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -138,8 +160,9 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'UpdateGenesisPoolTxnFile': False,
-    'EnsureLedgerDurability': False
+    'EnsureLedgerDurability': False,
+    'Max3PCBatchSize': 1,
+    'DELTA': .8
 }
 
 
@@ -150,8 +173,6 @@ def allPluginsPath():
 
 @pytest.fixture(scope="module")
 def keySharedNodes(startedNodes):
-    # for n in startedNodes:
-    #     n.startKeySharing()
     return startedNodes
 
 
@@ -191,7 +212,8 @@ def logcapture(request, whitelist, concerningLogLevels):
                      '.+ failed to ping .+ at',
                      'discarding message (NOMINATE|PRIMARY)',
                      '.+ rid .+ has been removed',
-                     'last try...'
+                     'last try...',
+                     'has uninitialised socket'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -306,7 +328,7 @@ def ensureView(nodeSet, looper, up):
 
 
 @pytest.fixture("module")
-def delayedPerf(nodeSet):
+def delayed_perf_chk(nodeSet):
     for node in nodeSet:
         node.delayCheckPerformance(20)
 
@@ -350,7 +372,7 @@ def reqAcked1(looper, nodeSet, client1, sent1, faultyNodes):
     numerOfNodes = len(nodeSet)
 
     # Wait until request received by all nodes
-    propTimeout = waits.expectedClientToNodeMessageDeliveryTime(numerOfNodes)
+    propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
     coros = [partial(checkLastClientReqForNode, node, sent1)
              for node in nodeSet]
     looper.run(eventuallyAll(*coros,

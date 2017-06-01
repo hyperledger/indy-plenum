@@ -6,7 +6,7 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 
-def testPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
+def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
                                                    txnPoolNodeSet, client1,
                                                    wallet1, client1Connected):
     """
@@ -16,7 +16,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
     Eventually this primary will send PRE-PREPARE for all requests and those
     requests will complete
     """
-    delay = 10
+    delay = 5
     instId = 1
     reqsToSend = 2*chkFreqPatched.LOG_SIZE + 1
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
@@ -32,5 +32,4 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
 
     print('Sending {} requests'.format(reqsToSend))
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend, 1)
-    # TODO Select or create the timeout from 'waits'. Don't use constant.
-    looper.run(eventually(chk, retryWait=1, timeout=80))
+    looper.run(eventually(chk, retryWait=1, timeout=tconf.TestRunningTimeLimitSec))

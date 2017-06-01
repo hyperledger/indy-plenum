@@ -58,10 +58,10 @@ def testPrimaryElectionWithAClearWinner(electContFixture, looper, keySharedNodes
     checkPoolReady(looper, nodeSet)
 
     # Checking whether one of the replicas of Node A nominated itself
-    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     looper.run(eventually(checkNomination, A, A.name, retryWait=1, timeout=timeout))
 
-    timeout = waits.expectedNominationTimeout(len(nodeSet))
+    timeout = waits.expectedPoolNominationTimeout(len(nodeSet))
     for n in nodesBCD:
         # Checking whether Node B, C and D nominated Node A
         looper.run(eventually(checkNomination, n, A.name,
