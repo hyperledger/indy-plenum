@@ -171,7 +171,7 @@ def getMaxFailures(nodeCount: int) -> int:
         return 0
 
 
-def getQuorum(nodeCount: int = None, f: int = None) -> int:
+def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
     r"""
     Return the minimum number of nodes where the number of correct nodes is
     greater than the number of faulty nodes.
@@ -184,6 +184,13 @@ def getQuorum(nodeCount: int = None, f: int = None) -> int:
         f = getMaxFailures(nodeCount)
     if f is not None:
         return 2 * f + 1
+
+
+def get_weak_quorum(nodeCount: int = None, f: int = None) -> int:
+    if nodeCount is not None:
+        f = getMaxFailures(nodeCount)
+    if f is not None:
+        return f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:
@@ -502,22 +509,27 @@ def createDirIfNotExists(dir):
         os.makedirs(dir)
 
 
-def is_valid_port(port):
-    return port.isdigit() and int(port) in range(1, 65536)
+def is_network_port_valid(port):
+    return port.isdigit() and 0 < int(port) < 65536
 
 
-def check_endpoint_valid(endpoint, required: bool=True):
-    if not endpoint:
-        if required:
-            raise MissingEndpoint()
-        else:
-            return
-    ip, port = endpoint.split(':')
+def is_network_ip_address_valid(ip_address):
     try:
-        ipaddress.ip_address(ip)
-    except Exception as exc:
-        raise InvalidEndpointIpAddress(endpoint) from exc
-    if not is_valid_port(port):
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def check_endpoint_valid(endpoint):
+    if ':' not in endpoint:
+        # TODO: replace with more suitable exception
+        raise InvalidEndpointIpAddress(endpoint)
+    ip, port = endpoint.split(':')
+    if not is_network_ip_address_valid(ip):
+        raise InvalidEndpointIpAddress(endpoint)
+    if not is_network_port_valid(port):
         raise InvalidEndpointPort(endpoint)
 
 
@@ -530,6 +542,7 @@ def getFormattedErrorMsg(msg):
     msgHalfLength = int(len(msg) / 2)
     errorLine = "-" * msgHalfLength + "ERROR" + "-" * msgHalfLength
     return "\n\n" + errorLine + "\n  " + msg + "\n" + errorLine + "\n"
+
 
 def normalizedWalletFileName(walletName):
     return "{}.{}".format(walletName.lower(), WALLET_FILE_EXTENSION)
@@ -563,3 +576,12 @@ def getLastSavedWalletFileName(dir):
     newest = max(glob.iglob('{}/{}'.format(dir, filePattern)),
                  key=getLastModifiedTime)
     return basename(newest)
+
+
+def pop_keys(mapping: Dict, cond: Callable):
+    rem = []
+    for k in mapping:
+        if cond(k):
+            rem.append(k)
+    for i in rem:
+        mapping.pop(i)

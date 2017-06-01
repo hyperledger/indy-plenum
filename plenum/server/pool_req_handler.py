@@ -70,19 +70,6 @@ class PoolRequestHandler(RequestHandler):
         if error:
             return error
 
-        # SERVICES is required for add node and optional for update node txn
-        # it is the cause why the check is here
-        # this is not a good place for the check,
-        # should be moved in some other place
-
-        # TODO: following is commented because it breaks related logic
-        # in sovrin-client (check test testSuspendNodeWhichWasNeverActive)
-        # That logic should be updated.
-        # https://jira.hyperledger.org/browse/INDY-9
-
-        # if SERVICES not in data:
-        #     return 'field {} is required for adding node'.format(SERVICES)
-
         isSteward = self.isSteward(origin, isCommitted=False)
         if not isSteward:
             return "{} is not a steward so cannot add a new node".format(origin)

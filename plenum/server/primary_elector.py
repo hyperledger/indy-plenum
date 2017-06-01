@@ -6,7 +6,7 @@ from functools import partial
 from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, f
-from plenum.common.util import mostCommonElement, getQuorum
+from plenum.common.util import mostCommonElement, get_strong_quorum
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -39,9 +39,8 @@ class PrimaryElector(PrimaryDecider):
         # primary while its catching up
         self.node = node
 
+        # Flag variable which indicates which replica has nominated for itself
         self.replicaNominatedForItself = None
-        """Flag variable which indicates which replica has nominated
-        for itself"""
 
         self.nominations = {}
 
@@ -52,6 +51,11 @@ class PrimaryElector(PrimaryDecider):
         self.reElectionProposals = {}
 
         self.reElectionRounds = {}
+
+        # # Tracks when election started for each instance, once
+        # # `MaxElectionTimeoutFactor`*node_count elapses and no primary decided,
+        # # re-start election
+        # self.election_start_times = {}
 
         routerArgs = [(Nomination, self.processNominate),
                       (Primary, self.processPrimary),
@@ -165,7 +169,7 @@ class PrimaryElector(PrimaryDecider):
         r"""
         Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
         """
-        return getQuorum(f=self.f)
+        return get_strong_quorum(f=self.f)
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self.scheduleElection()
@@ -186,6 +190,11 @@ class PrimaryElector(PrimaryDecider):
             self.prepareReplicaForElection(r)
 
         self.nominateItself()
+
+    def start_election_for_instance(self, inst_id):
+        # Called when starting election for a particular protocol instance
+        self.prepareReplicaForElection(self.replicas[inst_id])
+        self._schedule(self.nominateItself, random.random())
 
     def nominateItself(self):
         """
@@ -276,7 +285,7 @@ class PrimaryElector(PrimaryDecider):
         :param nom: the nomination message
         :param sender: sender address of the nomination
         """
-        logger.debug("{}'s elector started processing nominate msg: {}".
+        logger.debug("{} elector started processing nominate msg: {}".
                      format(self.name, nom))
         instId = nom.instId
         replica = self.replicas[instId]
@@ -285,7 +294,7 @@ class PrimaryElector(PrimaryDecider):
                               ' of master in previous view too'.
                          format(self, sender, nom.name),
                          logMethod=logger.warning)
-            return
+            return False
 
         sndrRep = replica.generateName(sender, nom.instId)
 
@@ -336,7 +345,7 @@ class PrimaryElector(PrimaryDecider):
         replica = self.replicas[instId]
         if instId == 0 and replica.getNodeName(prim.name) == self.previous_master_primary:
             self.discard(prim, '{} got Primary from {} for {} who was primary'
-                              ' of master in previous view too'.
+                               ' of master in previous view too'.
                          format(self, sender, prim.name),
                          logMethod=logger.warning)
             return
@@ -346,6 +355,7 @@ class PrimaryElector(PrimaryDecider):
         # Nodes should not be able to declare `Primary` winner more than more
         if instId not in self.primaryDeclarations:
             self.setDefaults(instId)
+
         if sndrRep not in self.primaryDeclarations[instId]:
             self.primaryDeclarations[instId][sndrRep] = (prim.name,
                                                          prim.ordSeqNo)
@@ -739,8 +749,6 @@ class PrimaryElector(PrimaryDecider):
 
             for replica in self.replicas:
                 replica.primaryName = None
-
-            self.node._primary_replica_no = None
 
             # Reset to defaults values for different data structures as new
             # elections would begin

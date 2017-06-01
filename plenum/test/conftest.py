@@ -97,11 +97,13 @@ def warncheck(warnfilters):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime(tconf):
+def limitTestRunningTime(request, tconf):
     st = time.time()
     yield
     runningTime = time.time() - st
-    if runningTime > tconf.TestRunningTimeLimitSec:
+    time_limit = getValueFromModule(request, "TestRunningTimeLimitSec",
+                                    tconf.TestRunningTimeLimitSec)
+    if runningTime > time_limit:
         pytest.fail(
             'The running time of each test is limited by {} sec '
             '(actually the test has taken {:2.1f} sec).\n'
@@ -160,7 +162,6 @@ overriddenConfigValues = {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
     },
-    'EnsureLedgerDurability': False,
     'Max3PCBatchSize': 1,
     'DELTA': .8
 }
@@ -329,8 +330,10 @@ def ensureView(nodeSet, looper, up):
 
 @pytest.fixture("module")
 def delayed_perf_chk(nodeSet):
+    d = 20
     for node in nodeSet:
-        node.delayCheckPerformance(20)
+        node.delayCheckPerformance(d)
+    return d
 
 
 @pytest.fixture(scope="module")
