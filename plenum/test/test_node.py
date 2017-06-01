@@ -31,6 +31,7 @@ from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.primary_elector import PrimaryElector
+from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -126,7 +127,7 @@ class TestNodeCore(StackedTester):
 
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimaryElector
+            PrimarySelector
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
@@ -656,6 +657,9 @@ def ensureElectionsDone(looper: Looper,
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
                         numInstances: int = None) -> Sequence[TestNode]:
+    # TODO: Change the name to something like `ensure_primaries_selected`
+    # since there might not always be an election, there might be a round
+    # robin selection
     """
     Wait for elections to be complete
 

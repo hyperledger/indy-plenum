@@ -59,7 +59,7 @@ from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 
 from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
 from plenum.persistence.util import txnsWithMerkleInfo
-from plenum.server import primary_elector
+from plenum.server.primary_selector import PrimarySelector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
 from plenum.server.blacklister import SimpleBlacklister
@@ -75,7 +75,6 @@ from plenum.server.plugin.has_plugin_loader_helper import PluginLoaderHelper
 from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
 from plenum.server.primary_decider import PrimaryDecider
-from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
@@ -241,7 +240,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.rank = self.getRank(self.name, self.nodeReg)
 
-        self.elector = None  # type: PrimaryDecider
         # Requests that are to be given to the elector by the node
         self.msgsToElector = deque()
 
@@ -579,7 +577,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.primaryDecider:
             return self.primaryDecider
         else:
-            return primary_elector.PrimaryElector(self)
+            return PrimarySelector(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -767,21 +765,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.checkInstances()
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
-            if isinstance(self.elector, PrimaryElector) and joined:
-                msgs = self.elector.getElectionMsgsForLaggedNodes()
-                logger.debug("{} has msgs {} for new nodes {}".
-                             format(self, msgs, joined))
-                for joinedNode in joined:
-                    self.sendElectionMsgsToLaggingNode(joinedNode, msgs)
-                    # Communicate current view number if any view change
-                    # happened to the connected node
-                    if self.viewNo > 0:
-                        logger.debug("{} communicating view number {} to {}"
-                                     .format(self, self.viewNo-1, joinedNode))
-                        rid = self.nodestack.getRemote(joinedNode).uid
-                        self.send(
-                            self._create_instance_change_msg(self.viewNo, 0),
-                            rid)
+            # if isinstance(self.elector, PrimaryElector) and joined:
+            #     msgs = self.elector.getElectionMsgsForLaggedNodes()
+            #     logger.debug("{} has msgs {} for new nodes {}".
+            #                  format(self, msgs, joined))
+            #     for joinedNode in joined:
+            #         self.sendElectionMsgsToLaggingNode(joinedNode, msgs)
+            #         # Communicate current view number if any view change
+            #         # happened to the connected node
+            #         if self.viewNo > 0:
+            #             logger.debug("{} communicating view number {} to {}"
+            #                          .format(self, self.viewNo-1, joinedNode))
+            #             rid = self.nodestack.getRemote(joinedNode).uid
+            #             self.send(
+            #                 self._create_instance_change_msg(self.viewNo, 0),
+            #                 rid)
+            # TODO: Make sure newly joined nodes are able to select the
+            # correct primary
 
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:

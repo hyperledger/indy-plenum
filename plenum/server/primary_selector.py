@@ -119,7 +119,6 @@ class PrimarySelector(PrimaryDecider):
         #     #     self.send(BlacklistMsg(
         #     #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
 
-
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self.scheduleSelection()
 

@@ -13,7 +13,8 @@ from plenum.test.view_change.test_view_change import viewChangeDone
 
 nodeCount = 7
 
-PrimaryDecider = PrimarySelector
+# DEPR
+# PrimaryDecider = PrimarySelector
 
 
 @pytest.fixture()
