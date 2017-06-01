@@ -1,6 +1,5 @@
 import pytest
 from plenum.common.messages.fields import RequestIdentifierField
-from datetime import datetime
 
 validator = RequestIdentifierField()
 
