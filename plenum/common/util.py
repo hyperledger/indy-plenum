@@ -21,6 +21,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
+from libnacl import randombytes_uniform
 import psutil
 from jsonpickle import encode, decode
 from six import iteritems, string_types
@@ -54,7 +55,10 @@ def randomString(size: int = 20,
         chars = list(chars)
 
     def randomChar():
-        return random.choice(chars)
+        # DONOT use random.choice its as PRNG not secure enough for our needs
+        # return random.choice(chars)
+        rn = randombytes_uniform(len(chars))
+        return chars[rn]
 
     return ''.join(randomChar() for _ in range(size))
 
