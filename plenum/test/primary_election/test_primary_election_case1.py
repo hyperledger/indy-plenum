@@ -57,6 +57,7 @@ def case1Setup(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     """
     Case 1 - A node making multiple nominations for a particular node. Consider
