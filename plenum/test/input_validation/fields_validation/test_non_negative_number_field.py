@@ -13,7 +13,7 @@ def test_negative_number():
 
 
 def test_zero_number():
-    assert validator.validate(-1)
+    assert not validator.validate(0)
 
 
 def test_not_accepts_floats():
