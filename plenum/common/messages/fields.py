@@ -176,35 +176,51 @@ class LedgerIdField(ChooseField):
 class Base58Field(FieldBase):
     _base_types = (str,)
 
-    alphabet = set(base58.alphabet)
+    #long id is 32 bye long; short is 16 bytes long;
+    #upper limit is calculated according to formula
+    #for the max length of encoded data
+    #ceil(n * 138 / 100 + 1)
+    #lower formula is based on data from field
+    def __init__(self, short=False, long=False):
+        super().__init__()
+        self._alphabet = set(base58.alphabet)
+        self._lengthLimits = []
+        if short:
+            self._lengthLimits.append(range(15, 26))
+        if long:
+            self._lengthLimits.append(range(43, 46))
+
 
     def _specific_validation(self, val):
-        if len(val) == 0:
-            return 'provided value of zero length'
-        if set(val) - self.alphabet:
+        if self._lengthLimits:
+            inlen = len(val)
+            goodlen = any(inlen in r for r in self._lengthLimits)
+            if not goodlen:
+                return 'value length {} is not in ranges {}'.format(inlen, self._lengthLimits)
+        if set(val) - self._alphabet:
             return 'should not contains chars other than {}' \
-                .format(self.alphabet)
+                .format(self._alphabet)
 
 
 class IdentifierField(Base58Field):
     _base_types = (str, )
 
-    _valid_lengths = {16, 32}
-
-    def _specific_validation(self, val):
-        length = len(val)
-        if length not in self._valid_lengths:
-            return 'value length should be one of {}, but was {}'\
-                .format(self._valid_lengths, length)
-        return super()._specific_validation(val)
+    def __init__(self):
+        super().__init__(long=True, short=True)
 
 
-class DestNodeField(IdentifierField):
-    _valid_lengths = range(43, 46)
+class DestNodeField(Base58Field):
+    _base_types = (str,)
+
+    def __init__(self):
+        super().__init__(long=True)
 
 
 class DestNymField(Base58Field):
     _base_types = (str, )
+
+    def __init__(self):
+        super().__init__(short=True)
 
 
 class RequestIdentifierField(FieldBase):
@@ -237,12 +253,18 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
-class VerkeyField(FieldBase):
+# TODO: think about making it a subclass of Base58Field
+class VerkeyField(NonEmptyStringField):
     _base_types = (str, )
-    # TODO implement the rules
+    _b58short = Base58Field(short=True)
+    _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        return None
+        if val.startswith('~'):
+            #short base58
+            return self._b58short.validate(val[1:])
+        #long base58
+        return self._b58long.validate(val)
 
 
 class HexField(FieldBase):
@@ -264,18 +286,8 @@ class HexField(FieldBase):
 class MerkleRootField(Base58Field):
     _base_types = (str, )
 
-    # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 43-45 bytes
-    hashSizes = range(43, 46)
-
-    def _specific_validation(self, val):
-        err = super()._specific_validation(val)
-        if err:
-            return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
+    def __init__(self):
+        super().__init__(long=True)
 
 
 class TimestampField(FieldBase):
