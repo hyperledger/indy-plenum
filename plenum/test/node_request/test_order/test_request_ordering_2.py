@@ -4,6 +4,7 @@ from plenum.common.types import Commit, PrePrepare
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test import waits
 
 nodeCount = 7
 
@@ -42,7 +43,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
     commitDelay = 3  # delay each COMMIT by this number of seconds
     delayedPpSeqNos = set()
 
-    requestCount = 15
+    requestCount = 10
 
     def specificCommits(wrappedMsg):
         nonlocal node3, node4, node5
@@ -50,8 +51,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         if isinstance(msg, PrePrepare):
             if len(delayedPpSeqNos) < ppSeqsToDelay:
                 delayedPpSeqNos.add(msg.ppSeqNo)
-                logger.debug('ppSeqNo {} corresponding to request id {} would '
-                             'be delayed'.format(msg.ppSeqNo, msg.reqId))
+                logger.debug('ppSeqNo {} be delayed'.format(msg.ppSeqNo))
         if isinstance(msg, Commit) and msg.instId == 0 and \
             sender in (n.name for n in (node3, node4, node5)) and \
                 msg.ppSeqNo in delayedPpSeqNos:
@@ -69,8 +69,7 @@ def testOrderingCase2(looper, nodeSet, up, client1, wallet1):
         for node in node1, node2:
             assert len(node.domainLedger) == requestCount
 
-    from plenum.test import waits
-    timeout = waits.expectedCatchupTime(len(nodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(nodeSet))
     looper.run(eventually(ensureSlowNodesHaveAllTxns,
                           retryWait=1, timeout=timeout))
 

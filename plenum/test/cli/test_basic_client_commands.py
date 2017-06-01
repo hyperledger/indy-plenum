@@ -1,6 +1,7 @@
 from plenum.common.util import randomString
 from plenum.test.cli.helper import waitClientConnected
 
+
 def testClientNames(cli, validNodeNames, createAllNodes):
     """
     Test adding clients with valid and invalid names(prefixed with node names).
@@ -27,7 +28,6 @@ def testClientNames(cli, validNodeNames, createAllNodes):
     # Client name should be in cli.client
     assert cName in cli.clients
     waitClientConnected(cli, validNodeNames, cName)
-
 
     # Add clients with name same as a node name or starting with a node name
     for i, nm in enumerate(validNodeNames):

@@ -29,7 +29,7 @@ def testTestNodeDelay(tdir_for_func):
 
             # set delay, then send another message
             # and find that it doesn't arrive
-            delay = 10 * slowFactor
+            delay = 5 * waits.expectedNodeToNodeMessageDeliveryTime()
             nodeB.nodeIbStasher.delay(
                 delayerMsgTuple(delay, TestMsg, nodeA.name)
             )
@@ -38,8 +38,9 @@ def testTestNodeDelay(tdir_for_func):
 
             # but then find that it arrives after the delay
             # duration has passed
+            timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delay
             looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB,
-                                                   customTimeout=delay))
+                                                   customTimeout=timeout))
 
             # reset the delay, and find another message comes quickly
             nodeB.nodeIbStasher.resetDelays()

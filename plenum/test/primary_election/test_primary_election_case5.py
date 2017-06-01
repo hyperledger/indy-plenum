@@ -2,10 +2,12 @@ import logging
 
 import pytest
 from plenum.common.types import Primary, Nomination
+from plenum.test import waits
 from stp_core.common.log import getlogger
 
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
+from plenum.test.primary_election.helpers import primaryByNode
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.delayers import delayerMsgTuple
@@ -18,6 +20,9 @@ whitelist = ['because already got primary declaration',
 
 
 logger = getlogger()
+
+# the total delay of election done
+delayOfElectionDone = 20
 
 
 @pytest.fixture()
@@ -37,7 +42,7 @@ def case5Setup(startedNodes: TestNodeSet):
         node.whitelistNode(B.name, Suspicions.DUPLICATE_PRI_SENT.code)
 
     for node in [A, C, D]:
-        B.nodeIbStasher.delay(delayerMsgTuple(30,
+        B.nodeIbStasher.delay(delayerMsgTuple(delayOfElectionDone,
                                               Nomination,
                                               senderFilter=node.name,
                                               instFilter=0))
@@ -70,12 +75,18 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     DRep = Replica.generateName(D.name, 0)
 
     # Node B first sends PRIMARY msgs for Node C to all nodes
-    B.send(Primary(CRep, 0, B.viewNo))
+    # B.send(Primary(CRep, 0, B.viewNo))
+    B.send(primaryByNode(CRep, B, 0))
     # Node B sends PRIMARY msgs for Node D to all nodes
-    B.send(Primary(DRep, 0, B.viewNo))
+    # B.send(Primary(DRep, 0, B.viewNo))
+    B.send(primaryByNode(DRep, B, 0))
 
     # Ensure elections are done
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    # also have to take into account the catchup procedure
+    timeout = waits.expectedPoolElectionTimeout(len(nodeSet)) + \
+              waits.expectedPoolCatchupTime(len(nodeSet)) + \
+              delayOfElectionDone
+    ensureElectionsDone(looper=looper, nodes=nodeSet, customTimeout=timeout)
 
     # All nodes from node A, node C, node D(node B is malicious anyway so not
     # considering it) should have primary declarations for node C from node B
@@ -84,4 +95,4 @@ def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
         logger.debug(
             "node {} should have primary declaration for C from node B"
             .format(node))
-        assert node.elector.primaryDeclarations[0][BRep] == CRep
+        assert node.elector.primaryDeclarations[0][BRep][0] == CRep

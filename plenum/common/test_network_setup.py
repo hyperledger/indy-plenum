@@ -1,4 +1,5 @@
 import argparse
+import ipaddress
 import os
 from collections import namedtuple
 
@@ -159,9 +160,10 @@ class TestNetworkSetup:
         parser = argparse.ArgumentParser(
             description="Generate pool transactions for testing")
 
-        parser.add_argument('--nodes', required=True, type=int,
-                            help='node count, '
-                                 'should be less than 100')
+        parser.add_argument('--nodes', required=True,
+                            help='node count should be less than 100',
+                            type=cls._bootstrapArgsTypeNodeCount,
+                            )
         parser.add_argument('--clients', required=True, type=int,
                             help='client count')
         parser.add_argument('--nodeNum', type=int,
@@ -173,11 +175,12 @@ class TestNetworkSetup:
                                  'number of nodes then the '
                                  'remaining nodes are assigned the loopback '
                                  'IP, i.e 127.0.0.1',
-                            type=str)
+                            type=cls._bootstrapArgsTypeIps)
 
         parser.add_argument('--envName',
                             help='Environment name (test or live)',
                             type=str,
+                            choices=('test', 'live'),
                             default="test",
                             required=False)
 
@@ -187,30 +190,49 @@ class TestNetworkSetup:
                             action='store_true')
 
         args = parser.parse_args()
-        if args.nodes > 100:
-            print("Cannot run {} nodes for testing purposes as of now. "
-                  "This is not a problem with the protocol but some placeholder"
-                  " rules we put in place which will be replaced by our "
-                  "Governance model. Going to run only 100".format(args.nodes))
-            nodeCount = 100
-        else:
-            nodeCount = args.nodes
-        clientCount = args.clients
-        nodeNum = args.nodeNum
-        ips = args.ips
-        envName = args.envName
-        appendToLedgers = args.appendToLedgers
-        if nodeNum:
-            assert nodeNum <= nodeCount, "nodeNum should be less than equal " \
-                                         "to nodeCount"
 
-        steward_defs, node_defs = cls.gen_defs(ips, nodeCount, startingPort)
-        client_defs = cls.gen_client_defs(clientCount)
+        if args.nodeNum:
+            assert 0 <= args.nodeNum <= args.nodes, \
+                "nodeNum should be less ore equal to nodeCount"
+
+        steward_defs, node_defs = cls.gen_defs(args.ips, args.nodes, startingPort)
+        client_defs = cls.gen_client_defs(args.clients)
         trustee_def = cls.gen_trustee_def(1)
-        cls.bootstrapTestNodesCore(config, envName, appendToLedgers,
+        cls.bootstrapTestNodesCore(config, args.envName, args.appendToLedgers,
                                    domainTxnFieldOrder, trustee_def,
                                    steward_defs, node_defs, client_defs,
-                                   nodeNum, nodeParamsFileName)
+                                   args.nodeNum, nodeParamsFileName)
+
+    @staticmethod
+    def _bootstrapArgsTypeNodeCount(nodesStrArg):
+        if not nodesStrArg.isdigit():
+            raise argparse.ArgumentTypeError('should be a number')
+        n = int(nodesStrArg)
+        if n > 100:
+            raise argparse.ArgumentTypeError(
+                "Cannot run {} nodes for testing purposes as of now. "
+                "This is not a problem with the protocol but some placeholder "
+                "rules we put in place which will be replaced by our "
+                "Governance model. Going to run only 100".format(n)
+            )
+        if n <= 0:
+            raise argparse.ArgumentTypeError('should be > 0')
+        return n
+
+    @staticmethod
+    def _bootstrapArgsTypeIps(ipsStrArg):
+        ips = []
+        for ip in ipsStrArg.split(','):
+            ip = ip.strip()
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                raise argparse.ArgumentTypeError(
+                    "'{}' is an invalid IP address".format(ip)
+                )
+            else:
+                ips.append(ip)
+        return ips
 
     @classmethod
     def gen_defs(cls, ips, nodeCount, starting_port):
@@ -224,7 +246,6 @@ class TestNetworkSetup:
         if not ips:
             ips = ['127.0.0.1'] * nodeCount
         else:
-            ips = ips.split(",")
             if len(ips) != nodeCount:
                 if len(ips) > nodeCount:
                     ips = ips[:nodeCount]

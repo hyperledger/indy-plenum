@@ -13,11 +13,11 @@ from plenum.test import waits
 nodeCount = 7
 
 
-@pytest.mark.skip(reason="Not yet implemented")
+@pytest.mark.skip(reason="INDY-80. Not yet implemented")
 def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
     maliciousNode = nodeSet.Alpha
     for i in range(0, 5):
-        maliciousNode.send(InstanceChange(i))
+        maliciousNode.send(maliciousNode._create_instance_change_msg(i, 0))
 
     def chk(instId):
         for node in nodeSet:
@@ -28,7 +28,7 @@ def testMultipleInstanceChangeMsgsMarkNodeAsSuspicious(looper, nodeSet, up):
                     assert arg['frm'] == maliciousNode.name
 
     numOfNodes = len(nodeSet)
-    instanceChangeTimeout = waits.expectedViewChangeTime(numOfNodes)
+    instanceChangeTimeout = waits.expectedPoolViewChangeStartedTimeout(numOfNodes)
 
     for i in range(0, 5):
         looper.run(eventually(chk, i, retryWait=1, timeout=instanceChangeTimeout))

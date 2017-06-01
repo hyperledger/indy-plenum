@@ -22,13 +22,13 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     slowNode.nodeIbStasher.delay(ppDelay(delay, 0))
 
     stash = []
-    origMethod = slowRep.processReqDigest
+    origMethod = slowRep.processPrePrepare
 
-    def patched(self, msg):
-        stash.append(msg)
+    def patched(self, msg, sender):
+        stash.append((msg, sender))
 
     patchedMethod = types.MethodType(patched, slowRep)
-    slowRep.processReqDigest = patchedMethod
+    slowRep.processPrePrepare = patchedMethod
 
     def chk1():
         assert len(slowRep.commitsWaitingForPrepare) > 0
@@ -37,8 +37,8 @@ def testOrderingWhenPrePrepareNotReceived(looper, nodeSet, up, client1,
     timeout = waits.expectedPrePrepareTime(len(nodeSet)) + delay
     looper.run(eventually(chk1, timeout=timeout))
 
-    for item in stash:
-        origMethod(item)
+    for m, s in stash:
+        origMethod(m, s)
 
     def chk2():
         assert len(slowRep.commitsWaitingForPrepare) == 0

@@ -1,3 +1,4 @@
+from plenum.common.types import Nomination, Primary
 from plenum.server.replica import Replica
 from plenum.test.test_node import TestNode
 
@@ -6,7 +7,7 @@ def checkNomination(node: TestNode, nomineeName: str):
     matches = [replica.name for instId, replica in enumerate(node.elector.replicas) if
                node.elector.didReplicaNominate(instId) is True and
                replica.name in node.elector.nominations[instId] and
-               node.elector.nominations[instId][replica.name] ==
+               node.elector.nominations[instId][replica.name][0] ==
                Replica.generateName(nomineeName, instId)]
     assert len(matches) > 0
     return matches[0]
@@ -21,5 +22,15 @@ def getSelfNominationByNode(node: TestNode) -> int:
     """
     for instId, replica in enumerate(node.elector.replicas):
         name = Replica.generateName(node.name, instId)
-        if node.elector.nominations.get(instId, {}).get(name, None) == name:
+        if node.elector.nominations.get(instId, {}).get(name, [None, ])[0] == name:
             return instId
+
+
+def nominationByNode(name: str, byNode: TestNode, instId: int):
+    return Nomination(name, instId, byNode.viewNo,
+                      byNode.replicas[instId].lastOrderedPPSeqNo)
+
+
+def primaryByNode(name: str, byNode: TestNode, instId: int):
+    return Primary(name, instId, byNode.viewNo,
+                   byNode.replicas[instId].lastOrderedPPSeqNo)

@@ -145,7 +145,7 @@ with SafeTemporaryDirectory() as tmpdir:
         each node.
         """
         for node in alpha, beta, gamma, delta:
-            node.clientAuthNr.addClient(*idAndKey)
+            node.clientAuthNr.addIdr(*idAndKey)
 
         """
         We give the client a little time to connect

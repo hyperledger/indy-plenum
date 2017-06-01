@@ -46,7 +46,7 @@ def run_node():
             # see simple_client.py
             joe_verkey = b'cffbb88a142be2f62d1b408818e21a2f' \
                          b'887c4442ae035a260d4cc2ec28ae24d6'
-            node.clientAuthNr.addClient("Joe", joe_verkey)
+            node.clientAuthNr.addIdr("Joe", joe_verkey)
 
             looper.add(node)
             node.startKeySharing()

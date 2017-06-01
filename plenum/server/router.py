@@ -1,6 +1,6 @@
 from collections import deque, OrderedDict
 from inspect import isawaitable
-from typing import Callable, Any
+from typing import Callable, Any, NamedTuple, Union
 from typing import Tuple
 
 
@@ -15,7 +15,7 @@ class Router:
     (2) a function that handles the message
     """
 
-    def __init__(self, *routes: Tuple[type, Callable]):
+    def __init__(self, *routes: Tuple[Union[type, NamedTuple], Callable]):
         """
         Create a new router with a list of routes
 

@@ -19,7 +19,6 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-940")
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
         tdir_for_func):
     """
@@ -27,16 +26,13 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
     The status of the nodes will change from starting to started only after the
     addition of the fourth node to the system.
     """
-    nodeCount = 16
-    f = 5
-    minimumNodesToBeUp = 16 - f
+    nodeCount = 13
+    f = 4
+    minimumNodesToBeUp = nodeCount - f
 
     nodeNames = genNodeNames(nodeCount)
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:
-
-            # for n in nodeSet:
-            #     n.startKeySharing()
 
             # helpers
 
@@ -58,13 +54,11 @@ def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
                 addNodeBack(nodeSet, looper, nodeNames[nodeIdx])
 
                 timeout = waits.expectedNodeStartUpTimeout() + \
-                    waits.expectedNodeInterconnectionTime(len(nodeSet))
+                    waits.expectedPoolInterconnectionTime(len(nodeSet))
                 looper.run(eventually(checkNodeStatusRemotesAndF,
                                       expectedStatus,
                                       nodeIdx,
                                       retryWait=1, timeout=timeout))
-
-            # tests
 
             logger.debug("Sharing keys")
             looper.run(checkNodesConnected(nodeSet))
