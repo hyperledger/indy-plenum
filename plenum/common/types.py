@@ -354,8 +354,7 @@ Reply = TaggedTuple(REPLY, [f.RESULT])
 #     )
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
-    f.REASON,
-    f.ORD_SEQ_NOS,
+    f.REASON
 ])
 
 # TODO Why don't we just use the existing Primary message? Any reason to create a new type?

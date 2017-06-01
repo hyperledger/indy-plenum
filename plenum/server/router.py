@@ -62,7 +62,9 @@ class Router:
 
         :param msg: tuple of object and callable
         """
-        if isinstance(msg, tuple) and len(msg) == 2:
+        # If a plain python tuple and not a named tuple, a better alternative
+        # would be to create a named entity with the 3 characteristics below
+        if isinstance(msg, tuple) and len(msg) == 2 and not hasattr(msg, '_field_types'):
             return self.getFunc(msg[0])(*msg)
         else:
             return self.getFunc(msg)(msg)
