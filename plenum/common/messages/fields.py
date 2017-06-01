@@ -254,12 +254,14 @@ class TieAmongField(FieldBase):
 
 
 # TODO: think about making it a subclass of Base58Field
-class VerkeyField(NonEmptyStringField):
+class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58short = Base58Field(short=True)
     _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
+        if len(val) == 0:
+            return None
         if val.startswith('~'):
             #short base58
             return self._b58short.validate(val[1:])
