@@ -53,10 +53,3 @@ class Mode(IntEnum):
     discovered = 3      # caught up with pool txn ledger
     syncing = 4         # catching up on domain txn ledger
     participating = 5   # caught up with domain txn ledger
-
-
-@unique
-class LedgerState(IntEnum):
-    not_synced = 1
-    syncing = 2
-    synced = 3

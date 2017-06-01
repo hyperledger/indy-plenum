@@ -6,7 +6,18 @@ from plenum.test.test_node import checkNodesConnected
 from plenum.test.node_catchup.helper import \
     ensureClientConnectedToNodesAndPoolLedgerSame
 from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
-    buildPoolClientAndWallet
+    buildPoolClientAndWallet, addNewSteward
+
+
+@pytest.fixture(scope="module")
+def tconf(conf, tdir, request):
+    conf.baseDir = tdir
+    # Lowering DELTA since some requests will result in validation errors and
+    # that will decrease master throughput.
+    # TODO: When monitoring metrics are calibrated, these things
+    # should be taken care of.
+    conf.DELTA = .6
+    return conf
 
 
 @pytest.yield_fixture(scope="module")
@@ -85,3 +96,12 @@ def client1Connected(looper, client1):
     looper.add(client1)
     looper.run(client1.ensureConnectedToNodes())
     return client1
+
+
+@pytest.fixture(scope="function")
+def newAdHocSteward(looper, tdir, steward1, stewardWallet):
+    newStewardName = "testClientSteward" + randomString(3)
+    newSteward, newStewardWallet = addNewSteward(looper, tdir, steward1,
+                                                 stewardWallet,
+                                                 newStewardName)
+    return newSteward, newStewardWallet

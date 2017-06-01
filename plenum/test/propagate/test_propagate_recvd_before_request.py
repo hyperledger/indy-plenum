@@ -31,7 +31,7 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    timeout = delaySec - 2
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delaySec - 2
     looper.run(eventually(x, retryWait=.5, timeout=timeout))
 
     def y():
@@ -40,12 +40,12 @@ def testPropagateRecvdBeforeRequest(setup, looper, nodeSet, up, sent1):
         # A should still have sent only one PROPAGATE
         assert len(sentPropagate(A)) == 1
 
-    timeout = delaySec + 2
+    timeout = waits.expectedNodeToNodeMessageDeliveryTime() + delaySec + 2
     looper.run(eventually(y, retryWait=.5, timeout=timeout))
 
     def chk():
         # A should have forwarded the request
         assertLength(forwardedRequest(A), 1)
 
-    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet))
+    timeout = waits.expectedClientRequestPropagationTime(len(nodeSet)) + delaySec
     looper.run(eventually(chk, retryWait=1, timeout=timeout))

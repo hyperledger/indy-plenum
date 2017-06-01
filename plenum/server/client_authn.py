@@ -12,8 +12,10 @@ from plenum.common.exceptions import InvalidSignature, EmptySignature, \
     MissingIdentifier, CouldNotAuthenticate, \
     SigningException, InvalidSignatureFormat, UnknownIdentifier
 from plenum.common.signing import serializeMsg
+from plenum.common.constants import VERKEY, ROLE
 from plenum.common.types import f
 from plenum.common.verifier import DidVerifier
+from plenum.server.domain_req_handler import DomainRequestHandler
 
 logger = getlogger()
 
@@ -40,9 +42,9 @@ class ClientAuthNr:
         """
 
     @abstractmethod
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         """
-        Adding a client should be an auditable and authenticated action.
+        Adding an identifier should be an auditable and authenticated action.
         Robust implementations of ClientAuthNr would authenticate this
         operation.
 
@@ -90,7 +92,7 @@ class NaclAuthNr(ClientAuthNr):
                 sig = base58.b58decode(signature)
             except Exception as ex:
                 raise InvalidSignatureFormat from ex
-            ser = self.serializeForSig(msg)
+            ser = self.serializeForSig(msg, topLevelKeysToIgnore=[f.SIG.nm])
             verkey = self.getVerkey(identifier)
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
@@ -103,15 +105,15 @@ class NaclAuthNr(ClientAuthNr):
         return identifier
 
     @abstractmethod
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         pass
 
     @abstractmethod
     def getVerkey(self, identifier):
         pass
 
-    def serializeForSig(self, msg):
-        return serializeMsg(msg)
+    def serializeForSig(self, msg, topLevelKeysToIgnore=None):
+        return serializeMsg(msg, topLevelKeysToIgnore=topLevelKeysToIgnore)
 
 
 class SimpleAuthNr(NaclAuthNr):
@@ -120,21 +122,30 @@ class SimpleAuthNr(NaclAuthNr):
     secure system.
     """
 
-    def __init__(self):
+    def __init__(self, state=None):
         # key: some identifier, value: verification key
         self.clients = {}  # type: Dict[str, Dict]
+        self.state = state
 
-    def addClient(self, identifier, verkey, role=None):
+    def addIdr(self, identifier, verkey, role=None):
         if identifier in self.clients:
             # raise RuntimeError("client already added")
             logger.error("client already added")
         self.clients[identifier] = {
-            "verkey": verkey,
-            "role": role
+            VERKEY: verkey,
+            ROLE: role
         }
 
     def getVerkey(self, identifier):
         nym = self.clients.get(identifier)
         if not nym:
-            raise UnknownIdentifier(identifier)
-        return nym.get("verkey")
+            # Querying uncommitted identities since a batch might contain
+            # both identity creation request and a request by that newly
+            # created identity, also its possible to have multiple uncommitted
+            # batches in progress and identity creation request might
+            # still be in an earlier uncommited batch
+            nym = DomainRequestHandler.getNymDetails(self.state,
+                                                     identifier, isCommitted=False)
+            if not nym:
+                raise UnknownIdentifier(identifier)
+        return nym.get(VERKEY)

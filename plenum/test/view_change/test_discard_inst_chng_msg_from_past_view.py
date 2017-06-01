@@ -1,5 +1,4 @@
 from stp_core.loop.eventually import eventually
-from plenum.common.types import InstanceChange
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.helper import checkDiscardMsg, waitForViewChange
@@ -15,15 +14,17 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = InstanceChange(curViewNo - 1)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo - 1, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
-    timeout = waits.expectedViewChangeTime(len(nodeSet))
-    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
-                          'less than its view no', nodeSet.Alpha, timeout=timeout))
+    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodeSet))
 
     # Check that that message is discarded.
+    looper.run(eventually(checkDiscardMsg, nodeSet, icMsg,
+                          'which is not more than its view no',
+                          nodeSet.Alpha, timeout=timeout))
+
     waitForViewChange(looper, nodeSet)
 
 
@@ -45,7 +46,7 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
         sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
 
     # Send an instance change message to all nodes
-    icMsg = InstanceChange(curViewNo)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # Check that that message is discarded.

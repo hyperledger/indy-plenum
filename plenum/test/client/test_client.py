@@ -61,9 +61,6 @@ def testClientShouldNotBeAbleToConnectToNodesNodeStack(pool):
     """
 
     async def go(ctx):
-        # for n in ctx.nodeset:
-        #     n.nodestack.keep.auto = AutoMode.never
-
         nodestacksVersion = {k: v.ha for k, v in ctx.nodeset.nodeReg.items()}
         client1, _ = genTestClient(nodeReg=nodestacksVersion, tmpdir=ctx.tmpdir)
         for node in ctx.nodeset:
@@ -191,7 +188,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
     # change two responses to something different
     for i in range(2):
         msg = next(replies)
-        msg[f.RESULT.nm][TXN_ID] = str(i) + "Some random id"
+        msg[f.RESULT.nm][f.SIG.nm] = str(i) + "Some random id"
 
     checkResponseCorrectnessFromNodes(client1.inBox, request.reqId, F)
 
@@ -208,7 +205,8 @@ def testReplyWhenRequestAlreadyExecuted(looper, nodeSet, client1, sent1):
 
     originalRequestResponsesLen = nodeCount * 2
     duplicateRequestRepliesLen = nodeCount  # for a duplicate request we need to
-    client1.nodestack._enqueueIntoAllRemotes(sent1, None)
+    serializedPayload = client1.nodestack.signAndSerialize(sent1, None)
+    client1.nodestack._enqueueIntoAllRemotes(serializedPayload, None)
 
     def chk():
         assertLength([response for response in client1.inBox

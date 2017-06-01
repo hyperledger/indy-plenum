@@ -1,19 +1,20 @@
 import os
 import shutil
-from abc import abstractproperty
+from abc import abstractmethod
 from collections import OrderedDict
 
 from plenum.common.keygen_utils import initRemoteKeys
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
-
+from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
 from ledger.stores.file_hash_store import FileHashStore
+
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
 from plenum.common.util import cryptonymToHex, updateNestedDict
-from stp_core.common.log import getlogger
+from plenum.common.ledger import Ledger
+
 logger = getlogger()
 
 
@@ -24,15 +25,18 @@ class TxnStackManager:
         self.isNode = isNode
         self.hashStore = None
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def hasLedger(self) -> bool:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ledgerLocation(self) -> str:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
@@ -40,21 +44,21 @@ class TxnStackManager:
     @property
     def ledger(self):
         if self._ledger is None:
-            if not self.hasLedger:
-                defaultTxnFile = os.path.join(self.basedirpath,
-                                              self.ledgerFile)
-                if not os.path.isfile(defaultTxnFile):
-                    raise FileNotFoundError("Pool transactions file not "
-                                            "found: {}".format(defaultTxnFile))
-                else:
-                    shutil.copy(defaultTxnFile, self.ledgerLocation)
+            defaultTxnFile = os.path.join(self.basedirpath,
+                                          self.ledgerFile)
+            if not os.path.exists(defaultTxnFile):
+                logger.debug("Not using default initialization file for "
+                             "pool ledger, since it does not exist: {}"
+                             .format(defaultTxnFile))
+                defaultTxnFile = None
 
             dataDir = self.ledgerLocation
             self.hashStore = FileHashStore(dataDir=dataDir)
             self._ledger = Ledger(CompactMerkleTree(hashStore=self.hashStore),
-                dataDir=dataDir,
-                fileName=self.ledgerFile,
-                ensureDurability=self.config.EnsureLedgerDurability)
+                                  dataDir=dataDir,
+                                  fileName=self.ledgerFile,
+                                  ensureDurability=self.config.EnsureLedgerDurability,
+                                  defaultFile=defaultTxnFile)
         return self._ledger
 
     @staticmethod
@@ -146,6 +150,7 @@ class TxnStackManager:
         else:
             nodeOrClientObj.nodeReg[remoteName] = HA(*cliHa)
 
+        # Attempt connection at the new HA
         nodeOrClientObj.nodestack.maintainConnections(force=True)
 
         return rid
@@ -167,6 +172,7 @@ class TxnStackManager:
             logger.error("Exception while initializing keep for remote {}".
                          format(ex))
 
+        # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
         return rid
 

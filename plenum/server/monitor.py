@@ -190,48 +190,60 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.numOrderedRequests.append((0, 0))
         self.clientAvgReqLatencies.append({})
 
-    def requestOrdered(self, identifier: str, reqId: int, instId: int,
-                       byMaster: bool = False) -> Optional[float]:
+    def requestOrdered(self, reqIdrs: List[Tuple[str, int]], instId: int,
+                       byMaster: bool = False) -> Dict:
         """
         Measure the time taken for ordering of a request and return it. Monitor
         might have been reset due to view change due to which this method
         returns None
         """
-        if (identifier, reqId) not in self.requestOrderingStarted:
-            logger.debug("Got ordered request with identifier {} and reqId {} "
-                          "but it was from a previous view".
-                          format(identifier, reqId))
-            return
         now = time.perf_counter()
-        duration = now - self.requestOrderingStarted[(identifier, reqId)]
-        reqs, tm = self.numOrderedRequests[instId]
-        self.numOrderedRequests[instId] = (reqs + 1, tm + duration)
-        if byMaster:
-            self.masterReqLatencies[(identifier, reqId)] = duration
-            self.orderedRequestsInLast.append(now)
-            self.latenciesByMasterInLast.append((now, duration))
-        else:
-            if instId not in self.latenciesByBackupsInLast:
-                self.latenciesByBackupsInLast[instId] = []
-            self.latenciesByBackupsInLast[instId].append((now, duration))
+        durations = {}
+        for identifier, reqId in reqIdrs:
+            if (identifier, reqId) not in self.requestOrderingStarted:
+                logger.debug(
+                    "Got ordered request with identifier {} and reqId {} "
+                    "but it was from a previous view".
+                    format(identifier, reqId))
+                continue
+            duration = now - self.requestOrderingStarted[(identifier, reqId)]
+            if byMaster:
+                self.masterReqLatencies[(identifier, reqId)] = duration
+                self.orderedRequestsInLast.append(now)
+                self.latenciesByMasterInLast.append((now, duration))
+            else:
+                if instId not in self.latenciesByBackupsInLast:
+                    self.latenciesByBackupsInLast[instId] = []
+                self.latenciesByBackupsInLast[instId].append((now, duration))
 
-        if identifier not in self.clientAvgReqLatencies[instId]:
-            self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
-        totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
-        # If avg of `n` items is `a`, thus sum of `n` items is `x` where
-        # `x=n*a` then avg of `n+1` items where `y` is the new item is
-        # `((n*a)+y)/n+1`
-        self.clientAvgReqLatencies[instId][identifier] = \
-            (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+            if identifier not in self.clientAvgReqLatencies[instId]:
+                self.clientAvgReqLatencies[instId][identifier] = (0, 0.0)
+            totalReqs, avgTime = self.clientAvgReqLatencies[instId][identifier]
+            # If avg of `n` items is `a`, thus sum of `n` items is `x` where
+            # `x=n*a` then avg of `n+1` items where `y` is the new item is
+            # `((n*a)+y)/n+1`
+            self.clientAvgReqLatencies[instId][identifier] = \
+                (totalReqs + 1, (totalReqs * avgTime + duration) / (totalReqs + 1))
+
+            durations[identifier, reqId] = duration
+
+        reqs, tm = self.numOrderedRequests[instId]
+        orderedNow = len(durations)
+        self.numOrderedRequests[instId] = (reqs + orderedNow,
+                                           tm + sum(durations.values()))
 
         # TODO: Inefficient, as on every request a minimum of a large list is
         # calculated
-        if min(r[0] for r in self.numOrderedRequests) == (reqs + 1):
-            self.totalRequests += 1
+        if min(r[0] for r in self.numOrderedRequests) == (reqs + orderedNow):
+            # If these requests is ordered by the last instance then increment
+            # total requests, but why is this important, why cant is ordering
+            # by master not enough?
+            self.totalRequests += orderedNow
             self.postOnReqOrdered()
             if 0 == reqs:
                 self.postOnNodeStarted(self.started)
-        return duration
+
+        return durations
 
     def requestUnOrdered(self, identifier: str, reqId: int):
         """
@@ -269,26 +281,28 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if r is None:
             logger.debug("{} master throughput is not measurable.".
                          format(self))
+            return None
+
+        tooLow = r < self.Delta
+        if tooLow:
+            logger.info("{} master throughput ratio {} is lower than "
+                        "Delta {}.".format(self, r, self.Delta))
         else:
-            tooLow = r < self.Delta
-            if tooLow:
-                logger.debug("{} master throughput ratio {} is lower than "
-                             "Delta {}.".format(self, r, self.Delta))
-            else:
-                logger.trace("{} master throughput ratio {} is acceptable.".
-                             format(self, r))
-            return tooLow
+            logger.trace("{} master throughput ratio {} is acceptable.".
+                         format(self, r))
+        return tooLow
 
     def isMasterReqLatencyTooHigh(self):
         """
         Return whether the request latency of the master instance is greater
         than the acceptable threshold
         """
-        r = self.masterReqLatencyTooHigh or any([lat > self.Lambda for lat
-                 in self.masterReqLatencies.values()])
+        r = self.masterReqLatencyTooHigh or \
+            next(((key, lat) for key, lat in self.masterReqLatencies.items() if
+                  lat > self.Lambda), None)
         if r:
-            logger.debug("{} found master's latency to be higher than the "
-                         "threshold for some or all requests.".format(self))
+            logger.info("{} found master's latency {} to be higher than the "
+                         "threshold for request {}.".format(self, r[1], r[0]))
         else:
             logger.trace("{} found master's latency to be lower than the "
                          "threshold for all requests.".format(self))
@@ -310,10 +324,11 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
                 logger.trace("{} found master had no record yet for {}".
                              format(self, cid))
                 return False
-            if avgLatM[cid] - lat > self.Omega:
-                logger.debug("{} found difference between master's and "
-                             "backups's avg latency to be higher than the "
-                             "threshold".format(self))
+            d = avgLatM[cid] - lat
+            if d > self.Omega:
+                logger.info("{} found difference between master's and "
+                             "backups's avg latency {} to be higher than the "
+                             "threshold".format(self, d))
                 logger.trace(
                     "{}'s master's avg request latency is {} and backup's "
                     "avg request latency is {} ".
@@ -356,7 +371,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         reqs, tm = self.numOrderedRequests[instId]
         return reqs / tm if tm else None
 
-    def getInstanceMetrics(self, forAllExcept: int) -> float:
+    def getInstanceMetrics(self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
         """
         Calculate and return the average throughput of all the instances except
         the one specified as `forAllExcept`.

@@ -3,6 +3,7 @@ from functools import partial
 
 from stp_core.loop.eventually import eventuallyAll
 from plenum.common.types import PrePrepare, OPERATION, f
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -79,19 +80,22 @@ def checkPrePrepared(looper,
                     instId,
                     primary.viewNo,
                     primary.lastPrePrepareSeqNo,
-                    propagated1.identifier,
-                    propagated1.reqId,
-                    propagated1.digest,
-                    time.time()
-            )
+                    time.time(),
+                    [[propagated1.identifier, propagated1.reqId]],
+                    1,
+                    Replica.batchDigest([propagated1,]),
+                    DOMAIN_LEDGER_ID,
+                    primary.stateRootHash(DOMAIN_LEDGER_ID),
+                    primary.txnRootHash(DOMAIN_LEDGER_ID),
+                    )
 
             passes = 0
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
                                   getAllArgs(npr, npr.processPrePrepare)
-                                  if (param['pp'][:-1],
+                                  if (param['pp'][0:3]+param['pp'][4:],
                                       param['sender']) == (
-                                      expectedPrePrepareRequest[:-1],
+                                      expectedPrePrepareRequest[0:3] + expectedPrePrepareRequest[4:],
                                       primary.name)])
 
                 numOfMsgsWithZFN = 1
@@ -111,13 +115,13 @@ def checkPrePrepared(looper,
              will be zero and primary must be marked as malicious.
             """
             actualMsgs = len([param for param in
-                              getAllArgs(primary, primary.doPrePrepare)
-                              if (param['reqDigest'].identifier,
-                                  param['reqDigest'].reqId,
-                                  param['reqDigest'].digest) ==
+                              getAllArgs(primary, primary.sendPrePrepare)
+                              if (param['ppReq'].reqIdr[0][0],
+                                  param['ppReq'].reqIdr[0][1],
+                                  param['ppReq'].digest) ==
                               (propagated1.identifier,
                                propagated1.reqId,
-                               propagated1.digest)
+                               primary.batchDigest([propagated1, ]))
                               ])
 
             numOfMsgsWithZFN = 1
@@ -140,12 +144,12 @@ def checkPrePrepared(looper,
             for npr in nonPrimaryReplicas:
                 l4 = len([param for param in
                           getAllArgs(npr, npr.addToPrePrepares)
-                          if (param['pp'].identifier,
-                              param['pp'].reqId,
+                          if (param['pp'].reqIdr[0][0],
+                              param['pp'].reqIdr[0][1],
                               param['pp'].digest) == (
                               propagated1.identifier,
                               propagated1.reqId,
-                              propagated1.digest)])
+                              primary.batchDigest([propagated1, ]))])
 
                 numOfMsgsWithZFN = 1
                 numOfMsgsWithFaults = 0
@@ -220,9 +224,9 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
                                          primary.processPrepare)
                               if (param['prepare'].instId,
                                   param['prepare'].viewNo,
-                                  param['prepare'].ppSeqNo) == (primary.instId,
-                                                        primary.viewNo,
-                                                        primary.lastPrePrepareSeqNo) and
+                                  param['prepare'].ppSeqNo) == (
+                                  primary.instId, primary.viewNo,
+                                  primary.lastPrePrepareSeqNo) and
                               param['sender'] != primary.name])
 
             numOfMsgsWithZFN = nodeCount - 1
@@ -276,8 +280,8 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
     looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 
-def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
-                   timeout=60):
+def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
+    timeout = waits.expectedCommittedTime(len(nodeSet))
     nodeCount = len((list(nodeSet)))
     f = getMaxFailures(nodeCount)
 
@@ -331,8 +335,7 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0,
 
                 for arg in args:
                     assert arg['commit'].viewNo == primaryReplica.viewNo and \
-                           arg['commit'].ppSeqNo == primaryReplica.lastPrePrepareSeqNo and \
-                           arg['commit'].digest == prepared1.digest
+                           arg['commit'].ppSeqNo == primaryReplica.lastPrePrepareSeqNo
                     assert r.name != arg['sender']
 
             assert passes >= len(allReplicas) - faultyNodes

@@ -1,26 +1,30 @@
+import ipaddress
+
+import os
+import base58
 from typing import Dict, Tuple
 from functools import lru_cache
 
 from copy import deepcopy
-from ledger.util import F
-from plenum.common.txn_util import updateGenesisPoolTxnFile
+from typing import Dict, Tuple, List
 
+from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
+    NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
+    VALIDATOR, CLIENT_STACK_SUFFIX, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.exceptions import UnsupportedOperation, \
-    UnauthorizedClientRequest
-
+    InvalidClientRequest
+from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
+from plenum.common.types import NodeDetail
+from plenum.persistence.storage import initKeyValueStorage
+from plenum.persistence.util import txnsWithMerkleInfo
+from plenum.server.pool_req_handler import PoolRequestHandler
+from plenum.server.suspicion_codes import Suspicions
+from state.pruning_state import PruningState
+from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.types import HA
-
-from plenum.common.types import f
-from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, \
-    POOL_TXN_TYPES, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, \
-    VALIDATOR, CLIENT_STACK_SUFFIX
-from stp_core.common.log import getlogger
-
-from plenum.common.types import NodeDetail
-
 
 logger = getlogger()
 
@@ -48,9 +52,7 @@ class HasPoolManager:
         if not nodeRegistry:
             self.poolManager = TxnPoolManager(self, ha=ha, cliname=cliname,
                                               cliha=cliha)
-            for types in POOL_TXN_TYPES:
-                self.requestExecuter[types] = \
-                    self.poolManager.executePoolTxnRequest
+            self.requestExecuter[POOL_LEDGER_ID] = self.poolManager.executePoolTxnBatch
         else:
             self.poolManager = RegistryPoolManager(self.name, self.basedirpath,
                                                    nodeRegistry, ha, cliname,
@@ -65,9 +67,36 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.basedirpath = node.basedirpath
         self._ledger = None
         TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
+        self.state = self.loadState()
+        self.reqHandler = self.getPoolReqHandler()
+        self.initPoolState()
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(self.name, self.basedirpath, ha=ha,
                                           cliname=cliname, cliha=cliha)
+        self._dataFieldsValidators = (
+            (NODE_IP, self._isIpAddressValid),
+            (CLIENT_IP, self._isIpAddressValid),
+            (NODE_PORT, self._isPortValid),
+            (CLIENT_PORT, self._isPortValid),
+        )
+
+    def __repr__(self):
+        return self.node.name
+
+    def getPoolReqHandler(self):
+        return PoolRequestHandler(self.ledger, self.state,
+                                  self.node.states[DOMAIN_LEDGER_ID])
+
+    def loadState(self):
+        return PruningState(
+            initKeyValueStorage(
+                self.config.poolStateStorage,
+                self.node.dataLocation,
+                self.config.poolStateDbName)
+        )
+
+    def initPoolState(self):
+        self.node.initStateFromLedger(self.state, self.ledger, self.reqHandler)
 
     @property
     def hasLedger(self):
@@ -112,26 +141,21 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def executePoolTxnRequest(self, ppTime, req):
+    def executePoolTxnBatch(self, ppTime, reqs, stateRoot, txnRoot) -> List:
         """
         Execute a transaction that involves consensus pool management, like
         adding a node, client or a steward.
 
         :param ppTime: PrePrepare request time
-        :param req: request
+        :param reqs: request
         """
-        reply = self.node.generateReply(ppTime, req)
-        op = req.operation
-        reply.result.update(op)
-        merkleProof = self.node.appendResultToLedger(reply.result)
-        txn = deepcopy(reply.result)
-        txn[F.seqNo.name] = merkleProof[F.seqNo.name]
-        self.onPoolMembershipChange(txn)
-        reply.result.update(merkleProof)
-        self.node.sendReplyToClient(reply, req.key)
-
-    def getReplyFor(self, request):
-        return self.node.getReplyFromLedger(self.ledger, request)
+        committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
+        self.node.updateSeqNoMap(committedTxns)
+        for txn in committedTxns:
+            self.onPoolMembershipChange(deepcopy(txn))
+        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
+        self.node.sendRepliesToClients(committedTxns, ppTime)
+        return committedTxns
 
     def onPoolMembershipChange(self, txn):
         if txn[TXN_TYPE] == NODE:
@@ -164,9 +188,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     _updateNode(txn)
 
             self.node.sendPoolInfoToClients(txn)
-            if self.config.UpdateGenesisPoolTxnFile:
-                updateGenesisPoolTxnFile(self.config.baseDir,
-                                         self.config.poolTransactionsFile, txn)
 
     def addNewNodeAndConnect(self, txn):
         nodeName = txn[DATA][ALIAS]
@@ -176,6 +197,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             return
         self.connectNewRemote(txn, nodeName, self.node)
         self.node.newNodeJoined(txn)
+
+    def node_about_to_be_disconnected(self, nodeName):
+        if self.node.master_primary == nodeName:
+            self.node.sendInstanceChange(self.node.viewNo + 1,
+                                         Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
     def nodeHaChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -190,7 +216,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+        self.node_about_to_be_disconnected(nodeName)
 
     def nodeKeysChanged(self, txn):
         # TODO: if the node whose keys are being changed is primary for any
@@ -212,7 +238,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if rid:
                 self.node.nodestack.outBoxes.pop(rid, None)
             # self.node.sendPoolInfoToClients(txn)
-        self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+        self.node_about_to_be_disconnected(nodeName)
 
     def nodeServicesChanged(self, txn):
         nodeNym = txn[TARGET_NYM]
@@ -244,89 +270,34 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                      format(self, nodeName))
 
                     self.node.nodeLeft(txn)
-            self.node.startViewChangeIfPrimaryWentOffline([nodeName])
+                    self.node_about_to_be_disconnected(nodeName)
 
     def getNodeName(self, nym):
         # Assuming ALIAS does not change
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA][ALIAS]
 
-    def checkValidOperation(self, operation):
-        checks = []
+    def doStaticValidation(self, identifier, reqId, operation):
         if operation[TXN_TYPE] == NODE:
-            checks.append(DATA in operation and isinstance(operation[DATA], dict))
-        return all(checks)
+            if not (DATA in operation and isinstance(operation[DATA], dict)):
+                error = "'{}' is missed or not a dict".format(DATA)
+                raise InvalidClientRequest(identifier, reqId, error)
+            # VerKey must be base58
+            if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
+                error = "'{}' is not a base58 string".format(TARGET_NYM)
+                raise InvalidClientRequest(identifier, reqId, error)
 
-    def checkRequestAuthorized(self, request):
-        typ = request.operation.get(TXN_TYPE)
-        error = None
-        if typ == NODE:
-            nodeNym = request.operation.get(TARGET_NYM)
-            if self.nodeExistsInLedger(nodeNym):
-                error = self.authErrorWhileUpdatingNode(request)
-            else:
-                error = self.authErrorWhileAddingNode(request)
-        if error:
-            raise UnauthorizedClientRequest(request.identifier, request.reqId,
-                                            error)
+            data = operation[DATA]
+            for fn, validator in self._dataFieldsValidators:
+                if fn in data and not validator(data[fn]):
+                    error = "'{}' ('{}') is invalid".format(fn, data[fn])
+                    raise InvalidClientRequest(identifier, reqId, error)
 
-    def authErrorWhileAddingNode(self, request):
-        origin = request.identifier
-        operation = request.operation
-        isSteward = self.node.secondaryStorage.isSteward(origin)
-        data = operation.get(DATA, {})
-        invalidData = self._validateNodeData(data)
-        if invalidData:
-            return invalidData
+    def doDynamicValidation(self, request: Request):
+        self.reqHandler.validate(request)
 
-        if not isSteward:
-            return "{} is not a steward so cannot add a new node".format(origin)
-
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE:
-                if txn[f.IDENTIFIER.nm] == origin:
-                    return "{} already has a node with name {}". \
-                        format(origin, txn[DATA][ALIAS])
-
-        if self.isNodeDataConflicting(data, operation.get(TARGET_NYM)):
-            return "existing data has conflicts with " \
-                   "request data {}".format(operation.get(DATA))
-
-    @lru_cache(maxsize=64)
-    def isStewardOfNode(self, stewardNym, nodeNym):
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and \
-                            txn[TARGET_NYM] == nodeNym and \
-                            txn[f.IDENTIFIER.nm] == stewardNym:
-                return True
-        return False
-
-    @staticmethod
-    def _validateNodeData(data):
-        if data.get(NODE_IP, "nodeip") == data.get(CLIENT_IP, "clientip") and \
-                        data.get(NODE_PORT, "nodeport") == data.get(CLIENT_PORT, "clientport"):
-            return "node and client ha can't be same"
-
-    def authErrorWhileUpdatingNode(self, request):
-        origin = request.identifier
-        operation = request.operation
-        isSteward = self.node.secondaryStorage.isSteward(origin)
-        data = operation.get(DATA, {})
-        invalidData = self._validateNodeData(data)
-        if invalidData:
-            return invalidData
-        if not isSteward:
-            return "{} is not a steward so cannot update a node".format(origin)
-        nodeNym = operation.get(TARGET_NYM)
-        if not self.isStewardOfNode(origin, nodeNym):
-            return "{} is not a steward of node {}".format(origin, nodeNym)
-        for txn in self.ledger.getAllTxn().values():
-            if txn[TXN_TYPE] == NODE and nodeNym == txn[TARGET_NYM]:
-                if txn[DATA] == operation.get(DATA, {}):
-                    return "node already has the same data as requested"
-        if self.isNodeDataConflicting(data, nodeNym):
-            return "existing data has conflicts with " \
-                   "request data {}".format(operation.get(DATA))
+    def applyReq(self, request: Request):
+        return self.reqHandler.apply(request)
 
     @property
     def merkleRootHash(self):
@@ -340,35 +311,23 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA]
 
-    def _checkAgainstOtherNodePoolTxns(self, data, existingNodeTxn):
-        otherNodeData = existingNodeTxn[DATA]
-        for (ip, port) in [(NODE_IP, NODE_PORT),
-                           (CLIENT_IP, CLIENT_PORT)]:
-            if (otherNodeData.get(ip), otherNodeData.get(port)) == (
-            data.get(ip), data.get(port)):
-                return True
+    @staticmethod
+    def _isIpAddressValid(ipAddress):
+        try:
+            ipaddress.ip_address(ipAddress)
+        except ValueError:
+            return False
+        else:
+            return ipAddress != '0.0.0.0'
 
-        if otherNodeData.get(ALIAS) == data.get(ALIAS):
-            return True
+    @staticmethod
+    def _isPortValid(port):
+        return isinstance(port, int) and 0 < port <= 65535
 
-    def _checkAgainstSameNodePoolTxns(self, data, existingNodeTxn):
-        sameNodeData = existingNodeTxn[DATA]
-        if sameNodeData.get(ALIAS) != data.get(ALIAS):
-            return True
-
-    def isNodeDataConflicting(self, data, nodeNym=None):
-        for existingNodeTxn in [t for t in self.ledger.getAllTxn().values()
-                    if t[TXN_TYPE] == NODE]:
-            if not nodeNym or nodeNym != existingNodeTxn[TARGET_NYM]:
-                conflictFound = self._checkAgainstOtherNodePoolTxns(data, existingNodeTxn)
-                if conflictFound:
-                    return conflictFound
-            if nodeNym and nodeNym == existingNodeTxn[TARGET_NYM]:
-                conflictFound = self._checkAgainstSameNodePoolTxns(data, existingNodeTxn)
-                if conflictFound:
-                    return conflictFound
 
 class RegistryPoolManager(PoolManager):
+    # This is the old way of managing the pool nodes information and
+    # should be deprecated.
     def __init__(self, name, basedirpath, nodeRegistry, ha, cliname, cliha):
 
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \

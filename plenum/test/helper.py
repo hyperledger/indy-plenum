@@ -4,38 +4,36 @@ import random
 import string
 from _signal import SIGINT
 from functools import partial
-from itertools import permutations
+from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
 from time import sleep
-
-from psutil import Popen
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
+from psutil import Popen
+
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from stp_core.common.log import getlogger
-from stp_core.loop.looper import Looper
+from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME
 from plenum.common.request import Request
-from plenum.common.constants import REPLY, REQACK, TXN_ID, REQNACK, OP_FIELD_NAME
 from plenum.common.types import Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.config import poolTransactionsFile, domainTransactionsFile
-from stp_core.loop.eventually import eventuallyAll, eventually
-
-from stp_core.network.util import checkPortAvailable
 from plenum.server.node import Node
+from plenum.test import waits
 from plenum.test.msgs import randomMsg
 from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs, \
     getAllReturnVals
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkPoolReady, checkNodesConnected, ensureElectionsDone, NodeRef
-from plenum.test import waits
-
+    checkNodesConnected, ensureElectionsDone, NodeRef
+from stp_core.common.log import getlogger
+from stp_core.loop.eventually import eventuallyAll, eventually
+from stp_core.loop.looper import Looper
+from stp_core.network.util import checkPortAvailable
 
 DelayRef = NamedTuple("DelayRef", [
     ("op", Optional[str]),
@@ -109,7 +107,13 @@ def waitForSufficientRepliesForRequests(looper,
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
 
-    totalTimeout = timeoutPerRequest * len(requestIds)
+    # here we try to take into account what timeout for execution
+    # N request - totalTimeout should be in
+    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
+    # we cannot just take (timeoutPerRequest * N) because it is so huge.
+    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
+    # lets start with some simple formula:
+    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -145,8 +149,8 @@ def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
     """
     the client must get at least :math:`2f+1` responses
     """
-    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][TXN_ID]) for msg in
-            getRepliesFromClientInbox(receivedMsgs, reqId)]
+    msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][f.IDENTIFIER.nm])
+            for msg in getRepliesFromClientInbox(receivedMsgs, reqId)]
     groupedMsgs = {}
     for tpl in msgs:
         groupedMsgs[tpl] = groupedMsgs.get(tpl, 0) + 1
@@ -336,7 +340,7 @@ def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
-    recvdOrderedReqs = [p['ordered'][:1] + p['ordered'][2:-1] for p in params]
+    recvdOrderedReqs = [(p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
     expected = (instId, identifier, reqId)
     return expected in recvdOrderedReqs
 
@@ -347,27 +351,28 @@ def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
 
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
-    prePreparesSent = getAllArgs(replica, replica.doPrePrepare)
-    expected = req.reqDigest
-    assert expected in [p["reqDigest"] for p in prePreparesSent]
+    prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
+    expectedDigest = TestReplica.batchDigest([req])
+    assert expectedDigest in [p["ppReq"].digest for p in prePreparesSent]
+    assert [(req.identifier, req.reqId)] in \
+           [p["ppReq"].reqIdr for p in prePreparesSent]
 
 
 def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
                             expectedRequest: PrePrepare):
     for replica in replicas:
         params = getAllArgs(replica, replica.canProcessPrePrepare)
-        assert expectedRequest[:-1] in [p['pp'][:-1] for p in params]
+        assert expectedRequest.reqIdr in [p['pp'].reqIdr for p in params]
 
 
 def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
-    paramsList = getAllArgs(replica, replica.canSendPrepare)
+    paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
-                          replica.canSendPrepare)
-    for params in paramsList:
-        req = params['request']
-        assert req.identifier == identifier
-        assert req.reqId == reqId
-    assert all(rv)
+                          replica.canPrepare)
+    assert [(identifier, reqId)] in \
+           [p["ppReq"].reqIdr for p in paramsList]
+    idx = [p["ppReq"].reqIdr for p in paramsList].index([(identifier, reqId)])
+    assert rv[idx]
 
 
 def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
@@ -418,11 +423,13 @@ def checkReplyCount(client, idr, reqId, count):
             senders.add(sdr)
     assertLength(senders, count)
 
-def waitReplyCount(looper, client, idr, reqId, count):
-    numOfNodes = len(client.nodeReg)
-    timeout = waits.expectedTransactionExecutionTime(numOfNodes)
+
+def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
+    timeout = custom_timeout or waits.expectedTransactionExecutionTime(
+        len(client.nodeReg))
     looper.run(eventually(checkReplyCount, client, idr, reqId, count,
                           timeout=timeout))
+
 
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
@@ -431,7 +438,56 @@ def checkReqNackWithReason(client, reason: str, sender: str):
                 and sdr == sender:
             found = True
             break
+    assert found, "there is no Nack with reason: {}".format(reason)
+
+
+def wait_negative_resp(looper, client, reason, sender, timeout, chk_method):
+    return looper.run(eventually(chk_method,
+                                 client,
+                                 reason,
+                                 sender,
+                                 timeout=timeout))
+
+
+def waitReqNackWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqNAckQuorumTime()
+    return wait_negative_resp(looper, client, reason, sender, timeout,
+                              checkReqNackWithReason)
+
+
+def checkRejectWithReason(client, reason: str, sender: str):
+    found = False
+    for msg, sdr in client.inBox:
+        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "")\
+                and sdr == sender:
+            found = True
+            break
     assert found
+
+
+def waitRejectWithReason(looper, client, reason: str, sender: str):
+    timeout = waits.expectedReqRejectQuorumTime()
+    return wait_negative_resp(looper, client, reason, sender, timeout,
+                              checkRejectWithReason)
+
+
+def ensureRejectsRecvd(looper, nodes, client, reason, timeout=5):
+    for node in nodes:
+        looper.run(eventually(checkRejectWithReason, client, reason,
+                              node.clientstack.name, retryWait=1,
+                              timeout=timeout))
+
+
+def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
+    for node in nodes:
+        waitReqNackWithReason(looper, client, reason,
+                              node.clientstack.name)
+
+
+def waitRejectFromPoolWithReason(looper, nodes, client, reason):
+    for node in nodes:
+        waitRejectWithReason(looper, client, reason,
+                              node.clientstack.name)
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -461,7 +517,7 @@ def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None
     Raises exception when time is out
     """
 
-    timeout = customTimeout or waits.expectedViewChangeTime(len(nodeSet))
+    timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodeSet))
     return looper.run(eventually(checkViewNoForNodes,
                                  nodeSet,
                                  expectedViewNo,
@@ -532,8 +588,20 @@ def checkLedgerEquality(ledger1, ledger2):
 
 
 def checkAllLedgersEqual(*ledgers):
-    for l1, l2 in permutations(ledgers, 2):
+    for l1, l2 in combinations(ledgers, 2):
         checkLedgerEquality(l1, l2)
+
+
+def checkStateEquality(state1, state2):
+    assertEquality(state1.as_dict, state2.as_dict)
+    assertEquality(state1.committedHeadHash, state2.committedHeadHash)
+    assertEquality(state1.committedHead, state2.committedHead)
+
+
+def check_seqno_db_equality(db1, db2):
+    assert db1.size == db2.size
+    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
+           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
 
 
 def randomText(size):
@@ -598,6 +666,7 @@ def run_script(script, *args):
         p.send_signal(SIGINT)
         p.wait(timeout=1)
         assert p.poll() == 0, 'script failed'
+
 
 def viewNoForNodes(nodes):
     viewNos = {node.viewNo for node in nodes}

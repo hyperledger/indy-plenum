@@ -1,5 +1,5 @@
 # inter-node communication
-from enum import IntEnum
+from enum import IntEnum, unique
 
 from plenum.common.roles import Roles
 from plenum.common.transactions import PlenumTransactions
@@ -12,8 +12,8 @@ PRIMDEC = "PRIMARYDECIDED"
 BATCH = "BATCH"
 
 REQACK = "REQACK"
-
 REQNACK = "REQNACK"
+REJECT = "REJECT"
 
 POOL_LEDGER_TXNS = "POOL_LEDGER_TXNS"
 
@@ -100,7 +100,18 @@ class ClientBootStrategy(IntEnum):
 class StorageType(IntEnum):
     File = 1
     Ledger = 2
-    OrientDB = 3
+
+
+class KeyValueStorageType(IntEnum):
+    Leveldb = 1
+    Memory = 2
+
+
+@unique
+class LedgerState(IntEnum):
+    not_synced = 1  # Still gathering consistency proofs
+    syncing = 2     # Got sufficient consistency proofs, will be sending catchup requests and waiting for their replies
+    synced = 3      # Got replies for all catchup requests, indicating catchup complete for the ledger
 
 
 OP_FIELD_NAME = "op"
@@ -110,12 +121,13 @@ CLIENT_BLACKLISTER_SUFFIX = "BLC"
 
 NODE_BLACKLISTER_SUFFIX = "BLN"
 NODE_PRIMARY_STORAGE_SUFFIX = "PS"
-NODE_SECONDARY_STORAGE_SUFFIX = "SS"
 NODE_TXN_STORE_SUFFIX = "TS"
 NODE_HASH_STORE_SUFFIX = "HS"
 
 HS_FILE = "file"
-HS_ORIENT_DB = "orientdb"
 HS_MEMORY = "memory"
+HS_LEVELDB = 'leveldb'
 
 PLUGIN_BASE_DIR_PATH = "PluginBaseDirPath"
+POOL_LEDGER_ID = 0
+DOMAIN_LEDGER_ID = 1

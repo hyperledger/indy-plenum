@@ -9,7 +9,7 @@ from stp_core.crypto.signer import Signer
 from plenum.common.signing import serializeMsg
 from stp_core.types import Identifier
 from plenum.common.util import rawToFriendly, friendlyToRaw
-
+from plenum.common.types import f
 
 class DidIdentity:
     def __init__(self, identifier, verkey=None, rawVerkey=None):
@@ -85,7 +85,7 @@ class DidSigner(DidIdentity, Signer):
         """
         Return a signature for the given message.
         """
-        ser = serializeMsg(msg)
+        ser = serializeMsg(msg, topLevelKeysToIgnore=[f.SIG.nm])
         bsig = self.naclSigner.signature(ser)
         sig = base58.b58encode(bsig)
         return sig

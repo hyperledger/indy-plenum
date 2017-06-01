@@ -58,7 +58,6 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                       poolTxnNodeNames,
                                       allPluginsPath):
     name = poolTxnClientNames[-1]
-    seed = poolTxnData["seeds"][name]
     newClient, w = genTestClient(tmpdir=tdirWithPoolTxns, nodes=txnPoolNodeSet,
                                  name=name, usePoolLedger=True)
     looper.add(newClient)
@@ -83,7 +82,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
         for node in txnPoolNodeSet:
             assert node.isParticipating
 
-    timeout = waits.expectedCatchupTime(len(txnPoolNodeSet))
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
     bootstrapClientKeys(w.defaultId, w.getVerkey(), txnPoolNodeSet)
@@ -93,4 +92,4 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet, tdirWithPoolTxns,
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newClient,
                                                   *txnPoolNodeSet)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 1, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, w, newClient, 3, 1)

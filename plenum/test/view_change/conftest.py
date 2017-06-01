@@ -1,5 +1,7 @@
 import pytest
 
+from plenum.test.test_node import ensureElectionsDone
+
 
 @pytest.fixture()
 def viewNo(nodeSet):

@@ -2,11 +2,12 @@ import types
 from functools import partial
 
 import pytest
+import time
 
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
 from plenum.common.types import Reply, RequestNack
-from plenum.test.helper import sendRandomRequest, checkReqAck, waitReplyCount
+from plenum.test.helper import sendRandomRequest, checkReqAck, wait_for_replies
 from plenum.test import waits
 
 whitelist = ['AlphaC unable to send message', ]
@@ -47,13 +48,13 @@ def testClientRetryRequestWhenAckNotReceived(looper, nodeSet, client1,
     timeout = waits.expectedReqAckQuorumTime()
     looper.run(eventually(chkAcks, retryWait=1, timeout=timeout))
     idr, reqId = req.key
-    waitReplyCount(looper, client1, idr, reqId, 4)
+    wait_for_replies(looper, client1, idr, reqId, 4)
 
 
 def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
                                                wallet1, tconf):
     """
-    A node say Alpha sends ACK but doesn't send REPLY. The connect resends the
+    A node say Alpha sends ACK but doesn't send REPLY. The client resends the
     request and gets REPLY
     """
 
@@ -72,10 +73,18 @@ def testClientRetryRequestWhenReplyNotReceived(looper, nodeSet, client1,
     req = sendRandomRequest(wallet1, client1)
     coros = [partial(checkReqAck, client1, node, *req.key) for node in nodeSet]
     timeout = waits.expectedReqAckQuorumTime()
+    start = time.perf_counter()
     looper.run(eventuallyAll(*coros, retryWait=.5, totalTimeout=timeout))
     idr, reqId = req.key
-    waitReplyCount(looper, client1, idr, reqId, 3)
-    waitReplyCount(looper, client1, idr, reqId, 4)
+    # Client should get only 3 replies till the retry timeout since one node
+    # is not sending any replies
+    wait_for_replies(looper, client1, idr, reqId, 3,
+                     custom_timeout=tconf.CLIENT_REPLY_TIMEOUT-1)
+    end = time.perf_counter()
+    # Client should wait till the retry timeout but after that should
+    # get the reply from the remaining node
+    looper.runFor(tconf.CLIENT_REPLY_TIMEOUT-(end-start))
+    wait_for_replies(looper, client1, idr, reqId, 4)
 
 
 def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
@@ -117,17 +126,32 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
 
     assert client1.spylog.count(client1.resendRequests.__name__) == totalResends
     idr, reqId = req.key
-    waitReplyCount(looper, client1, idr, reqId, 3)
+    wait_for_replies(looper, client1, idr, reqId, 3)
 
     alpha.clientMsgRouter.routes[Request] = origProcReq
     alpha.transmitToClient = origTrans
+
+
+@pytest.fixture(scope="function")
+def withFewerRetryReq(tconf, tdir, request):
+    oldRetryReplyCount = tconf.CLIENT_MAX_RETRY_REPLY
+    oldRetryReplyTimeout = tconf.CLIENT_REPLY_TIMEOUT
+    tconf.CLIENT_MAX_RETRY_REPLY = 3
+    tconf.CLIENT_REPLY_TIMEOUT = 5
+
+    def reset():
+        tconf.CLIENT_MAX_RETRY_REPLY = oldRetryReplyCount
+        tconf.CLIENT_REPLY_TIMEOUT = oldRetryReplyTimeout
+
+    request.addfinalizer(reset)
+    return tconf
 
 
 def testClientNotRetryingRequestAfterMaxTriesDone(looper,
                                                   nodeSet,
                                                   client1,
                                                   wallet1,
-                                                  tconf):
+                                                  withFewerRetryReq):
     """
     A client sends Request to a node but the node never responds to client.
     The client resends the request but only the number of times defined in its
@@ -148,15 +172,19 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
     req = sendRandomRequest(wallet1, client1)
 
     # Wait for more than REPLY timeout
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + \
-        tconf.CLIENT_REQACK_TIMEOUT * tconf.CLIENT_MAX_RETRY_REPLY
+    # +1 because we have to wait one more retry timeout to make sure what
+    # client cleaned his buffers (expectingAcksFor, expectingRepliesFor)
+    retryTime = withFewerRetryReq.CLIENT_REPLY_TIMEOUT * \
+        (withFewerRetryReq.CLIENT_MAX_RETRY_REPLY + 1)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + retryTime
+
     looper.runFor(timeout)
 
     idr, reqId = req.key
-    waitReplyCount(looper, client1, idr, reqId, 3)
+    wait_for_replies(looper, client1, idr, reqId, 3)
 
     assert client1.spylog.count(client1.resendRequests.__name__) == \
-        (totalResends + tconf.CLIENT_MAX_RETRY_REPLY)
+        (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor
     assert req.key not in client1.expectingRepliesFor
     alpha.processRequest = origTrans

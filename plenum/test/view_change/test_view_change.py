@@ -8,7 +8,9 @@ from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import getPrimaryReplica
+from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
+    ensureElectionsDone
+from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 
 nodeCount = 7
 
@@ -16,6 +18,7 @@ nodeCount = 7
 # noinspection PyIncorrectDocstring
 @pytest.fixture()
 def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
+    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(nodeSet, 0, 10)
@@ -23,6 +26,9 @@ def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    assert m_primary_node.name != new_m_primary_node.name
 
 
 # noinspection PyIncorrectDocstring
@@ -41,6 +47,8 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     Node will change view even though it does not find the master to be degraded
     when a quorum of nodes agree that master performance degraded
     """
+
+    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
 
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
@@ -73,3 +81,7 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
         else:
             assert n.spylog.count(instChngMethodName) == \
                    sentInstChanges.get(n.name, 0)
+
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    assert m_primary_node.name != new_m_primary_node.name
