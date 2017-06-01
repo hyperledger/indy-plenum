@@ -265,6 +265,10 @@ def expectedClientToPoolRequestDeliveryTime(nodeCount):
     return __Peer2PeerRequestExchangeTime * qN
 
 
+def expectedClientToNodeMessageDeliveryTime(nodeCount):
+    return 1 * nodeCount
+
+
 def expectedClientRequestPropagationTime(nodeCount):
     """
     From: The requests are sent
