@@ -3,15 +3,14 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Sequence, Any, Union, List
+from typing import Sequence, Any, Union, List, Iterable
 
 from plenum.common.types import Nomination, Reelection, Primary, f
 from plenum.common.util import mostCommonElement, getQuorum
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
-from plenum.server.router import Router
-
+from plenum.server.router import Router, Route
 
 logger = getlogger()
 
@@ -53,11 +52,6 @@ class PrimaryElector(PrimaryDecider):
 
         self.reElectionRounds = {}
 
-        routerArgs = [(Nomination, self.processNominate),
-                      (Primary, self.processPrimary),
-                      (Reelection, self.processReelection)]
-        self.inBoxRouter = Router(*routerArgs)
-
         # Keeps track of duplicate messages received. Used to blacklist if
         # nodes send more than 1 duplicate messages. Useful to blacklist
         # nodes. This number `1` is configurable. The reason 1 duplicate
@@ -74,6 +68,12 @@ class PrimaryElector(PrimaryDecider):
 
     def __repr__(self):
         return "{}".format(self.name)
+
+    @property
+    def routes(self) -> Iterable[Route]:
+        return [(Nomination, self.processNominate),
+                (Primary, self.processPrimary),
+                (Reelection, self.processReelection)]
 
     @property
     def hasPrimaryReplica(self) -> bool:

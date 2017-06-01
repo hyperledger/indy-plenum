@@ -1,7 +1,9 @@
+from typing import Iterable
 from collections import deque
 
 from plenum.common.message_processor import MessageProcessor
 from plenum.server.has_action_queue import HasActionQueue
+from plenum.server.router import Router, Route
 
 
 class PrimaryDecider(HasActionQueue, MessageProcessor):
@@ -17,6 +19,15 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         self.nodeCount = 0
         self.inBox = deque()
         self.outBox = deque()
+        self.inBoxRouter = Router(*self.routes)
+
+    @property
+    def routes(self) -> Iterable[Route]:
+        raise NotImplementedError
+
+    @property
+    def supported_msg_types(self) -> Iterable[type]:
+        return [k for k, v in self.routes]
 
     def decidePrimaries(self):
         """
@@ -28,3 +39,5 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
     async def serviceQueues(self, limit):
         return 0
 
+    def viewChanged(self, viewNo: int):
+        raise NotImplementedError

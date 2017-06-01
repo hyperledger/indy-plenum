@@ -206,7 +206,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.rank = self.getRank(self.name, self.nodeReg)
 
-        self.elector = None  # type: PrimaryDecider
+        self._elector = None  # type: PrimaryDecider
 
         self.forwardedRequests = set()  # type: Set[Tuple[(str, int)]]
 
@@ -222,9 +222,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         nodeRoutes = [(Propagate, self.processPropagate),
                       (InstanceChange, self.processInstanceChange)]
-
-        nodeRoutes.extend((msgTyp, self.sendToElector) for msgTyp in
-                          [Nomination, Primary, Reelection])
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
                           [PrePrepare, Prepare, Commit, Checkpoint,
@@ -369,6 +366,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             wallet.addIdentifier(signer=signer)
             self._wallet = wallet
         return self._wallet
+
+    @property
+    def elector(self) -> PrimaryDecider:
+        return self._elector
+
+    @elector.setter
+    def elector(self, value):
+        # clear old routes
+        if self._elector:
+            self.nodeMsgRouter.remove(self._elector.supported_msg_types)
+        self._elector = value
+        # set up new routes
+        if self._elector:
+            self.nodeMsgRouter.extend(
+                (msgTyp, self.sendToElector) for msgTyp in
+                self._elector.supported_msg_types)
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
