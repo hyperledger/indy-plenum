@@ -241,7 +241,7 @@ def expectedClientConsistencyProof(nodeCount):
     From: the Client is connected to the Pool
     To: the Client finished the consistency proof procedure
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return qN * __Peer2PeerRequestExchangeTime + \
            config.ConsistencyProofsTimeout
 
@@ -251,7 +251,7 @@ def expectedClientCatchupTime(nodeCount):
     From: the Client finished the consistency proof procedure
     To: the Client finished the catchup procedure
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
            config.CatchupTransactionsTimeout
 
@@ -261,7 +261,7 @@ def expectedClientToPoolRequestDeliveryTime(nodeCount):
     From: the Client send a request
     To: the request is delivered to f nodes
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return __Peer2PeerRequestExchangeTime * qN
 
 

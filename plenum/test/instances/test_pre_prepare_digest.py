@@ -43,10 +43,15 @@ def testPrePrepareDigest(setup, looper, sent1):
         for r in nonPrimaryReps:
             # Every node with non primary replicas of instance 0 should raise
             # suspicion
+            susp_code = Suspicions.PPR_DIGEST_WRONG.code
+            # Since the node sending bad requests might become primary of
+            # some backup instance after view changes, it will again send a
+            # PRE-PREPARE with incorrect digest, so other nodes might raise
+            # suspicion more than once
             assert len(getNodeSuspicions(r.node,
-                                         Suspicions.PPR_DIGEST_WRONG.code)) == 1
+                                         susp_code)) >= 1
             # No non primary replica should send any PREPARE
-            assert len(sentPrepare(r)) == 0
+            assert len(sentPrepare(r, viewNo=0, ppSeqNo=1)) == 0
 
     numOfNodes = len(primaryRep.node.nodeReg)
     timeout = waits.expectedTransactionExecutionTime(numOfNodes)
