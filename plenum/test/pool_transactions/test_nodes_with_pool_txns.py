@@ -356,7 +356,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                      tconf, steward1, stewardWallet, allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
-    newNodeName = "Epsilon"
+    newNodeName = "Kappa"
 
     # adding a new node without SERVICES field
     # it means the node is in the inactive state
