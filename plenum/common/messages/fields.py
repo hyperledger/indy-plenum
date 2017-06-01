@@ -190,13 +190,13 @@ class Base58Field(FieldBase):
         if long:
             self._lengthLimits.append(range(43, 46))
 
-
     def _specific_validation(self, val):
         if self._lengthLimits:
             inlen = len(val)
             goodlen = any(inlen in r for r in self._lengthLimits)
             if not goodlen:
-                return 'value length {} is not in ranges {}'.format(inlen, self._lengthLimits)
+                return 'value length {} is not in ranges {}'\
+                    .format(inlen, self._lengthLimits)
         if set(val) - self._alphabet:
             return 'should not contains chars other than {}' \
                 .format(self._alphabet)
