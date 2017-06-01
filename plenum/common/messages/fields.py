@@ -181,8 +181,8 @@ class Base58Field(FieldBase):
     #for the max length of encoded data
     #ceil(n * 138 / 100 + 1)
     #lower formula is based on data from field
-    def __init__(self, short=False, long=False):
-        super().__init__()
+    def __init__(self, short=False, long=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._alphabet = set(base58.alphabet)
         self._lengthLimits = []
         if short:
@@ -205,22 +205,22 @@ class Base58Field(FieldBase):
 class IdentifierField(Base58Field):
     _base_types = (str, )
 
-    def __init__(self):
-        super().__init__(long=True, short=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, short=True, *args, **kwargs)
 
 
 class DestNodeField(Base58Field):
     _base_types = (str,)
 
-    def __init__(self):
-        super().__init__(long=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, *args, **kwargs)
 
 
 class DestNymField(Base58Field):
     _base_types = (str, )
 
-    def __init__(self):
-        super().__init__(short=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(short=True, *args, **kwargs)
 
 
 class RequestIdentifierField(FieldBase):
@@ -288,8 +288,8 @@ class HexField(FieldBase):
 class MerkleRootField(Base58Field):
     _base_types = (str, )
 
-    def __init__(self):
-        super().__init__(long=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, *args, **kwargs)
 
 
 class TimestampField(FieldBase):
