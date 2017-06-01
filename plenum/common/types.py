@@ -119,20 +119,20 @@ class ClientMessageValidator(MessageValidator):
     )
 
 
-# class Nomination(MessageBase):
-#     typename = NOMINATE
-#
-#     schema = (
-#         (f.NAME.nm, NonEmptyStringField()),
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-#     )
-Nomination = TaggedTuple(NOMINATE, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
+class Nomination(MessageBase):
+    typename = NOMINATE
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Nomination = TaggedTuple(NOMINATE, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
 
 
 Batch = TaggedTuple(BATCH, [
@@ -147,37 +147,37 @@ Batch = TaggedTuple(BATCH, [
 # already seen then it rejects that message
 
 
-# class Reelection(MessageBase):
-#     typename = REELECTION
-#
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.ROUND.nm, NonNegativeNumberField()),
-#         (f.TIE_AMONG.nm, IterableField(TieAmongField())),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#     )
-Reelection = TaggedTuple(REELECTION, [
-    f.INST_ID,
-    f.ROUND,
-    f.TIE_AMONG,
-    f.VIEW_NO])
+class Reelection(MessageBase):
+    typename = REELECTION
+
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.ROUND.nm, NonNegativeNumberField()),
+        (f.TIE_AMONG.nm, IterableField(TieAmongField())),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+    )
+# Reelection = TaggedTuple(REELECTION, [
+#     f.INST_ID,
+#     f.ROUND,
+#     f.TIE_AMONG,
+#     f.VIEW_NO])
 
 # Declaration of a winner
 
-# class Primary(MessageBase):
-#     typename = PRIMARY
-#
-#     schema = (
-#         (f.NAME.nm, NonEmptyStringField()),
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-#     )
-Primary = TaggedTuple(PRIMARY, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
+class Primary(MessageBase):
+    typename = PRIMARY
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Primary = TaggedTuple(PRIMARY, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -344,17 +344,17 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
-# class InstanceChange(MessageBase):
-#     typename = INSTANCE_CHANGE
-#     schema = (
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.REASON.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NOS.nm, IterableField(NonNegativeNumberField())),
-#     )
-InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO,
-    f.REASON
-])
+
+class InstanceChange(MessageBase):
+    typename = INSTANCE_CHANGE
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.REASON.nm, NonNegativeNumberField())
+    )
+# InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
+#     f.VIEW_NO,
+#     f.REASON
+# ])
 
 
 class LedgerStatus(MessageBase):

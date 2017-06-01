@@ -98,6 +98,9 @@ class IterableField(FieldBase):
     _base_types = (list, tuple)
 
     def __init__(self, inner_field_type: FieldValidator, **kwargs):
+        assert inner_field_type
+        assert isinstance(inner_field_type, FieldValidator)
+
         self.inner_field_type = inner_field_type
         super().__init__(**kwargs)
 
@@ -158,8 +161,8 @@ class ChooseField(FieldBase):
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
-            return "expected '{}' unknown value '{}'" \
-                   "".format(', '.join(map(str, self._possible_values)), val)
+            return "expected one of '{}', unknown value '{}'" \
+                   .format(', '.join(map(str, self._possible_values)), val)
 
 
 class LedgerIdField(ChooseField):
@@ -225,7 +228,6 @@ class RequestIdentifierField(FieldBase):
 class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
-    # TODO eliminate duplication with RequestIdentifierField
 
     def _specific_validation(self, val):
         if len(val) != self._length:
@@ -233,7 +235,7 @@ class TieAmongField(FieldBase):
         idr_error = NonEmptyStringField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
