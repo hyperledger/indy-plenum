@@ -4,7 +4,7 @@ from plenum.common.messages.fields import NonNegativeNumberField
 validator = NonNegativeNumberField()
 
 
-def test_non_negative_number():
+def test_positive_number():
     assert not validator.validate(1)
 
 
