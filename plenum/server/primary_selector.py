@@ -137,6 +137,8 @@ class PrimarySelector(PrimaryDecider):
         logger.debug("{} starting selection".format(self))
 
         for idx, r in enumerate(self.replicas):
+            if r.primaryName is not None:
+                continue
             prim = (self.viewNo + idx) % self.node.totalNodes
             primary_name = replica.Replica.generateName(
                 self.node.get_name_by_rank(prim), idx)
@@ -145,7 +147,7 @@ class PrimarySelector(PrimaryDecider):
                                               idx, self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-            r.primaryName = primary_name
+            r.primaryChanged(primary_name)
 
     def viewChanged(self, viewNo: int):
         if viewNo > self.viewNo:

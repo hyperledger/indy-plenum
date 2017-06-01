@@ -31,8 +31,12 @@ def check_rank_consistent_across_each_node(nodes):
     assert order.count(order[0]) == len(order)  # All elements are same
 
 
-def check_newly_added_node(looper, nodes, new_node):
-    assert new_node in nodes
-    check_rank_consistent_across_each_node(nodes)
-    assert all(new_node.rank > n.rank for n in nodes[:-1])
-    checkProtocolInstanceSetup(looper, nodes, retryWait=1)
+def check_newly_added_nodes(looper, all_nodes, new_nodes):
+    # New nodes should be give in the order they were added
+    assert [n in all_nodes for n in new_nodes]
+    check_rank_consistent_across_each_node(all_nodes)
+    old_nodes = [node for node in all_nodes if node not in new_nodes]
+    for new_node in new_nodes:
+        assert all(new_node.rank > n.rank for n in old_nodes)
+        old_nodes.append(new_node)
+    checkProtocolInstanceSetup(looper, all_nodes, retryWait=1)

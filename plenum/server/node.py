@@ -890,7 +890,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self._dispatch_stashed_msg(msg, frm):
                 self.discard(msg, reason="Unknown message type for replica id "
                                          "{}".format(instId),
-                             logMethod=logger.warn)
+                             logMethod=logger.warning)
             i += 1
         logger.debug("{} processed {} stashed msgs for replica {}".
                      format(self, i, instId))
@@ -904,7 +904,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not self._dispatch_stashed_msg(msg, frm):
                 self.discard(msg, reason="Unknown message type for view no "
                                          "{}".format(view_no),
-                             logMethod=logger.warn)
+                             logMethod=logger.warning)
             i += 1
         logger.debug("{} processed {} stashed msgs for view no {}".
                      format(self, i, view_no))
@@ -1459,6 +1459,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return rh
 
     def allLedgersCaughtUp(self):
+        replica = self.replicas[0]
+        if replica.lastOrderedPPSeqNo < self.ledgerManager.lastCaughtUpPpSeqNo:
+            replica.lastOrderedPPSeqNo = self.ledgerManager.lastCaughtUpPpSeqNo
+
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # TODO: next line not needed

@@ -1,6 +1,6 @@
 import time
 from binascii import hexlify, unhexlify
-from collections import deque, OrderedDict
+from collections import deque, OrderedDict, namedtuple
 from enum import IntEnum
 from enum import unique
 from operator import itemgetter
@@ -10,8 +10,11 @@ from typing import Set
 from typing import Tuple
 from hashlib import sha256
 
+import math
 from orderedset import OrderedSet
 from sortedcontainers import SortedDict
+from sortedcontainers import SortedList
+from sortedcontainers import SortedSet
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
@@ -141,12 +144,14 @@ class Replica(HasActionQueue, MessageProcessor):
         # forwarded the request by the node but is getting 3 phase messages.
         # The value is a list since a malicious entry might send PRE-PREPARE
         # with a different digest and since we dont have the request finalised
-        # yet, we store all PRE-PPREPARES
+        # yet, we store all PRE-PPREPAREs
         self.prePreparesPendingFinReqs = []   # type: List[Tuple[PrePrepare, str, Set[Tuple[str, int]]]]
 
         # PrePrepares waiting for previous PrePrepares, key being tuple of view
         # number and pre-prepare sequence numbers and value being tuple of
         # PrePrepare and sender
+        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
+        # of SortedDict needs to change
         self.prePreparesPendingPrevPP = SortedDict(lambda k: k[1])
 
         # PREPAREs that are stored by non primary replica for which it has not
@@ -166,12 +171,16 @@ class Replica(HasActionQueue, MessageProcessor):
         # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
         # pre-prepare seqNo and value is the received PRE-PREPARE
+        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
+        # of SortedDict needs to change
         self.sentPrePrepares = SortedDict(lambda k: k[1])
         # type: Dict[Tuple[int, int], PrePrepare]
 
         # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value
         # is the received PRE-PREPARE
+        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
+        # of SortedDict needs to change
         self.prePrepares = SortedDict(lambda k: k[1])
         # type: Dict[Tuple[int, int], PrePrepare]
 
@@ -204,6 +213,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # viewNo and value a map of pre-prepare sequence number to commit
         self.stashed_out_of_order_commits = {}  # type: Dict[int,Dict[int,Commit]]
 
+        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
+        # of SortedDict needs to change
         self.checkpoints = SortedDict(lambda k: k[0])
 
         self.stashedRecvdCheckpoints = {}   # type: Dict[Tuple,
@@ -355,13 +366,42 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.removeObsoletePpReqs()
             self._stateChanged()
 
-    def primaryChanged(self, primaryName, lastOrderedPPSeqNo):
-        if self.lastOrderedPPSeqNo < lastOrderedPPSeqNo:
-            self.lastOrderedPPSeqNo = lastOrderedPPSeqNo
+    def primaryChanged(self, primaryName):
         self.primaryName = primaryName
         if primaryName == self.name:
-            assert self.lastOrderedPPSeqNo >= lastOrderedPPSeqNo
+            # TODO: Remove next line
             self._lastPrePrepareSeqNo = self.lastOrderedPPSeqNo
+        self.set_last_ordered_for_non_master()
+
+    def get_lowest_prepared_certificate_in_view(self, view_no):
+        # TODO: Naive implementation, dont need to iterate over the complete
+        # data structures, fix this later
+        seq_no_pp = SortedList()      # pp_seq_no of PRE-PREPAREs
+        # pp_seq_no of PREPAREs with count of PREPAREs for each
+        seq_no_p = set()
+
+        for (v, p) in self.prePreparesPendingPrevPP:
+            if v == view_no:
+                seq_no_pp.add(p)
+        for (v, p), pr in self.preparesWaitingForPrePrepare.items():
+            if v == view_no and len(pr) >= 2*self.f:
+                seq_no_p.add(p)
+
+        for n in seq_no_pp:
+            if n in seq_no_p:
+                return n
+        return None
+
+    def set_last_ordered_for_non_master(self):
+        if not self.isMaster:
+            # If not master instance choose last ordered seq no to be 1 less
+            # the lowest prepared certificate in this view
+            lowest_prepared = self.get_lowest_prepared_certificate_in_view(
+                self.viewNo)
+            # TODO: This assumes some requests will be present, fix this once
+            # view change is completely implemented
+            self.lastOrderedPPSeqNo = 0 if lowest_prepared is None \
+                else lowest_prepared - 1
 
     def removeObsoletePpReqs(self):
         # If replica was primary in previous view then remove every sent
@@ -821,6 +861,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if ppSeqNo - lastPpSeqNo != 1:
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
                          format(self, ppSeqNo, lastPpSeqNo))
+            # TODO: think of a better way, urgently
+            self.set_last_ordered_for_non_master()
             return False
         return True
 

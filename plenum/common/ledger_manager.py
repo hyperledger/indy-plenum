@@ -227,7 +227,7 @@ class LedgerManager(HasActionQueue):
         if ledgerStatus.txnSeqNo < 0:
             self.discard(status, reason="Received negative sequence number "
                          "from {}".format(frm),
-                         logMethod=logger.warn)
+                         logMethod=logger.warning)
         if not status:
             logger.debug("{} found ledger status to be null from {}".
                          format(self, frm))
@@ -344,12 +344,12 @@ class LedgerManager(HasActionQueue):
             self.discard(proof, reason="Start {} is greater than "
                                        "ledger size {}".
                          format(start, ledgerSize),
-                         logMethod=logger.warn)
+                         logMethod=logger.warning)
             return False
         if end <= start:
             self.discard(proof, reason="End {} is not greater than "
                                        "start {}".format(end, start),
-                         logMethod=logger.warn)
+                         logMethod=logger.warning)
             return False
         return True
 
@@ -366,14 +366,14 @@ class LedgerManager(HasActionQueue):
                      format(self, req, frm))
         if not self.ownedByNode:
             self.discard(req, reason="Only node can serve catchup requests",
-                         logMethod=logger.warn)
+                         logMethod=logger.warning)
             return
 
         start = getattr(req, f.SEQ_NO_START.nm)
         end = getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         if end < start:
-            self.discard(req, reason="Invalid range", logMethod=logger.warn)
+            self.discard(req, reason="Invalid range", logMethod=logger.warning)
             return
         if start > ledger.size:
             self.discard(req, reason="{} not able to service since "
