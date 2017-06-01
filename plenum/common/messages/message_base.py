@@ -106,6 +106,11 @@ class MessageBase(Mapping, MessageValidator):
         m.move_to_end(OP_FIELD_NAME, False)
         return m
 
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        return self._asdict() == other._asdict()
+
     @property
     def __name__(self):
         return self.typename
