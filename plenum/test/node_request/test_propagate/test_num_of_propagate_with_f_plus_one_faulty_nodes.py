@@ -19,14 +19,14 @@ Num of PROPAGATE messages must be less than sufficient (faultyNodes + 1)
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
-    for node in A, B, G:
+    E = startedNodes.Eta
+    Z = startedNodes.Gamma
+    Z = startedNodes.Zeta
+    for node in E, Z, Z:
         makeNodeFaulty(node, changesRequest)
         # Delaying nomination to avoid becoming primary
-        node.delaySelfNomination(10)
-    return adict(faulties=(A, B, G))
+        # node.delaySelfNomination(10)
+    return adict(faulties=(E, Z, Z))
 
 
 @pytest.fixture(scope="module")

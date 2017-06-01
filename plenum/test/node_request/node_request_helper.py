@@ -13,6 +13,7 @@ from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
 
 
+# This code is unclear, refactor
 def checkPropagated(looper, nodeSet, request, faultyNodes=0):
     nodesSize = len(list(nodeSet.nodes))
 

@@ -59,10 +59,12 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             nodeA, nodeB, nodeC, nodeD = tuple(
                 addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
 
+            # Since primary selection is round robin, A and B will be primaries
+
             # Nodes C and D delays self nomination so A and B can become
             # primaries
-            nodeC.delaySelfNomination(10)
-            nodeD.delaySelfNomination(10)
+            # nodeC.delaySelfNomination(10)
+            # nodeD.delaySelfNomination(10)
 
             # Node D delays receiving PRIMARY messages from all nodes so it
             # will not know whether it is primary or not
@@ -88,22 +90,19 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                                request.identifier,
                                request.reqId, retryWait=1, timeout=timeout))
 
-            # Node D should have 1 pending PRE-PREPARE request
-            def assertOnePrePrepare():
+            def assert_msg_count(typ, count):
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                        PrePrepare)) == 1
+                                                        typ)) == count
 
+            # Node D should have 1 pending PRE-PREPARE request
             timeout = waits.expectedPrePrepareTime(len(nodeSet))
-            looper.run(eventually(assertOnePrePrepare, retryWait=1, timeout=timeout))
+            looper.run(eventually(assert_msg_count, PrePrepare, 1,
+                                  retryWait=1, timeout=timeout))
 
             # Node D should have 2 pending PREPARE requests(from node B and C)
-
-            def assertTwoPrepare():
-                assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                        Prepare)) == 2
-
-            timeout = waits.expectedPrePrepareTime(len(nodeSet))
-            looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=timeout))
+            timeout = waits.expectedPrepareTime(len(nodeSet))
+            looper.run(eventually(assert_msg_count, Prepare, 2, retryWait=1,
+                                  timeout=timeout))
 
             # Its been checked above that replica stashes 3 phase messages in
             # lack of primary, now avoid delay (fix the network)

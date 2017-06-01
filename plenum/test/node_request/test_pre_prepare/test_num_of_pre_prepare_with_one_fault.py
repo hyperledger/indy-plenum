@@ -13,10 +13,10 @@ whitelist = ['cannot process incoming PREPARE']
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
+    A = startedNodes.Gamma
     makeNodeFaulty(A,
                    partial(delaysPrePrepareProcessing, delay=60))
-    A.delaySelfNomination(10)
+    # A.delaySelfNomination(10)
     return adict(faulties=A)
 
 

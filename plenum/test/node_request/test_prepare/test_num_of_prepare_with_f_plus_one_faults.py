@@ -19,16 +19,16 @@ delayPrePrepareSec = 60
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
+    E = startedNodes.Eta
     G = startedNodes.Gamma
-    for node in A, B, G:
+    Z = startedNodes.Zeta
+    for node in E, G, Z:
         makeNodeFaulty(node,
                        changesRequest, partial(delaysPrePrepareProcessing,
                                                delay=delayPrePrepareSec))
         # Delaying nomination to avoid becoming primary
-        node.delaySelfNomination(10)
-    return adict(faulties=(A, B, G))
+        # node.delaySelfNomination(10)
+    return adict(faulties=(E, G, Z))
 
 
 @pytest.fixture(scope="module")
