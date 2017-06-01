@@ -131,3 +131,8 @@ class MessageBase(Mapping, MessageValidator):
 
     def __str__(self):
         return "{}{}".format(self.typename, dict(self.items()))
+
+    def __eq__(self, other):
+        if not issubclass(other.__class__, self.__class__):
+            return False
+        return self._asdict() == other._asdict()
