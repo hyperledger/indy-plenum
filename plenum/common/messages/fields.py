@@ -178,33 +178,50 @@ class IdentifierField(NonEmptyStringField):
 class Base58Field(FieldBase):
     _base_types = (str,)
 
-    alphabet = set(base58.alphabet)
+    #long id is 32 bye long; short is 16 bytes long;
+    #upper limit is calculated according to formula
+    #for the max length of encoded data
+    #ceil(n * 138 / 100 + 1)
+    #lower formula is based on data from field
+    def __init__(self, short=False, long=False):
+        super().__init__()
+        self._alphabet = set(base58.alphabet)
+        self._lengthLimits = []
+        if short:
+            self._lengthLimits.append(range(15, 26))
+        if long:
+            self._lengthLimits.append(range(43, 46))
+
 
     def _specific_validation(self, val):
-        if len(val) == 0:
-            return 'provided value of zero length'
-        if set(val) - self.alphabet:
+        if self._lengthLimits:
+            inlen = len(val)
+            goodlen = any(inlen in r for r in self._lengthLimits)
+            if not goodlen:
+                return 'value length {} is not in ranges {}'.format(inlen, self._lengthLimits)
+        if set(val) - self._alphabet:
             return 'should not contains chars other than {}' \
-                .format(self.alphabet)
+                .format(self._alphabet)
 
 
-class DestNodeField(Base58Field):
+class DestNodeField(NonEmptyStringField):
     _base_types = (str, )
-
-    hashSizes = range(43, 46)
+    _b58validation = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        err = super()._specific_validation(val)
+        err = self._b58validation.validate(val)
         if err:
             return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
 
 
-class DestNymField(Base58Field):
+class DestNymField(NonEmptyStringField):
     _base_types = (str, )
+    _b58validation = Base58Field(short=True)
+
+    def _specific_validation(self, val):
+        err = self._b58validation.validate(val)
+        if err:
+            return err
 
 
 class RequestIdentifierField(FieldBase):
@@ -238,11 +255,20 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
-class VerkeyField(FieldBase):
+class VerkeyField(NonEmptyStringField):
     _base_types = (str, )
-    # TODO implement the rules
+    _b58short = Base58Field(short=True)
+    _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
+        if val.startswith('~'):
+            #short base58
+            err = self._b58short.validate(val[1:])
+        else:
+            #long base58
+            err = self._b58long.validate(val)
+        if err:
+            return err
         return None
 
 
@@ -262,21 +288,14 @@ class HexField(FieldBase):
             return "length should be {} length".format(self._length)
 
 
-class MerkleRootField(Base58Field):
+class MerkleRootField(NonEmptyStringField):
     _base_types = (str, )
-
-    # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 43-45 bytes
-    hashSizes = range(43, 46)
+    _b58validation = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        err = super()._specific_validation(val)
+        err = self._b58validation.validate(val)
         if err:
             return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
 
 
 class TimestampField(FieldBase):

@@ -333,7 +333,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.removeProdable(name=newNode.name)
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
-    verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
+    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
     initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
                               override=True)
