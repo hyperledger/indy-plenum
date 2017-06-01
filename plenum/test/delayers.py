@@ -140,5 +140,15 @@ def delay(what, frm, to, howlong):
 def delayNonPrimaries(nodeSet, instId, delay):
     from plenum.test.test_node import getNonPrimaryReplicas
     nonPrimReps = getNonPrimaryReplicas(nodeSet, instId)
+    testers = []
+
+    def cancelDelays():
+        for (r, tester) in testers:
+            r.node.nodeIbStasher.nodelay(tester)
+
     for r in nonPrimReps:
-        r.node.nodeIbStasher.delay(ppDelay(delay, instId))
+        tester = ppDelay(delay, instId)
+        testers.append((r, tester))
+        r.node.nodeIbStasher.delay(tester)
+
+    return cancelDelays
