@@ -312,4 +312,4 @@ class JsonField(FieldBase):
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
-            return 'should be valid JSON string'
+            return 'should be a valid JSON string'
