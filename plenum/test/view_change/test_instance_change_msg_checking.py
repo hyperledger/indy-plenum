@@ -31,7 +31,6 @@ def testInstanceChangeMsgTypeChecking(nodeSet, looper, up):
     params = nodeB.spylog.getLastParams(TestNode.discard)
 
     def chk():
-        # assert isinstance(params['msg'], InstanceChange)
         assert DISCARD_REASON in str(params['reason'])
 
     timeout = waits.expectedNodeToNodeMessageDeliveryTime()
