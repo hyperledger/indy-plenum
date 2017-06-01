@@ -353,13 +353,13 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-def testAddNonActiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
+def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                      tconf, steward1, stewardWallet, allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Epsilon"
 
-    # adding a new node without SERVICES set
-    # it means the node is in non active state
+    # adding a new node without SERVICES field
+    # it means the node is in the inactive state
     def del_services(op): del op[DATA][SERVICES]
 
     newSteward, newStewardWallet, newNode = \
