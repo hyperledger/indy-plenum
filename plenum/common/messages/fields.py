@@ -217,7 +217,7 @@ class RequestIdentifierField(FieldBase):
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = NonEmptyStringField().validate(val[0])
+        idr_error = IdentifierField().validate(val[0])
         if idr_error:
             return idr_error
         ts_error = NonNegativeNumberField().validate(val[1])
