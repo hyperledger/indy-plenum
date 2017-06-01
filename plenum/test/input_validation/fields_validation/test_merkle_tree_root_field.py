@@ -10,6 +10,7 @@ validator = MerkleRootField()
 
 def test_valid_merkle_root():
     assert not validator.validate(valid_merkle_root[:LENGTH_MIN])
+    assert not validator.validate(valid_merkle_root[:LENGTH_MAX])
 
 
 def test_empty_string():
