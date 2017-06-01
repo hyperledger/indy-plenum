@@ -353,8 +353,7 @@ Reply = TaggedTuple(REPLY, [f.RESULT])
 #     )
 InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
     f.VIEW_NO,
-    f.REASON,
-    f.ORD_SEQ_NOS,
+    f.REASON
 ])
 
 

@@ -86,7 +86,8 @@ def waitForSufficientRepliesForRequests(looper,
                                         requests = None,
                                         requestIds = None,
                                         fVal=None,
-                                        customTimeoutPerReq=None):
+                                        customTimeoutPerReq=None,
+                                        add_delay_to_timeout: float = 0):
     """
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
@@ -106,7 +107,7 @@ def waitForSufficientRepliesForRequests(looper,
 
     timeoutPerRequest = customTimeoutPerReq or \
                         waits.expectedTransactionExecutionTime(nodeCount)
-
+    timeoutPerRequest += add_delay_to_timeout
     # here we try to take into account what timeout for execution
     # N request - totalTimeout should be in
     # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
@@ -132,14 +133,16 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         client: TestClient,
                                         numReqs: int,
                                         fVal: int=None,
-                                        customTimeoutPerReq: float=None):
+                                        customTimeoutPerReq: float=None,
+                                        add_delay_to_timeout: float=0):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
     waitForSufficientRepliesForRequests(looper, client,
                                         requests=requests,
+                                        fVal=fVal,
                                         customTimeoutPerReq=customTimeoutPerReq,
-                                        fVal=fVal)
+                                        add_delay_to_timeout=add_delay_to_timeout)
     return requests
 
 
@@ -324,12 +327,6 @@ def addNodeBack(nodeSet: TestNodeSet,
     return node
 
 
-# def checkMethodCalled(node: TestNode,
-#                       method: str,
-#                       args: Tuple):
-#     assert node.spylog.getLastParams(method) == args
-
-
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     key = identifier, reqId
     assert key in node.requests
@@ -365,13 +362,14 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest.reqIdr in [p['pp'].reqIdr for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
+def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
+                        view_no: int):
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
     assert [(identifier, reqId)] in \
-           [p["ppReq"].reqIdr for p in paramsList]
-    idx = [p["ppReq"].reqIdr for p in paramsList].index([(identifier, reqId)])
+           [p["ppReq"].reqIdr and p["ppReq"].viewNo == view_no for p in paramsList]
+    idx = [p["ppReq"].reqIdr for p in paramsList if  p["ppReq"].viewNo == view_no].index([(identifier, reqId)])
     assert rv[idx]
 
 
