@@ -1154,7 +1154,7 @@ class Cli:
                     """)
 
     def getMatchedHelpableMsg(self, helpable):
-        matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
+        matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and helpable.startswith(hm.id)]
         if matchedHelpMsgs:
             return matchedHelpMsgs[0]
         return None
