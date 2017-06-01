@@ -349,13 +349,11 @@ class InstanceChange(MessageBase):
     typename = INSTANCE_CHANGE
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.REASON.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NOS.nm, IterableField(NonNegativeNumberField())),
+        (f.REASON.nm, NonNegativeNumberField())
     )
 # InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
 #     f.VIEW_NO,
-#     f.REASON,
-#     f.ORD_SEQ_NOS,
+#     f.REASON
 # ])
 
 
