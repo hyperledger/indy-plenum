@@ -15,7 +15,7 @@ from ledger.util import F
 from plenum.common.types import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq, ConsProofRequest
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, compare_3PC_keys
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
@@ -43,11 +43,11 @@ class LedgerManager(HasActionQueue):
         # their info like callbacks, state, etc
         self.ledgerRegistry = {}   # type: Dict[int, LedgerInfo]
 
-        # Largest Pre-Prepare sequence number received during catchup.
+        # Largest 3 phase key received during catchup.
         # This field is needed to discard any stashed 3PC messages or
         # ordered messages since the transactions part of those messages
         # will be applied when they are received through the catchup process
-        self.lastCaughtUpPpSeqNo = -1
+        self.last_caught_up_3PC = (0, 0)
 
     def __repr__(self):
         return self.owner.name
@@ -447,7 +447,7 @@ class LedgerManager(HasActionQueue):
         if getattr(ledger.catchUpTill, f.SEQ_NO_END.nm) == reallyLedger.size:
             cp = ledger.catchUpTill
             ledger.catchUpTill = None
-            self.catchupCompleted(ledgerId, cp.ppSeqNo)
+            self.catchupCompleted(ledgerId, (cp.viewNo, cp.ppSeqNo))
 
     def _processCatchupReplies(self, ledgerId, ledger: Ledger,
                                catchUpReplies: List):
@@ -751,12 +751,12 @@ class LedgerManager(HasActionQueue):
         return numRequest * (self.config.CatchupTransactionsTimeout +
                              0.1 * batchSize)
 
-    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=-1):
+    def catchupCompleted(self, ledgerId: int, last_3PC: Tuple=(0,0)):
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
-        if self.lastCaughtUpPpSeqNo < lastPpSeqNo:
-            self.lastCaughtUpPpSeqNo = lastPpSeqNo
+        if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) == 1:
+            self.last_caught_up_3PC = last_3PC
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.catchupReplyTimer = None
@@ -836,14 +836,20 @@ class LedgerManager(HasActionQueue):
             oldRoot = ledger.tree.merkle_tree_hash(0, seqNoStart)
 
         newRoot = ledger.tree.merkle_tree_hash(0, seqNoEnd)
-        ppSeqNo = self.owner.ppSeqNoForTxnSeqNo(ledgerId, seqNoEnd)
-        logger.debug('{} found ppSeqNo {} for ledger {} seqNo {}'.
-                     format(self, ppSeqNo, ledgerId, seqNoEnd))
+        key = self.owner.three_phase_key_for_txn_seq_no(ledgerId, seqNoEnd)
+        logger.debug('{} found 3 phase key {} for ledger {} seqNo {}'.
+                     format(self, key, ledgerId, seqNoEnd))
+        if key is None:
+            # The node receiving consistency proof should check if it has
+            # received this sentinel 3 phase key (0, 0) in spite of seeing a
+            # non-zero txn seq no
+            key = (0, 0)
+
         return ConsistencyProof(
             ledgerId,
             seqNoStart,
             seqNoEnd,
-            ppSeqNo,
+            *key,
             Ledger.hashToStr(oldRoot),
             Ledger.hashToStr(newRoot),
             [Ledger.hashToStr(p) for p in proof]

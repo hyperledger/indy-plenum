@@ -8,6 +8,8 @@ from collections import deque, defaultdict
 from contextlib import closing
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set
 
+from intervaltree import IntervalTree
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.stores.file_hash_store import FileHashStore
@@ -49,7 +51,8 @@ from plenum.common.types import Propagate, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
     Reject, ViewChangeDone
-from plenum.common.util import friendlyEx, getMaxFailures, pop_keys
+from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
+    compare_3PC_keys
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
@@ -330,8 +333,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._wallet = None
         self.seqNoDB = self.loadSeqNoDB()
 
-        # Stores the last txn seqNo that was executed for a ledger in a batch
-        self.batchToSeqNos = OrderedDict()  # type: OrderedDict[int, int]
+        # Stores the 3 phase keys for last `ProcessedBatchMapsToKeep` batches,
+        # the key is the ledger id and value is an interval tree with each
+        # interval being the range of txns and value being the 3 phase key of
+        # the batch in which those transactions were included. The txn range is
+        # exclusive of last seq no so to store txns from 1 to 100 add a range
+        # of `1:101`
+        self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
         self.view_change_in_progress = False
 
     @property
@@ -1460,8 +1468,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def allLedgersCaughtUp(self):
         replica = self.replicas[0]
-        if replica.lastOrderedPPSeqNo < self.ledgerManager.lastCaughtUpPpSeqNo:
-            replica.lastOrderedPPSeqNo = self.ledgerManager.lastCaughtUpPpSeqNo
+        if compare_3PC_keys(replica.last_ordered_3pc,
+                            self.ledgerManager.last_caught_up_3PC) == 1:
+            replica.last_ordered_3pc = self.ledgerManager.last_caught_up_3PC
 
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
@@ -1642,8 +1651,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if len(reqs) == len(req_idrs):
                 logger.debug("{} executing Ordered batch {} {} of {} requests".
                              format(self.name, view_no, pp_seq_no, len(req_idrs)))
-                self.executeBatch(pp_seq_no, pp_time, reqs, ledger_id, state_root,
-                                  txn_root)
+                self.executeBatch(view_no, pp_seq_no, pp_time, reqs, ledger_id,
+                                  state_root, txn_root)
                 r = True
             else:
                 logger.warning('{} did not find {} finalized requests, but '
@@ -1926,33 +1935,46 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def isSignatureVerificationNeeded(self, msg: Any):
         return True
 
-    def ppSeqNoForTxnSeqNo(self, ledgerId, seqNo):
-        # Looking in reverse since its more likely to be recent
-        for ppSeqNo, (lid, txnSeqNo) in reversed(self.batchToSeqNos.items()):
-            if lid == ledgerId and txnSeqNo == seqNo:
-                return ppSeqNo
-        return 0
+    def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
+        if ledger_id in self.txn_seq_range_to_3phase_key:
+            # point query in interval tree
+            s = self.txn_seq_range_to_3phase_key[ledger_id][seq_no]
+            if s:
+                # There should not be more than one interval for any seq no in
+                # the tree
+                assert len(s) == 1
+                return s.pop().data
+        return None
 
-    def executeBatch(self, ppSeqNo: int, ppTime: float, reqs: List[Request],
-                     ledgerId, stateRoot, txnRoot) -> None:
+    def executeBatch(self, view_no, pp_seq_no: int, pp_time: float,
+                     reqs: List[Request], ledger_id, state_root,
+                     txn_root) -> None:
         """
         Execute the REQUEST sent to this Node
 
-        :param viewNo: the view number (See glossary)
-        :param ppTime: the time at which PRE-PREPARE was sent
+        :param view_no: the view number (See glossary)
+        :param pp_time: the time at which PRE-PREPARE was sent
         :param reqs: list of client REQUESTs
         """
-        committedTxns = self.requestExecuter[ledgerId](ppTime, reqs, stateRoot,
-                                                       txnRoot)
+        committedTxns = self.requestExecuter[ledger_id](pp_time, reqs,
+                                                        state_root, txn_root)
         if committedTxns:
-            lastTxnSeqNo = committedTxns[-1][F.seqNo.name]
-            self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
-            logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
-                         format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
-            if len(self.batchToSeqNos) > self.config.ProcessedBatchMapsToKeep:
-                x = self.batchToSeqNos.popitem(last=False)
-                logger.debug('{} popped {} from batch to txn seqNo map'.
-                             format(self, x))
+            first_txn_seq_no = committedTxns[0][F.seqNo.name]
+            last_txn_seq_no = committedTxns[-1][F.seqNo.name]
+            if ledger_id not in self.txn_seq_range_to_3phase_key:
+                self.txn_seq_range_to_3phase_key[ledger_id] = IntervalTree()
+            # adding one to end of range since its exclusive
+            intrv_tree = self.txn_seq_range_to_3phase_key[ledger_id]
+            intrv_tree[first_txn_seq_no:last_txn_seq_no+1] = (view_no, pp_seq_no)
+            logger.debug('{} storing 3PC key {} for ledger {} range {}'.
+                         format(self, (view_no, pp_seq_no), ledger_id,
+                                (first_txn_seq_no, last_txn_seq_no)))
+            if len(intrv_tree) > self.config.ProcessedBatchMapsToKeep:
+                # Remove the first element from the interval tree
+                old = intrv_tree[intrv_tree.begin()].pop()
+                intrv_tree.remove(old)
+                logger.debug('{} popped {} from txn to batch seqNo map'.
+                             format(self, old))
 
     def updateSeqNoMap(self, committedTxns):
         self.seqNoDB.addBatch((txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm],
@@ -2075,11 +2097,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = 0
         while self.stashedOrderedReqs:
             msg = self.stashedOrderedReqs.popleft()
-            if msg.ppSeqNo <= self.ledgerManager.lastCaughtUpPpSeqNo:
+            if compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
+                                self.ledgerManager.last_caught_up_3PC) >= 0:
                 logger.debug('{} ignoring stashed ordered msg {} since ledger '
                              'manager has lastCaughtUpPpSeqNo as {}'.
                              format(self, msg,
-                                    self.ledgerManager.lastCaughtUpPpSeqNo))
+                                    self.ledgerManager.last_caught_up_3PC))
                 continue
             if not self.gotInCatchupReplies(msg):
                 if msg.instId == 0:

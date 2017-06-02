@@ -4,9 +4,7 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper, nodeThetaAdded, \
     stewardAndWallet1, steward1, stewardWallet
 from plenum.test.pool_transactions.helper import add_2_nodes
-from plenum.test.primary_selection.helper import \
-    check_rank_consistent_across_each_node, check_newly_added_nodes
-from plenum.test.test_node import checkProtocolInstanceSetup
+from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
 @pytest.fixture(scope="module")

@@ -1,3 +1,4 @@
+from plenum.common.util import check_if_all_equal_in_list
 from stp_zmq.zstack import KITZStack
 from typing import Iterable
 
@@ -98,3 +99,11 @@ def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
 def check_ledger_state(node, ledger_id, ledger_state):
     assertEquality(node.ledgerManager.getLedgerInfoByType(ledger_id).state,
                    ledger_state)
+
+
+def check_last_3pc_master(node, other_nodes):
+    last_3pc = [node.replicas[0].last_ordered_3pc]
+    for n in other_nodes:
+        last_3pc.append(n.replicas[0].last_ordered_3pc)
+    assert check_if_all_equal_in_list(last_3pc)
+

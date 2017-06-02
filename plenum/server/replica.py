@@ -1,6 +1,6 @@
 import time
-from binascii import hexlify, unhexlify
-from collections import deque, OrderedDict, namedtuple
+from binascii import hexlify
+from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
 from operator import itemgetter
@@ -10,11 +10,9 @@ from typing import Set
 from typing import Tuple
 from hashlib import sha256
 
-import math
 from orderedset import OrderedSet
 from sortedcontainers import SortedDict
 from sortedcontainers import SortedList
-from sortedcontainers import SortedSet
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
@@ -26,7 +24,7 @@ from plenum.common.types import PrePrepare, \
     CheckpointState, Checkpoint, Reject, f, InstanceChange
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.util import updateNamedTuple
+from plenum.common.util import updateNamedTuple, compare_3PC_keys
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -135,6 +133,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # instance is
         self._primaryName = None    # type: Optional[str]
 
+        # TODO: Rename since it will contain all messages till primary is
+        # selected, primary selection is only done once pool ledger is
+        # caught up
         # Requests waiting to be processed once the replica is able to decide
         # whether it is primary or not
         self.postElectionMsgs = deque()
@@ -152,7 +153,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # PrePrepare and sender
         # TODO: Since pp_seq_no will start from 1 in each view, the comparator
         # of SortedDict needs to change
-        self.prePreparesPendingPrevPP = SortedDict(lambda k: k[1])
+        self.prePreparesPendingPrevPP = SortedDict(lambda k: (k[0], k[1]))
 
         # PREPAREs that are stored by non primary replica for which it has not
         #  got any PRE-PREPARE. Dictionary that stores a tuple of view no and
@@ -171,17 +172,13 @@ class Replica(HasActionQueue, MessageProcessor):
         # which it has broadcasted to all other non primary replicas
         # Key of dictionary is a 2 element tuple with elements viewNo,
         # pre-prepare seqNo and value is the received PRE-PREPARE
-        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
-        # of SortedDict needs to change
-        self.sentPrePrepares = SortedDict(lambda k: k[1])
+        self.sentPrePrepares = SortedDict(lambda k: (k[0], k[1]))
         # type: Dict[Tuple[int, int], PrePrepare]
 
         # Dictionary of received PRE-PREPAREs. Key of dictionary is a 2
         # element tuple with elements viewNo, pre-prepare seqNo and value
         # is the received PRE-PREPARE
-        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
-        # of SortedDict needs to change
-        self.prePrepares = SortedDict(lambda k: k[1])
+        self.prePrepares = SortedDict(lambda k: (k[0], k[1]))
         # type: Dict[Tuple[int, int], PrePrepare]
 
         # Dictionary of received Prepare requests. Key of dictionary is a 2
@@ -213,9 +210,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # viewNo and value a map of pre-prepare sequence number to commit
         self.stashed_out_of_order_commits = {}  # type: Dict[int,Dict[int,Commit]]
 
-        # TODO: Since pp_seq_no will start from 1 in each view, the comparator
-        # of SortedDict needs to change
-        self.checkpoints = SortedDict(lambda k: k[0])
+        self.checkpoints = SortedDict(lambda k: k[1])
 
         self.stashedRecvdCheckpoints = {}   # type: Dict[Tuple,
         # Dict[str, Checkpoint]]
@@ -238,12 +233,15 @@ class Replica(HasActionQueue, MessageProcessor):
             # the request key needs to be removed once its ordered
             self.requestQueues[ledger_id] = OrderedSet()
 
-        self.batches = OrderedDict()  # type: OrderedDict[int, Tuple[int, float, bytes]]
+        self.batches = OrderedDict()  # type: OrderedDict[Tuple[int, int],
+        # Tuple[int, float, bytes]]
 
         # TODO: Need to have a timer for each ledger
         self.lastBatchCreated = time.perf_counter()
 
-        self.lastOrderedPPSeqNo = 0
+        # self.lastOrderedPPSeqNo = 0
+        # Three phase key for the last ordered batch
+        self.last_ordered_3pc = (0, 0)
 
         # Keeps the `lastOrderedPPSeqNo` and ledger_summary for each view no.
         # GC when ordered last batch of the view
@@ -369,11 +367,14 @@ class Replica(HasActionQueue, MessageProcessor):
     def primaryChanged(self, primaryName):
         self.primaryName = primaryName
         if primaryName == self.name:
-            # TODO: Remove next line
-            self._lastPrePrepareSeqNo = self.lastOrderedPPSeqNo
+            self._lastPrePrepareSeqNo = self.last_ordered_3pc[1]
         self.set_last_ordered_for_non_master()
 
-    def get_lowest_prepared_certificate_in_view(self, view_no):
+    def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
+        """
+        Return lowest pp_seq_no of the view for which can be prepared but
+        choose from unprocessed PRE-PREPAREs and PREPAREs.
+        """
         # TODO: Naive implementation, dont need to iterate over the complete
         # data structures, fix this later
         seq_no_pp = SortedList()      # pp_seq_no of PRE-PREPAREs
@@ -383,6 +384,9 @@ class Replica(HasActionQueue, MessageProcessor):
         for (v, p) in self.prePreparesPendingPrevPP:
             if v == view_no:
                 seq_no_pp.add(p)
+            if v > view_no:
+                break
+
         for (v, p), pr in self.preparesWaitingForPrePrepare.items():
             if v == view_no and len(pr) >= 2*self.f:
                 seq_no_p.add(p)
@@ -396,12 +400,13 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.isMaster:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
-            lowest_prepared = self.get_lowest_prepared_certificate_in_view(
+            lowest_prepared = self.get_lowest_probable_prepared_certificate_in_view(
                 self.viewNo)
             # TODO: This assumes some requests will be present, fix this once
             # view change is completely implemented
-            self.lastOrderedPPSeqNo = 0 if lowest_prepared is None \
+            lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
+            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
 
     def removeObsoletePpReqs(self):
         # If replica was primary in previous view then remove every sent
@@ -411,8 +416,13 @@ class Replica(HasActionQueue, MessageProcessor):
             viewNos = list(viewNos)
             lastViewNo = viewNos[-2]
             if self.primaryNames[lastViewNo] == self.name:
-                lastViewPPs = [pp for pp in self.sentPrePrepares.values() if
-                               pp.viewNo == lastViewNo]
+                lastViewPPs = []
+                for (v, ps), pp in self.sentPrePrepares.items():
+                    if v > lastViewNo:
+                        break
+                    if v == lastViewNo:
+                        lastViewPPs.append(pp)
+
                 obs = set()
                 for pp in lastViewPPs:
                     if not self.prepares.hasEnoughVotes(pp, self.f):
@@ -420,8 +430,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
                 for key in sorted(list(obs), key=itemgetter(1), reverse=True):
                     ppReq = self.sentPrePrepares[key]
-                    count, _, prevStateRoot = self.batches[key[1]]
-                    self.batches.pop(key[1])
+                    count, _, prevStateRoot = self.batches.pop(key)
                     self.revert(ppReq.ledgerId, prevStateRoot, count)
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
@@ -526,7 +535,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # tracked to revert this PRE-PREPARE
         logger.debug('{} tracking batch for {} with state root {}'.
                      format(self, pp, prevStateRootHash))
-        self.batches[pp.ppSeqNo] = [pp.discarded, pp.ppTime, prevStateRootHash]
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.discarded, pp.ppTime,
+                                                 prevStateRootHash]
 
     def send3PCBatch(self):
         r = 0
@@ -846,21 +856,35 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return {key for key in reqKeys if not self.requests.isFinalised(key)}
 
-    def isNextPrePrepare(self, ppSeqNo: int):
-        lastPp = self.lastPrePrepare
-        if lastPp:
-            # TODO: Is it possible that lastPp.ppSeqNo is less than
-            # self.lastOrderedPPSeqNo? Maybe if the node does not disconnect
-            # but does no work for some time or is missing PRE-PREPARES
-            lastPpSeqNo = lastPp.ppSeqNo if lastPp.ppSeqNo > \
-                                            self.lastOrderedPPSeqNo \
-                                            else self.lastOrderedPPSeqNo
-        else:
-            lastPpSeqNo = self.lastOrderedPPSeqNo
+    def isNextPrePrepare(self, view_no: int, pp_seq_no: int):
+        """
 
-        if ppSeqNo - lastPpSeqNo != 1:
+        """
+        if view_no == self.viewNo and pp_seq_no == 1:
+            # First PRE-PREPARE in a new view
+            return True
+
+        last_pp = self.lastPrePrepare
+        if last_pp:
+            if last_pp.viewNo == view_no:
+                last_pp_seq_no = last_pp.ppSeqNo if last_pp.ppSeqNo > \
+                                                self.last_ordered_3pc[1] \
+                                                else self.last_ordered_3pc[1]
+            elif last_pp.viewNo > view_no:
+                return False
+            else:
+                assert view_no == self.viewNo
+                last_pp_seq_no = 0
+        else:
+            # No PRE-PREPARE found, maybe the node just started.
+            if view_no == self.last_ordered_3pc[0]:
+                last_pp_seq_no = self.last_ordered_3pc[1]
+            else:
+                return False
+
+        if pp_seq_no - last_pp_seq_no != 1:
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
-                         format(self, ppSeqNo, lastPpSeqNo))
+                         format(self, pp_seq_no, last_pp_seq_no))
             # TODO: think of a better way, urgently
             self.set_last_ordered_for_non_master()
             return False
@@ -960,7 +984,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.enqueuePrePrepare(pp, sender, nonFinReqs)
             return False
 
-        if not self.isNextPrePrepare(pp.ppSeqNo):
+        if not self.isNextPrePrepare(pp.viewNo, pp.ppSeqNo):
             self.enqueuePrePrepare(pp, sender)
             return False
 
@@ -1071,16 +1095,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
     @property
     def lastPrePrepare(self):
-        lastSeqNo = 0
+        last_3pc = (0, 0)
         lastPp = None
         if self.sentPrePrepares:
-            (_, s), pp = self.peekitem(self.sentPrePrepares, -1)
-            lastSeqNo = s
+            (v, s), pp = self.peekitem(self.sentPrePrepares, -1)
+            last_3pc = (v, s)
             lastPp = pp
         if self.prePrepares:
-            (_, s), pp = self.peekitem(self.prePrepares, -1)
-            if s > lastSeqNo:
-                lastSeqNo = s
+            (v, s), pp = self.peekitem(self.prePrepares, -1)
+            if compare_3PC_keys(last_3pc, (v, s)) == 1:
                 lastPp = pp
         return lastPp
 
@@ -1253,16 +1276,17 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug('{} encountered {} which belongs to a later view'
                          .format(self, commit))
             return False
-        if view_no != self.viewNo and view_no not in self.view_ends_at:
-            logger.debug('{} encountered {} from past view for which dont know '
-                         'the end of view'.format(self, commit))
-            return False
-
-        ppSeqNos = []
-        for v, p in self.commits:
-            if v == commit.viewNo:
-                ppSeqNos.append(p)
-        return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
+        # if view_no != self.viewNo and view_no not in self.view_ends_at:
+        #     logger.debug('{} encountered {} from past view for which dont know '
+        #                  'the end of view'.format(self, commit))
+        #     return False
+        #
+        # ppSeqNos = []
+        # for v, p in self.commits:
+        #     if v == commit.viewNo:
+        #         ppSeqNos.append(p)
+        # return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
+        return commit.ppSeqNo == 1
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -1504,7 +1528,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
-        self.lastOrderedPPSeqNo = ppSeqNo
+        self.last_ordered_3pc = (viewNo, ppSeqNo)
 
     def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str,
                           nonFinReqs: Set=None):
@@ -1546,7 +1570,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         r = 0
         while self.prePreparesPendingPrevPP and self.isNextPrePrepare(
-                self.prePreparesPendingPrevPP.iloc[0][1]):
+                *self.prePreparesPendingPrevPP.iloc[0]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self.can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
                 self.discard(pp, "Pre-Prepare from a previous view",
