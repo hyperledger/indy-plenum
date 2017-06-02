@@ -31,13 +31,52 @@ class PrimarySelector(PrimaryDecider):
                               msg: ViewChangeDone,
                               sender: str) -> None:
         """
-        Process a vote from a replica to select a particular replica as primary.
-        Once 2f + 1 primary declarations have been received, decide on a
-        primary replica.
+        Processes ViewChangeDone messages. Once 2f + 1 messages have been 
+        received, decides on a primary for specific replica. 
 
-        :param prim: a vote
+        :param msg: ViewChangeDone message
         :param sender: the name of the node from which this message was sent
         """
+
+        logger.debug("{}'s elector started processing ViewChangeDone msg "
+                     "from {} : {}"
+                    .format(self.name, sender, msg))
+
+        primary_name = msg.name
+        instance_id = msg.instId
+        replica = self.replicas[instance_id]
+
+
+        if instance_id == 0 and replica.getNodeName(primary_name) == self.previous_master_primary:
+            self.discard(primary_name,
+                         '{} got Primary from {} for {} who was primary of '
+                         'master in previous view too'
+                         .format(self, sender, primary_name),
+                         logMethod=logger.warning)
+            return
+
+        sender_replica_name = replica.generateName(sender, instance_id)
+
+        # Nodes should not be able to declare `Primary` winner more than once
+        if instance_id not in self.primaryDeclarations:
+             self.setDefaults(instance_id)
+        if sender_replica_name in self.primaryDeclarations[instance_id]:
+            self.discard(msg,
+                         "already got primary declaration from {}".
+                         format(sender_replica_name),
+                         logger.warning)
+
+            key = (Primary.typename, instId, sender_replica_name)
+            self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
+            # If got more than one duplicate message then blacklist
+            # if self.duplicateMsgs[key] > 1:
+            #     self.send(BlacklistMsg(
+            #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
+
+        # TODO: 2f+ 1
+        # One of them should be next primary
+        # Another one - current node
+
         # TODO implement logic here; the commented code is a starting point based on PrimaryElector
         # logger.debug("{}'s elector started processing primary msg from {} : {}"
         #              .format(self.name, sender, prim))
@@ -176,3 +215,4 @@ class PrimarySelector(PrimaryDecider):
                                                          None))
             msgs.append(msg)
         return msgs
+
