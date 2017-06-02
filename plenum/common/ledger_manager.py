@@ -468,9 +468,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        merkleInfo = ledger.add(self._transform(txn))
-                        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
-                        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
+                        self._add_txn(ledgerId, ledger, ledgerInfo, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerId, ledger,
@@ -488,6 +486,11 @@ class LedgerManager(HasActionQueue):
                         # `self.receivedCatchUpReplies`
                         return numProcessed + toBeProcessed
         return numProcessed
+
+    def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
+        merkleInfo = ledger.add(self._transform(txn))
+        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
+        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)

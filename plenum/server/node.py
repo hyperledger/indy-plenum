@@ -1446,6 +1446,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return rh
 
     def allLedgersCaughtUp(self):
+        # make sure replicas don't process 3PC messages for already ordered txns
+        for replica in self.replicas:
+            if replica.isMaster:
+                replica.remove_txns_from_catch_up(self.ledgerManager.lastCaughtUpPpSeqNo)
+                break
+
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # TODO: next line not needed
