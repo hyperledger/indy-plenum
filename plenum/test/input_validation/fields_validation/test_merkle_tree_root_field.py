@@ -1,9 +1,5 @@
 import pytest
-import string
 from plenum.common.messages.fields import MerkleRootField
-from plenum.common.util import randomString
-from plenum.test.input_validation.utils import *
-
 
 LENGTH_MIN = 43
 LENGTH_MAX = 45
@@ -14,6 +10,7 @@ validator = MerkleRootField()
 
 def test_valid_merkle_root():
     assert not validator.validate(valid_merkle_root[:LENGTH_MIN])
+    assert not validator.validate(valid_merkle_root[:LENGTH_MAX])
 
 
 def test_empty_string():

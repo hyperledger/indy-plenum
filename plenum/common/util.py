@@ -21,6 +21,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
+from libnacl import randombytes_uniform
 import psutil
 from jsonpickle import encode, decode
 from six import iteritems, string_types
@@ -54,7 +55,10 @@ def randomString(size: int = 20,
         chars = list(chars)
 
     def randomChar():
-        return random.choice(chars)
+        # DONOT use random.choice its as PRNG not secure enough for our needs
+        # return random.choice(chars)
+        rn = randombytes_uniform(len(chars))
+        return chars[rn]
 
     return ''.join(randomChar() for _ in range(size))
 
@@ -509,22 +513,27 @@ def createDirIfNotExists(dir):
         os.makedirs(dir)
 
 
-def is_valid_port(port):
-    return port.isdigit() and int(port) in range(1, 65536)
+def is_network_port_valid(port):
+    return port.isdigit() and 0 < int(port) < 65536
 
 
-def check_endpoint_valid(endpoint, required: bool=True):
-    if not endpoint:
-        if required:
-            raise MissingEndpoint()
-        else:
-            return
-    ip, port = endpoint.split(':')
+def is_network_ip_address_valid(ip_address):
     try:
-        ipaddress.ip_address(ip)
-    except Exception as exc:
-        raise InvalidEndpointIpAddress(endpoint) from exc
-    if not is_valid_port(port):
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def check_endpoint_valid(endpoint):
+    if ':' not in endpoint:
+        # TODO: replace with more suitable exception
+        raise InvalidEndpointIpAddress(endpoint)
+    ip, port = endpoint.split(':')
+    if not is_network_ip_address_valid(ip):
+        raise InvalidEndpointIpAddress(endpoint)
+    if not is_network_port_valid(port):
         raise InvalidEndpointPort(endpoint)
 
 
