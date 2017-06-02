@@ -328,9 +328,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # help in voting for/against a view change.
         self.lost_primary_at = None
 
-        # First view change message received for a view no
-        self.view_change_started_at = {}
-
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
