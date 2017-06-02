@@ -366,7 +366,7 @@ class ViewChangeDone(MessageBase):
         (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
     )
 
 # ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
