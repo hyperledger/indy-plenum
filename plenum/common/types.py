@@ -360,11 +360,6 @@ class ViewChangeDone(MessageBase):
     """
     typename = VIEW_CHANGE_DONE
 
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    # TODO determine if these are the correct fields
     schema = (
         (f.NAME.nm, NonEmptyStringField()),
         (f.INST_ID.nm, NonNegativeNumberField()),
