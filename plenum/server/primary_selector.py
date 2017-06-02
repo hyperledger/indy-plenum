@@ -12,19 +12,25 @@ logger = getlogger()
 # TODO: Assumes that all nodes are up. Should select only
 # those nodes which are up
 class PrimarySelector(PrimaryDecider):
+    """
+    Simple implementation of primary decider. 
+    Decides on a primary in round-robin fashion.
+    """
+
     def __init__(self, node):
         super().__init__(node)
-        # Stores the last `ViewChangeDone` message sent, if no view change
-        # has happened, a node simply send a ViewChangeDone with view no 0 to a
-        # newly joined node
+        # Stores the last `ViewChangeDone` message sent for specific instance.
+        # If no view change has happened, a node simply send a ViewChangeDone
+        # with view no 0 to a newly joined node
         self.view_change_done_messages = {}
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self.processViewChangeReady)]
+        return [(ViewChangeDone, self.processViewChangeDone)]
 
-    def processViewChangeReady(self, msg: ViewChangeDone,
-                               sender: str) -> None:
+    def processViewChangeDone(self,
+                              msg: ViewChangeDone,
+                              sender: str) -> None:
         """
         Process a vote from a replica to select a particular replica as primary.
         Once 2f + 1 primary declarations have been received, decide on a
