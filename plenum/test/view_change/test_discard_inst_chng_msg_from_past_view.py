@@ -14,7 +14,7 @@ def testDiscardInstChngMsgFrmPastView(nodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo - 1, 0)
+    icMsg = nodeSet.Alpha._create_instance_change_msg(curViewNo, 0)
     nodeSet.Alpha.send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request

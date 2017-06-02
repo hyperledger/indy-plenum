@@ -98,6 +98,9 @@ class IterableField(FieldBase):
     _base_types = (list, tuple)
 
     def __init__(self, inner_field_type: FieldValidator, **kwargs):
+        assert inner_field_type
+        assert isinstance(inner_field_type, FieldValidator)
+
         self.inner_field_type = inner_field_type
         super().__init__(**kwargs)
 
@@ -158,8 +161,8 @@ class ChooseField(FieldBase):
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
-            return "expected '{}' unknown value '{}'" \
-                   "".format(', '.join(map(str, self._possible_values)), val)
+            return "expected one of '{}', unknown value '{}'" \
+                   .format(', '.join(map(str, self._possible_values)), val)
 
 
 class LedgerIdField(ChooseField):
@@ -170,41 +173,54 @@ class LedgerIdField(ChooseField):
         super().__init__(self.ledger_ids, **kwargs)
 
 
-class IdentifierField(NonEmptyStringField):
-    _base_types = (str, )
-    # TODO implement the rules
-
-
 class Base58Field(FieldBase):
     _base_types = (str,)
 
-    alphabet = set(base58.alphabet)
+    #long id is 32 bye long; short is 16 bytes long;
+    #upper limit is calculated according to formula
+    #for the max length of encoded data
+    #ceil(n * 138 / 100 + 1)
+    #lower formula is based on data from field
+    def __init__(self, short=False, long=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._alphabet = set(base58.alphabet)
+        self._lengthLimits = []
+        if short:
+            self._lengthLimits.append(range(15, 26))
+        if long:
+            self._lengthLimits.append(range(43, 46))
 
     def _specific_validation(self, val):
-        if len(val) == 0:
-            return 'provided value of zero length'
-        if set(val) - self.alphabet:
+        if self._lengthLimits:
+            inlen = len(val)
+            goodlen = any(inlen in r for r in self._lengthLimits)
+            if not goodlen:
+                return 'value length {} is not in ranges {}'\
+                    .format(inlen, self._lengthLimits)
+        if set(val) - self._alphabet:
             return 'should not contains chars other than {}' \
-                .format(self.alphabet)
+                .format(self._alphabet)
+
+
+class IdentifierField(Base58Field):
+    _base_types = (str, )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, short=True, *args, **kwargs)
 
 
 class DestNodeField(Base58Field):
-    _base_types = (str, )
+    _base_types = (str,)
 
-    hashSizes = range(43, 46)
-
-    def _specific_validation(self, val):
-        err = super()._specific_validation(val)
-        if err:
-            return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, *args, **kwargs)
 
 
 class DestNymField(Base58Field):
     _base_types = (str, )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(short=True, *args, **kwargs)
 
 
 class RequestIdentifierField(FieldBase):
@@ -214,10 +230,10 @@ class RequestIdentifierField(FieldBase):
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = NonEmptyStringField().validate(val[0])
+        idr_error = IdentifierField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
@@ -225,7 +241,6 @@ class RequestIdentifierField(FieldBase):
 class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
-    # TODO eliminate duplication with RequestIdentifierField
 
     def _specific_validation(self, val):
         if len(val) != self._length:
@@ -233,17 +248,25 @@ class TieAmongField(FieldBase):
         idr_error = NonEmptyStringField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
 
+# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
-    # TODO implement the rules
+    _b58short = Base58Field(short=True)
+    _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        return None
+        if len(val) == 0:
+            return None
+        if val.startswith('~'):
+            #short base58
+            return self._b58short.validate(val[1:])
+        #long base58
+        return self._b58long.validate(val)
 
 
 class HexField(FieldBase):
@@ -265,18 +288,8 @@ class HexField(FieldBase):
 class MerkleRootField(Base58Field):
     _base_types = (str, )
 
-    # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 43-45 bytes
-    hashSizes = range(43, 46)
-
-    def _specific_validation(self, val):
-        err = super()._specific_validation(val)
-        if err:
-            return err
-        valSize = len(val)
-        if valSize not in self.hashSizes:
-            return 'length should be one of {}, but it was {}'\
-                .format(self.hashSizes, valSize)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, *args, **kwargs)
 
 
 class TimestampField(FieldBase):
@@ -299,4 +312,4 @@ class JsonField(FieldBase):
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
-            return 'should be valid JSON string'
+            return 'should be a valid JSON string'
