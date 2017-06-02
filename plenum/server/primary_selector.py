@@ -130,18 +130,17 @@ class PrimarySelector(PrimaryDecider):
         #     #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
-        self.scheduleSelection()
+        self._scheduleSelection()
 
-    def scheduleSelection(self):
+    def _scheduleSelection(self):
         """
         Schedule election at some time in the future. Currently the election
         starts immediately.
         """
-        self._schedule(self.startSelection)
+        self._schedule(self._startSelection)
 
-    def startSelection(self):
+    def _startSelection(self):
         logger.debug("{} starting selection".format(self))
-
         for idx, r in enumerate(self.replicas):
             if r.primaryName is not None:
                 continue
@@ -158,11 +157,12 @@ class PrimarySelector(PrimaryDecider):
     def viewChanged(self, viewNo: int):
         if viewNo > self.viewNo:
             self.viewNo = viewNo
-            self.startSelection()
+            self._startSelection()
         else:
             logger.warning("Provided view no {} is not greater than the "
                            "current view no {}".format(viewNo, self.viewNo))
 
+    # TODO: there no such method in super class, it should be declared
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         msgs = []
         for inst_id, r in enumerate(self.replicas):
