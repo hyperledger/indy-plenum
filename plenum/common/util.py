@@ -597,7 +597,7 @@ def check_if_all_equal_in_list(lst):
 
 def compare_3PC_keys(key1, key2) -> int:
     """
-    Return 1 if key2 is greater than key1, -1 if lesser 0 otherwise
+    Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
     """
     if key1[0] == key2[0]:
         return key2[1] - key1[1]

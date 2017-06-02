@@ -77,7 +77,10 @@ def test_list_item_equality():
 
 def test_3PC_key_comaparison():
     assert compare_3PC_keys((1,2), (1,2)) == 0
-    assert compare_3PC_keys((1,3), (1,2)) == -1
-    assert compare_3PC_keys((1,2), (1,3)) == 1
-    assert compare_3PC_keys((1, 100), (2, 3)) == 1
-    assert compare_3PC_keys((2, 100), (1, 300)) == -1
+    assert compare_3PC_keys((1,3), (1,2)) < 0
+    assert compare_3PC_keys((1,2), (1,3)) > 0
+    assert compare_3PC_keys((1,2), (1,10)) > 0
+    assert compare_3PC_keys((1, 100), (2, 3)) > 0
+    assert compare_3PC_keys((1, 100), (4, 3)) > 0
+    assert compare_3PC_keys((2, 100), (1, 300)) < 0
+

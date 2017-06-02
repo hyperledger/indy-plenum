@@ -1469,7 +1469,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def allLedgersCaughtUp(self):
         replica = self.replicas[0]
         if compare_3PC_keys(replica.last_ordered_3pc,
-                            self.ledgerManager.last_caught_up_3PC) == 1:
+                            self.ledgerManager.last_caught_up_3PC) > 0:
             replica.last_ordered_3pc = self.ledgerManager.last_caught_up_3PC
 
         self.mode = Mode.participating

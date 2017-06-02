@@ -1103,7 +1103,7 @@ class Replica(HasActionQueue, MessageProcessor):
             lastPp = pp
         if self.prePrepares:
             (v, s), pp = self.peekitem(self.prePrepares, -1)
-            if compare_3PC_keys(last_3pc, (v, s)) == 1:
+            if compare_3PC_keys(last_3pc, (v, s)) > 0:
                 lastPp = pp
         return lastPp
 

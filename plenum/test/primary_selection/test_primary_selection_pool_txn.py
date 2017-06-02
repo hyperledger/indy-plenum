@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper, nodeThetaAdded, \
     stewardAndWallet1, steward1, stewardWallet
@@ -16,7 +17,8 @@ def one_node_added(looper, txnPoolNodeSet, nodeThetaAdded):
     return new_node
 
 
-def test_primary_selection_non_genesis_node(one_node_added):
+def test_primary_selection_non_genesis_node(one_node_added, looper, txnPoolNodeSet):
+    waitNodeDataEquality(looper, one_node_added, *txnPoolNodeSet[:4])
     return one_node_added
 
 
@@ -27,6 +29,9 @@ def test_primary_selection_increase_f(one_node_added, looper, txnPoolNodeSet,
                             tdirWithPoolTxns, tconf, allPluginsPath)
 
     check_newly_added_nodes(looper, txnPoolNodeSet, new_nodes)
+    for new_node in new_nodes:
+        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+
 
 # TODO: Add more tests to make one next primary crashed, malicious, ensure primary
     # selection happens after catchup

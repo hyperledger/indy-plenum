@@ -661,10 +661,13 @@ class LedgerManager(HasActionQueue):
                              getattr(proof, f.SEQ_NO_END.nm)
                 if (start, end) not in recvdPrf:
                     recvdPrf[(start, end)] = {}
-                key = (getattr(proof, f.PP_SEQ_NO.nm),
+                key = (
+                       getattr(proof, f.VIEW_NO.nm),
+                       getattr(proof, f.PP_SEQ_NO.nm),
                        getattr(proof, f.OLD_MERKLE_ROOT.nm),
                        getattr(proof, f.NEW_MERKLE_ROOT.nm),
-                       tuple(getattr(proof, f.HASHES.nm)))
+                       tuple(getattr(proof, f.HASHES.nm))
+                )
                 recvdPrf[(start, end)][key] = recvdPrf[(start, end)]. \
                                                   get(key, 0) + 1
             else:
@@ -677,10 +680,10 @@ class LedgerManager(HasActionQueue):
         adjustedF = getMaxFailures(self.owner.totalNodes - 1)
         result = {}
         for (start, end), val in groupedProofs.items():
-            for (lastPpSeqNo, oldRoot, newRoot, hashes), count in val.items():
+            for (view_no, lastPpSeqNo, oldRoot, newRoot, hashes), count in val.items():
                 if count > adjustedF:
-                    result[(start, end)] = (lastPpSeqNo, oldRoot, newRoot,
-                                            hashes)
+                    result[(start, end)] = (view_no, lastPpSeqNo, oldRoot,
+                                            newRoot, hashes)
                     # There would be only one correct proof for a range of
                     # sequence numbers
                     break
@@ -689,7 +692,7 @@ class LedgerManager(HasActionQueue):
     def _latestReliableProof(self, groupedProofs, ledger):
         reliableProofs = self._reliableProofs(groupedProofs)
         latest = None
-        for (start, end), (lastPpSeqNo, oldRoot, newRoot, hashes) in \
+        for (start, end), (view_no, last_pp_seq_no, oldRoot, newRoot, hashes) in \
                 reliableProofs.items():
             # TODO: Can we do something where consistency proof's start is older
             #  than the current ledger's size and proof's end is larger
@@ -697,10 +700,8 @@ class LedgerManager(HasActionQueue):
             # Ignore if proof's start is not the same as the ledger's end
             if start != ledger.size:
                 continue
-            if latest is None:
-                latest = (start, end) + (lastPpSeqNo, oldRoot, newRoot, hashes)
-            elif latest[1] < end:
-                latest = (start, end) + (lastPpSeqNo, oldRoot, newRoot, hashes)
+            if latest is None or latest[1] < end:
+                latest = (start, end) + (view_no, last_pp_seq_no, oldRoot, newRoot, hashes)
         return latest
 
     def getConsistencyProofRequest(self, ledgerId, groupedProofs):
@@ -755,7 +756,7 @@ class LedgerManager(HasActionQueue):
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
-        if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) == 1:
+        if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)

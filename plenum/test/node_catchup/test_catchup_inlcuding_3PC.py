@@ -42,10 +42,18 @@ def pre_check(tconf, looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.run(client.ensureConnectedToNodes())
     for i in range(tconf.ProcessedBatchMapsToKeep-1):
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1)
+
+    # All node maintain the same map from txn range to 3PC
     looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet))
     for i in range(3):
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 1)
-    looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet, 0))
+
+    # All node maintain the same map from txn range to 3PC and its equal to
+    # `tconf.ProcessedBatchMapsToKeep` even after sending more batches than
+    # `tconf.ProcessedBatchMapsToKeep`, which shows the garbage cleaning in
+    # action
+    looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet,
+                          tconf.ProcessedBatchMapsToKeep))
 
 
 def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
@@ -53,5 +61,9 @@ def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
     _, new_node, client, wallet, _, _ = nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(new_node)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    # Check the new node has set same `last_3pc_ordered` for master as others
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
     chk_if_equal_txn_to_3pc(txnPoolNodeSet[:4])
+    # Requests still processed
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
