@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.test import waits
 from plenum.test.delayers import nom_delay, delay_3pc_messages
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests
@@ -37,7 +38,8 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     reqs = sendRandomRequests(wallet1, client1, tconf.Max3PCBatchSize - 1)
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
-    waitForSufficientRepliesForRequests(looper, client1, requests=reqs, add_delay_to_timeout=2)
+    waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
+                                        add_delay_to_timeout=2)
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
     # have processed it.
@@ -49,7 +51,12 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
     reqs = sendRandomRequests(wallet1, client1, 2 * tconf.Max3PCBatchSize)
     looper.run(eventually(chk, 2 * tconf.Max3PCBatchSize))
-    ensureElectionsDone(looper, txnPoolNodeSet)
+
+    # Since each nomination is delayed and there will be multiple nominations
+    # so adding some extra time
+    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
+              len(txnPoolNodeSet)*delay
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitForSufficientRepliesForRequests(looper, client1, requests=reqs,
                                         add_delay_to_timeout=2)
     looper.run(eventually(chk, 0))
