@@ -167,7 +167,6 @@ class Reelection(MessageBase):
 
 class Primary(MessageBase):
     typename = PRIMARY
-
     schema = (
         (f.NAME.nm, NonEmptyStringField()),
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -352,14 +351,32 @@ class InstanceChange(MessageBase):
 #     f.REASON
 # ])
 
-# TODO Why don't we just use the existing Primary message? Any reason to create a new type?
-# TODO determine if these are the correct fields
-ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
 
+class ViewChangeDone(MessageBase):
+    """
+    Node sends this kind of message when view change steps done and it is 
+    ready to switch to the new primary.
+    In contrast to 'Primary' message this one does not imply election.
+    """
+    typename = VIEW_CHANGE_DONE
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    # TODO determine if these are the correct fields
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+
+# ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
 
 class LedgerStatus(MessageBase):
     typename = LEDGER_STATUS
