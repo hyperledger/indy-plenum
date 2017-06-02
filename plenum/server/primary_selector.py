@@ -3,7 +3,6 @@ from typing import Iterable, List
 from plenum.common.types import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
-from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
 
 logger = getlogger()
@@ -141,18 +140,21 @@ class PrimarySelector(PrimaryDecider):
 
     def _startSelection(self):
         logger.debug("{} starting selection".format(self))
-        for idx, r in enumerate(self.replicas):
-            if r.primaryName is not None:
+        for instance_id, replica in enumerate(self.replicas):
+            if replica.primaryName is not None:
                 continue
-            prim = (self.viewNo + idx) % self.node.totalNodes
-            primary_name = replica.Replica.generateName(
-                self.node.get_name_by_rank(prim), idx)
-            logger.display("{} selected primary {} for instance {} "
-                           "(view {})".format(r, primary_name,
-                                              idx, self.viewNo),
+            new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
+            new_primary_name = replica.generateName(
+                nodeName=self.node.get_name_by_rank(new_primary_id),
+                instId=instance_id)
+            logger.display("{} selected primary {} for instance {} (view {})"
+                           .format(replica,
+                                   new_primary_name,
+                                   instance_id,
+                                   self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-            r.primaryChanged(primary_name)
+            replica.primaryChanged(new_primary_name)
 
     def viewChanged(self, viewNo: int):
         if viewNo > self.viewNo:
@@ -162,14 +164,15 @@ class PrimarySelector(PrimaryDecider):
             logger.warning("Provided view no {} is not greater than the "
                            "current view no {}".format(viewNo, self.viewNo))
 
-    # TODO: there no such method in super class, it should be declared
+    # TODO: there is no such method in super class, it should be declared
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         msgs = []
-        for inst_id, r in enumerate(self.replicas):
-            msg = self.view_change_done_messages.get(inst_id,
+        for instance_id, replica in enumerate(self.replicas):
+            msg = self.view_change_done_messages.get(instance_id,
                                                      ViewChangeDone(
-                                                         r.primaryName,
-                                                         inst_id,
-                                                         self.viewNo, None))
+                                                         replica.primaryName,
+                                                         instance_id,
+                                                         self.viewNo,
+                                                         None))
             msgs.append(msg)
         return msgs
