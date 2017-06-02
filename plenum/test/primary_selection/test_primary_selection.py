@@ -8,7 +8,11 @@ from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
-from plenum.test.view_change.conftest import viewNo
+
+# noinspection PyUnresolvedReferences
+from plenum.test.view_change.conftest import viewNo, simulate_slow_master
+
+# noinspection PyUnresolvedReferences
 from plenum.test.view_change.test_view_change import viewChangeDone
 
 nodeCount = 7

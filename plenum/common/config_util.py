@@ -46,5 +46,12 @@ def getConfig(homeDir=None):
         except FileNotFoundError:
             pass
         refConfig.baseDir = os.path.expanduser(refConfig.baseDir)
+
+        # "unsafe" is a set of attributes that can set certain behaviors that
+        # are not safe, for example, 'disable_view_change' disables view changes
+        # from happening. This might be useful in testing scenarios, but never
+        # in a live network.
+        if not hasattr(refConfig, 'unsafe'):
+            setattr(refConfig, 'unsafe', set())
         CONFIG = refConfig
     return CONFIG
