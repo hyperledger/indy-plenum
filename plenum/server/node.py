@@ -1202,7 +1202,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         try:
             cMsg = cls(**msg)
         except Exception as ex:
-            raise InvalidNodeMsg from ex
+            raise InvalidNodeMsg(str(ex))
         try:
             self.verifySignature(cMsg)
         except BaseExc as ex:
