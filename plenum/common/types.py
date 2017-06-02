@@ -361,7 +361,9 @@ class ViewChangeDone(MessageBase):
     typename = VIEW_CHANGE_DONE
 
     schema = (
-        (f.NAME.nm, NonEmptyStringField()),
+        # name is nullable because this message can be sent when
+        # there were no view changes and instance has no primary yet
+        (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
