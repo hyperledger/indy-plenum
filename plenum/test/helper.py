@@ -86,7 +86,9 @@ def waitForSufficientRepliesForRequests(looper,
                                         requestIds=None,
                                         fVal=None,
                                         customTimeoutPerReq=None,
-                                        add_delay_to_timeout: float = 0):
+                                        add_delay_to_timeout: float = 0,
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     """
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
@@ -104,16 +106,17 @@ def waitForSufficientRepliesForRequests(looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
 
-    timeoutPerRequest = customTimeoutPerReq or \
-                        waits.expectedTransactionExecutionTime(nodeCount)
-    timeoutPerRequest += add_delay_to_timeout
-    # here we try to take into account what timeout for execution
-    # N request - totalTimeout should be in
-    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
-    # we cannot just take (timeoutPerRequest * N) because it is so huge.
-    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
-    # lets start with some simple formula:
-    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
+    if not total_timeout:
+        timeoutPerRequest = customTimeoutPerReq or \
+                            waits.expectedTransactionExecutionTime(nodeCount)
+        timeoutPerRequest += add_delay_to_timeout
+        # here we try to take into account what timeout for execution
+        # N request - total_timeout should be in
+        # timeoutPerRequest < total_timeout < timeoutPerRequest * N
+        # we cannot just take (timeoutPerRequest * N) because it is so huge.
+        # (for timeoutPerRequest=5 and N=10, total_timeout=50sec)
+        # lets start with some simple formula:
+        total_timeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -122,18 +125,24 @@ def waitForSufficientRepliesForRequests(looper,
                              requestId,
                              fVal))
 
-    looper.run(eventuallyAll(*coros,
-                             retryWait=1,
-                             totalTimeout=totalTimeout))
+    chk_all_funcs(looper, coros, retry_wait=1, timeout=total_timeout,
+                  override_eventually_timeout=override_timeout_limit)
+
+    # looper.run(eventuallyAll(*coros,
+    #                          retryWait=1,
+    #                          totalTimeout=total_timeout,
+    #                          override_timeout_limit=override_timeout_limit))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         wallet: Wallet,
                                         client: TestClient,
                                         numReqs: int,
-                                        fVal: int = None,
-                                        customTimeoutPerReq: float = None,
-                                        add_delay_to_timeout: float = 0):
+                                        fVal: int=None,
+                                        customTimeoutPerReq: float=None,
+                                        add_delay_to_timeout: float=0,
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
@@ -141,7 +150,9 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         requests=requests,
                                         fVal=fVal,
                                         customTimeoutPerReq=customTimeoutPerReq,
-                                        add_delay_to_timeout=add_delay_to_timeout)
+                                        add_delay_to_timeout=add_delay_to_timeout,
+                                        override_timeout_limit=override_timeout_limit,
+                                        total_timeout=total_timeout)
     return requests
 
 
@@ -698,3 +709,26 @@ def nodeByName(nodes, name):
         if node.name == name:
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
+
+
+def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
+                  timeout=None, override_eventually_timeout=False):
+    # TODO: Move this logic to eventuallyAll
+    def chk():
+        fails = 0
+        for func in funcs:
+            try:
+                func()
+            except Exception:
+                fails += 1
+        assert fails <= acceptable_fails
+
+    kwargs = {}
+    if retry_wait:
+        kwargs['retryWait'] = retry_wait
+    if timeout:
+        kwargs['timeout'] = timeout
+    if override_eventually_timeout:
+        kwargs['override_timeout_limit'] = override_eventually_timeout
+
+    looper.run(eventually(chk, **kwargs))

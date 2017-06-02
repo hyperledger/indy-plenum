@@ -119,20 +119,20 @@ class ClientMessageValidator(MessageValidator):
     )
 
 
-# class Nomination(MessageBase):
-#     typename = NOMINATE
-#
-#     schema = (
-#         (f.NAME.nm, NonEmptyStringField()),
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-#     )
-Nomination = TaggedTuple(NOMINATE, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
+class Nomination(MessageBase):
+    typename = NOMINATE
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Nomination = TaggedTuple(NOMINATE, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
 
 
 Batch = TaggedTuple(BATCH, [
@@ -147,37 +147,37 @@ Batch = TaggedTuple(BATCH, [
 # already seen then it rejects that message
 
 
-# class Reelection(MessageBase):
-#     typename = REELECTION
-#
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.ROUND.nm, NonNegativeNumberField()),
-#         (f.TIE_AMONG.nm, IterableField(TieAmongField())),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#     )
-Reelection = TaggedTuple(REELECTION, [
-    f.INST_ID,
-    f.ROUND,
-    f.TIE_AMONG,
-    f.VIEW_NO])
+class Reelection(MessageBase):
+    typename = REELECTION
+
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.ROUND.nm, NonNegativeNumberField()),
+        (f.TIE_AMONG.nm, IterableField(TieAmongField())),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+    )
+# Reelection = TaggedTuple(REELECTION, [
+#     f.INST_ID,
+#     f.ROUND,
+#     f.TIE_AMONG,
+#     f.VIEW_NO])
 
 # Declaration of a winner
 
-# class Primary(MessageBase):
-#     typename = PRIMARY
-#
-#     schema = (
-#         (f.NAME.nm, NonEmptyStringField()),
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
-#     )
-Primary = TaggedTuple(PRIMARY, [
-    f.NAME,
-    f.INST_ID,
-    f.VIEW_NO,
-    f.ORD_SEQ_NO])
+class Primary(MessageBase):
+    typename = PRIMARY
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Primary = TaggedTuple(PRIMARY, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
 
 BlacklistMsg = NamedTuple(BLACKLIST, [
     f.SUSP_CODE,
@@ -202,46 +202,41 @@ PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
 ])
 
 
-# class Ordered(MessageBase):
-#     typename = ORDERED
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
-#         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-#         (f.PP_TIME.nm, TimestampField()),
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.STATE_ROOT.nm, MerkleRootField()),
-#         (f.TXN_ROOT.nm, MerkleRootField()),
-#     )
-Ordered = NamedTuple(ORDERED, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.REQ_IDR,
-    f.PP_SEQ_NO,
-    f.PP_TIME,
-    f.LEDGER_ID,
-    f.STATE_ROOT,
-    f.TXN_ROOT,
-    ])
+class Ordered(MessageBase):
+    typename = ORDERED
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+# Ordered = NamedTuple(ORDERED, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.REQ_IDR,
+#     f.PP_SEQ_NO,
+#     f.PP_TIME,
+#     f.LEDGER_ID,
+#     f.STATE_ROOT,
+#     f.TXN_ROOT,
+#     ])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
 
-# Propagate needs the name of the sender client since every node needs to know
-# who sent the request to send the reply. If all clients had name same as
-# their identifier same as client name (stack name, the name which RAET knows)
-
-
-# class Propagate(MessageBase):
-#     typename = PROPAGATE
-#     schema = (
-#         (f.REQUEST.nm, ClientMessageValidator()),
-#         (f.SENDER_CLIENT.nm, NonEmptyStringField()),
-#     )
-Propagate = TaggedTuple(PROPAGATE, [
-    f.REQUEST,
-    f.SENDER_CLIENT])
+class Propagate(MessageBase):
+    typename = PROPAGATE
+    schema = (
+        (f.REQUEST.nm, ClientMessageValidator()),
+        (f.SENDER_CLIENT.nm, NonEmptyStringField()),
+    )
+# Propagate = TaggedTuple(PROPAGATE, [
+#     f.REQUEST,
+#     f.SENDER_CLIENT])
 
 
 class PrePrepare(MessageBase):
@@ -272,38 +267,38 @@ class PrePrepare(MessageBase):
 #     ])
 
 
-# class Prepare(MessageBase):
-#     typename = PREPARE
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-#         (f.DIGEST.nm, NonEmptyStringField()),
-#         (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-#         (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
-#     )
-Prepare = TaggedTuple(PREPARE, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.PP_SEQ_NO,
-    f.DIGEST,
-    f.STATE_ROOT,
-    f.TXN_ROOT,
-    ])
+class Prepare(MessageBase):
+    typename = PREPARE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+# Prepare = TaggedTuple(PREPARE, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.PP_SEQ_NO,
+#     f.DIGEST,
+#     f.STATE_ROOT,
+#     f.TXN_ROOT,
+#     ])
 
 
-# class Commit(MessageBase):
-#     typename = COMMIT
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
-#     )
-Commit = TaggedTuple(COMMIT, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.PP_SEQ_NO
-    ])
+class Commit(MessageBase):
+    typename = COMMIT
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+# Commit = TaggedTuple(COMMIT, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.PP_SEQ_NO
+#     ])
 
 # class Checkpoint(MessageBase):
 #     typename = CHECKPOINT
@@ -344,17 +339,17 @@ ThreePCState = TaggedTuple(THREE_PC_STATE, [
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
-# class InstanceChange(MessageBase):
-#     typename = INSTANCE_CHANGE
-#     schema = (
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.REASON.nm, NonNegativeNumberField()),
-#         (f.ORD_SEQ_NOS.nm, IterableField(NonNegativeNumberField())),
-#     )
-InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-    f.VIEW_NO,
-    f.REASON
-])
+
+class InstanceChange(MessageBase):
+    typename = INSTANCE_CHANGE
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.REASON.nm, NonNegativeNumberField())
+    )
+# InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
+#     f.VIEW_NO,
+#     f.REASON
+# ])
 
 
 class LedgerStatus(MessageBase):

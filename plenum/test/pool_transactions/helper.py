@@ -76,9 +76,10 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
 
 
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
-               allPluginsPath=None, autoStart=True, nodeClass=TestNode):
+               allPluginsPath=None, autoStart=True, nodeClass=TestNode,
+               transformOpFunc=None):
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
-        = sendAddNewNode(newNodeName, stewardClient, stewardWallet)
+        = sendAddNewNode(newNodeName, stewardClient, stewardWallet, transformOpFunc)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
 
@@ -108,7 +109,7 @@ def addNewSteward(looper, tdir,
 def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
                          newNodeName, tdir, tconf, allPluginsPath=None,
                          autoStart=True, nodeClass=TestNode,
-                         clientClass=TestClient):
+                         clientClass=TestClient, transformNodeOpFunc=None):
 
     newSteward, newStewardWallet = addNewSteward(looper, tdir, creatorClient,
                                                  creatorWallet, stewardName,
@@ -116,7 +117,7 @@ def addNewStewardAndNode(looper, creatorClient, creatorWallet, stewardName,
 
     newNode = addNewNode(looper, newSteward, newStewardWallet, newNodeName,
                          tdir, tconf, allPluginsPath, autoStart=autoStart,
-                         nodeClass=nodeClass)
+                         nodeClass=nodeClass, transformOpFunc=transformNodeOpFunc)
     return newSteward, newStewardWallet, newNode
 
 

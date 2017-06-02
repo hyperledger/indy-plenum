@@ -1,34 +1,21 @@
 import types
-from functools import partial
 
 import pytest
 
-from stp_core.loop.eventually import eventually
 from plenum.server.node import Node
 from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
+from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
     ensureElectionsDone
-from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 
 nodeCount = 7
 
 
-# noinspection PyIncorrectDocstring
 @pytest.fixture()
-def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
-    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    # Delay processing of PRE-PREPARE from all non primary replicas of master
-    # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, 10)
-
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
-
-    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
-    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    assert m_primary_node.name != new_m_primary_node.name
+def viewChangeDone(simulate_slow_master):
+    primary_node = simulate_slow_master()
+    assert primary_node.old.name != primary_node.new.name
 
 
 # noinspection PyIncorrectDocstring

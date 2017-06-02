@@ -333,7 +333,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     looper.removeProdable(name=newNode.name)
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     sigseed = randomString(32).encode()
-    verkey = SimpleSigner(seed=sigseed).naclSigner.verhex.decode()
+    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
     changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
     initNodeKeysForBothStacks(newNode.name, tdirWithPoolTxns, sigseed,
                               override=True)
@@ -353,3 +353,32 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
+def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
+                                     tconf, steward1, stewardWallet, allPluginsPath):
+    newStewardName = "testClientSteward" + randomString(3)
+    newNodeName = "Kappa"
+
+    # adding a new node without SERVICES field
+    # it means the node is in the inactive state
+    def del_services(op): del op[DATA][SERVICES]
+
+    newSteward, newStewardWallet, newNode = \
+        addNewStewardAndNode(looper,
+                             steward1, stewardWallet,
+                             newStewardName, newNodeName,
+                             tdirWithPoolTxns, tconf,
+                             allPluginsPath,
+                             transformNodeOpFunc=del_services)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+
+    # turn the new node on
+    node_data = {
+        ALIAS: newNode.name,
+        SERVICES: [VALIDATOR]
+    }
+
+    updateNodeDataAndReconnect(looper, newSteward,
+                               newStewardWallet, newNode,
+                               node_data,
+                               tdirWithPoolTxns, tconf,
+                               txnPoolNodeSet + [newNode])
