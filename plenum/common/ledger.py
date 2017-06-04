@@ -55,9 +55,11 @@ class Ledger(_Ledger):
         numbers of the committed txns
         """
         committedSize = self.size
+        committedTxns = []
         for txn in self.uncommittedTxns[:count]:
-            self.append(txn)
-        committedTxns = self.uncommittedTxns[:count]
+            txn.update(self.append(txn))
+            committedTxns.append(txn)
+        # committedTxns = self.uncommittedTxns[:count]
         self.uncommittedTxns = self.uncommittedTxns[count:]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
