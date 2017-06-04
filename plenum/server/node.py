@@ -1443,6 +1443,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return rh
 
     def allLedgersCaughtUp(self):
+        if self.ledgerManager.lastCaughtUpPpSeqNo > 0:
+            # TODO: currently we use the same ppSeqNo for all instances
+            for replica in self.replicas:
+                replica.caught_up_till_pp_seq_no(self.ledgerManager.lastCaughtUpPpSeqNo)
+
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # TODO: next line not needed

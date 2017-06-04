@@ -26,8 +26,8 @@ def test_catch_up_after_demoted(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxn
                    node_data)
 
     # 3. send more requests, so that the new node's state is outdated
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
-    checkNodeDataForUnequality(newNode, *txnPoolNodeSet[:4])
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    checkNodeDataForUnequality(newNode, *txnPoolNodeSet[:-1])
 
     # 4. turn the new node on
     node_data = {
@@ -39,8 +39,8 @@ def test_catch_up_after_demoted(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxn
                    node_data)
 
     # 5. make sure catch-up is done (the new node is up to date again)
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
 
     # 6. send more requests and make sure that the new node participates in processing them
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
-    checkNodeDataForEquality(newNode, *txnPoolNodeSet[:4])
+    checkNodeDataForEquality(newNode, *txnPoolNodeSet[:-1])

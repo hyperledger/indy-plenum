@@ -40,4 +40,4 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
 
     logger.debug("Sending more requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
-    checkNodeDataForEquality(newNode, *txnPoolNodeSet[:4])
+    checkNodeDataForEquality(newNode, *txnPoolNodeSet[:-1])
