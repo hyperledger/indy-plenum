@@ -263,7 +263,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
                     try:
-                        rid = self.node.nodestack.removeRemoteByName(nodeName)
+                        rid = TxnStackManager.removeRemote(self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
