@@ -1462,7 +1462,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
-        self.lastOrderedPPSeqNo = ppSeqNo
+        if ppSeqNo > self.lastOrderedPPSeqNo:
+            self.lastOrderedPPSeqNo = ppSeqNo
 
     def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str,
                           nonFinReqs: Set=None):
@@ -1627,3 +1628,28 @@ class Replica(HasActionQueue, MessageProcessor):
         if stat:
             self.stats.inc(stat)
         self.outBox.append(msg)
+
+    def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
+        self.addToOrdered(self.viewNo, last_caught_up_pp_seq_no)
+        # self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
+
+    def _remove_till_caught_up_pp_seq_no(self, last_caught_up_pp_seq_no):
+        outdated_pre_prepares = set()
+        for key, pp in self.prePrepares.items():
+            if (key[1] <= last_caught_up_pp_seq_no):
+                outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo, pp.ledgerId))
+                self.prePrepares.pop(key, None)
+                self.ordered.add((pp.viewNo, pp.ppSeqNo))
+
+        for key in sorted(list(outdated_pre_prepares), key=itemgetter(1), reverse=True):
+            count, _, prevStateRoot = self.batches[key[1]]
+            self.batches.pop(key[1])
+            self.sentPrePrepares.pop(key, None)
+            self.prepares.pop(key, None)
+
+            ledger_id = key[2]
+            ledger = self.node.getLedger(ledger_id)
+            ledger.discardTxns(len(ledger.uncommittedTxns))
+
+            state = self.node.getState(ledger_id)
+            state.revertToHead(state.committedHeadHash)

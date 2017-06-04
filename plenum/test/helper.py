@@ -608,10 +608,16 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
-    assert db1.size == db2.size
+    assert db1.size == db2.size,\
+        "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
 
+def check_last_ordered_pp_seq_no(node1, node2):
+    master_replica_1 = node1.replicas[0]
+    master_replica_2 = node2.replicas[0]
+    assert master_replica_1.lastOrderedPPSeqNo == master_replica_2.lastOrderedPPSeqNo, \
+        "{} != {}".format(master_replica_1.lastOrderedPPSeqNo, master_replica_2.lastOrderedPPSeqNo)
 
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
