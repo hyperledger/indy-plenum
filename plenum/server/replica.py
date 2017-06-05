@@ -188,7 +188,6 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Set of tuples to keep track of ordered requests. Each tuple is
         # (viewNo, ppSeqNo)
-        # TODO: do we GC this queue?
         self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
@@ -368,28 +367,24 @@ class Replica(HasActionQueue, MessageProcessor):
         # If replica was primary in previous view then remove every sent
         # Pre-Prepare with less than f+1 Prepares.
         viewNos = self.primaryNames.keys()
-        if len(viewNos) <= 1:
-            return
+        if len(viewNos) > 1:
+            viewNos = list(viewNos)
+            lastViewNo = viewNos[-2]
+            if self.primaryNames[lastViewNo] == self.name:
+                lastViewPPs = [pp for pp in self.sentPrePrepares.values() if
+                               pp.viewNo == lastViewNo]
+                obs = set()
+                for pp in lastViewPPs:
+                    if not self.prepares.hasEnoughVotes(pp, self.f):
+                        obs.add((pp.viewNo, pp.ppSeqNo))
 
-        viewNos = list(viewNos)
-        lastViewNo = viewNos[-2]
-        if self.primaryNames[lastViewNo] != self.name:
-            return
-
-        lastViewPPs = [pp for pp in self.sentPrePrepares.values() if
-                       pp.viewNo == lastViewNo]
-        obs = set()
-        for pp in lastViewPPs:
-            if not self.prepares.hasEnoughVotes(pp, self.f):
-                obs.add((pp.viewNo, pp.ppSeqNo))
-
-        for key in sorted(list(obs), key=itemgetter(1), reverse=True):
-            ppReq = self.sentPrePrepares[key]
-            count, _, prevStateRoot = self.batches[key[1]]
-            self.batches.pop(key[1])
-            self.revert(ppReq.ledgerId, prevStateRoot, count)
-            self.sentPrePrepares.pop(key)
-            self.prepares.pop(key, None)
+                for key in sorted(list(obs), key=itemgetter(1), reverse=True):
+                    ppReq = self.sentPrePrepares[key]
+                    count, _, prevStateRoot = self.batches[key[1]]
+                    self.batches.pop(key[1])
+                    self.revert(ppReq.ledgerId, prevStateRoot, count)
+                    self.sentPrePrepares.pop(key)
+                    self.prepares.pop(key, None)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -1467,7 +1462,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
-        self.lastOrderedPPSeqNo = ppSeqNo
+        if ppSeqNo > self.lastOrderedPPSeqNo:
+            self.lastOrderedPPSeqNo = ppSeqNo
 
     def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str,
                           nonFinReqs: Set=None):
@@ -1633,12 +1629,14 @@ class Replica(HasActionQueue, MessageProcessor):
             self.stats.inc(stat)
         self.outBox.append(msg)
 
+    def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
+        self.addToOrdered(self.viewNo, last_caught_up_pp_seq_no)
+        # self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
 
-    def remove_txns_from_catch_up(self, last_caught_up_pp_seq_no):
-        view_no = 0  # master
+    def _remove_till_caught_up_pp_seq_no(self, last_caught_up_pp_seq_no):
         outdated_pre_prepares = set()
-        for key,pp in self.prePrepares.items():
-            if (key[0] == view_no) and (key[1] <= last_caught_up_pp_seq_no):
+        for key, pp in self.prePrepares.items():
+            if (key[1] <= last_caught_up_pp_seq_no):
                 outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo, pp.ledgerId))
                 self.prePrepares.pop(key, None)
                 self.ordered.add((pp.viewNo, pp.ppSeqNo))
@@ -1649,6 +1647,9 @@ class Replica(HasActionQueue, MessageProcessor):
             self.sentPrePrepares.pop(key, None)
             self.prepares.pop(key, None)
 
-            ledger = self.node.getLedger(key[2])
-            ledger.discardTxns(count)
+            ledger_id = key[2]
+            ledger = self.node.getLedger(ledger_id)
+            ledger.discardTxns(len(ledger.uncommittedTxns))
 
+            state = self.node.getState(ledger_id)
+            state.revertToHead(state.committedHeadHash)

@@ -118,7 +118,7 @@ class HasPoolManager(TxnStackManager):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
                 try:
-                    rid = self.nodestack.removeRemoteByName(remoteName)
+                    rid = TxnStackManager.removeRemote(self.nodestack, remoteName)
                     if rid:
                         self.nodestack.outBoxes.pop(rid, None)
                 except RemoteNotFound:
