@@ -2,6 +2,7 @@ import ipaddress
 import json
 import base58
 import re
+from datetime import datetime
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 
@@ -25,7 +26,10 @@ class FieldBase(FieldValidator):
         type_er = self.__type_check(val)
         if type_er:
             return type_er
-        return self._specific_validation(val)
+
+        spec_err = self._specific_validation(val)
+        if spec_err:
+            return spec_err
 
     def _specific_validation(self, val):
         raise NotImplementedError
@@ -94,6 +98,9 @@ class IterableField(FieldBase):
     _base_types = (list, tuple)
 
     def __init__(self, inner_field_type: FieldValidator, **kwargs):
+        assert inner_field_type
+        assert isinstance(inner_field_type, FieldValidator)
+
         self.inner_field_type = inner_field_type
         super().__init__(**kwargs)
 
@@ -154,8 +161,8 @@ class ChooseField(FieldBase):
 
     def _specific_validation(self, val):
         if val not in self._possible_values:
-            return "expected '{}' unknown value '{}'" \
-                   "".format(', '.join(map(str, self._possible_values)), val)
+            return "expected one of '{}', unknown value '{}'" \
+                   .format(', '.join(map(str, self._possible_values)), val)
 
 
 class LedgerIdField(ChooseField):
@@ -166,9 +173,63 @@ class LedgerIdField(ChooseField):
         super().__init__(self.ledger_ids, **kwargs)
 
 
-class IdentifierField(NonEmptyStringField):
+class Base58Field(FieldBase):
+    _base_types = (str,)
+
+    #long id is 32 bye long; short is 16 bytes long;
+    #upper limit is calculated according to formula
+    #for the max length of encoded data
+    #ceil(n * 138 / 100 + 1)
+    #lower formula is based on data from field
+    def __init__(self, short=False, long=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._alphabet = set(base58.alphabet)
+        self._lengthLimits = []
+        if short:
+            self._lengthLimits.append(range(15, 26))
+        if long:
+            self._lengthLimits.append(range(43, 46))
+
+    def _specific_validation(self, val):
+        if self._lengthLimits:
+            inlen = len(val)
+            goodlen = any(inlen in r for r in self._lengthLimits)
+            if not goodlen:
+                return 'value length {} is not in ranges {}'\
+                    .format(inlen, self._lengthLimits)
+        if set(val) - self._alphabet:
+            return 'should not contains chars other than {}' \
+                .format(self._alphabet)
+
+
+class IdentifierField(Base58Field):
     _base_types = (str, )
-    # TODO implement the rules
+
+    def __init__(self, *args, **kwargs):
+        # TODO the tests in client are failing because the field
+        # can be short and long both. It is can be an error.
+        # We have to double check the type of the field.
+        super().__init__(short=True, long=True, *args, **kwargs)
+
+
+class DestNodeField(Base58Field):
+    _base_types = (str,)
+
+    def __init__(self, *args, **kwargs):
+        # TODO the tests in client are failing because the field
+        # can be short and long both. It is can be an error.
+        # We have to double check the type of the field.
+        super().__init__(short=True, long=True, *args, **kwargs)
+
+
+class DestNymField(Base58Field):
+    _base_types = (str, )
+
+    def __init__(self, *args, **kwargs):
+        # TODO the tests in client are failing because the field
+        # can be short and long both. It is can be an error.
+        # We have to double check the type of the field.
+        super().__init__(short=True, long=True, *args, **kwargs)
 
 
 class RequestIdentifierField(FieldBase):
@@ -178,10 +239,10 @@ class RequestIdentifierField(FieldBase):
     def _specific_validation(self, val):
         if len(val) != self._length:
             return "should have length {}".format(self._length)
-        idr_error = NonEmptyStringField().validate(val[0])
+        idr_error = IdentifierField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
@@ -189,7 +250,6 @@ class RequestIdentifierField(FieldBase):
 class TieAmongField(FieldBase):
     _base_types = (list, tuple)
     _length = 2
-    # TODO eliminate duplication with RequestIdentifierField
 
     def _specific_validation(self, val):
         if len(val) != self._length:
@@ -197,17 +257,25 @@ class TieAmongField(FieldBase):
         idr_error = NonEmptyStringField().validate(val[0])
         if idr_error:
             return idr_error
-        ts_error = TimestampField().validate(val[1])
+        ts_error = NonNegativeNumberField().validate(val[1])
         if ts_error:
             return ts_error
 
 
+# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
-    # TODO implement the rules
+    _b58short = Base58Field(short=True)
+    _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        return None
+        if len(val) == 0:
+            return None
+        if val.startswith('~'):
+            #short base58
+            return self._b58short.validate(val[1:])
+        #long base58
+        return self._b58long.validate(val)
 
 
 class HexField(FieldBase):
@@ -226,29 +294,24 @@ class HexField(FieldBase):
             return "length should be {} length".format(self._length)
 
 
-class MerkleRootField(FieldBase):
+class MerkleRootField(Base58Field):
     _base_types = (str, )
 
-    # Raw merkle root is 32 bytes length,
-    # but when it is base58'ed it is 44 bytes
-    hashSizes = range(43, 46)
-    alphabet = base58.alphabet
-
-    def _specific_validation(self, val):
-        if len(val) not in self.hashSizes:
-            return 'length should be one of {}'.format(self.hashSizes)
-        if set(val).isdisjoint(self.alphabet):
-            return 'should not contains chars other than {}' \
-                .format(self.alphabet)
+    def __init__(self, *args, **kwargs):
+        super().__init__(long=True, *args, **kwargs)
 
 
 class TimestampField(FieldBase):
     _base_types = (float, int)
 
     def _specific_validation(self, val):
-        # TODO finish implementation
-        if val < 0:
-            return 'should be a positive number'
+        normal_val = val
+        if isinstance(val, int):
+            # This is needed because timestamp is usually multiplied
+            # by 1000 to "make it compatible to JavaScript Date()"
+            normal_val /= 1000
+        if normal_val <= 0:
+            return 'should be a positive number but was {}'.format(val)
 
 
 class JsonField(FieldBase):
@@ -258,4 +321,4 @@ class JsonField(FieldBase):
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
-            return 'should be valid JSON string'
+            return 'should be a valid JSON string'

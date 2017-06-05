@@ -41,3 +41,8 @@ def test_delay():
 
     r3 = x.popleft()
     assert r3 == 2
+
+    x.append(2)
+    s.resetDelays()
+    s.process()
+    assert 2 == x.popleft()

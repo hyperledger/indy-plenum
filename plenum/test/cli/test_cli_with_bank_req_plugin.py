@@ -22,7 +22,6 @@ def testReqForNonExistentClient(cli, loadBankReqPlugin, createAllNodes):
     assertNoClient(cli)
 
 
-# @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTransactions(cli, loadBankReqPlugin, createAllNodes, validNodeNames):
     nodeCount = len(validNodeNames)
 

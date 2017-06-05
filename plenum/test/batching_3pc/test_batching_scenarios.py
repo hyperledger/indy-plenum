@@ -44,8 +44,7 @@ def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1,
     reqs = sendRandomRequests(wallet1, client,
                               (ppsToDelay+1)*tconf.Max3PCBatchSize)
 
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs,
-                                        customTimeoutPerReq=(ppsToDelay + 1) * tconf.Max3PCBatchWait)
+    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:

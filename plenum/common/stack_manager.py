@@ -163,7 +163,11 @@ class TxnStackManager:
         # Removing remote so that the nodestack will attempt to connect
         rid = self.removeRemote(nodeOrClientObj.nodestack, remoteName)
 
-        verkey = txn[VERKEY]
+        if txn[VERKEY][0] == '~':  # abbreviated
+            verkey = cryptonymToHex(txn[TARGET_NYM]) + cryptonymToHex(txn[VERKEY][1:])
+        else:
+            verkey = cryptonymToHex(txn[VERKEY])
+
         try:
             # Override any keys found
             initRemoteKeys(self.name, remoteName, self.basedirpath,

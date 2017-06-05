@@ -179,11 +179,12 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 if len(seqNos) == 1:
                     # Since only one transaction has been made, this is a new
                     # node transaction
-                    self.addNewNodeAndConnect(txn)
+                    if VALIDATOR in txn[DATA].get(SERVICES, []):
+                        self.addNewNodeAndConnect(txn)
                 else:
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
-                    self.node.cliNodeReg[nodeName] = HA(info[DATA][CLIENT_IP],
+                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(info[DATA][CLIENT_IP],
                                                         info[DATA][CLIENT_PORT])
                     _updateNode(txn)
 
@@ -262,7 +263,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
                     try:
-                        rid = self.node.nodestack.removeRemoteByName(nodeName)
+                        rid = TxnStackManager.removeRemote(self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:
