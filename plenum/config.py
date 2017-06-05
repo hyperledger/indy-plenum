@@ -138,14 +138,6 @@ TestRunningTimeLimitSec = 100
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
 
-
-# After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-CHK_FREQ = 100000
-
-# Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
-
-
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
 # down writes as shown in a test `test_file_store_perf.py` in the ledger
@@ -167,11 +159,8 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 1
+Max3PCBatchWait = .001
 
-# Maximum lifespan for a batch, this needs to be changed if
-# `Max3PCBatchSize` is changed
-ThreePCBatchTimeout = 25
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
@@ -186,7 +175,14 @@ MaxStateProofSize = 10
 MaxStateProofTime = 3
 
 
+# After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
+CHK_FREQ = 10000
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3*CHK_FREQ
+
+
 CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = Max3PCBatchWait + 10
+CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5

@@ -10,6 +10,9 @@ from plenum.test.test_node import TestNode, ensureElectionsDone
 logger = getlogger()
 
 
+TestRunningTimeLimitSec = 300
+
+
 @pytest.fixture(scope="module")
 def tconf(conf, tdirWithPoolTxns):
     conf.UseZStack = True
@@ -29,7 +32,6 @@ def checkNodesSendingCommits(nodeSet):
                     assert otherReplica.name in senders
 
 
-@pytest.mark.skip(reason='SOV-1020')
 def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
                                tdirWithPoolTxns, client1Connected):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
@@ -53,7 +55,7 @@ def testZStackNodeReconnection(tconf, looper, txnPoolNodeSet, client1, wallet1,
     looper.runFor(1)
     stopNodes([nodeToCrash], looper)
     # TODO Select or create the timeout from 'waits'. Don't use constant.
-    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=35))
+    looper.run(eventually(checkFlakyConnected, False, retryWait=1, timeout=60))
     looper.runFor(1)
     node = TestNode(nodeToCrash.name, basedirpath=tdirWithPoolTxns, config=tconf,
                     ha=nodeToCrash.nodestack.ha, cliha=nodeToCrash.clientstack.ha)

@@ -148,6 +148,15 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def force_process_delayeds(self):
+        c = self.nodestack.force_process_delayeds()
+        c += self.nodeIbStasher.force_unstash()
+        for r in self.replicas:
+            c += r.outBoxTestStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages, {} processed in total".
+                     format(self, c))
+        return c
+
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
@@ -585,9 +594,11 @@ async def checkNodesParticipating(nodes: Sequence[TestNode], timeout: int=None):
 def checkEveryProtocolInstanceHasOnlyOnePrimary(looper: Looper,
                                                 nodes: Sequence[TestNode],
                                                 retryWait: float = None,
-                                                timeout: float = None):
+                                                timeout: float = None,
+                                                numInstances: int = None):
 
-    coro = eventually(instances, nodes, retryWait=retryWait, timeout=timeout)
+    coro = eventually(instances, nodes, numInstances,
+                retryWait=retryWait, timeout=timeout)
     insts, timeConsumed = timeThis(looper.run, coro)
     newTimeout = timeout - timeConsumed if timeout is not None else None
     for instId, replicas in insts.items():
@@ -617,14 +628,16 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
 def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
-                               customTimeout: float = None):
+                               customTimeout: float = None,
+                               numInstances: int = None):
 
     timeout = customTimeout or waits.expectedPoolElectionTimeout(len(nodes))
 
     checkEveryProtocolInstanceHasOnlyOnePrimary(looper=looper,
                                                 nodes=nodes,
                                                 retryWait=retryWait,
-                                                timeout=timeout)
+                                                timeout=timeout,
+                                                numInstances=numInstances)
 
     checkEveryNodeHasAtMostOnePrimary(looper=looper,
                                       nodes=nodes,
@@ -641,12 +654,14 @@ def checkProtocolInstanceSetup(looper: Looper,
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        customTimeout: float = None) -> Sequence[TestNode]:
+                        customTimeout: float = None,
+                        numInstances: int = None) -> Sequence[TestNode]:
     """
     Wait for elections to be complete
 
     :param retryWait:
     :param customTimeout: specific timeout
+    :param numInstances: expected number of protocol instances
     :return: primary replica for each protocol instance
     """
 
@@ -660,7 +675,8 @@ def ensureElectionsDone(looper: Looper,
         looper=looper,
         nodes=nodes,
         retryWait=retryWait,
-        customTimeout=customTimeout)
+        customTimeout=customTimeout,
+        numInstances=numInstances)
 
 
 def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
@@ -685,9 +701,6 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
-
-    # for n in nodeSet:
-    #     n.startKeySharing()
 
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))
@@ -719,11 +732,13 @@ def timeThis(func, *args, **kwargs):
     return res, time.perf_counter() - s
 
 
-def instances(nodes: Sequence[Node]) -> Dict[int, List[replica.Replica]]:
-    instCount = getRequiredInstances(len(nodes))
+def instances(nodes: Sequence[Node],
+              numInstances: int = None) -> Dict[int, List[replica.Replica]]:
+    numInstances = (getRequiredInstances(len(nodes))
+                    if numInstances is None else numInstances)
     for n in nodes:
-        assert len(n.replicas) == instCount
-    return {i: [n.replicas[i] for n in nodes] for i in range(instCount)}
+        assert len(n.replicas) == numInstances
+    return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
 
 
 def getRequiredInstances(nodeCount: int) -> int:
@@ -759,6 +774,7 @@ def get_master_primary_node(nodes):
     if node.replicas[0].primaryName is not None:
         nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
+    raise AssertionError('No primary found for master')
 
 
 def primaryNodeNameForInstance(nodes, instanceId):

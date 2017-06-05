@@ -15,13 +15,13 @@ def initLocalKeys(name, baseDir, sigseed, override=False, config=None):
     return pubkey, verkey
 
 
-def initRemoteKeys(name, baseDir, sigseed, verkey, override=False, config=None):
-    nodeStackClass.initRemoteKeys(name, baseDir, sigseed, verkey,
-                                            override=override)
+def initRemoteKeys(name, remote_name, baseDir, verkey, override=False):
+    nodeStackClass.initRemoteKeys(name, remote_name, baseDir, verkey,
+                                  override=override)
 
 
-def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False, config=None):
-    # `sigseed` is initailsed to keep the seed same for both stacks.
+def initNodeKeysForBothStacks(name, baseDir, sigseed, override=False):
+    # `sigseed` is initialised to keep the seed same for both stacks.
     # Both node and client stacks need to have same keys
     sigseed = sigseed or randomSeed()
 
