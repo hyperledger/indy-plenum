@@ -118,6 +118,11 @@ class Requests(OrderedDict):
 class Propagator:
     def __init__(self):
         self.requests = Requests()
+        # If the node does not have any primary and at least one protocol
+        # instance is missing a primary then add the request in
+        # `reqs_stashed_for_primary`. Note that this does not prevent the
+        # request from being processed as its marked as finalised
+        self.reqs_stashed_for_primary = deque()
 
     # noinspection PyUnresolvedReferences
     def propagate(self, request: Request, clientName):

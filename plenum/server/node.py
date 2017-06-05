@@ -328,6 +328,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # help in voting for/against a view change.
         self.lost_primary_at = None
 
+        self._primary_replica_no = None
+
+        # Need to keep track of the time when lost connection with primary,
+        # help in voting for/against a view change.
+        self.lost_primary_at = None
+
+        # First view change message received for a view no
+        self.view_change_started_at = {}
+
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
@@ -405,6 +414,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainLedgerStatus(self):
         return LedgerStatus(DOMAIN_LEDGER_ID, self.domainLedger.size,
                             self.domainLedger.root_hash)
+
+    def getLedgerRootHash(self, ledgerId, isCommitted=True):
+        ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)
+        if not ledgerInfo:
+            raise RuntimeError('Ledger with id {} does not exist')
+        ledger = ledgerInfo.ledger
+        if isCommitted:
+            return ledger.root_hash
+        return ledger.uncommittedRootHash or ledger.root_hash
+
+    def stateRootHash(self, ledgerId, isCommitted=True):
+        state = self.states.get(ledgerId)
+        if not state:
+            raise RuntimeError('State with id {} does not exist')
+        return state.committedHeadHash if isCommitted else state.headHash
 
     @property
     def ledger_ids(self):
@@ -1701,6 +1725,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.debug(msg)
         return r
+
+    def do_view_change_if_possible(self, view_no):
+        if self.canViewChange(view_no):
+            logger.info("{} initiating a view change to {} from {}".
+                        format(self, view_no, self.viewNo))
+            self.startViewChange(view_no)
+            return True
+        return False
 
     def checkPerformance(self):
         """

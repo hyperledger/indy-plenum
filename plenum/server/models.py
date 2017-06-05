@@ -11,7 +11,8 @@ ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
 
 InsChgVotes = NamedTuple("InsChg", [
     ("viewNo", int),
-    ("voters", Set[str])])
+    ("voters", Set[str]),
+    ('last_ordered', Dict[str, Dict[int, int]])])
 
 
 class TrackedMsgs(dict):
