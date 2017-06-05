@@ -18,7 +18,7 @@ def test_pp_seq_no_starts_from_1_in_new_view(txnPoolNodeSet, looper, wallet1,
     chk(0)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
     chk(5)
-    new_view_no = ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
+    new_view_no = ensure_view_change(looper, txnPoolNodeSet)
     assert new_view_no > old_view_no
     chk(0)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2)

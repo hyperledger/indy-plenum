@@ -76,7 +76,7 @@ def waitNodeDataUnequality(looper,
 def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None):
     node = next(iter(nodes))
     other_nodes = [n for n in nodes if n != node]
-    waitNodeDataUnequality(node, *other_nodes, customTimeout=custom_timeout)
+    waitNodeDataEquality(looper, node, *other_nodes, customTimeout=custom_timeout)
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

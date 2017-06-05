@@ -45,7 +45,7 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(nom_delay(delay))
 
-    ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
+    ensure_view_change(looper, txnPoolNodeSet)
     reqs = sendRandomRequests(wallet1, client1, 2*tconf.Max3PCBatchSize)
     looper.run(eventually(chk, 2*tconf.Max3PCBatchSize))
     ensureElectionsDone(looper, txnPoolNodeSet)

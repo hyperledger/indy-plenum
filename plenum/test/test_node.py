@@ -127,7 +127,7 @@ class TestNodeCore(StackedTester):
 
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
-            PrimarySelector
+            TestPrimarySelector
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
@@ -287,6 +287,13 @@ class TestPrimaryElector(PrimaryElector):
     def _serviceActions(self):
         self.actionQueueStasher.process()
         return super()._serviceActions()
+
+
+@spyable(methods=[
+        PrimarySelector.decidePrimaries
+    ])
+class TestPrimarySelector(PrimarySelector):
+    pass
 
 
 @spyable(methods=[replica.Replica.sendPrePrepare,

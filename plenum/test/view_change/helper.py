@@ -44,7 +44,7 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def ensure_view_change(looper, nodes, client, wallet):
+def ensure_view_change(looper, nodes):
     """
     This method patches the master performance check to return False and thus
     ensures that all given nodes do a view change
@@ -66,8 +66,9 @@ def ensure_view_change(looper, nodes, client, wallet):
 
         node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
 
+    perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
     timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
-              client.config.PerfCheckFreq
+              perf_check_freq
     looper.run(eventually(checkViewNoForNodes, nodes, old_view_no+1,
                           retryWait=1, timeout=timeout))
     for node in nodes:
@@ -100,7 +101,7 @@ def check_each_node_reaches_same_end_for_view(nodes, view_no):
 
 def do_vc(looper, nodes, client, wallet, old_view_no=None):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-    new_view_no = ensure_view_change(looper, nodes, client, wallet)
+    new_view_no = ensure_view_change(looper, nodes)
     if old_view_no:
         assert new_view_no - old_view_no >= 1
     return new_view_no

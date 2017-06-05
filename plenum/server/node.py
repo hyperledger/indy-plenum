@@ -1891,6 +1891,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.initInsChngThrottling()
         self.logNodeInfo()
+        # Keep on doing catchup until >2f nodes LedgerStatus same on have a
+        # prepared certificate the first PRE-PREPARE of the new view
 
     def on_view_change_complete(self, view_no):
         """
