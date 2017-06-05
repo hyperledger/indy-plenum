@@ -4,6 +4,8 @@ from plenum.common.types import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider
+from plenum.server.replica import Replica
+from plenum.common.util import mostCommonElement, get_strong_quorum
 
 logger = getlogger()
 
@@ -22,6 +24,8 @@ class PrimarySelector(PrimaryDecider):
         # If no view change has happened, a node simply send a ViewChangeDone
         # with view no 0 to a newly joined node
         self.view_change_done_messages = {}
+        self.previous_master_primary = None
+        self._view_change_done = {}
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -38,134 +42,127 @@ class PrimarySelector(PrimaryDecider):
         :param sender: the name of the node from which this message was sent
         """
 
-        logger.debug("{}'s elector started processing ViewChangeDone msg "
-                     "from {} : {}"
-                    .format(self.name, sender, msg))
+        logger.debug("{}'s primary selector started processing of "
+                     "ViewChangeDone msg from {} : {}"
+                     .format(self.name, sender, msg))
 
-        primary_name = msg.name
         instance_id = msg.instId
-        replica = self.replicas[instance_id]
+        sender_replica_name = Replica.generateName(sender, instance_id)
+        new_primary_replica_name = msg.name
+        new_primary_node_name = Replica.getNodeName(new_primary_replica_name)
+        last_ordered_seq_no = msg.ordSeqNo
 
-
-        if instance_id == 0 and replica.getNodeName(primary_name) == self.previous_master_primary:
-            self.discard(primary_name,
+        if instance_id == 0 and \
+           new_primary_node_name == self.previous_master_primary:
+            self.discard(msg,
                          '{} got Primary from {} for {} who was primary of '
                          'master in previous view too'
-                         .format(self, sender, primary_name),
+                         .format(self, sender, new_primary_replica_name),
                          logMethod=logger.warning)
             return
 
-        sender_replica_name = replica.generateName(sender, instance_id)
-
-        # Nodes should not be able to declare `Primary` winner more than once
-        if instance_id not in self.primaryDeclarations:
-             self.setDefaults(instance_id)
-        if sender_replica_name in self.primaryDeclarations[instance_id]:
+        if not self._mark_replica_as_changed_view(instance_id,
+                                                  sender_replica_name,
+                                                  new_primary_node_name,
+                                                  last_ordered_seq_no):
             self.discard(msg,
-                         "already got primary declaration from {}".
+                         "already marked {} as done view change".
                          format(sender_replica_name),
                          logger.warning)
-
-            key = (Primary.typename, instId, sender_replica_name)
-            self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
-            # If got more than one duplicate message then blacklist
-            # if self.duplicateMsgs[key] > 1:
-            #     self.send(BlacklistMsg(
-            #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
+            return
 
         # TODO: 2f+ 1
         # One of them should be next primary
         # Another one - current node
 
-        # TODO implement logic here; the commented code is a starting point based on PrimaryElector
-        # logger.debug("{}'s elector started processing primary msg from {} : {}"
-        #              .format(self.name, sender, prim))
-        # instId = prim.instId
-        # replica = self.replicas[instId]
-        # if instId == 0 and replica.getNodeName(prim.name) == self.previous_master_primary:
-        #     self.discard(prim, '{} got Primary from {} for {} who was primary'
-        #                       ' of master in previous view too'.
-        #                  format(self, sender, prim.name),
-        #                  logMethod=logger.warning)
+
+        replica = self.replicas[instance_id]  # type: Replica
+
+
+        # if replica.isPrimary is not None:
+        #     logger.debug("{} Primary already selected; ignoring PRIMARY msg"
+        #         .format(replica))
         #     return
-        #
-        # sndrRep = replica.generateName(sender, prim.instId)
-        #
-        # # Nodes should not be able to declare `Primary` winner more than more
-        # if instId not in self.primaryDeclarations:
-        #     self.setDefaults(instId)
-        # if sndrRep not in self.primaryDeclarations[instId]:
-        #     self.primaryDeclarations[instId][sndrRep] = (prim.name,
-        #                                                  prim.ordSeqNo)
-        #
-        #     # If got more than 2f+1 primary declarations then in a position to
-        #     # decide whether it is the primary or not `2f + 1` declarations
-        #     # are enough because even when all the `f` malicious nodes declare
-        #     # a primary, we still have f+1 primary declarations from
-        #     # non-malicious nodes. One more assumption is that all the non
-        #     # malicious nodes vote for the the same primary
-        #
-        #     # Find for which node there are maximum primary declarations.
-        #     # Cant be a tie among 2 nodes since all the non malicious nodes
-        #     # which would be greater than or equal to f+1 would vote for the
-        #     # same node
-        #
-        #     if replica.isPrimary is not None:
-        #         logger.debug(
-        #             "{} Primary already selected; ignoring PRIMARY msg".format(
-        #                 replica))
-        #         return
-        #
-        #     if self.hasPrimaryQuorum(instId):
-        #         if replica.isPrimary is None:
-        #             primary, seqNo = mostCommonElement(
-        #                 self.primaryDeclarations[instId].values())
-        #             logger.display("{} selected primary {} for instance {} "
-        #                            "(view {})".format(replica, primary,
-        #                                               instId, self.viewNo),
-        #                            extra={"cli": "ANNOUNCE",
-        #                                   "tags": ["node-election"]})
-        #             logger.debug("{} selected primary on the basis of {}".
-        #                          format(replica,
-        #                                 self.primaryDeclarations[instId]),
-        #                          extra={"cli": False})
-        #
-        #             # If the maximum primary declarations are for this node
-        #             # then make it primary
-        #             replica.primaryChanged(primary, seqNo)
-        #
-        #             if instId == 0:
-        #                 self.previous_master_primary = None
-        #
-        #             # If this replica has nominated itself and since the
-        #             # election is over, reset the flag
-        #             if self.replicaNominatedForItself == instId:
-        #                 self.replicaNominatedForItself = None
-        #
-        #             self.node.primary_found()
-        #
-        #             self.scheduleElection()
-        #         else:
-        #             self.discard(prim,
-        #                          "it already decided primary which is {}".
-        #                          format(replica.primaryName),
-        #                          logger.debug)
-        #     else:
-        #         logger.debug(
-        #             "{} received {} but does it not have primary quorum "
-        #             "yet".format(self.name, prim))
-        # else:
-        #     self.discard(prim,
-        #                  "already got primary declaration from {}".
-        #                  format(sndrRep),
-        #                  logger.warning)
-        #
-        #     key = (Primary.typename, instId, sndrRep)
-        #     self.duplicateMsgs[key] = self.duplicateMsgs.get(key, 0) + 1
-        #     # If got more than one duplicate message then blacklist
-        #     # if self.duplicateMsgs[key] > 1:
-        #     #     self.send(BlacklistMsg(
-        #     #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
+
+        if not self._hasViewChangeQuorum(instance_id):
+            logger.debug("{} received ViewChangeDone from {}, "
+                         "but have got no quorum yet"
+                         .format(self.name, sender))
+            return
+
+        # TODO: set primaryName to None when starting view change
+        if replica.hasPrimary:
+            self.discard(msg,
+                         "it already decided primary which is {}".
+                         format(replica.primaryName),
+                         logger.debug)
+            return
+
+        # TODO: implement case when we get equal number of ViewChangeDone
+        # with different primaries specified. Tip: use ppSeqNo for this
+        # in cases when it is possible
+
+
+        primary, seqNo = mostCommonElement(self.primaryDeclarations[instId].values())
+
+
+        logger.display("{} selected primary {} for instance {} "
+                       "(view {})".format(replica, primary,
+                                          instId, self.viewNo),
+                       extra={"cli": "ANNOUNCE",
+                              "tags": ["node-election"]})
+        logger.debug("{} selected primary on the basis of {}".
+                     format(replica,
+                            self.primaryDeclarations[instId]),
+                     extra={"cli": False})
+
+        # If the maximum primary declarations are for this node
+        # then make it primary
+        replica.primaryChanged(primary, seqNo)
+
+        if instId == 0:
+            self.previous_master_primary = None
+
+        # If this replica has nominated itself and since the
+        # election is over, reset the flag
+        if self.replicaNominatedForItself == instId:
+            self.replicaNominatedForItself = None
+
+        self.node.primary_found()
+
+        self.scheduleElection()
+
+
+
+    def _mark_replica_as_changed_view(self,
+                                      instance_id,
+                                      replica_name,
+                                      new_primary_replica_name,
+                                      last_ordered_seq_no):
+        if instance_id not in self._view_change_done:
+            self._view_change_done[instance_id] = {}
+        if replica_name in self._view_change_done:
+            return False
+        data = (new_primary_replica_name, last_ordered_seq_no)
+        self._view_change_done[instance_id][replica_name] =  data
+        return True
+
+    def _hasViewChangeQuorum(self, instance_id):
+        """
+        Checks whether 2f+1 nodes completed view change and whether one of them is the next primary
+        
+        :return: 
+        """
+        num_of_ready_nodes = len(self._view_change_done[instance_id])
+        quorum = get_strong_quorum(f=self.f)
+        quorum_achieved = num_of_ready_nodes < quorum
+        if quorum_achieved:
+            logger.trace("{} got view change quorum ({} >= {}) for instance {}"
+                         .format(self.name,
+                                 num_of_ready_nodes,
+                                 quorum,
+                                 instance_id))
+        return quorum_achieved
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self._scheduleSelection()
