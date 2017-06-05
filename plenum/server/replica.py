@@ -18,7 +18,6 @@ from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.signing import serialize
-from plenum.common.txn_util import reqToTxn
 from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
     CheckpointState, Checkpoint, Reject, f, InstanceChange
@@ -243,42 +242,6 @@ class Replica(HasActionQueue, MessageProcessor):
         if not self.isMaster:
             return None
         return self.node.getLedger(ledgerId).uncommitted_size
-
-    def txnRootHash(self, ledgerId, toHex=True):
-        if not self.isMaster:
-            return None
-        ledger = self.node.getLedger(ledgerId)
-        h = ledger.uncommittedRootHash
-        # If no uncommittedHash since this is the beginning of the tree
-        # or no transactions affecting the ledger were made after the
-        # last changes were committed
-        root = h if h else ledger.tree.root_hash
-        if toHex:
-            root = hexlify(root).decode()
-        return root
-
-    def stateRootHash(self, ledgerId, toHex=True):
-        if not self.isMaster:
-            return None
-        root = self.node.getState(ledgerId).headHash
-        if toHex:
-            root = hexlify(root).decode()
-        return root
-
-        # Queues used in PRE-PREPARE for each ledger,
-        self.requestQueues = {}  # type: Dict[int, deque]
-        for ledgerId in self.node.ledgerManager.ledgerRegistry:
-            self.requestQueues[ledgerId] = deque()
-
-        # Batches with key as ppSeqNo of batch and value as a tuple of number
-        # of txns and the time as batch was created/received and the state root
-        # hash for the batch
-        self.batches = OrderedDict()   # type: OrderedDict[int, Tuple[int, float, bytes]]
-
-        # TODO: Need to have a timer for each ledger
-        self.lastBatchCreated = time.perf_counter()
-
-        self.lastOrderedPPSeqNo = 0
 
     def txnRootHash(self, ledgerId, toHex=True):
         if not self.isMaster:
@@ -935,7 +898,7 @@ class Replica(HasActionQueue, MessageProcessor):
             raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
-        if self.isPrimary is True:
+        if self.isPrimaryForMsg(pp) is True:
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
         # A PRE-PREPARE is sent that has already been received
@@ -1003,8 +966,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :return: True if PREPARE is valid, False otherwise
         """
         key = (prepare.viewNo, prepare.ppSeqNo)
-        # primaryStatus = self.isPrimaryForMsg(prepare)
-        primaryStatus = self.isPrimary
+        primaryStatus = self.isPrimaryForMsg(prepare)
 
         ppReq = self.getPrePrepare(*key)
 
