@@ -69,8 +69,8 @@ def expectedPoolInterconnectionTime(nodeCount):
     # https://evernym.atlassian.net/browse/SOV-995
     # multiply by 2 because we need to re-create connections which can be done on a second re-try only
     # (we may send pings on some of the re-tries)
-    return 2 * interconnectionCount * nodeConnectionTimeout + \
-           KITZStack.RETRY_TIMEOUT_RESTRICTED
+    return min(90,
+               interconnectionCount * nodeConnectionTimeout + 2 * KITZStack.RETRY_TIMEOUT_RESTRICTED + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
