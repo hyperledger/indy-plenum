@@ -370,7 +370,7 @@ class PrimaryElector(PrimaryDecider):
             # which would be greater than or equal to f+1 would vote for the
             # same node
 
-            if replica.isPrimary is not None:
+            if replica.hasPrimary:
                 logger.debug(
                     "{} Primary already selected; ignoring PRIMARY msg".format(
                         replica))
