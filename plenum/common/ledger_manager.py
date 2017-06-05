@@ -69,8 +69,6 @@ class LedgerManager(HasActionQueue):
 
         self.ledgerRegistry[iD] = LedgerInfo(
             ledger=ledger,
-            state=LedgerState.not_synced,
-            canSync=False,
             preCatchupStartClbk=preCatchupStartClbk,
             postCatchupStartClbk=postCatchupStartClbk,
             preCatchupCompleteClbk=preCatchupCompleteClbk,
@@ -79,13 +77,8 @@ class LedgerManager(HasActionQueue):
             verifier=MerkleVerifier(ledger.hasher)
         )
 
-    def checkIfCPsNeeded(self, ledgerId):
-        # TODO: this one not just checks it also initiates
-        # consistency proof exchange process
-        # It should be renamed or splat on two different methods
-
+    def request_CPs_if_needed(self, ledgerId):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
-
         if ledgerInfo.consistencyProofsTimer is None:
             return
 
@@ -103,12 +96,12 @@ class LedgerManager(HasActionQueue):
             logger.debug("{} sending consistency proof request: {}".
                          format(self, cpReq))
             self.send(cpReq)
+
         ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.consistencyProofsTimer = None
         ledgerInfo.recvdCatchupRepliesFrm = {}
 
-    def checkIfTxnsNeeded(self, ledgerId):
-
+    def request_txns_if_needed(self, ledgerId):
         ledgerInfo = self.ledgerRegistry.get(ledgerId)
         ledger = ledgerInfo.ledger
         if ledgerInfo.catchupReplyTimer is None:
@@ -202,7 +195,7 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo.catchupReplyTimer = time.perf_counter()
         timeout = int(self._getCatchupTimeout(len(cReqs), batchSize))
-        self._schedule(partial(self.checkIfTxnsNeeded, ledgerId), timeout)
+        self._schedule(partial(self.request_txns_if_needed, ledgerId), timeout)
 
     def setLedgerState(self, ledgerType: int, state: LedgerState):
         if ledgerType not in self.ledgerRegistry:
@@ -217,6 +210,10 @@ class LedgerManager(HasActionQueue):
                          "cannot set state".format(ledgerType))
             return
         self.getLedgerInfoByType(ledgerType).canSync = canSync
+
+    def prepare_ledgers_for_sync(self):
+        for ledger_info in self.ledgerRegistry.values():
+            ledger_info.prepare_for_sync()
 
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
         logger.debug("{} received ledger status: {} from {}".
@@ -355,7 +352,7 @@ class LedgerManager(HasActionQueue):
 
     def checkLedgerIsOutOfSync(self, ledgerInfo) -> bool:
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
-        # Consider an f value when this node was not connected
+        # Consider an f value when this node had not been added
         currTotalNodes = self.owner.totalNodes - 1
         adjustedF = getMaxFailures(currTotalNodes)
         filtered = self._getNotEmptyProofs(recvdConsProof)
@@ -396,7 +393,8 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
-        # TODO: This is very inefficient for long ledgers if the ledger does not use `ChunkedFileStore`
+        # TODO: This is very inefficient for long ledgers if the ledger does
+        # not use `ChunkedFileStore`
         txns = ledger.getAllTxn(start, end)
         for seq_no in txns:
             txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
@@ -626,10 +624,10 @@ class LedgerManager(HasActionQueue):
 
             # Start timer that will expire in some time and if till that time
             # enough CPs are not received, then explicitly request CPs
-            # from other nodes, see `checkIfCPsNeeded`
+            # from other nodes, see `request_CPs_if_needed`
 
             ledgerInfo.consistencyProofsTimer = time.perf_counter()
-            self._schedule(partial(self.checkIfCPsNeeded, ledgerId),
+            self._schedule(partial(self.request_CPs_if_needed, ledgerId),
                            self.config.ConsistencyProofsTimeout * (
                                self.owner.totalNodes - 1))
         if len(recvdConsProof) > 2 * adjustedF:
@@ -745,7 +743,7 @@ class LedgerManager(HasActionQueue):
             batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
                         getattr(reqs[0], f.SEQ_NO_START.nm) + 1
             timeout = self._getCatchupTimeout(len(reqs), batchSize)
-            self._schedule(partial(self.checkIfTxnsNeeded, ledgerId),
+            self._schedule(partial(self.request_txns_if_needed, ledgerId),
                            timeout)
 
     def _getCatchupTimeout(self, numRequest, batchSize):
@@ -759,20 +757,16 @@ class LedgerManager(HasActionQueue):
         if compare_3PC_keys(self.last_caught_up_3PC, last_3PC) > 0:
             self.last_caught_up_3PC = last_3PC
 
-        ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        ledgerInfo.catchupReplyTimer = None
-        logger.debug("{} completed catching up ledger {}"
-                     .format(self, ledgerId))
         if ledgerId not in self.ledgerRegistry:
             logger.error("{} called catchup completed for ledger {}".
                          format(self, ledgerId))
             return
 
-        ledgerInfo.canSync = False
-        ledgerInfo.state = LedgerState.synced
-        ledgerInfo.ledgerStatusOk = set()
-        ledgerInfo.recvdConsistencyProofs = {}
-        ledgerInfo.postCatchupCompleteClbk()
+        ledgerInfo = self.getLedgerInfoByType(ledgerId)
+        logger.debug("{} completed catching up ledger {}"
+                     .format(self, ledgerId))
+
+        ledgerInfo.done_syncing()
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced

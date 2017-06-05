@@ -31,14 +31,17 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
     ensure_all_nodes_have_same_data(looper, nodes=fast_nodes)
     waitNodeDataUnequality(looper, slow_node, *fast_nodes)
+
     catchup_start_counts = {n.name: n.spylog.count(n.ledgerManager.startCatchUpProcess)
                             for n in txnPoolNodeSet}
     catchup_done_counts = {n.name: n.spylog.count(n.allLedgersCaughtUp)
                             for n in txnPoolNodeSet}
-    ensure_view_change(looper, txnPoolNodeSet)
 
+    ensure_view_change(looper, txnPoolNodeSet)
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+
+    # `slow_node` does catchup, `fast_nodes` don't
     for n in txnPoolNodeSet:
         if n == slow_node:
             assert n.spylog.count(n.ledgerManager.startCatchUpProcess) > catchup_start_counts[n.name]
@@ -46,4 +49,5 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
         else:
             assert n.spylog.count(n.ledgerManager.startCatchUpProcess) == catchup_start_counts[n.name]
             assert n.spylog.count(n.allLedgersCaughtUp) == catchup_done_counts[n.name]
+
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)

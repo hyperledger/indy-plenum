@@ -81,6 +81,7 @@ from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
+from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_zmq.zstack import ZStack
@@ -1476,6 +1477,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # self.checkInstances()
+        # TODO: Ensure no more catchups are required
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):
@@ -1893,6 +1895,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.logNodeInfo()
         # Keep on doing catchup until >2f nodes LedgerStatus same on have a
         # prepared certificate the first PRE-PREPARE of the new view
+        logger.info('{} changed to view {}, will start catchup now'.
+                    format(self, self.viewNo))
+        self.start_catchup()
 
     def on_view_change_complete(self, view_no):
         """
@@ -1901,6 +1906,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_change_in_progress = False
         self.instanceChanges.pop(view_no-1, None)
+
+    def start_catchup(self):
+        self.mode = Mode.starting
+        self.ledgerManager.prepare_ledgers_for_sync()
+        status_sender = self.sendPoolLedgerStatus if isinstance(
+            self.poolManager, TxnPoolManager) else self.sendDomainLedgerStatus
+        for nm in self.nodeReg:
+            try:
+                status_sender(nm)
+            except RemoteNotFound:
+                continue
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
         logger.debug('{} ordered previous view batch {} by instance {}'.
