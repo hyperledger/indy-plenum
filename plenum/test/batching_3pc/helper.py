@@ -9,12 +9,28 @@ from plenum.test.helper import waitForSufficientRepliesForRequests, send_signed_
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
-                            checkCommitted=True):
+                            checkCommitted=True,
+                            checkLastOrderedPpSeqNo=True,
+                            checkSeqNoDb=True):
     def addRoot(root, collection):
         if root:
             collection.add(hexlify(root))
         else:
             collection.add(root)
+
+    if checkLastOrderedPpSeqNo:
+        ppSeqNos = set()
+        for node in nodes:
+            ppSeqNos.add(node.replicas[0].lastOrderedPPSeqNo)
+
+        assert len(ppSeqNos) == 1
+
+    if checkSeqNoDb:
+        seqNoSizes = set()
+        for node in nodes:
+            seqNoSizes.add(node.seqNoDB.size)
+
+        assert len(seqNoSizes) == 1
 
     if checkUnCommitted:
         stateRoots = set()
