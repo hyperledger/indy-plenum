@@ -340,6 +340,10 @@ class Replica(HasActionQueue, MessageProcessor):
             else None
 
     @property
+    def hasPrimary(self):
+        return self.primaryName is not None
+
+    @property
     def primaryName(self):
         """
         Name of the primary replica of this replica's instance
