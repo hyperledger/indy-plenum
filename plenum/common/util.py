@@ -21,7 +21,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
-from libnacl import randombytes_uniform
+from libnacl import randombytes
 import psutil
 from jsonpickle import encode, decode
 from six import iteritems, string_types
@@ -40,27 +40,32 @@ T = TypeVar('T')
 Seconds = TypeVar("Seconds", int, float)
 
 
-def randomString(size: int = 20,
-                 chars = string.ascii_letters + string.digits) -> str:
+def randomString(size: int = 20) -> str:
     """
-    Generate a random string of the specified size
+    Generate a random string of the specified size,
+    DONOT use python provided random class its a Pseudo Random Number Generator
+    and not secure enough for our needs
 
     :param size: size of the random string to generate
-    :param chars: the set of characters to use to generate the random string. Uses alphanumerics by default.
     :return: the random string generated
     """
 
-    if not hasattr(chars, "__getitem__"):
-        # choice does not work with non indexed containers
-        chars = list(chars)
+    def randomStr(size):
+        assert (size > 0), "Expected random string size cannot be less than 1"
+        rstr = randombytes(size).hex()
+        l = len(rstr)
+        if (l == size) :
+            return rstr
+        elif (l > size) :
+            return rstr[:size]
+        elif (l < size) :
+            return rstr.join(randomStr(size - l))
 
-    def randomChar():
-        # DONOT use random.choice its as PRNG not secure enough for our needs
-        # return random.choice(chars)
-        rn = randombytes_uniform(len(chars))
-        return chars[rn]
+    return randomStr(size)
 
-    return ''.join(randomChar() for _ in range(size))
+
+def randomSeed(size=32):
+    return randomString(size)
 
 
 def mostCommonElement(elements: Iterable[T]) -> T:
@@ -467,11 +472,6 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     curTimeRounded = round(time.time() * 1000)
     startTimeRounded = round(startTime * 1000)
     return startTimeRounded + maxCheckForMillis < curTimeRounded
-
-
-def randomSeed(size=32):
-    return ''.join(random.choice(string.hexdigits)
-                   for _ in range(size)).encode()
 
 
 def lxor(a, b):
