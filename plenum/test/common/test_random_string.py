@@ -1,3 +1,4 @@
+import time
 from plenum.common.util import randomString
 
 # Checks if the function randomString() is returning correct
@@ -11,6 +12,8 @@ def test_random_string1():
         "Function call randomString(32) did not return string of len 32 characters"
     assert (len(randomString(128)) == 128), \
         "Function randomString(128) did not return string of len 128 characters"
+    assert (len(randomString(12800)) == 12800), \
+        "Function randomString(12800) did not return string of len 12800 characters"
 
 
 # Checks if there is a collision of the returned random strings
@@ -24,3 +27,13 @@ def test_random_string2():
         rs = randomString(20)
         assert rs not in rss, "random string # %d exists in list, we have a collision" % i
         rss.append(rs)
+
+# Test to check the performance of randomString() function
+# def test_random_string3():
+#     t0 = time.time()  # start time
+#     test_iterations = 1000000
+#     for i in range(test_iterations):
+#         rs = randomString(5)
+#     # the code to time goes here
+#     t1 = time.time()  # end time
+#     print("The time take is: %f" % (t1 - t0))

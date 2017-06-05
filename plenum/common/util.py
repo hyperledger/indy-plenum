@@ -21,7 +21,7 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
-from libnacl import randombytes
+from libnacl import randombytes, randombytes_uniform
 import psutil
 from jsonpickle import encode, decode
 from six import iteritems, string_types
@@ -52,14 +52,15 @@ def randomString(size: int = 20) -> str:
 
     def randomStr(size):
         assert (size > 0), "Expected random string size cannot be less than 1"
-        rstr = randombytes(size).hex()
-        l = len(rstr)
-        if (l == size) :
-            return rstr
-        elif (l > size) :
-            return rstr[:size]
-        elif (l < size) :
-            return rstr.join(randomStr(size - l))
+        #Approach 1
+        rv = randombytes(size // 2).hex()
+        return rv if size % 2 == 0 else rv + hex(randombytes_uniform(15))[-1]
+
+        #Approach 2 this is faster than Approach 1, but lovesh had a doubt
+        # that part of a random may not be truely random, so until
+        # we have definite proof going to retain it commented
+        #rstr = randombytes(size).hex()
+        #return rstr[:size]
 
     return randomStr(size)
 
