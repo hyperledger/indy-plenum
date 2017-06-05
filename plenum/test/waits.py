@@ -67,8 +67,10 @@ def expectedPoolInterconnectionTime(nodeCount):
     # bug (`'str' object has no attribute 'keys'`) which supposed to be
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
-    return interconnectionCount * nodeConnectionTimeout + \
-           KITZStack.RETRY_TIMEOUT_RESTRICTED
+    # multiply by 2 because we need to re-create connections which can be done on a second re-try only
+    # (we may send pings on some of the re-tries)
+    return min(90,
+               interconnectionCount * nodeConnectionTimeout + 2 * KITZStack.RETRY_TIMEOUT_RESTRICTED + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
