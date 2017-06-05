@@ -70,15 +70,23 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
 
+@pytest.fixture(scope='module')
+def catchup_complete_count(nodeSet):
+    return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
+
+
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
-                                        viewChangeDone):
+                                        catchup_complete_count, viewChangeDone):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.
     """
 
     # TODO: This test can fail due to view change.
+
+    for n in nodeSet:
+        assert n.spylog.count(n.allLedgersCaughtUp) > catchup_complete_count[n.name]
 
     # Primary replicas before view change
     prBeforeVC = primaryReplicas

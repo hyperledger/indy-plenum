@@ -69,7 +69,7 @@ class PrimaryElector(PrimaryDecider):
         # elections, the elector will set it before doing triggering new
         # election and will reset it after primary is decided for master
         # instance
-        self.previous_master_primary = None
+        # self.previous_master_primary = None
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -84,9 +84,9 @@ class PrimaryElector(PrimaryDecider):
         """
         return any([r.isPrimary for r in self.replicas])
 
-    @property
-    def was_master_primary_in_prev_view(self):
-        return self.previous_master_primary == self.name
+    # @property
+    # def was_master_primary_in_prev_view(self):
+    #     return self.previous_master_primary == self.name
 
     def setDefaults(self, instId: int):
         """
@@ -740,14 +740,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param viewNo: the new view number.
         """
-        if viewNo > self.viewNo:
-            self.previous_master_primary = self.node.master_primary
-
-            self.viewNo = viewNo
-
-            for replica in self.replicas:
-                replica.primaryName = None
-
+        if super().viewChanged(viewNo):
             # Reset to defaults values for different data structures as new
             # elections would begin
             for r in self.replicas:
@@ -755,9 +748,25 @@ class PrimaryElector(PrimaryDecider):
             self.replicaNominatedForItself = None
 
             self.nominateRandomReplica()
-        else:
-            logger.warning("Provided view no {} is not greater than the "
-                           "current view no {}".format(viewNo, self.viewNo))
+
+        # if viewNo > self.viewNo:
+        #     self.previous_master_primary = self.node.master_primary
+        #
+        #     self.viewNo = viewNo
+        #
+        #     for replica in self.replicas:
+        #         replica.primaryName = None
+        #
+        #     # Reset to defaults values for different data structures as new
+        #     # elections would begin
+        #     for r in self.replicas:
+        #         self.setDefaults(r.instId)
+        #     self.replicaNominatedForItself = None
+        #
+        #     self.nominateRandomReplica()
+        # else:
+        #     logger.warning("Provided view no {} is not greater than the "
+        #                    "current view no {}".format(viewNo, self.viewNo))
 
     def getElectionMsgsForInstance(self, instId: int) -> \
             Sequence[Union[Nomination, Primary]]:

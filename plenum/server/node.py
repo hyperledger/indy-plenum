@@ -860,7 +860,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} "
                      "and nodes {}".format(self, self.connectedNodeCount,
                                            self.nodestack.conns))
-        self._schedule(self.decidePrimaries)
+        # self._schedule(self.decidePrimaries)
 
     def adjustReplicas(self):
         """
@@ -1466,6 +1466,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rh = self.reqHandler
         return rh
 
+    # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
         replica = self.replicas[0]
         if compare_3PC_keys(replica.last_ordered_3pc,
@@ -1474,8 +1475,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
-        # TODO: next line not needed
-        self.checkInstances()
+        # self.checkInstances()
+        self.decidePrimaries()
 
     def getLedger(self, ledgerId):
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
@@ -1882,7 +1883,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
-        self.processStashedMsgsForView(proposedViewNo)
+        self.processStashedMsgsForView(self.viewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
         self.elector.viewChanged(self.viewNo)
