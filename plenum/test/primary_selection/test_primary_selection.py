@@ -78,6 +78,8 @@ def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
     a view change.
     """
 
+    # TODO: This test can fail due to view change.
+
     # Primary replicas before view change
     prBeforeVC = primaryReplicas
 

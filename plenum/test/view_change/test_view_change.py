@@ -1,5 +1,4 @@
 import types
-from functools import partial
 
 import pytest
 

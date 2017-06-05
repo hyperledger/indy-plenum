@@ -394,6 +394,7 @@ class ConsistencyProof(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),

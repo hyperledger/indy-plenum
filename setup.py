@@ -62,7 +62,8 @@ setup(
                       'state-trie-dev==0.1.15', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip',
+                      'intervaltree'],
     extras_require={
         'stats': ['python-firebase']
     },

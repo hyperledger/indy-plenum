@@ -589,3 +589,17 @@ def pop_keys(mapping: Dict, cond: Callable):
             rem.append(k)
     for i in rem:
         mapping.pop(i)
+
+
+def check_if_all_equal_in_list(lst):
+    return lst.count(lst[0]) == len(lst)
+
+
+def compare_3PC_keys(key1, key2) -> int:
+    """
+    Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
+    """
+    if key1[0] == key2[0]:
+        return key2[1] - key1[1]
+    else:
+        return key2[0] - key1[0]

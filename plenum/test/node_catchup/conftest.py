@@ -5,7 +5,8 @@ from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
@@ -27,7 +28,7 @@ def looper(txnPoolNodesLooper):
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet,
+def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
@@ -36,7 +37,7 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet,
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+    sendReqsToNodesAndVerifySuffReplies(looper,
                                         wallet,
                                         client,
                                         txnCount)
@@ -64,4 +65,5 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
+    check_last_3pc_master(newNode, txnPoolNodeSet[:4])
     return newNode
