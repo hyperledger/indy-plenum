@@ -17,6 +17,9 @@ whitelist = ['discarding message']
 
 logger = getlogger()
 
+@pytest.fixture(scope="function", autouse=True)
+def limitTestRunningTime():
+    return 200
 
 # noinspection PyIncorrectDocstring
 def testProtocolInstanceCannotBecomeActiveWithLessThanFourServers(
