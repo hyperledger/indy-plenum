@@ -107,6 +107,7 @@ class PrimarySelector(PrimaryDecider):
             return
 
         replica = self.replicas[instance_id]  # type: Replica
+
         if replica.hasPrimary:
             logger.debug("{} Primary already selected; ignoring PRIMARY msg"
                          .format(replica))
@@ -125,13 +126,26 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return
 
+        self._complete_view_change(instance_id, replica)
+
+    def _complete_view_change(self, instance_id, replica):
+        """
+        This method is called when sufficient number of ViewChangeDone
+        received and makes steps to switch to the new primary
+        """
 
         # TODO: implement case when we get equal number of ViewChangeDone
         # with different primaries specified. Tip: use ppSeqNo for this
         # in cases when it is possible
 
-        primary, last_pp_seqNo = mostCommonElement(
-            self._view_change_done[instance_id].values())
+        votes = self._view_change_done[instance_id].values()
+        new_primary, last_ordered_seq_no = mostCommonElement(votes)
+
+        expected_primary = self._who_is_the_next_primary(instance_id)
+        if new_primary != expected_primary:
+            logger.warning("{} expected next primary to be {}, but majority "
+                           "declared {} instead"
+                           .format(self.name, expected_primary, new_primary))
 
         logger.display("{} declares view change {} as completed for "
                        "instance {}, "
@@ -140,12 +154,12 @@ class PrimarySelector(PrimaryDecider):
                        .format(replica,
                                self.viewNo,
                                instance_id,
-                               primary,
+                               new_primary,
                                last_ordered_seq_no),
                        extra={"cli": "ANNOUNCE",
                               "tags": ["node-election"]})
 
-        replica.primaryChanged(primary)
+        replica.primaryChanged(new_primary)
 
         if instance_id == 0:
             self.previous_master_primary = None
