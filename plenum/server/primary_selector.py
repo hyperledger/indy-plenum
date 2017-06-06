@@ -31,15 +31,15 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self.processViewChangeDone)]
+        return [(ViewChangeDone, self._processViewChangeDone)]
 
     def _is_master_instance(self, instance_id):
         # Instance 0 is always master
         return instance_id == 0
 
-    def processViewChangeDone(self,
-                              msg: ViewChangeDone,
-                              sender: str) -> None:
+    def _processViewChangeDone(self,
+                               msg: ViewChangeDone,
+                               sender: str) -> None:
         """
         Processes ViewChangeDone messages. Once 2f + 1 messages have been 
         received, decides on a primary for specific replica. 

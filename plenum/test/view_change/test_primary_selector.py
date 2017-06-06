@@ -76,11 +76,11 @@ def testProcessViewChangeDone():
 
     quorum = get_strong_quorum(node.totalNodes)
     for i in range(quorum):
-        selector.processViewChangeDone(msg, "Node2")
+        selector._processViewChangeDone(msg, "Node2")
     assert not node.is_primary_found()
 
-    selector.processViewChangeDone(msg, "Node1")
+    selector._processViewChangeDone(msg, "Node1")
     assert not node.is_primary_found()
 
-    selector.processViewChangeDone(msg, "Node3")
+    selector._processViewChangeDone(msg, "Node3")
     assert node.is_primary_found()
