@@ -19,12 +19,7 @@ class PrimarySelector(PrimaryDecider):
 
     def __init__(self, node):
         super().__init__(node)
-
-        # Stores the last `ViewChangeDone` message sent for specific instance.
-        # If no view change has happened, a node simply send a ViewChangeDone
-        # with view no 0 to a newly joined node
         self.previous_master_primary = None
-
         self._view_change_done = {}  # instance id -> replica name -> data
 
     @property
@@ -32,16 +27,22 @@ class PrimarySelector(PrimaryDecider):
         return [(ViewChangeDone, self._processViewChangeDone)]
 
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
-        msgs = []
-        for instance_id, replica in enumerate(self.replicas):
-            msg = self.view_change_done_messages.get(instance_id,
-                                                     ViewChangeDone(
-                                                         replica.primaryName,
-                                                         instance_id,
-                                                         self.viewNo,
-                                                         None))
-            msgs.append(msg)
-        return msgs
+        """
+        Returns the last `ViewChangeDone` message sent for specific instance.
+        If no view change has happened returns ViewChangeDone
+        with view no 0 to a newly joined node 
+        """
+        messages = []
+        for instance_id, replica_messages in self._view_change_done.items():
+            for message in replica_messages.values():
+                (new_primary_replica_name, last_ordered_seq_no) = message
+                messages.append(ViewChangeDone(new_primary_replica_name,
+                                               instance_id,
+                                               self.viewNo,
+                                               last_ordered_seq_no))
+                # messages.append(ViewChangeDone(nm, instId, self.viewNo, seqNo))
+
+        return messages
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
