@@ -370,8 +370,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def primaryChanged(self, primaryName):
         self.primaryName = primaryName
-        if primaryName == self.name:
-            self._lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
@@ -871,9 +870,11 @@ class Replica(HasActionQueue, MessageProcessor):
         last_pp = self.lastPrePrepare
         if last_pp:
             if last_pp.viewNo == view_no:
-                last_pp_seq_no = last_pp.ppSeqNo if last_pp.ppSeqNo > \
-                                                self.last_ordered_3pc[1] \
-                                                else self.last_ordered_3pc[1]
+                if last_pp.viewNo == self.last_ordered_3pc[0] and \
+                                last_pp.ppSeqNo < self.last_ordered_3pc[1]:
+                    last_pp_seq_no = self.last_ordered_3pc[1]
+                else:
+                    last_pp_seq_no = last_pp.ppSeqNo
             elif last_pp.viewNo > view_no:
                 return False
             else:
@@ -1197,7 +1198,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.hasOrdered(*key):
             return False, "already ordered"
 
-        if not self.all_prev_ordered(commit):
+        if commit.ppSeqNo > 1 and not self.all_prev_ordered(commit):
             viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
             if viewNo not in self.stashed_out_of_order_commits:
                 self.stashed_out_of_order_commits[viewNo] = {}
@@ -1214,6 +1215,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         # TODO: This method does a lot of work, choose correct data
         # structures to make it efficient.
+
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
         if self.ordered and self.ordered[-1] == (viewNo, ppSeqNo-1):

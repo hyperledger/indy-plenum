@@ -27,10 +27,10 @@ class LedgerInfo:
         # (`canSync` was set to False)
         self.stashedLedgerStatuses = deque()
 
-        self.prepare_for_sync()
+        self.set_defaults()
 
     # noinspection PyAttributeOutsideInit
-    def prepare_for_sync(self):
+    def set_defaults(self):
         self.state = LedgerState.not_synced
         # Setting `canSync` to False since each ledger is synced in an
         # established order so `canSync` will be set to True accordingly.

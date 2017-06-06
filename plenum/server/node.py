@@ -1910,10 +1910,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start_catchup(self):
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
-        status_sender = self.sendPoolLedgerStatus if isinstance(
-            self.poolManager, TxnPoolManager) else self.sendDomainLedgerStatus
+        if isinstance(self.poolManager, TxnPoolManager):
+            status_sender = self.sendPoolLedgerStatus
+            ledger_id = POOL_LEDGER_ID
+        else:
+            status_sender = self.sendDomainLedgerStatus
+            ledger_id = DOMAIN_LEDGER_ID
+
         for nm in self.nodeReg:
             try:
+                self.ledgerManager.setLedgerCanSync(ledger_id, True)
                 status_sender(nm)
             except RemoteNotFound:
                 continue

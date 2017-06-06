@@ -213,7 +213,7 @@ class LedgerManager(HasActionQueue):
 
     def prepare_ledgers_for_sync(self):
         for ledger_info in self.ledgerRegistry.values():
-            ledger_info.prepare_for_sync()
+            ledger_info.set_defaults()
 
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
         logger.debug("{} received ledger status: {} from {}".
