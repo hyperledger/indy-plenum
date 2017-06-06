@@ -10,26 +10,32 @@ from plenum.common.util import mostCommonElement, get_strong_quorum
 logger = getlogger()
 
 
-# TODO: Assumes that all nodes are up. Should select only
-# those nodes which are up
 class PrimarySelector(PrimaryDecider):
     """
     Simple implementation of primary decider. 
     Decides on a primary in round-robin fashion.
+    Assumes that all nodes are up
     """
 
     def __init__(self, node):
         super().__init__(node)
+
         # Stores the last `ViewChangeDone` message sent for specific instance.
         # If no view change has happened, a node simply send a ViewChangeDone
         # with view no 0 to a newly joined node
-        self.view_change_done_messages = {}
         self.previous_master_primary = None
+
+        # TODO: think about merging these two
+        self.view_change_done_messages = {}
         self._view_change_done = {}
 
     @property
     def routes(self) -> Iterable[Route]:
         return [(ViewChangeDone, self.processViewChangeDone)]
+
+    def _is_master_instance(self, instance_id):
+        # Instance 0 is always master
+        return instance_id == 0
 
     def processViewChangeDone(self,
                               msg: ViewChangeDone,
@@ -52,8 +58,9 @@ class PrimarySelector(PrimaryDecider):
         new_primary_node_name = Replica.getNodeName(new_primary_replica_name)
         last_ordered_seq_no = msg.ordSeqNo
 
-        if instance_id == 0 and \
+        if self._is_master_instance(instance_id) and \
            new_primary_node_name == self.previous_master_primary:
+
             self.discard(msg,
                          '{} got Primary from {} for {} who was primary of '
                          'master in previous view too'
@@ -71,18 +78,11 @@ class PrimarySelector(PrimaryDecider):
                          logger.warning)
             return
 
-        # TODO: 2f+ 1
-        # One of them should be next primary
-        # Another one - current node
-
-
         replica = self.replicas[instance_id]  # type: Replica
-
-
-        # if replica.isPrimary is not None:
-        #     logger.debug("{} Primary already selected; ignoring PRIMARY msg"
-        #         .format(replica))
-        #     return
+        if replica.hasPrimary:
+            logger.debug("{} Primary already selected; ignoring PRIMARY msg"
+                         .format(replica))
+            return
 
         if not self._hasViewChangeQuorum(instance_id):
             logger.debug("{} received ViewChangeDone from {}, "
@@ -102,37 +102,31 @@ class PrimarySelector(PrimaryDecider):
         # with different primaries specified. Tip: use ppSeqNo for this
         # in cases when it is possible
 
+        primary, last_pp_seqNo = mostCommonElement(
+            self._view_change_done[instance_id].values())
 
-        primary, seqNo = mostCommonElement(self.primaryDeclarations[instId].values())
-
-
-        logger.display("{} selected primary {} for instance {} "
-                       "(view {})".format(replica, primary,
-                                          instId, self.viewNo),
+        logger.display("{} declares view change {} as completed for "
+                       "instance {}, "
+                       "new primary is {}, "
+                       "last ordered seqno is {}"
+                       .format(replica,
+                               self.viewNo,
+                               instance_id,
+                               primary,
+                               last_ordered_seq_no),
                        extra={"cli": "ANNOUNCE",
                               "tags": ["node-election"]})
-        logger.debug("{} selected primary on the basis of {}".
-                     format(replica,
-                            self.primaryDeclarations[instId]),
-                     extra={"cli": False})
 
         # If the maximum primary declarations are for this node
         # then make it primary
-        replica.primaryChanged(primary, seqNo)
 
-        if instId == 0:
+        replica.primaryChanged(primary)
+
+        if instance_id == 0:
             self.previous_master_primary = None
 
-        # If this replica has nominated itself and since the
-        # election is over, reset the flag
-        if self.replicaNominatedForItself == instId:
-            self.replicaNominatedForItself = None
-
+        self.decidePrimaries()
         self.node.primary_found()
-
-        self.scheduleElection()
-
-
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -149,30 +143,37 @@ class PrimarySelector(PrimaryDecider):
 
     def _hasViewChangeQuorum(self, instance_id):
         """
-        Checks whether 2f+1 nodes completed view change and whether one of them is the next primary
-        
-        :return: 
+        Checks whether 2f+1 nodes completed view change and whether one 
+        of them is the next primary
         """
-        num_of_ready_nodes = len(self._view_change_done[instance_id])
+        declarations = self._view_change_done.get(instance_id, [])
+        num_of_ready_nodes = len(declarations)
         quorum = get_strong_quorum(f=self.f)
-        quorum_achieved = num_of_ready_nodes < quorum
-        if quorum_achieved:
-            logger.trace("{} got view change quorum ({} >= {}) for instance {}"
+        next_primary_name = self._who_is_the_next_primary(instance_id)
+        enough_nodes = num_of_ready_nodes >= quorum
+
+        if not enough_nodes:
+            return False
+
+        if next_primary_name not in declarations:
+            logger.trace("{} got enough ViewChangeDone messages "
+                         "for quorum ({}), but the next primary {} "
+                         "has not answered yet"
                          .format(self.name,
                                  num_of_ready_nodes,
                                  quorum,
                                  instance_id))
-        return quorum_achieved
+            return False
+
+        logger.trace("{} got view change quorum ({} >= {}) for instance {}"
+                     .format(self.name,
+                             num_of_ready_nodes,
+                             quorum,
+                             instance_id))
+        return True
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self._startSelection()
-
-    # def _scheduleSelection(self):
-    #     """
-    #     Schedule election at some time in the future. Currently the election
-    #     starts immediately.
-    #     """
-    #     self._schedule(self._startSelection)
 
     def _startSelection(self):
         logger.debug("{} starting selection".format(self))
@@ -180,10 +181,7 @@ class PrimarySelector(PrimaryDecider):
             if replica.primaryName is not None:
                 logger.debug('{} already has a primary'.format(replica))
                 continue
-            new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
-            new_primary_name = replica.generateName(
-                nodeName=self.node.get_name_by_rank(new_primary_id),
-                instId=instance_id)
+            new_primary_name = self._who_is_the_next_primary(instance_id)
             logger.display("{} selected primary {} for instance {} (view {})"
                            .format(replica,
                                    new_primary_name,
@@ -192,6 +190,17 @@ class PrimarySelector(PrimaryDecider):
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
             replica.primaryChanged(new_primary_name)
+
+    def _who_is_the_next_primary(self, instance_id):
+        """
+        Returnes name of the next node which is supposed to be a new Primary
+        in round-robin fashion
+        """
+        new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
+        new_primary_name = Replica.generateName(
+            nodeName=self.node.get_name_by_rank(new_primary_id),
+            instId=instance_id)
+        return new_primary_name
 
     def viewChanged(self, viewNo: int):
         if super().viewChanged(viewNo):
