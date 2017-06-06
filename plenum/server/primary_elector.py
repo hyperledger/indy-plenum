@@ -792,9 +792,7 @@ class PrimaryElector(PrimaryDecider):
                 msgs.append(Primary(nm, instId, self.viewNo, seqNo))
         return msgs
 
-    # TODO: Return value is different from PrimarySelector
-    def get_msgs_for_lagged_nodes(self) -> \
-            List[Union[Nomination, Primary]]:
+    def get_msgs_for_lagged_nodes(self) -> List[Union[Nomination, Primary]]:
         """
         Get nomination and primary messages for instance with id `instId` that
         need to be sent to a node which has lagged behind (for example, a newly

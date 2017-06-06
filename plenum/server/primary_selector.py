@@ -25,15 +25,12 @@ class PrimarySelector(PrimaryDecider):
         # with view no 0 to a newly joined node
         self.previous_master_primary = None
 
-        # TODO: think about merging these two
-        self.view_change_done_messages = {}
-        self._view_change_done = {}
+        self._view_change_done = {}  # instance id -> replica name -> data
 
     @property
     def routes(self) -> Iterable[Route]:
         return [(ViewChangeDone, self._processViewChangeDone)]
 
-    # TODO: there is no such method in super class, it should be declared
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         msgs = []
         for instance_id, replica in enumerate(self.replicas):
@@ -170,7 +167,7 @@ class PrimarySelector(PrimaryDecider):
         if replica_name in self._view_change_done:
             return False
         data = (new_primary_replica_name, last_ordered_seq_no)
-        self._view_change_done[instance_id][replica_name] =  data
+        self._view_change_done[instance_id][replica_name] = data
         return True
 
     def _hasViewChangeQuorum(self, instance_id):

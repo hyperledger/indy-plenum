@@ -5,6 +5,7 @@ from plenum.common.message_processor import MessageProcessor
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.router import Router, Route
 from stp_core.common.log import getlogger
+from typing import List
 
 logger = getlogger()
 
@@ -70,3 +71,6 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
             logger.warning("Provided view no {} is not greater than the "
                            "current view no {}".format(viewNo, self.viewNo))
             return False
+
+    def get_msgs_for_lagged_nodes(self) -> List[int]:
+        raise NotImplementedError
