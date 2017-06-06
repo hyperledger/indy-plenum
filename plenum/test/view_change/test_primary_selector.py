@@ -100,9 +100,4 @@ def test_get_msgs_for_lagged_nodes():
         return [str(i) for i in l]
 
     messages_for_lagged = selector.get_msgs_for_lagged_nodes()
-    assert len(messages_for_lagged) == len(messages)
-    a = {str(m) for m in messages_for_lagged}
-    b = {str(m[0]) for m in messages}
-    assert a == b
-
-
+    assert {m for m in messages_for_lagged} == {m[0] for m in messages}
