@@ -40,8 +40,6 @@ class PrimarySelector(PrimaryDecider):
                                                instance_id,
                                                self.viewNo,
                                                last_ordered_seq_no))
-                # messages.append(ViewChangeDone(nm, instId, self.viewNo, seqNo))
-
         return messages
 
     # overridden method of PrimaryDecider
@@ -120,13 +118,13 @@ class PrimarySelector(PrimaryDecider):
                          .format(self.name, sender))
             return
 
-        # TODO: set primaryName to None when starting view change
         if replica.hasPrimary:
             self.discard(msg,
                          "it already decided primary which is {}".
                          format(replica.primaryName),
                          logger.debug)
             return
+
 
         # TODO: implement case when we get equal number of ViewChangeDone
         # with different primaries specified. Tip: use ppSeqNo for this
@@ -146,9 +144,6 @@ class PrimarySelector(PrimaryDecider):
                                last_ordered_seq_no),
                        extra={"cli": "ANNOUNCE",
                               "tags": ["node-election"]})
-
-        # If the maximum primary declarations are for this node
-        # then make it primary
 
         replica.primaryChanged(primary)
 
