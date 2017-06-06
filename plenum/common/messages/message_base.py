@@ -136,3 +136,9 @@ class MessageBase(Mapping, MessageValidator):
         if not issubclass(other.__class__, self.__class__):
             return False
         return self._asdict() == other._asdict()
+
+    def __hash__(self):
+        h = 1
+        for index, value in enumerate(list(self.__iter__())):
+            h = h * (index + 1) * (hash(value) + 1)
+        return h
