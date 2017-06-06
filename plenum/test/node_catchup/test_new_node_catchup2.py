@@ -1,3 +1,4 @@
+from itertools import chain
 from time import perf_counter
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.util import updateNamedTuple
 from plenum.test.delayers import cqDelay, cr_delay
+from plenum.test.test_node import ensureElectionsDone
 from stp_zmq.zstack import KITZStack
 
 from stp_core.common.log import getlogger
@@ -42,34 +44,37 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     looper, new_node, client, wallet, newStewardClient, newStewardWallet = \
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(new_node)
-
+    old_nodes = txnPoolNodeSet[:-1]
+    ensureElectionsDone(looper, txnPoolNodeSet)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     new_node_replica_names = {r.instId: r.name for r in new_node.replicas}
 
-    for node in txnPoolNodeSet[:-1]:
-        for replica in node.replicas:
-            for commit in replica.commits.values():
-                for v in commit.voters:
-                    assert new_node_replica_names[replica.instId] not in v
-            for prepare in replica.prepares.values():
-                for v in prepare.voters:
-                    assert new_node_replica_names[replica.instId] not in v
+    def chk_commits_prepares_recvd(count):
+        counts = {}
+        for node in old_nodes:
+            for replica in node.replicas:
+                if replica.instId not in counts:
+                    counts[replica.instId] = 0
+                nm = new_node_replica_names[replica.instId]
+                for commit in replica.commits.values():
+                    counts[replica.instId] += int(nm in commit.voters)
+                for prepare in replica.prepares.values():
+                    counts[replica.instId] += int(nm in prepare.voters)
+        for c in counts.values():
+            assert count == c
 
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
+    chk_commits_prepares_recvd(0)
+
+    for node in old_nodes:
+        node.resetDelays()
+        node.force_process_delayeds()
+
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
     looper.runFor(20)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
 
-    from itertools import chain
-
-    for node in txnPoolNodeSet[:-1]:
-        for replica in node.replicas:
-            c = chain.from_iterable([votes.voters for votes in replica.commits.values()])
-            assert len([x for x in c if new_node.name in x]) == 1, \
-                "{} not found in commit voters".format(new_node.name)
-            c = chain.from_iterable([votes.voters for votes in replica.prepares.values()])
-            assert len([x for x in c if new_node.name in x]) == 1, \
-                "{} not found in prepare voters".format(new_node.name)
-
+    # Commits and Prepares are received by all old nodes
+    chk_commits_prepares_recvd(2 * (len(old_nodes)))
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
