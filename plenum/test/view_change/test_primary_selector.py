@@ -1,7 +1,7 @@
 import pytest
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
-from plenum.server.node import Node
+from plenum.server.replica import Replica
 
 
 class FakeNode():
@@ -13,11 +13,24 @@ class FakeNode():
         self.rank = None
         self.allNodeNames = [self.name, "Node2", "Node3", "Node4"]
         self.totalNodes = len(self.allNodeNames)
+        self.ledger_ids = [0]
+        self.replicas = [
+            Replica(node=self, instId=0, isMaster=True),
+            Replica(node=self, instId=1, isMaster=False),
+            Replica(node=self, instId=2, isMaster=False),
+        ]
+        self._found = False
 
     def get_name_by_rank(self, name):
         # This is used only for getting name of next primary, so
         # it just returns a constant
         return "Node2"
+
+    def primary_found(self):
+        self._found = True
+
+    def is_primary_found(self):
+        return self._found
 
 
 def testHasViewChangeQuorum():
@@ -51,14 +64,23 @@ def testHasViewChangeQuorum():
 
 
 def testProcessViewChangeDone():
-    try:
-        sender = "Node2"
-        msg = ViewChangeDone(name="Node1",
-                             instId=0,
-                             viewNo=0,
-                             ordSeqNo=0)
+    msg = ViewChangeDone(name="Node2",
+                         instId=0,
+                         viewNo=0,
+                         ordSeqNo=0)
 
-        decider = PrimarySelector(FakeNode())
-        decider.processViewChangeDone(msg, sender)
-    except Exception:
-        pass
+    node = FakeNode()
+    selector = PrimarySelector(node)
+
+    from plenum.common.util import get_strong_quorum
+
+    quorum = get_strong_quorum(node.totalNodes)
+    for i in range(quorum):
+        selector.processViewChangeDone(msg, "Node2")
+    assert not node.is_primary_found()
+
+    selector.processViewChangeDone(msg, "Node1")
+    assert not node.is_primary_found()
+
+    selector.processViewChangeDone(msg, "Node3")
+    assert node.is_primary_found()
