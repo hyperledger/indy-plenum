@@ -8,7 +8,7 @@ from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
     check_seqno_db_equality, assertEquality
 from plenum.test.test_client import TestClient
-from plenum.test.test_node import TestNode
+from plenum.test.test_node import TestNode, TestNodeSet
 from plenum.test import waits
 from plenum.common import util
 import pytest
@@ -71,6 +71,12 @@ def waitNodeDataUnequality(looper,
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))
+
+
+def ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=None):
+    node = next(iter(nodes))
+    other_nodes = [n for n in nodes if n != node]
+    waitNodeDataEquality(looper, node, *other_nodes, customTimeout=custom_timeout)
 
 
 def ensureNewNodeConnectedClient(looper, client: TestClient, node: TestNode):

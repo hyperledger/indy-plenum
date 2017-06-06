@@ -165,19 +165,20 @@ class PrimarySelector(PrimaryDecider):
         return quorum_achieved
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
-        self._scheduleSelection()
+        self._startSelection()
 
-    def _scheduleSelection(self):
-        """
-        Schedule election at some time in the future. Currently the election
-        starts immediately.
-        """
-        self._schedule(self._startSelection)
+    # def _scheduleSelection(self):
+    #     """
+    #     Schedule election at some time in the future. Currently the election
+    #     starts immediately.
+    #     """
+    #     self._schedule(self._startSelection)
 
     def _startSelection(self):
         logger.debug("{} starting selection".format(self))
         for instance_id, replica in enumerate(self.replicas):
             if replica.primaryName is not None:
+                logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
             new_primary_name = replica.generateName(
@@ -193,12 +194,18 @@ class PrimarySelector(PrimaryDecider):
             replica.primaryChanged(new_primary_name)
 
     def viewChanged(self, viewNo: int):
-        if viewNo > self.viewNo:
-            self.viewNo = viewNo
-            self._startSelection()
-        else:
-            logger.warning("Provided view no {} is not greater than the "
-                           "current view no {}".format(viewNo, self.viewNo))
+        if super().viewChanged(viewNo):
+            # TODO: primary selection will be done once ledgers are caught up,
+            # remove next line later
+            # self._startSelection()
+            pass
+
+        # if viewNo > self.viewNo:
+        #     self.viewNo = viewNo
+        #     self._startSelection()
+        # else:
+        #     logger.warning("Provided view no {} is not greater than the "
+        #                    "current view no {}".format(viewNo, self.viewNo))
 
     # TODO: there is no such method in super class, it should be declared
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:

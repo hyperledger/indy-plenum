@@ -185,3 +185,9 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
                        max_delay=None):
     # Delay 3 phase commit message
     delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)
+
+
+def reset_delays_and_process_delayeds(nodes):
+    for node in nodes:
+        node.resetDelays()
+        node.force_process_delayeds()

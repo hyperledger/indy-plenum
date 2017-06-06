@@ -2,13 +2,15 @@ import types
 
 import pytest
 
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from plenum.server.node import Node
-from plenum.test.delayers import delayNonPrimaries
+from plenum.test.delayers import delayNonPrimaries, \
+    reset_delays_and_process_delayeds
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
-    ensureElectionsDone
+    ensureElectionsDone, checkProtocolInstanceSetup
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 
 nodeCount = 7
@@ -20,12 +22,15 @@ def viewChangeDone(nodeSet, looper, up, wallet1, client1, viewNo):
     m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, 10)
+    npr = delayNonPrimaries(nodeSet, 0, 10)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
-
     waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
-    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    reset_delays_and_process_delayeds([r.node for r in npr])
+
+    ensure_all_nodes_have_same_data(looper, nodeSet)
+    # ensureElectionsDone(looper=looper, nodes=nodeSet)
+    checkProtocolInstanceSetup(looper, nodeSet)
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     assert m_primary_node.name != new_m_primary_node.name
 

@@ -13,6 +13,7 @@ def one_node_added(looper, txnPoolNodeSet, nodeThetaAdded):
     # New node knows primary same primary as others and has rank greater
     # than others
     _, _, new_node = nodeThetaAdded
+    waitNodeDataEquality(looper, one_node_added, *txnPoolNodeSet[:4])
     check_newly_added_nodes(looper, txnPoolNodeSet, [new_node])
     return new_node
 
@@ -29,8 +30,6 @@ def test_primary_selection_increase_f(one_node_added, looper, txnPoolNodeSet,
                             tdirWithPoolTxns, tconf, allPluginsPath)
 
     check_newly_added_nodes(looper, txnPoolNodeSet, new_nodes)
-    for new_node in new_nodes:
-        waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
 
 # TODO: Add more tests to make one next primary crashed, malicious, ensure primary
