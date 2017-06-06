@@ -33,6 +33,38 @@ class PrimarySelector(PrimaryDecider):
     def routes(self) -> Iterable[Route]:
         return [(ViewChangeDone, self._processViewChangeDone)]
 
+    # TODO: there is no such method in super class, it should be declared
+    def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
+        msgs = []
+        for instance_id, replica in enumerate(self.replicas):
+            msg = self.view_change_done_messages.get(instance_id,
+                                                     ViewChangeDone(
+                                                         replica.primaryName,
+                                                         instance_id,
+                                                         self.viewNo,
+                                                         None))
+            msgs.append(msg)
+        return msgs
+
+    # overridden method of PrimaryDecider
+    def decidePrimaries(self):
+        self._startSelection()
+
+    # overridden method of PrimaryDecider
+    def viewChanged(self, viewNo: int):
+        if super().viewChanged(viewNo):
+            # TODO: primary selection will be done once ledgers are caught up,
+            # remove next line later
+            # self._startSelection()
+            pass
+
+            # if viewNo > self.viewNo:
+            #     self.viewNo = viewNo
+            #     self._startSelection()
+            # else:
+            #     logger.warning("Provided view no {} is not greater than the "
+            #                    "current view no {}".format(viewNo, self.viewNo))
+
     def _is_master_instance(self, instance_id):
         # Instance 0 is always master
         return instance_id == 0
@@ -172,9 +204,6 @@ class PrimarySelector(PrimaryDecider):
                              instance_id))
         return True
 
-    def decidePrimaries(self):  # overridden method of PrimaryDecider
-        self._startSelection()
-
     def _startSelection(self):
         logger.debug("{} starting selection".format(self))
         for instance_id, replica in enumerate(self.replicas):
@@ -201,31 +230,4 @@ class PrimarySelector(PrimaryDecider):
             nodeName=self.node.get_name_by_rank(new_primary_id),
             instId=instance_id)
         return new_primary_name
-
-    def viewChanged(self, viewNo: int):
-        if super().viewChanged(viewNo):
-            # TODO: primary selection will be done once ledgers are caught up,
-            # remove next line later
-            # self._startSelection()
-            pass
-
-        # if viewNo > self.viewNo:
-        #     self.viewNo = viewNo
-        #     self._startSelection()
-        # else:
-        #     logger.warning("Provided view no {} is not greater than the "
-        #                    "current view no {}".format(viewNo, self.viewNo))
-
-    # TODO: there is no such method in super class, it should be declared
-    def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
-        msgs = []
-        for instance_id, replica in enumerate(self.replicas):
-            msg = self.view_change_done_messages.get(instance_id,
-                                                     ViewChangeDone(
-                                                         replica.primaryName,
-                                                         instance_id,
-                                                         self.viewNo,
-                                                         None))
-            msgs.append(msg)
-        return msgs
 
