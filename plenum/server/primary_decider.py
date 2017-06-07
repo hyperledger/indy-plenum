@@ -83,4 +83,9 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         """
         logger.debug("{}'s elector sending {}".format(self.name, msg))
         self.outBox.append(msg)
-        
+
+    def start_election_for_instance(self, instance_id):
+        """
+        Called when starting election for a particular protocol instance 
+        """
+        raise NotImplementedError

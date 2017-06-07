@@ -169,7 +169,8 @@ class PrimaryElector(PrimaryDecider):
         """
         return get_strong_quorum(f=self.f)
 
-    def decidePrimaries(self):  # overridden method of PrimaryDecider
+    # overridden method of PrimaryDecider
+    def decidePrimaries(self):
         self.scheduleElection()
 
     def scheduleElection(self):
@@ -189,8 +190,8 @@ class PrimaryElector(PrimaryDecider):
 
         self.nominateItself()
 
+    # overridden method of PrimaryDecider
     def start_election_for_instance(self, inst_id):
-        # Called when starting election for a particular protocol instance
         self.prepareReplicaForElection(self.replicas[inst_id])
         self._schedule(self.nominateItself, random.random())
 
@@ -793,3 +794,4 @@ class PrimaryElector(PrimaryDecider):
         for instId in range(len(self.replicas)):
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs
+
