@@ -806,10 +806,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def newNodeJoined(self, txn):
         self.setF()
         new_replicas = self.adjustReplicas()
-        if self.adjustReplicas() > 0:
+        if new_replicas > 0:
             while new_replicas > 0:
-                self.elector.start_election_for_instance(
-                    self.replicas[-new_replicas].instId)
+                # self.elector.start_election_for_instance(
+                #     self.replicas[-new_replicas].instId)
+                self.elector.decidePrimaries()
                 new_replicas -= 1
 
     def nodeLeft(self, txn):
