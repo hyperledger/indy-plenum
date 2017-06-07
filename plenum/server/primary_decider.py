@@ -74,3 +74,13 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
 
     def get_msgs_for_lagged_nodes(self) -> List[int]:
         raise NotImplementedError
+
+    def send(self, msg):
+        """
+        Send a message to the node on which this replica resides.
+
+        :param msg: the message to send
+        """
+        logger.debug("{}'s elector sending {}".format(self.name, msg))
+        self.outBox.append(msg)
+        

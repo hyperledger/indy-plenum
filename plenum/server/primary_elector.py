@@ -720,15 +720,6 @@ class PrimaryElector(PrimaryDecider):
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
                > (1 * self.nodeCount)
 
-    def send(self, msg):
-        """
-        Send a message to the node on which this replica resides.
-
-        :param msg: the message to send
-        """
-        logger.debug("{}'s elector sending {}".format(self.name, msg))
-        self.outBox.append(msg)
-
     def viewChanged(self, viewNo: int):
         """
         Actions to perform when a view change occurs.
