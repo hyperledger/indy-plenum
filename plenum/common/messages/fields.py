@@ -313,3 +313,15 @@ class JsonField(FieldBase):
             json.loads(val)
         except json.decoder.JSONDecodeError:
             return 'should be a valid JSON string'
+
+
+class LedgerStatusField(FieldBase):
+    _base_types = (tuple,)
+
+    def _specific_validation(self, val):
+        assert len(val) == 3
+        ledgerId, ledgerLength, merkleRoot = val
+        LedgerIdField().validate(ledgerId)
+        NonNegativeNumberField().validate(ledgerLength)
+        MerkleRootField().validate(merkleRoot)
+

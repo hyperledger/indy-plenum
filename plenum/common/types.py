@@ -43,6 +43,7 @@ class f:  # provides a namespace for reusable field constants
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
+    LEDGER_INFO = Field("ledgerInfo", List[tuple])
     INST_ID = Field('instId', int)
     IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
@@ -366,8 +367,9 @@ class ViewChangeDone(MessageBase):
         (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.ORD_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
+        (f.LEDGER_INFO.nm, IterableField(LedgerStatusField()))
     )
+
 
 # ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
 #     f.NAME,
