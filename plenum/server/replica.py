@@ -193,7 +193,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
         # Set of tuples to keep track of ordered requests. Each tuple is
-        # (viewNo, ppSeqNo)
+        # (viewNo, ppSeqNo).
         self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
@@ -438,9 +438,32 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
 
+    def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
+        """
+        Revert any changes to state and ledger that were
+        """
+        assert self.isMaster
+        to_remove = []
+        logger.debug('{} reverting from {}'.format(self, self.batches))
+        for key in reversed(self.batches):
+            if compare_3PC_keys(ordered_till, key) > 0:
+                to_remove.append(key)
+            else:
+                break
+
+        for key in to_remove:
+            ppReq = self.getPrePrepare(*key)
+            count, _, prevStateRoot = self.batches.pop(key)
+            self.revert(ppReq.ledgerId, prevStateRoot, count)
+            # This GC should be done only once on view change complete
+            # self.sentPrePrepares.pop(key, None)
+            # self.prePrepares.pop(key, None)
+            # self.prepares.pop(key, None)
+            # self.prepares.pop(key, None)
+
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
-        Return whether a primary has been selected for this view number.
+        Return whether this replica was primary in the given view
         """
         return self.primaryNames[viewNo] == self.name
 
@@ -896,6 +919,8 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def revert(self, ledgerId, stateRootHash, reqCount):
+        # A batch should only be reverted if all batches that came after it
+        # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
         logger.info('{} reverting {} txns and state root from {} to {} for'

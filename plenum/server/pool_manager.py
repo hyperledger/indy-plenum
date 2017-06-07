@@ -230,7 +230,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.newNodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
-        if self.node.master_primary == nodeName:
+        if self.node.master_primary_name == nodeName:
             self.node.sendInstanceChange(self.node.viewNo + 1,
                                          Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 

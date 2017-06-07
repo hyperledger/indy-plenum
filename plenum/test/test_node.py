@@ -161,9 +161,13 @@ class TestNodeCore(StackedTester):
         c += self.nodeIbStasher.force_unstash()
         for r in self.replicas:
             c += r.outBoxTestStasher.force_unstash()
-        logger.debug("{} forced processing of delayed messages, {} processed in total".
-                     format(self, c))
+        logger.debug("{} forced processing of delayed messages, "
+                     "{} processed in total".format(self, c))
         return c
+
+    def reset_delays_and_process_delayeds(self):
+        self.resetDelays()
+        self.force_process_delayeds()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
@@ -307,7 +311,8 @@ class TestPrimarySelector(PrimarySelector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
-                  replica.Replica.stashOutsideWatermarks
+                  replica.Replica.stashOutsideWatermarks,
+                  replica.Replica.revert_onordered_3pc_till
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
@@ -438,7 +443,7 @@ class TestNodeSet(ExitStack):
     def getLastMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
         return getLastMsgReceivedForNode(self.getNode(node), method)
 
-    def getAllMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
+    def getAllMsgReceived(self, node: NodeRef, method: str = None) -> List:
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
 

@@ -6,7 +6,7 @@ from binascii import unhexlify
 from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
-from typing import Dict, Any, Mapping, Iterable, List, Optional, Set
+from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
 
 from intervaltree import IntervalTree
 
@@ -312,7 +312,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Set of (identifier, reqId) of all transactions that were received
         # while catching up. Used to detect overlap between stashed requests
         # and received replies while catching up.
-        self.reqsFromCatchupReplies = set()
+        # self.reqsFromCatchupReplies = set()
 
         # Any messages that are intended for view numbers higher than the
         # current view.
@@ -759,9 +759,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.status = Status.starting
         self.elector.nodeCount = self.connectedNodeCount
 
-        if self.master_primary in joined:
+        if self.master_primary_name in joined:
             self.lost_primary_at = None
-        if self.master_primary in left:
+        if self.master_primary_name in left:
             logger.debug('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
 
@@ -1009,12 +1009,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     # request ordering might have started when the node was not
                     # participating but by the time ordering finished, node
                     # might have started participating
-                    recvd = self.gotInCatchupReplies(msg)
-                    if self.isParticipating and not recvd:
+                    # recvd = self.gotInCatchupReplies(msg)
+                    # los = self.master_last_ordered_3PC
+                    # if self.isParticipating and compare_3PC_keys(
+                    #         los, (msg.viewNo, msg.ppSeqNo)) > 0:
+                    if self.isParticipating:
                         self.processOrdered(msg)
                     else:
-                        logger.debug("{} stashing {} since mode is {} and {}".
-                                     format(self, msg, self.mode, recvd))
+                        logger.debug("{} stashing {} since mode is {}".
+                                     format(self, msg, self.mode))
                         self.stashedOrderedReqs.append(msg)
                 elif isinstance(msg, Reject):
                     reqKey = (msg.identifier, msg.reqId)
@@ -1102,13 +1105,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self._primary_replica_no
 
     @property
-    def master_primary(self) -> Optional[str]:
+    def master_primary_name(self) -> Optional[str]:
         """
         Return the name of the primary node of the master instance
         """
         if self.replicas[0].primaryName:
             return self.replicas[0].getNodeName(self.replicas[0].primaryName)
         return None
+
+    @property
+    def master_last_ordered_3PC(self) -> Tuple[int, int]:
+        replica = self.replicas[0]
+        return replica.last_ordered_3pc
 
     @staticmethod
     def is_valid_view_or_inst(n):
@@ -1447,8 +1455,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
-        self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
-                                         txn.get(f.REQ_ID.nm)))
+        # self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
+        #                                  txn.get(f.REQ_ID.nm)))
 
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
         if rh:
@@ -1469,10 +1477,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
-        replica = self.replicas[0]
-        if compare_3PC_keys(replica.last_ordered_3pc,
-                            self.ledgerManager.last_caught_up_3PC) > 0:
-            replica.last_ordered_3pc = self.ledgerManager.last_caught_up_3PC
+        last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
+        if compare_3PC_keys(self.master_last_ordered_3PC,
+                            last_caught_up_3PC) > 0:
+            replica = self.replicas[0]
+            replica.last_ordered_3pc = last_caught_up_3PC
+            logger.debug('{} caught up till {}'.format(self, last_caught_up_3PC))
+            replica.revert_onordered_3pc_till(last_caught_up_3PC)
 
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
@@ -2122,20 +2133,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         i = 0
         while self.stashedOrderedReqs:
             msg = self.stashedOrderedReqs.popleft()
-            if compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
-                                self.ledgerManager.last_caught_up_3PC) >= 0:
-                logger.debug('{} ignoring stashed ordered msg {} since ledger '
-                             'manager has lastCaughtUpPpSeqNo as {}'.
-                             format(self, msg,
-                                    self.ledgerManager.last_caught_up_3PC))
-                continue
-            if not self.gotInCatchupReplies(msg):
-                if msg.instId == 0:
-                    logger.debug('{} applying stashed Ordered msg {}'.
-                                 format(self, msg))
-                    for reqKey in msg.reqIdr:
-                        req = self.requests[reqKey].finalised
-                        self.applyReq(req)
+            if msg.instId == 0:
+                if compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
+                                    self.ledgerManager.last_caught_up_3PC) >= 0:
+                    logger.debug('{} ignoring stashed ordered msg {} since ledger '
+                                 'manager has lastCaughtUpPpSeqNo as {}'.
+                                 format(self, msg,
+                                        self.ledgerManager.last_caught_up_3PC))
+                    continue
+                # if not self.gotInCatchupReplies(msg):
+                #     if msg.instId == 0:
+                logger.debug('{} applying stashed Ordered msg {}'.format(self, msg))
+                for reqKey in msg.reqIdr:
+                    req = self.requests[reqKey].finalised
+                    self.applyReq(req)
+                    self.processOrdered(msg)
+            else:
                 self.processOrdered(msg)
             i += 1
         logger.debug("{} processed {} stashed ordered requests".format(self, i))
@@ -2144,9 +2157,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.reset()
         return i
 
-    def gotInCatchupReplies(self, msg):
-        reqIdr = getattr(msg, f.REQ_IDR.nm)
-        return set(reqIdr).intersection(self.reqsFromCatchupReplies)
+    # def gotInCatchupReplies(self, msg):
+    #     reqIdr = getattr(msg, f.REQ_IDR.nm)
+    #     return set(reqIdr).intersection(self.reqsFromCatchupReplies)
 
     def sync3PhaseState(self):
         for replica in self.replicas:

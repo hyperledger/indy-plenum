@@ -4,6 +4,8 @@ from plenum.common.constants import LedgerState
 from plenum.common.ledger import Ledger
 
 
+# TODO: Choose a better name, its not just information about a ledger, its more
+#  of a handle
 class LedgerInfo:
     def __init__(self,
                  ledger: Ledger,
