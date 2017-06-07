@@ -21,6 +21,8 @@ class PrimarySelector(PrimaryDecider):
         super().__init__(node)
         self.previous_master_primary = None
         self._view_change_done = {}  # instance id -> replica name -> data
+        self._ledger_info = None  # ledger info for view change
+
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -41,6 +43,10 @@ class PrimarySelector(PrimaryDecider):
                                                self.viewNo,
                                                ledger_info))
         return messages
+
+    # overridden method of PrimaryDecider
+    def start_election_for_instance(self, instance_id):
+        pass
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
@@ -247,3 +253,16 @@ class PrimarySelector(PrimaryDecider):
             instId=instance_id)
         return new_primary_name
 
+    def _send_view_change_done_message(self, instance_id):
+        """
+        Sends ViewChangeDone message to other protocol participants
+        """
+
+        next_primary = self._who_is_the_next_primary(instance_id)
+        next_viewno = self.viewNo + 1
+        ledger_info = []
+        message = ViewChangeDone(next_primary,
+                                 instance_id,
+                                 next_viewno,
+                                 ledger_info)
+        self.send(message)
