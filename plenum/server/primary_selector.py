@@ -35,11 +35,11 @@ class PrimarySelector(PrimaryDecider):
         messages = []
         for instance_id, replica_messages in self._view_change_done.items():
             for message in replica_messages.values():
-                (new_primary_replica_name, last_ordered_seq_no) = message
+                (new_primary_replica_name, ledger_info) = message
                 messages.append(ViewChangeDone(new_primary_replica_name,
                                                instance_id,
                                                self.viewNo,
-                                               last_ordered_seq_no))
+                                               ledger_info))
         return messages
 
     # overridden method of PrimaryDecider
@@ -80,15 +80,24 @@ class PrimarySelector(PrimaryDecider):
                      "ViewChangeDone msg from {} : {}"
                      .format(self.name, sender, msg))
 
-        instance_id = msg.instId
-        sender_replica_name = Replica.generateName(sender, instance_id)
+        proposed_view_no = msg.viewNo
+
+        if self.viewNo > proposed_view_no:
+            self.discard(msg,
+                         '{} got Primary from {} for view no {} '
+                         'whereas current view no is {}'
+                         .format(self, sender, proposed_view_no, self.viewNo),
+                         logMethod=logger.warning)
+            return
+
         new_primary_replica_name = msg.name
+        instance_id = msg.instId
+        ledger_info = msg.ledgerInfo
+        sender_replica_name = Replica.generateName(sender, instance_id)
         new_primary_node_name = Replica.getNodeName(new_primary_replica_name)
-        last_ordered_seq_no = msg.ordSeqNo
 
         if self._is_master_instance(instance_id) and \
            new_primary_node_name == self.previous_master_primary:
-
             self.discard(msg,
                          '{} got Primary from {} for {} who was primary of '
                          'master in previous view too'
@@ -99,7 +108,7 @@ class PrimarySelector(PrimaryDecider):
         if not self._mark_replica_as_changed_view(instance_id,
                                                   sender_replica_name,
                                                   new_primary_node_name,
-                                                  last_ordered_seq_no):
+                                                  ledger_info):
             self.discard(msg,
                          "already marked {} as done view change".
                          format(sender_replica_name),
@@ -171,12 +180,12 @@ class PrimarySelector(PrimaryDecider):
                                       instance_id,
                                       replica_name,
                                       new_primary_replica_name,
-                                      last_ordered_seq_no):
+                                      ledger_info):
         if instance_id not in self._view_change_done:
             self._view_change_done[instance_id] = {}
         if replica_name in self._view_change_done:
             return False
-        data = (new_primary_replica_name, last_ordered_seq_no)
+        data = (new_primary_replica_name, ledger_info)
         self._view_change_done[instance_id][replica_name] = data
         return True
 
