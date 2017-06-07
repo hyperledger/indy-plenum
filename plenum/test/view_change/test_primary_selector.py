@@ -107,3 +107,12 @@ def test_get_msgs_for_lagged_nodes():
 
     messages_for_lagged = selector.get_msgs_for_lagged_nodes()
     assert {m for m in messages_for_lagged} == {m[0] for m in messages}
+
+
+def test_send_view_change_done_message():
+    node = FakeNode()
+    selector = PrimarySelector(node)
+    instance_id = 0
+    selector._send_view_change_done_message(instance_id)
+    assert len(selector.outBox) == 1
+
