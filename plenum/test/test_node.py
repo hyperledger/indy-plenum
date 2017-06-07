@@ -312,7 +312,7 @@ class TestPrimarySelector(PrimarySelector):
                   replica.Replica.doOrder,
                   replica.Replica.discard,
                   replica.Replica.stashOutsideWatermarks,
-                  replica.Replica.revert_onordered_3pc_till
+                  replica.Replica.revert_unordered_batches
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):

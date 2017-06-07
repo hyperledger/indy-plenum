@@ -438,15 +438,34 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
 
-    def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
-        """
-        Revert any changes to state and ledger that were
-        """
-        assert self.isMaster
+    # def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
+    #     """
+    #     Revert any changes to state and ledger that were not ordered by the
+    #     replica but the replica got them through catchup
+    #     """
+    #     assert self.isMaster
+    #     to_remove = []
+    #     for key in reversed(self.batches):
+    #         # TODO: Need to consider `self.ordered`
+    #         if compare_3PC_keys(ordered_till, key) > 0:
+    #             to_remove.append(key)
+    #         else:
+    #             break
+    #
+    #     for key in to_remove:
+    #         ppReq = self.getPrePrepare(*key)
+    #         count, _, prevStateRoot = self.batches.pop(key)
+    #         self.revert(ppReq.ledgerId, prevStateRoot, count)
+    #         # This GC should be done only once on view change complete
+    #         # self.sentPrePrepares.pop(key, None)
+    #         # self.prePrepares.pop(key, None)
+    #         # self.prepares.pop(key, None)
+    #         # self.prepares.pop(key, None)
+
+    def revert_unordered_batches(self):
         to_remove = []
-        logger.debug('{} reverting from {}'.format(self, self.batches))
         for key in reversed(self.batches):
-            if compare_3PC_keys(ordered_till, key) > 0:
+            if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 to_remove.append(key)
             else:
                 break
@@ -455,11 +474,8 @@ class Replica(HasActionQueue, MessageProcessor):
             ppReq = self.getPrePrepare(*key)
             count, _, prevStateRoot = self.batches.pop(key)
             self.revert(ppReq.ledgerId, prevStateRoot, count)
-            # This GC should be done only once on view change complete
-            # self.sentPrePrepares.pop(key, None)
-            # self.prePrepares.pop(key, None)
-            # self.prepares.pop(key, None)
-            # self.prepares.pop(key, None)
+
+        return len(to_remove)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """

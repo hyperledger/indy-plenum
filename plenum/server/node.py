@@ -1483,7 +1483,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             replica = self.replicas[0]
             replica.last_ordered_3pc = last_caught_up_3PC
             logger.debug('{} caught up till {}'.format(self, last_caught_up_3PC))
-            replica.revert_onordered_3pc_till(last_caught_up_3PC)
+            # replica.revert_onordered_3pc_till(last_caught_up_3PC)
 
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
@@ -1908,6 +1908,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
+        self.replicas[0].revert_unordered_batches()
         self.start_catchup()
 
     def on_view_change_complete(self, view_no):

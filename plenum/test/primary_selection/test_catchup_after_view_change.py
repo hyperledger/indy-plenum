@@ -6,9 +6,11 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     stewardAndWallet1, steward1, stewardWallet
 
 from plenum.test.delayers import cDelay, delay_3pc_messages
+from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
-    checkProtocolInstanceSetup
+    checkProtocolInstanceSetup, TestReplica
 from plenum.test.view_change.helper import ensure_view_change
+from stp_core.loop.eventually import eventually
 
 
 def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
@@ -27,16 +29,24 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     slow_node = nprs[0].node
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = tconf.PerfCheckFreq
+    # Bad network introduced
     delay_3pc_messages([slow_node], 0, delay=delay)
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
-    ensure_all_nodes_have_same_data(looper, nodes=fast_nodes)
+    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 40)
     waitNodeDataUnequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
         n.ledgerManager.processCatchupRep) for n in txnPoolNodeSet}
     catchup_done_counts = {n.name: n.spylog.count(n.allLedgersCaughtUp)
                            for n in txnPoolNodeSet}
+    # No reverts have been called by the slow node
+    rv = getAllReturnVals(slow_node.replicas[0],
+                          TestReplica.revert_unordered_batches)
+    assert not rv or max(rv) == 0
 
+    def slow_node_processed_some():
+        assert slow_node.replicas[0].batches
+
+    looper.run(eventually(slow_node_processed_some, retryWait=1))
     ensure_view_change(looper, txnPoolNodeSet)
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
@@ -52,7 +62,14 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
             assert n.ledgerManager.spylog.count(
                 n.ledgerManager.processCatchupRep) == catchup_reply_counts[n.name]
 
+    # Greater than 0 batches were reverted by the slow node
+    assert max(getAllReturnVals(slow_node.replicas[0],
+                                TestReplica.revert_unordered_batches)) > 0
+
+    # Bad network repaired
     slow_node.reset_delays_and_process_delayeds()
+
+    # Make sure pool is functional
     sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 5)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
