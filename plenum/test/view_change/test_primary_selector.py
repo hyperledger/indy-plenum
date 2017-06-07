@@ -65,11 +65,14 @@ def testHasViewChangeQuorum():
 
 
 def testProcessViewChangeDone():
+    ledgerInfo = (
+        (0, 10, '11111111111111111111111111111111'), # ledger id, ledger length, merkle root
+        (1, 5, '22222222222222222222222222222222'),
+    )
     msg = ViewChangeDone(name='Node2',
                          instId=0,
                          viewNo=0,
-                         ordSeqNo=0)
-
+                         ledgerInfo=ledgerInfo)
     node = FakeNode()
     selector = PrimarySelector(node)
     quorum = get_strong_quorum(node.totalNodes)
@@ -85,12 +88,15 @@ def testProcessViewChangeDone():
 
 
 def test_get_msgs_for_lagged_nodes():
+    ledgerInfo = (
+        (0, 10, '11111111111111111111111111111111'),   #  ledger id, ledger length, merkle root
+        (1, 5, '22222222222222222222222222222222'),
+    )
     messages = [
-        (ViewChangeDone(name='Node2', instId=0, viewNo=0, ordSeqNo=0), 'Node1'),
-        (ViewChangeDone(name='Node3', instId=0, viewNo=0, ordSeqNo=0), 'Node2'),
-        (ViewChangeDone(name='Node2', instId=1, viewNo=0, ordSeqNo=0), 'Node3'),
+        (ViewChangeDone(name='Node2', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
+        (ViewChangeDone(name='Node3', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node2'),
+        (ViewChangeDone(name='Node2', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node3'),
     ]
-
     node = FakeNode()
     selector = PrimarySelector(node)
     for message in messages:
