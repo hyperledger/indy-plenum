@@ -88,6 +88,22 @@ def add_txns_to_ledger_before_order(replica, reqs):
 
     replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
 
+def start_precatchup_before_order(replica):
+    called = False
+    origMethod = replica.tryOrder
+
+    def tryOrderAndAddTxns(self, commit):
+        nonlocal called
+        canOrder, _ = self.canOrder(commit)
+
+        if not called and canOrder:
+            ledger_manager = replica.node.ledgerManager
+            ledger_manager.preCatchupClbk(DOMAIN_LEDGER_ID)
+            called = True
+
+        return origMethod(commit)
+
+    replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
 
 def make_node_syncing(replica, three_phase_type: ThreePhaseType):
     added = False

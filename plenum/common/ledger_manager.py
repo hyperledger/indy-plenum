@@ -335,7 +335,7 @@ class LedgerManager(HasActionQueue):
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
             self.preCatchupClbk(ledgerId)
-            if ledgerId == DOMAIN_LEDGER_ID:
+            if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
                 ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
 
