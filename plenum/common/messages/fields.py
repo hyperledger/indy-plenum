@@ -315,7 +315,7 @@ class JsonField(FieldBase):
             return 'should be a valid JSON string'
 
 
-class LedgerStatusField(FieldBase):
+class LedgerInfoField(FieldBase):
     _base_types = (tuple,)
 
     def _specific_validation(self, val):
