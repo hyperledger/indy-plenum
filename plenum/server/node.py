@@ -1980,7 +1980,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
 
-    def onBatchRejected(self, ledgerId, stateRoot=None):
+    def onBatchRejected(self, ledgerId):
         """
         A batch of requests has been rejected, if stateRoot is None, reject
         the current batch.
@@ -1990,9 +1990,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if ledgerId == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.poolManager.reqHandler.onBatchRejected(stateRoot)
+                self.poolManager.reqHandler.onBatchRejected()
         elif ledgerId == DOMAIN_LEDGER_ID:
-            self.reqHandler.onBatchRejected(stateRoot)
+            self.reqHandler.onBatchRejected()
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
