@@ -23,7 +23,6 @@ class PrimarySelector(PrimaryDecider):
         self._view_change_done = {}  # instance id -> replica name -> data
         self._ledger_info = None  # ledger info for view change
 
-
     @property
     def routes(self) -> Iterable[Route]:
         return [(ViewChangeDone, self._processViewChangeDone)]
@@ -46,7 +45,13 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def start_election_for_instance(self, instance_id):
-        pass
+        logger.warning("Starting election for specific instance is not "
+                       "supported, starting view change for all instead")
+        self.decidePrimaries()
+
+    # overridden method of PrimaryDecider
+    async def serviceQueues(self, limit=None):
+        raise NotImplementedError
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):

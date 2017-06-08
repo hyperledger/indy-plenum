@@ -152,6 +152,7 @@ class PrimaryElector(PrimaryDecider):
         return instId in self.primaryDeclarations and \
             self.replicas[instId].name in self.primaryDeclarations[instId]
 
+    # overridden method of PrimaryDecider
     async def serviceQueues(self, limit=None):
         """
         Service at most `limit` messages from the inBox.

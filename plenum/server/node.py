@@ -737,6 +737,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return 0
         o = self.serviceElectorOutBox()
         i = await self.serviceElectorInbox()
+        # TODO: Why is protected method accessed here?
         a = self.elector._serviceActions()
         return o + i + a
 
