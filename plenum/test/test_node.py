@@ -262,7 +262,8 @@ class TestNode(TestNodeCore, Node):
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                                 preCatchupClbk=self.preLedgerCatchUp)
 
 
 @spyable(methods=[

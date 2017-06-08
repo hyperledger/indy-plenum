@@ -479,13 +479,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getLedgerManager(self) -> LedgerManager:
         return LedgerManager(self, ownedByNode=True,
-                             postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                             preCatchupClbk=self.preLedgerCatchUp)
 
     def init_ledger_manager(self):
         # TODO: this and tons of akin stuff should be exterminated
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
                                     self.domainLedger,
-                                    preCatchupStartClbk=self.preDomainLedgerCatchUp,
                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
@@ -1406,12 +1406,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendDomainLedgerStatus(nm)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
-    def preDomainLedgerCatchUp(self):
-        """
-        Ledger got out of sync. Setting node's state accordingly
-        :return:
-        """
-        self.mode = Mode.syncing
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -1420,6 +1414,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         pass
+
+    def preLedgerCatchUp(self, ledger_id):
+        # make the node Syncing
+        self.mode = Mode.syncing
+
+        # revert uncommitted txns and state for unordered requests
+        self.replicas[0].revert_unordered_batches(ledger_id)
+
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
