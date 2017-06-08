@@ -764,9 +764,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.master_primary_name in left:
             logger.debug('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
-
         if self.isReady():
             self.checkInstances()
+
+
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
             # if isinstance(self.elector, PrimaryElector) and joined:
@@ -2341,31 +2342,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Print the node's current statistics to log.
         """
-        lines = []
-        l = lines.append
-        l("node {} current stats".format(self))
-        l("--------------------------------------------------------")
-        l("node inbox size         : {}".format(len(self.nodeInBox)))
-        l("client inbox size       : {}".
-                    format(len(self.clientInBox)))
-        l("age (seconds)           : {}".
-                    format(time.time() - self.created))
-        l("next check for reconnect: {}".
-                    format(time.perf_counter() - self.nodestack.nextCheck))
-        l("node connections        : {}".format(self.nodestack.conns))
-        l("f                       : {}".format(self.f))
-        l("master instance         : {}".format(self.instances.masterId))
-        l("replicas                : {}".format(len(self.replicas)))
-        l("view no                 : {}".format(self.viewNo))
-        l("rank                    : {}".format(self.rank))
-        l("msgs to replicas        : {}".
-                    format(len(self.msgsToReplicas)))
-        l("msgs to elector         : {}".
-                    format(len(self.msgsToElector)))
-        l("action queue            : {} {}".
-                    format(len(self.actionQueue), id(self.actionQueue)))
-        l("action queue stash      : {} {}".
-                    format(len(self.aqStash), id(self.aqStash)))
+        lines = [
+            "node {} current stats".format(self),
+            "--------------------------------------------------------",
+            "node inbox size         : {}".format(len(self.nodeInBox)),
+            "client inbox size       : {}".format(len(self.clientInBox)),
+            "age (seconds)           : {}".format(time.time() - self.created),
+            "next check for reconnect: {}".format(time.perf_counter() -
+                                                  self.nodestack.nextCheck),
+            "node connections        : {}".format(self.nodestack.conns),
+            "f                       : {}".format(self.f),
+            "master instance         : {}".format(self.instances.masterId),
+            "replicas                : {}".format(len(self.replicas)),
+            "view no                 : {}".format(self.viewNo),
+            "rank                    : {}".format(self.rank),
+            "msgs to replicas        : {}".format(len(self.msgsToReplicas)),
+            "msgs to elector         : {}".format(len(self.msgsToElector)),
+            "action queue            : {} {}".format(len(self.actionQueue),
+                                                     id(self.actionQueue)),
+            "action queue stash      : {} {}".format(len(self.aqStash),
+                                                     id(self.aqStash)),
+        ]
 
         logger.info("\n".join(lines), extra={"cli": False})
 
