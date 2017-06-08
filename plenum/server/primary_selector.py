@@ -134,9 +134,9 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return
 
-        self._complete_view_change(instance_id, replica)
+        self._complete_primary_selection(instance_id, replica)
 
-    def _complete_view_change(self, instance_id, replica):
+    def _complete_primary_selection(self, instance_id, replica):
         """
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
