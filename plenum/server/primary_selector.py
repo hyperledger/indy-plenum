@@ -226,7 +226,7 @@ class PrimarySelector(PrimaryDecider):
                                    self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-
+            self._send_view_change_done_message(instance_id)
 
 
     def _who_is_the_next_primary(self, instance_id):
