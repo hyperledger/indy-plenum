@@ -146,7 +146,3 @@ def test_send_view_change_done_message():
     print(messages)
 
     assert list(selector.outBox) == messages
-
-
-
-
