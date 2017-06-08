@@ -147,32 +147,32 @@ class PrimarySelector(PrimaryDecider):
         # in cases when it is possible
 
         votes = self._view_change_done[instance_id].values()
-        new_primary, last_ordered_seq_no = mostCommonElement(votes)
+        new_primary, ledger_info = mostCommonElement(votes)
 
         expected_primary = self._who_is_the_next_primary(instance_id)
         if new_primary != expected_primary:
             logger.warning("{} expected next primary to be {}, but majority "
                            "declared {} instead"
                            .format(self.name, expected_primary, new_primary))
+        # TODO: check if ledger status is expected
 
         logger.display("{} declares view change {} as completed for "
                        "instance {}, "
                        "new primary is {}, "
-                       "last ordered seqno is {}"
+                       "ledger info is {}"
                        .format(replica,
                                self.viewNo,
                                instance_id,
                                new_primary,
-                               last_ordered_seq_no),
+                               ledger_info),
                        extra={"cli": "ANNOUNCE",
                               "tags": ["node-election"]})
 
         replica.primaryChanged(new_primary)
 
-        if instance_id == 0:
+        if self._is_master_instance(instance_id):
             self.previous_master_primary = None
-
-        self.decidePrimaries()
+            self.node.primary_found()
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -232,8 +232,8 @@ class PrimarySelector(PrimaryDecider):
                                    self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-            replica.primaryChanged(new_primary_name)
-        self.node.primary_found()
+
+
 
     def _who_is_the_next_primary(self, instance_id):
         """
