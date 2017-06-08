@@ -3,6 +3,18 @@ from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
 from plenum.server.replica import Replica
 from plenum.common.util import get_strong_quorum
+from plenum.common.ledger_manager import LedgerManager
+from plenum.common.ledger_manager import Ledger
+
+
+class FakeLedger():
+    def __init__(self, ledger_id, size):
+        self._size = size
+        self.root_hash = (str(ledger_id) * 32)[:32]
+        self.hasher = None
+
+    def __len__(self):
+        return self._size
 
 
 class FakeNode():
@@ -21,6 +33,11 @@ class FakeNode():
             Replica(node=self, instId=2, isMaster=False),
         ]
         self._found = False
+        self.ledgerManager = LedgerManager(self, ownedByNode=True)
+        ledger0 = FakeLedger(0, 10)
+        ledger1 = FakeLedger(1, 5)
+        self.ledgerManager.addLedger(0, ledger0)
+        self.ledgerManager.addLedger(1, ledger1)
 
     def get_name_by_rank(self, name):
         # This is used only for getting name of next primary, so
@@ -89,8 +106,9 @@ def testProcessViewChangeDone():
 
 def test_get_msgs_for_lagged_nodes():
     ledgerInfo = (
-        (0, 10, '11111111111111111111111111111111'),   #  ledger id, ledger length, merkle root
-        (1, 5, '22222222222222222222222222222222'),
+        #  ledger id, ledger length, merkle root
+        (0, 10, '00000000000000000000000000000000'),
+        (1, 5, '11111111111111111111111111111111'),
     )
     messages = [
         (ViewChangeDone(name='Node2', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
@@ -102,9 +120,6 @@ def test_get_msgs_for_lagged_nodes():
     for message in messages:
         selector._processViewChangeDoneMessage(*message)
 
-    def to_string_set(l):
-        return [str(i) for i in l]
-
     messages_for_lagged = selector.get_msgs_for_lagged_nodes()
     assert {m for m in messages_for_lagged} == {m[0] for m in messages}
 
@@ -114,5 +129,24 @@ def test_send_view_change_done_message():
     selector = PrimarySelector(node)
     instance_id = 0
     selector._send_view_change_done_message(instance_id)
+
+    ledgerInfo = [
+        #  ledger id, ledger length, merkle root
+        (0, 10, '00000000000000000000000000000000'),
+        (1, 5, '11111111111111111111111111111111'),
+    ]
+    messages = [
+        ViewChangeDone(name='Node2:0', instId=0, viewNo=1, ledgerInfo=ledgerInfo)
+    ]
+
     assert len(selector.outBox) == 1
+
+    print()
+    print(list(selector.outBox))
+    print(messages)
+
+    assert list(selector.outBox) == messages
+
+
+
 
