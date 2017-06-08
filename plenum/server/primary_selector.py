@@ -57,21 +57,6 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         self._startSelection()
 
-    # overridden method of PrimaryDecider
-    def viewChanged(self, viewNo: int):
-        if super().viewChanged(viewNo):
-            # TODO: primary selection will be done once ledgers are caught up,
-            # remove next line later
-            # self._startSelection()
-            pass
-
-            # if viewNo > self.viewNo:
-            #     self.viewNo = viewNo
-            #     self._startSelection()
-            # else:
-            #     logger.warning("Provided view no {} is not greater than the "
-            #                    "current view no {}".format(viewNo, self.viewNo))
-
     def _is_master_instance(self, instance_id):
         # Instance 0 is always master
         return instance_id == 0
