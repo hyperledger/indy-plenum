@@ -21,7 +21,7 @@ class PrimarySelector(PrimaryDecider):
         super().__init__(node)
         self.previous_master_primary = None
         self._view_change_done = {}  # instance id -> replica name -> data
-        self._ledger_info = None  # ledger info for view change
+        self._ledger_manager = self.node.ledgerManager
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -228,10 +228,9 @@ class PrimarySelector(PrimaryDecider):
                                   "tags": ["node-election"]})
             self._send_view_change_done_message(instance_id)
 
-
     def _who_is_the_next_primary(self, instance_id):
         """
-        Returnes name of the next node which is supposed to be a new Primary
+        Returns name of the next node which is supposed to be a new Primary
         in round-robin fashion
         """
         new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
@@ -248,6 +247,13 @@ class PrimarySelector(PrimaryDecider):
         next_primary = self._who_is_the_next_primary(instance_id)
         next_viewno = self.viewNo + 1
         ledger_info = []
+        ledger_registry = self._ledger_manager.ledgerRegistry.items()
+        for ledger_id, ledger_data in ledger_registry:
+            ledger = ledger_data.ledger
+            ledger_length = len(ledger)
+            merkle_root = ledger.root_hash
+            ledger_info.append((ledger_id, ledger_length, merkle_root))
+
         message = ViewChangeDone(next_primary,
                                  instance_id,
                                  next_viewno,
