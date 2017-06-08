@@ -324,7 +324,6 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-
     return waitForViewChange(looper, nodeSet)
 
 

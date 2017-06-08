@@ -2063,6 +2063,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param stateRoot: state root after the batch was created
         :return:
         """
+        # TODO: stateRoot is not paased, remove if not needed
         if ledgerId == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
                 self.poolManager.reqHandler.onBatchRejected(stateRoot)
@@ -2139,7 +2140,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 if compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
                                     self.ledgerManager.last_caught_up_3PC) >= 0:
                     logger.debug('{} ignoring stashed ordered msg {} since ledger '
-                                 'manager has lastCaughtUpPpSeqNo as {}'.
+                                 'manager has last_caught_up_3PC as {}'.
                                  format(self, msg,
                                         self.ledgerManager.last_caught_up_3PC))
                     continue

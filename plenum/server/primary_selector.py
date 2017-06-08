@@ -174,7 +174,6 @@ class PrimarySelector(PrimaryDecider):
             self.previous_master_primary = None
 
         self.decidePrimaries()
-        self.node.primary_found()
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -235,6 +234,7 @@ class PrimarySelector(PrimaryDecider):
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
             replica.primaryChanged(new_primary_name)
+        self.node.primary_found()
 
     def _who_is_the_next_primary(self, instance_id):
         """
