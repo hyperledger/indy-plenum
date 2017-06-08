@@ -193,7 +193,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # type: Dict[Tuple[int, int], Tuple[Tuple[str, int], Set[str]]]
 
         # Set of tuples to keep track of ordered requests. Each tuple is
-        # (viewNo, ppSeqNo)
+        # (viewNo, ppSeqNo).
         self.ordered = OrderedSet()        # type: OrderedSet[Tuple[int, int]]
 
         # Dictionary to keep track of the which replica was primary during each
@@ -370,8 +370,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def primaryChanged(self, primaryName):
         self.primaryName = primaryName
-        if primaryName == self.name:
-            self._lastPrePrepareSeqNo = self.last_ordered_3pc[1]
+        self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
@@ -439,9 +438,48 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.sentPrePrepares.pop(key)
                     self.prepares.pop(key, None)
 
+    # def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
+    #     """
+    #     Revert any changes to state and ledger that were not ordered by the
+    #     replica but the replica got them through catchup
+    #     """
+    #     assert self.isMaster
+    #     to_remove = []
+    #     for key in reversed(self.batches):
+    #         # TODO: Need to consider `self.ordered`
+    #         if compare_3PC_keys(ordered_till, key) > 0:
+    #             to_remove.append(key)
+    #         else:
+    #             break
+    #
+    #     for key in to_remove:
+    #         ppReq = self.getPrePrepare(*key)
+    #         count, _, prevStateRoot = self.batches.pop(key)
+    #         self.revert(ppReq.ledgerId, prevStateRoot, count)
+    #         # This GC should be done only once on view change complete
+    #         # self.sentPrePrepares.pop(key, None)
+    #         # self.prePrepares.pop(key, None)
+    #         # self.prepares.pop(key, None)
+    #         # self.prepares.pop(key, None)
+
+    def revert_unordered_batches(self):
+        to_remove = []
+        for key in reversed(self.batches):
+            if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
+                to_remove.append(key)
+            else:
+                break
+
+        for key in to_remove:
+            ppReq = self.getPrePrepare(*key)
+            count, _, prevStateRoot = self.batches.pop(key)
+            self.revert(ppReq.ledgerId, prevStateRoot, count)
+
+        return len(to_remove)
+
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
-        Return whether a primary has been selected for this view number.
+        Return whether this replica was primary in the given view
         """
         return self.primaryNames[viewNo] == self.name
 
@@ -871,9 +909,11 @@ class Replica(HasActionQueue, MessageProcessor):
         last_pp = self.lastPrePrepare
         if last_pp:
             if last_pp.viewNo == view_no:
-                last_pp_seq_no = last_pp.ppSeqNo if last_pp.ppSeqNo > \
-                                                self.last_ordered_3pc[1] \
-                                                else self.last_ordered_3pc[1]
+                if last_pp.viewNo == self.last_ordered_3pc[0] and \
+                                last_pp.ppSeqNo < self.last_ordered_3pc[1]:
+                    last_pp_seq_no = self.last_ordered_3pc[1]
+                else:
+                    last_pp_seq_no = last_pp.ppSeqNo
             elif last_pp.viewNo > view_no:
                 return False
             else:
@@ -895,6 +935,8 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def revert(self, ledgerId, stateRootHash, reqCount):
+        # A batch should only be reverted if all batches that came after it
+        # have been reverted
         ledger = self.node.getLedger(ledgerId)
         state = self.node.getState(ledgerId)
         logger.info('{} reverting {} txns and state root from {} to {} for'
@@ -1197,7 +1239,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.hasOrdered(*key):
             return False, "already ordered"
 
-        if not self.all_prev_ordered(commit):
+        if commit.ppSeqNo > 1 and not self.all_prev_ordered(commit):
             viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
             if viewNo not in self.stashed_out_of_order_commits:
                 self.stashed_out_of_order_commits[viewNo] = {}
@@ -1214,6 +1256,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         # TODO: This method does a lot of work, choose correct data
         # structures to make it efficient.
+
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
         if self.ordered and self.ordered[-1] == (viewNo, ppSeqNo-1):

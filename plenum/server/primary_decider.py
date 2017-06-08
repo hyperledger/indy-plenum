@@ -63,7 +63,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
     def viewChanged(self, viewNo: int):
         if viewNo > self.viewNo:
             self.viewNo = viewNo
-            self.previous_master_primary = self.node.master_primary
+            self.previous_master_primary = self.node.master_primary_name
             for replica in self.replicas:
                 replica.primaryName = None
             return True

@@ -189,5 +189,4 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
 
 def reset_delays_and_process_delayeds(nodes):
     for node in nodes:
-        node.resetDelays()
-        node.force_process_delayeds()
+        node.reset_delays_and_process_delayeds()

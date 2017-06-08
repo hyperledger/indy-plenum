@@ -4,11 +4,11 @@ from plenum.common.constants import LedgerState
 from plenum.common.ledger import Ledger
 
 
+# TODO: Choose a better name, its not just information about a ledger, its more
+#  of a handle
 class LedgerInfo:
     def __init__(self,
                  ledger: Ledger,
-                 state: LedgerState,
-                 canSync,
                  preCatchupStartClbk,
                  postCatchupStartClbk,
                  preCatchupCompleteClbk,
@@ -18,8 +18,6 @@ class LedgerInfo:
 
         self.ledger = ledger
 
-        self.state = state
-        self.canSync = canSync
         self.preCatchupStartClbk = preCatchupStartClbk
         self.postCatchupStartClbk = postCatchupStartClbk
         self.preCatchupCompleteClbk = preCatchupCompleteClbk
@@ -30,6 +28,15 @@ class LedgerInfo:
         # Ledger statuses received while the ledger was not ready to be synced
         # (`canSync` was set to False)
         self.stashedLedgerStatuses = deque()
+
+        self.set_defaults()
+
+    # noinspection PyAttributeOutsideInit
+    def set_defaults(self):
+        self.state = LedgerState.not_synced
+        # Setting `canSync` to False since each ledger is synced in an
+        # established order so `canSync` will be set to True accordingly.
+        self.canSync = False
 
         # Tracks which nodes claim that this node's ledger status is ok
         # If a quorum of nodes (2f+1) say its up to date then mark the catchup
@@ -59,4 +66,13 @@ class LedgerInfo:
         #  node sends catchup requests. If the node is not able to finish the
         # the catchup process even after the timer expires then it requests
         # missing transactions.
+        self.catchupReplyTimer = None
+
+    # noinspection PyAttributeOutsideInit
+    def done_syncing(self):
+        self.canSync = False
+        self.state = LedgerState.synced
+        self.ledgerStatusOk = set()
+        self.recvdConsistencyProofs = {}
+        self.postCatchupCompleteClbk()
         self.catchupReplyTimer = None
