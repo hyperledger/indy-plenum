@@ -1108,8 +1108,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Return the name of the primary node of the master instance
         """
-        if self.replicas[0].primaryName:
-            return self.replicas[0].getNodeName(self.replicas[0].primaryName)
+
+        master_instance_id = self.instances.masterId
+        master_instance_replica = self.replicas[master_instance_id]
+        master_primary_name = master_instance_replica.primaryName
+        if master_primary_name:
+            return master_instance_replica.getNodeName(master_primary_name)
         return None
 
     @property
