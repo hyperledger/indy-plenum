@@ -117,21 +117,16 @@ class PrimarySelector(PrimaryDecider):
         replica = self.replicas[instance_id]  # type: Replica
 
         if replica.hasPrimary:
-            logger.debug("{} Primary already selected; ignoring PRIMARY msg"
-                         .format(replica))
+            self.discard(msg,
+                         "it already decided primary which is {}".
+                         format(replica.primaryName),
+                         logger.debug)
             return
 
         if not self._hasViewChangeQuorum(instance_id):
             logger.debug("{} received ViewChangeDone from {}, "
                          "but have got no quorum yet"
                          .format(self.name, sender))
-            return
-
-        if replica.hasPrimary:
-            self.discard(msg,
-                         "it already decided primary which is {}".
-                         format(replica.primaryName),
-                         logger.debug)
             return
 
         self._complete_primary_selection(instance_id, replica)
@@ -143,8 +138,7 @@ class PrimarySelector(PrimaryDecider):
         """
 
         # TODO: implement case when we get equal number of ViewChangeDone
-        # with different primaries specified. Tip: use ppSeqNo for this
-        # in cases when it is possible
+        # with different primaries specified
 
         votes = self._view_change_done[instance_id].values()
         new_primary, ledger_info = mostCommonElement(votes)
