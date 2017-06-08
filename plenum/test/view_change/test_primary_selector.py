@@ -77,13 +77,13 @@ def testProcessViewChangeDone():
     selector = PrimarySelector(node)
     quorum = get_strong_quorum(node.totalNodes)
     for i in range(quorum):
-        selector._processViewChangeDone(msg, 'Node2')
+        selector._processViewChangeDoneMessage(msg, 'Node2')
     assert not node.is_primary_found()
 
-    selector._processViewChangeDone(msg, 'Node1')
+    selector._processViewChangeDoneMessage(msg, 'Node1')
     assert not node.is_primary_found()
 
-    selector._processViewChangeDone(msg, 'Node3')
+    selector._processViewChangeDoneMessage(msg, 'Node3')
     assert node.is_primary_found()
 
 
@@ -100,7 +100,7 @@ def test_get_msgs_for_lagged_nodes():
     node = FakeNode()
     selector = PrimarySelector(node)
     for message in messages:
-        selector._processViewChangeDone(*message)
+        selector._processViewChangeDoneMessage(*message)
 
     def to_string_set(l):
         return [str(i) for i in l]

@@ -25,8 +25,13 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self._processViewChangeDone)]
+        return [(ViewChangeDone, self._processViewChangeDoneMessage)]
 
+    # overridden method of PrimaryDecider
+    async def serviceQueues(self, limit=None):
+        raise NotImplementedError
+
+    # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         """
         Returns the last `ViewChangeDone` message sent for specific instance.
@@ -45,25 +50,23 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def start_election_for_instance(self, instance_id):
+        # TODO: this should probably be removed, together with super def
         logger.warning("Starting election for specific instance is not "
                        "supported, starting view change for all instead")
         self.decidePrimaries()
-
-    # overridden method of PrimaryDecider
-    async def serviceQueues(self, limit=None):
-        raise NotImplementedError
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
         self._startSelection()
 
     def _is_master_instance(self, instance_id):
+        # TODO: get master instance from outside
         # Instance 0 is always master
         return instance_id == 0
 
-    def _processViewChangeDone(self,
-                               msg: ViewChangeDone,
-                               sender: str) -> None:
+    def _processViewChangeDoneMessage(self,
+                                      msg: ViewChangeDone,
+                                      sender: str) -> None:
         """
         Processes ViewChangeDone messages. Once 2f + 1 messages have been 
         received, decides on a primary for specific replica. 
