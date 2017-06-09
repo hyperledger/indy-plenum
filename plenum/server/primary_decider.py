@@ -54,9 +54,15 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         """
         raise NotImplementedError
 
-    async def serviceQueues(self, limit):
-        # TODO: this should be abstract
-        raise NotImplementedError
+    async def serviceQueues(self, limit=None) -> int:
+        """
+        Service at most `limit` messages from the inBox.
+
+        :param limit: the maximum number of messages to service
+        :return: the number of messages successfully processed
+        """
+
+        return await self.inBoxRouter.handleAll(self.inBox, limit)
 
     def viewChanged(self, viewNo: int):
         """
