@@ -89,3 +89,35 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     ensureElectionsDone(looper=looper, nodes=nodeSet)
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     assert m_primary_node.name != new_m_primary_node.name
+
+
+def testViewChangeTimeout(nodeSet, looper, up, wallet1, client1, viewNo):
+    # TODO: this probably should be moved to other file
+
+    from plenum.test.delayers import icDelay
+
+    for node in nodeSet:
+        node._primary_election_timeout = 5
+        old = node._check_view_change_completed
+        def new(*args):
+            print("CALLED!")
+            old(*args)
+        node._check_view_change_completed = new
+        reset_delays_and_process_delayeds(node)
+
+    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    # Delay processing of PRE-PREPARE from all non primary replicas of master
+    # so master's performance falls and view changes
+    npr = delayNonPrimaries(nodeSet, 0, 10)
+    delay_ic = 5
+
+    for node in nodeSet:
+        node.nodeIbStasher.delay(icDelay(delay_ic))
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+
+
+    ensure_all_nodes_have_same_data(looper, nodeSet)
+    checkProtocolInstanceSetup(looper, nodeSet)
+    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    assert not m_primary_node.name != new_m_primary_node.name
