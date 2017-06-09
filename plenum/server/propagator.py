@@ -4,7 +4,7 @@ from typing import Dict, Tuple, Union
 import weakref
 
 from plenum.common.types import Propagate
-from plenum.common.request import Request
+from plenum.common.request import Request, ReqKey
 from stp_core.common.log import getlogger
 from plenum.common.util import checkIfMoreThanFSameItems
 
@@ -118,11 +118,6 @@ class Requests(OrderedDict):
 class Propagator:
     def __init__(self):
         self.requests = Requests()
-        # If the node does not have any primary and at least one protocol
-        # instance is missing a primary then add the request in
-        # `reqs_stashed_for_primary`. Note that this does not prevent the
-        # request from being processed as its marked as finalised
-        self.reqs_stashed_for_primary = deque()
 
     # noinspection PyUnresolvedReferences
     def propagate(self, request: Request, clientName):
@@ -191,15 +186,9 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        fin_req = self.requests[key].finalised
-        if self.primaryReplicaNo is not None:
-            self.msgsToReplicas[self.primaryReplicaNo].append(fin_req)
-            logger.debug("{} forwarding client request {} to replica {}".
-                         format(self, key, self.primaryReplicaNo))
-        elif not self.all_instances_have_primary:
-            logger.debug('{} stashing request {} since at least one replica '
-                         'lacks primary'.format(self, key))
-            self.reqs_stashed_for_primary.append(fin_req)
+        for q in self.msgsToReplicas:
+            logger.debug('{} forwarding request {} to replicas'.format(self, key))
+            q.append(ReqKey(*key))
 
         self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
@@ -231,20 +220,5 @@ class Propagator:
             # to move ahead
             self.forward(request)
         else:
-            logger.trace("{} not forwarding request {} to its replicas "
+            logger.debug("{} not forwarding request {} to its replicas "
                          "since {}".format(self, request, msg))
-
-    def process_reqs_stashed_for_primary(self):
-        if self.reqs_stashed_for_primary:
-            if self.primaryReplicaNo is not None:
-                self.msgsToReplicas[self.primaryReplicaNo].extend(
-                    self.reqs_stashed_for_primary)
-                logger.debug("{} forwarding stashed {} client requests to "
-                             "replica {}".
-                             format(self, len(self.reqs_stashed_for_primary),
-                                    self.primaryReplicaNo))
-            elif not self.all_instances_have_primary:
-                return
-            # Either the stashed requests have been given to a primary or this
-            # node does not have a primary, so clear the queue
-            self.reqs_stashed_for_primary.clear()

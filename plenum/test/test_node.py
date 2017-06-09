@@ -148,6 +148,15 @@ class TestNodeCore(StackedTester):
         for r in self.replicas:
             r.outBoxTestStasher.resetDelays()
 
+    def force_process_delayeds(self):
+        c = self.nodestack.force_process_delayeds()
+        c += self.nodeIbStasher.force_unstash()
+        for r in self.replicas:
+            c += r.outBoxTestStasher.force_unstash()
+        logger.debug("{} forced processing of delayed messages, {} processed in total".
+                     format(self, c))
+        return c
+
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
             self.whitelistedClients[nodeName] = set()
@@ -253,7 +262,8 @@ class TestNode(TestNodeCore, Node):
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                                 preCatchupClbk=self.preLedgerCatchUp)
 
 
 @spyable(methods=[
@@ -693,9 +703,6 @@ def genNodeReg(count=None, names=None) -> Dict[str, NodeDetail]:
 def prepareNodeSet(looper: Looper, nodeSet: TestNodeSet):
     # TODO: Come up with a more specific name for this
 
-    # for n in nodeSet:
-    #     n.startKeySharing()
-
     # Key sharing party
     looper.run(checkNodesConnected(nodeSet))
 
@@ -727,7 +734,7 @@ def timeThis(func, *args, **kwargs):
 
 
 def instances(nodes: Sequence[Node],
-        numInstances: int = None) -> Dict[int, List[replica.Replica]]:
+              numInstances: int = None) -> Dict[int, List[replica.Replica]]:
     numInstances = (getRequiredInstances(len(nodes))
                     if numInstances is None else numInstances)
     for n in nodes:
@@ -768,6 +775,7 @@ def get_master_primary_node(nodes):
     if node.replicas[0].primaryName is not None:
         nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
+    raise AssertionError('No primary found for master')
 
 
 def primaryNodeNameForInstance(nodes, instanceId):

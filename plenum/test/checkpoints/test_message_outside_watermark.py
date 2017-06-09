@@ -1,6 +1,4 @@
 from plenum.test import waits
-from plenum.test.checkpoints.conftest import CHK_FREQ
-from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     countDiscarded
@@ -11,7 +9,8 @@ from stp_core.loop.eventually import eventually
 
 def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
                                                       txnPoolNodeSet, client1,
-                                                      wallet1, client1Connected):
+                                                      wallet1, client1Connected,
+                                                      reqs_for_logsize):
     """
     A node is slow in processing PRE-PREPAREs such that lot of requests happen 
     and the slow node has started getting 3 phase messages outside of it 
@@ -22,7 +21,7 @@ def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
     """
     delay = 15
     instId = 1
-    reqsToSend = chkFreqPatched.LOG_SIZE + 2
+    reqsToSend = reqs_for_logsize + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     slowReplica = npr[0]
     slowNode = slowReplica.node

@@ -67,8 +67,10 @@ def expectedPoolInterconnectionTime(nodeCount):
     # bug (`'str' object has no attribute 'keys'`) which supposed to be
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
-    return interconnectionCount * nodeConnectionTimeout + \
-           KITZStack.RETRY_TIMEOUT_RESTRICTED
+    # multiply by 2 because we need to re-create connections which can be done on a second re-try only
+    # (we may send pings on some of the re-tries)
+    return min(0.8 * config.TestRunningTimeLimitSec,
+               interconnectionCount * nodeConnectionTimeout + 2 * KITZStack.RETRY_TIMEOUT_RESTRICTED + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
@@ -241,7 +243,7 @@ def expectedClientConsistencyProof(nodeCount):
     From: the Client is connected to the Pool
     To: the Client finished the consistency proof procedure
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return qN * __Peer2PeerRequestExchangeTime + \
            config.ConsistencyProofsTimeout
 
@@ -251,7 +253,7 @@ def expectedClientCatchupTime(nodeCount):
     From: the Client finished the consistency proof procedure
     To: the Client finished the catchup procedure
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
            config.CatchupTransactionsTimeout
 
@@ -261,7 +263,7 @@ def expectedClientToPoolRequestDeliveryTime(nodeCount):
     From: the Client send a request
     To: the request is delivered to f nodes
     """
-    qN = util.getQuorum(nodeCount)
+    qN = util.get_strong_quorum(nodeCount)
     return __Peer2PeerRequestExchangeTime * qN
 
 

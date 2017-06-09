@@ -154,21 +154,3 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     # cons_proof = updateNamedTuple(cons_proof, seqNoEnd=cons_proof.seqNoStart,
     #                               seqNoStart=cons_proof.seqNoEnd)
     # send_and_chk(LedgerState.synced)
-
-
-def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
-                                            nodeSetWithNodeAddedAfterSomeTxns):
-    """
-    A new node that joins after some transactions should stash new transactions
-    until it has caught up
-    :return:
-    """
-    looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-
-    for node in txnPoolNodeSet[:4]:
-        for replica in node.replicas:
-            for commit in replica.commits.values():
-                assert newNode.name not in commit.voters
-            for prepare in replica.prepares.values():
-                assert newNode.name not in prepare.voters

@@ -29,12 +29,13 @@ class LedgerManager(HasActionQueue):
     def __init__(self,
                  owner,
                  ownedByNode: bool=True,
-                 postAllLedgersCaughtUp:
-                 Optional[Callable]=None):
+                 postAllLedgersCaughtUp:Optional[Callable]=None,
+                 preCatchupClbk: Callable = None):
 
         self.owner = owner
         self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
+        self.preCatchupClbk = preCatchupClbk
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
         # responsibility of calling its `_serviceActions` method periodically
@@ -333,7 +334,8 @@ class LedgerManager(HasActionQueue):
                                  self.owner.totalNodes,
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
-            if ledgerId == DOMAIN_LEDGER_ID:
+            self.preCatchupClbk(ledgerId)
+            if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
                 ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
 
@@ -390,17 +392,15 @@ class LedgerManager(HasActionQueue):
                          .format(self, end, ledger.size))
             end = ledger.size
 
-        # TODO: This is very inefficient for long ledgers
-        txns = ledger.getAllTxn(start, end)
-
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start+1, start, end))
-
         logger.debug("{} generating consistency proof: {} from {}".
                      format(self, end, req.catchupTill))
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
+        # TODO: This is very inefficient for long ledgers if the ledger does not use `ChunkedFileStore`
+        txns = ledger.getAllTxn(start, end)
         for seq_no in txns:
             txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
@@ -471,9 +471,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        merkleInfo = ledger.add(self._transform(txn))
-                        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
-                        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
+                        self._add_txn(ledgerId, ledger, ledgerInfo, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerId, ledger,
@@ -491,6 +489,11 @@ class LedgerManager(HasActionQueue):
                         # `self.receivedCatchUpReplies`
                         return numProcessed + toBeProcessed
         return numProcessed
+
+    def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
+        merkleInfo = ledger.add(self._transform(txn))
+        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
+        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
@@ -754,7 +757,7 @@ class LedgerManager(HasActionQueue):
         return numRequest * (self.config.CatchupTransactionsTimeout +
                              0.1 * batchSize)
 
-    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=0):
+    def catchupCompleted(self, ledgerId: int, lastPpSeqNo: int=-1):
         # Since multiple ledger will be caught up and catchups might happen
         # multiple times for a single ledger, the largest seen
         # ppSeqNo needs to be known.
@@ -878,7 +881,7 @@ class LedgerManager(HasActionQueue):
 
     def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:
         if ledgerType not in self.ledgerRegistry:
-            raise ValueError("Invalid ledger type: {}".format(ledgerType))
+            raise KeyError("Invalid ledger type: {}".format(ledgerType))
         return self.ledgerRegistry[ledgerType]
 
     def appendToLedger(self, ledgerId: int, txn: Any) -> Dict:
