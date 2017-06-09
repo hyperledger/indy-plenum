@@ -49,16 +49,11 @@ class PrimarySelector(PrimaryDecider):
         return messages
 
     # overridden method of PrimaryDecider
-    def start_election_for_instance(self, instance_id):
-        # TODO: this should probably be removed, together with super def
-        logger.warning("Starting election for specific instance is not "
-                       "supported, starting view change for all instead")
-        self.decidePrimaries()
-
-    # overridden method of PrimaryDecider
     def decidePrimaries(self):
         self._startSelection()
 
+    # Question: Master is always 0, until we change that rule why incur cost
+    # of a method call, also name is confusing
     def _is_master_instance(self, instance_id):
         # TODO: get master instance from outside
         # Instance 0 is always master
@@ -164,9 +159,8 @@ class PrimarySelector(PrimaryDecider):
 
         replica.primaryChanged(new_primary)
 
-        if self._is_master_instance(instance_id):
-            self.previous_master_primary = None
-            self.node.primary_found()
+        self.previous_master_primary = None
+        self.node.primary_found()
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,

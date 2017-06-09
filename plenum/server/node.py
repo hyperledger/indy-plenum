@@ -1485,14 +1485,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             last_caught_up_3PC) > 0:
             replica = self.replicas[0]
             replica.last_ordered_3pc = last_caught_up_3PC
-            logger.debug('{} caught up till {}'.format(self, last_caught_up_3PC))
-            # replica.revert_onordered_3pc_till(last_caught_up_3PC)
+            logger.debug('{} caught up till {}'.format(self,
+                                                       last_caught_up_3PC))
 
         # TODO: Ensure no more catchups are required, the catchup needs to
         # communicate number of txns caught up, use `catchupTill`
-        self.start_catchup()
-        # TODO: The following lines need to be moved to another method,
-        # as they dont need to be called now
+        if self.is_catchup_needed():
+            self.start_catchup()
+        else:
+            self.no_more_catchups_needed()
+
+    def is_catchup_needed(self) -> bool:
+        # Need to check the received 3PC and ViewChangeDone messages to see if
+        # catchup needs to be started.
+        pass
+
+    def no_more_catchups_needed(self):
+        # This method is called when no more catchups needed
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # self.checkInstances()
