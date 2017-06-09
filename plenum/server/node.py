@@ -132,6 +132,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = self.config.nodeDataDir or "data/nodes"
 
+        self._primary_election_timeout = self.config.PRIMARY_ELECTION_TIMEOUT
+
+
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
         self.ensureKeysAreSetup()
@@ -922,7 +925,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Choose the primary replica for each protocol instance in the system
         using a PrimaryDecider.
         """
+
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=self._primary_election_timeout)
         self.elector.decidePrimaries()
+
+    def _check_view_change_completed(self):
+        """
+        This thing checks whether new primary was elected.
+        If it was not - starts view change again
+        """
+
+        if self.view_change_in_progress:
+            next_view_no = self.viewNo + 1
+            logger.debug("view change to view {} is not completed in time, "
+                         "starting view change for view {}"
+                         .format(self.viewNo, next_view_no))
+            self.do_view_change_if_possible(next_view_no)
 
     def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
         """
@@ -1054,7 +1073,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.elector.outBox and (not limit or msgCount < limit):
             msgCount += 1
             msg = self.elector.outBox.popleft()
-            if isinstance(msg, ElectionType):
+            if isinstance(msg, (ElectionType, ViewChangeDone)):
                 self.send(msg)
             elif isinstance(msg, BlacklistMsg):
                 nodeName = getattr(msg, f.NODE_NAME.nm)
@@ -1505,6 +1524,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # self.checkInstances()
+        # TODO: Ensure no more catchups are required
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):
@@ -1747,14 +1767,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
         # malicious nodes sending messages early on
-        r, msg = self.canViewChange(view_no)
-        if r:
+        can, whyNot = self.canViewChange(view_no)
+        if can:
             logger.info("{} initiating a view change to {} from {}".
                         format(self, view_no, self.viewNo))
             self.startViewChange(view_no)
         else:
-            logger.debug(msg)
-        return r
+            logger.debug(whyNot)
+        return can
 
     def checkPerformance(self):
         """
@@ -1852,6 +1872,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def primary_found(self):
         # If the node has primary replica of master instance
+        # TODO: 0 should be replaced with configurable constant
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
         if self.view_change_in_progress and self.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
