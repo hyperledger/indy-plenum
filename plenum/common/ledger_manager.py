@@ -29,11 +29,13 @@ class LedgerManager(HasActionQueue):
     def __init__(self,
                  owner,
                  ownedByNode: bool=True,
-                 postAllLedgersCaughtUp:Optional[Callable]=None):
+                 postAllLedgersCaughtUp:Optional[Callable]=None,
+                 preCatchupClbk: Callable = None):
 
         self.owner = owner
         self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
+        self.preCatchupClbk = preCatchupClbk
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
         # responsibility of calling its `_serviceActions` method periodically
@@ -332,7 +334,8 @@ class LedgerManager(HasActionQueue):
                                  self.owner.totalNodes,
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
-            if ledgerId == DOMAIN_LEDGER_ID:
+            self.preCatchupClbk(ledgerId)
+            if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
                 ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
 

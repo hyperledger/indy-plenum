@@ -1391,6 +1391,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePrepares.pop(k, None)
             self.prepares.pop(k, None)
             self.commits.pop(k, None)
+            self.batches.pop(k[1], None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
@@ -1629,6 +1630,14 @@ class Replica(HasActionQueue, MessageProcessor):
             self.stats.inc(stat)
         self.outBox.append(msg)
 
+    def revert_unordered_batches(self, ledger_id):
+        for key in sorted(self.batches.keys(), reverse=True):
+            if key > self.lastOrderedPPSeqNo:
+                count, _, prevStateRoot = self.batches.pop(key)
+                self.revert(ledger_id, prevStateRoot, count)
+            else:
+                break
+
     def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
         self.addToOrdered(self.viewNo, last_caught_up_pp_seq_no)
         self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
@@ -1647,7 +1656,3 @@ class Replica(HasActionQueue, MessageProcessor):
             self.batches.pop(key[1], None)
             self.sentPrePrepares.pop(key, None)
             self.prepares.pop(key, None)
-
-        for ledger_id in outdated_ledger_ids:
-            ledger = self.node.getLedger(ledger_id)
-            ledger.discardTxns(len(ledger.uncommittedTxns))
