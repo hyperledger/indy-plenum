@@ -28,10 +28,6 @@ class PrimarySelector(PrimaryDecider):
         return [(ViewChangeDone, self._processViewChangeDoneMessage)]
 
     # overridden method of PrimaryDecider
-    async def serviceQueues(self, limit=None):
-        raise NotImplementedError
-
-    # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         """
         Returns the last `ViewChangeDone` message sent for specific instance.
