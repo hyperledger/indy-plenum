@@ -44,7 +44,7 @@ def provoke_and_wait_for_view_change(looper,
                                  timeout=timeout))
 
 
-def ensure_view_change(looper, nodes):
+def ensure_view_change(looper, nodes, exclude_from_check=None):
     """
     This method patches the master performance check to return False and thus
     ensures that all given nodes do a view change
@@ -69,6 +69,8 @@ def ensure_view_change(looper, nodes):
     perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
     timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
               perf_check_freq
+    nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
+                                                               if n not in exclude_from_check]
     looper.run(eventually(checkViewNoForNodes, nodes, old_view_no+1,
                           retryWait=1, timeout=timeout))
     for node in nodes:

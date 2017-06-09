@@ -1486,10 +1486,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} caught up till {}'.format(self, last_caught_up_3PC))
             # replica.revert_onordered_3pc_till(last_caught_up_3PC)
 
+        # TODO: Ensure no more catchups are required, the catchup needs to
+        # communicate number of txns caught up, use `catchupTill`
+        self.start_catchup()
+        # TODO: The following lines need to be moved to another method,
+        # as they dont need to be called now
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # self.checkInstances()
-        # TODO: Ensure no more catchups are required
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):
