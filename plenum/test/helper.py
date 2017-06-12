@@ -156,6 +156,24 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     return requests
 
 
+# def send_reqs_and_verify_suff_node_data_updated(looper, wallet, client,
+#                                                 nodes, num_reqs: int,
+#                                                 fVal: int = None,
+#                                                 customTimeoutPerReq: float = None,
+#                                                 add_delay_to_timeout: float = 0,
+#                                                 override_timeout_limit=False,
+#                                                 total_timeout=None):
+#     nodeCount = len(client.nodeReg)
+#     fVal = fVal or getMaxFailures(nodeCount)
+#     requests = sendRandomRequests(wallet, client, num_reqs)
+#     # the next line is wrong, use pair each node with each other node and
+#     # compare data equality. Then create a collection of results of equality
+#     # checks for each node. Only <=f nodes' equality check collections can
+#     # have >f false's. So in case of 4 nodes, f=1, 3 nodes' equality check
+#     # collection cannot have more than 1 failed check
+#     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
+#     return requests
+
 # noinspection PyIncorrectDocstring
 def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
                                       fValue: int) -> bool:

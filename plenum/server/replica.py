@@ -555,7 +555,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledger_id),
                                    self.txnRootHash(ledger_id)
                                    )
-        logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
+        logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
         if self.isMaster:
@@ -1224,7 +1224,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.debug("{} ordering COMMIT{}".format(self, key))
+        logger.info("{} ordering COMMIT{}".format(self, key))
         pp = self.getPrePrepare(*key)
         assert pp
         self.addToOrdered(*key)
@@ -1623,7 +1623,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
-        logger.display("{} sending {}".format(self, msg.__class__.__name__),
+        logger.info("{} sending {}".format(self, msg.__class__.__name__),
                        extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:
