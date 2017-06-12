@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 import time
@@ -883,7 +882,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return newReplicas
 
     def _dispatch_stashed_msg(self, msg, frm):
-        if isinstance(msg, ElectionType):
+        if isinstance(msg, (ElectionType, ViewChangeDone)):
             self.sendToElector(msg, frm)
             return True
         elif isinstance(msg, ThreePhaseType):
@@ -1023,14 +1022,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
-                    # Checking for request in received catchup replies as a
-                    # request ordering might have started when the node was not
-                    # participating but by the time ordering finished, node
-                    # might have started participating
-                    # recvd = self.gotInCatchupReplies(msg)
-                    # los = self.master_last_ordered_3PC
-                    # if self.isParticipating and compare_3PC_keys(
-                    #         los, (msg.viewNo, msg.ppSeqNo)) > 0:
                     if self.isParticipating:
                         self.processOrdered(msg)
                     else:
@@ -1479,9 +1470,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
-        # self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
-        #                                  txn.get(f.REQ_ID.nm)))
-
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
@@ -1519,6 +1507,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def is_catchup_needed(self) -> bool:
         # Need to check the received 3PC and ViewChangeDone messages to see if
         # catchup needs to be started.
+
         pass
 
     def no_more_catchups_needed(self):
@@ -1931,6 +1920,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param proposedViewNo: the new view number after view change.
         """
         self.view_change_in_progress = True
+        self.replicas[0].on_view_change_start()
         self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
@@ -1947,6 +1937,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
+        # TODO: Do not need to revert, keep the 3PC messages with
+        # prepared certificate
         self.replicas[0].revert_unordered_batches()
         self.start_catchup()
 
@@ -1957,6 +1949,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_change_in_progress = False
         self.instanceChanges.pop(view_no-1, None)
+        self.replicas[0].on_view_change_done()
 
     def start_catchup(self):
         self.mode = Mode.starting
