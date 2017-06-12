@@ -33,7 +33,6 @@ class MessageValidator(FieldValidator):
             if validation_error:
                 self._raise_invalid_fields(k, v, validation_error)
 
-
     def _raise_invalid_type(self, dct):
         raise TypeError("validation error: invalid type {}, dict expected"
                         .format(type(dct)))

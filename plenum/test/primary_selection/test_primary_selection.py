@@ -13,7 +13,7 @@ from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test.view_change.conftest import viewNo
 from plenum.test.view_change.test_view_change import viewChangeDone
-from plenum.test.conftest import looper, client1, wallet1
+from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
 

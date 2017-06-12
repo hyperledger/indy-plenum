@@ -39,8 +39,7 @@ class PrimarySelector(PrimaryDecider):
             for message in replica_messages.values():
                 (new_primary_replica_name, ledger_info) = message
                 messages.append(ViewChangeDone(new_primary_replica_name,
-                                               instance_id,
-                                               self.viewNo,
+                                               instance_id, self.viewNo,
                                                ledger_info))
         return messages
 
@@ -70,13 +69,13 @@ class PrimarySelector(PrimaryDecider):
                      "ViewChangeDone msg from {} : {}"
                      .format(self.name, sender, msg))
 
-        proposed_view_no = msg.viewNo
+        view_no = msg.viewNo
 
-        if self.viewNo > proposed_view_no:
+        if self.viewNo != view_no:
             self.discard(msg,
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
-                         .format(self, sender, proposed_view_no, self.viewNo),
+                         .format(self, sender, view_no, self.viewNo),
                          logMethod=logger.warning)
             return
 
@@ -97,7 +96,7 @@ class PrimarySelector(PrimaryDecider):
 
         if not self._mark_replica_as_changed_view(instance_id,
                                                   sender_replica_name,
-                                                  new_primary_node_name,
+                                                  new_primary_replica_name,
                                                   ledger_info):
             self.discard(msg,
                          "already marked {} as done view change".
@@ -132,13 +131,15 @@ class PrimarySelector(PrimaryDecider):
         # with different primaries specified
 
         votes = self._view_change_done[instance_id].values()
+        votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
         new_primary, ledger_info = mostCommonElement(votes)
 
         expected_primary = self._who_is_the_next_primary(instance_id)
         if new_primary != expected_primary:
-            logger.warning("{} expected next primary to be {}, but majority "
-                           "declared {} instead"
-                           .format(self.name, expected_primary, new_primary))
+            logger.error("{} expected next primary to be {}, but majority "
+                           "declared {} instead for view {}"
+                           .format(self.name, expected_primary, new_primary,
+                                   self.viewNo))
         # TODO: check if ledger status is expected
 
         logger.display("{} declares view change {} as completed for "
@@ -157,6 +158,7 @@ class PrimarySelector(PrimaryDecider):
 
         self.previous_master_primary = None
         self.node.primary_found()
+        # self._view_change_done[instance_id] = {}
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -176,22 +178,21 @@ class PrimarySelector(PrimaryDecider):
         Checks whether 2f+1 nodes completed view change and whether one 
         of them is the next primary
         """
-        declarations = self._view_change_done.get(instance_id, [])
+        declarations = self._view_change_done.get(instance_id, {})
         num_of_ready_nodes = len(declarations)
         quorum = get_strong_quorum(f=self.f)
-        next_primary_name = self._who_is_the_next_primary(instance_id)
         enough_nodes = num_of_ready_nodes >= quorum
-
         if not enough_nodes:
             return False
 
+        next_primary_name = self._who_is_the_next_primary(instance_id)
         if next_primary_name not in declarations:
             logger.trace("{} got enough ViewChangeDone messages "
                          "for quorum ({}), but the next primary {} "
                          "has not answered yet"
                          .format(self.name,
                                  num_of_ready_nodes,
-                                 quorum,
+                                 next_primary_name,
                                  instance_id))
             return False
 
@@ -209,6 +210,9 @@ class PrimarySelector(PrimaryDecider):
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_name = self._who_is_the_next_primary(instance_id)
+            self._send_view_change_done_message(instance_id,
+                                                      new_primary_name,
+                                                      self.viewNo)
             logger.display("{} selected primary {} for instance {} (view {})"
                            .format(replica,
                                    new_primary_name,
@@ -216,7 +220,6 @@ class PrimarySelector(PrimaryDecider):
                                    self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-            self._send_view_change_done_message(instance_id)
 
     def _who_is_the_next_primary(self, instance_id):
         """
@@ -229,13 +232,12 @@ class PrimarySelector(PrimaryDecider):
             instId=instance_id)
         return new_primary_name
 
-    def _send_view_change_done_message(self, instance_id):
+    def _send_view_change_done_message(self, instance_id, new_primary_name,
+                                       view_no):
         """
         Sends ViewChangeDone message to other protocol participants
         """
 
-        next_primary = self._who_is_the_next_primary(instance_id)
-        next_viewno = self.viewNo + 1
         ledger_info = []
         ledger_registry = self._ledger_manager.ledgerRegistry.items()
         for ledger_id, ledger_data in ledger_registry:
@@ -244,8 +246,19 @@ class PrimarySelector(PrimaryDecider):
             merkle_root = ledger.root_hash
             ledger_info.append((ledger_id, ledger_length, merkle_root))
 
-        message = ViewChangeDone(next_primary,
+        message = ViewChangeDone(new_primary_name,
                                  instance_id,
-                                 next_viewno,
+                                 view_no,
                                  ledger_info)
         self.send(message)
+        replica_name = Replica.generateName(self.name, instance_id)
+        self._mark_replica_as_changed_view(instance_id, replica_name,
+                                           new_primary_name, ledger_info)
+
+    def viewChanged(self, viewNo: int):
+        """
+        :param viewNo: the new view number.
+        """
+        if super().viewChanged(viewNo):
+            for i in self._view_change_done:
+                self._view_change_done[i] = {}

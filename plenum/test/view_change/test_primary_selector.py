@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pytest
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
@@ -5,6 +7,9 @@ from plenum.server.replica import Replica
 from plenum.common.util import get_strong_quorum
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.ledger_manager import Ledger
+
+
+whitelist = ['but majority declared']
 
 
 class FakeLedger():
@@ -17,6 +22,7 @@ class FakeLedger():
         return self._size
 
 
+# Question: Why doesn't this subclass Node.
 class FakeNode():
     def __init__(self):
         self.name = 'Node1'
@@ -50,6 +56,12 @@ class FakeNode():
     def is_primary_found(self):
         return self._found
 
+    @property
+    def master_primary_name(self) -> Optional[str]:
+        nm = self.replicas[0].primaryName
+        if nm:
+            return Replica.getNodeName(nm)
+
 
 def testHasViewChangeQuorum():
     """
@@ -67,7 +79,7 @@ def testHasViewChangeQuorum():
 
     def declare(replica_name):
         selector._view_change_done[instance_id][replica_name] = \
-                {'Node2:0', last_ordered_seq_no}
+                {'Node2:0': last_ordered_seq_no}
 
     declare('Node1:0')
     declare('Node3:0')
@@ -86,7 +98,7 @@ def testProcessViewChangeDone():
         (0, 10, '11111111111111111111111111111111'), # ledger id, ledger length, merkle root
         (1, 5, '22222222222222222222222222222222'),
     )
-    msg = ViewChangeDone(name='Node2',
+    msg = ViewChangeDone(name='Node2:0',
                          instId=0,
                          viewNo=0,
                          ledgerInfo=ledgerInfo)
@@ -95,13 +107,18 @@ def testProcessViewChangeDone():
     quorum = get_strong_quorum(node.totalNodes)
     for i in range(quorum):
         selector._processViewChangeDoneMessage(msg, 'Node2')
+    assert selector._view_change_done[0]
     assert not node.is_primary_found()
 
     selector._processViewChangeDoneMessage(msg, 'Node1')
+    assert selector._view_change_done[0]
     assert not node.is_primary_found()
 
     selector._processViewChangeDoneMessage(msg, 'Node3')
+    assert selector._view_change_done[0]
     assert node.is_primary_found()
+    selector.viewChanged(1)
+    assert not selector._view_change_done[0]
 
 
 def test_get_msgs_for_lagged_nodes():
@@ -111,9 +128,9 @@ def test_get_msgs_for_lagged_nodes():
         (1, 5, '11111111111111111111111111111111'),
     )
     messages = [
-        (ViewChangeDone(name='Node2', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
-        (ViewChangeDone(name='Node3', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node2'),
-        (ViewChangeDone(name='Node2', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node3'),
+        (ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
+        (ViewChangeDone(name='Node3:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node2'),
+        (ViewChangeDone(name='Node2:0', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node3'),
     ]
     node = FakeNode()
     selector = PrimarySelector(node)
@@ -128,7 +145,10 @@ def test_send_view_change_done_message():
     node = FakeNode()
     selector = PrimarySelector(node)
     instance_id = 0
-    selector._send_view_change_done_message(instance_id)
+    new_primary_name = selector._who_is_the_next_primary(instance_id)
+    view_no = selector.viewNo
+    selector._send_view_change_done_message(instance_id, new_primary_name,
+                                            view_no)
 
     ledgerInfo = [
         #  ledger id, ledger length, merkle root
@@ -136,12 +156,11 @@ def test_send_view_change_done_message():
         (1, 5, '11111111111111111111111111111111'),
     ]
     messages = [
-        ViewChangeDone(name='Node2:0', instId=0, viewNo=1, ledgerInfo=ledgerInfo)
+        ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo)
     ]
 
     assert len(selector.outBox) == 1
 
-    print()
     print(list(selector.outBox))
     print(messages)
 

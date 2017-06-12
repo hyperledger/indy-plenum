@@ -1180,6 +1180,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif viewNo > self.viewNo:
             if viewNo not in self.msgsForFutureViews:
                 self.msgsForFutureViews[viewNo] = deque()
+            logger.debug('{} stashing a message for a future view: {}'.
+                         format(self, msg))
             self.msgsForFutureViews[viewNo].append((msg, frm))
         else:
             return True
