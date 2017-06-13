@@ -3,6 +3,7 @@ import types
 
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.types import CatchupReq
@@ -39,6 +40,8 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     transactions.
     """
     looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
+    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
+    old_size = len(new_node_ledger.ledger)
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
     for node in txnPoolNodeSet:
@@ -56,7 +59,8 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
     badNode.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, badNode.ledgerManager)
-    sendRandomRequests(wallet, client, 10)
+    more_requests = 10
+    sendRandomRequests(wallet, client, more_requests)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Since one of the nodes does not reply, this new node will experience a
@@ -64,3 +68,5 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     # Dont reduce it.
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=100)
+    new_size = len(new_node_ledger.ledger)
+    assert new_node_ledger.num_txns_caught_up == new_size - old_size

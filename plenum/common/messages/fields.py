@@ -321,7 +321,9 @@ class LedgerInfoField(FieldBase):
     def _specific_validation(self, val):
         assert len(val) == 3
         ledgerId, ledgerLength, merkleRoot = val
-        LedgerIdField().validate(ledgerId)
-        NonNegativeNumberField().validate(ledgerLength)
-        MerkleRootField().validate(merkleRoot)
-
+        for validator, value in ((LedgerIdField().validate, ledgerId),
+                                 (NonNegativeNumberField().validate, ledgerLength),
+                                 (MerkleRootField().validate, merkleRoot)):
+            err = validator(value)
+            if err:
+                return err

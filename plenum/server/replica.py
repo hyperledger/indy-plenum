@@ -379,8 +379,9 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def on_view_change_start(self):
         assert self.isMaster
-        self.last_prepared_before_view_change = self.last_prepared_certificate_in_view(self.viewNo)
-        logger.debug('{} setting last prepared for master to {}'.format(self, self.last_prepared_before_view_change))
+        lst = self.last_prepared_certificate_in_view(self.viewNo)
+        self.last_prepared_before_view_change = lst
+        logger.debug('{} setting last prepared for master to {}'.format(self, lst))
 
     def on_view_change_done(self):
         assert self.isMaster

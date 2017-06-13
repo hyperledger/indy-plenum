@@ -1119,17 +1119,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Return the name of the primary node of the master instance
         """
 
-        master_instance_id = self.instances.masterId
-        master_instance_replica = self.replicas[master_instance_id]
-        master_primary_name = master_instance_replica.primaryName
+        master_primary_name = self.master_replica.primaryName
         if master_primary_name:
-            return master_instance_replica.getNodeName(master_primary_name)
+            return self.master_replica.getNodeName(master_primary_name)
         return None
 
     @property
     def master_last_ordered_3PC(self) -> Tuple[int, int]:
-        replica = self.replicas[0]
-        return replica.last_ordered_3pc
+        return self.master_replica.last_ordered_3pc
+
+    @property
+    def master_replica(self):
+        return self.replicas[0]
 
     @staticmethod
     def is_valid_view_or_inst(n):
@@ -1492,8 +1493,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            replica = self.replicas[0]
-            replica.last_ordered_3pc = last_caught_up_3PC
+            self.master_replica.last_ordered_3pc = last_caught_up_3PC
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
@@ -1505,10 +1505,46 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.no_more_catchups_needed()
 
     def is_catchup_needed(self) -> bool:
-        # Need to check the received 3PC and ViewChangeDone messages to see if
-        # catchup needs to be started.
+        """
+        Check if received a quorum of view change done messages and if yes check if caught up till the
+        Check if all requests ordered till last prepared certificate
+        Check if last catchup resulted in no txns
+        """
+        if self.caught_up_for_current_view():
+            return False
+        if self.has_ordered_till_last_prepared_certificate() and \
+                        self.num_txns_caught_up_in_last_catchup() == 0:
+            return False
 
-        pass
+        # # Just temporarily
+        # return False
+
+        return True
+
+    def caught_up_for_current_view(self):
+        if not self.elector._hasViewChangeQuorum(0):
+            return False
+        vc = self.elector.has_sufficient_same_view_change_done_messages(0)
+        if not vc:
+            return False
+        ledger_info = vc[1]
+        for lid, size, root_hash in ledger_info:
+            ledger = self.ledgerManager.ledgerRegistry[lid].ledger
+            if ledger.size != size:
+                return False
+            if ledger.root_hash != root_hash:
+                return False
+        return True
+
+    def has_ordered_till_last_prepared_certificate(self):
+        lst = self.master_replica.last_prepared_before_view_change
+        if lst is None:
+            return True
+        return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
+
+    def num_txns_caught_up_in_last_catchup(self):
+        return sum([l.num_txns_caught_up for l in
+                    self.ledgerManager.ledgerRegistry.values()])
 
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
@@ -1920,7 +1956,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param proposedViewNo: the new view number after view change.
         """
         self.view_change_in_progress = True
-        self.replicas[0].on_view_change_start()
+        self.master_replica.on_view_change_start()
         self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
@@ -1939,7 +1975,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     format(self, self.viewNo))
         # TODO: Do not need to revert, keep the 3PC messages with
         # prepared certificate
-        self.replicas[0].revert_unordered_batches()
+        self.master_replica.revert_unordered_batches()
         self.start_catchup()
 
     def on_view_change_complete(self, view_no):
@@ -1949,7 +1985,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_change_in_progress = False
         self.instanceChanges.pop(view_no-1, None)
-        self.replicas[0].on_view_change_done()
+        self.master_replica.on_view_change_done()
 
     def start_catchup(self):
         self.mode = Mode.starting

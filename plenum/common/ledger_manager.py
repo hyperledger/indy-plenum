@@ -413,16 +413,16 @@ class LedgerManager(HasActionQueue):
             return
 
         ledgerId = getattr(rep, f.LEDGER_ID.nm)
-        ledger = self.getLedgerInfoByType(ledgerId)
+        ledger_info = self.getLedgerInfoByType(ledgerId)
 
-        reallyLedger = self.getLedgerForMsg(rep)
+        ledger = ledger_info.ledger
 
-        if frm not in ledger.recvdCatchupRepliesFrm:
-            ledger.recvdCatchupRepliesFrm[frm] = []
+        if frm not in ledger_info.recvdCatchupRepliesFrm:
+            ledger_info.recvdCatchupRepliesFrm[frm] = []
 
-        ledger.recvdCatchupRepliesFrm[frm].append(rep)
+        ledger_info.recvdCatchupRepliesFrm[frm].append(rep)
 
-        catchUpReplies = ledger.receivedCatchUpReplies
+        catchUpReplies = ledger_info.receivedCatchUpReplies
         # Creating a list of txns sorted on the basis of sequence
         # numbers
         logger.debug("{} merging all received catchups".format(self))
@@ -433,7 +433,7 @@ class LedgerManager(HasActionQueue):
             .format(self, len(catchUpReplies), catchUpReplies[0][0],
                     catchUpReplies[-1][0]))
 
-        numProcessed = self._processCatchupReplies(ledgerId, reallyLedger,
+        numProcessed = self._processCatchupReplies(ledgerId, ledger,
                                                    catchUpReplies)
         logger.debug(
             "{} processed {} catchup replies with sequence numbers {}"
@@ -441,10 +441,9 @@ class LedgerManager(HasActionQueue):
                                              catchUpReplies[
                                              :numProcessed]]))
 
-        ledger.receivedCatchUpReplies = catchUpReplies[numProcessed:]
-        if getattr(ledger.catchUpTill, f.SEQ_NO_END.nm) == reallyLedger.size:
-            cp = ledger.catchUpTill
-            ledger.catchUpTill = None
+        ledger_info.receivedCatchUpReplies = catchUpReplies[numProcessed:]
+        if getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm) == ledger.size:
+            cp = ledger_info.catchUpTill
             self.catchupCompleted(ledgerId, (cp.viewNo, cp.ppSeqNo))
 
     def _processCatchupReplies(self, ledgerId, ledger: Ledger,
@@ -869,9 +868,9 @@ class LedgerManager(HasActionQueue):
         return self._compareLedger(status) == 0
 
     def getLedgerForMsg(self, msg: Any) -> Ledger:
-        ledgerType = getattr(msg, f.LEDGER_ID.nm)
-        if ledgerType in self.ledgerRegistry:
-            return self.getLedgerInfoByType(ledgerType).ledger
+        ledger_id = getattr(msg, f.LEDGER_ID.nm)
+        if ledger_id in self.ledgerRegistry:
+            return self.getLedgerInfoByType(ledger_id).ledger
         self.discard(msg, reason="Invalid ledger msg type")
 
     def getLedgerInfoByType(self, ledgerType) -> LedgerInfo:

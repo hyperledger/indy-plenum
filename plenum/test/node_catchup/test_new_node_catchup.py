@@ -99,7 +99,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     #                       txnPoolNodeSet[:4], retryWait=1, timeout=5))
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    more_requests = 5
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
     logger.debug("Starting the stopped node, {}".format(newNode))
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     newNode = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
@@ -117,7 +118,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
                           LedgerState.syncing, retryWait=.5, timeout=5))
 
     confused_node = txnPoolNodeSet[0]
-    cp = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID].catchUpTill
+    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
+    cp = new_node_ledger.catchUpTill
     start, end = cp.seqNoStart, cp.seqNoEnd
     cons_proof = confused_node.ledgerManager._buildConsistencyProof(
         DOMAIN_LEDGER_ID, start, end)
@@ -149,11 +151,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
               2*delay_catchup_reply
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4],
                          customTimeout=timeout)
-
+    assert new_node_ledger.num_txns_caught_up == more_requests
     send_and_chk(LedgerState.synced)
-    # cons_proof = updateNamedTuple(cons_proof, seqNoEnd=cons_proof.seqNoStart,
-    #                               seqNoStart=cons_proof.seqNoEnd)
-    # send_and_chk(LedgerState.synced)
 
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,

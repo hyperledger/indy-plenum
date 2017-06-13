@@ -1,5 +1,6 @@
 from typing import Optional
 
+import base58
 import pytest
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
@@ -15,7 +16,7 @@ whitelist = ['but majority declared']
 class FakeLedger():
     def __init__(self, ledger_id, size):
         self._size = size
-        self.root_hash = (str(ledger_id) * 32)[:32]
+        self.root_hash = (base58.alphabet[ledger_id] * 43)
         self.hasher = None
 
     def __len__(self):
@@ -95,8 +96,9 @@ def testHasViewChangeQuorum():
 
 def testProcessViewChangeDone():
     ledgerInfo = (
-        (0, 10, '11111111111111111111111111111111'), # ledger id, ledger length, merkle root
-        (1, 5, '22222222222222222222222222222222'),
+        # ledger id, ledger length, merkle root
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
     msg = ViewChangeDone(name='Node2:0',
                          instId=0,
@@ -124,8 +126,8 @@ def testProcessViewChangeDone():
 def test_get_msgs_for_lagged_nodes():
     ledgerInfo = (
         #  ledger id, ledger length, merkle root
-        (0, 10, '00000000000000000000000000000000'),
-        (1, 5, '11111111111111111111111111111111'),
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
     )
     messages = [
         (ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
@@ -152,8 +154,8 @@ def test_send_view_change_done_message():
 
     ledgerInfo = [
         #  ledger id, ledger length, merkle root
-        (0, 10, '00000000000000000000000000000000'),
-        (1, 5, '11111111111111111111111111111111'),
+        (0, 10, (base58.alphabet[0] * 43)),
+        (1, 5, (base58.alphabet[1] * 43)),
     ]
     messages = [
         ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo)

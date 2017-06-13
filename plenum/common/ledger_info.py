@@ -48,6 +48,7 @@ class LedgerInfo:
         # Key is the node name and value is a consistency proof
         self.recvdConsistencyProofs = {}
 
+        # Tracks the consistency proof till which the node has to catchup
         self.catchUpTill = None
 
         # Catchup replies that need to be applied to the ledger
@@ -68,6 +69,9 @@ class LedgerInfo:
         # missing transactions.
         self.catchupReplyTimer = None
 
+        # Number of transactions caught up
+        self.num_txns_caught_up = 0
+
     # noinspection PyAttributeOutsideInit
     def done_syncing(self):
         self.canSync = False
@@ -76,3 +80,7 @@ class LedgerInfo:
         self.recvdConsistencyProofs = {}
         self.postCatchupCompleteClbk()
         self.catchupReplyTimer = None
+        if self.catchUpTill:
+            cp = self.catchUpTill
+            self.num_txns_caught_up = cp.seqNoEnd - cp.seqNoStart
+        self.catchUpTill = None

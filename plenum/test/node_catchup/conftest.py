@@ -66,4 +66,6 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
     check_last_3pc_master(newNode, txnPoolNodeSet[:4])
+    for li in newNode.ledgerManager.ledgerRegistry.values():
+        assert li.num_txns_caught_up > 0
     return newNode

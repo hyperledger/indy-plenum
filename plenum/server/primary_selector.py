@@ -56,7 +56,7 @@ class PrimarySelector(PrimaryDecider):
 
     def _processViewChangeDoneMessage(self,
                                       msg: ViewChangeDone,
-                                      sender: str) -> None:
+                                      sender: str) -> bool:
         """
         Processes ViewChangeDone messages. Once 2f + 1 messages have been 
         received, decides on a primary for specific replica. 
@@ -77,7 +77,7 @@ class PrimarySelector(PrimaryDecider):
                          'whereas current view no is {}'
                          .format(self, sender, view_no, self.viewNo),
                          logMethod=logger.warning)
-            return
+            return False
 
         new_primary_replica_name = msg.name
         instance_id = msg.instId
@@ -92,7 +92,7 @@ class PrimarySelector(PrimaryDecider):
                          'master in previous view too'
                          .format(self, sender, new_primary_replica_name),
                          logMethod=logger.warning)
-            return
+            return False
 
         if not self._mark_replica_as_changed_view(instance_id,
                                                   sender_replica_name,
@@ -102,7 +102,7 @@ class PrimarySelector(PrimaryDecider):
                          "already marked {} as done view change".
                          format(sender_replica_name),
                          logger.warning)
-            return
+            return False
 
         replica = self.replicas[instance_id]  # type: Replica
 
@@ -111,17 +111,36 @@ class PrimarySelector(PrimaryDecider):
                          "it already decided primary which is {}".
                          format(replica.primaryName),
                          logger.debug)
-            return
+            return False
 
+        # TODO: Result of `_hasViewChangeQuorum` should be cached
         if not self._hasViewChangeQuorum(instance_id):
             logger.debug("{} received ViewChangeDone from {}, "
                          "but have got no quorum yet"
                          .format(self.name, sender))
-            return
+            return False
 
-        self._complete_primary_selection(instance_id, replica)
+        rv = self.has_sufficient_same_view_change_done_messages(instance_id)
+        if rv is None:
+            return False
 
-    def _complete_primary_selection(self, instance_id, replica):
+        self._complete_primary_selection(instance_id, replica, *rv)
+
+    def has_sufficient_same_view_change_done_messages(self, instance_id):
+        # TODO: Does not look like optimal implementation.
+        votes = self._view_change_done[instance_id].values()
+        votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
+        new_primary, ledger_info = mostCommonElement(votes)
+        if votes.count((new_primary, ledger_info)) >= get_strong_quorum(self.f):
+            logger.debug('{} found acceptable primary {} and ledger info {}'.
+                         format(self, new_primary, ledger_info))
+            return new_primary, ledger_info
+        else:
+            logger.debug('{} does not have acceptable primary'.format(self))
+            return None
+
+    def _complete_primary_selection(self, instance_id, replica, new_primary,
+                                    ledger_info):
         """
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
@@ -129,10 +148,6 @@ class PrimarySelector(PrimaryDecider):
 
         # TODO: implement case when we get equal number of ViewChangeDone
         # with different primaries specified
-
-        votes = self._view_change_done[instance_id].values()
-        votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
-        new_primary, ledger_info = mostCommonElement(votes)
 
         expected_primary = self._who_is_the_next_primary(instance_id)
         if new_primary != expected_primary:
@@ -158,7 +173,6 @@ class PrimarySelector(PrimaryDecider):
 
         self.previous_master_primary = None
         self.node.primary_found()
-        # self._view_change_done[instance_id] = {}
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -174,6 +188,7 @@ class PrimarySelector(PrimaryDecider):
         return True
 
     def _hasViewChangeQuorum(self, instance_id):
+        # This method should just be present for master instance.
         """
         Checks whether 2f+1 nodes completed view change and whether one 
         of them is the next primary
@@ -237,7 +252,7 @@ class PrimarySelector(PrimaryDecider):
         """
         Sends ViewChangeDone message to other protocol participants
         """
-
+        # QUESTION: Why is `ViewChangeDone` sent for all instances?
         ledger_info = []
         ledger_registry = self._ledger_manager.ledgerRegistry.items()
         for ledger_id, ledger_data in ledger_registry:
