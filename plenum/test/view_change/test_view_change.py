@@ -12,6 +12,8 @@ from plenum.test.helper import waitForViewChange, \
 from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
     ensureElectionsDone, checkProtocolInstanceSetup
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
+from plenum.test.delayers import icDelay
+
 
 nodeCount = 7
 
@@ -90,48 +92,25 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     assert m_primary_node.name != new_m_primary_node.name
 
-def testViewChangeTimeout(nodeSet, looper, up, wallet1, client1, viewNo):
-    # TODO: this probably should be moved to other file
 
-    from plenum.test.delayers import icDelay
-
+def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
+    called = False
     for node in nodeSet:
         node._primary_election_timeout = 5
-        old = node._check_view_change_completed
-
-        def new(*args, **kwargs):
-            print("CALLED!")
-            old(*args)
-
-        node._check_view_change_completed = new
-        # reset_delays_and_process_delayeds(node)
-
+    delayNonPrimaries(nodeSet, 0, 10)
     for node in nodeSet:
         node.nodeIbStasher.delay(icDelay(delay=5))
-
-    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    # Delay processing of PRE-PREPARE from all non primary replicas of master
-    # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, 10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
-
-    ensure_all_nodes_have_same_data(looper, nodeSet)
-    checkProtocolInstanceSetup(looper, nodeSet)
-    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    assert not m_primary_node.name != new_m_primary_node.name
+    waitForViewChange(looper, nodeSet)
+    for node in nodeSet:
+        assert node.spylog.count('_check_view_change_completed') > 0
+    assert called
 
 
 def test_node_notified_about_primary_election_result(nodeSet, looper, up, wallet1, client1, viewNo):
-    primary_notified = False
-    for node in nodeSet:
-        old = node.primary_found
-        def new(*args, **kwargs):
-            nonlocal primary_notified
-            primary_notified = True
-            old()
-        node.primary_found = new
     delayNonPrimaries(nodeSet, 0, 10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
     waitForViewChange(looper, nodeSet, expectedViewNo=viewNo + 1)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
-    assert primary_notified
+    for node in nodeSet:
+        assert node.spylog.count('primary_found') > 0
