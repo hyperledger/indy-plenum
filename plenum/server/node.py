@@ -1949,8 +1949,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              stateRoot, txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
-        # committedTxns = txnsWithMerkleInfo(reqHandler.ledger,
-        #                                    committedTxns)
         self.sendRepliesToClients(
             map(self.update_txn_with_extra_data, committedTxns),
             ppTime)
@@ -2232,9 +2230,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
-        # Its too expensive to iterate over ledger, so not doing it
-        # else:
-        #     txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
             if txn:
                 txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
                 txn = self.update_txn_with_extra_data(txn)

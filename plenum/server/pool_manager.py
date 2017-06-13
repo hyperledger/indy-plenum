@@ -153,10 +153,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
             t = deepcopy(txn)
-            # Since the committed transactions contain merkle info, try to avoid this kind of strictness
+            # Since the committed transactions contain merkle info,
+            # try to avoid this kind of strictness
             pop_merkle_info(t)
             self.onPoolMembershipChange(t)
-        # committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
         self.node.sendRepliesToClients(committedTxns, ppTime)
         return committedTxns
 
