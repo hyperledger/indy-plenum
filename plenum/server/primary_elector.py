@@ -109,31 +109,6 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
-    def filterMsgs(self, wrappedMsgs: deque) -> deque:
-        """
-        Filters messages by view number so that only the messages that have the
-        current view number are retained.
-
-        :param wrappedMsgs: the messages to filter
-        """
-        filtered = deque()
-        while wrappedMsgs:
-            wrappedMsg = wrappedMsgs.popleft()
-            msg, sender = wrappedMsg
-            if hasattr(msg, f.VIEW_NO.nm):
-                reqViewNo = getattr(msg, f.VIEW_NO.nm)
-                if reqViewNo == self.viewNo:
-                    filtered.append(wrappedMsg)
-                else:
-                    self.discard(wrappedMsg,
-                                 "its view no {} is less than the elector's {}"
-                                 .format(reqViewNo, self.viewNo),
-                                 logger.debug)
-            else:
-                filtered.append(wrappedMsg)
-
-        return filtered
-
     def didReplicaNominate(self, instId: int):
         """
         Return whether this replica nominated a candidate for election
@@ -152,16 +127,6 @@ class PrimaryElector(PrimaryDecider):
         return instId in self.primaryDeclarations and \
             self.replicas[instId].name in self.primaryDeclarations[instId]
 
-    async def serviceQueues(self, limit=None):
-        """
-        Service at most `limit` messages from the inBox.
-
-        :param limit: the maximum number of messages to service
-        :return: the number of messages successfully processed
-        """
-        return await self.inBoxRouter.handleAll(self.filterMsgs(self.inBox),
-                                                limit)
-
     @property
     def quorum(self) -> int:
         r"""
@@ -169,7 +134,8 @@ class PrimaryElector(PrimaryDecider):
         """
         return get_strong_quorum(f=self.f)
 
-    def decidePrimaries(self):  # overridden method of PrimaryDecider
+    # overridden method of PrimaryDecider
+    def decidePrimaries(self):
         self.scheduleElection()
 
     def scheduleElection(self):
@@ -189,8 +155,8 @@ class PrimaryElector(PrimaryDecider):
 
         self.nominateItself()
 
+    # overridden method of PrimaryDecider
     def start_election_for_instance(self, inst_id):
-        # Called when starting election for a particular protocol instance
         self.prepareReplicaForElection(self.replicas[inst_id])
         self._schedule(self.nominateItself, random.random())
 
@@ -720,15 +686,6 @@ class PrimaryElector(PrimaryDecider):
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
                > (1 * self.nodeCount)
 
-    def send(self, msg):
-        """
-        Send a message to the node on which this replica resides.
-
-        :param msg: the message to send
-        """
-        logger.debug("{}'s elector sending {}".format(self.name, msg))
-        self.outBox.append(msg)
-
     def viewChanged(self, viewNo: int):
         """
         Actions to perform when a view change occurs.
@@ -802,3 +759,4 @@ class PrimaryElector(PrimaryDecider):
         for instId in range(len(self.replicas)):
             msgs.extend(self.getElectionMsgsForInstance(instId))
         return msgs
+

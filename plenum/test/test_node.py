@@ -249,7 +249,9 @@ class TestNodeCore(StackedTester):
                   Node.processStashedOrderedReqs,
                   Node.lost_master_primary,
                   Node.propose_view_change,
-                  Node.allLedgersCaughtUp
+                  Node.allLedgersCaughtUp,
+                  Node.is_catchup_needed,
+                  Node.no_more_catchups_needed
                   ])
 class TestNode(TestNodeCore, Node):
 

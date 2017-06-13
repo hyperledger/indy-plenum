@@ -21,11 +21,13 @@ class PrimarySelector(PrimaryDecider):
         super().__init__(node)
         self.previous_master_primary = None
         self._view_change_done = {}  # instance id -> replica name -> data
+        self._ledger_manager = self.node.ledgerManager
 
     @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self._processViewChangeDone)]
+        return [(ViewChangeDone, self._processViewChangeDoneMessage)]
 
+    # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
         """
         Returns the last `ViewChangeDone` message sent for specific instance.
@@ -37,8 +39,7 @@ class PrimarySelector(PrimaryDecider):
             for message in replica_messages.values():
                 (new_primary_replica_name, ledger_info) = message
                 messages.append(ViewChangeDone(new_primary_replica_name,
-                                               instance_id,
-                                               self.viewNo,
+                                               instance_id, self.viewNo,
                                                ledger_info))
         return messages
 
@@ -46,28 +47,16 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         self._startSelection()
 
-    # overridden method of PrimaryDecider
-    def viewChanged(self, viewNo: int):
-        if super().viewChanged(viewNo):
-            # TODO: primary selection will be done once ledgers are caught up,
-            # remove next line later
-            # self._startSelection()
-            pass
-
-            # if viewNo > self.viewNo:
-            #     self.viewNo = viewNo
-            #     self._startSelection()
-            # else:
-            #     logger.warning("Provided view no {} is not greater than the "
-            #                    "current view no {}".format(viewNo, self.viewNo))
-
+    # Question: Master is always 0, until we change that rule why incur cost
+    # of a method call, also name is confusing
     def _is_master_instance(self, instance_id):
+        # TODO: get master instance from outside
         # Instance 0 is always master
         return instance_id == 0
 
-    def _processViewChangeDone(self,
-                               msg: ViewChangeDone,
-                               sender: str) -> None:
+    def _processViewChangeDoneMessage(self,
+                                      msg: ViewChangeDone,
+                                      sender: str) -> None:
         """
         Processes ViewChangeDone messages. Once 2f + 1 messages have been 
         received, decides on a primary for specific replica. 
@@ -80,13 +69,13 @@ class PrimarySelector(PrimaryDecider):
                      "ViewChangeDone msg from {} : {}"
                      .format(self.name, sender, msg))
 
-        proposed_view_no = msg.viewNo
+        view_no = msg.viewNo
 
-        if self.viewNo > proposed_view_no:
+        if self.viewNo != view_no:
             self.discard(msg,
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
-                         .format(self, sender, proposed_view_no, self.viewNo),
+                         .format(self, sender, view_no, self.viewNo),
                          logMethod=logger.warning)
             return
 
@@ -107,7 +96,7 @@ class PrimarySelector(PrimaryDecider):
 
         if not self._mark_replica_as_changed_view(instance_id,
                                                   sender_replica_name,
-                                                  new_primary_node_name,
+                                                  new_primary_replica_name,
                                                   ledger_info):
             self.discard(msg,
                          "already marked {} as done view change".
@@ -118,8 +107,10 @@ class PrimarySelector(PrimaryDecider):
         replica = self.replicas[instance_id]  # type: Replica
 
         if replica.hasPrimary:
-            logger.debug("{} Primary already selected; ignoring PRIMARY msg"
-                         .format(replica))
+            self.discard(msg,
+                         "it already decided primary which is {}".
+                         format(replica.primaryName),
+                         logger.debug)
             return
 
         if not self._hasViewChangeQuorum(instance_id):
@@ -128,52 +119,46 @@ class PrimarySelector(PrimaryDecider):
                          .format(self.name, sender))
             return
 
-        if replica.hasPrimary:
-            self.discard(msg,
-                         "it already decided primary which is {}".
-                         format(replica.primaryName),
-                         logger.debug)
-            return
+        self._complete_primary_selection(instance_id, replica)
 
-        self._complete_view_change(instance_id, replica)
-
-    def _complete_view_change(self, instance_id, replica):
+    def _complete_primary_selection(self, instance_id, replica):
         """
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
         """
 
         # TODO: implement case when we get equal number of ViewChangeDone
-        # with different primaries specified. Tip: use ppSeqNo for this
-        # in cases when it is possible
+        # with different primaries specified
 
         votes = self._view_change_done[instance_id].values()
-        new_primary, last_ordered_seq_no = mostCommonElement(votes)
+        votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
+        new_primary, ledger_info = mostCommonElement(votes)
 
         expected_primary = self._who_is_the_next_primary(instance_id)
         if new_primary != expected_primary:
-            logger.warning("{} expected next primary to be {}, but majority "
-                           "declared {} instead"
-                           .format(self.name, expected_primary, new_primary))
+            logger.error("{} expected next primary to be {}, but majority "
+                           "declared {} instead for view {}"
+                           .format(self.name, expected_primary, new_primary,
+                                   self.viewNo))
+        # TODO: check if ledger status is expected
 
         logger.display("{} declares view change {} as completed for "
                        "instance {}, "
                        "new primary is {}, "
-                       "last ordered seqno is {}"
+                       "ledger info is {}"
                        .format(replica,
                                self.viewNo,
                                instance_id,
                                new_primary,
-                               last_ordered_seq_no),
+                               ledger_info),
                        extra={"cli": "ANNOUNCE",
                               "tags": ["node-election"]})
 
         replica.primaryChanged(new_primary)
 
-        if instance_id == 0:
-            self.previous_master_primary = None
-
-        self.decidePrimaries()
+        self.previous_master_primary = None
+        self.node.primary_found()
+        # self._view_change_done[instance_id] = {}
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -193,22 +178,21 @@ class PrimarySelector(PrimaryDecider):
         Checks whether 2f+1 nodes completed view change and whether one 
         of them is the next primary
         """
-        declarations = self._view_change_done.get(instance_id, [])
+        declarations = self._view_change_done.get(instance_id, {})
         num_of_ready_nodes = len(declarations)
         quorum = get_strong_quorum(f=self.f)
-        next_primary_name = self._who_is_the_next_primary(instance_id)
         enough_nodes = num_of_ready_nodes >= quorum
-
         if not enough_nodes:
             return False
 
+        next_primary_name = self._who_is_the_next_primary(instance_id)
         if next_primary_name not in declarations:
             logger.trace("{} got enough ViewChangeDone messages "
                          "for quorum ({}), but the next primary {} "
                          "has not answered yet"
                          .format(self.name,
                                  num_of_ready_nodes,
-                                 quorum,
+                                 next_primary_name,
                                  instance_id))
             return False
 
@@ -226,6 +210,9 @@ class PrimarySelector(PrimaryDecider):
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_name = self._who_is_the_next_primary(instance_id)
+            self._send_view_change_done_message(instance_id,
+                                                      new_primary_name,
+                                                      self.viewNo)
             logger.display("{} selected primary {} for instance {} (view {})"
                            .format(replica,
                                    new_primary_name,
@@ -233,12 +220,10 @@ class PrimarySelector(PrimaryDecider):
                                    self.viewNo),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
-            replica.primaryChanged(new_primary_name)
-        self.node.primary_found()
 
     def _who_is_the_next_primary(self, instance_id):
         """
-        Returnes name of the next node which is supposed to be a new Primary
+        Returns name of the next node which is supposed to be a new Primary
         in round-robin fashion
         """
         new_primary_id = (self.viewNo + instance_id) % self.node.totalNodes
@@ -247,3 +232,33 @@ class PrimarySelector(PrimaryDecider):
             instId=instance_id)
         return new_primary_name
 
+    def _send_view_change_done_message(self, instance_id, new_primary_name,
+                                       view_no):
+        """
+        Sends ViewChangeDone message to other protocol participants
+        """
+
+        ledger_info = []
+        ledger_registry = self._ledger_manager.ledgerRegistry.items()
+        for ledger_id, ledger_data in ledger_registry:
+            ledger = ledger_data.ledger
+            ledger_length = len(ledger)
+            merkle_root = ledger.root_hash
+            ledger_info.append((ledger_id, ledger_length, merkle_root))
+
+        message = ViewChangeDone(new_primary_name,
+                                 instance_id,
+                                 view_no,
+                                 ledger_info)
+        self.send(message)
+        replica_name = Replica.generateName(self.name, instance_id)
+        self._mark_replica_as_changed_view(instance_id, replica_name,
+                                           new_primary_name, ledger_info)
+
+    def viewChanged(self, viewNo: int):
+        """
+        :param viewNo: the new view number.
+        """
+        if super().viewChanged(viewNo):
+            for i in self._view_change_done:
+                self._view_change_done[i] = {}

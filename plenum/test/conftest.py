@@ -49,7 +49,7 @@ from plenum.test.test_client import genTestClient, TestClient
 from plenum.test.test_node import TestNode, TestNodeSet, Pool, \
     checkNodesConnected, ensureElectionsDone, genNodeReg
 
-Logger.setLogLevel(logging.DEBUG)
+Logger.setLogLevel(logging.NOTSET)
 logger = getlogger()
 config = getConfig()
 

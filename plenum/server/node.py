@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 import time
@@ -131,6 +130,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = self.config.nodeDataDir or "data/nodes"
+
+        self._primary_election_timeout = self.config.PRIMARY_ELECTION_TIMEOUT
+
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
@@ -737,6 +739,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return 0
         o = self.serviceElectorOutBox()
         i = await self.serviceElectorInbox()
+        # TODO: Why is protected method accessed here?
         a = self.elector._serviceActions()
         return o + i + a
 
@@ -764,9 +767,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.master_primary_name in left:
             logger.debug('{} lost connection to primary of master'.format(self))
             self.lost_master_primary()
-
         if self.isReady():
             self.checkInstances()
+
+
             # TODO: Should we only send election messages when lagged or
             # otherwise too?
             # if isinstance(self.elector, PrimaryElector) and joined:
@@ -807,11 +811,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setF()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
-            while new_replicas > 0:
-                # self.elector.start_election_for_instance(
-                #     self.replicas[-new_replicas].instId)
-                self.elector.decidePrimaries()
-                new_replicas -= 1
+            self.elector.decidePrimaries()
 
     def nodeLeft(self, txn):
         self.setF()
@@ -882,7 +882,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return newReplicas
 
     def _dispatch_stashed_msg(self, msg, frm):
-        if isinstance(msg, ElectionType):
+        if isinstance(msg, (ElectionType, ViewChangeDone)):
             self.sendToElector(msg, frm)
             return True
         elif isinstance(msg, ThreePhaseType):
@@ -924,7 +924,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Choose the primary replica for each protocol instance in the system
         using a PrimaryDecider.
         """
+
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=self._primary_election_timeout)
         self.elector.decidePrimaries()
+
+    def _check_view_change_completed(self):
+        """
+        This thing checks whether new primary was elected.
+        If it was not - starts view change again
+        """
+
+        if self.view_change_in_progress:
+            next_view_no = self.viewNo + 1
+            logger.debug("view change to view {} is not completed in time, "
+                         "starting view change for view {}"
+                         .format(self.viewNo, next_view_no))
+            self.do_view_change_if_possible(next_view_no)
 
     def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
         """
@@ -1006,14 +1022,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
-                    # Checking for request in received catchup replies as a
-                    # request ordering might have started when the node was not
-                    # participating but by the time ordering finished, node
-                    # might have started participating
-                    # recvd = self.gotInCatchupReplies(msg)
-                    # los = self.master_last_ordered_3PC
-                    # if self.isParticipating and compare_3PC_keys(
-                    #         los, (msg.viewNo, msg.ppSeqNo)) > 0:
                     if self.isParticipating:
                         self.processOrdered(msg)
                     else:
@@ -1056,7 +1064,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         while self.elector.outBox and (not limit or msgCount < limit):
             msgCount += 1
             msg = self.elector.outBox.popleft()
-            if isinstance(msg, ElectionType):
+            if isinstance(msg, (ElectionType, ViewChangeDone)):
                 self.send(msg)
             elif isinstance(msg, BlacklistMsg):
                 nodeName = getattr(msg, f.NODE_NAME.nm)
@@ -1110,8 +1118,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Return the name of the primary node of the master instance
         """
-        if self.replicas[0].primaryName:
-            return self.replicas[0].getNodeName(self.replicas[0].primaryName)
+
+        master_instance_id = self.instances.masterId
+        master_instance_replica = self.replicas[master_instance_id]
+        master_primary_name = master_instance_replica.primaryName
+        if master_primary_name:
+            return master_instance_replica.getNodeName(master_primary_name)
         return None
 
     @property
@@ -1159,6 +1171,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         elif viewNo > self.viewNo:
             if viewNo not in self.msgsForFutureViews:
                 self.msgsForFutureViews[viewNo] = deque()
+            logger.debug('{} stashing a message for a future view: {}'.
+                         format(self, msg))
             self.msgsForFutureViews[viewNo].append((msg, frm))
         else:
             return True
@@ -1456,9 +1470,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
-        # self.reqsFromCatchupReplies.add((txn.get(f.IDENTIFIER.nm),
-        #                                  txn.get(f.REQ_ID.nm)))
-
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
@@ -1483,9 +1494,24 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                             last_caught_up_3PC) > 0:
             replica = self.replicas[0]
             replica.last_ordered_3pc = last_caught_up_3PC
-            logger.debug('{} caught up till {}'.format(self, last_caught_up_3PC))
-            # replica.revert_onordered_3pc_till(last_caught_up_3PC)
+            logger.debug('{} caught up till {}'.format(self,
+                                                       last_caught_up_3PC))
 
+        # TODO: Ensure no more catchups are required, the catchup needs to
+        # communicate number of txns caught up, use `catchupTill`
+        if self.is_catchup_needed():
+            self.start_catchup()
+        else:
+            self.no_more_catchups_needed()
+
+    def is_catchup_needed(self) -> bool:
+        # Need to check the received 3PC and ViewChangeDone messages to see if
+        # catchup needs to be started.
+
+        pass
+
+    def no_more_catchups_needed(self):
+        # This method is called when no more catchups needed
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
         # self.checkInstances()
@@ -1732,14 +1758,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
         # malicious nodes sending messages early on
-        r, msg = self.canViewChange(view_no)
-        if r:
+        can, whyNot = self.canViewChange(view_no)
+        if can:
             logger.info("{} initiating a view change to {} from {}".
                         format(self, view_no, self.viewNo))
             self.startViewChange(view_no)
         else:
-            logger.debug(msg)
-        return r
+            logger.debug(whyNot)
+        return can
 
     def checkPerformance(self):
         """
@@ -1837,6 +1863,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def primary_found(self):
         # If the node has primary replica of master instance
+        # TODO: 0 should be replaced with configurable constant
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
         if self.view_change_in_progress and self.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
@@ -1893,6 +1920,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param proposedViewNo: the new view number after view change.
         """
         self.view_change_in_progress = True
+        self.replicas[0].on_view_change_start()
         self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
@@ -1909,6 +1937,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
+        # TODO: Do not need to revert, keep the 3PC messages with
+        # prepared certificate
         self.replicas[0].revert_unordered_batches()
         self.start_catchup()
 
@@ -1919,6 +1949,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         self.view_change_in_progress = False
         self.instanceChanges.pop(view_no-1, None)
+        self.replicas[0].on_view_change_done()
 
     def start_catchup(self):
         self.mode = Mode.starting
@@ -2341,31 +2372,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Print the node's current statistics to log.
         """
-        lines = []
-        l = lines.append
-        l("node {} current stats".format(self))
-        l("--------------------------------------------------------")
-        l("node inbox size         : {}".format(len(self.nodeInBox)))
-        l("client inbox size       : {}".
-                    format(len(self.clientInBox)))
-        l("age (seconds)           : {}".
-                    format(time.time() - self.created))
-        l("next check for reconnect: {}".
-                    format(time.perf_counter() - self.nodestack.nextCheck))
-        l("node connections        : {}".format(self.nodestack.conns))
-        l("f                       : {}".format(self.f))
-        l("master instance         : {}".format(self.instances.masterId))
-        l("replicas                : {}".format(len(self.replicas)))
-        l("view no                 : {}".format(self.viewNo))
-        l("rank                    : {}".format(self.rank))
-        l("msgs to replicas        : {}".
-                    format(len(self.msgsToReplicas)))
-        l("msgs to elector         : {}".
-                    format(len(self.msgsToElector)))
-        l("action queue            : {} {}".
-                    format(len(self.actionQueue), id(self.actionQueue)))
-        l("action queue stash      : {} {}".
-                    format(len(self.aqStash), id(self.aqStash)))
+        lines = [
+            "node {} current stats".format(self),
+            "--------------------------------------------------------",
+            "node inbox size         : {}".format(len(self.nodeInBox)),
+            "client inbox size       : {}".format(len(self.clientInBox)),
+            "age (seconds)           : {}".format(time.time() - self.created),
+            "next check for reconnect: {}".format(time.perf_counter() -
+                                                  self.nodestack.nextCheck),
+            "node connections        : {}".format(self.nodestack.conns),
+            "f                       : {}".format(self.f),
+            "master instance         : {}".format(self.instances.masterId),
+            "replicas                : {}".format(len(self.replicas)),
+            "view no                 : {}".format(self.viewNo),
+            "rank                    : {}".format(self.rank),
+            "msgs to replicas        : {}".format(len(self.msgsToReplicas)),
+            "msgs to elector         : {}".format(len(self.msgsToElector)),
+            "action queue            : {} {}".format(len(self.actionQueue),
+                                                     id(self.actionQueue)),
+            "action queue stash      : {} {}".format(len(self.aqStash),
+                                                     id(self.aqStash)),
+        ]
 
         logger.info("\n".join(lines), extra={"cli": False})
 

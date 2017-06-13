@@ -13,6 +13,7 @@ from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test.view_change.conftest import viewNo
 from plenum.test.view_change.test_view_change import viewChangeDone
+from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
 
@@ -32,7 +33,6 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
     """
-
     def checkPrimaryPlacement():
         # Node names sorted by rank
         sortedNodeNames = sorted(nodeSet.nodes.values(),

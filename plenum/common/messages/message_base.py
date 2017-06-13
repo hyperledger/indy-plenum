@@ -33,7 +33,6 @@ class MessageValidator(FieldValidator):
             if validation_error:
                 self._raise_invalid_fields(k, v, validation_error)
 
-
     def _raise_invalid_type(self, dct):
         raise TypeError("validation error: invalid type {}, dict expected"
                         .format(type(dct)))
@@ -131,6 +130,9 @@ class MessageBase(Mapping, MessageValidator):
 
     def __str__(self):
         return "{}{}".format(self.typename, dict(self.items()))
+
+    def __repr__(self):
+        return self.__str__()
 
     def __eq__(self, other):
         if not issubclass(other.__class__, self.__class__):
