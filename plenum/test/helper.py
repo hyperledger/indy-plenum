@@ -338,7 +338,6 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
 
 def sendMessageToAll(nodes: TestNodeSet,
                 frm: NodeRef,
-                to: NodeRef,
                 msg: Optional[Tuple]=None):
     """
     Sends message from one node to all others
@@ -758,8 +757,11 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_roo
             txn_root or '0000000000000000000000000000000000000000000000000000000000000000'
             )
     primary_node = getPrimaryReplica(nodes).node
+    non_primary_nodes = set(nodes) - {primary_node}
 
     sendMessageToAll(nodes, primary_node, pre_prepare)
+    for non_primary_node in non_primary_nodes:
+        sendMessageToAll(nodes, non_primary_node, pre_prepare)
 
 
 def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):

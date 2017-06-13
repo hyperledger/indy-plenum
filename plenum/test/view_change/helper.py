@@ -121,6 +121,7 @@ def check_replica_queue_empty(node):
     replica = node.replicas[0]
 
     assert len(replica.prePrepares) == 0
+    assert len(replica.prePreparesPendingFinReqs) == 0
     assert len(replica.prepares) == 0
     assert len(replica.sentPrePrepares) == 0
     assert len(replica.batches) == 0

@@ -58,6 +58,7 @@ from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 
 from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
 from plenum.persistence.util import txnsWithMerkleInfo
+from plenum.server.msg_filter import MessageFilterEngine
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server import replica
 from plenum.server.blacklister import Blacklister
@@ -77,6 +78,7 @@ from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.propagator import Propagator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+from plenum.server.view_change.view_change_msg_filter import ViewChangeMessageFilter
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
@@ -249,6 +251,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
 
+        self.__message_filter_engine = MessageFilterEngine()
+
         nodeRoutes = [(Propagate, self.processPropagate),
                       (InstanceChange, self.processInstanceChange)]
 
@@ -343,7 +347,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # exclusive of last seq no so to store txns from 1 to 100 add a range
         # of `1:101`
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
-        self.view_change_in_progress = False
+        self._view_change_in_progress = False
 
     @property
     def id(self):
@@ -375,6 +379,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodeMsgRouter.extend(
                 (msgTyp, self.sendToElector) for msgTyp in
                 self._elector.supported_msg_types)
+
+    @property
+    def view_change_in_progress(self):
+        return self._view_change_in_progress
+
+    @view_change_in_progress.setter
+    def view_change_in_progress(self, value):
+        self._view_change_in_progress = value
+        if self._view_change_in_progress:
+            self.__message_filter_engine.add_filter(ViewChangeMessageFilter.NAME,
+                                                    ViewChangeMessageFilter(self.viewNo))
+        else:
+            self.__message_filter_engine.remove_filter(ViewChangeMessageFilter.NAME)
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
@@ -1289,6 +1306,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         while self.nodeInBox:
             m = self.nodeInBox.popleft()
+
+            msg, frm = m
+            if self.__message_filter_engine.filter_node_to_node(msg):
+                continue
+
             try:
                 await self.nodeMsgRouter.handle(m)
             except SuspiciousNode as ex:
@@ -1428,10 +1450,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            format(self.clientstack.name, frm, req),
                            extra={"cli": True,
                                   "tags": ["node-msg-processing"]})
+
+            filtered = self.__message_filter_engine.filter_client_to_node(req)
+            if filtered:
+                self._reject_msg(req, frm, filtered)
+                continue
+
             try:
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
+
+    def _reject_msg(self, msg, frm, reason):
+        reqKey = (msg.identifier, msg.reqId)
+        reject = Reject(*reqKey,
+                        reason)
+        self.transmitToClient(reject, frm)
 
     def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered

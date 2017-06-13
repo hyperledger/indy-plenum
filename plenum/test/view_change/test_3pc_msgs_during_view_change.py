@@ -1,5 +1,6 @@
+from plenum.test.delayers import ppgDelay
 from plenum.test.helper import sendRandomRequests, waitRejectFromPoolWithReason, send_pre_prepare, send_prepare, \
-    send_commit
+    send_commit, waitForSufficientRepliesForRequests
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import check_replica_queue_empty, check_all_replica_queue_empty
 
@@ -11,7 +12,7 @@ def test_no_requests_processed_during_view_change(looper, nodeSet,
 
     sendRandomRequests(wallet1, client1, 10)
 
-    waitRejectFromPoolWithReason(looper, nodeSet, client1, 'view change in progress')
+    waitRejectFromPoolWithReason(looper, nodeSet, client1, 'Can not process requests when view change is in progress')
 
     for node in nodeSet:
         check_replica_queue_empty(node)
@@ -19,8 +20,8 @@ def test_no_requests_processed_during_view_change(looper, nodeSet,
 
 def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,
                                                                client1, wallet1):
-    #for node in nodeSet:
-    #    node.view_change_in_progress = True
+    for node in nodeSet:
+        node.view_change_in_progress = True
 
     new_view_no = getPrimaryReplica(nodeSet).node.viewNo + 1
     pp_seq_no = 1
@@ -38,27 +39,25 @@ def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,
     check_all_replica_queue_empty(nodeSet)
 
 
-def test_old_view_3pc_messages_processed_during_view_change(looper, nodeSet,
+def test_old_view_requests_processed_during_view_change(looper, nodeSet,
                                                             client1, wallet1):
-    #for node in nodeSet:
-    #    node.view_change_in_progress = True
+    """
+    Make sure that requests sent before view change started are processed and replies are returned:
+     - delay Propogates (to make sure that requests are not ordered before view change is started)
+     - send requests
+     - check that requests are ordered despite of view change being in progress
+    """
+    for node in nodeSet:
+        node.view_change_in_progress = False
+        node.nodeIbStasher.delay(ppgDelay(3, 0))
 
-    view_no = getPrimaryReplica(nodeSet).node.viewNo
-    pp_seq_no = 1
 
-    send_pre_prepare(view_no, pp_seq_no, wallet1, nodeSet)
+    reqs = sendRandomRequests(wallet1, client1, 2)
     looper.runFor(1)
-    check_all_replica_queue_empty(nodeSet)
 
-    send_prepare(view_no, pp_seq_no, nodeSet)
-    looper.runFor(1)
-    check_all_replica_queue_empty(nodeSet)
+    for node in nodeSet:
+        node.view_change_in_progress = True
 
-    send_commit(view_no, pp_seq_no, nodeSet)
-    looper.runFor(1)
-    check_all_replica_queue_empty(nodeSet)
+    waitForSufficientRepliesForRequests(looper, client1, requests=reqs)
 
 
-def test_catch_up_processed_messages(looper, txnPoolNodeSet,
-                                     client1, wallet1, client1Connected):
-    pass

@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Optional
 
+from plenum.common.request import Request
 from plenum.common.types import LedgerStatus, ConsistencyProof, ConsProofRequest, CatchupReq, CatchupRep, PrePrepare, \
     Prepare, Commit, Ordered
 from plenum.server.msg_filter import MessageFilter
@@ -13,30 +14,20 @@ class ViewChangeMessageFilter(MessageFilter):
     def __init__(self, view_no):
         self.__view_no = view_no
 
-    def filter(self, msg) -> Optional[str]:
-        if self.__is_catch_up_msg(msg):
-            return None
+    def filter_node_to_node(self, msg) -> Optional[str]:
+        if self.__is_next_view_3pc_msg(msg):
+            return 'A message for the next view'
 
-        if self.__is_same_view_3pc_msg(msg):
-            return None
+        return None
 
-        return 'Message is neither catch-up nor 3PC message for the current view'
+    def filter_client_to_node(self, req) -> Optional[str]:
+        if isinstance(req, Request):
+            return 'Can not process requests when view change is in progress'
+
+        return None
 
 
-    def __is_catch_up_msg(self, msg):
-        catch_up_msgs = [LedgerStatus,
-                         ConsistencyProof,
-                         ConsProofRequest,
-                         CatchupReq,
-                         CatchupRep]
-
-        for catch_up_msg in catch_up_msgs:
-            if isinstance(msg, catch_up_msg):
-                return True
-
-        return False
-
-    def __is_same_view_3pc_msg(self, msg):
+    def __is_next_view_3pc_msg(self, msg):
         msgs_3pc = [PrePrepare,
                     Prepare,
                     Commit,
@@ -44,7 +35,7 @@ class ViewChangeMessageFilter(MessageFilter):
 
         for msg_3pc in msgs_3pc:
             if isinstance(msg, msg_3pc) and\
-                            msg.viewNo <= self.__view_no:
+                            msg.viewNo > self.__view_no:
                 return True
 
         return False
