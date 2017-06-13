@@ -24,7 +24,7 @@ from plenum.common.types import PrePrepare, \
     CheckpointState, Checkpoint, Reject, f, InstanceChange
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.util import updateNamedTuple, compare_3PC_keys
+from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -247,6 +247,10 @@ class Replica(HasActionQueue, MessageProcessor):
         # GC when ordered last batch of the view
         self.view_ends_at = OrderedDict()
 
+        # 3 phase key for the last prepared certificate before view change
+        # started, applicable only to master instance
+        self.last_prepared_before_view_change = None
+
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
             return None
@@ -308,14 +312,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def ledger_ids(self):
         return self.node.ledger_ids
 
-    def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
-        """
-        Replica should only participating in the consensus process and the
-        replica did not stash any of this request's 3-phase request
-        """
-        return self.node.isParticipating and (viewNo, ppSeqNo) \
-                                             not in self.stashingWhileCatchingUp
-
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -372,6 +368,23 @@ class Replica(HasActionQueue, MessageProcessor):
         self.primaryName = primaryName
         self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()
+
+    def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
+        """
+        Replica should only participating in the consensus process and the
+        replica did not stash any of this request's 3-phase request
+        """
+        return self.node.isParticipating and (viewNo, ppSeqNo) \
+                                             not in self.stashingWhileCatchingUp
+
+    def on_view_change_start(self):
+        assert self.isMaster
+        self.last_prepared_before_view_change = self.last_prepared_certificate_in_view(self.viewNo)
+        logger.debug('{} setting last prepared for master to {}'.format(self, self.last_prepared_before_view_change))
+
+    def on_view_change_done(self):
+        assert self.isMaster
+        self.last_prepared_before_view_change = None
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """
@@ -1335,9 +1348,18 @@ class Replica(HasActionQueue, MessageProcessor):
         # return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
         return commit.ppSeqNo == 1
 
+    def last_prepared_certificate_in_view(self, view_no) -> Optional[Tuple[int, int]]:
+        # Pick the latest sent COMMIT in the view.
+        # TODO: Consider stashed messages too?
+        assert self.isMaster
+        return max_3PC_key(self.commits.keys()) if self.commits else None
+
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
         logger.debug("{} ordering COMMIT{}".format(self, key))
+        return self.order_3pc_key(key)
+
+    def order_3pc_key(self, key):
         pp = self.getPrePrepare(*key)
         assert pp
         self.addToOrdered(*key)

@@ -2,6 +2,7 @@ from typing import Iterable
 from collections import deque
 
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.types import f
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.router import Router, Route
 from stp_core.common.log import getlogger
@@ -54,6 +55,31 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         """
         raise NotImplementedError
 
+    def filterMsgs(self, wrappedMsgs: deque) -> deque:
+        """
+        Filters messages by view number so that only the messages that have the
+        current view number are retained.
+
+        :param wrappedMsgs: the messages to filter
+        """
+        filtered = deque()
+        while wrappedMsgs:
+            wrappedMsg = wrappedMsgs.popleft()
+            msg, sender = wrappedMsg
+            if hasattr(msg, f.VIEW_NO.nm):
+                reqViewNo = getattr(msg, f.VIEW_NO.nm)
+                if reqViewNo == self.viewNo:
+                    filtered.append(wrappedMsg)
+                else:
+                    self.discard(wrappedMsg,
+                                 "its view no {} is less than the elector's {}"
+                                 .format(reqViewNo, self.viewNo),
+                                 logger.debug)
+            else:
+                filtered.append(wrappedMsg)
+
+        return filtered
+
     async def serviceQueues(self, limit=None) -> int:
         """
         Service at most `limit` messages from the inBox.
@@ -62,7 +88,8 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         :return: the number of messages successfully processed
         """
 
-        return await self.inBoxRouter.handleAll(self.inBox, limit)
+        return await self.inBoxRouter.handleAll(self.filterMsgs(self.inBox),
+                                                limit)
 
     def viewChanged(self, viewNo: int):
         """

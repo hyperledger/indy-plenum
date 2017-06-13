@@ -109,31 +109,6 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
-    def filterMsgs(self, wrappedMsgs: deque) -> deque:
-        """
-        Filters messages by view number so that only the messages that have the
-        current view number are retained.
-
-        :param wrappedMsgs: the messages to filter
-        """
-        filtered = deque()
-        while wrappedMsgs:
-            wrappedMsg = wrappedMsgs.popleft()
-            msg, sender = wrappedMsg
-            if hasattr(msg, f.VIEW_NO.nm):
-                reqViewNo = getattr(msg, f.VIEW_NO.nm)
-                if reqViewNo == self.viewNo:
-                    filtered.append(wrappedMsg)
-                else:
-                    self.discard(wrappedMsg,
-                                 "its view no {} is less than the elector's {}"
-                                 .format(reqViewNo, self.viewNo),
-                                 logger.debug)
-            else:
-                filtered.append(wrappedMsg)
-
-        return filtered
-
     def didReplicaNominate(self, instId: int):
         """
         Return whether this replica nominated a candidate for election
@@ -151,17 +126,6 @@ class PrimaryElector(PrimaryDecider):
         """
         return instId in self.primaryDeclarations and \
             self.replicas[instId].name in self.primaryDeclarations[instId]
-
-    # overridden method of PrimaryDecider
-    async def serviceQueues(self, limit=None):
-        """
-        Service at most `limit` messages from the inBox.
-
-        :param limit: the maximum number of messages to service
-        :return: the number of messages successfully processed
-        """
-        return await self.inBoxRouter.handleAll(self.filterMsgs(self.inBox),
-                                                limit)
 
     @property
     def quorum(self) -> int:
