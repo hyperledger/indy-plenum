@@ -94,7 +94,6 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
 
 
 def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
-    called = False
     for node in nodeSet:
         node._primary_election_timeout = 5
     delayNonPrimaries(nodeSet, 0, 10)
@@ -104,7 +103,6 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
     waitForViewChange(looper, nodeSet)
     for node in nodeSet:
         assert node.spylog.count('_check_view_change_completed') > 0
-    assert called
 
 
 def test_node_notified_about_primary_election_result(nodeSet, looper, up, wallet1, client1, viewNo):
