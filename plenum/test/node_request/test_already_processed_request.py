@@ -12,7 +12,7 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     ledger and did not process the request again
     """
 
-    def get_count(method):
+    def get_method_call_count(method):
         counts = set()
         for node in txnPoolNodeSet:
             c = node.spylog.count(method)
@@ -20,13 +20,13 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
         assert len(counts) == 1
         return counts.pop()
 
-    def get_rl_count():
-        return get_count(next(iter(txnPoolNodeSet)).getReplyFromLedger)
+    def get_getReplyFromLedger_call_count():
+        return get_method_call_count(next(iter(txnPoolNodeSet)).getReplyFromLedger)
 
-    def get_rp_count():
-        return get_count(next(iter(txnPoolNodeSet)).recordAndPropagate)
+    def get_recordAndPropagate_call_count():
+        return get_method_call_count(next(iter(txnPoolNodeSet)).recordAndPropagate)
 
-    def get_return_val():
+    def get_last_returned_val():
         rvs = []
         for node in txnPoolNodeSet:
             rv = getAllReturnVals(node, node.getReplyFromLedger)
@@ -36,23 +36,23 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
         return rvs[0]
 
     # Send a request
-    rlc1 = get_rl_count()
-    rpc1 = get_rp_count()
+    rlc1 = get_getReplyFromLedger_call_count()
+    rpc1 = get_recordAndPropagate_call_count()
     req1, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-    rlc2 = get_rl_count()
-    rpc2 = get_rp_count()
+    rlc2 = get_getReplyFromLedger_call_count()
+    rpc2 = get_recordAndPropagate_call_count()
     assert rlc2 - rlc1 == 1     # getReplyFromLedger was called
     assert rpc2 - rpc1 == 1     # recordAndPropagate was called
-    r1 = get_return_val()
+    r1 = get_last_returned_val()
     assert r1 is None       # getReplyFromLedger returned None since had not seen request
 
     req2, = sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
     assert req2.reqId != req1.reqId
-    rlc3 = get_rl_count()
-    rpc3 = get_rp_count()
+    rlc3 = get_getReplyFromLedger_call_count()
+    rpc3 = get_recordAndPropagate_call_count()
     assert rlc3 - rlc2 == 1     # getReplyFromLedger was called again
     assert rpc3 - rpc2 == 1     # recordAndPropagate was called again
-    r2 = get_return_val()
+    r2 = get_last_returned_val()
     assert r2 is None       # getReplyFromLedger returned None since had not seen request
 
     # Reply for the first request, which is going to be sent again
@@ -66,11 +66,11 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     req3, = send_signed_requests(client1, [req1, ])
     waitForSufficientRepliesForRequests(looper, client1, requests=[req3,])
     assert req3.reqId == req1.reqId
-    rlc4 = get_rl_count()
-    rpc4 = get_rp_count()
+    rlc4 = get_getReplyFromLedger_call_count()
+    rpc4 = get_recordAndPropagate_call_count()
     assert rlc4 - rlc3 == 1     # getReplyFromLedger was called again
     assert rpc4 - rpc3 == 0     # recordAndPropagate was not called
-    r3 = get_return_val()
+    r3 = get_last_returned_val()
     assert r3 is not None   # getReplyFromLedger did not return None this time since had seen request
     rep3 = client1.getReply(req3.identifier, req3.reqId)
 
