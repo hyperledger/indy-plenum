@@ -102,7 +102,7 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
 
     # Setting view change timeout to low value to make test pass quicker
     for node in nodeSet:
-        node._primary_election_timeout = 5
+        node._view_change_timeout = 5
 
     # Delaying view change messages to make first view change fail
     # due to timeout

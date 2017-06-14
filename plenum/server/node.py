@@ -131,8 +131,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = self.config.nodeDataDir or "data/nodes"
 
-        self._primary_election_timeout = self.config.PRIMARY_ELECTION_TIMEOUT
-
+        self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
                                 dataDir=self.dataDir)
@@ -924,9 +923,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Choose the primary replica for each protocol instance in the system
         using a PrimaryDecider.
         """
-
-        self._schedule(action=self._check_view_change_completed,
-                       seconds=self._primary_election_timeout)
         self.elector.decidePrimaries()
 
     def _check_view_change_completed(self):
@@ -1920,6 +1916,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param proposedViewNo: the new view number after view change.
         """
         self.view_change_in_progress = True
+        self._schedule(action=self._check_view_change_completed,
+                       seconds=self._view_change_timeout)
         self.replicas[0].on_view_change_start()
         self.viewNo = proposedViewNo
         logger.debug("{} resetting monitor stats after view change".
