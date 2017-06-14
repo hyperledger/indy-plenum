@@ -2,6 +2,7 @@ import itertools
 import os
 import random
 import string
+import time
 from _signal import SIGINT
 from functools import partial
 from itertools import permutations, combinations
@@ -16,9 +17,9 @@ from psutil import Popen
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME
+from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
-from plenum.common.types import Reply, f, PrePrepare
+from plenum.common.types import Reply, f, PrePrepare, Prepare, Commit
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.config import poolTransactionsFile, domainTransactionsFile
@@ -29,7 +30,7 @@ from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs,
     getAllReturnVals
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkNodesConnected, ensureElectionsDone, NodeRef
+    checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -284,10 +285,32 @@ async def msgAll(nodes: TestNodeSet):
         await sendMessageAndCheckDelivery(nodes, p[0], p[1])
 
 
+def sendMessage(nodes: TestNodeSet,
+                frm: NodeRef,
+                to: NodeRef,
+                msg: Optional[Tuple]=None):
+    """
+    Sends message from one node to another
+
+    :param nodes:
+    :param frm: sender
+    :param to: recepient
+    :param msg: optional message - by default random one generated
+    :return:
+    """
+
+    logger.debug("Sending msg from {} to {}".format(frm, to))
+    msg = msg if msg else randomMsg()
+    sender = nodes.getNode(frm)
+    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    sender.nodestack.send(msg, rid)
+
+
 async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
                                       frm: NodeRef,
                                       to: NodeRef,
                                       msg: Optional[Tuple]=None,
+                                      method = None,
                                       customTimeout=None):
     """
     Sends message from one node to another and checks that it was delivered
@@ -308,11 +331,45 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMessageReceived, msg, nodes, to,
+    await eventually(checkMessageReceived, msg, nodes, to, method,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)
 
+def sendMessageToAll(nodes: TestNodeSet,
+                frm: NodeRef,
+                msg: Optional[Tuple]=None):
+    """
+    Sends message from one node to all others
+
+    :param nodes:
+    :param frm: sender
+    :param msg: optional message - by default random one generated
+    :return:
+    """
+    for node in nodes:
+        if node != frm:
+            sendMessage(nodes, frm, node, msg)
+
+async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
+                                      frm: NodeRef,
+                                      msg: Optional[Tuple]=None,
+                                      method = None,
+                                      customTimeout=None):
+    """
+    Sends message from one node to all other and checks that it was delivered
+
+    :param nodes:
+    :param frm: sender
+    :param msg: optional message - by default random one generated
+    :param customTimeout:
+    :return:
+    """
+    customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(len(nodes))
+    for node in nodes:
+        if node != frm:
+            await sendMessageAndCheckDelivery(nodes, frm, node, msg, method, customTimeout)
+            break
 
 def checkMessageReceived(msg, nodes, to, method: str = None):
     allMsgs = nodes.getAllMsgReceived(to, method)
@@ -684,3 +741,45 @@ def nodeByName(nodes, name):
         if node.name == name:
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
+
+def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_root=None):
+    last_req_id = wallet._getIdData().lastReqId or 0
+    pre_prepare = PrePrepare(
+            0,
+            view_no,
+            pp_seq_no,
+            time.time(),
+            [(wallet.defaultId, last_req_id+1)],
+            0,
+            "random digest",
+            DOMAIN_LEDGER_ID,
+            state_root or '0000000000000000000000000000000000000000000000000000000000000000',
+            txn_root or '0000000000000000000000000000000000000000000000000000000000000000'
+            )
+    primary_node = getPrimaryReplica(nodes).node
+    non_primary_nodes = set(nodes) - {primary_node}
+
+    sendMessageToAll(nodes, primary_node, pre_prepare)
+    for non_primary_node in non_primary_nodes:
+        sendMessageToAll(nodes, non_primary_node, pre_prepare)
+
+
+def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):
+    prepare = Prepare(
+            0,
+            view_no,
+            pp_seq_no,
+            "random digest",
+            state_root or '0000000000000000000000000000000000000000000000000000000000000000',
+            txn_root or '0000000000000000000000000000000000000000000000000000000000000000'
+            )
+    primary_node = getPrimaryReplica(nodes).node
+    sendMessageToAll(nodes, primary_node, prepare)
+
+def send_commit(view_no, pp_seq_no, nodes):
+    commit = Commit(
+            0,
+            view_no,
+            pp_seq_no)
+    primary_node = getPrimaryReplica(nodes).node
+    sendMessageToAll(nodes, primary_node, commit)
