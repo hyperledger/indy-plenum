@@ -476,20 +476,6 @@ class Replica(HasActionQueue, MessageProcessor):
     #         # self.prepares.pop(key, None)
     #         # self.prepares.pop(key, None)
 
-    def revert_unordered_batches(self):
-        to_remove = []
-        for key in reversed(self.batches):
-            if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                to_remove.append(key)
-            else:
-                break
-
-        for key in to_remove:
-            ppReq = self.getPrePrepare(*key)
-            count, _, prevStateRoot = self.batches.pop(key)
-            self.revert(ppReq.ledgerId, prevStateRoot, count)
-
-        return len(to_remove)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -917,25 +903,14 @@ class Replica(HasActionQueue, MessageProcessor):
             # First PRE-PREPARE in a new view
             return True
 
-        last_pp = self.lastPrePrepare
-        if last_pp:
-            if last_pp.viewNo == view_no:
-                if last_pp.viewNo == self.last_ordered_3pc[0] and \
-                                last_pp.ppSeqNo < self.last_ordered_3pc[1]:
-                    last_pp_seq_no = self.last_ordered_3pc[1]
-                else:
-                    last_pp_seq_no = last_pp.ppSeqNo
-            elif last_pp.viewNo > view_no:
-                return False
-            else:
-                assert view_no == self.viewNo
-                last_pp_seq_no = 0
-        else:
-            # No PRE-PREPARE found, maybe the node just started.
-            if view_no == self.last_ordered_3pc[0]:
-                last_pp_seq_no = self.last_ordered_3pc[1]
-            else:
-                return False
+        (last_pp_view_no, last_pp_seq_no) = self.__last_pp_3pc
+
+        if last_pp_view_no > view_no:
+            return False
+
+        if last_pp_view_no < view_no:
+            assert view_no == self.viewNo
+            last_pp_seq_no = 0
 
         if pp_seq_no - last_pp_seq_no != 1:
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
@@ -943,7 +918,20 @@ class Replica(HasActionQueue, MessageProcessor):
             # TODO: think of a better way, urgently
             self.set_last_ordered_for_non_master()
             return False
+
         return True
+
+    @property
+    def __last_pp_3pc(self):
+        last_pp = self.lastPrePrepare
+        if not last_pp:
+            return self.last_ordered_3pc
+
+        last_3pc = (last_pp.viewNo, last_pp.ppSeqNo)
+        if compare_3PC_keys(self.last_ordered_3pc, last_3pc) > 0:
+            return last_3pc
+
+        return self.last_ordered_3pc
 
     def revert(self, ledgerId, stateRootHash, reqCount):
         # A batch should only be reverted if all batches that came after it
@@ -1035,13 +1023,12 @@ class Replica(HasActionQueue, MessageProcessor):
             # do not make change to state or ledger
             return True
 
-        if pp.ppSeqNo <= self.__last_pp_seq_no:
+        if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
             return False  # ignore old pre-prepare
 
         non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
 
-        non_next_upstream_pp = pp.ppSeqNo > self.__last_pp_seq_no and \
-            not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
+        non_next_upstream_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
 
         if non_fin_reqs or non_next_upstream_pp:
             self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
@@ -1765,27 +1752,27 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def revert_unordered_batches(self, ledger_id):
         for key in sorted(self.batches.keys(), reverse=True):
-            if key > self.lastOrderedPPSeqNo:
+            if key > self.last_ordered_3pc:
                 count, _, prevStateRoot = self.batches.pop(key)
                 self.revert(ledger_id, prevStateRoot, count)
             else:
                 break
 
     def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
-        self.addToOrdered(self.viewNo, last_caught_up_pp_seq_no)
+        self.addToOrdered(*last_caught_up_pp_seq_no)
         self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
 
     def _remove_till_caught_up_pp_seq_no(self, last_caught_up_pp_seq_no):
         outdated_pre_prepares = set()
         outdated_ledger_ids = set()
         for key, pp in self.prePrepares.items():
-            if (key[1] <= last_caught_up_pp_seq_no):
+            if compare_3PC_keys(key, last_caught_up_pp_seq_no) > 0:
                 outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo))
                 outdated_ledger_ids.add(pp.ledgerId)
                 self.prePrepares.pop(key, None)
                 self.ordered.add((pp.viewNo, pp.ppSeqNo))
 
         for key in sorted(list(outdated_pre_prepares), key=itemgetter(1), reverse=True):
-            self.batches.pop(key[1], None)
+            self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
             self.prepares.pop(key, None)

@@ -687,8 +687,8 @@ def check_seqno_db_equality(db1, db2):
 def check_last_ordered_pp_seq_no(node1, node2):
     master_replica_1 = node1.replicas[0]
     master_replica_2 = node2.replicas[0]
-    assert master_replica_1.lastOrderedPPSeqNo == master_replica_2.lastOrderedPPSeqNo, \
-        "{} != {}".format(master_replica_1.lastOrderedPPSeqNo, master_replica_2.lastOrderedPPSeqNo)
+    assert master_replica_1.last_ordered_3pc == master_replica_2.last_ordered_3pc, \
+        "{} != {}".format(master_replica_1.last_ordered_3pc, master_replica_2.last_ordered_3pc)
 
 def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))

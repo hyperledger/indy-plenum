@@ -210,11 +210,11 @@ class PrimaryElector(PrimaryDecider):
         replica = self.replicas[instId]
         if not self.didReplicaNominate(instId):
             self.nominations[instId][replica.name] = (replica.name,
-                                                      replica.lastOrderedPPSeqNo)
+                                                      replica.last_ordered_3pc[1])
             logger.info("{} nominating itself for instance {}".
                         format(replica, instId),
                         extra={"cli": "PLAIN", "tags": ["node-nomination"]})
-            self.sendNomination(replica.name, instId, self.viewNo, replica.lastOrderedPPSeqNo)
+            self.sendNomination(replica.name, instId, self.viewNo, replica.last_ordered_3pc[1])
         else:
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
@@ -736,7 +736,7 @@ class PrimaryElector(PrimaryDecider):
         # primary declaration for the selected primary
         if replica.isPrimary is not None:
             msgs.append(Primary(replica.primaryName, instId, self.viewNo,
-                                replica.lastOrderedPPSeqNo))
+                                replica.last_ordered_3pc[1]))
         else:
             # If a primary for this instance has not been selected then send
             # nomination and primary declaration that this node made for the
