@@ -1902,7 +1902,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
-        logger.display("{} authenticated {} signature on {} request {}".
+        logger.info("{} authenticated {} signature on {} request {}".
                        format(self, identifier, typ, req['reqId']),
                        extra={"cli": True,
                               "tags": ["node-msg-processing"]})
@@ -1934,7 +1934,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if committedTxns:
             lastTxnSeqNo = committedTxns[-1][F.seqNo.name]
             self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
-            logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
+            logger.display('{} storing ppSeqno {} for ledger {} seqNo {}'.
                          format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
             if len(self.batchToSeqNos) > self.config.ProcessedBatchMapsToKeep:
                 x = self.batchToSeqNos.popitem(last=False)
@@ -1949,8 +1949,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              stateRoot, txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
-        committedTxns = txnsWithMerkleInfo(reqHandler.ledger,
-                                           committedTxns)
         self.sendRepliesToClients(
             map(self.update_txn_with_extra_data, committedTxns),
             ppTime)
@@ -2232,12 +2230,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
-        else:
-            txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
-        if txn:
-            txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
-            txn = self.update_txn_with_extra_data(txn)
-            return Reply(txn)
+            if txn:
+                txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
+                txn = self.update_txn_with_extra_data(txn)
+                return Reply(txn)
 
     def update_txn_with_extra_data(self, txn):
         """
