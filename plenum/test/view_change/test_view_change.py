@@ -12,6 +12,8 @@ from plenum.test.helper import waitForViewChange, \
 from plenum.test.test_node import getPrimaryReplica, get_master_primary_node, \
     ensureElectionsDone, checkProtocolInstanceSetup
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
+from plenum.test.delayers import icDelay
+from plenum.test.view_change.helper import ensure_view_change
 
 nodeCount = 7
 
@@ -91,33 +93,56 @@ def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
     assert m_primary_node.name != new_m_primary_node.name
 
 
-def testViewChangeTimeout(nodeSet, looper, up, wallet1, client1, viewNo):
-    # TODO: this probably should be moved to other file
-
-    from plenum.test.delayers import icDelay
-
-    for node in nodeSet:
-        node._primary_election_timeout = 5
-        old = node._check_view_change_completed
-        def new(*args):
-            print("CALLED!")
-            old(*args)
-        node._check_view_change_completed = new
-        reset_delays_and_process_delayeds(node)
+def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
+    """
+    Check view change restarted if it is not completed in time     
+    """
 
     m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    # Delay processing of PRE-PREPARE from all non primary replicas of master
-    # so master's performance falls and view changes
-    npr = delayNonPrimaries(nodeSet, 0, 10)
-    delay_ic = 5
 
+    # Setting view change timeout to low value to make test pass quicker
     for node in nodeSet:
-        node.nodeIbStasher.delay(icDelay(delay_ic))
+        node._view_change_timeout = 5
 
+    # Delaying view change messages to make first view change fail
+    # due to timeout
+    for node in nodeSet:
+        node.nodeIbStasher.delay(icDelay(delay=5))
+
+    # Delaying preprepae messages from nodes and
+    # sending request to force view change
+    for i in range(3):
+        delayNonPrimaries(nodeSet, instId=i, delay=10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
+    # First view change should fail, because of delayed
+    # instance change messages.
+    # This then leads to new view change that we need.
+    try:
+        ensure_view_change(looper, nodeSet)
+        ensureElectionsDone(looper=looper, nodes=nodeSet)
+    except AssertionError:
+        pass
 
-    ensure_all_nodes_have_same_data(looper, nodeSet)
-    checkProtocolInstanceSetup(looper, nodeSet)
+    # Resetting delays to let second view change go well
+    reset_delays_and_process_delayeds(nodeSet)
+
+    # This view change should be completed with no problems
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+
     new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    assert not m_primary_node.name != new_m_primary_node.name
+    assert m_primary_node.name != new_m_primary_node.name
+    for node in nodeSet:
+        assert node.spylog.count('_check_view_change_completed') > 0
+    for node in nodeSet:
+        assert node.viewNo == (viewNo + 2)
+
+
+def test_node_notified_about_primary_election_result(nodeSet, looper, up, wallet1, client1, viewNo):
+    delayNonPrimaries(nodeSet, 0, 10)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo + 1)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    for node in nodeSet:
+        assert node.spylog.count('primary_found') > 0

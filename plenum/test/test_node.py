@@ -252,7 +252,9 @@ class TestNodeCore(StackedTester):
                   Node.allLedgersCaughtUp,
                   Node.is_catchup_needed,
                   Node.no_more_catchups_needed,
-                  Node.caught_up_for_current_view
+                  Node.caught_up_for_current_view,
+                  Node._check_view_change_completed,
+                  Node.primary_found
                   ])
 class TestNode(TestNodeCore, Node):
 
