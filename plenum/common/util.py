@@ -335,7 +335,10 @@ def friendlyToRaw(f):
 
 
 def cryptonymToHex(cryptonym: str) -> bytes:
-    return hexlify(base58.b58decode(cryptonym.encode()))
+    try:
+        return hexlify(base58.b58decode(cryptonym.encode()))
+    except ValueError:
+        return None
 
 
 def runWithLoop(loop, callback, *args, **kwargs):
