@@ -29,11 +29,13 @@ class LedgerManager(HasActionQueue):
     def __init__(self,
                  owner,
                  ownedByNode: bool=True,
-                 postAllLedgersCaughtUp:Optional[Callable]=None):
+                 postAllLedgersCaughtUp:Optional[Callable]=None,
+                 preCatchupClbk: Callable = None):
 
         self.owner = owner
         self.ownedByNode = ownedByNode
         self.postAllLedgersCaughtUp = postAllLedgersCaughtUp
+        self.preCatchupClbk = preCatchupClbk
         self.config = getConfig()
         # Needs to schedule actions. The owner of the manager has the
         # responsibility of calling its `_serviceActions` method periodically
@@ -329,7 +331,8 @@ class LedgerManager(HasActionQueue):
                                  self.owner.totalNodes,
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
-            if ledgerId == DOMAIN_LEDGER_ID:
+            self.preCatchupClbk(ledgerId)
+            if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
                 ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
 
@@ -465,9 +468,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        merkleInfo = ledger.add(self._transform(txn))
-                        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
-                        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
+                        self._add_txn(ledgerId, ledger, ledgerInfo, txn)
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerId, ledger,
@@ -485,6 +486,11 @@ class LedgerManager(HasActionQueue):
                         # `self.receivedCatchUpReplies`
                         return numProcessed + toBeProcessed
         return numProcessed
+
+    def _add_txn(self, ledgerId, ledger: Ledger, ledgerInfo, txn):
+        merkleInfo = ledger.add(self._transform(txn))
+        txn[F.seqNo.name] = merkleInfo[F.seqNo.name]
+        ledgerInfo.postTxnAddedToLedgerClbk(ledgerId, txn)
 
     def _removePrcdCatchupReply(self, ledgerId, node, seqNo):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)

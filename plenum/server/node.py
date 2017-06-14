@@ -329,9 +329,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # help in voting for/against a view change.
         self.lost_primary_at = None
 
-        # First view change message received for a view no
-        self.view_change_started_at = {}
-
         tp = loadPlugins(self.basedirpath)
         logger.debug("total plugins loaded in node: {}".format(tp))
         # TODO: this is already happening in `start`, why here then?
@@ -514,13 +511,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def getLedgerManager(self) -> LedgerManager:
         return LedgerManager(self, ownedByNode=True,
-                             postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                             postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                             preCatchupClbk=self.preLedgerCatchUp)
 
     def init_ledger_manager(self):
         # TODO: this and tons of akin stuff should be exterminated
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
                                     self.domainLedger,
-                                    preCatchupStartClbk=self.preDomainLedgerCatchUp,
                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
@@ -1485,12 +1482,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendDomainLedgerStatus(nm)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
-    def preDomainLedgerCatchUp(self):
-        """
-        Ledger got out of sync. Setting node's state accordingly
-        :return:
-        """
-        self.mode = Mode.syncing
 
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
@@ -1499,6 +1490,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :return:
         """
         pass
+
+    def preLedgerCatchUp(self, ledger_id):
+        # make the node Syncing
+        self.mode = Mode.syncing
+
+        # revert uncommitted txns and state for unordered requests
+        self.replicas[0].revert_unordered_batches(ledger_id)
+
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
@@ -1523,7 +1522,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            self.master_replica.last_ordered_3pc = last_caught_up_3PC
+            self.master_replica.caught_up_till_pp_seq_no(last_caught_up_3PC)
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
@@ -2071,7 +2070,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
-        logger.display("{} authenticated {} signature on {} request {}".
+        logger.info("{} authenticated {} signature on {} request {}".
                        format(self, identifier, typ, req['reqId']),
                        extra={"cli": True,
                               "tags": ["node-msg-processing"]})
@@ -2131,8 +2130,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              stateRoot, txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
-        committedTxns = txnsWithMerkleInfo(reqHandler.ledger,
-                                           committedTxns)
         self.sendRepliesToClients(
             map(self.update_txn_with_extra_data, committedTxns),
             ppTime)
@@ -2164,7 +2161,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
 
-    def onBatchRejected(self, ledgerId, stateRoot=None):
+    def onBatchRejected(self, ledgerId):
         """
         A batch of requests has been rejected, if stateRoot is None, reject
         the current batch.
@@ -2175,9 +2172,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: stateRoot is not paased, remove if not needed
         if ledgerId == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
-                self.poolManager.reqHandler.onBatchRejected(stateRoot)
+                self.poolManager.reqHandler.onBatchRejected()
         elif ledgerId == DOMAIN_LEDGER_ID:
-            self.reqHandler.onBatchRejected(stateRoot)
+            self.reqHandler.onBatchRejected()
         else:
             logger.debug('{} did not know how to handle for ledger {}'.
                          format(self, ledgerId))
@@ -2418,12 +2415,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
-        else:
-            txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
-        if txn:
-            txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
-            txn = self.update_txn_with_extra_data(txn)
-            return Reply(txn)
+            if txn:
+                txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
+                txn = self.update_txn_with_extra_data(txn)
+                return Reply(txn)
 
     def update_txn_with_extra_data(self, txn):
         """

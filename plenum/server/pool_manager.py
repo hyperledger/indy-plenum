@@ -19,7 +19,7 @@ from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
-from plenum.persistence.util import txnsWithMerkleInfo
+from plenum.persistence.util import txnsWithMerkleInfo, pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
@@ -182,8 +182,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         committedTxns = self.reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.node.updateSeqNoMap(committedTxns)
         for txn in committedTxns:
-            self.onPoolMembershipChange(deepcopy(txn))
-        committedTxns = txnsWithMerkleInfo(self.reqHandler.ledger, committedTxns)
+            t = deepcopy(txn)
+            # Since the committed transactions contain merkle info,
+            # try to avoid this kind of strictness
+            pop_merkle_info(t)
+            self.onPoolMembershipChange(t)
         self.node.sendRepliesToClients(committedTxns, ppTime)
         return committedTxns
 
@@ -214,7 +217,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 else:
                     self.node.nodeReg[nodeName] = HA(info[DATA][NODE_IP],
                                                      info[DATA][NODE_PORT])
-                    self.node.cliNodeReg[nodeName] = HA(info[DATA][CLIENT_IP],
+                    self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(info[DATA][CLIENT_IP],
                                                         info[DATA][CLIENT_PORT])
                     _updateNode(txn)
 
@@ -293,7 +296,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     del self.node.nodeReg[nodeName]
                     del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
                     try:
-                        rid = self.node.nodestack.removeRemoteByName(nodeName)
+                        rid = TxnStackManager.removeRemote(self.node.nodestack, nodeName)
                         if rid:
                             self.node.nodestack.outBoxes.pop(rid, None)
                     except RemoteNotFound:

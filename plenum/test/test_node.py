@@ -249,6 +249,8 @@ class TestNodeCore(StackedTester):
                   Node.processStashedOrderedReqs,
                   Node.lost_master_primary,
                   Node.propose_view_change,
+                  Node.getReplyFromLedger,
+                  Node.recordAndPropagate,
                   Node.allLedgersCaughtUp,
                   Node.is_catchup_needed,
                   Node.no_more_catchups_needed,
@@ -280,7 +282,8 @@ class TestNode(TestNodeCore, Node):
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                                 preCatchupClbk=self.preLedgerCatchUp)
 
 
 @spyable(methods=[

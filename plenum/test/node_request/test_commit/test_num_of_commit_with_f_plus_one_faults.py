@@ -39,8 +39,9 @@ def afterElection(setup, up):
 def testNumOfCommitMsgsWithFPlusOneFaults(afterElection, looper,
                                           nodeSet, prepared1, noRetryReq):
     with pytest.raises(AssertionError):
+        # To raise an error pass less than the actual number of faults
         checkCommitted(looper,
                        nodeSet,
                        prepared1,
                        range(getNoInstances(len(nodeSet))),
-                       faultyNodes)
+                       faultyNodes-1)
