@@ -119,7 +119,7 @@ def testProcessViewChangeDone():
     selector._processViewChangeDoneMessage(msg, 'Node3')
     assert selector._view_change_done[0]
     assert node.is_primary_found()
-    selector.viewChanged(1)
+    selector.view_change_started(1)
     assert not selector._view_change_done[0]
 
 

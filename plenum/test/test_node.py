@@ -251,7 +251,8 @@ class TestNodeCore(StackedTester):
                   Node.propose_view_change,
                   Node.allLedgersCaughtUp,
                   Node.is_catchup_needed,
-                  Node.no_more_catchups_needed
+                  Node.no_more_catchups_needed,
+                  Node.caught_up_for_current_view
                   ])
 class TestNode(TestNodeCore, Node):
 

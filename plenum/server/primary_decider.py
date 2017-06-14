@@ -91,7 +91,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         return await self.inBoxRouter.handleAll(self.filterMsgs(self.inBox),
                                                 limit)
 
-    def viewChanged(self, viewNo: int):
+    def view_change_started(self, viewNo: int):
         """
         Notifies primary decider about the fact that view changed to let it
         prepare for election, which then will be started from outside by 

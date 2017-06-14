@@ -686,7 +686,7 @@ class PrimaryElector(PrimaryDecider):
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
                > (1 * self.nodeCount)
 
-    def viewChanged(self, viewNo: int):
+    def view_change_started(self, viewNo: int):
         """
         Actions to perform when a view change occurs.
 
@@ -697,7 +697,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param viewNo: the new view number.
         """
-        if super().viewChanged(viewNo):
+        if super().view_change_started(viewNo):
             # Reset to defaults values for different data structures as new
             # elections would begin
             for r in self.replicas:

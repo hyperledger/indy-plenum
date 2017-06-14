@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataUnequality
@@ -13,11 +15,24 @@ from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
 
+TestRunningTimeLimitSec = 150
+
+
+@pytest.fixture(scope='module', params=['next-non-primary', 'next-primary'])
+def slow_node(request, txnPoolNodeSet):
+    nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
+    if request.param == 'next-non-primary':
+        return nprs[-1].node
+    if request.param == 'next-primary':
+        return nprs[0].node
+
+
 def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                                                                  txnPoolNodeSet,
                                                                  steward1,
                                                                  stewardWallet,
-                                                                 tconf):
+                                                                 tconf,
+                                                                 slow_node):
     """
     Delay 3PC to 1 node and then cause view change so by the time the view
     change happens(each node gets >2f+1 `INSTANCE_CHANGE`s), the slow node is
@@ -25,8 +40,9 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     as other nodes. Not sending client requests while catching up, that will
     be tested in another test.
     """
-    nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
-    slow_node = nprs[0].node
+    # nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
+    # slow_node = nprs[-1].node
+
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = tconf.PerfCheckFreq
     # Bad network introduced
@@ -38,6 +54,12 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
         n.ledgerManager.processCatchupRep) for n in txnPoolNodeSet}
     catchup_done_counts = {n.name: n.spylog.count(n.allLedgersCaughtUp)
                            for n in txnPoolNodeSet}
+
+    def is_catchup_needed_count():
+        return sum([1 for rv in getAllReturnVals(slow_node,
+                                                 slow_node.is_catchup_needed) if rv == True])
+    old_count = is_catchup_needed_count()
+
     # No reverts have been called by the slow node
     rv = getAllReturnVals(slow_node.replicas[0],
                           TestReplica.revert_unordered_batches)
@@ -50,6 +72,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     ensure_view_change(looper, txnPoolNodeSet)
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
+    assert is_catchup_needed_count() > old_count
 
     # `slow_node` does catchup, `fast_nodes` don't
     for n in txnPoolNodeSet:

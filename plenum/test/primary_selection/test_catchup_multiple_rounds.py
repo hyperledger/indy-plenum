@@ -45,7 +45,6 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
                     slow_node.ledgerManager.startCatchUpProcess.__name__)
                     if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
 
-
     s = start_count()
     requests = sendRandomRequests(wallet1, client1, 10*Max3PCBatchSize)
 

@@ -202,7 +202,7 @@ class PrimarySelector(PrimaryDecider):
 
         next_primary_name = self._who_is_the_next_primary(instance_id)
         if next_primary_name not in declarations:
-            logger.trace("{} got enough ViewChangeDone messages "
+            logger.debug("{} got enough ViewChangeDone messages "
                          "for quorum ({}), but the next primary {} "
                          "has not answered yet"
                          .format(self.name,
@@ -211,7 +211,7 @@ class PrimarySelector(PrimaryDecider):
                                  instance_id))
             return False
 
-        logger.trace("{} got view change quorum ({} >= {}) for instance {}"
+        logger.info("{} got view change quorum ({} >= {}) for instance {}"
                      .format(self.name,
                              num_of_ready_nodes,
                              quorum,
@@ -270,10 +270,10 @@ class PrimarySelector(PrimaryDecider):
         self._mark_replica_as_changed_view(instance_id, replica_name,
                                            new_primary_name, ledger_info)
 
-    def viewChanged(self, viewNo: int):
+    def view_change_started(self, viewNo: int):
         """
         :param viewNo: the new view number.
         """
-        if super().viewChanged(viewNo):
+        if super().view_change_started(viewNo):
             for i in self._view_change_done:
                 self._view_change_done[i] = {}

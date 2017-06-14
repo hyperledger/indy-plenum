@@ -1500,8 +1500,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: Ensure no more catchups are required, the catchup needs to
         # communicate number of txns caught up, use `catchupTill`
         if self.is_catchup_needed():
+            logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
         else:
+            logger.debug('{} does not need any more catchups'.format(self))
             self.no_more_catchups_needed()
 
     def is_catchup_needed(self) -> bool:
@@ -1511,7 +1513,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if last catchup resulted in no txns
         """
         if self.caught_up_for_current_view():
+            logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
             return False
+        logger.debug('{} is not caught up for the current view {}'.format(self, self.viewNo))
         if self.has_ordered_till_last_prepared_certificate() and \
                         self.num_txns_caught_up_in_last_catchup() == 0:
             return False
@@ -1523,9 +1527,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def caught_up_for_current_view(self):
         if not self.elector._hasViewChangeQuorum(0):
+            logger.debug('{} does not have view change quorum for view {}'.
+                         format(self, self.viewNo))
             return False
         vc = self.elector.has_sufficient_same_view_change_done_messages(0)
         if not vc:
+            logger.debug('{} does not have acceptable ViewChangeDone for '
+                         'view {}'.format(self, self.viewNo))
             return False
         ledger_info = vc[1]
         for lid, size, root_hash in ledger_info:
@@ -1543,8 +1551,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
     def num_txns_caught_up_in_last_catchup(self):
-        return sum([l.num_txns_caught_up for l in
+        count = sum([l.num_txns_caught_up for l in
                     self.ledgerManager.ledgerRegistry.values()])
+        logger.debug('{} caught up to {} txns in the last catchup'.format(self, count))
+        return count
 
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
@@ -1964,7 +1974,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.processStashedMsgsForView(self.viewNo)
         # Now communicate the view change to the elector which will
         # contest primary elections across protocol all instances
-        self.elector.viewChanged(self.viewNo)
+        self.elector.view_change_started(self.viewNo)
         self._primary_replica_no = None
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.initInsChngThrottling()
