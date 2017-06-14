@@ -1,9 +1,8 @@
 import pytest
-from plenum.common.types import Propagate, ClientMessageValidator
+
 from collections import OrderedDict
-from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, MerkleRootField, IterableField, NonEmptyStringField, \
-    TimestampField, HexField
+from plenum.common.messages.fields import NonEmptyStringField
+from plenum.common.types import Propagate, ClientMessageValidator
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("request", ClientMessageValidator),

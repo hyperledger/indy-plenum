@@ -1,9 +1,9 @@
 import pytest
-from plenum.common.types import Primary
+
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, MerkleRootField, IterableField, NonEmptyStringField, \
-    TimestampField, HexField
+    NonEmptyStringField
+from plenum.common.types import Primary
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("name", NonEmptyStringField),

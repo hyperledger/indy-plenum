@@ -1,8 +1,9 @@
 import pytest
-from plenum.common.types import LedgerStatus
+
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, MerkleRootField, IterableField
+    LedgerIdField, MerkleRootField
+from plenum.common.types import LedgerStatus
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),

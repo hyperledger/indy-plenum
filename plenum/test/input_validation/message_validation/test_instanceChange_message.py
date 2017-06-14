@@ -1,8 +1,8 @@
 import pytest
-from plenum.common.types import InstanceChange
+
 from collections import OrderedDict
-from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, MerkleRootField, IterableField
+from plenum.common.messages.fields import NonNegativeNumberField
+from plenum.common.types import InstanceChange
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("viewNo", NonNegativeNumberField),

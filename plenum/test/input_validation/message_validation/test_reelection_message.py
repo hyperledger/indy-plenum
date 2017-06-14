@@ -1,9 +1,9 @@
 import pytest
-from plenum.common.types import Reelection, ClientMessageValidator
+
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, MerkleRootField, IterableField, NonEmptyStringField, \
-    TimestampField, HexField
+    IterableField
+from plenum.common.types import Reelection
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
