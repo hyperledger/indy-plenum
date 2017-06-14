@@ -1567,9 +1567,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger_info = vc[1]
         for lid, size, root_hash in ledger_info:
             ledger = self.ledgerManager.ledgerRegistry[lid].ledger
-            if ledger.size != size:
+            if ledger.size < size:
                 return False
-            if ledger.root_hash != root_hash:
+            if ledger.hashToStr(ledger.tree.merkle_tree_hash(0, size)) != root_hash:
                 return False
         return True
 
