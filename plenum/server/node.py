@@ -1526,8 +1526,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
-        # TODO: Ensure no more catchups are required, the catchup needs to
-        # communicate number of txns caught up, use `catchupTill`
         if self.is_catchup_needed():
             logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -1537,7 +1535,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def is_catchup_needed(self) -> bool:
         """
-        Check if received a quorum of view change done messages and if yes check if caught up till the
+        Check if received a quorum of view change done messages and if yes
+        check if caught up till the
         Check if all requests ordered till last prepared certificate
         Check if last catchup resulted in no txns
         """
