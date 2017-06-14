@@ -269,7 +269,9 @@ class TestNode(TestNodeCore, Node):
 
 
 @spyable(methods=[
-        PrimaryElector.discard
+        PrimaryElector.discard,
+        PrimaryElector.processPrimary,
+        PrimaryElector.sendPrimary
     ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
