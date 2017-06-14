@@ -24,7 +24,6 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # reaches it
 
 
-
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                                                 tdirWithPoolTxns, tconf,
                                                 steward1, stewardWallet,

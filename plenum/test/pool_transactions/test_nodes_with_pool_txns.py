@@ -211,21 +211,6 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
-    # for nodeName in ("Zeta", "Eta"):
-    #     newStewardName = "testClientSteward"+randomString(3)
-    #     newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-    #                                                                  steward1,
-    #                                                                  stewardWallet,
-    #                                                                  newStewardName,
-    #                                                                  nodeName,
-    #                                                                  tdirWithPoolTxns,
-    #                                                                  tconf,
-    #                                                                  allPluginsPath)
-    #     txnPoolNodeSet.append(newNode)
-    #     looper.run(checkNodesConnected(txnPoolNodeSet))
-    #     logger.debug("{} connected to the pool".format(newNode))
-    #     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
-
     new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
                             tdirWithPoolTxns, tconf, allPluginsPath)
     for n in new_nodes:

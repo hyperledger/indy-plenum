@@ -476,7 +476,6 @@ class Replica(HasActionQueue, MessageProcessor):
     #         # self.prepares.pop(key, None)
     #         # self.prepares.pop(key, None)
 
-
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
         Return whether this replica was primary in the given view
@@ -1512,7 +1511,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePrepares.pop(k, None)
             self.prepares.pop(k, None)
             self.commits.pop(k, None)
-            self.batches.pop(k[1], None)
+            self.batches.pop(k, None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1

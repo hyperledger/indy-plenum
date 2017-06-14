@@ -21,9 +21,6 @@ from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
 
-# DEPR
-# PrimaryDecider = PrimarySelector
-
 
 @pytest.fixture()
 def primaryReplicas(nodeSet, up):

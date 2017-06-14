@@ -1,8 +1,6 @@
-from plenum.server.primary_selector import PrimarySelector
+from plenum.test.conftest import looper
 
 nodeCount = 7
-
-# PrimaryDecider = PrimarySelector
 
 
 def test_routes(nodeSet, up):
