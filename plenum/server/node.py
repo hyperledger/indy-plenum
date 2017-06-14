@@ -23,7 +23,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -2169,7 +2169,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param stateRoot: state root after the batch was created
         :return:
         """
-        # TODO: stateRoot is not paased, remove if not needed
         if ledgerId == POOL_LEDGER_ID:
             if isinstance(self.poolManager, TxnPoolManager):
                 self.poolManager.reqHandler.onBatchRejected()
@@ -2208,9 +2207,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             v = DidVerifier(verkey, identifier=identifier)
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
-                if role not in (STEWARD, None):
-                    logger.error("Role if present must be {}".
-                                 format(Roles.STEWARD.name))
+                if role not in (STEWARD, TRUSTEE, None):
+                    logger.error("Role if present must be {} and not {}".
+                                 format(Roles.STEWARD.name, role))
                     return
                 self.clientAuthNr.addIdr(identifier,
                                          verkey=v.verkey,
@@ -2250,8 +2249,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  format(self, msg,
                                         self.ledgerManager.last_caught_up_3PC))
                     continue
-                # if not self.gotInCatchupReplies(msg):
-                #     if msg.instId == 0:
                 logger.debug('{} applying stashed Ordered msg {}'.format(self, msg))
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
@@ -2265,10 +2262,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # change can be proposed
         self.monitor.reset()
         return i
-
-    # def gotInCatchupReplies(self, msg):
-    #     reqIdr = getattr(msg, f.REQ_IDR.nm)
-    #     return set(reqIdr).intersection(self.reqsFromCatchupReplies)
 
     def sync3PhaseState(self):
         for replica in self.replicas:
