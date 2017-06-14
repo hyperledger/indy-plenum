@@ -234,7 +234,7 @@ class LedgerManager(HasActionQueue):
         # If this is a node's ledger manager and sender of this ledger status
         #  is a client and its pool ledger is same as this node's pool ledger
         # then send the pool ledger status since client wont be receiving the
-        # consistency proof:
+        # consistency proof in this case:
         statusFromClient = self.getStack(frm) == self.clientstack
         if self.ownedByNode and statusFromClient:
             if ledgerId != POOL_LEDGER_ID:
@@ -257,7 +257,7 @@ class LedgerManager(HasActionQueue):
             self.stashLedgerStatus(ledgerId, status, frm)
             return
 
-        # If this manager is owned by a node and the node's ledger is ahead of
+        # If this manager is owned by a node and this node's ledger is ahead of
         # the received ledger status
         if self.ownedByNode and self.isLedgerNew(ledgerStatus):
             consistencyProof = self.getConsistencyProof(ledgerStatus)
