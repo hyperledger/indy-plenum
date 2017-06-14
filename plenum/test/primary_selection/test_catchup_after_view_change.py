@@ -55,11 +55,6 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     catchup_done_counts = {n.name: n.spylog.count(n.allLedgersCaughtUp)
                            for n in txnPoolNodeSet}
 
-    def is_catchup_needed_count():
-        return sum([1 for rv in getAllReturnVals(slow_node,
-                                                 slow_node.is_catchup_needed) if rv == True])
-    old_count = is_catchup_needed_count()
-
     # No reverts have been called by the slow node
     rv = getAllReturnVals(slow_node.replicas[0],
                           TestReplica.revert_unordered_batches)
@@ -72,7 +67,6 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     ensure_view_change(looper, txnPoolNodeSet)
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-    assert is_catchup_needed_count() > old_count
 
     # `slow_node` does catchup, `fast_nodes` don't
     for n in txnPoolNodeSet:
