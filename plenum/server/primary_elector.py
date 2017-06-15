@@ -156,7 +156,7 @@ class PrimaryElector(PrimaryDecider):
         self.nominateItself()
 
     # overridden method of PrimaryDecider
-    def start_election_for_instance(self, inst_id):
+    def start_election_for_instance(self, instance_id):
         self.prepareReplicaForElection(self.replicas[inst_id])
         self._schedule(self.nominateItself, random.random())
 

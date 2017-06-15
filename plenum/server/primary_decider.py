@@ -7,11 +7,13 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.router import Router, Route
 from stp_core.common.log import getlogger
 from typing import List
+from abc import ABCMeta, abstractmethod
 
 logger = getlogger()
 
 
-class PrimaryDecider(HasActionQueue, MessageProcessor):
+class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
+
     def __init__(self, node):
         HasActionQueue.__init__(self)
         self.node = node
@@ -42,18 +44,20 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         return self.previous_master_primary == self.name
 
     @property
+    @abstractmethod
     def routes(self) -> Iterable[Route]:
-        raise NotImplementedError
+        pass
 
     @property
     def supported_msg_types(self) -> Iterable[type]:
         return [k for k, v in self.routes]
 
+    @abstractmethod
     def decidePrimaries(self) -> None:
         """
         Start election of the primary replica for each protocol instance        
         """
-        raise NotImplementedError
+        pass
 
     def filterMsgs(self, wrappedMsgs: deque) -> deque:
         """
@@ -107,11 +111,12 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
             replica.primaryName = None
         return True
 
+    @abstractmethod
     def get_msgs_for_lagged_nodes(self) -> List[object]:
         """
         Returns election messages from the last view change        
         """
-        raise NotImplementedError
+        pass
 
     def send(self, msg):
         """
@@ -122,8 +127,9 @@ class PrimaryDecider(HasActionQueue, MessageProcessor):
         logger.debug("{}'s elector sending {}".format(self.name, msg))
         self.outBox.append(msg)
 
+    @abstractmethod
     def start_election_for_instance(self, instance_id):
         """
         Called when starting election for a particular protocol instance 
         """
-        raise NotImplementedError
+        pass

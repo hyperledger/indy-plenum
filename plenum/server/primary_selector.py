@@ -277,3 +277,8 @@ class PrimarySelector(PrimaryDecider):
         if super().view_change_started(viewNo):
             for i in self._view_change_done:
                 self._view_change_done[i] = {}
+
+    # overridden method of PrimaryDecider
+    def start_election_for_instance(self, instance_id):
+        raise NotImplementedError("Election can be started for "
+                                  "all instances only")
