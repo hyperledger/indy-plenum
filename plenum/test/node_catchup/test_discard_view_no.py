@@ -34,8 +34,8 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # at least two less than node's. Current protocol implementation
     # needs to hold messages from the previous view as well as
     # from the current view.
-    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
-    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
+    ensure_view_change(looper, txnPoolNodeSet)
+    ensure_view_change(looper, txnPoolNodeSet)
 
     newStewardName = "testClientSteward" + randomString(3)
     nodeName = "Theta"
