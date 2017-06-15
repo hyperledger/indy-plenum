@@ -236,7 +236,9 @@ class TestNodeCore(StackedTester):
                   Node.checkPerformance,
                   Node.processStashedOrderedReqs,
                   Node.lost_master_primary,
-                  Node.propose_view_change
+                  Node.propose_view_change,
+                  Node.getReplyFromLedger,
+                  Node.recordAndPropagate
                   ])
 class TestNode(TestNodeCore, Node):
 
@@ -262,11 +264,14 @@ class TestNode(TestNodeCore, Node):
 
     def getLedgerManager(self):
         return TestLedgerManager(self, ownedByNode=True,
-                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp)
+                                 postAllLedgersCaughtUp=self.allLedgersCaughtUp,
+                                 preCatchupClbk=self.preLedgerCatchUp)
 
 
 @spyable(methods=[
-        PrimaryElector.discard
+        PrimaryElector.discard,
+        PrimaryElector.processPrimary,
+        PrimaryElector.sendPrimary
     ])
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):

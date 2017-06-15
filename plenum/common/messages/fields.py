@@ -1,8 +1,6 @@
 import ipaddress
 import json
 import base58
-import re
-from datetime import datetime
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 
@@ -269,8 +267,9 @@ class VerkeyField(FieldBase):
     _b58long = Base58Field(long=True)
 
     def _specific_validation(self, val):
-        if len(val) == 0:
-            return None
+        vk_error = NonEmptyStringField().validate(val)
+        if vk_error:
+            return vk_error
         if val.startswith('~'):
             #short base58
             return self._b58short.validate(val[1:])
@@ -318,6 +317,7 @@ class JsonField(FieldBase):
     _base_types = (str,)
 
     def _specific_validation(self, val):
+        # TODO: Need a mechanism to ensure a non-empty JSON if needed.
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:

@@ -555,7 +555,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledger_id),
                                    self.txnRootHash(ledger_id)
                                    )
-        logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
+        logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
         if self.isMaster:
@@ -806,7 +806,15 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return {key for key in reqKeys if not self.requests.isFinalised(key)}
 
-    def isNextPrePrepare(self, ppSeqNo: int):
+    def __is_next_pre_prepare(self, ppSeqNo: int):
+        if ppSeqNo != self.__last_pp_seq_no + 1:
+            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
+                         format(self, ppSeqNo, self.__last_pp_seq_no))
+            return False
+        return True
+
+    @property
+    def __last_pp_seq_no(self):
         lastPp = self.lastPrePrepare
         if lastPp:
             # TODO: Is it possible that lastPp.ppSeqNo is less than
@@ -817,12 +825,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                             else self.lastOrderedPPSeqNo
         else:
             lastPpSeqNo = self.lastOrderedPPSeqNo
-
-        if ppSeqNo - lastPpSeqNo != 1:
-            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
-                         format(self, ppSeqNo, lastPpSeqNo))
-            return False
-        return True
+        return lastPpSeqNo
 
     def revert(self, ledgerId, stateRootHash, reqCount):
         ledger = self.node.getLedger(ledgerId)
@@ -834,7 +837,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def validatePrePrepare(self, pp: PrePrepare, sender: str):
+    def validate_pre_prepare(self, pp: PrePrepare, sender: str):
         """
         This will apply the requests part of the PrePrepare to the ledger
         and state. It will not commit though (the ledger on disk will not
@@ -912,18 +915,19 @@ class Replica(HasActionQueue, MessageProcessor):
             # do not make change to state or ledger
             return True
 
-        nonFinReqs = self.nonFinalisedReqs(pp.reqIdr)
+        if pp.ppSeqNo <= self.__last_pp_seq_no:
+            return False  # ignore old pre-prepare
 
-        if nonFinReqs:
-            self.enqueuePrePrepare(pp, sender, nonFinReqs)
+        non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
+
+        non_next_upstream_pp = pp.ppSeqNo > self.__last_pp_seq_no and \
+            not self.__is_next_pre_prepare(pp.ppSeqNo)
+
+        if non_fin_reqs or non_next_upstream_pp:
+            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
             return False
 
-        if not self.isNextPrePrepare(pp.ppSeqNo):
-            self.enqueuePrePrepare(pp, sender)
-            return False
-
-        self.validatePrePrepare(pp, sender)
-
+        self.validate_pre_prepare(pp, sender)
         return True
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
@@ -1224,7 +1228,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.debug("{} ordering COMMIT{}".format(self, key))
+        logger.info("{} ordering COMMIT{}".format(self, key))
         pp = self.getPrePrepare(*key)
         assert pp
         self.addToOrdered(*key)
@@ -1391,6 +1395,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePrepares.pop(k, None)
             self.prepares.pop(k, None)
             self.commits.pop(k, None)
+            self.batches.pop(k[1], None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
@@ -1465,8 +1470,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if ppSeqNo > self.lastOrderedPPSeqNo:
             self.lastOrderedPPSeqNo = ppSeqNo
 
-    def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str,
-                          nonFinReqs: Set=None):
+    def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
+                            nonFinReqs: Set=None):
         if nonFinReqs:
             logger.debug("Queueing pre-prepares due to unavailability of finalised "
                          "requests. PrePrepare {} from {}".format(ppMsg, sender))
@@ -1504,7 +1509,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
 
         r = 0
-        while self.prePreparesPendingPrevPP and self.isNextPrePrepare(
+        while self.prePreparesPendingPrevPP and self.__is_next_pre_prepare(
                 self.prePreparesPendingPrevPP.iloc[0][1]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self.can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
@@ -1622,34 +1627,36 @@ class Replica(HasActionQueue, MessageProcessor):
         :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
-        logger.display("{} sending {}".format(self, msg.__class__.__name__),
+        logger.info("{} sending {}".format(self, msg.__class__.__name__),
                        extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:
             self.stats.inc(stat)
         self.outBox.append(msg)
 
+    def revert_unordered_batches(self, ledger_id):
+        for key in sorted(self.batches.keys(), reverse=True):
+            if key > self.lastOrderedPPSeqNo:
+                count, _, prevStateRoot = self.batches.pop(key)
+                self.revert(ledger_id, prevStateRoot, count)
+            else:
+                break
+
     def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
         self.addToOrdered(self.viewNo, last_caught_up_pp_seq_no)
-        # self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
+        self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
 
     def _remove_till_caught_up_pp_seq_no(self, last_caught_up_pp_seq_no):
         outdated_pre_prepares = set()
+        outdated_ledger_ids = set()
         for key, pp in self.prePrepares.items():
             if (key[1] <= last_caught_up_pp_seq_no):
-                outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo, pp.ledgerId))
+                outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo))
+                outdated_ledger_ids.add(pp.ledgerId)
                 self.prePrepares.pop(key, None)
                 self.ordered.add((pp.viewNo, pp.ppSeqNo))
 
         for key in sorted(list(outdated_pre_prepares), key=itemgetter(1), reverse=True):
-            count, _, prevStateRoot = self.batches[key[1]]
-            self.batches.pop(key[1])
+            self.batches.pop(key[1], None)
             self.sentPrePrepares.pop(key, None)
             self.prepares.pop(key, None)
-
-            ledger_id = key[2]
-            ledger = self.node.getLedger(ledger_id)
-            ledger.discardTxns(len(ledger.uncommittedTxns))
-
-            state = self.node.getState(ledger_id)
-            state.revertToHead(state.committedHeadHash)
