@@ -1468,6 +1468,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # election if needed.
         if isinstance(self.poolManager, TxnPoolManager):
             self.checkInstances()
+
+        # TODO: why we do it this way?
         # Initialising node id in case where node's information was not present
         # in pool ledger at the time of starting, happens when a non-genesis
         # node starts
