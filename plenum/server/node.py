@@ -1985,13 +1985,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
-    # TODO: consider moving this to pool manager
     def startViewChange(self, proposedViewNo: int):
         """
         Trigger the view change process.
 
         :param proposedViewNo: the new view number after view change.
         """
+        # TODO: consider moving this to pool manager
+        # TODO: view change is a special case, which can have different
+        # implementations - we need to make this logic pluggable
+
+
         self.view_change_in_progress = True
         self._schedule(action=self._check_view_change_completed,
                        seconds=self._view_change_timeout)
