@@ -15,8 +15,8 @@ class MessageFilter:
     def filter_client_to_node(self, req) -> Optional[str]:
         raise NotImplementedError
 
-class MessageFilterEngine:
 
+class MessageFilterEngine:
     def __init__(self):
         self.__filters = {}
 

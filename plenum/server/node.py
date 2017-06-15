@@ -383,11 +383,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_change_in_progress.setter
     def view_change_in_progress(self, value):
         self._view_change_in_progress = value
-        if self._view_change_in_progress:
-            self.__message_filter_engine.add_filter(ViewChangeMessageFilter.NAME,
-                                                    ViewChangeMessageFilter(self.viewNo))
-        else:
-            self.__message_filter_engine.remove_filter(ViewChangeMessageFilter.NAME)
+        # if self._view_change_in_progress:
+        #     # Question: Why 2 args, won't every filter have a name?
+        #     self.__message_filter_engine.add_filter(ViewChangeMessageFilter.NAME,
+        #                                             ViewChangeMessageFilter(self.viewNo))
+        # else:
+        #     self.__message_filter_engine.remove_filter(ViewChangeMessageFilter.NAME)
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
@@ -517,9 +518,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def init_ledger_manager(self):
         # TODO: this and tons of akin stuff should be exterminated
         self.ledgerManager.addLedger(DOMAIN_LEDGER_ID,
-                                    self.domainLedger,
-                                    postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
-                                    postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
+                                     self.domainLedger,
+                                     postCatchupCompleteClbk=self.postDomainLedgerCaughtUp,
+                                     postTxnAddedToLedgerClbk=self.postTxnFromCatchupAddedToLedger)
         self.on_new_ledger_added(DOMAIN_LEDGER_ID)
         if isinstance(self.poolManager, TxnPoolManager):
             self.ledgerManager.addLedger(POOL_LEDGER_ID, self.poolLedger,
@@ -1496,7 +1497,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # revert uncommitted txns and state for unordered requests
         self.replicas[0].revert_unordered_batches(ledger_id)
-
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)

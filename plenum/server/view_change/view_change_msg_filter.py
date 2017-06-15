@@ -2,8 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from plenum.common.request import Request
-from plenum.common.types import LedgerStatus, ConsistencyProof, ConsProofRequest, CatchupReq, CatchupRep, PrePrepare, \
-    Prepare, Commit, Ordered
+from plenum.common.types import PrePrepare, Prepare, Commit, Ordered
 from plenum.server.msg_filter import MessageFilter
 
 
@@ -26,12 +25,10 @@ class ViewChangeMessageFilter(MessageFilter):
 
         return None
 
-
     def __is_next_view_3pc_msg(self, msg):
         msgs_3pc = [PrePrepare,
                     Prepare,
-                    Commit,
-                    Ordered]
+                    Commit]
 
         for msg_3pc in msgs_3pc:
             if isinstance(msg, msg_3pc) and\
@@ -39,4 +36,3 @@ class ViewChangeMessageFilter(MessageFilter):
                 return True
 
         return False
-
