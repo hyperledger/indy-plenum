@@ -1751,21 +1751,21 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def revert_unordered_batches(self, ledger_id):
         for key in sorted(self.batches.keys(), reverse=True):
-            if key > self.last_ordered_3pc:
+            if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 count, _, prevStateRoot = self.batches.pop(key)
                 self.revert(ledger_id, prevStateRoot, count)
             else:
                 break
 
-    def caught_up_till_pp_seq_no(self, last_caught_up_pp_seq_no):
-        self.addToOrdered(*last_caught_up_pp_seq_no)
-        self._remove_till_caught_up_pp_seq_no(last_caught_up_pp_seq_no)
+    def caught_up_till_3pc(self, last_caught_up_3PC):
+        self.addToOrdered(*last_caught_up_3PC)
+        self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
-    def _remove_till_caught_up_pp_seq_no(self, last_caught_up_pp_seq_no):
+    def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         outdated_pre_prepares = set()
         outdated_ledger_ids = set()
         for key, pp in self.prePrepares.items():
-            if compare_3PC_keys(key, last_caught_up_pp_seq_no) > 0:
+            if compare_3PC_keys(key, last_caught_up_3PC) > 0:
                 outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo))
                 outdated_ledger_ids.add(pp.ledgerId)
                 self.prePrepares.pop(key, None)

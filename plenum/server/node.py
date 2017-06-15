@@ -1482,7 +1482,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendDomainLedgerStatus(nm)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
-
     def postDomainLedgerCaughtUp(self, **kwargs):
         """
         Process any stashed ordered requests and set the mode to
@@ -1522,7 +1521,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
-            self.master_replica.caught_up_till_pp_seq_no(last_caught_up_3PC)
+            self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
