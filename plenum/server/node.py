@@ -1303,8 +1303,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             m = self.nodeInBox.popleft()
 
             msg, frm = m
-            if self.__message_filter_engine.filter_node_to_node(msg):
-                continue
+            # if self.__message_filter_engine.filter_node_to_node(msg):
+            #     continue
 
             try:
                 await self.nodeMsgRouter.handle(m)
@@ -1446,10 +1446,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            extra={"cli": True,
                                   "tags": ["node-msg-processing"]})
 
-            filtered = self.__message_filter_engine.filter_client_to_node(req)
-            if filtered:
-                self._reject_msg(req, frm, filtered)
-                continue
+            # filtered = self.__message_filter_engine.filter_client_to_node(req)
+            # if filtered:
+            #     self._reject_msg(req, frm, filtered)
+            #     continue
 
             try:
                 await self.clientMsgRouter.handle(m)
