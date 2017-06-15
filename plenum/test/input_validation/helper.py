@@ -219,8 +219,10 @@ class ServicesNodeOperation(TestFieldBase):
 
 
 class VerkeyField(NonEmptyStringField):
-    # TODO implement
-    pass
+    # TODO implement positive cases
+    @property
+    def negative_test_cases(self):
+        return ['', ]
 
 
 class RoleField(TestFieldBase):

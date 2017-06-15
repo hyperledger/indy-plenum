@@ -3,6 +3,7 @@ import os
 from copy import deepcopy
 
 from ledger.util import F
+from plenum.common.util import pop_keys
 
 
 def txnsWithSeqNo(seqNoStart, seqNoEnd, txns):
@@ -24,3 +25,7 @@ def txnsWithMerkleInfo(ledger, committedTxns):
         mi = ledger.merkleInfo(txn.get(F.seqNo.name))
         txn.update(mi)
     return committedTxns
+
+
+def pop_merkle_info(txn):
+    pop_keys(txn, lambda k: k in (F.auditPath.name, F.rootHash.name))

@@ -135,7 +135,7 @@ class Propagator:
             # catchup process. QUESTION: WHY?
             if self.isParticipating:
                 propagate = self.createPropagate(request, clientName)
-                logger.display("{} propagating {} request {} from client {}".
+                logger.info("{} propagating {} request {} from client {}".
                                format(self, request.identifier, request.reqId,
                                       clientName),
                                extra={"cli": True, "tags": ["node-propagate"]})

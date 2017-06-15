@@ -44,3 +44,7 @@ class ClientTxnLog(HasFileStorage):
             if key == str(reqId):
                 return True
         return False
+
+    def reset(self):
+        self.transactionLog.reset()
+
