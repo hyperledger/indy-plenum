@@ -7,7 +7,7 @@ from plenum.common.types import f
 from plenum.common.util import updateNamedTuple
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
-    ensure_all_nodes_have_same_data
+    ensure_all_nodes_have_same_data, make_a_node_catchup_again
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
@@ -47,29 +47,8 @@ def test_caught_up_for_current_view_check(looper,
     # Patch all nodes to return ConsistencyProof of a smaller ledger to the
     # bad node but only once, so that the bad_node needs to do catchup again.
 
-    nodes_to_send_proof_of_small_ledger = {n.name for n in other_nodes}
-    orig_methods = {}
-    for node in other_nodes:
-        orig_methods[node.name] = node.ledgerManager._buildConsistencyProof
-
-        def patched_method(self, ledgerId, seqNoStart, seqNoEnd):
-            if self.owner.name in nodes_to_send_proof_of_small_ledger:
-                import inspect
-                curframe = inspect.currentframe()
-                calframe = inspect.getouterframes(curframe, 2)
-                # For domain ledger, send a proof for a small ledger to the bad node
-                if calframe[1][3] == node.ledgerManager.getConsistencyProof.__name__ \
-                        and calframe[2].frame.f_locals['frm'] == bad_node.name \
-                        and ledgerId == DOMAIN_LEDGER_ID:
-                    # Pop so this node name, so proof for smaller ledger is not
-                    # served again
-                    nodes_to_send_proof_of_small_ledger.remove(self.owner.name)
-                    return orig_methods[node.name](ledgerId, seqNoStart,
-                                                   seqNoEnd-Max3PCBatchSize)
-            return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)
-
-        node.ledgerManager._buildConsistencyProof = types.MethodType(
-            patched_method, node.ledgerManager)
+    make_a_node_catchup_again(bad_node, other_nodes, DOMAIN_LEDGER_ID,
+                              Max3PCBatchSize)
 
     def is_catchup_needed_count():
         return sum([1 for rv in getAllReturnVals(bad_node,

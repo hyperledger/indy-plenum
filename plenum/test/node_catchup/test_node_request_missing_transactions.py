@@ -18,6 +18,8 @@ from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
+TestRunningTimeLimitSec = 150
+
 
 @pytest.fixture(scope="module")
 def catchupTimeoutReduced(conf, tdir, request):

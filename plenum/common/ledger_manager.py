@@ -779,6 +779,16 @@ class LedgerManager(HasActionQueue):
                 self.postAllLedgersCaughtUp()
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
+        # TODO: This needs to be optimisized, there needs to be a minimum size
+        # of catchup requests so if a node is trying to catchup only 50 txns
+        # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
+        # a consistency proof for other txns. This is bad for the node catching
+        #  up as it involves more network traffic and more computation to verify
+        # so many consistency proofs and for the node serving catchup reqs. But
+        # if the node sent only 2 catchup requests the network traffic greatly
+        # reduces and 25 txns can be read of a single chunk probably
+        # (if txns dont span across multiple chunks). A practical value of this
+        # "minimum size" is some multiple of chunk size of the ledger
         nodeCount = len(self.nodestack.conns)
         start = getattr(consProof, f.SEQ_NO_START.nm)
         end = getattr(consProof, f.SEQ_NO_END.nm)

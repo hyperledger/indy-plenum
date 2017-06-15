@@ -2254,6 +2254,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                         self.ledgerManager.last_caught_up_3PC))
                     continue
                 logger.debug('{} applying stashed Ordered msg {}'.format(self, msg))
+                # Since the PRE-PREPAREs ans PREPAREs corresponding to these
+                # stashed ordered requests was not processed.
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
                     self.applyReq(req)

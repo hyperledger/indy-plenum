@@ -245,11 +245,15 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Keeps the `lastOrderedPPSeqNo` and ledger_summary for each view no.
         # GC when ordered last batch of the view
+        # TODO: Should not be needed anymore
         self.view_ends_at = OrderedDict()
 
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
+
+        # Tracks 3PC messages
+        self.prepared_before_catchup = SortedDict(lambda k: (k[0], k[1]))
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -560,15 +564,6 @@ class Replica(HasActionQueue, MessageProcessor):
         Return the current view number of this replica.
         """
         return self.node.viewNo
-
-    def isMsgFromPrimary(self, msg, sender: str) -> bool:
-        """
-        Return whether this message was from primary replica
-        :param msg:
-        :param sender:
-        :return:
-        """
-        return self.primaryName == sender
 
     def trackBatches(self, pp: PrePrepare, prevStateRootHash):
         # pp.discarded indicates the index from where the discarded requests
@@ -1771,7 +1766,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.prePrepares.pop(key, None)
                 self.ordered.add((pp.viewNo, pp.ppSeqNo))
 
-        for key in sorted(list(outdated_pre_prepares), key=itemgetter(1), reverse=True):
+        for key in sorted(list(outdated_pre_prepares), key=itemgetter(1),
+                          reverse=True):
             self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
             self.prepares.pop(key, None)

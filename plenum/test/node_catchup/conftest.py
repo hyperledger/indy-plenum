@@ -10,7 +10,8 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality, \
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
-    steward1, stewardWallet
+    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
+    client1Connected
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
