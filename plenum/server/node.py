@@ -876,7 +876,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} choosing to start election on the basis of count {} "
                      "and nodes {}".format(self, self.connectedNodeCount,
                                            self.nodestack.conns))
-        # self._schedule(self.decidePrimaries)
 
     def adjustReplicas(self):
         """
@@ -1589,8 +1588,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self.mode = Mode.participating
         self.processStashedOrderedReqs()
-        # self.checkInstances()
-        # TODO: Ensure no more catchups are required
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):

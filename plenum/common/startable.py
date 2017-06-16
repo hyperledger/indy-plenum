@@ -48,6 +48,7 @@ class Mode(IntEnum):
     """
     Mode a node can be in
     """
+    # TODO: This assumes Pool ledger is the first ledger and Domain ledger
     starting = 1
     discovering = 2     # catching up on pool txn ledger
     discovered = 3      # caught up with pool txn ledger

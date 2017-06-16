@@ -252,7 +252,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
 
-        # Tracks 3PC messages
+        # Tracks 3PC messages for the last
         self.prepared_before_catchup = SortedDict(lambda k: (k[0], k[1]))
 
     def ledger_uncommitted_size(self, ledgerId):

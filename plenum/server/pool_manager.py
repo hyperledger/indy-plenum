@@ -63,6 +63,8 @@ class PoolManager:
 
     @property
     def rank(self) -> Optional[int]:
+        # Nodes have a total order defined in them, rank is the node's
+        # position in that order
         if self._rank is None:
             self._rank = self.get_rank_of(self.id)
         return self._rank
@@ -388,6 +390,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         for txn in self.ledger.getAllTxn().values():
             if txn[TARGET_NYM] == id and DATA in txn and ALIAS in txn[DATA]:
                 return txn[DATA][ALIAS]
+
 
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and

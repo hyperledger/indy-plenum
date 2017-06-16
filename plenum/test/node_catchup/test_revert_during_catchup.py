@@ -48,10 +48,12 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     for n1, n2 in combinations(other_nodes, 2):
         lst_3pc = check_last_ordered_3pc(n1, n2)
 
+    slow_master_replica = slow_node.master_replica
+
     def chk():
-        assert slow_node.master_replica.last_prepared_before_view_change == lst_3pc
-        assert slow_node.master_replica.peekitem(
-            slow_node.master_replica.prepared_before_catchup, -1) == lst_3pc
+        assert slow_master_replica.last_prepared_before_view_change == lst_3pc
+        assert slow_master_replica.peekitem(
+            slow_master_replica.prepared_before_catchup, -1) == lst_3pc
 
     looper.run(eventually(chk, retryWait=1))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
