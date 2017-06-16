@@ -1526,6 +1526,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
+            # TODO: Maybe a slight optimisation is to check result of
+            # `self.num_txns_caught_up_in_last_catchup()`
+            self.processStashedOrderedReqs()
+
         if self.is_catchup_needed():
             logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
@@ -1547,9 +1551,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.has_ordered_till_last_prepared_certificate() and \
                         self.num_txns_caught_up_in_last_catchup() == 0:
             return False
-
-        # # Just temporarily
-        # return False
 
         return True
 
@@ -1587,7 +1588,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
         self.mode = Mode.participating
-        self.processStashedOrderedReqs()
+        # self.processStashedOrderedReqs()
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):
@@ -1993,7 +1994,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: consider moving this to pool manager
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
-
 
         self.view_change_in_progress = True
         self._schedule(action=self._check_view_change_completed,

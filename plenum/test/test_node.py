@@ -322,7 +322,8 @@ class TestPrimarySelector(PrimarySelector):
                   replica.Replica.doOrder,
                   replica.Replica.discard,
                   replica.Replica.stashOutsideWatermarks,
-                  replica.Replica.revert_unordered_batches
+                  replica.Replica.revert_unordered_batches,
+                  replica.Replica.can_process_since_view_change_in_progress
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):

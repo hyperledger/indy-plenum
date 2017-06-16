@@ -252,7 +252,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
 
-        # Tracks 3PC messages for the last
+        # Tracks 3PC messages for the last prepared
         self.prepared_before_catchup = SortedDict(lambda k: (k[0], k[1]))
 
     def ledger_uncommitted_size(self, ledgerId):
@@ -364,8 +364,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
-            if self.isMaster:
-                self.removeObsoletePpReqs()
+
+            # TODO: This should be removed.
+            # if self.isMaster:
+            #     self.removeObsoletePpReqs()
+
             self._stateChanged()
 
     def primaryChanged(self, primaryName):
@@ -390,6 +393,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         assert self.isMaster
         self.last_prepared_before_view_change = None
+        self.prepared_before_catchup.clear()
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """
@@ -734,11 +738,22 @@ class Replica(HasActionQueue, MessageProcessor):
         :param sender: name of the node that sent this message
         """
         if self.isPrimary is None:
-            self.postElectionMsgs.append((msg, sender))
-            logger.debug("Replica {} pended request {} from {}".
-                         format(self, msg, sender))
-            return
+            if not self.can_process_since_view_change_in_progress(msg):
+                self.postElectionMsgs.append((msg, sender))
+                logger.debug("Replica {} pended request {} from {}".
+                             format(self, msg, sender))
+                return
         self.dispatchThreePhaseMsg(msg, sender)
+
+    def can_process_since_view_change_in_progress(self, msg):
+        r = isinstance(msg, Commit) and \
+               self.last_prepared_before_view_change and \
+               compare_3PC_keys((msg.viewNo, msg.ppSeqNo),
+                                self.last_prepared_before_view_change) >= 0
+        if r:
+            logger.debug('{} can process {} since view change is in progress'
+                         .format(self, msg))
+        return r
 
     def processPrePrepare(self, pp: PrePrepare, sender: str):
         """
@@ -1710,9 +1725,10 @@ class Replica(HasActionQueue, MessageProcessor):
         :return:
         """
         assert view_no <= self.viewNo
-        return view_no == self.viewNo or (view_no < self.viewNo and (
-                        view_no in self.view_ends_at and
-                        pp_seq_no <= self.view_ends_at[view_no][0]))
+        return view_no == self.viewNo or (view_no < self.viewNo and
+                                          self.last_prepared_before_view_change and
+                                          compare_3PC_keys((view_no, pp_seq_no),
+                                                           self.last_prepared_before_view_change) >= 0)
 
     @property
     def threePhaseState(self):

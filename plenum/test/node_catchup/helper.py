@@ -119,7 +119,7 @@ def check_last_3pc_master(node, other_nodes):
     assert check_if_all_equal_in_list(last_3pc)
 
 
-def make_a_node_catchup_again(target_node, other_nodes, ledger_id, shorten_by):
+def make_a_node_catchup_twice(target_node, other_nodes, ledger_id, shorten_by):
     """
     All `other_nodes` make the `node` catchup multiple times by serving
     consistency proof of a ledger smaller by `shorten_by` txns

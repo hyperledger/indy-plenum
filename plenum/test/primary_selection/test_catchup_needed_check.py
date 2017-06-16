@@ -7,7 +7,7 @@ from plenum.common.types import f
 from plenum.common.util import updateNamedTuple
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
-    ensure_all_nodes_have_same_data, make_a_node_catchup_again
+    ensure_all_nodes_have_same_data, make_a_node_catchup_twice
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
@@ -23,6 +23,10 @@ def test_caught_up_for_current_view_check(looper,
                                           client1,
                                           wallet1,
                                           client1Connected):
+    """
+
+    """
+
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         3*Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
@@ -47,7 +51,7 @@ def test_caught_up_for_current_view_check(looper,
     # Patch all nodes to return ConsistencyProof of a smaller ledger to the
     # bad node but only once, so that the bad_node needs to do catchup again.
 
-    make_a_node_catchup_again(bad_node, other_nodes, DOMAIN_LEDGER_ID,
+    make_a_node_catchup_twice(bad_node, other_nodes, DOMAIN_LEDGER_ID,
                               Max3PCBatchSize)
 
     def is_catchup_needed_count():
