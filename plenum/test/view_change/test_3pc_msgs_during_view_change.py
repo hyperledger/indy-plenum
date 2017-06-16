@@ -1,10 +1,11 @@
+import pytest
 from plenum.test.delayers import ppgDelay
 from plenum.test.helper import sendRandomRequests, waitRejectFromPoolWithReason, send_pre_prepare, send_prepare, \
     send_commit, waitForSufficientRepliesForRequests
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import check_replica_queue_empty, check_all_replica_queue_empty
 
-
+@pytest.mark.skip('Currently we stash client requests during view change')
 def test_no_requests_processed_during_view_change(looper, nodeSet,
                                                   client1, wallet1):
     for node in nodeSet:
@@ -17,7 +18,7 @@ def test_no_requests_processed_during_view_change(looper, nodeSet,
     for node in nodeSet:
         check_replica_queue_empty(node)
 
-
+@pytest.mark.skip('The filter is not enabled now')
 def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,
                                                                client1, wallet1):
     for node in nodeSet:
@@ -38,7 +39,7 @@ def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,
     looper.runFor(1)
     check_all_replica_queue_empty(nodeSet)
 
-
+@pytest.mark.skip('The filter is not enabled now')
 def test_old_view_requests_processed_during_view_change(looper, nodeSet,
                                                             client1, wallet1):
     """
