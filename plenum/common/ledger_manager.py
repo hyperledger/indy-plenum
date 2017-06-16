@@ -70,6 +70,7 @@ class LedgerManager(HasActionQueue):
             return
 
         self.ledgerRegistry[iD] = LedgerInfo(
+            iD,
             ledger=ledger,
             preCatchupStartClbk=preCatchupStartClbk,
             postCatchupStartClbk=postCatchupStartClbk,

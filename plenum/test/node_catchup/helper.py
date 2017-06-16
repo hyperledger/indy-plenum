@@ -1,6 +1,7 @@
 import types
 
 from plenum.common.util import check_if_all_equal_in_list
+from stp_core.common.log import getlogger
 from stp_zmq.zstack import KITZStack
 from typing import Iterable
 
@@ -16,10 +17,11 @@ from plenum.common import util
 import pytest
 
 
+logger = getlogger()
+
+
 # TODO: This should just take an arbitrary number of nodes and check for their
 #  ledgers to be equal
-
-
 def checkNodeDataForEquality(node: TestNode,
                              *otherNodes: Iterable[TestNode]):
     # Checks for node's ledgers and state's to be equal
@@ -117,7 +119,7 @@ def check_last_3pc_master(node, other_nodes):
     assert check_if_all_equal_in_list(last_3pc)
 
 
-def make_a_node_catchup_again(node, other_nodes, ledger_id, shorten_by):
+def make_a_node_catchup_again(target_node, other_nodes, ledger_id, shorten_by):
     """
     All `other_nodes` make the `node` catchup multiple times by serving
     consistency proof of a ledger smaller by `shorten_by` txns
@@ -135,11 +137,14 @@ def make_a_node_catchup_again(node, other_nodes, ledger_id, shorten_by):
                 # For domain ledger, send a proof for a small ledger to the bad node
                 if calframe[1][
                     3] == node.ledgerManager.getConsistencyProof.__name__ \
-                        and calframe[2].frame.f_locals['frm'] == node.name \
+                        and calframe[2].frame.f_locals['frm'] == target_node.name \
                         and ledgerId == ledger_id:
                     # Pop so this node name, so proof for smaller ledger is not
                     # served again
                     nodes_to_send_proof_of_small_ledger.remove(self.owner.name)
+                    logger.debug('{} sending a proof to {} for {} instead '
+                                 'of {}'.format(self.owner.name, target_node.name,
+                                                seqNoEnd - shorten_by, seqNoEnd))
                     return orig_methods[node.name](ledgerId, seqNoStart,
                                                    seqNoEnd - shorten_by)
             return orig_methods[node.name](ledgerId, seqNoStart, seqNoEnd)

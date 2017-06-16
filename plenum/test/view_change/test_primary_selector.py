@@ -117,6 +117,9 @@ def testProcessViewChangeDone():
     assert not node.is_primary_found()
 
     selector._processViewChangeDoneMessage(msg, 'Node3')
+    assert selector._verify_primary_selection(msg.instId, msg.name,
+                                              msg.ledgerInfo)
+    selector._startSelection()
     assert selector._view_change_done[0]
     assert node.is_primary_found()
     selector.view_change_started(1)

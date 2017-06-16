@@ -124,7 +124,7 @@ class PrimarySelector(PrimaryDecider):
         if rv is None:
             return False
 
-        self._complete_primary_selection(instance_id, replica, *rv)
+        return self._verify_primary_selection(instance_id, *rv)
 
     def has_sufficient_same_view_change_done_messages(self, instance_id):
         # TODO: Does not look like optimal implementation.
@@ -139,8 +139,8 @@ class PrimarySelector(PrimaryDecider):
             logger.debug('{} does not have acceptable primary'.format(self))
             return None
 
-    def _complete_primary_selection(self, instance_id, replica, new_primary,
-                                    ledger_info):
+    def _verify_primary_selection(self, instance_id, new_primary,
+                                  ledger_info):
         """
         This method is called when sufficient number of ViewChangeDone
         received and makes steps to switch to the new primary
@@ -155,24 +155,9 @@ class PrimarySelector(PrimaryDecider):
                            "declared {} instead for view {}"
                            .format(self.name, expected_primary, new_primary,
                                    self.viewNo))
+            return False
+        return True
         # TODO: check if ledger status is expected
-
-        logger.display("{} declares view change {} as completed for "
-                       "instance {}, "
-                       "new primary is {}, "
-                       "ledger info is {}"
-                       .format(replica,
-                               self.viewNo,
-                               instance_id,
-                               new_primary,
-                               ledger_info),
-                       extra={"cli": "ANNOUNCE",
-                              "tags": ["node-election"]})
-
-        replica.primaryChanged(new_primary)
-
-        self.previous_master_primary = None
-        self.node.primary_found()
 
     def _mark_replica_as_changed_view(self,
                                       instance_id,
@@ -236,6 +221,24 @@ class PrimarySelector(PrimaryDecider):
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
+            replica.primaryChanged(new_primary_name)
+            self.node.primary_found()
+
+            if instance_id == 0:
+                self.previous_master_primary = None
+
+            logger.display("{} declares view change {} as completed for "
+                           "instance {}, "
+                           "new primary is {}, "
+                           "ledger info is {}"
+                           .format(replica,
+                                   self.viewNo,
+                                   instance_id,
+                                   new_primary_name,
+                                   self.ledger_info),
+                           extra={"cli": "ANNOUNCE",
+                                  "tags": ["node-election"]})
+
     def _who_is_the_next_primary(self, instance_id):
         """
         Returns name of the next node which is supposed to be a new Primary
@@ -253,22 +256,14 @@ class PrimarySelector(PrimaryDecider):
         Sends ViewChangeDone message to other protocol participants
         """
         # QUESTION: Why is `ViewChangeDone` sent for all instances?
-        ledger_info = []
-        ledger_registry = self._ledger_manager.ledgerRegistry.items()
-        for ledger_id, ledger_data in ledger_registry:
-            ledger = ledger_data.ledger
-            ledger_length = len(ledger)
-            merkle_root = ledger.root_hash
-            ledger_info.append((ledger_id, ledger_length, merkle_root))
-
         message = ViewChangeDone(new_primary_name,
                                  instance_id,
                                  view_no,
-                                 ledger_info)
+                                 self.ledger_info)
         self.send(message)
         replica_name = Replica.generateName(self.name, instance_id)
         self._mark_replica_as_changed_view(instance_id, replica_name,
-                                           new_primary_name, ledger_info)
+                                           new_primary_name, self.ledger_info)
 
     def view_change_started(self, viewNo: int):
         """
@@ -282,3 +277,8 @@ class PrimarySelector(PrimaryDecider):
     def start_election_for_instance(self, instance_id):
         raise NotImplementedError("Election can be started for "
                                   "all instances only")
+
+    @property
+    def ledger_info(self):
+        return [li.ledger_summary for li in
+                self._ledger_manager.ledgerRegistry.values()]

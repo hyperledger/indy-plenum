@@ -8,6 +8,7 @@ from plenum.common.ledger import Ledger
 #  of a handle
 class LedgerInfo:
     def __init__(self,
+                 id: int,
                  ledger: Ledger,
                  preCatchupStartClbk,
                  postCatchupStartClbk,
@@ -16,6 +17,7 @@ class LedgerInfo:
                  postTxnAddedToLedgerClbk,
                  verifier):
 
+        self.id = id
         self.ledger = ledger
 
         self.preCatchupStartClbk = preCatchupStartClbk
@@ -84,3 +86,7 @@ class LedgerInfo:
             cp = self.catchUpTill
             self.num_txns_caught_up = cp.seqNoEnd - cp.seqNoStart
         self.catchUpTill = None
+
+    @property
+    def ledger_summary(self):
+        return self.id, len(self.ledger), self.ledger.root_hash
