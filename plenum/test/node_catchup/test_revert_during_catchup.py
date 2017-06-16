@@ -3,7 +3,7 @@ from itertools import combinations
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.delayers import cDelay
+from plenum.test.delayers import cDelay, cpDelay, cqDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     check_last_ordered_3pc
 from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
@@ -37,9 +37,14 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
     slow_node = nprs[-1].node
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
+    slow_master_replica = slow_node.master_replica
+
+    commit_delay = 150
+    catchup_req_delay = 15
 
     # Delay COMMITs to one node
-    slow_node.nodeIbStasher.delay(cDelay(150, 0))
+    slow_node.nodeIbStasher.delay(cDelay(commit_delay, 0))
+
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         6 * Max3PCBatchSize)
     waitNodeDataUnequality(looper, slow_node, *other_nodes)
@@ -57,22 +62,43 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
     old_cn_count = is_catchup_needed_count()
 
+    # Other nodes are slow to respond to CatchupReq, so that `slow_node`
+    # gets a chance to order COMMITs
+    for n in other_nodes:
+        n.nodeIbStasher.delay(cqDelay(catchup_req_delay))
+
     ensure_view_change(looper, txnPoolNodeSet)
 
+    # Check last ordered of `other_nodes` is same
     for n1, n2 in combinations(other_nodes, 2):
         lst_3pc = check_last_ordered_3pc(n1, n2)
 
-    slow_master_replica = slow_node.master_replica
-
     def chk1():
+        # `slow_node` has prepared all 3PC messages which `other_nodes` have ordered
         assert slow_master_replica.last_prepared_before_view_change == lst_3pc
 
     looper.run(eventually(chk1, retryWait=1))
 
     old_pc_count = slow_master_replica.spylog.count(
         slow_master_replica.can_process_since_view_change_in_progress)
+
+    # Repoar the network so COMMITs are delayed and processed
     slow_node.resetDelays()
     slow_node.force_process_delayeds()
+
+    def chk4():
+        # COMMITs are processed for prepared messages
+        assert slow_master_replica.spylog.count(
+            slow_master_replica.can_process_since_view_change_in_progress) > old_pc_count
+
+    looper.run(eventually(chk4, retryWait=1, timeout=5))
+
+    def chk5():
+        # Some COMMITs were ordered but stashed and they were processed
+        rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
+        assert rv[0] == delay_batches
+
+    looper.run(eventually(chk5, retryWait=1, timeout=catchup_req_delay+5))
 
     def chk2():
         assert slow_node.spylog.count(slow_node.allLedgersCaughtUp) > old_lcu_count
@@ -84,18 +110,6 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
         assert is_catchup_needed_count() == old_cn_count
 
     looper.run(eventually(chk3, retryWait=1, timeout=5))
-
-    def chk4():
-        assert slow_master_replica.spylog.count(
-            slow_master_replica.can_process_since_view_change_in_progress) > old_pc_count
-
-    looper.run(eventually(chk4, retryWait=1, timeout=5))
-
-    def chk5():
-        rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
-        assert rv[0] == delay_batches
-
-    looper.run(eventually(chk5, retryWait=1, timeout=5))
 
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

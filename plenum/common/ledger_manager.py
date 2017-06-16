@@ -780,7 +780,7 @@ class LedgerManager(HasActionQueue):
                 self.postAllLedgersCaughtUp()
 
     def getCatchupReqs(self, consProof: ConsistencyProof):
-        # TODO: This needs to be optimisized, there needs to be a minimum size
+        # TODO: This needs to be optimised, there needs to be a minimum size
         # of catchup requests so if a node is trying to catchup only 50 txns
         # from 10 nodes, each of thise 10 nodes will servce 5 txns and prepare
         # a consistency proof for other txns. This is bad for the node catching

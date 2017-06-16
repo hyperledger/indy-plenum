@@ -54,7 +54,8 @@ class Stasher:
         :param age: seconds since Stasher started
         """
         unstashed = 0
-        for d in self.delayeds:
+        to_remove = []
+        for idx, d in enumerate(self.delayeds):
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
             if ignore_age_check or age >= d[0]:
@@ -64,8 +65,14 @@ class Stasher:
                         "{} unstashing message {} {}".
                             format(self.name, d[1], msg))
                 self.queue.appendleft(d[1])
-                self.delayeds.remove(d)
+                to_remove.append(idx)
                 unstashed += 1
+
+        # Since `to_remove` is filled with increasing numbers so reverse it
+        # and then remove elements from list
+        for idx in to_remove[::-1]:
+            self.delayeds.pop(idx)
+
         return unstashed
 
     def resetDelays(self):

@@ -71,7 +71,7 @@ def ensure_view_change(looper, nodes, exclude_from_check=None):
               perf_check_freq
     nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
                                                                if n not in exclude_from_check]
-    looper.run(eventually(checkViewNoForNodes, nodes, old_view_no+1,
+    looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no+1,
                           retryWait=1, timeout=timeout))
     for node in nodes:
         node.monitor.isMasterDegraded = old_meths[node.name]
@@ -128,6 +128,7 @@ def check_replica_queue_empty(node):
     assert len(replica.commits) == 0
     assert len(replica.commitsWaitingForPrepare) == 0
     assert len(replica.ordered) == 0
+
 
 def check_all_replica_queue_empty(nodes):
     for node in nodes:
