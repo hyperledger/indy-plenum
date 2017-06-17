@@ -159,11 +159,8 @@ class PrimarySelector(PrimaryDecider):
         return True
         # TODO: check if ledger status is expected
 
-    def _mark_replica_as_changed_view(self,
-                                      instance_id,
-                                      replica_name,
-                                      new_primary_replica_name,
-                                      ledger_info):
+    def _mark_replica_as_changed_view(self, instance_id, replica_name,
+                                      new_primary_replica_name, ledger_info):
         if instance_id not in self._view_change_done:
             self._view_change_done[instance_id] = {}
         if replica_name in self._view_change_done:

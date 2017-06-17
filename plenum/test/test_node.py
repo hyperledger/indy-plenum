@@ -7,7 +7,7 @@ from copy import copy
 from functools import partial
 from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
-    List
+    List, Optional
 
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.server.domain_req_handler import DomainRequestHandler
@@ -416,8 +416,13 @@ class TestNodeSet(ExitStack):
     def __iter__(self) -> Iterator[TestNode]:
         return self.nodes.values().__iter__()
 
-    def __getitem__(self, key) -> TestNode:
-        return self.nodes.get(key)
+    def __getitem__(self, key) -> Optional[TestNode]:
+        if key in self.nodes:
+            return self.nodes[key]
+        elif isinstance(key, int):
+            return list(self.nodes.values())[key]
+        else:
+            return None
 
     def __len__(self):
         return self.nodes.__len__()
