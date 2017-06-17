@@ -212,8 +212,8 @@ class Ordered(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # Ordered = NamedTuple(ORDERED, [
 #     f.INST_ID,
@@ -228,6 +228,7 @@ class Ordered(MessageBase):
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
+
 
 class Propagate(MessageBase):
     typename = PROPAGATE
@@ -251,8 +252,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # PrePrepare = TaggedTuple(PREPREPARE, [
 #     f.INST_ID,
@@ -275,8 +276,8 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # Prepare = TaggedTuple(PREPARE, [
 #     f.INST_ID,

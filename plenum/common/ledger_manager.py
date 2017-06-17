@@ -332,7 +332,7 @@ class LedgerManager(HasActionQueue):
                                  self.owner.totalNodes,
                                  ledgerInfo.state, LedgerState.not_synced))
             self.setLedgerState(ledgerId, LedgerState.not_synced)
-            self.preCatchupClbk(ledgerId)
+            # self.preCatchupClbk(ledgerId)
             if ledgerId == DOMAIN_LEDGER_ID and ledgerInfo.preCatchupStartClbk:
                 ledgerInfo.preCatchupStartClbk()
             return self.canProcessConsistencyProof(proof)
@@ -721,6 +721,7 @@ class LedgerManager(HasActionQueue):
                                 proofs[len(proofs) // 2][0][1])
 
     def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
+        self.preCatchupClbk(ledgerId)
         logger.debug("{} started catching up with consistency proof {}".
                      format(self, proof))
         if ledgerId not in self.ledgerRegistry:

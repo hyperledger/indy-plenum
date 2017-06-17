@@ -1,5 +1,4 @@
 import time
-from binascii import hexlify
 from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
@@ -10,6 +9,7 @@ from typing import Set
 from typing import Tuple
 from hashlib import sha256
 
+import base58
 from orderedset import OrderedSet
 from sortedcontainers import SortedDict
 from sortedcontainers import SortedList
@@ -18,6 +18,7 @@ import plenum.server.node
 from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
+from plenum.common.ledger import Ledger
 from plenum.common.signing import serialize
 from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
@@ -260,25 +261,25 @@ class Replica(HasActionQueue, MessageProcessor):
             return None
         return self.node.getLedger(ledgerId).uncommitted_size
 
-    def txnRootHash(self, ledgerId, toHex=True):
+    def txnRootHash(self, ledger_str, to_str=True):
         if not self.isMaster:
             return None
-        ledger = self.node.getLedger(ledgerId)
+        ledger = self.node.getLedger(ledger_str)
         h = ledger.uncommittedRootHash
         # If no uncommittedHash since this is the beginning of the tree
         # or no transactions affecting the ledger were made after the
         # last changes were committed
         root = h if h else ledger.tree.root_hash
-        if toHex:
-            root = hexlify(root).decode()
+        if to_str:
+            root = ledger.hashToStr(root)
         return root
 
-    def stateRootHash(self, ledgerId, toHex=True):
+    def stateRootHash(self, ledger_id, to_str=True):
         if not self.isMaster:
             return None
-        root = self.node.getState(ledgerId).headHash
-        if toHex:
-            root = hexlify(root).decode()
+        root = self.node.getState(ledger_id).headHash
+        if to_str:
+            root = base58.b58encode(root)
         return root
 
     @property
@@ -585,7 +586,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                 self.lastBatchCreated +
                                 self.config.Max3PCBatchWait <
                                 time.perf_counter() and len(q) > 0):
-                oldStateRootHash = self.stateRootHash(lid, toHex=False)
+                oldStateRootHash = self.stateRootHash(lid, to_str=False)
                 ppReq = self.create3PCBatch(lid)
                 self.sendPrePrepare(ppReq)
                 self.trackBatches(ppReq, oldStateRootHash)
@@ -621,7 +622,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ppSeqNo = self.lastPrePrepareSeqNo + 1
         logger.info("{} creating batch {} for ledger {} with state root {}".
                     format(self, ppSeqNo, ledger_id,
-                           self.stateRootHash(ledger_id, toHex=False)))
+                           self.stateRootHash(ledger_id, to_str=False)))
         tm = time.time() * 1000
         validReqs = []
         inValidReqs = []
@@ -651,7 +652,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.isMaster:
             self.outBox.extend(rejects)
             self.node.onBatchCreated(ledger_id,
-                                     self.stateRootHash(ledger_id, toHex=False))
+                                     self.stateRootHash(ledger_id, to_str=False))
         return prePrepareReq
 
     def sendPrePrepare(self, ppReq: PrePrepare):
@@ -769,7 +770,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Converting each req_idrs from list to tuple
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
-        oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
+        oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
         if self.canProcessPrePrepare(pp, sender):
             self.addToPrePrepares(pp)
             if not self.node.isParticipating:
@@ -780,7 +781,7 @@ class Replica(HasActionQueue, MessageProcessor):
             if self.isMaster:
                 self.node.onBatchCreated(pp.ledgerId,
                                          self.stateRootHash(pp.ledgerId,
-                                                            toHex=False))
+                                                            to_str=False))
             self.trackBatches(pp, oldStateRoot)
             logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
                          extra={"tags": ["processing"]})
@@ -966,7 +967,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.isMaster:
             # If this PRE-PREPARE is not valid then state and ledger should be
             # reverted
-            oldStateRoot = self.stateRootHash(pp.ledgerId, toHex=False)
+            oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
             logger.debug('{} state root before processing {} is {}'.
                          format(self, pp, oldStateRoot))
 

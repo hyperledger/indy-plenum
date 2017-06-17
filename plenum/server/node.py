@@ -2,7 +2,6 @@ import json
 import os
 import time
 from binascii import unhexlify
-from collections import OrderedDict
 from collections import deque, defaultdict
 from contextlib import closing
 from typing import Dict, Any, Mapping, Iterable, List, Optional, Set, Tuple
@@ -57,7 +56,6 @@ from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
 
 from plenum.persistence.storage import Storage, initStorage, initKeyValueStorage
-from plenum.persistence.util import txnsWithMerkleInfo
 from plenum.server.msg_filter import MessageFilterEngine
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server import replica
@@ -1526,9 +1524,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} caught up till {}'.format(self,
                                                        last_caught_up_3PC))
 
-            # TODO: Maybe a slight optimisation is to check result of
-            # `self.num_txns_caught_up_in_last_catchup()`
-            self.processStashedOrderedReqs()
+        # TODO: Maybe a slight optimisation is to check result of
+        # `self.num_txns_caught_up_in_last_catchup()`
+        self.processStashedOrderedReqs()
 
         if self.is_catchup_needed():
             logger.debug('{} needs to catchup again'.format(self))
@@ -2256,7 +2254,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
                     self.applyReq(req)
-                    self.processOrdered(msg)
+                self.processOrdered(msg)
             else:
                 self.processOrdered(msg)
             i += 1
