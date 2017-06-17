@@ -721,7 +721,8 @@ class LedgerManager(HasActionQueue):
                                 proofs[len(proofs) // 2][0][1])
 
     def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
-        self.preCatchupClbk(ledgerId)
+        if self.preCatchupClbk:
+            self.preCatchupClbk(ledgerId)
         logger.debug("{} started catching up with consistency proof {}".
                      format(self, proof))
         if ledgerId not in self.ledgerRegistry:
