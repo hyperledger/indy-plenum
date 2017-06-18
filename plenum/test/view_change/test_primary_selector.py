@@ -136,6 +136,7 @@ def test_get_msgs_for_lagged_nodes():
         (ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
         (ViewChangeDone(name='Node3:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node2'),
         (ViewChangeDone(name='Node2:0', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node3'),
+        (ViewChangeDone(name='Node2:0', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
     ]
     node = FakeNode()
     selector = PrimarySelector(node)
@@ -143,7 +144,7 @@ def test_get_msgs_for_lagged_nodes():
         selector._processViewChangeDoneMessage(*message)
 
     messages_for_lagged = selector.get_msgs_for_lagged_nodes()
-    assert {m for m in messages_for_lagged} == {m[0] for m in messages}
+    assert {m for m in messages_for_lagged} == {m[0] for m in messages if m[1] == node.name}
 
 
 def test_send_view_change_done_message():

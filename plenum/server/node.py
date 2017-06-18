@@ -864,6 +864,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def checkInstances(self) -> None:
+        # TODO: Is this method really needed?
         """
         Check if this node has the minimum required number of protocol
         instances, i.e. f+1. If not, add a replica. If no election is in
@@ -1565,6 +1566,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger_info = vc[1]
         for lid, size, root_hash in ledger_info:
             ledger = self.ledgerManager.ledgerRegistry[lid].ledger
+            if size == 0:
+                continue
             if ledger.size < size:
                 return False
             if ledger.hashToStr(ledger.tree.merkle_tree_hash(0, size)) != root_hash:

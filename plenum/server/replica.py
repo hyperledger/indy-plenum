@@ -11,18 +11,16 @@ from hashlib import sha256
 
 import base58
 from orderedset import OrderedSet
-from sortedcontainers import SortedDict
 from sortedcontainers import SortedList
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
-from plenum.common.ledger import Ledger
 from plenum.common.signing import serialize
 from plenum.common.types import PrePrepare, \
     Prepare, Commit, Ordered, ThreePhaseMsg, ThreePhaseKey, ThreePCState, \
-    CheckpointState, Checkpoint, Reject, f, InstanceChange
+    CheckpointState, Checkpoint, Reject, f
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key
@@ -31,6 +29,27 @@ from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
+
+from sortedcontainers import SortedDict as _SortedDict
+if 'peekitem' in dir(_SortedDict):
+    SortedDict = _SortedDict
+else:
+    # Since older versions of `SortedDict` lack `peekitem`
+    class SortedDict(_SortedDict):
+        def peekitem(self, index=-1):
+            # This method is copied from `SortedDict`'s source code
+            """Return (key, value) item pair at index.
+
+            Unlike ``popitem``, the sorted dictionary is not modified. Index
+            defaults to -1, the last/greatest key in the dictionary. Specify
+            ``index=0`` to lookup the first/least key in the dictiony.
+
+            If index is out of range, raise IndexError.
+
+            """
+            key = self._list[index]
+            return key, self[key]
+
 
 logger = getlogger()
 
@@ -365,11 +384,6 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
-
-            # TODO: This should be removed.
-            # if self.isMaster:
-            #     self.removeObsoletePpReqs()
-
             self._stateChanged()
 
     def primaryChanged(self, primaryName):
@@ -434,32 +448,32 @@ class Replica(HasActionQueue, MessageProcessor):
                 else lowest_prepared - 1
             self.last_ordered_3pc = (self.viewNo, lowest_ordered)
 
-    def removeObsoletePpReqs(self):
-        # If replica was primary in previous view then remove every sent
-        # Pre-Prepare with less than f+1 Prepares.
-        viewNos = self.primaryNames.keys()
-        if len(viewNos) > 1:
-            viewNos = list(viewNos)
-            lastViewNo = viewNos[-2]
-            if self.primaryNames[lastViewNo] == self.name:
-                lastViewPPs = []
-                for (v, ps), pp in self.sentPrePrepares.items():
-                    if v > lastViewNo:
-                        break
-                    if v == lastViewNo:
-                        lastViewPPs.append(pp)
-
-                obs = set()
-                for pp in lastViewPPs:
-                    if not self.prepares.hasEnoughVotes(pp, self.f):
-                        obs.add((pp.viewNo, pp.ppSeqNo))
-
-                for key in sorted(list(obs), key=itemgetter(1), reverse=True):
-                    ppReq = self.sentPrePrepares[key]
-                    count, _, prevStateRoot = self.batches.pop(key)
-                    self.revert(ppReq.ledgerId, prevStateRoot, count)
-                    self.sentPrePrepares.pop(key)
-                    self.prepares.pop(key, None)
+    # def removeObsoletePpReqs(self):
+    #     # If replica was primary in previous view then remove every sent
+    #     # Pre-Prepare with less than f+1 Prepares.
+    #     viewNos = self.primaryNames.keys()
+    #     if len(viewNos) > 1:
+    #         viewNos = list(viewNos)
+    #         lastViewNo = viewNos[-2]
+    #         if self.primaryNames[lastViewNo] == self.name:
+    #             lastViewPPs = []
+    #             for (v, ps), pp in self.sentPrePrepares.items():
+    #                 if v > lastViewNo:
+    #                     break
+    #                 if v == lastViewNo:
+    #                     lastViewPPs.append(pp)
+    #
+    #             obs = set()
+    #             for pp in lastViewPPs:
+    #                 if not self.prepares.hasEnoughVotes(pp, self.f):
+    #                     obs.add((pp.viewNo, pp.ppSeqNo))
+    #
+    #             for key in sorted(list(obs), key=itemgetter(1), reverse=True):
+    #                 ppReq = self.sentPrePrepares[key]
+    #                 count, _, prevStateRoot = self.batches.pop(key)
+    #                 self.revert(ppReq.ledgerId, prevStateRoot, count)
+    #                 self.sentPrePrepares.pop(key)
+    #                 self.prepares.pop(key, None)
 
     # def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
     #     """
@@ -712,6 +726,11 @@ class Replica(HasActionQueue, MessageProcessor):
                          "achieved stable checkpoint for 3 phase message",
                          logger.debug)
             return
+
+        if self.has_already_ordered(msg.viewNo, msg.ppSeqNo):
+            self.discard(msg, 'already ordered 3 phase message', logger.debug)
+            return
+
         if self.isPpSeqNoBetweenWaterMarks(msg.ppSeqNo):
             try:
                 if self.can_pp_seq_no_be_in_view(msg.viewNo, msg.ppSeqNo):
@@ -1153,11 +1172,11 @@ class Replica(HasActionQueue, MessageProcessor):
         last_3pc = (0, 0)
         lastPp = None
         if self.sentPrePrepares:
-            (v, s), pp = self.peekitem(self.sentPrePrepares, -1)
+            (v, s), pp = self.sentPrePrepares.peekitem(-1)
             last_3pc = (v, s)
             lastPp = pp
         if self.prePrepares:
-            (v, s), pp = self.peekitem(self.prePrepares, -1)
+            (v, s), pp = self.prePrepares.peekitem(-1)
             if compare_3PC_keys(last_3pc, (v, s)) > 0:
                 lastPp = pp
         return lastPp
@@ -1553,28 +1572,19 @@ class Replica(HasActionQueue, MessageProcessor):
                              format(self, item))
             itemsToConsume -= 1
 
-    @staticmethod
-    def peekitem(d, i):
-        # Adding it since its not present in version supported by
-        # Ubuntu repositories.
-        key = d._list[i]
-        return key, d[key]
-
     @property
     def firstCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.peekitem(self.checkpoints, 0)
-            # return self.checkpoints.peekitem(0)
+            return self.checkpoints.peekitem(0)
 
     @property
     def lastCheckPoint(self) -> Tuple[Tuple[int, int], CheckpointState]:
         if not self.checkpoints:
             return None
         else:
-            return self.peekitem(self.checkpoints, -1)
-            # return self.checkpoints.peekitem(-1)
+            return self.checkpoints.peekitem(-1)
 
     def isPpSeqNoStable(self, ppSeqNo):
         """
@@ -1588,6 +1598,9 @@ class Replica(HasActionQueue, MessageProcessor):
             return ckState.isStable and ckState.seqNo >= ppSeqNo
         else:
             return False
+
+    def has_already_ordered(self, view_no, pp_seq_no):
+        return compare_3PC_keys((view_no, pp_seq_no), self.last_ordered_3pc) >= 0
 
     def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
@@ -1731,16 +1744,16 @@ class Replica(HasActionQueue, MessageProcessor):
                                           compare_3PC_keys((view_no, pp_seq_no),
                                                            self.last_prepared_before_view_change) >= 0)
 
-    @property
-    def threePhaseState(self):
-        # TODO: This method is incomplete
-        # Gets the current stable and unstable checkpoints and creates digest
-        # of unstable checkpoints
-        if self.checkpoints:
-            pass
-        else:
-            state = []
-        return ThreePCState(self.instId, state)
+    # @property
+    # def threePhaseState(self):
+    #     # TODO: This method is incomplete
+    #     # Gets the current stable and unstable checkpoints and creates digest
+    #     # of unstable checkpoints
+    #     if self.checkpoints:
+    #         pass
+    #     else:
+    #         state = []
+    #     return ThreePCState(self.instId, state)
 
     def process3PhaseState(self, msg: ThreePCState, sender: str):
         # TODO: This is not complete

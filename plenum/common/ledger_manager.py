@@ -771,10 +771,9 @@ class LedgerManager(HasActionQueue):
             return
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
-        logger.debug("{} completed catching up ledger {}"
-                     .format(self, ledgerId))
-
         ledgerInfo.done_syncing()
+        logger.debug("{} completed catching up ledger {}, caught up {} in total"
+                     .format(self, ledgerId, ledgerInfo.num_txns_caught_up))
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced

@@ -36,8 +36,9 @@ class PrimarySelector(PrimaryDecider):
         """
         messages = []
         for instance_id, replica_messages in self._view_change_done.items():
-            for message in replica_messages.values():
-                (new_primary_replica_name, ledger_info) = message
+            self_name = Replica.generateName(self.name, instance_id)
+            if self_name in replica_messages:
+                new_primary_replica_name, ledger_info = replica_messages[self_name]
                 messages.append(ViewChangeDone(new_primary_replica_name,
                                                instance_id, self.viewNo,
                                                ledger_info))
@@ -94,10 +95,10 @@ class PrimarySelector(PrimaryDecider):
                          logMethod=logger.warning)
             return False
 
-        if not self._mark_replica_as_changed_view(instance_id,
-                                                  sender_replica_name,
-                                                  new_primary_replica_name,
-                                                  ledger_info):
+        if not self._track_view_change_done(instance_id,
+                                            sender_replica_name,
+                                            new_primary_replica_name,
+                                            ledger_info):
             self.discard(msg,
                          "already marked {} as done view change".
                          format(sender_replica_name),
@@ -114,10 +115,8 @@ class PrimarySelector(PrimaryDecider):
             return False
 
         # TODO: Result of `_hasViewChangeQuorum` should be cached
-        if not self._hasViewChangeQuorum(instance_id):
-            logger.debug("{} received ViewChangeDone from {}, "
-                         "but have got no quorum yet"
-                         .format(self.name, sender))
+        if not (self._hasViewChangeQuorum(instance_id) and
+                self.has_view_change_from_primary(instance_id)):
             return False
 
         rv = self.has_sufficient_same_view_change_done_messages(instance_id)
@@ -126,7 +125,8 @@ class PrimarySelector(PrimaryDecider):
 
         return self._verify_primary_selection(instance_id, *rv)
 
-    def has_sufficient_same_view_change_done_messages(self, instance_id):
+    def has_sufficient_same_view_change_done_messages(self, instance_id) -> bool:
+        # Returns whether has a quorum of ViewChangeDone messages that are same
         # TODO: Does not look like optimal implementation.
         votes = self._view_change_done[instance_id].values()
         votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
@@ -159,14 +159,14 @@ class PrimarySelector(PrimaryDecider):
         return True
         # TODO: check if ledger status is expected
 
-    def _mark_replica_as_changed_view(self, instance_id, replica_name,
-                                      new_primary_replica_name, ledger_info):
+    def _track_view_change_done(self, instance_id, sender_replica_name,
+                                new_primary_replica_name, ledger_info):
         if instance_id not in self._view_change_done:
             self._view_change_done[instance_id] = {}
-        if replica_name in self._view_change_done:
+        elif sender_replica_name in self._view_change_done[instance_id]:
             return False
         data = (new_primary_replica_name, ledger_info)
-        self._view_change_done[instance_id][replica_name] = data
+        self._view_change_done[instance_id][sender_replica_name] = data
         return True
 
     def _hasViewChangeQuorum(self, instance_id):
@@ -178,19 +178,9 @@ class PrimarySelector(PrimaryDecider):
         declarations = self._view_change_done.get(instance_id, {})
         num_of_ready_nodes = len(declarations)
         quorum = get_strong_quorum(f=self.f)
-        enough_nodes = num_of_ready_nodes >= quorum
-        if not enough_nodes:
-            return False
-
-        next_primary_name = self._who_is_the_next_primary(instance_id)
-        if next_primary_name not in declarations:
-            logger.debug("{} got enough ViewChangeDone messages "
-                         "for quorum ({}), but the next primary {} "
-                         "has not answered yet"
-                         .format(self.name,
-                                 num_of_ready_nodes,
-                                 next_primary_name,
-                                 instance_id))
+        diff = quorum - num_of_ready_nodes
+        if diff > 0:
+            logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
 
         logger.info("{} got view change quorum ({} >= {}) for instance {}"
@@ -198,6 +188,19 @@ class PrimarySelector(PrimaryDecider):
                              num_of_ready_nodes,
                              quorum,
                              instance_id))
+        return True
+
+    def has_view_change_from_primary(self, instance_id) -> bool:
+        declarations = self._view_change_done.get(instance_id, {})
+        next_primary_name = self._who_is_the_next_primary(instance_id)
+        if next_primary_name not in declarations:
+            logger.debug("{} has not received ViewChangeDone from the next "
+                         "primary {} for {} ".
+                         format(self.name, next_primary_name, instance_id))
+            return False
+
+        logger.debug('{} missing ViewChangeDone from primary {} for instance {}'
+                     .format(self, next_primary_name, instance_id))
         return True
 
     def _startSelection(self):
@@ -253,14 +256,15 @@ class PrimarySelector(PrimaryDecider):
         Sends ViewChangeDone message to other protocol participants
         """
         # QUESTION: Why is `ViewChangeDone` sent for all instances?
+        ledger_info = self.ledger_info
         message = ViewChangeDone(new_primary_name,
                                  instance_id,
                                  view_no,
-                                 self.ledger_info)
+                                 ledger_info)
         self.send(message)
         replica_name = Replica.generateName(self.name, instance_id)
-        self._mark_replica_as_changed_view(instance_id, replica_name,
-                                           new_primary_name, self.ledger_info)
+        self._track_view_change_done(instance_id, replica_name,
+                                     new_primary_name, ledger_info)
 
     def view_change_started(self, viewNo: int):
         """

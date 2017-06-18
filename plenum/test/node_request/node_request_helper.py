@@ -368,3 +368,19 @@ def msgCountOK(nodesSize,
         # Less than or equal to `numOfSufficientMsgs` since the faults may
         # not reduce the number of correct messages
         return actualMessagesReceived <= numOfSufficientMsgs
+
+
+def chk_commits_prepares_recvd(count, receivers, sender):
+    counts = {}
+    sender_replica_names = {r.instId: r.name for r in sender.replicas}
+    for node in receivers:
+        for replica in node.replicas:
+            if replica.instId not in counts:
+                counts[replica.instId] = 0
+            nm = sender_replica_names[replica.instId]
+            for commit in replica.commits.values():
+                counts[replica.instId] += int(nm in commit.voters)
+            for prepare in replica.prepares.values():
+                counts[replica.instId] += int(nm in prepare.voters)
+    for c in counts.values():
+        assert count == c
