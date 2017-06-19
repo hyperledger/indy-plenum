@@ -824,7 +824,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             rid = self.nodestack.getRemote(node_name).uid
             self.send(req, rid)
             logger.debug("{} asking {} for ledger status of ledger {}"
-                         .format(self, ledger_id, node_name))
+                         .format(self, node_name, ledger_id))
 
         for ledger in [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]:
             self.ledgerManager.setLedgerCanSync(ledger, True)
