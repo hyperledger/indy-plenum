@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
-    VIEW_CHANGE_DONE
+    VIEW_CHANGE_DONE, REQ_LEDGER_STATUS
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField
@@ -355,7 +355,7 @@ class InstanceChange(MessageBase):
 
 
 class ViewChangeDone(MessageBase):
-    """
+    """    
     Node sends this kind of message when view change steps done and it is 
     ready to switch to the new primary.
     In contrast to 'Primary' message this one does not imply election.
@@ -378,7 +378,22 @@ class ViewChangeDone(MessageBase):
 #     f.VIEW_NO,
 #     f.ORD_SEQ_NO])
 
+class ReqLedgerStatus(MessageBase):
+    """
+    Purpose: ask node for LedgerStatus of specific ledger   
+    """
+    typename = REQ_LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+    )
+
 class LedgerStatus(MessageBase):
+    """
+    Purpose: spread status of ledger copy on a specific node.
+    When node receives this message and see that it has different 
+    status of ledger it should reply with LedgerStatus that contains its 
+    status
+    """
     typename = LEDGER_STATUS
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
