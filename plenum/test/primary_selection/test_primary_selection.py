@@ -13,7 +13,7 @@ from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 
 # noinspection PyUnresolvedReferences
-from plenum.test.view_change.conftest import viewNo, simulate_slow_master
+from plenum.test.view_change.conftest import viewNo
 
 # noinspection PyUnresolvedReferences
 from plenum.test.view_change.test_view_change import viewChangeDone
