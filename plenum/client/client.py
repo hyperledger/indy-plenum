@@ -601,7 +601,7 @@ class Client(Motor,
                     queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
+        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size, None, None,
                                     self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)
