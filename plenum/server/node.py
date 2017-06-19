@@ -834,14 +834,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
         logger.debug("{} processing ledger status from {}: {}"
                      .format(self, frm, request))
-        ledger = request.ledgerId
-        send = {
-            POOL_LEDGER_ID: self.sendPoolLedgerStatus,
-            DOMAIN_LEDGER_ID: self.sendDomainLedgerStatus
-        }.get(ledger)
-        logger.debug("{} cannot send ledger status to {} for unknow ledger {}"
-                     .format(self, frm, ledger))
-        send(frm)
+        self.sendLedgerStatus(frm, request.ledgerId)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)
