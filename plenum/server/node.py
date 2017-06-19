@@ -818,19 +818,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for n in joined:
             self.send_ledger_status_to_newly_connected_node(n)
 
-    def ask_for_ledger_status(self, node_name: str, ledgers=None):
-
-        ledgers = ledgers if ledgers else [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
+    def ask_for_ledger_status(self, node_name: str):
 
         def send_request_for_ledger_status(ledger_id):
+            self.ledgerManager.setLedgerCanSync(ledger_id, True)
             req = ReqLedgerStatus(ledger_id)
             self.send_by_names(req, node_name)
             logger.debug("{} asking {} for ledger status of ledger {}"
                          .format(self, node_name, ledger_id))
 
-        for ledger in ledgers:
-            self.ledgerManager.setLedgerCanSync(ledger, True)
-            send_request_for_ledger_status(ledger)
+        if self._is_catchup_for_pool_ledger_finished():
+            send_request_for_ledger_status(POOL_LEDGER_ID)
+        else:
+            send_request_for_ledger_status(DOMAIN_LEDGER_ID)
 
     def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
         logger.debug("{} processing ledger status from {}: {}"
@@ -2059,20 +2059,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start_catchup(self):
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
-        # TODO isinstance is not OK
-        # if isinstance(self.poolManager, TxnPoolManager):
-        #     status_sender = self.sendPoolLedgerStatus
-        #     ledger_id = POOL_LEDGER_ID
-        # else:
-        #     status_sender = self.sendDomainLedgerStatus
-        #     ledger_id = DOMAIN_LEDGER_ID
-
         for nm in self.nodeReg:
             try:
                 self.ask_for_ledger_status(nm)
-                # status_sender(nm)
             except RemoteNotFound:
                 continue
+
+    def _is_catchup_for_pool_ledger_finished(self):
+        # TODO isinstance is not OK
+        return isinstance(self.poolManager, TxnPoolManager)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
         logger.debug('{} ordered previous view batch {} by instance {}'.
