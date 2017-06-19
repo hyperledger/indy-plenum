@@ -449,9 +449,9 @@ def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
-    assert [(identifier, reqId)] in \
-           [p["ppReq"].reqIdr and p["ppReq"].viewNo == view_no for p in paramsList]
-    idx = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no].index([(identifier, reqId)])
+    args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
+    assert [(identifier, reqId)] in args
+    idx = args.index([(identifier, reqId)])
     assert rv[idx]
 
 

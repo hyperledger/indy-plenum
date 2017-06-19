@@ -69,8 +69,8 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             # Node D delays receiving PRIMARY messages from all nodes so it
             # will not know whether it is primary or not
 
-            delayD = 5
-            nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
+            # delayD = 5
+            # nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 

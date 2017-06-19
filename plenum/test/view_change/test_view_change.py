@@ -123,7 +123,8 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
         assert node.viewNo == (viewNo + 2)
 
 
-def test_node_notified_about_primary_election_result(nodeSet, looper, up, wallet1, client1, viewNo):
+def test_node_notified_about_primary_election_result(nodeSet, looper, up,
+                                                     wallet1, client1, viewNo):
     delayNonPrimaries(nodeSet, 0, 10)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
     waitForViewChange(looper, nodeSet, expectedViewNo=viewNo + 1)

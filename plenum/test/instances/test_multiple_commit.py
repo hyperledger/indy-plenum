@@ -1,3 +1,4 @@
+import types
 from functools import partial
 
 import pytest
@@ -33,6 +34,12 @@ def setup(nodeSet, up):
     whitelistNode(faultyRep.node.name,
                   [node for node in nodeSet if node != faultyRep.node],
                   Suspicions.DUPLICATE_CM_SENT.code)
+
+    # If the request is ordered then COMMIT will be rejected much earlier
+    for r in [primaryRep, *nonPrimaryReps]:
+        def do_nothing(self, commit):
+            pass
+        r.doOrder = types.MethodType(do_nothing, r)
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
                  faultyRep=faultyRep)
