@@ -825,8 +825,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug("{} asking {} for ledger status of ledger {}"
                          .format(self, ledger_id, node_name))
 
-        send_request_for_ledger_status(POOL_LEDGER_ID)
-        send_request_for_ledger_status(DOMAIN_LEDGER_ID)
+        for ledger in [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]:
+            self.ledgerManager.setLedgerCanSync(ledger, True)
+            send_request_for_ledger_status(ledger)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)
@@ -2061,8 +2062,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         for nm in self.nodeReg:
             try:
-                self.ledgerManager.setLedgerCanSync(POOL_LEDGER_ID, True)
-                self.ledgerManager.setLedgerCanSync(DOMAIN_LEDGER_ID, True)
                 self.ask_for_ledger_status(nm)
                 # status_sender(nm)
             except RemoteNotFound:
