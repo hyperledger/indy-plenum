@@ -776,6 +776,7 @@ def nodeByName(nodes, name):
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
 
+
 def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_root=None):
     last_req_id = wallet._getIdData().lastReqId or 0
     pre_prepare = PrePrepare(
@@ -787,8 +788,8 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_roo
             0,
             "random digest",
             DOMAIN_LEDGER_ID,
-            state_root or '0000000000000000000000000000000000000000000000000000000000000000',
-            txn_root or '0000000000000000000000000000000000000000000000000000000000000000'
+            state_root or '0'*44,
+            txn_root or '0'*44
             )
     primary_node = getPrimaryReplica(nodes).node
     non_primary_nodes = set(nodes) - {primary_node}
@@ -804,11 +805,12 @@ def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):
             view_no,
             pp_seq_no,
             "random digest",
-            state_root or '0000000000000000000000000000000000000000000000000000000000000000',
-            txn_root or '0000000000000000000000000000000000000000000000000000000000000000'
+            state_root or '0'*44,
+            txn_root or '0'*44
             )
     primary_node = getPrimaryReplica(nodes).node
     sendMessageToAll(nodes, primary_node, prepare)
+
 
 def send_commit(view_no, pp_seq_no, nodes):
     commit = Commit(
@@ -817,6 +819,7 @@ def send_commit(view_no, pp_seq_no, nodes):
             pp_seq_no)
     primary_node = getPrimaryReplica(nodes).node
     sendMessageToAll(nodes, primary_node, commit)
+
 
 def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
                   timeout=None, override_eventually_timeout=False):

@@ -88,10 +88,11 @@ def testHasViewChangeQuorum():
 
     # Three nodes is enough for quorum, but there is no Node2:0 which is
     # expected to be next primary, so no quorum should be achieved
-    assert not selector._hasViewChangeQuorum(instance_id)
+    assert selector._hasViewChangeQuorum(instance_id)
+    assert not selector.has_view_change_from_primary(instance_id)
 
     declare('Node2:0')
-    assert selector._hasViewChangeQuorum(instance_id)
+    assert selector.has_view_change_from_primary(instance_id)
 
 
 def testProcessViewChangeDone():
