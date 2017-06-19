@@ -818,16 +818,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for n in joined:
             self.send_ledger_status_to_newly_connected_node(n)
 
-    def ask_for_ledger_status(self, node_name: str):
+    def ask_for_ledger_status(self, node_name: str, ledgers=None):
+
+        ledgers = ledgers if ledgers else [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
 
         def send_request_for_ledger_status(ledger_id):
             req = ReqLedgerStatus(ledger_id)
-            rid = self.nodestack.getRemote(node_name).uid
-            self.send(req, rid)
+            self.send_by_names(req, node_name)
             logger.debug("{} asking {} for ledger status of ledger {}"
                          .format(self, node_name, ledger_id))
 
-        for ledger in [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]:
+        for ledger in ledgers:
             self.ledgerManager.setLedgerCanSync(ledger, True)
             send_request_for_ledger_status(ledger)
 
@@ -1643,8 +1644,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):
         ledgerStatus = self.getLedgerStatus(ledgerId)
         if ledgerStatus:
-            rid = self.nodestack.getRemote(nodeName).uid
-            self.send(ledgerStatus, rid)
+            self.send_by_names(ledgerStatus, nodeName)
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
@@ -2432,6 +2432,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} sending message {} to {} recipients: {}"
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
+
+    def send_by_names(self, req: Any, *node_names, signer: Signer = None):
+        rids = [
+            self.nodestack.getRemote(node_name).uid
+            for node_name in node_names
+        ]
+        self.send(req, *rids, signer=signer)
 
     def getReplyFromLedger(self, ledger, request):
         # DoS attack vector, client requesting already processed request id
