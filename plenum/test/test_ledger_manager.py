@@ -4,6 +4,7 @@ from plenum.test.testable import spyable
 
 @spyable(methods=[LedgerManager.startCatchUpProcess,
                   LedgerManager.catchupCompleted,
+                  LedgerManager.processConsistencyProof,
                   LedgerManager.processConsistencyProofReq,
                   LedgerManager.canProcessConsistencyProof,
                   LedgerManager.processCatchupRep

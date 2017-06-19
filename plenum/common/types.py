@@ -383,6 +383,8 @@ class LedgerStatus(MessageBase):
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
     )
 # LedgerStatus = TaggedTuple(LEDGER_STATUS, [

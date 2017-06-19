@@ -246,12 +246,13 @@ class LedgerManager(HasActionQueue):
                              .format(self, status, frm))
                 return
             if self.isLedgerSame(ledgerStatus):
-                ledgerInfo = self.getLedgerInfoByType(POOL_LEDGER_ID)
-                poolLedger = ledgerInfo.ledger
-                ledgerStatus = LedgerStatus(POOL_LEDGER_ID,
-                                            poolLedger.size,
-                                            poolLedger.root_hash)
-                self.sendTo(ledgerStatus, frm)
+                # ledgerInfo = self.getLedgerInfoByType(POOL_LEDGER_ID)
+                # poolLedger = ledgerInfo.ledger
+                # ledgerStatus = LedgerStatus(POOL_LEDGER_ID,
+                #                             poolLedger.size,
+                #                             poolLedger.root_hash)
+                ledger_status = self.owner.build_ledger_status(POOL_LEDGER_ID)
+                self.sendTo(ledger_status, frm)
 
         # If a ledger is yet to sync and cannot sync right now,
         # then stash the ledger status to be processed later
@@ -271,11 +272,8 @@ class LedgerManager(HasActionQueue):
         if self.isLedgerOld(ledgerStatus):
             if ledgerInfo.state == LedgerState.synced:
                 self.setLedgerCanSync(ledgerId, True)
-                ledger = self.getLedgerForMsg(ledgerStatus)
-                ledgerStatus = LedgerStatus(ledgerId,
-                                            ledger.size,
-                                            ledger.root_hash)
-                self.sendTo(ledgerStatus, frm)
+                ledger_status = self.owner.build_ledger_status(ledgerId)
+                self.sendTo(ledger_status, frm)
             return
 
         if statusFromClient:
@@ -291,7 +289,16 @@ class LedgerManager(HasActionQueue):
                          "ledger of type {} is latest".
                          format(self, ledgerInfo.ledgerStatusOk, ledgerId))
             if ledgerInfo.state != LedgerState.synced:
-                self.catchupCompleted(ledgerId)
+                logger.debug('{} found from ledger status {} that it does '
+                             'not need catchup'.format(self, ledgerStatus))
+                # If this node's ledger is same as the ledger status (which is
+                #  also the majority of the pool), then set the last ordered
+                # 3PC key
+                key = (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
+                if self.isLedgerSame(ledgerStatus) and key != (None, None):
+                    self.catchupCompleted(ledgerId, key)
+                else:
+                    self.catchupCompleted(ledgerId)
 
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
         logger.debug("{} received consistency proof: {} from {}".

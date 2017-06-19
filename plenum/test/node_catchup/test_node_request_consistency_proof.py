@@ -3,6 +3,7 @@ from random import randint
 
 import pytest
 
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.ledger import Ledger
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
@@ -11,16 +12,20 @@ from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
-from plenum.test import waits
 
-# Do not remove the next import
+# Do not remove the next imports
 from plenum.test.node_catchup.conftest import whitelist
+from plenum.test.batching_3pc.conftest import tconf
 
 
 logger = getlogger()
+# So that `three_phase_key_for_txn_seq_no` always works, it makes the test
+# easy as the requesting node selects a random size for the ledger
+Max3PCBatchSize = 1
 
 
-def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
+                                nodeCreatedAfterSomeTxns):
     """
     All of the 4 old nodes delay the processing of LEDGER_STATUS from the newly
     joined node while they are processing requests which results in them sending
@@ -48,8 +53,10 @@ def testNodeRequestingConsProof(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
         print("new size {}".format(newSize))
         newRootHash = Ledger.hashToStr(
             self.domainLedger.tree.merkle_tree_hash(0, newSize))
-        ledgerStatus = LedgerStatus(1, newSize,
-                                    newRootHash)
+        three_pc_key = self.three_phase_key_for_txn_seq_no(DOMAIN_LEDGER_ID,
+                                                           newSize)
+        v, p = three_pc_key if three_pc_key else None, None
+        ledgerStatus = LedgerStatus(1, newSize, v, p, newRootHash)
 
         print("dl status {}".format(ledgerStatus))
         rid = self.nodestack.getRemote(name).uid

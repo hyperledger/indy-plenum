@@ -426,16 +426,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainLedger(self):
         return self.primaryStorage
 
+    def build_ledger_status(self, ledger_id):
+        ledger = self.getLedger(ledger_id)
+        ledger_size = ledger.size
+        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
+                                                           ledger_size)
+        v, p = three_pc_key if three_pc_key else (None, None)
+        return LedgerStatus(ledger_id, ledger.size, v, p, ledger.root_hash)
+
     @property
     def poolLedgerStatus(self):
-        return LedgerStatus(POOL_LEDGER_ID, self.poolLedger.size,
-                            self.poolLedger.root_hash) \
-            if self.poolLedger else None
+        if self.poolLedger:
+            return self.build_ledger_status(POOL_LEDGER_ID)
 
     @property
     def domainLedgerStatus(self):
-        return LedgerStatus(DOMAIN_LEDGER_ID, self.domainLedger.size,
-                            self.domainLedger.root_hash)
+        return self.build_ledger_status(DOMAIN_LEDGER_ID)
 
     @property
     def ledger_ids(self):
