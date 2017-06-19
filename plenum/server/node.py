@@ -283,7 +283,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                Batch, ViewChangeDone,
                                PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
-                               ConsistencyProof, CatchupReq, CatchupRep,
+                               ReqLedgerStatus, ConsistencyProof,
+                               CatchupReq, CatchupRep,
                                ConsProofRequest, ThreePCState)
 
         # Map of request identifier, request id to client name. Used for
@@ -831,6 +832,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             send_request_for_ledger_status(ledger)
 
     def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
+        logger.debug("{} processing ledger status from {}: {}"
+                     .format(self, frm, request))
         ledger = request.ledgerId
         send = {
             POOL_LEDGER_ID: self.sendPoolLedgerStatus,
