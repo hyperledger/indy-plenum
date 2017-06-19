@@ -48,7 +48,7 @@ from plenum.common.types import Propagate, \
     RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
     ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    Reject, ViewChangeDone
+    Reject, ViewChangeDone, ReqLedgerStatus
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys
 from plenum.common.verifier import DidVerifier
@@ -769,7 +769,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Set status to one of started, started_hungry or starting depending on
             the number of protocol instances.
         - Check protocol instances. See `checkInstances()`
-
+        
         """
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
@@ -815,6 +815,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # Send ledger status whether ready (connected to enough nodes) or not
         for n in joined:
             self.send_ledger_status_to_newly_connected_node(n)
+
+    def ask_for_ledger_status(self, node_name: str):
+
+        def send_request_for_ledger_status(ledger_id):
+            req = ReqLedgerStatus(ledger_id)
+            rid = self.nodestack.getRemote(node_name).uid
+            self.send(req, rid)
+            logger.debug("{} asking {} for ledger status of ledger {}"
+                         .format(self, ledger_id, node_name))
+
+        send_request_for_ledger_status(POOL_LEDGER_ID)
+        send_request_for_ledger_status(DOMAIN_LEDGER_ID)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)
