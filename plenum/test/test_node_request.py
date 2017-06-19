@@ -49,6 +49,7 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
             looper.run(eventually(chk, timeout=timeout))
 
 
+@pytest.mark.skip('Since primary is selected immediately now')
 def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
     nodeNames = genNodeNames(4)
     nodeReg = genNodeReg(names=nodeNames)
