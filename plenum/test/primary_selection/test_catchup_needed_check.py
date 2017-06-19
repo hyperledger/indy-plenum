@@ -24,7 +24,8 @@ def test_caught_up_for_current_view_check(looper,
                                           wallet1,
                                           client1Connected):
     """
-
+    One of the node experiences poor network and loses 3PC messages. It has to
+    do multiple rounds of catchup to be caught up
     """
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,

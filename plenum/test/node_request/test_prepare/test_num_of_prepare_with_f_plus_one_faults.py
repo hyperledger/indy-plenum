@@ -19,6 +19,7 @@ delayPrePrepareSec = 60
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
+    # Making nodes faulty such that no primary is chosen
     E = startedNodes.Eta
     G = startedNodes.Gamma
     Z = startedNodes.Zeta

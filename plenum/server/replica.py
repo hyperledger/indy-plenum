@@ -2,7 +2,6 @@ import time
 from collections import deque, OrderedDict
 from enum import IntEnum
 from enum import unique
-from operator import itemgetter
 from typing import Dict, List, Union
 from typing import Optional, Any
 from typing import Set
@@ -1242,9 +1241,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.commits.addVote(commit, sender)
         self.tryOrder(commit)
 
-    def hasOrdered(self, viewNo, ppSeqNo) -> bool:
-        return (viewNo, ppSeqNo) in self.ordered
-
     def canOrder(self, commit: Commit) -> Tuple[bool, Optional[str]]:
         """
         Return whether the specified commitRequest can be returned to the node.
@@ -1264,7 +1260,7 @@ class Replica(HasActionQueue, MessageProcessor):
                           format(commit, self.f)
 
         key = (commit.viewNo, commit.ppSeqNo)
-        if self.hasOrdered(*key):
+        if self.has_already_ordered(*key):
             return False, "already ordered"
 
         if commit.ppSeqNo > 1 and not self.all_prev_ordered(commit):
@@ -1287,7 +1283,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         viewNo, ppSeqNo = commit.viewNo, commit.ppSeqNo
 
-        if self.ordered and self.ordered[-1] == (viewNo, ppSeqNo-1):
+        if self.last_ordered_3pc == (viewNo, ppSeqNo-1):
             # Last ordered was in same view as this COMMIT
             return True
 
@@ -1313,8 +1309,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # were stashed due to lack of commits before them and orders them if it can
         logger.debug('{} trying to order from out of order commits. {} {}'.
                      format(self, self.ordered, self.stashed_out_of_order_commits))
-        if self.ordered:
-            lastOrdered = self.ordered[-1]
+        if self.last_ordered_3pc:
+            lastOrdered = self.last_ordered_3pc
             vToRemove = set()
             for v in self.stashed_out_of_order_commits:
                 if v < lastOrdered[0] and self.stashed_out_of_order_commits[v]:
@@ -1783,21 +1779,39 @@ class Replica(HasActionQueue, MessageProcessor):
                 break
 
     def caught_up_till_3pc(self, last_caught_up_3PC):
-        self.addToOrdered(*last_caught_up_3PC)
+        self.last_ordered_3pc = last_caught_up_3PC
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
+        self._remove_ordered_from_queue(last_caught_up_3PC)
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
         outdated_pre_prepares = set()
-        outdated_ledger_ids = set()
         for key, pp in self.prePrepares.items():
             if compare_3PC_keys(key, last_caught_up_3PC) > 0:
-                outdated_pre_prepares.add((pp.viewNo, pp.ppSeqNo))
-                outdated_ledger_ids.add(pp.ledgerId)
-                self.prePrepares.pop(key, None)
-                self.ordered.add((pp.viewNo, pp.ppSeqNo))
+                outdated_pre_prepares.add(key)
 
-        for key in sorted(list(outdated_pre_prepares), key=itemgetter(1),
-                          reverse=True):
+        logger.debug('{} going to remove messages for {} 3PC keys'.
+                     format(self, len(outdated_pre_prepares)))
+
+        for key in outdated_pre_prepares:
             self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
+            self.prePrepares.pop(key, None)
             self.prepares.pop(key, None)
+            self.commits.pop(key, None)
+
+    def _remove_ordered_from_queue(self, last_caught_up_3PC):
+        """
+        Remove any Ordered that the replica might be sending to node which is
+        less than or equal to `last_caught_up_3PC`, needed in catchup
+        """
+        to_remove = []
+        for i, msg in enumerate(self.outBox):
+            if isinstance(msg, Ordered) and compare_3PC_keys(
+                    (msg.viewNo, msg.ppSeqNo), last_caught_up_3PC) >= 0:
+                to_remove.append(i)
+
+        logger.debug('{} going to remove {} Ordered messages from outbox'.
+                     format(self, len(to_remove)))
+
+        for i in reversed(to_remove):
+            del self.outBox[i]

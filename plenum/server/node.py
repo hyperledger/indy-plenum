@@ -2022,9 +2022,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
-        # TODO: Do not need to revert, keep the 3PC messages with
-        # prepared certificate
-        # self.master_replica.revert_unordered_batches()
         self.start_catchup()
 
     def on_view_change_complete(self, view_no):
