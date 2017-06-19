@@ -293,6 +293,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         nodeRoutes.extend([
+            (ReqLedgerStatus, self.processReqLedgerStatus),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
@@ -828,6 +829,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for ledger in [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]:
             self.ledgerManager.setLedgerCanSync(ledger, True)
             send_request_for_ledger_status(ledger)
+
+    def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
+        ledger = request.ledgerId
+        send = {
+            POOL_LEDGER_ID: self.sendPoolLedgerStatus,
+            DOMAIN_LEDGER_ID: self.sendDomainLedgerStatus
+        }.get(ledger)
+        logger.debug("{} cannot send ledger status to {} for unknow ledger {}"
+                     .format(self, frm, ledger))
+        send(frm)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)
