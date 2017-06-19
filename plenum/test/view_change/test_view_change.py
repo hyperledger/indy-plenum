@@ -100,13 +100,11 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1, viewNo):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
     # First view change should fail, because of delayed
-    # instance change messages.
-    # This then leads to new view change that we need.
-    try:
+    # instance change messages. This then leads to new view change that we need.
+    with pytest.raises(AssertionError):
         ensure_view_change(looper, nodeSet)
+    with pytest.raises(AssertionError):
         ensureElectionsDone(looper=looper, nodes=nodeSet)
-    except AssertionError:
-        pass
 
     # Resetting delays to let second view change go well
     reset_delays_and_process_delayeds(nodeSet)

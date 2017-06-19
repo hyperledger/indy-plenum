@@ -18,6 +18,7 @@ from plenum.test import waits
 
 whitelist = ['found legacy entry']  # warnings
 
+
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,
