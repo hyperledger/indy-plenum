@@ -818,12 +818,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for n in joined:
             self.send_ledger_status_to_newly_connected_node(n)
 
-    def _sync_ledger(self, ledger_id, node_names):
+    def _sync_ledger(self, ledger_id):
         """
         Sync specific ledger with other nodes
         """
         self.ledgerManager.setLedgerCanSync(ledger_id, True)
-        for node_name in node_names:
+        for node_name in self.nodeReg:
             try:
                 self._ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
@@ -1511,7 +1511,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.start_domain_ledger_sync()
 
     def start_domain_ledger_sync(self):
-        self._sync_ledger(DOMAIN_LEDGER_ID, self.nodestack.connecteds)
+        self._sync_ledger(DOMAIN_LEDGER_ID)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
     def postDomainLedgerCaughtUp(self, **kwargs):
@@ -2069,7 +2069,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # Sync up for domain ledger will be called in
             # its post-syncup callback
             ledger_id = POOL_LEDGER_ID
-        self._sync_ledger(ledger_id, self.nodeReg)
+        self._sync_ledger(ledger_id)
 
     def _is_there_pool_ledger(self):
         # TODO isinstance is not OK
@@ -2435,10 +2435,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodestack.send(msg, *rids, signer=signer)
 
     def send_by_names(self, req: Any, *node_names, signer: Signer = None):
-        rids = [
-            self.nodestack.getRemote(node_name).uid
-            for node_name in node_names
-        ]
+        rids = []
+        for node_name in node_names:
+            try:
+                remote = self.nodestack.getRemote(node_name)
+                rids.append(remote.uid)
+            except RemoteNotFound:
+                continue
+
         self.send(req, *rids, signer=signer)
 
     def getReplyFromLedger(self, ledger, request):
