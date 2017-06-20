@@ -35,7 +35,7 @@ class DidVerifier(Verifier):
         try:
             self.verkey = verkey
         except Exception as ex:
-            raise InvalidKey(_verkey) from ex
+            raise InvalidKey("verkey {}".format(_verkey)) from ex
 
     @property
     def verkey(self):
