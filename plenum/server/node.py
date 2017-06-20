@@ -818,12 +818,25 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for n in joined:
             self.send_ledger_status_to_newly_connected_node(n)
 
-    def ask_for_ledger_status(self, node_name: str, ledger):
-        self.ledgerManager.setLedgerCanSync(ledger, True)
-        req = ReqLedgerStatus(ledger)
+    def _sync_ledger(self, ledger_id, node_names):
+        """
+        Sync specific ledger with other nodes
+        """
+        self.ledgerManager.setLedgerCanSync(ledger_id, True)
+        for node_name in node_names:
+            try:
+                self._ask_for_ledger_status(node_name, ledger_id)
+            except RemoteNotFound:
+                continue
+
+    def _ask_for_ledger_status(self, node_name: str, ledger_id):
+        """
+        Ask other node for LedgerStatus 
+        """
+        req = ReqLedgerStatus(ledger_id)
         self.send_by_names(req, node_name)
         logger.debug("{} asking {} for ledger status of ledger {}"
-                     .format(self, node_name, ledger))
+                     .format(self, node_name, ledger_id))
 
     def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
         logger.debug("{} processing ledger status from {}: {}"
@@ -1498,8 +1511,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.start_domain_ledger_sync()
 
     def start_domain_ledger_sync(self):
-        for node_name in self.nodestack.connecteds:
-            self.ask_for_ledger_status(node_name, DOMAIN_LEDGER_ID)
+        self._sync_ledger(DOMAIN_LEDGER_ID, self.nodestack.connecteds)
         self.ledgerManager.processStashedLedgerStatuses(DOMAIN_LEDGER_ID)
 
     def postDomainLedgerCaughtUp(self, **kwargs):
@@ -2051,19 +2063,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def start_catchup(self):
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
-
         ledger_id = DOMAIN_LEDGER_ID
         if self._is_there_pool_ledger():
             # Pool ledger should be synced first
             # Sync up for domain ledger will be called in
             # its post-syncup callback
             ledger_id = POOL_LEDGER_ID
-
-        for node_name in self.nodeReg:
-            try:
-                self.ask_for_ledger_status(node_name, ledger_id)
-            except RemoteNotFound:
-                continue
+        self._sync_ledger(ledger_id, self.nodeReg)
 
     def _is_there_pool_ledger(self):
         # TODO isinstance is not OK
