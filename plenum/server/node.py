@@ -2052,16 +2052,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
 
-        ledger = DOMAIN_LEDGER_ID
+        ledger_id = DOMAIN_LEDGER_ID
         if self._is_there_pool_ledger():
             # Pool ledger should be synced first
             # Sync up for domain ledger will be called in
             # its post-syncup callback
-            ledger = POOL_LEDGER_ID
+            ledger_id = POOL_LEDGER_ID
 
         for node_name in self.nodeReg:
             try:
-                self.ask_for_ledger_status(node_name, ledger)
+                self.ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
                 continue
 
