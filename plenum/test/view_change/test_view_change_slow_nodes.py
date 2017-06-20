@@ -27,6 +27,7 @@ def view_change_in_between_3pc(looper, nodes, wallet, client,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
 
+
 def view_change_in_between_3pc_random_delays(looper, nodes, wallet, client, slow_nodes_count,
                                              min_delay=0, max_delay=5):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
@@ -43,8 +44,6 @@ def view_change_in_between_3pc_random_delays(looper, nodes, wallet, client, slow
     reset_delays_and_process_delayeds(slow_nodes)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
-
-
 
 
 # noinspection PyIncorrectDocstring
