@@ -5,18 +5,18 @@ import pytest
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.primary_selection.helper import \
     check_rank_consistent_across_each_node
+from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getNoInstances
 from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
 from plenum.test import waits
-from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
+from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica, ensureElectionsDone
 
 # noinspection PyUnresolvedReferences
 from plenum.test.view_change.conftest import viewNo
 
 # noinspection PyUnresolvedReferences
-from plenum.test.view_change.test_view_change import viewChangeDone
 from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
@@ -75,15 +75,18 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
 def catchup_complete_count(nodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
 
+@pytest.fixture(scope='module')
+def view_change_done(looper, nodeSet):
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterViewChange(looper, nodeSet, ready, primaryReplicas,
-                                        catchup_complete_count, viewChangeDone):
+                                        catchup_complete_count, view_change_done):
     """
     Test that primary replica of a protocol instance shifts to a new node after
     a view change.
     """
-
     # TODO: This test can fail due to view change.
 
     for n in nodeSet:
