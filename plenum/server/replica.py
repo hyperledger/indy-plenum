@@ -299,6 +299,10 @@ class Replica(HasActionQueue, MessageProcessor):
     def ledger_ids(self):
         return self.node.ledger_ids
 
+    @property
+    def quorums(self):
+        return self.node.quorums
+
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
         Replica should only participating in the consensus process and the
@@ -599,14 +603,6 @@ class Replica(HasActionQueue, MessageProcessor):
             msg = self.postElectionMsgs.popleft()
             logger.debug("{} processing pended msg {}".format(self, msg))
             self.dispatchThreePhaseMsg(*msg)
-
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        Return None if `f` is not yet determined.
-        """
-        return self.node.quorum
 
     def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
         """
@@ -1066,7 +1062,8 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(prepare)
-        if not self.prepares.hasQuorum(prepare, self.f):
+        quorum = self.quorums.prepare.value
+        if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
         if self.hasCommitted(prepare):
             return False, 'has already sent COMMIT for {}'.format(prepare)
@@ -1124,9 +1121,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param commit: the COMMIT
         """
-        if not self.commits.hasQuorum(commit, self.f):
-            return False, "no quorum: {} commits where f is {}".\
-                          format(commit, self.f)
+        quorum = self.quorums.commit.value
+        if not self.commits.hasQuorum(commit, quorum):
+            return False, "no quorum ({}): {} commits where f is {}".\
+                          format(quorum, commit, self.f)
 
         key = (commit.viewNo, commit.ppSeqNo)
         if self.hasOrdered(*key):

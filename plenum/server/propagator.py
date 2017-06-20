@@ -176,7 +176,8 @@ class Propagator:
 
         :param request: the client REQUEST
         """
-        return self.requests.canForward(request, self.f + 1)
+        quorum = self.quorums.propagate.value
+        return self.requests.canForward(request, quorum)
 
     # noinspection PyUnresolvedReferences
     def forward(self, request: Request):

@@ -372,6 +372,11 @@ def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
     assert requestReturnedToNode(node, identifier, reqId, instId)
 
 
+def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
+    assert not requestReturnedToNode(node, identifier, reqId, instId)
+
+
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
     expectedDigest = TestReplica.batchDigest([req])

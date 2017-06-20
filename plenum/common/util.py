@@ -176,31 +176,9 @@ def getMaxFailures(nodeCount: int) -> int:
     :return: maximum permissible Byzantine failures in the system
     """
     if nodeCount >= 4:
-        return floor((nodeCount - 1) / 3)
+        return int(floor((nodeCount - 1) / 3))
     else:
         return 0
-
-
-def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
-    r"""
-    Return the minimum number of nodes where the number of correct nodes is
-    greater than the number of faulty nodes.
-    Calculated as :math:`2*f + 1`
-
-    :param nodeCount: the number of nodes in the system
-    :param f: the max. number of failures
-    """
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return 2 * f + 1
-
-
-def get_weak_quorum(nodeCount: int = None, f: int = None) -> int:
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:

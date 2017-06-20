@@ -1,4 +1,4 @@
-from plenum.common import util
+from plenum.server.quorums import Quorums
 from stp_zmq.zstack import KITZStack
 
 from stp_core.common.log import getlogger
@@ -243,7 +243,7 @@ def expectedClientConsistencyProof(nodeCount):
     From: the Client is connected to the Pool
     To: the Client finished the consistency proof procedure
     """
-    qN = util.get_strong_quorum(nodeCount)
+    qN = Quorums(nodeCount).commit.value
     return qN * __Peer2PeerRequestExchangeTime + \
            config.ConsistencyProofsTimeout
 
@@ -253,7 +253,7 @@ def expectedClientCatchupTime(nodeCount):
     From: the Client finished the consistency proof procedure
     To: the Client finished the catchup procedure
     """
-    qN = util.get_strong_quorum(nodeCount)
+    qN = Quorums(nodeCount).commit.value
     return qN * 2 * __Peer2PeerRequestExchangeTime + \
            config.CatchupTransactionsTimeout
 
@@ -263,7 +263,7 @@ def expectedClientToPoolRequestDeliveryTime(nodeCount):
     From: the Client send a request
     To: the request is delivered to f nodes
     """
-    qN = util.get_strong_quorum(nodeCount)
+    qN = Quorums(nodeCount).commit.value
     return __Peer2PeerRequestExchangeTime * qN
 
 

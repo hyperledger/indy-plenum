@@ -16,7 +16,7 @@ from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
-from plenum.test.delayers import ppDelay
+from plenum.test.delayers import ppDelay, cDelay
 
 logger = getlogger()
 
@@ -43,6 +43,10 @@ def changesRequest(node):
 
 def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
+
+
+def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+    node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
 
 
 # Could have this method directly take a replica rather than a node and an
