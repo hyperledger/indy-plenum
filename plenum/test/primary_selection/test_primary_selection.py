@@ -16,8 +16,6 @@ from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica,
 from plenum.test.view_change.conftest import viewNo
 
 # noinspection PyUnresolvedReferences
-from plenum.test.view_change.test_view_change import viewChangeDone
-# noinspection PyUnresolvedReferences
 from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
 nodeCount = 7
@@ -75,6 +73,11 @@ def testPrimarySelectionAfterPoolReady(looper, nodeSet, ready, wallet1, client1)
 @pytest.fixture(scope='module')
 def catchup_complete_count(nodeSet):
     return {n.name: n.spylog.count(n.allLedgersCaughtUp) for n in nodeSet}
+
+@pytest.fixture(scope='module')
+def view_change_done(looper, nodeSet):
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
 
 @pytest.fixture(scope='module')
 def view_change_done(looper, nodeSet):
