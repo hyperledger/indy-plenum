@@ -44,6 +44,10 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         return self.previous_master_primary == self.name
 
     @property
+    def master_replica(self):
+        return self.node.master_replica
+
+    @property
     @abstractmethod
     def routes(self) -> Iterable[Route]:
         pass

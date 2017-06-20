@@ -3,7 +3,7 @@ from typing import Iterable
 
 from plenum.common.types import f, Propagate, PrePrepare, \
     Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, \
-    Nomination, CatchupRep, Primary, Reelection
+    Nomination, CatchupRep, Primary, Reelection, ViewChangeDone
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
@@ -78,6 +78,9 @@ def rel_delay(delay: float, inst_id=None, sender_filter: str=None):
     # Delayer of REELECTION requests
     return delayerMsgTuple(delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
+def vcdDelay(delay: float):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, ViewChangeDone)
 
 def ppgDelay(delay: float, sender_filter: str=None):
     # Delayer of PROPAGATE requests
@@ -102,6 +105,11 @@ def cDelay(delay: float, instId: int=None, sender_filter: str=None):
 def icDelay(delay: float):
     # Delayer of INSTANCE-CHANGE requests
     return delayerMsgTuple(delay, InstanceChange)
+
+
+def vcd_delay(delay: float):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, ViewChangeDone)
 
 
 def lsDelay(delay: float):

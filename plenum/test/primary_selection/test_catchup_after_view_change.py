@@ -3,18 +3,20 @@ import pytest
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataUnequality
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
-
-from plenum.test.delayers import cDelay, delay_3pc_messages
+from plenum.test.delayers import delay_3pc_messages
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup, TestReplica
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
+from plenum.test.pool_transactions.conftest import clientAndWallet1, \
+    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
+    stewardAndWallet1, steward1, stewardWallet
+from plenum.test.batching_3pc.conftest import tconf
 
+
+Max3PCBatchSize = 4
 TestRunningTimeLimitSec = 150
 
 
@@ -37,33 +39,34 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     Delay 3PC to 1 node and then cause view change so by the time the view
     change happens(each node gets >2f+1 `INSTANCE_CHANGE`s), the slow node is
     behind other nodes. The should initiate catchup to come to the same state
-    as other nodes. Not sending client requests while catching up, that will
-    be tested in another test.
+    as other nodes.
     """
-    # nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
-    # slow_node = nprs[-1].node
 
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
-    delay = tconf.PerfCheckFreq
+    delay = 2*tconf.PerfCheckFreq
+
     # Bad network introduced
-    delay_3pc_messages([slow_node], 0, delay=delay)
-    sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 40)
-    waitNodeDataUnequality(looper, slow_node, *fast_nodes)
+    for i in range(2):
+        delay_3pc_messages([slow_node], 0, delay=(i+1)*delay)
+        sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
+        waitNodeDataUnequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
         n.ledgerManager.processCatchupRep) for n in txnPoolNodeSet}
     catchup_done_counts = {n.name: n.spylog.count(n.allLedgersCaughtUp)
                            for n in txnPoolNodeSet}
 
+    def slow_node_processed_some():
+        assert slow_node.replicas[0].batches
+
+    # The slow node has received some PRE-PREPAREs
+    looper.run(eventually(slow_node_processed_some, retryWait=1, timeout=delay))
+
     # No reverts have been called by the slow node
     rv = getAllReturnVals(slow_node.replicas[0],
                           TestReplica.revert_unordered_batches)
     assert not rv or max(rv) == 0
 
-    def slow_node_processed_some():
-        assert slow_node.replicas[0].batches
-
-    looper.run(eventually(slow_node_processed_some, retryWait=1))
     ensure_view_change(looper, txnPoolNodeSet)
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

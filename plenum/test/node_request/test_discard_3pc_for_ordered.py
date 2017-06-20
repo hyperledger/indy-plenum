@@ -1,6 +1,6 @@
 from plenum.test.delayers import delay_3pc_messages
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    countDiscarded
+    countDiscarded, send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.node_request_helper import \
     chk_commits_prepares_recvd
@@ -26,8 +26,8 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
     delay_3pc_messages([slow_node], 1, delay)
 
     sent_batches = 3
-    for i in range(sent_batches):
-        sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2)
+    send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
+                                           2 * sent_batches, sent_batches)
 
     def chk(node, inst_id, p_count, c_count):
         # A node will still record PREPRAREs even if more than 2f, till the

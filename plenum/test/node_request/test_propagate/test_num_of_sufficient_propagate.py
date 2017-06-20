@@ -41,6 +41,7 @@ whitelist = ['doing nothing for now',
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
+    # Making nodes faulty such that no primary is chosen
     G = startedNodes.Gamma
     Z = startedNodes.Zeta
     for node in G, Z:

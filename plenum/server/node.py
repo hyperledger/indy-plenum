@@ -465,6 +465,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return state.committedHeadHash if isCommitted else state.headHash
 
     @property
+    def is_synced(self):
+        return self.mode >= Mode.synced
+
+    @property
     def isParticipating(self):
         return self.mode == Mode.participating
 
@@ -1239,7 +1243,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if self.msgHasAcceptableInstId(msg, frm) and \
+        if (isinstance(msg, ViewChangeDone) or
+                self.msgHasAcceptableInstId(msg, frm)) and \
                 self.msgHasAcceptableViewNo(msg, frm):
             logger.debug("{} sending message to elector: {}".
                          format(self, (msg, frm)))
@@ -1584,12 +1589,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         return True
 
-    def caught_up_for_current_view(self):
-        if not self.elector._hasViewChangeQuorum(0):
+    def caught_up_for_current_view(self) -> bool:
+        if not self.elector._hasViewChangeQuorum:
             logger.debug('{} does not have view change quorum for view {}'.
                          format(self, self.viewNo))
             return False
-        vc = self.elector.has_sufficient_same_view_change_done_messages(0)
+        vc = self.elector.has_sufficient_same_view_change_done_messages
         if not vc:
             logger.debug('{} does not have acceptable ViewChangeDone for '
                          'view {}'.format(self, self.viewNo))
@@ -1605,13 +1610,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 return False
         return True
 
-    def has_ordered_till_last_prepared_certificate(self):
+    def has_ordered_till_last_prepared_certificate(self) -> bool:
         lst = self.master_replica.last_prepared_before_view_change
         if lst is None:
             return True
         return compare_3PC_keys(lst, self.master_replica.last_ordered_3pc) >= 0
 
-    def num_txns_caught_up_in_last_catchup(self):
+    def num_txns_caught_up_in_last_catchup(self) -> int:
         count = sum([l.num_txns_caught_up for l in
                     self.ledgerManager.ledgerRegistry.values()])
         logger.debug('{} caught up to {} txns in the last catchup'.format(self, count))
@@ -1619,8 +1624,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def no_more_catchups_needed(self):
         # This method is called when no more catchups needed
-        self.mode = Mode.participating
-        # self.processStashedOrderedReqs()
+        self.mode = Mode.synced
         self.decidePrimaries()
 
     def getLedger(self, ledgerId):
@@ -1965,10 +1969,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return (2 * self.f) + 1
 
-    def primary_found(self):
+    def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
-        # TODO: 0 should be replaced with configurable constant
-        self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+        if instance_id == 0:
+            # TODO: 0 should be replaced with configurable constant
+            self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
+            logger.debug('{} selected primary for master instance, mode being '
+                         'set to {}'.format(self, Mode.participating))
+            self.mode = Mode.participating
+
         if self.view_change_in_progress and self.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)
 
@@ -2046,9 +2055,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
-        # TODO: Do not need to revert, keep the 3PC messages with
-        # prepared certificate
-        # self.master_replica.revert_unordered_batches()
         self.start_catchup()
 
     def on_view_change_complete(self, view_no):

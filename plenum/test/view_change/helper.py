@@ -1,5 +1,6 @@
 import types
 
+from plenum.test.delayers import delayNonPrimaries
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import get_master_primary_node
@@ -42,6 +43,13 @@ def provoke_and_wait_for_view_change(looper,
                                  wallet,
                                  client,
                                  timeout=timeout))
+
+def simulate_slow_master(looper, nodeSet, wallet, client):
+    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
+    # Delay processing of PRE-PREPARE from all non primary replicas of master
+    # so master's performance falls and view changes
+    delayNonPrimaries(nodeSet, 0, 10)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
 
 
 def ensure_view_change(looper, nodes, exclude_from_check=None):
