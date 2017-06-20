@@ -383,7 +383,7 @@ class PrimaryElector(PrimaryDecider):
                 if self.replicaNominatedForItself == inst_id:
                     self.replicaNominatedForItself = None
 
-                self.node.primary_found()
+                self.node.primary_selected()
 
                 self.scheduleElection()
             else:

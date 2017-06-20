@@ -107,6 +107,11 @@ def icDelay(delay: float):
     return delayerMsgTuple(delay, InstanceChange)
 
 
+def vcd_delay(delay: float):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, ViewChangeDone)
+
+
 def lsDelay(delay: float):
     # Delayer of LEDGER_STATUSES requests
     return delayerMsgTuple(delay, LedgerStatus)

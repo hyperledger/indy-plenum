@@ -2,6 +2,8 @@ from typing import Optional
 
 import base58
 import pytest
+
+from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
 from plenum.server.replica import Replica
@@ -34,6 +36,7 @@ class FakeNode():
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
         self.totalNodes = len(self.allNodeNames)
         self.ledger_ids = [0]
+        self.mode = Mode.starting
         self.replicas = [
             Replica(node=self, instId=0, isMaster=True),
             Replica(node=self, instId=1, isMaster=False),
@@ -51,7 +54,7 @@ class FakeNode():
         # it just returns a constant
         return 'Node2'
 
-    def primary_found(self):
+    def primary_selected(self, instance_id):
         self._found = True
 
     def is_primary_found(self):
@@ -63,36 +66,46 @@ class FakeNode():
         if nm:
             return Replica.getNodeName(nm)
 
+    @property
+    def master_replica(self):
+        return self.replicas[0]
+
+    @property
+    def is_synced(self):
+        return self.mode >= Mode.synced
+
 
 def testHasViewChangeQuorum():
     """
     Checks method _hasViewChangeQuorum of SimpleSelector 
     """
 
-    instance_id = 0
-    last_ordered_seq_no = 0
+    ledgerInfo = (
+        # ledger id, ledger length, merkle root
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
+    )
     selector = PrimarySelector(FakeNode())
 
-    assert not selector._hasViewChangeQuorum(instance_id)
+    assert not selector._hasViewChangeQuorum
 
     # Accessing _view_change_done directly to avoid influence of methods
-    selector._view_change_done[instance_id] = {}
+    selector._view_change_done = {}
 
     def declare(replica_name):
-        selector._view_change_done[instance_id][replica_name] = \
-                {'Node2:0': last_ordered_seq_no}
+        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
-    declare('Node1:0')
-    declare('Node3:0')
-    declare('Node4:0')
+    declare('Node1')
+    declare('Node3')
+    declare('Node4')
 
     # Three nodes is enough for quorum, but there is no Node2:0 which is
     # expected to be next primary, so no quorum should be achieved
-    assert selector._hasViewChangeQuorum(instance_id)
-    assert not selector.has_view_change_from_primary(instance_id)
+    assert selector._hasViewChangeQuorum
+    assert not selector.has_view_change_from_primary
 
-    declare('Node2:0')
-    assert selector.has_view_change_from_primary(instance_id)
+    declare('Node2')
+    assert selector.has_view_change_from_primary
 
 
 def testProcessViewChangeDone():
@@ -101,8 +114,7 @@ def testProcessViewChangeDone():
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
-    msg = ViewChangeDone(name='Node2:0',
-                         instId=0,
+    msg = ViewChangeDone(name='Node2',
                          viewNo=0,
                          ledgerInfo=ledgerInfo)
     node = FakeNode()
@@ -110,21 +122,21 @@ def testProcessViewChangeDone():
     quorum = get_strong_quorum(node.totalNodes)
     for i in range(quorum):
         selector._processViewChangeDoneMessage(msg, 'Node2')
-    assert selector._view_change_done[0]
+    assert selector._view_change_done
     assert not node.is_primary_found()
 
     selector._processViewChangeDoneMessage(msg, 'Node1')
-    assert selector._view_change_done[0]
+    assert selector._view_change_done
     assert not node.is_primary_found()
 
     selector._processViewChangeDoneMessage(msg, 'Node3')
-    assert selector._verify_primary_selection(msg.instId, msg.name,
-                                              msg.ledgerInfo)
+    assert selector._verify_primary(msg.name, msg.ledgerInfo)
     selector._startSelection()
-    assert selector._view_change_done[0]
-    assert node.is_primary_found()
+    assert selector._view_change_done
+    # Since the FakeNode does not have setting of mode
+    # assert node.is_primary_found()
     selector.view_change_started(1)
-    assert not selector._view_change_done[0]
+    assert not selector._view_change_done
 
 
 def test_get_msgs_for_lagged_nodes():
@@ -134,10 +146,8 @@ def test_get_msgs_for_lagged_nodes():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
     )
     messages = [
-        (ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
-        (ViewChangeDone(name='Node3:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo), 'Node2'),
-        (ViewChangeDone(name='Node2:0', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node3'),
-        (ViewChangeDone(name='Node2:0', instId=1, viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
+        (ViewChangeDone(name='Node2', viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
+        (ViewChangeDone(name='Node3', viewNo=0, ledgerInfo=ledgerInfo), 'Node2')
     ]
     node = FakeNode()
     selector = PrimarySelector(node)
@@ -152,10 +162,10 @@ def test_send_view_change_done_message():
     node = FakeNode()
     selector = PrimarySelector(node)
     instance_id = 0
-    new_primary_name = selector._who_is_the_next_primary(instance_id)
     view_no = selector.viewNo
-    selector._send_view_change_done_message(instance_id, new_primary_name,
-                                            view_no)
+    new_primary_name = selector.node.get_name_by_rank(selector._get_primary_id(
+        view_no, instance_id))
+    selector._send_view_change_done_message()
 
     ledgerInfo = [
         #  ledger id, ledger length, merkle root
@@ -163,7 +173,7 @@ def test_send_view_change_done_message():
         (1, 5, (base58.alphabet[1] * 43)),
     ]
     messages = [
-        ViewChangeDone(name='Node2:0', instId=0, viewNo=0, ledgerInfo=ledgerInfo)
+        ViewChangeDone(name='Node2', viewNo=0, ledgerInfo=ledgerInfo)
     ]
 
     assert len(selector.outBox) == 1

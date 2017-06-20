@@ -157,6 +157,31 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
     return requests
 
 
+def send_reqs_batches_and_get_suff_replies(looper: Looper,
+                                           wallet: Wallet,
+                                           client: TestClient,
+                                           num_reqs: int, num_batches=1, **kwargs):
+    # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
+    if num_batches == 1:
+        return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
+                                                   num_reqs, **kwargs)
+    else:
+        requests = []
+        for _ in range(num_batches-1):
+            requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
+                                                                client,
+                                                                num_reqs//num_batches,
+                                                                **kwargs))
+        rem = num_reqs % num_batches
+        if rem == 0:
+            rem = num_reqs // num_batches
+        requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
+                                                            client,
+                                                            rem,
+                                                            **kwargs))
+        return requests
+
+
 # noinspection PyIncorrectDocstring
 def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
                                       fValue: int) -> bool:

@@ -7,7 +7,6 @@ from plenum.common.types import ViewChangeDone
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("name", NonEmptyStringField),
-    ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ledgerInfo", IterableField)
 ])

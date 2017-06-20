@@ -3,8 +3,6 @@ import types
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.types import f
-from plenum.common.util import updateNamedTuple
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
@@ -12,6 +10,7 @@ from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
+# noinspection PyUnresolvedReferences
 from plenum.test.batching_3pc.conftest import tconf
 
 

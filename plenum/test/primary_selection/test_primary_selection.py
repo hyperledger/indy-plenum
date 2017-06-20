@@ -8,7 +8,6 @@ from plenum.test.primary_selection.helper import \
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from plenum.common.util import getNoInstances
-from plenum.server.primary_selector import PrimarySelector
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica, ensureElectionsDone
@@ -16,6 +15,8 @@ from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica,
 # noinspection PyUnresolvedReferences
 from plenum.test.view_change.conftest import viewNo
 
+# noinspection PyUnresolvedReferences
+from plenum.test.view_change.test_view_change import viewChangeDone
 # noinspection PyUnresolvedReferences
 from plenum.test.conftest import looper, client1, wallet1, clientAndWallet1
 
