@@ -727,7 +727,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         serviceReplicaMsgs, serviceReplicaInBox and serviceReplicaOutBox
         """
         a = self.serviceReplicaMsgs(limit)
-        b = await self.serviceReplicaOutBox(limit)
+        b = self.serviceReplicaOutBox(limit)
         c = self.serviceReplicaInBox(limit)
         return a + b + c
 
@@ -860,7 +860,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setF()
         new_replicas = self.adjustReplicas()
         if new_replicas > 0:
-            self.elector.decidePrimaries()
+            self.decidePrimaries()
 
     def nodeLeft(self, txn):
         self.setF()
@@ -1049,7 +1049,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.replicas[idx].inBox.append(msg)
         return msgCount
 
-    async def serviceReplicaOutBox(self, limit: int=None) -> int:
+    def serviceReplicaOutBox(self, limit: int=None) -> int:
         """
         Process `limit` number of replica messages.
         Here processing means appending to replica inbox.
@@ -1531,8 +1531,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # make the node Syncing
         self.mode = Mode.syncing
 
+        # Process any Ordered messages
+        for r in self.replicas:
+            i = 0
+            for msg in r._remove_ordered_from_queue():
+                self.processOrdered(msg)
+                i += 1
+            logger.debug(
+                '{} processed {} Ordered batches for instance {} before '
+                'starting catch up'.format(self, i, r.instId))
         # revert uncommitted txns and state for unordered requests
-        self.replicas[0].revert_unordered_batches(ledger_id)
+        r = self.master_replica.revert_unordered_batches(ledger_id)
+        logger.debug('{} reverted {} batches before starting catch up'.format(self, r))
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
@@ -1626,6 +1636,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # This method is called when no more catchups needed
         self.mode = Mode.synced
         self.decidePrimaries()
+        # TODO: need to think of a better way
+        # If the node was not participating but has now found a primary,
+        # then set mode to participating, can happen if a catchup is triggered
+        # without a view change or node start
+        if not self.isParticipating and self.master_replica.hasPrimary:
+            logger.debug('{} starting to participate since catchup is done, '
+                         'primaries are selected but mode was not set to '
+                         'participating'.format(self))
+            self.mode = Mode.participating
 
     def getLedger(self, ledgerId):
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger

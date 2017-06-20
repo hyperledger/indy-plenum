@@ -1771,12 +1771,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self.outBox.append(msg)
 
     def revert_unordered_batches(self, ledger_id):
+        i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 count, _, prevStateRoot = self.batches.pop(key)
                 self.revert(ledger_id, prevStateRoot, count)
+                i += 1
             else:
                 break
+        return i
 
     def caught_up_till_3pc(self, last_caught_up_3PC):
         self.last_ordered_3pc = last_caught_up_3PC
@@ -1799,19 +1802,27 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
 
-    def _remove_ordered_from_queue(self, last_caught_up_3PC):
+    def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """
         Remove any Ordered that the replica might be sending to node which is
-        less than or equal to `last_caught_up_3PC`, needed in catchup
+        less than or equal to `last_caught_up_3PC` if `last_caught_up_3PC` is
+        passed else remove all ordered, needed in catchup
         """
         to_remove = []
         for i, msg in enumerate(self.outBox):
-            if isinstance(msg, Ordered) and compare_3PC_keys(
-                    (msg.viewNo, msg.ppSeqNo), last_caught_up_3PC) >= 0:
+            if isinstance(msg, Ordered) and (not last_caught_up_3PC or
+                                             compare_3PC_keys(
+                                                 (msg.viewNo, msg.ppSeqNo),
+                                                 last_caught_up_3PC) >= 0):
                 to_remove.append(i)
 
         logger.debug('{} going to remove {} Ordered messages from outbox'.
                      format(self, len(to_remove)))
 
+        # Removing Ordered from queue but returning `Ordered` in order that
+        # they should be processed.
+        removed = []
         for i in reversed(to_remove):
+            removed.insert(0, self.outBox[i])
             del self.outBox[i]
+        return removed
