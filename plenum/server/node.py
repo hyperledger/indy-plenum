@@ -843,7 +843,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, node_name, ledger_id))
 
     def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
-        logger.debug("{} processing ledger status from {}: {}"
+        logger.debug("{} processing ledger status request from {}: {}"
                      .format(self, frm, request))
         self.sendLedgerStatus(frm, request.ledgerId)
 
