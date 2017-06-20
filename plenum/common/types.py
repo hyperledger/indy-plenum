@@ -300,21 +300,33 @@ class Commit(MessageBase):
 #     f.PP_SEQ_NO
 #     ])
 
-# class Checkpoint(MessageBase):
-#     typename = CHECKPOINT
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#         (f.DIGEST.nm, NonEmptyStringField()),
-#     )
-Checkpoint = TaggedTuple(CHECKPOINT, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END,
-    f.DIGEST])
+
+class Checkpoint(MessageBase):
+    typename = CHECKPOINT
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+    )
+# Checkpoint = TaggedTuple(CHECKPOINT, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END,
+#     f.DIGEST])
+
+
+class ThreePCState(MessageBase):
+    typename = THREE_PC_STATE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.MSGS.nm, IterableField(ClientMessageValidator())),
+    )
+# ThreePCState = TaggedTuple(THREE_PC_STATE, [
+#     f.INST_ID,
+#     f.MSGS])
 
 
 CheckpointState = NamedTuple(CHECKPOINT_STATE, [
@@ -326,16 +338,6 @@ CheckpointState = NamedTuple(CHECKPOINT_STATE, [
     f.IS_STABLE
     ])
 
-
-# class ThreePCState(MessageBase):
-#     typename = THREE_PC_STATE
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.MSGS.nm, IterableField(ClientMessageValidator())),
-#     )
-ThreePCState = TaggedTuple(THREE_PC_STATE, [
-    f.INST_ID,
-    f.MSGS])
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
