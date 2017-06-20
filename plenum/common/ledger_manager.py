@@ -270,7 +270,8 @@ class LedgerManager(HasActionQueue):
             self.sendTo(consistencyProof, frm)
 
         if self.isLedgerOld(ledgerStatus):
-            if ledgerInfo.state == LedgerState.synced:
+            if ledgerInfo.state == LedgerState.synced or\
+                            ledgerInfo.state == LedgerState.not_synced:
                 self.setLedgerCanSync(ledgerId, True)
                 ledger_status = self.owner.build_ledger_status(ledgerId)
                 self.sendTo(ledger_status, frm)
