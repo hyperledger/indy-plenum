@@ -27,6 +27,7 @@ def view_change_in_between_3pc(looper, nodes, wallet, client,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
 
+
 def view_change_in_between_3pc_random_delays(looper, nodes, wallet, client, slow_nodes_count,
                                              min_delay=0, max_delay=5):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
@@ -45,8 +46,6 @@ def view_change_in_between_3pc_random_delays(looper, nodes, wallet, client, slow
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
 
 
-
-
 # noinspection PyIncorrectDocstring
 def test_view_change_in_between_3pc_1_of_7_nodes(looper, nodeSet, up,
                                                  wallet1, client1):
@@ -55,6 +54,7 @@ def test_view_change_in_between_3pc_1_of_7_nodes(looper, nodeSet, up,
     - do view change
     """
     view_change_in_between_3pc(looper, nodeSet, wallet1, client1, 1)
+
 
 @pytest.mark.skip
 def test_view_change_in_between_3pc_2_of_7_nodes(looper, nodeSet, up,
@@ -65,6 +65,7 @@ def test_view_change_in_between_3pc_2_of_7_nodes(looper, nodeSet, up,
     """
     view_change_in_between_3pc(looper, nodeSet, wallet1, client1, 2)
 
+
 @pytest.mark.skip
 def test_view_change_in_between_3pc_3_of_7_nodes(looper, nodeSet, up,
                                                  wallet1, client1):
@@ -73,6 +74,7 @@ def test_view_change_in_between_3pc_3_of_7_nodes(looper, nodeSet, up,
     - do view change
     """
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 3)
+
 
 @pytest.mark.skip
 def test_view_change_in_between_3pc_5_of_7_nodes(looper, nodeSet, up,
@@ -83,6 +85,7 @@ def test_view_change_in_between_3pc_5_of_7_nodes(looper, nodeSet, up,
     """
     view_change_in_between_3pc(looper, nodeSet, wallet1, client1, 5)
 
+
 @pytest.mark.skip
 def test_view_change_in_between_3pc_all_nodes(looper, nodeSet, up,
                                               wallet1, client1):
@@ -91,6 +94,7 @@ def test_view_change_in_between_3pc_all_nodes(looper, nodeSet, up,
     - do view change
     """
     view_change_in_between_3pc(looper, nodeSet, wallet1, client1, len(nodeSet))
+
 
 @pytest.mark.skip
 def test_view_change_in_between_3pc_all_nodes_random_delays(looper, nodeSet, up,

@@ -246,11 +246,6 @@ class LedgerManager(HasActionQueue):
                              .format(self, status, frm))
                 return
             if self.isLedgerSame(ledgerStatus):
-                # ledgerInfo = self.getLedgerInfoByType(POOL_LEDGER_ID)
-                # poolLedger = ledgerInfo.ledger
-                # ledgerStatus = LedgerStatus(POOL_LEDGER_ID,
-                #                             poolLedger.size,
-                #                             poolLedger.root_hash)
                 ledger_status = self.owner.build_ledger_status(POOL_LEDGER_ID)
                 self.sendTo(ledger_status, frm)
 
@@ -297,6 +292,8 @@ class LedgerManager(HasActionQueue):
                 # 3PC key
                 key = (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
                 if self.isLedgerSame(ledgerStatus) and key != (None, None):
+                    # Any state cleaup that is part of pre-catchup should be done
+                    self.do_pre_catchup(ledgerId)
                     self.catchupCompleted(ledgerId, key)
                 else:
                     self.catchupCompleted(ledgerId)
@@ -727,9 +724,12 @@ class LedgerManager(HasActionQueue):
                                 ledger.size,
                                 proofs[len(proofs) // 2][0][1])
 
-    def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
+    def do_pre_catchup(self, ledger_id):
         if self.preCatchupClbk:
-            self.preCatchupClbk(ledgerId)
+            self.preCatchupClbk(ledger_id)
+
+    def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
+        self.do_pre_catchup(ledgerId)
         logger.debug("{} started catching up with consistency proof {}".
                      format(self, proof))
         if ledgerId not in self.ledgerRegistry:
