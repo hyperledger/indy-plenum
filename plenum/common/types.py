@@ -135,9 +135,18 @@ class Nomination(MessageBase):
 #     f.ORD_SEQ_NO])
 
 
-Batch = TaggedTuple(BATCH, [
-    f.MSGS,
-    f.SIG])
+class Batch(MessageBase):
+    typename = BATCH
+
+    schema = (
+        (f.MSGS.nm, IterableField(ClientMessageValidator())),
+        (f.SIG.nm, SignatureField()),
+    )
+
+
+# Batch = TaggedTuple(BATCH, [
+#     f.MSGS,
+#     f.SIG])
 
 # Reelection messages that nodes send when they find the 2 or more nodes have
 # equal nominations for primary. `round` indicates the reelection round
