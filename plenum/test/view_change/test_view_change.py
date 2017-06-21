@@ -47,4 +47,4 @@ def test_node_notified_about_primary_election_result(nodeSet, looper, up):
     ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
 
     for node in nodeSet:
-        assert node.spylog.count('primary_found') > 0
+        assert node.spylog.count('primary_selected') > 0

@@ -987,13 +987,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This thing checks whether new primary was elected.
         If it was not - starts view change again
         """
+        if not self.view_change_in_progress:
+            return
 
-        if self.view_change_in_progress:
-            next_view_no = self.viewNo + 1
-            logger.debug("view change to view {} is not completed in time, "
-                         "starting view change for view {}"
-                         .format(self.viewNo, next_view_no))
-            self.do_view_change_if_possible(next_view_no)
+        next_view_no = self.viewNo + 1
+        logger.debug("view change to view {} is not completed in time, "
+                     "starting view change for view {}"
+                     .format(self.viewNo, next_view_no))
+        logger.info("{} initiating a view change to {} from {}".
+                    format(self, next_view_no, self.viewNo))
+        self.sendInstanceChange(next_view_no,
+                                Suspicions.PRIMARY_DISCONNECTED)
 
     def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
         """
