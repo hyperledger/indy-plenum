@@ -183,6 +183,7 @@ class Base58Field(FieldBase):
         super().__init__(*args, **kwargs)
         self._alphabet = set(base58.alphabet)
         self._lengthLimits = []
+        self.long = long
         if short:
             self._lengthLimits.append(range(15, 26))
         if long:
@@ -198,6 +199,11 @@ class Base58Field(FieldBase):
         if set(val) - self._alphabet:
             return 'should not contains chars other than {}' \
                 .format(self._alphabet)
+        if self.long:
+            b58len = len(base58.b58decode(val))
+            if b58len != 32:
+                return 'b58 decoded value length {} should be 32' \
+                    .format(b58len)
 
 
 class IdentifierField(Base58Field):
