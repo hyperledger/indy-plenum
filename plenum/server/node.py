@@ -294,7 +294,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         nodeRoutes.extend([
-            (ReqLedgerStatus, self.processReqLedgerStatus),
+            (ReqLedgerStatus, self.process_req_ledger_status),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
@@ -466,7 +466,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def is_synced(self):
-        return self.mode >= Mode.synced
+        return Mode.done_syncing(self.mode)
 
     @property
     def isParticipating(self):
@@ -831,6 +831,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             try:
                 self._ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
+                logger.debug('{} did not find any remote for {} to send request for ledger status'.format(self, node_name))
                 continue
 
     def _ask_for_ledger_status(self, node_name: str, ledger_id):
@@ -842,7 +843,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} asking {} for ledger status of ledger {}"
                      .format(self, node_name, ledger_id))
 
-    def processReqLedgerStatus(self, request: ReqLedgerStatus, frm: str):
+    def process_req_ledger_status(self, request: ReqLedgerStatus, frm: str):
         logger.debug("{} processing request for ledger status from {}: {}"
                      .format(self, frm, request))
         self.sendLedgerStatus(frm, request.ledgerId)
@@ -853,7 +854,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # peers otherwise very few peers will know that this node is lagging
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
-        if self.mode in (Mode.discovered, Mode.participating):
+        # if self.mode in (Mode.discovered, Mode.participating):
+        if Mode.done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
     def newNodeJoined(self, txn):
@@ -1531,15 +1533,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # make the node Syncing
         self.mode = Mode.syncing
 
-        # Process any Ordered messages
-        for r in self.replicas:
-            i = 0
-            for msg in r._remove_ordered_from_queue():
-                self.processOrdered(msg)
-                i += 1
-            logger.debug(
-                '{} processed {} Ordered batches for instance {} before '
-                'starting catch up'.format(self, i, r.instId))
         # revert uncommitted txns and state for unordered requests
         r = self.master_replica.revert_unordered_batches(ledger_id)
         logger.debug('{} reverted {} batches before starting catch up'.format(self, r))
@@ -1834,6 +1827,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor.requestOrdered(req_idrs, inst_id, byMaster=r)
         return r
 
+    def force_process_ordered(self):
+        # Take any messages from replica that have been ordered and process
+        # them, this should be done rarely, like before catchup
+        for r in self.replicas:
+            i = 0
+            for msg in r._remove_ordered_from_queue():
+                self.processOrdered(msg)
+                i += 1
+            logger.debug(
+                '{} processed {} Ordered batches for instance {} before '
+                'starting catch up'.format(self, i, r.instId))
+
     def processEscalatedException(self, ex):
         """
         Process an exception escalated from a Replica
@@ -2086,6 +2091,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.master_replica.on_view_change_done()
 
     def start_catchup(self):
+        # Process any already Ordered requests by the replica
+        self.force_process_ordered()
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
         ledger_id = DOMAIN_LEDGER_ID

@@ -55,3 +55,11 @@ class Mode(IntEnum):
     syncing = 400         # catching up on domain txn ledger
     synced = 410          # caught up with domain txn ledger
     participating = 500   # caught up completely and chosen primary
+
+    @classmethod
+    def done_discovering(cls, mode):
+        return mode >= cls.discovered
+
+    @classmethod
+    def done_syncing(cls, mode):
+        return mode >= cls.synced

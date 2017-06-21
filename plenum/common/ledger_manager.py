@@ -265,8 +265,8 @@ class LedgerManager(HasActionQueue):
             self.sendTo(consistencyProof, frm)
 
         if self.isLedgerOld(ledgerStatus):
-            if ledgerInfo.state == LedgerState.synced or\
-                            ledgerInfo.state == LedgerState.not_synced:
+            # if ledgerInfo.state == LedgerState.synced:
+            if ledgerInfo.state != LedgerState.synced:
                 self.setLedgerCanSync(ledgerId, True)
                 ledger_status = self.owner.build_ledger_status(ledgerId)
                 self.sendTo(ledger_status, frm)
@@ -747,19 +747,24 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.recvdConsistencyProofs = {}
 
         p = ConsistencyProof(*proof)
+        ledgerInfo.catchUpTill = p
+
         rids = [self.nodestack.getRemote(nm).uid for nm in
                 self.nodestack.conns]
-        reqs = self.getCatchupReqs(p)
-        for req in zip(reqs, rids):
-            self.send(*req)
-        ledgerInfo.catchUpTill = p
-        if reqs:
-            ledgerInfo.catchupReplyTimer = time.perf_counter()
-            batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
-                        getattr(reqs[0], f.SEQ_NO_START.nm) + 1
-            timeout = self._getCatchupTimeout(len(reqs), batchSize)
-            self._schedule(partial(self.request_txns_if_needed, ledgerId),
-                           timeout)
+        if rids:
+            reqs = self.getCatchupReqs(p)
+            for req in zip(reqs, rids):
+                self.send(*req)
+            if reqs:
+                ledgerInfo.catchupReplyTimer = time.perf_counter()
+                batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
+                            getattr(reqs[0], f.SEQ_NO_START.nm) + 1
+                timeout = self._getCatchupTimeout(len(reqs), batchSize)
+                self._schedule(partial(self.request_txns_if_needed, ledgerId),
+                               timeout)
+        else:
+            logger.info('{} needs to catchup ledger {} but it has not found '
+                        'any connected nodes'.format(self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * (self.config.CatchupTransactionsTimeout +
@@ -799,6 +804,10 @@ class LedgerManager(HasActionQueue):
         # (if txns dont span across multiple chunks). A practical value of this
         # "minimum size" is some multiple of chunk size of the ledger
         nodeCount = len(self.nodestack.conns)
+        if nodeCount == 0:
+            logger.debug('{} did not find any connected to nodes to send '
+                         'CatchupReq'.format(self))
+            return
         start = getattr(consProof, f.SEQ_NO_START.nm)
         end = getattr(consProof, f.SEQ_NO_END.nm)
         batchLength = math.ceil((end-start)/nodeCount)
@@ -884,12 +893,15 @@ class LedgerManager(HasActionQueue):
         return ledger.seqNo - seqNo
 
     def isLedgerOld(self, status: LedgerStatus):
+        # Is self ledger older than the `LedgerStatus`
         return self._compareLedger(status) < 0
 
     def isLedgerNew(self, status: LedgerStatus):
+        # Is self ledger newer than the `LedgerStatus`
         return self._compareLedger(status) > 0
 
     def isLedgerSame(self, status: LedgerStatus):
+        # Is self ledger same as the `LedgerStatus`
         return self._compareLedger(status) == 0
 
     def getLedgerForMsg(self, msg: Any) -> Ledger:

@@ -29,7 +29,7 @@ txnCount = 5
 
 def testNewNodeCatchup(newNodeCaughtUp):
     """
-    A new node that joins after some transactions should eventually get
+    A new node that joins after some transactions are done should eventually get
     those transactions.
     TODO: Test correct statuses are exchanged
     TODO: Test correct consistency proofs are generated
