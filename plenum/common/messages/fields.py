@@ -322,3 +322,13 @@ class JsonField(FieldBase):
             json.loads(val)
         except json.decoder.JSONDecodeError:
             return 'should be a valid JSON string'
+
+
+class SerializedValueField(FieldBase):
+    _base_types = (bytes, str)
+
+    def _specific_validation(self, val):
+        if not val:
+            return 'empty serialized value'
+
+

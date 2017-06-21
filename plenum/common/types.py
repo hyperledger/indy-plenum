@@ -11,7 +11,6 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
-from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField
 from plenum.common.messages.message_base import MessageBase, MessageValidator
 from stp_core.types import HA
 
@@ -139,7 +138,7 @@ class Batch(MessageBase):
     typename = BATCH
 
     schema = (
-        (f.MSGS.nm, IterableField(ClientMessageValidator())),
+        (f.MSGS.nm, IterableField(SerializedValueField())),
         (f.SIG.nm, SignatureField()),
     )
 
