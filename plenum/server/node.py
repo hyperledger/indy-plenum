@@ -1582,7 +1582,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
         reqDict = msg.request
-        request = SafeRequest(**reqDict)
+
+        request = self._client_request_class(**reqDict)
 
         clientName = msg.senderClient
 

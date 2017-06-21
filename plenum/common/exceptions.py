@@ -113,6 +113,11 @@ class KeysNotFoundException(Exception):
              'To generate them run script '
 
 
+class InvalidKey(Exception):
+    code = 142
+    reason = 'invalid key'
+
+
 class SuspiciousNode(BaseExc):
     def __init__(self, node: str, suspicion: Suspicion, offendingMsg):
         node = node.decode() if isinstance(node, bytes) else node
