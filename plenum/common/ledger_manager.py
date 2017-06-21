@@ -122,8 +122,9 @@ class LedgerManager(HasActionQueue):
 
         logger.debug("{} requesting {} missing transactions "
                      "after timeout".format(self, totalMissing))
-        eligibleNodes = list(self.nodestack.conns -
-                             self.blacklistedNodes)
+        # eligibleNodes = list(self.nodestack.conns -
+        #                      self.blacklistedNodes)
+        eligibleNodes = self.nodes_to_request_txns_from
 
         if not eligibleNodes:
             # TODO: What if all nodes are blacklisted so `eligibleNodes`
@@ -194,7 +195,8 @@ class LedgerManager(HasActionQueue):
         numElgNodes = len(eligibleNodes)
         for i, req in enumerate(cReqs):
             nodeName = eligibleNodes[i%numElgNodes]
-            self.send(req, self.nodestack.getRemote(nodeName).uid)
+            # self.send(req, self.nodestack.getRemote(nodeName).uid)
+            self.sendTo(req, nodeName)
 
         ledgerInfo.catchupReplyTimer = time.perf_counter()
         timeout = int(self._getCatchupTimeout(len(cReqs), batchSize))
@@ -749,12 +751,14 @@ class LedgerManager(HasActionQueue):
         p = ConsistencyProof(*proof)
         ledgerInfo.catchUpTill = p
 
-        rids = [self.nodestack.getRemote(nm).uid for nm in
-                self.nodestack.conns]
-        if rids:
+        # rids = [self.nodestack.getRemote(nm).uid for nm in
+        #         self.nodestack.conns]
+        eligible_nodes = self.nodes_to_request_txns_from
+        if eligible_nodes:
             reqs = self.getCatchupReqs(p)
-            for req in zip(reqs, rids):
-                self.send(*req)
+            for (req, to) in zip(reqs, eligible_nodes):
+                # self.send(*req)
+                self.sendTo(req, to)
             if reqs:
                 ledgerInfo.catchupReplyTimer = time.perf_counter()
                 batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
@@ -803,7 +807,8 @@ class LedgerManager(HasActionQueue):
         # reduces and 25 txns can be read of a single chunk probably
         # (if txns dont span across multiple chunks). A practical value of this
         # "minimum size" is some multiple of chunk size of the ledger
-        nodeCount = len(self.nodestack.conns)
+        # nodeCount = len(self.nodestack.conns)
+        nodeCount = len(self.nodes_to_request_txns_from)
         if nodeCount == 0:
             logger.debug('{} did not find any connected to nodes to send '
                          'CatchupReq'.format(self))
@@ -950,15 +955,21 @@ class LedgerManager(HasActionQueue):
         # If the message is being sent by a node
         if self.ownedByNode:
             if stack == self.nodestack:
-                rid = self.nodestack.getRemote(to).uid
-                self.send(msg, rid)
+                # rid = self.nodestack.getRemote(to).uid
+                # self.send(msg, rid)
+                # self.owner.send_by_names(msg, to)
+                self.sendToNodes(msg, [to,])
             if stack == self.clientstack:
                 self.owner.transmitToClient(msg, to)
         # If the message is being sent by a client
         else:
-            rid = self.nodestack.getRemote(to).uid
-            signer = self.owner.fetchSigner(self.owner.defaultIdentifier)
-            self.nodestack.send(msg, rid, signer=signer)
+            self.sendToNodes(msg, [to,])
+            # try:
+            #     rid = self.nodestack.getRemote(to).uid
+            #     signer = self.owner.fetchSigner(self.owner.defaultIdentifier)
+            #     self.nodestack.send(msg, rid, signer=signer)
+            # except RemoteNotFound:
+            #     pass
 
     @property
     def nodestack(self):
@@ -973,6 +984,14 @@ class LedgerManager(HasActionQueue):
         return self.owner.send
 
     @property
+    def send(self):
+        return self.owner.send
+
+    @property
+    def sendToNodes(self):
+        return self.owner.sendToNodes
+
+    @property
     def discard(self):
         return self.owner.discard
 
@@ -981,3 +1000,8 @@ class LedgerManager(HasActionQueue):
         if self.ownedByNode:
             return self.owner.blacklistedNodes
         return set()
+
+    @property
+    def nodes_to_request_txns_from(self):
+        return [nm for nm in self.nodestack.registry
+                if nm not in self.blacklistedNodes and nm != self.nodestack.name]

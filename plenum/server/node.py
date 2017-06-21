@@ -831,7 +831,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             try:
                 self._ask_for_ledger_status(node_name, ledger_id)
             except RemoteNotFound:
-                logger.debug('{} did not find any remote for {} to send request for ledger status'.format(self, node_name))
+                logger.debug('{} did not find any remote for {} to send '
+                             'request for ledger status'.format(self, node_name))
                 continue
 
     def _ask_for_ledger_status(self, node_name: str, ledger_id):
@@ -839,7 +840,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Ask other node for LedgerStatus 
         """
         req = ReqLedgerStatus(ledger_id)
-        self.send_by_names(req, node_name)
+        self.sendToNodes(req, [node_name,])
         logger.debug("{} asking {} for ledger status of ledger {}"
                      .format(self, node_name, ledger_id))
 
@@ -1664,7 +1665,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def sendLedgerStatus(self, nodeName: str, ledgerId: int):
         ledgerStatus = self.getLedgerStatus(ledgerId)
         if ledgerStatus:
-            self.send_by_names(ledgerStatus, nodeName)
+            self.sendToNodes(ledgerStatus, [nodeName])
         else:
             logger.debug("{} not sending ledger {} status to {} as it is null"
                          .format(self, ledgerId, nodeName))
@@ -2466,16 +2467,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    def send_by_names(self, req: Any, *node_names, signer: Signer = None):
-        rids = []
-        for node_name in node_names:
-            try:
-                remote = self.nodestack.getRemote(node_name)
-                rids.append(remote.uid)
-            except RemoteNotFound:
-                continue
+    # def send_by_names(self, msg: Any, *node_names, signer: Signer = None):
+    #     rids = []
+    #     for node_name in node_names:
+    #         try:
+    #             remote = self.nodestack.getRemote(node_name)
+    #             rids.append(remote.uid)
+    #         except RemoteNotFound:
+    #             continue
+    #
+    #     self.send(msg, *rids, signer=signer)
 
-        self.send(req, *rids, signer=signer)
+    def sendToNodes(self, msg: Any, names: Iterable[str]):
+        # TODO: This method exists in `Client` too, refactor to avoid duplication
+        rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
+        self.send(msg, *rids)
 
     def getReplyFromLedger(self, ledger, request):
         # DoS attack vector, client requesting already processed request id
