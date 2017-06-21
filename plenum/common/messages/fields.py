@@ -46,6 +46,13 @@ class FieldBase(FieldValidator):
                "".format(types_str, type(val).__name__)
 
 
+class BooleanField(FieldBase):
+    _base_types = (bool,)
+
+    def _specific_validation(self, val):
+        return
+
+
 class NonEmptyStringField(FieldBase):
     _base_types = (str,)
 

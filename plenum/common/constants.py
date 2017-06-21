@@ -80,6 +80,7 @@ TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
 TXNS = "Txns"
 BY = "by"
+FORCE = 'force'
 
 # ROLES
 STEWARD = Roles.STEWARD.value
