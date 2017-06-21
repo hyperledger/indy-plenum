@@ -3,7 +3,8 @@ import base58
 import types
 
 from plenum.common import stack_manager
-from plenum.common.keygen_utils import initNodeKeysForBothStacks, initRemoteKeys
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, \
+        initRemoteKeys
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
@@ -56,9 +57,8 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                                   *txnPoolNodeSet)
 
 
-
 def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
-        nodeThetaAdded, monkeypatch):
+                                              nodeThetaAdded, monkeypatch):
 
     TEST_EXCEPTION_MESSAGE = 'Failed to create some cert files'
 
@@ -76,17 +76,18 @@ def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
         else:
             return initRemoteKeys(name, *args, **kwargs)
 
-
     def wrap(node):
         oldMethod = node.poolManager.stackKeysChanged
 
         def stackKeysChanged(self, *args, **kwargs):
-            with pytest.raises(OSError, message="exception was suppressed") as excinfo:
+            with pytest.raises(OSError,
+                               message="exception was suppressed") as excinfo:
                 oldMethod(*args, **kwargs)
             excinfo.match(r'{}'.format(TEST_EXCEPTION_MESSAGE))
             return 0
 
-        node.poolManager.stackKeysChanged = types.MethodType(stackKeysChanged, node.poolManager)
+        node.poolManager.stackKeysChanged = types.MethodType(stackKeysChanged,
+                                                             node.poolManager)
 
     for node in txnPoolNodeSet:
         wrap(node)
