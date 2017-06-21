@@ -2,7 +2,7 @@ import types
 
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
-    sendReqsToNodesAndVerifySuffReplies
+    sendReqsToNodesAndVerifySuffReplies, send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone
 from stp_core.common.log import getlogger
@@ -146,7 +146,7 @@ def check_all_replica_queue_empty(nodes):
 
 def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
                                slow_delay=1, wait=None):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
     sendRandomRequests(wallet, client, 10)
@@ -155,16 +155,17 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
 
     ensure_view_change(looper, nodes)
     ensureElectionsDone(looper=looper, nodes=nodes)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes, custom_timeout=30)
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
+
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 2)
 
 
 def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, client,
                                              min_delay=0, max_delay=5):
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
 
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
@@ -176,4 +177,4 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 10)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
