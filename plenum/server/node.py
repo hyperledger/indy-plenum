@@ -469,8 +469,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return Mode.done_syncing(self.mode)
 
     @property
-    def isParticipating(self):
+    def isParticipating(self) -> bool:
         return self.mode == Mode.participating
+
+    def start_participating(self):
+        logger.info('{} started participating'.format(self))
+        self.mode = Mode.participating
 
     @property
     def nodeStackClass(self) -> NetworkInterface:
@@ -1638,7 +1642,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} starting to participate since catchup is done, '
                          'primaries are selected but mode was not set to '
                          'participating'.format(self))
-            self.mode = Mode.participating
+            self.start_participating()
 
     def getLedger(self, ledgerId):
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
@@ -1999,9 +2003,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
-            logger.debug('{} selected primary for master instance, mode being '
-                         'set to {}'.format(self, Mode.participating))
-            self.mode = Mode.participating
 
         if self.view_change_in_progress and self.all_instances_have_primary:
             self.on_view_change_complete(self.viewNo)

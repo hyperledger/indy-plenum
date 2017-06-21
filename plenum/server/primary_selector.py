@@ -234,6 +234,11 @@ class PrimarySelector(PrimaryDecider):
 
             if instance_id == 0:
                 self.previous_master_primary = None
+                # The node needs to be set in participating mode since when
+                # the replica is made aware of the primary, it will start
+                # processing stashed requests and hence the node needs to be
+                # participating.
+                self.node.start_participating()
 
             replica.primaryChanged(new_primary_name)
             self.node.primary_selected(instance_id)
