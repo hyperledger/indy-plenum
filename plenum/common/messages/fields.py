@@ -3,15 +3,29 @@ import json
 import base58
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
+from abc import ABCMeta, abstractmethod
 
 
-class FieldValidator:
+class FieldValidator(metaclass=ABCMeta):
+    """"
+    Interface for field validators
+    """
 
+    @abstractmethod
     def validate(self, val):
-        raise NotImplementedError
+        """
+        Validates field value
+        
+        :param val: field value to validate 
+        :return: error message or None
+        """
 
 
-class FieldBase(FieldValidator):
+class FieldBase(FieldValidator, metaclass=ABCMeta):
+    """
+    Base class for field validators
+    """
+
     _base_types = ()
 
     def __init__(self, optional=False, nullable=False):
@@ -19,6 +33,14 @@ class FieldBase(FieldValidator):
         self.nullable = nullable
 
     def validate(self, val):
+        """
+        Performs basic validation of field value and then passes it for 
+        specific validation.
+        
+        :param val: field value to validate 
+        :return: error message or None
+        """
+
         if self.nullable and val is None:
             return
         type_er = self.__type_check(val)
@@ -29,8 +51,15 @@ class FieldBase(FieldValidator):
         if spec_err:
             return spec_err
 
+    @abstractmethod
     def _specific_validation(self, val):
-        raise NotImplementedError
+        """
+        Performs specific validation of field. Should be implemented in 
+        subclasses. Use it instead of overriding 'validate'.
+        
+        :param val: field value to validate 
+        :return: error message or None 
+        """
 
     def __type_check(self, val):
         if self._base_types is None:
@@ -317,7 +346,7 @@ class JsonField(FieldBase):
     _base_types = (str,)
 
     def _specific_validation(self, val):
-        # TODO: Need a mechanism to ensure a non-empty JSON if needed.
+        # TODO: Need a mechanism to ensure a non-empty JSON if needed
         try:
             json.loads(val)
         except json.decoder.JSONDecodeError:
