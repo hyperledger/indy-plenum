@@ -399,34 +399,35 @@ class ConsistencyProof(MessageBase):
 # TODO: Catchup is not a good name, replace it with `sync` or something which
 # is familiar
 
-# class CatchupReq(MessageBase):
-#     typename = CATCHUP_REQ
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#         (f.CATCHUP_TILL.nm, NonNegativeNumberField()),
-#     )
-CatchupReq = TaggedTuple(CATCHUP_REQ, [
-    f.LEDGER_ID,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END,
-    f.CATCHUP_TILL
-])
+
+class CatchupReq(MessageBase):
+    typename = CATCHUP_REQ
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.CATCHUP_TILL.nm, NonNegativeNumberField()),
+    )
+# CatchupReq = TaggedTuple(CATCHUP_REQ, [
+#     f.LEDGER_ID,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END,
+#     f.CATCHUP_TILL
+# ])
 
 
-# class CatchupRep(MessageBase):
-#     typename = CATCHUP_REQ
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.TXNS.nm, IterableField(ClientMessageValidator())),
-#         (f.CONS_PROOF.nm, IterableField(HexField(length=64))),
-#     )
-CatchupRep = TaggedTuple(CATCHUP_REP, [
-    f.LEDGER_ID,
-    f.TXNS,
-    f.CONS_PROOF
-])
+class CatchupRep(MessageBase):
+    typename = CATCHUP_REP
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.TXNS.nm, IterableField(ClientMessageValidator())),
+        (f.CONS_PROOF.nm, IterableField(HexField(length=64))),
+    )
+# CatchupRep = TaggedTuple(CATCHUP_REP, [
+#     f.LEDGER_ID,
+#     f.TXNS,
+#     f.CONS_PROOF
+# ])
 
 # class ConsProofRequest(MessageBase):
 #     typename = CONS_PROOF_REQUEST
