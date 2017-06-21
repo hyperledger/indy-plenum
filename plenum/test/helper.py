@@ -355,7 +355,7 @@ def addNodeBack(nodeSet: TestNodeSet,
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     key = identifier, reqId
     assert key in node.requests
-    assert len(node.requests[key].propagates) >= node.f + 1
+    assert node.quorums.propagate.is_reached(len(node.requests[key].propagates))
 
 
 def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,

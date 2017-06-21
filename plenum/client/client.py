@@ -14,6 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from plenum.common.ledger import Ledger
 from plenum.common.stacks import nodeStackClass
+from plenum.server.quorums import Quorums
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
@@ -203,6 +204,7 @@ class Client(Motor,
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
+        self.quorums = Quorums(nodeCount)
 
     @staticmethod
     def exists(name, basedirpath):
@@ -383,7 +385,7 @@ class Client(Motor,
         if not replies:
             raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
-        if self.f + 1 > len(replies):
+        if self.quorums.reply.is_reached(len(replies)):
             return False  # UNCONFIRMED
         else:
             onlyResults = {frm: reply["result"] for frm, reply in
