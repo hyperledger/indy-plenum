@@ -26,7 +26,10 @@ class ReqState:
     @property
     def most_propagated_request_with_senders(self):
         groups = defaultdict(set)
-        for key, value in sorted(self.propagates.items()):
+        # this is workaround because we are getting a propagate from somebody with
+        # non-str (byte) name
+        propagates = filter(lambda x: type(x[0]) == str, self.propagates.items())
+        for key, value in sorted(propagates):
             groups[value].add(key)
         most_common_requests = sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
         return most_common_requests[0] if most_common_requests else (None, set())
@@ -181,7 +184,8 @@ class Propagator:
             return 'already forwarded'
 
         req, senders = self.requests.most_propagated_request_with_senders(request)
-        senders.remove(self.name)
+        if self.name in senders:
+            senders.remove(self.name)
         if req and self.quorums.propagate.is_reached(len(senders)):
             self.requests.set_finalised(req)
             return None
