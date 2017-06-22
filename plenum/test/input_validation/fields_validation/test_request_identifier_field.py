@@ -2,8 +2,9 @@ import pytest
 from plenum.common.messages.fields import RequestIdentifierField
 
 from plenum.test.input_validation.constants import \
-        TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG, \
-        TEST_B58_BY_DECODED_LEN
+        TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG
+
+from plenum.test.input_validation.utils import b58_by_len
 
 validator = RequestIdentifierField()
 
@@ -13,8 +14,9 @@ valid_request_id = (TEST_IDENTIFIER_LONG, 11111)
 
 
 def test_valid_request_id():
-    for decoded_len, val in TEST_B58_BY_DECODED_LEN.items():
-        if decoded_len in (16, 32):
+    for byte_len in range(1, 33):
+        val = b58_by_len(byte_len)
+        if byte_len in (16, 32):
             assert not validator.validate((val, 11111))
         else:
             assert validator.validate(val)

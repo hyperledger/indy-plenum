@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.test.input_validation.constants import \
-        TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED, TEST_VERKEY_FULL, \
-        TEST_B58_BY_DECODED_LEN 
+        TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED, TEST_VERKEY_FULL
+
+from plenum.test.input_validation.utils import b58_by_len
 
 from plenum.common.messages.client_request import ClientNYMOperation, \
     TXN_TYPE, NYM, TARGET_NYM, VERKEY
@@ -30,7 +31,7 @@ def test_short_length_verkeys():
         op_nym.validate({
             TXN_TYPE: NYM,
             TARGET_NYM: TEST_TARGET_NYM,
-            VERKEY: TEST_B58_BY_DECODED_LEN[16]
+            VERKEY: b58_by_len(16)
         })
     ex_info.match(r'b58 decoded value length 16 should be one of \[32\]')
 
@@ -38,7 +39,7 @@ def test_short_length_verkeys():
         op_nym.validate({
             TXN_TYPE: NYM,
             TARGET_NYM: TEST_TARGET_NYM,
-            VERKEY: '~' + TEST_B58_BY_DECODED_LEN[32]
+            VERKEY: '~' + b58_by_len(32)
         })
     ex_info.match(r'b58 decoded value length 32 should be one of \[16\]')
 

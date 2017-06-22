@@ -2,11 +2,6 @@ import base58
 
 VALID_BASE58 = base58.alphabet
 
-TEST_B58_BY_DECODED_LEN = {
-    len(base58.b58decode(VALID_BASE58[:i])): VALID_BASE58[:i] \
-        for i in range(1, len(VALID_BASE58) + 1)
-}
-
 TEST_TARGET_NYM = 'HebGWgHmicPtzr4BTHmSmXkDNL7CngDjYVcxqT5oprMw'
 
 TEST_VERKEY_ABBREVIATED = '~A43KHjJmjwFX71J1b5p61N'
