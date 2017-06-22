@@ -1,27 +1,23 @@
 import pytest
 from plenum.common.messages.fields import RequestIdentifierField
 
+from plenum.test.input_validation.constants import \
+        TEST_IDENTIFIER_SHORT, TEST_IDENTIFIER_LONG, \
+        TEST_B58_BY_DECODED_LEN
+
 validator = RequestIdentifierField()
-
-valid_client_id_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-
-MIN_LENGTH_SHORT = 15
-MAX_LENGTH_SHORT = 25
-MIN_LENGTH_LONG = 43
-MAX_LENGTH_LONG = 45
 
 # Request id consists of client identifier (base56 string 16/32 long) and
 # some number (for now it is current timestamp, but can be any number)
-valid_request_id = (valid_client_id_chars[:MIN_LENGTH_SHORT], 11111)
+valid_request_id = (TEST_IDENTIFIER_LONG, 11111)
 
 
 def test_valid_request_id():
-    all_valid_length = \
-        list(range(MIN_LENGTH_SHORT, MAX_LENGTH_SHORT + 1)) + \
-        list(range(MIN_LENGTH_LONG, MAX_LENGTH_LONG + 1))
-    for length in all_valid_length:
-        assert not validator.validate((valid_client_id_chars[:length], 11111))
-
+    for decoded_len, val in TEST_B58_BY_DECODED_LEN.items():
+        if decoded_len in (16, 32):
+            assert not validator.validate((val, 11111))
+        else:
+            assert validator.validate(val)
 
 def test_invalid_order():
     s, t = valid_request_id

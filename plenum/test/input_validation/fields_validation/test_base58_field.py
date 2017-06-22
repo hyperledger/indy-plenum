@@ -1,32 +1,18 @@
 import pytest
-import string
 import base58
 from plenum.common.messages.fields import Base58Field
 from plenum.common.util import randomString
-from plenum.test.input_validation.utils import *
+
+from plenum.test.input_validation.constants import TEST_B58_BY_DECODED_LEN
 
 
-LENGTH_LONG_MIN = 43
-LENGTH_LONG_MAX = 46
-LENGTH_SHORT_MIN = 15
-LENGTH_SHORT_MAX = 26
-
-valid_base58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyzzzzaaaaa'
-validator = Base58Field(decodedLengthConstraints=(16, 32))
-
-
-def get_chunk(length):
-    chunk = valid_base58[:length]
-    return (chunk, len(base58.b58decode(chunk)))
-
-def test_valid_base58():
-    for i in range(1, len(valid_base58) + 1):
-        (chunk, decoded_len) = get_chunk(i)
-        assert not Base58Field().validate(chunk) # no constraints
+def test_non_empty_base58():
+    for decoded_len, val  in TEST_B58_BY_DECODED_LEN.items():
+        assert not Base58Field().validate(val) # no decoded length constraints
         assert not Base58Field(
-                decodedLengthConstraints=(decoded_len,)).validate(chunk)
+                decodedLengthConstraints=(decoded_len,)).validate(val)
         assert Base58Field(
-                decodedLengthConstraints=(decoded_len - 1,)).validate(chunk)
+                decodedLengthConstraints=(decoded_len - 1,)).validate(val)
 
 def test_empty_string():
     assert not Base58Field().validate('')
@@ -35,15 +21,13 @@ def test_empty_string():
 
 
 def test_multiple_constraints():
-    (chunk1, decoded_len1) = get_chunk(10)
-    (chunk2, decoded_len2) = get_chunk(20)
-    validator = Base58Field(decodedLengthConstraints=(
-        decoded_len1, decoded_len2)
-    )
-    assert not validator.validate(chunk1) 
-    assert not validator.validate(chunk2) 
-    assert validator.validate(get_chunk(30)[0]) 
-
+    choices = (1, 7, 18)
+    validator = Base58Field(decodedLengthConstraints=choices)
+    for decoded_len, val in TEST_B58_BY_DECODED_LEN.items():
+        if decoded_len in choices:
+            assert not validator.validate(val)
+        else:
+            assert validator.validate(val)
 
 def test_invalid_symbol():
-    assert Base58Field().validate(valid_base58[:10] + '0')
+    assert Base58Field().validate(TEST_B58_BY_DECODED_LEN[15][:-1] + '0')

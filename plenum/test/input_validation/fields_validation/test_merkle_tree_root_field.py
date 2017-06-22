@@ -1,26 +1,19 @@
-import pytest
 from plenum.common.messages.fields import MerkleRootField
+from plenum.test.input_validation.constants import TEST_B58_BY_DECODED_LEN
 
-LENGTH_MIN = 43
-LENGTH_MAX = 45
-
-valid_merkle_root = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 validator = MerkleRootField()
 
-
-def test_valid_merkle_root():
-    assert not validator.validate(valid_merkle_root[:LENGTH_MIN])
-    assert not validator.validate(valid_merkle_root[:LENGTH_MAX])
-
+def test_non_empty_merkle_roots():
+    for decoded_len, val in TEST_B58_BY_DECODED_LEN.items():
+        if decoded_len == 32:
+            assert not validator.validate(val)
+        else:
+            assert validator.validate(val)
 
 def test_empty_string():
     assert validator.validate('')
 
-
-def test_wrong_lengths():
-    assert validator.validate(valid_merkle_root[:LENGTH_MIN - 1])
-    assert validator.validate(valid_merkle_root[:LENGTH_MAX + 1])
-
-
 def test_invalid_symbol():
-    assert validator.validate(valid_merkle_root[:LENGTH_MIN - 1] + '0')
+    res = validator.validate(TEST_B58_BY_DECODED_LEN[32][:-1] + '0')
+    assert res
+    assert res == "should not contains the following chars {}".format(set('0'))
