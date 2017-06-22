@@ -258,7 +258,9 @@ class Cli:
 
         if logFileName:
             Logger().enableFileLogging(logFileName)
-        Logger().setupRaet(RAETVerbosity, RAETLogFile)
+
+        # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
+        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
