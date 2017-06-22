@@ -495,6 +495,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def send3PCBatch(self):
         r = 0
         for lid, q in self.requestQueues.items():
+            # TODO: make the condition more apparent
             if len(q) >= self.config.Max3PCBatchSize or (
                                 self.lastBatchCreated +
                                 self.config.Max3PCBatchWait <

@@ -1,4 +1,6 @@
-from collections import OrderedDict, Counter
+from collections import OrderedDict, Counter, defaultdict
+from itertools import groupby
+
 from typing import Dict, Tuple, Union, Optional
 
 from plenum.common.types import Propagate
@@ -22,10 +24,12 @@ class ReqState:
         self.finalised = None
 
     @property
-    def most_propagated_request_with_count(self):
-        requests = self.propagates.values()
-        most_common_requests = Counter(requests).most_common(1)
-        return most_common_requests[0] if most_common_requests else (None, 0)
+    def most_propagated_request_with_senders(self):
+        groups = defaultdict(set)
+        for key, value in sorted(self.propagates.items()):
+            groups[value].add(key)
+        most_common_requests = sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
+        return most_common_requests[0] if most_common_requests else (None, set())
 
     def set_finalised(self, req):
         # TODO: make it much explicitly and simpler
@@ -87,9 +91,9 @@ class Requests(OrderedDict):
             votes = 0
         return votes
 
-    def most_propagated_request_with_count(self, req: Request):
+    def most_propagated_request_with_senders(self, req: Request):
         state = self[req.key]
-        return state.most_propagated_request_with_count
+        return state.most_propagated_request_with_senders
 
     def set_finalised(self, req: Request):
         state = self[req.key]
@@ -176,8 +180,9 @@ class Propagator:
         if self.requests.forwarded(request):
             return 'already forwarded'
 
-        req, count = self.requests.most_propagated_request_with_count(request)
-        if req and self.quorums.propagate.is_reached(count):
+        req, senders = self.requests.most_propagated_request_with_senders(request)
+        senders.remove(self.name)
+        if req and self.quorums.propagate.is_reached(len(senders)):
             self.requests.set_finalised(req)
             return None
         else:
