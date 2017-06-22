@@ -26,8 +26,10 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
                                                                  client1Connected):
     """
     Delay 3PC messages to one node and view change messages to some others
-    (including primary)so the node that does not receive enough 3PC messages is
-    behind but learns of the view change quickly and starts catchup,
+    (including primary) so the node that does not receive enough 3PC messages is
+    behind but learns of the view change quickly and starts catchup.
+    Other nodes learn of the view change late and thus keep on processing
+    requests
     """
     new_node = one_node_added
     nprs = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet, 0)]
@@ -37,7 +39,9 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
     nodes_slow_to_inst_chg = [n for n in txnPoolNodeSet if n != slow_node]
     delay_3pc = 10
     delay_ic = 5
+
     delay_3pc_messages([slow_node], 0, delay_3pc)
+
     for n in nodes_slow_to_inst_chg:
         n.nodeIbStasher.delay(icDelay(delay_ic))
 

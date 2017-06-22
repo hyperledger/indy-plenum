@@ -7,7 +7,6 @@ from plenum.test.pool_transactions.helper import \
     updateNodeData
 from stp_core.common.log import getlogger
 
-# Logger.setLogLevel(logging.WARNING)
 logger = getlogger()
 
 

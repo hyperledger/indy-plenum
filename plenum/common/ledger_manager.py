@@ -933,11 +933,15 @@ class LedgerManager(HasActionQueue):
     def processStashedLedgerStatuses(self, ledgerId: int):
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         i = 0
-        while ledgerInfo.stashedLedgerStatuses:
-            msg, frm = ledgerInfo.stashedLedgerStatuses.pop()
+        max_iter = len(ledgerInfo.stashedLedgerStatuses)
+        logger.debug('{} going to process {} stashed ledger statuses for ledger'
+                     ' {}'.format(self, max_iter, ledgerId))
+        # Since `processLedgerStatus` can stash some ledger statuses, make sure
+        # each item in `ledgerInfo.stashedLedgerStatuses` is processed only once
+        while max_iter != i:
+            msg, frm = ledgerInfo.stashedLedgerStatuses.popleft()
             i += 1
             self.processLedgerStatus(msg, frm)
-        logger.debug("{} processed {} stashed ledger statuses".format(self, i))
         return i
 
     def getStack(self, remoteName: str):
