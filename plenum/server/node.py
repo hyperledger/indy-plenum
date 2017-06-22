@@ -1539,8 +1539,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # can be committed
         logger.debug('{} going to process any ordered requests before starting'
                      ' catchup.'.format(self))
-        self.processStashedOrderedReqs()
         self.force_process_ordered()
+        self.processStashedOrderedReqs()
 
         # make the node Syncing
         self.mode = Mode.syncing
@@ -1846,7 +1846,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for r in self.replicas:
             i = 0
             for msg in r._remove_ordered_from_queue():
-                self.processOrdered(msg)
+                # self.processOrdered(msg)
+                self.try_processing_ordered(msg)
                 i += 1
             logger.debug(
                 '{} processed {} Ordered batches for instance {} before '
