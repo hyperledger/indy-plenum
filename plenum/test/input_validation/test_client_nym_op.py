@@ -10,6 +10,7 @@ from plenum.common.messages.client_request import ClientNYMOperation, \
 
 op_nym = ClientNYMOperation()
 
+
 def test_odd_length_verkey_fails():
     with pytest.raises(TypeError) as ex_info:
         op_nym.validate({
@@ -42,7 +43,6 @@ def test_short_length_verkeys():
             VERKEY: '~' + b58_by_len(32)
         })
     ex_info.match(r'b58 decoded value length 32 should be one of \[16\]')
-
 
 
 def test_long_length_verkey_passes():

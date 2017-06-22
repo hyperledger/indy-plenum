@@ -21,6 +21,7 @@ def test_valid_request_id():
         else:
             assert validator.validate(val)
 
+
 def test_invalid_order():
     s, t = valid_request_id
     assert validator.validate((t, s))
