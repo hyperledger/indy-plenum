@@ -1,12 +1,9 @@
-from collections import OrderedDict
-from collections import deque
-from typing import Dict, Tuple, Union
-import weakref
+from collections import OrderedDict, Counter
+from typing import Dict, Tuple, Union, Optional
 
 from plenum.common.types import Propagate
 from plenum.common.request import Request, ReqKey
 from stp_core.common.log import getlogger
-from plenum.common.util import checkIfMoreThanFSameItems
 
 logger = getlogger()
 
@@ -24,13 +21,18 @@ class ReqState:
         self.propagates = {}
         self.finalised = None
 
-    def isFinalised(self, f):
-        if self.finalised is None:
-            req = checkIfMoreThanFSameItems([v.__getstate__() for v in
-                                             self.propagates.values()], f)
-            if req:
-                self.finalised = Request.fromState(req)
-        return self.finalised
+    @property
+    def most_propagated_request_with_count(self):
+        requests = self.propagates.values()
+        most_common_requests = Counter(requests).most_common(1)
+        return most_common_requests[0] if most_common_requests else (None, 0)
+
+    def set_finalised(self, req):
+        # TODO: make it much explicitly and simpler
+        # !side affect! if `req` is an instance of a child of `Request` class
+        # here we construct the parent from child it is rather implicit that
+        # `finalised` contains not the same type than `propagates` has
+        self.finalised = Request.fromState(req.__getstate__())
 
 
 class Requests(OrderedDict):
@@ -85,19 +87,13 @@ class Requests(OrderedDict):
             votes = 0
         return votes
 
-    def canForward(self, req: Request, requiredVotes: int) -> (bool, str):
-        """
-        Check whether the request specified is eligible to be forwarded to the
-        protocol instances.
-        """
+    def most_propagated_request_with_count(self, req: Request):
         state = self[req.key]
-        if state.forwarded:
-            msg = 'already forwarded'
-        elif not state.isFinalised(requiredVotes):
-            msg = 'not finalised'
-        else:
-            msg = None
-        return not bool(msg), msg
+        return state.most_propagated_request_with_count
+
+    def set_finalised(self, req: Request):
+        state = self[req.key]
+        state.set_finalised(req)
 
     def hasPropagated(self, req: Request, sender: str) -> bool:
         """
@@ -160,7 +156,7 @@ class Propagator:
         return Propagate(request, identifier)
 
     # noinspection PyUnresolvedReferences
-    def canForward(self, request: Request) -> (bool, str):
+    def canForward(self, request: Request):
         """
         Determine whether to forward client REQUESTs to replicas, based on the
         following logic:
@@ -176,8 +172,16 @@ class Propagator:
 
         :param request: the client REQUEST
         """
-        quorum = self.quorums.propagate.value
-        return self.requests.canForward(request, quorum)
+
+        if self.requests.forwarded(request):
+            return 'already forwarded'
+
+        req, count = self.requests.most_propagated_request_with_count(request)
+        if req and self.quorums.propagate.is_reached(count):
+            self.requests.set_finalised(req)
+            return None
+        else:
+            return 'not finalised'
 
     # noinspection PyUnresolvedReferences
     def forward(self, request: Request):
@@ -214,12 +218,12 @@ class Propagator:
         See the method `canForward` for the conditions to check before
         forwarding a request.
         """
-        r, msg = self.canForward(request)
-        if r:
+        cannot_reason_msg = self.canForward(request)
+        if cannot_reason_msg is None:
             # If haven't got the client request(REQUEST) for the corresponding
             # propagate request(PROPAGATE) but have enough propagate requests
             # to move ahead
             self.forward(request)
         else:
             logger.debug("{} not forwarding request {} to its replicas "
-                         "since {}".format(self, request, msg))
+                         "since {}".format(self, request, cannot_reason_msg))

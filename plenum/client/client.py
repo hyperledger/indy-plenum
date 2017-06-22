@@ -386,8 +386,6 @@ class Client(Motor,
             raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
         if self.quorums.reply.is_reached(len(replies)):
-            return False  # UNCONFIRMED
-        else:
             onlyResults = {frm: reply["result"] for frm, reply in
                            replies.items()}
             resultsList = list(onlyResults.values())
@@ -399,6 +397,8 @@ class Client(Motor,
                 logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
+        else:
+            return False  # UNCONFIRMED
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """

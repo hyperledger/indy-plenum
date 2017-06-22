@@ -12,7 +12,7 @@ import string
 import time
 import math
 from binascii import unhexlify, hexlify
-from collections import Counter
+from collections import Counter, defaultdict
 from collections import OrderedDict
 from math import floor
 from os.path import basename
@@ -324,10 +324,10 @@ def runWithLoop(loop, callback, *args, **kwargs):
 
 
 def checkIfMoreThanFSameItems(items, maxF):
-    jsonifiedItems = [json.dumps(item, sort_keys=True) for item in items]
-    counts = {}
-    for jItem in jsonifiedItems:
-        counts[jItem] = counts.get(jItem, 0) + 1
+    jsonified_items = [json.dumps(item, sort_keys=True) for item in items]
+    counts = defaultdict(int)
+    for j_item in jsonified_items:
+        counts[j_item] += 1
     if counts and counts[max(counts, key=counts.get)] > maxF:
         return json.loads(max(counts, key=counts.get))
     else:
