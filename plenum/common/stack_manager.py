@@ -173,13 +173,9 @@ class TxnStackManager:
         else:
             verkey = cryptonymToHex(txn[VERKEY])
 
-        try:
-            # Override any keys found
-            initRemoteKeys(self.name, remoteName, self.basedirpath,
-                                   verkey, override=True)
-        except Exception as ex:
-            logger.error("Exception while initializing keep for remote {}".
-                         format(ex))
+        # Override any keys found
+        initRemoteKeys(self.name, remoteName, self.basedirpath,
+                               verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)

@@ -101,7 +101,8 @@ def testNodePortChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
 
 
 def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
-                                    tconf, steward1, stewardWallet, allPluginsPath):
+                                    tconf, steward1, stewardWallet,
+                                    allPluginsPath):
     newStewardName = "testClientSteward" + randomString(3)
     newNodeName = "Kappa"
 
@@ -113,8 +114,7 @@ def testAddInactiveNodeThenActivate(looper, txnPoolNodeSet, tdirWithPoolTxns,
         addNewStewardAndNode(looper,
                              steward1, stewardWallet,
                              newStewardName, newNodeName,
-                             tdirWithPoolTxns, tconf,
-                             allPluginsPath,
+                             tdirWithPoolTxns, tconf, allPluginsPath,
                              transformNodeOpFunc=del_services)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 

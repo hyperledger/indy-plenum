@@ -48,7 +48,8 @@ def elections_done(case_6_setup, looper, keySharedNodes):
 
     looper.run(eventually(chk, retryWait=1, timeout=15))
     checkProtocolInstanceSetup(looper=looper, nodes=nodeSet, retryWait=1)
-    
+
+    # Make sure no Nominations or Primary are received by A from B
     for i in inst_ids:
         assert B.replicas[i].name not in A.elector.nominations[i]
         assert B.replicas[i].name not in A.elector.primaryDeclarations[i]

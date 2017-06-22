@@ -216,6 +216,7 @@ def suspendNode(looper, stewardClient, stewardWallet, nodeNym, nodeName):
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
 
+
 def cancelNodeSuspension(looper, stewardClient, stewardWallet, nodeNym,
                          nodeName):
     op = {
