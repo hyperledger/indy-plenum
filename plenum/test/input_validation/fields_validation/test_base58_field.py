@@ -10,19 +10,19 @@ def test_non_empty_base58():
     for decoded_len, val  in TEST_B58_BY_DECODED_LEN.items():
         assert not Base58Field().validate(val) # no decoded length constraints
         assert not Base58Field(
-                decodedLengthConstraints=(decoded_len,)).validate(val)
+                byte_lengths=(decoded_len,)).validate(val)
         assert Base58Field(
-                decodedLengthConstraints=(decoded_len - 1,)).validate(val)
+                byte_lengths=(decoded_len - 1,)).validate(val)
 
 def test_empty_string():
     assert not Base58Field().validate('')
     assert Base58Field(
-            decodedLengthConstraints=(len(randomString()),)).validate('')
+            byte_lengths=(len(randomString()),)).validate('')
 
 
 def test_multiple_constraints():
     choices = (1, 7, 18)
-    validator = Base58Field(decodedLengthConstraints=choices)
+    validator = Base58Field(byte_lengths=choices)
     for decoded_len, val in TEST_B58_BY_DECODED_LEN.items():
         if decoded_len in choices:
             assert not validator.validate(val)

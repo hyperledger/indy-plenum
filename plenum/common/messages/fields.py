@@ -174,21 +174,21 @@ class LedgerIdField(ChooseField):
 class Base58Field(FieldBase):
     _base_types = (str,)
 
-    def __init__(self, decodedLengthConstraints=None, *args, **kwargs):
+    def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._alphabet = set(base58.alphabet)
-        self.decodedLengthConstraints = decodedLengthConstraints
+        self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
         if set(val) - self._alphabet:
             return 'should not contains the following chars {}' \
                 .format(set(val) - self._alphabet)
-        if self.decodedLengthConstraints is not None:
+        if self.byte_lengths is not None:
             # TODO could impact performace, need to check 
             b58len = len(base58.b58decode(val))
-            if b58len not in self.decodedLengthConstraints:
+            if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
-                    .format(b58len, list(self.decodedLengthConstraints))
+                    .format(b58len, list(self.byte_lengths))
 
 
 class IdentifierField(Base58Field):
@@ -198,7 +198,7 @@ class IdentifierField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(decodedLengthConstraints=(16, 32), *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class DestNodeField(Base58Field):
@@ -208,7 +208,7 @@ class DestNodeField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(decodedLengthConstraints=(16, 32), *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class DestNymField(Base58Field):
@@ -218,7 +218,7 @@ class DestNymField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(decodedLengthConstraints=(16, 32), *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class RequestIdentifierField(FieldBase):
@@ -254,8 +254,8 @@ class TieAmongField(FieldBase):
 # TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
-    _b58short = Base58Field(decodedLengthConstraints=(16,))
-    _b58long = Base58Field(decodedLengthConstraints=(32,) )
+    _b58short = Base58Field(byte_lengths=(16,))
+    _b58long = Base58Field(byte_lengths=(32,) )
 
     def _specific_validation(self, val):
         vk_error = NonEmptyStringField().validate(val)
@@ -288,7 +288,7 @@ class MerkleRootField(Base58Field):
     _base_types = (str, )
 
     def __init__(self, *args, **kwargs):
-        super().__init__(decodedLengthConstraints=(32,), *args, **kwargs)
+        super().__init__(byte_lengths=(32,), *args, **kwargs)
 
 
 class TimestampField(FieldBase):
