@@ -11,7 +11,6 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
-from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField
 from plenum.common.messages.message_base import MessageBase, MessageValidator
 from stp_core.types import HA
 
@@ -135,9 +134,18 @@ class Nomination(MessageBase):
 #     f.ORD_SEQ_NO])
 
 
-Batch = TaggedTuple(BATCH, [
-    f.MSGS,
-    f.SIG])
+class Batch(MessageBase):
+    typename = BATCH
+
+    schema = (
+        (f.MSGS.nm, IterableField(SerializedValueField())),
+        (f.SIG.nm, SignatureField()),
+    )
+
+
+# Batch = TaggedTuple(BATCH, [
+#     f.MSGS,
+#     f.SIG])
 
 # Reelection messages that nodes send when they find the 2 or more nodes have
 # equal nominations for primary. `round` indicates the reelection round
@@ -300,21 +308,33 @@ class Commit(MessageBase):
 #     f.PP_SEQ_NO
 #     ])
 
-# class Checkpoint(MessageBase):
-#     typename = CHECKPOINT
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.VIEW_NO.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#         (f.DIGEST.nm, NonEmptyStringField()),
-#     )
-Checkpoint = TaggedTuple(CHECKPOINT, [
-    f.INST_ID,
-    f.VIEW_NO,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END,
-    f.DIGEST])
+
+class Checkpoint(MessageBase):
+    typename = CHECKPOINT
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+    )
+# Checkpoint = TaggedTuple(CHECKPOINT, [
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END,
+#     f.DIGEST])
+
+
+class ThreePCState(MessageBase):
+    typename = THREE_PC_STATE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.MSGS.nm, IterableField(ClientMessageValidator())),
+    )
+# ThreePCState = TaggedTuple(THREE_PC_STATE, [
+#     f.INST_ID,
+#     f.MSGS])
 
 
 CheckpointState = NamedTuple(CHECKPOINT_STATE, [
@@ -326,16 +346,6 @@ CheckpointState = NamedTuple(CHECKPOINT_STATE, [
     f.IS_STABLE
     ])
 
-
-# class ThreePCState(MessageBase):
-#     typename = THREE_PC_STATE
-#     schema = (
-#         (f.INST_ID.nm, NonNegativeNumberField()),
-#         (f.MSGS.nm, IterableField(ClientMessageValidator())),
-#     )
-ThreePCState = TaggedTuple(THREE_PC_STATE, [
-    f.INST_ID,
-    f.MSGS])
 
 Reply = TaggedTuple(REPLY, [f.RESULT])
 
