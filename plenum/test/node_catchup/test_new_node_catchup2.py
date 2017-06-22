@@ -5,6 +5,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.util import updateNamedTuple
+from plenum.test import waits
 from plenum.test.delayers import cqDelay, cr_delay
 from plenum.test.test_node import ensureElectionsDone
 from stp_zmq.zstack import KITZStack
@@ -45,7 +46,10 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(new_node)
     old_nodes = txnPoolNodeSet[:-1]
-    ensureElectionsDone(looper, txnPoolNodeSet)
+    timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + \
+        catchup_delay + \
+        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     new_node_replica_names = {r.instId: r.name for r in new_node.replicas}
 
