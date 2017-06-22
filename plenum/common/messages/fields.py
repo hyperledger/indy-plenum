@@ -181,8 +181,8 @@ class Base58Field(FieldBase):
 
     def _specific_validation(self, val):
         if set(val) - self._alphabet:
-            return 'should not contains chars other than {}' \
-                .format(self._alphabet)
+            return 'should not contains the following chars {}' \
+                .format(set(val) - self._alphabet)
         if self.decodedLengthConstraints is not None:
             # TODO could impact performace, need to check 
             b58len = len(base58.b58decode(val))
