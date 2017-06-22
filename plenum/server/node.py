@@ -1840,9 +1840,18 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return r
 
     def force_process_ordered(self):
-        # Take any messages from replica that have been ordered and process
-        # them, this should be done rarely, like before catchup starts
-        # so a more current LedgerStatus can be sent.
+        """
+        Take any messages from replica that have been ordered and process
+        them, this should be done rarely, like before catchup starts
+        so a more current LedgerStatus can be sent.
+        can be called either
+        1. when node is participating, this happens just before catchup starts
+        so the node can have the latest ledger status or
+        2. when node is not participating but a round of catchup is about to be
+        started, here is forces all the replica ordered messages to be appended
+        to the stashed ordered requests and the stashed ordered requests are
+        processed with appropriate checks
+        """
         for r in self.replicas:
             i = 0
             for msg in r._remove_ordered_from_queue():
