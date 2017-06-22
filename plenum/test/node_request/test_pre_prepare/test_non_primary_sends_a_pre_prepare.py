@@ -42,7 +42,7 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
     remainingNpr = nonPrimaryReplicas[1:]
 
     def sendPrePrepareFromNonPrimary():
-        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1)
+        firstNpr.requestQueues[DOMAIN_LEDGER_ID].add(propagated1.key)
         ppReq = firstNpr.create3PCBatch(DOMAIN_LEDGER_ID)
         firstNpr.sendPrePrepare(ppReq)
         return ppReq
