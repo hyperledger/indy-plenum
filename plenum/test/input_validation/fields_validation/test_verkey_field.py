@@ -23,4 +23,4 @@ def test_non_empty_verkeys():
 
 def test_empty_verkey():
     res = validator.validate('')
-    assert res == "empty string"
+    assert res == 'b58 decoded value length 0 should be one of [32]'

@@ -16,4 +16,5 @@ def test_identifiers():
 def test_invalid_char():
     res = validator.validate(TEST_B58_BY_DECODED_LEN[16][:-1] + '+')
     assert res
-    assert res == "should not contains the following chars {}".format(set('+'))
+    assert res == "should not contains the following chars {}". \
+            format(sorted(set('+')))

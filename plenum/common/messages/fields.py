@@ -180,9 +180,13 @@ class Base58Field(FieldBase):
         self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
-        if set(val) - self._alphabet:
-            return 'should not contains the following chars {}' \
-                .format(set(val) - self._alphabet)
+        invalid_chars = set(val) - self._alphabet
+        if invalid_chars:
+            # only 10 chars to shorten the output
+            to_print = sorted(invalid_chars)[:10]
+            return 'should not contains the following chars {}{}' \
+                .format(to_print,
+                        ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
             # TODO could impact performace, need to check 
             b58len = len(base58.b58decode(val))
@@ -254,18 +258,15 @@ class TieAmongField(FieldBase):
 # TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
-    _b58short = Base58Field(byte_lengths=(16,))
-    _b58long = Base58Field(byte_lengths=(32,) )
+    _b58abbreviated = Base58Field(byte_lengths=(16,))
+    _b58full = Base58Field(byte_lengths=(32,) )
 
     def _specific_validation(self, val):
-        vk_error = NonEmptyStringField().validate(val)
-        if vk_error:
-            return vk_error
         if val.startswith('~'):
-            #short base58
-            return self._b58short.validate(val[1:])
-        #long base58
-        return self._b58long.validate(val)
+            #abbreviated base58
+            return self._b58abbreviated.validate(val[1:])
+        #full base58
+        return self._b58full.validate(val)
 
 
 class HexField(FieldBase):

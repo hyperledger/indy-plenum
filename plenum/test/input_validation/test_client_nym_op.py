@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.input_validation.constants import \
-        TEST_TARGET_NYM, TEST_VERKEY_SHORT, TEST_VERKEY_LONG, \
+        TEST_TARGET_NYM, TEST_VERKEY_ABBREVIATED, TEST_VERKEY_FULL, \
         TEST_B58_BY_DECODED_LEN 
 
 from plenum.common.messages.client_request import ClientNYMOperation, \
@@ -23,7 +23,7 @@ def test_short_length_verkeys():
     assert not op_nym.validate({
         TXN_TYPE: NYM,
         TARGET_NYM: TEST_TARGET_NYM,
-        VERKEY: TEST_VERKEY_SHORT
+        VERKEY: TEST_VERKEY_ABBREVIATED
     })
 
     with pytest.raises(TypeError) as ex_info:
@@ -48,5 +48,5 @@ def test_long_length_verkey_passes():
     assert not op_nym.validate({
         TXN_TYPE: NYM,
         TARGET_NYM: TEST_TARGET_NYM,
-        VERKEY: TEST_VERKEY_LONG
+        VERKEY: TEST_VERKEY_FULL
     })

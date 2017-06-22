@@ -29,5 +29,19 @@ def test_multiple_constraints():
         else:
             assert validator.validate(val)
 
-def test_invalid_symbol():
-    assert Base58Field().validate(TEST_B58_BY_DECODED_LEN[15][:-1] + '0')
+
+def test_invalid_symbols():
+    INVALID_CHARS = '0!@#$%^'
+    res = Base58Field().validate(TEST_B58_BY_DECODED_LEN[10][slice(0,
+        len(INVALID_CHARS))] + INVALID_CHARS)
+    assert res
+    assert res == 'should not contains the following chars {}' \
+            .format(sorted(set(INVALID_CHARS))[:10])
+
+def test_invalid_symbols_truncated_output():
+    INVALID_CHARS = '\x00\xAA0!@#$%^&*()'
+    res = Base58Field().validate(TEST_B58_BY_DECODED_LEN[20][slice(0,
+        len(INVALID_CHARS))] + INVALID_CHARS)
+    assert res
+    assert res == 'should not contains the following chars {} (truncated)' \
+            .format(sorted(set(INVALID_CHARS))[:10])
