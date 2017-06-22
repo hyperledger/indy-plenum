@@ -383,6 +383,14 @@ class Replica(HasActionQueue, MessageProcessor):
             self._stateChanged()
 
     def primaryChanged(self, primaryName):
+        self.batches.clear()
+        if self.isMaster:
+            # Since there is no temporary state data structure and state root
+            # is explicitly set to correct value
+            for lif in self.ledger_ids:
+                ledger = self.node.getLedger(lif)
+                ledger.reset_uncommitted()
+
         self.primaryName = primaryName
         self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()

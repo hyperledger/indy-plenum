@@ -1651,10 +1651,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          'participating'.format(self))
             self.start_participating()
 
-    def getLedger(self, ledgerId):
+    def getLedger(self, ledgerId) -> Ledger:
         return self.ledgerManager.getLedgerInfoByType(ledgerId).ledger
 
-    def getState(self, ledgerId):
+    def getState(self, ledgerId) -> PruningState:
         return self.states.get(ledgerId)
 
     def post_txn_from_catchup_added_to_domain_ledger(self, txn):

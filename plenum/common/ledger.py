@@ -111,6 +111,11 @@ class Ledger(_Ledger):
             tempTree.append(self.serializeLeaf(txn))
         return tempTree
 
+    def reset_uncommitted(self):
+        self.uncommittedTxns = []
+        self.uncommittedRootHash = None
+        self.uncommittedTree = None
+
     @staticmethod
     def hashToStr(h):
         return base58.b58encode(h)
