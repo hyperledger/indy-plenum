@@ -114,6 +114,9 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return False
 
+        self._startSelection()
+
+    def _verify_view_change(self):
         # TODO: Result of `has_acceptable_view_change_quorum` should be cached
         if not self.has_acceptable_view_change_quorum:
             return False
@@ -122,10 +125,11 @@ class PrimarySelector(PrimaryDecider):
         if rv is None:
             return False
 
-        if self._verify_primary(*rv):
-            self._startSelection()
-        else:
-            logger.debug('{} found failure in primary verification'.format(self))
+        if not self._verify_primary(*rv):
+            return False
+
+        return True
+
 
     def _verify_primary(self, new_primary, ledger_info):
         """
@@ -207,6 +211,11 @@ class PrimarySelector(PrimaryDecider):
             return None
 
     def _startSelection(self):
+        if not self._verify_view_change():
+            logger.debug('{} cannot start primary selection found failure in primary verification. '
+                         'This can happen due to lack of appropriate ViewChangeDone messages'.format(self))
+            return
+
         if not self.node.is_synced:
             logger.info('{} cannot start primary selection since mode is {}'
                         .format(self, self.node.mode))

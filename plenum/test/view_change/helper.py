@@ -53,7 +53,7 @@ def simulate_slow_master(looper, nodeSet, wallet, client):
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
 
 
-def ensure_view_change(looper, nodes, exclude_from_check=None):
+def ensure_view_change(looper, nodes, exclude_from_check=None, custom_timeout=None):
     """
     This method patches the master performance check to return False and thus
     ensures that all given nodes do a view change
@@ -76,7 +76,7 @@ def ensure_view_change(looper, nodes, exclude_from_check=None):
         node.monitor.isMasterDegraded = types.MethodType(slow_master, node.monitor)
 
     perf_check_freq = next(iter(nodes)).config.PerfCheckFreq
-    timeout = waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
+    timeout = custom_timeout or waits.expectedPoolViewChangeStartedTimeout(len(nodes)) + \
               perf_check_freq
     nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
                                                                if n not in exclude_from_check]
@@ -154,13 +154,16 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
         looper.runFor(wait)
 
     ensure_view_change(looper, nodes)
-    ensureElectionsDone(looper=looper, nodes=nodes)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes, custom_timeout=30)
+    ensureElectionsDone(looper=looper, nodes=nodes, customTimeout=60)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     reset_delays_and_process_delayeds(slow_nodes)
+    # TODO: remove the lines below
+    looper.runFor(10)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
-
-    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 2)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5, total_timeout=30)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 5, total_timeout=30)
 
 
 def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, client,

@@ -993,8 +993,9 @@ class Replica(HasActionQueue, MessageProcessor):
             # If this PRE-PREPARE is not valid then state and ledger should be
             # reverted
             oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-            logger.debug('{} state root before processing {} is {}'.
-                         format(self, pp, oldStateRoot))
+            oldTxnRoot = self.txnRootHash(pp.ledgerId)
+            logger.debug('{} state root before processing {} is {}, {}'.
+                         format(self, pp, oldStateRoot, oldTxnRoot))
 
         for reqKey in pp.reqIdr:
             req = self.requests[reqKey].finalised
