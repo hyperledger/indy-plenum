@@ -74,7 +74,8 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
         lst_3pc = check_last_ordered_3pc(n1, n2)
 
     def chk1():
-        # `slow_node` has prepared all 3PC messages which `other_nodes` have ordered
+        # `slow_node` has prepared all 3PC messages which
+        # `other_nodes` have ordered
         assert slow_master_replica.last_prepared_before_view_change == lst_3pc
 
     looper.run(eventually(chk1, retryWait=1))
@@ -82,7 +83,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     old_pc_count = slow_master_replica.spylog.count(
         slow_master_replica.can_process_since_view_change_in_progress)
 
-    # Repoar the network so COMMITs are delayed and processed
+    # Repair the network so COMMITs are delayed and processed
     slow_node.resetDelays()
     slow_node.force_process_delayeds()
 

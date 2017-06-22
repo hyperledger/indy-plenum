@@ -271,9 +271,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
 
-        # Tracks 3PC messages for the last prepared
-        self.prepared_before_catchup = SortedDict(lambda k: (k[0], k[1]))
-
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
             return None
@@ -407,7 +404,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         assert self.isMaster
         self.last_prepared_before_view_change = None
-        self.prepared_before_catchup.clear()
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """

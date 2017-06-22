@@ -3,7 +3,8 @@ import pytest
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataUnequality
-from plenum.test.delayers import delay_3pc_messages, cr_delay
+from plenum.test.delayers import delay_3pc_messages, cr_delay, ppDelay, pDelay, \
+    cDelay
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup, TestReplica
@@ -43,11 +44,13 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     """
 
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
-    delay = 2*tconf.PerfCheckFreq
+    delay = tconf.PerfCheckFreq
 
     # Bad network introduced
+    slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
+    slow_node.nodeIbStasher.delay(pDelay(2*delay, 0))
+    slow_node.nodeIbStasher.delay(cDelay(3*delay, 0))
     for i in range(2):
-        delay_3pc_messages([slow_node], 0, delay=(i+1)*delay)
         sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
         waitNodeDataUnequality(looper, slow_node, *fast_nodes)
 
@@ -57,7 +60,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                            for n in txnPoolNodeSet}
 
     def slow_node_processed_some():
-        assert slow_node.replicas[0].batches
+        assert slow_node.master_replica.batches
 
     # The slow node has received some PRE-PREPAREs
     looper.run(eventually(slow_node_processed_some, retryWait=1, timeout=delay))
@@ -68,6 +71,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     assert not rv or max(rv) == 0
 
     # Delay reception of catchup replies so ViewChangeDone can be received
+    # before catchup completes
     delay_catchup_reply = 2
     slow_node.nodeIbStasher.delay(cr_delay(delay_catchup_reply))
 

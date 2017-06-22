@@ -1079,12 +1079,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     Checkpoint)):
                     self.send(msg)
                 elif isinstance(msg, Ordered):
-                    if self.isParticipating:
-                        self.processOrdered(msg)
-                    else:
-                        logger.debug("{} stashing {} since mode is {}".
-                                     format(self, msg, self.mode))
-                        self.stashedOrderedReqs.append(msg)
+                    self.try_processing_ordered(msg)
                 elif isinstance(msg, Reject):
                     reqKey = (msg.identifier, msg.reqId)
                     reject = Reject(*reqKey,
@@ -1539,6 +1534,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pass
 
     def preLedgerCatchUp(self, ledger_id):
+        # Process any Ordered requests. This causes less transactions to be
+        # requested during catchup. Also commits any uncommitted state that
+        # can be committed
+        logger.debug('{} going to process any ordered requests before starting'
+                     ' catchup.'.format(self))
+        self.processStashedOrderedReqs()
+        self.force_process_ordered()
+
         # make the node Syncing
         self.mode = Mode.syncing
 
@@ -1838,7 +1841,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def force_process_ordered(self):
         # Take any messages from replica that have been ordered and process
-        # them, this should be done rarely, like before catchup
+        # them, this should be done rarely, like before catchup starts
+        # so a more current LedgerStatus can be sent.
         for r in self.replicas:
             i = 0
             for msg in r._remove_ordered_from_queue():
@@ -1847,6 +1851,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug(
                 '{} processed {} Ordered batches for instance {} before '
                 'starting catch up'.format(self, i, r.instId))
+
+    def try_processing_ordered(self, msg):
+        if self.isParticipating:
+            self.processOrdered(msg)
+        else:
+            logger.debug("{} stashing {} since mode is {}".
+                         format(self, msg, self.mode))
+            self.stashedOrderedReqs.append(msg)
 
     def processEscalatedException(self, ex):
         """
@@ -2471,17 +2483,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} sending message {} to {} recipients: {}"
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
-
-    # def send_by_names(self, msg: Any, *node_names, signer: Signer = None):
-    #     rids = []
-    #     for node_name in node_names:
-    #         try:
-    #             remote = self.nodestack.getRemote(node_name)
-    #             rids.append(remote.uid)
-    #         except RemoteNotFound:
-    #             continue
-    #
-    #     self.send(msg, *rids, signer=signer)
 
     def sendToNodes(self, msg: Any, names: Iterable[str]):
         # TODO: This method exists in `Client` too, refactor to avoid duplication

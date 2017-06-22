@@ -751,13 +751,10 @@ class LedgerManager(HasActionQueue):
         p = ConsistencyProof(*proof)
         ledgerInfo.catchUpTill = p
 
-        # rids = [self.nodestack.getRemote(nm).uid for nm in
-        #         self.nodestack.conns]
         eligible_nodes = self.nodes_to_request_txns_from
         if eligible_nodes:
             reqs = self.getCatchupReqs(p)
             for (req, to) in zip(reqs, eligible_nodes):
-                # self.send(*req)
                 self.sendTo(req, to)
             if reqs:
                 ledgerInfo.catchupReplyTimer = time.perf_counter()
@@ -813,6 +810,9 @@ class LedgerManager(HasActionQueue):
             logger.debug('{} did not find any connected to nodes to send '
                          'CatchupReq'.format(self))
             return
+        # TODO: Consider setting start to `max(ledger.size, consProof.start)`
+        # since ordered requests might have been executed after receiving
+        # sufficient ConsProof in `preCatchupClbk`
         start = getattr(consProof, f.SEQ_NO_START.nm)
         end = getattr(consProof, f.SEQ_NO_END.nm)
         batchLength = math.ceil((end-start)/nodeCount)
@@ -955,21 +955,12 @@ class LedgerManager(HasActionQueue):
         # If the message is being sent by a node
         if self.ownedByNode:
             if stack == self.nodestack:
-                # rid = self.nodestack.getRemote(to).uid
-                # self.send(msg, rid)
-                # self.owner.send_by_names(msg, to)
                 self.sendToNodes(msg, [to,])
             if stack == self.clientstack:
                 self.owner.transmitToClient(msg, to)
         # If the message is being sent by a client
         else:
             self.sendToNodes(msg, [to,])
-            # try:
-            #     rid = self.nodestack.getRemote(to).uid
-            #     signer = self.owner.fetchSigner(self.owner.defaultIdentifier)
-            #     self.nodestack.send(msg, rid, signer=signer)
-            # except RemoteNotFound:
-            #     pass
 
     @property
     def nodestack(self):
