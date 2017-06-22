@@ -156,6 +156,7 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         total_timeout=total_timeout)
     return requests
 
+
 def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
                                         wallet: Wallet,
                                         client: TestClient,
