@@ -45,25 +45,29 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     # does not get enough similar consistency proofs
     sentSizes = set()
 
-    def sendDLStatus(self, name):
+    origMethod = newNode.build_ledger_status
+    def build_broken_ledger_status(self, ledger_id):
+        if ledger_id != DOMAIN_LEDGER_ID:
+            return origMethod(ledger_id)
         size = self.primaryStorage.size
         newSize = randint(1, size)
+        if len(sentSizes) == size:
+            sentSizes.clear()
         while newSize in sentSizes:
             newSize = randint(1, size)
         print("new size {}".format(newSize))
         newRootHash = Ledger.hashToStr(
             self.domainLedger.tree.merkle_tree_hash(0, newSize))
-        three_pc_key = self.three_phase_key_for_txn_seq_no(DOMAIN_LEDGER_ID,
+        three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
                                                            newSize)
         v, p = three_pc_key if three_pc_key else None, None
-        ledgerStatus = LedgerStatus(1, newSize, v, p, newRootHash)
-
-        print("dl status {}".format(ledgerStatus))
-        rid = self.nodestack.getRemote(name).uid
-        self.send(ledgerStatus, rid)
         sentSizes.add(newSize)
+        ledgerStatus =  LedgerStatus(1, newSize, v, p, newRootHash)
+        print("dl status {}".format(ledgerStatus))
+        return ledgerStatus
 
-    newNode.sendDomainLedgerStatus = types.MethodType(sendDLStatus, newNode)
+
+    newNode.build_ledger_status = types.MethodType(build_broken_ledger_status, newNode)
     logger.debug(
         'Domain Ledger status sender of {} patched'.format(newNode))
 
@@ -80,4 +84,4 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     # Other nodes should have received a `ConsProofRequest` and processed it.
     for node in txnPoolNodeSet[:-1]:
         assert node.ledgerManager.spylog.count(
-            TestLedgerManager.processConsistencyProofReq.__name__) > 0
+            TestLedgerManager.processConsistencyProofReq.__name__) > 0, node
