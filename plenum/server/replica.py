@@ -387,8 +387,11 @@ class Replica(HasActionQueue, MessageProcessor):
         if self.isMaster:
             # Since there is no temporary state data structure and state root
             # is explicitly set to correct value
-            for lif in self.ledger_ids:
-                ledger = self.node.getLedger(lif)
+            for lid in self.ledger_ids:
+                try:
+                    ledger = self.node.getLedger(lid)
+                except KeyError:
+                    continue
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
