@@ -433,6 +433,12 @@ class TestNodeSet(ExitStack):
         return sorted(self.nodes.keys())
 
     @property
+    def nodes_by_rank(self):
+        return [t[1] for t in sorted([(node.rank, node)
+                                      for node in self.nodes.values()],
+                                     key=operator.itemgetter(0))]
+
+    @property
     def f(self):
         return getMaxFailures(len(self.nodes))
 

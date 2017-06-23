@@ -21,12 +21,13 @@ whitelist = ['InvalidSignature']
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
+    # A = startedNodes.Alpha
+    # B = startedNodes.Beta
+    A, B = startedNodes.nodes_by_rank[-2:]
     for node in A, B:
         makeNodeFaulty(node, changesRequest,
                        partial(delaysPrePrepareProcessing, delay=90))
-        node.delaySelfNomination(10)
+        # node.delaySelfNomination(10)
     return adict(faulties=(A, B))
 
 
