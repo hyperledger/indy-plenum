@@ -420,9 +420,11 @@ class CatchupRep(MessageBase):
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.TXNS.nm, IterableField(ClientMessageValidator())),
-        (f.CONS_PROOF.nm, IterableField(HexField(length=64))),
+        (f.TXNS.nm, MapField(key_field=AnyValueField(),
+                             value_field=AnyValueField())),
+        (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
+
 # CatchupRep = TaggedTuple(CATCHUP_REP, [
 #     f.LEDGER_ID,
 #     f.TXNS,
