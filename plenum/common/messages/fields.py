@@ -5,7 +5,6 @@ import base58
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
 
-
 class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
@@ -141,7 +140,8 @@ class IterableField(FieldBase):
 class MapField(FieldBase):
     _base_types = (dict, )
 
-    def __init__(self, key_field: FieldBase, value_field: FieldBase,
+    def __init__(self, key_field: FieldValidator,
+                 value_field: FieldValidator,
                  **kwargs):
         super().__init__(**kwargs)
         self._key_field = key_field
@@ -362,6 +362,9 @@ class SerializedValueField(FieldBase):
 
 
 class AnyValueField(FieldBase):
+    """
+    Stub field validator
+    """
     _base_types = None
 
     def _specific_validation(self, val):
@@ -384,4 +387,3 @@ class StringifiedNonNegativeNumberField(NonNegativeNumberField):
         except ValueError:
             return "stringified int expected, but was '{}'"\
                 .format(val)
-
