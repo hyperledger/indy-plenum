@@ -596,8 +596,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # tracked to revert this PRE-PREPARE
         logger.debug('{} tracking batch for {} with state root {}'.
                      format(self, pp, prevStateRootHash))
-        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.discarded, pp.ppTime,
-                                                 prevStateRootHash]
+        self.batches[(pp.viewNo, pp.ppSeqNo)] = [pp.ledgerId, pp.discarded,
+                                                 pp.ppTime, prevStateRootHash]
 
     def send3PCBatch(self):
         r = 0
@@ -1778,11 +1778,11 @@ class Replica(HasActionQueue, MessageProcessor):
             self.stats.inc(stat)
         self.outBox.append(msg)
 
-    def revert_unordered_batches(self, ledger_id):
+    def revert_unordered_batches(self):
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
-                count, _, prevStateRoot = self.batches.pop(key)
+                ledger_id, count, _, prevStateRoot = self.batches.pop(key)
                 self.revert(ledger_id, prevStateRoot, count)
                 i += 1
             else:

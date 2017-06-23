@@ -1,14 +1,11 @@
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
-
 from plenum.test.pool_transactions.helper import add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
-def ensure_pool_functional(looper, nodes, wallet, client):
+def ensure_pool_functional(looper, nodes, wallet, client, num_reqs=10,
+                           num_batches=2):
     send_reqs_batches_and_get_suff_replies(looper, wallet, client, 10, 2)
     ensure_all_nodes_have_same_data(looper, nodes)
 

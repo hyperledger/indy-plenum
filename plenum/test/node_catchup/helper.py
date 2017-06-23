@@ -104,6 +104,7 @@ def ensureClientConnectedToNodesAndPoolLedgerSame(looper,
     looper.run(eventually(checkClientPoolLedgerSameAsNodes,
                           client,
                           *nodes,
+                          retryWait=.5,
                           timeout=timeout))
 
 

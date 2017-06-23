@@ -1546,8 +1546,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.mode = Mode.syncing
 
         # revert uncommitted txns and state for unordered requests
-        r = self.master_replica.revert_unordered_batches(ledger_id)
-        logger.debug('{} reverted {} batches before starting catch up'.format(self, r))
+        r = self.master_replica.revert_unordered_batches()
+        logger.debug('{} reverted {} batches before starting catch up for '
+                     'ledger {}'.format(self, r, ledger_id))
 
     def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
         rh = self.postRecvTxnFromCatchup(ledgerId, txn)
