@@ -17,7 +17,7 @@ whitelist = ['but majority declared']
 class FakeLedger():
     def __init__(self, ledger_id, size):
         self._size = size
-        self.root_hash = (base58.alphabet[ledger_id] * 43)
+        self.root_hash = base58.b58encode(str(ledger_id).encode() * 32)
         self.hasher = None
 
     def __len__(self):
@@ -169,8 +169,8 @@ def test_send_view_change_done_message():
 
     ledgerInfo = [
         #  ledger id, ledger length, merkle root
-        (0, 10, (base58.alphabet[0] * 43)),
-        (1, 5, (base58.alphabet[1] * 43)),
+        (0, 10, '4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'),
+        (1, 5, '4K2V1kpVycZ6qSFsNdz2FtpNxnJs17eBNzf9rdCMcKoe'),
     ]
     messages = [
         ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo)
