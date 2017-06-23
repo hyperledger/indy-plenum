@@ -8,6 +8,8 @@ from plenum.test.node_request.node_request_helper import chk_commits_prepares_re
 from plenum.test.test_node import ensureElectionsDone
 from stp_core.common.log import getlogger
 
+# Do not remove the next import
+from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 txnCount = 5
@@ -37,19 +39,17 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
         nodeCreatedAfterSomeTxns
     txnPoolNodeSet.append(new_node)
     old_nodes = txnPoolNodeSet[:-1]
-    timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + \
-        catchup_delay + \
-        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
-
     chk_commits_prepares_recvd(0, old_nodes, new_node)
 
     for node in old_nodes:
         node.reset_delays_and_process_delayeds()
 
+    timeout = waits.expectedPoolCatchupTime(len(txnPoolNodeSet)) + \
+        catchup_delay + \
+        waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
     waitNodeDataEquality(looper, new_node, *old_nodes)
-    ensureElectionsDone(looper, txnPoolNodeSet)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 2)
 
