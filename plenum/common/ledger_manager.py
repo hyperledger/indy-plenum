@@ -399,12 +399,11 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
-        # TODO: This is very inefficient for long ledgers if the ledger does not use `ChunkedFileStore`
         txns = ledger.getAllTxn(start, end)
         for seq_no in txns:
             txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
-        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
-                                   consProof), to=frm)
+        message = CatchupRep(getattr(req, f.LEDGER_ID.nm), txns, consProof)
+        self.sendTo(msg=message, to=frm)
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.debug("{} received catchup reply from {}: {}".
@@ -524,8 +523,9 @@ class LedgerManager(HasActionQueue):
         # Add only those transaction in the temporary tree from the above
         # batch
 
-        # Transfers of odcits in RAET converts integer keys to string
-        txns = [self._transform(txn) for s, txn in catchUpReplies[:len(txns)]
+        # Integer keys being converted to strings when marshaled to JSON
+        txns = [self._transform(txn)
+                for s, txn in catchUpReplies[:len(txns)]
                 if str(s) in txns]
 
         # Creating a temporary tree which will be used to verify consistency
