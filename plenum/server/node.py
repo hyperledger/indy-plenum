@@ -2021,7 +2021,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
-    def primary_found(self):
+    def primary_selected(self, instance_id):
         # If the node has primary replica of master instance
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant

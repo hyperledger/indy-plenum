@@ -6,10 +6,9 @@ import pytest
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
 from plenum.common.types import ViewChangeDone
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
-from plenum.common.util import get_strong_quorum
 from plenum.common.ledger_manager import LedgerManager
-from plenum.common.ledger_manager import Ledger
 
 
 whitelist = ['but majority declared']
@@ -48,6 +47,7 @@ class FakeNode():
         ledger1 = FakeLedger(1, 5)
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
+        self.quorums = Quorums(self.totalNodes)
 
     def get_name_by_rank(self, name):
         # This is used only for getting name of next primary, so
@@ -119,7 +119,7 @@ def testProcessViewChangeDone():
                          ledgerInfo=ledgerInfo)
     node = FakeNode()
     selector = PrimarySelector(node)
-    quorum = get_strong_quorum(node.totalNodes)
+    quorum = selector.quorum
     for i in range(quorum):
         selector._processViewChangeDoneMessage(msg, 'Node2')
     assert selector._view_change_done

@@ -354,4 +354,4 @@ def chk_commits_prepares_recvd(count, receivers, sender):
             for prepare in replica.prepares.values():
                 counts[replica.instId] += int(nm in prepare.voters)
     for c in counts.values():
-        assert count == c
+        assert count == c, "expected {}, but have {}".format(count, c)

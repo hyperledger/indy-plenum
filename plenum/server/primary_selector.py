@@ -5,7 +5,7 @@ from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.replica import Replica
-from plenum.common.util import mostCommonElement, get_strong_quorum
+from plenum.common.util import mostCommonElement
 
 logger = getlogger()
 
@@ -25,6 +25,10 @@ class PrimarySelector(PrimaryDecider):
         # Set when an appropriate view change quorum is found which has
         # sufficient same ViewChangeDone messages
         self.primary_verified = False
+
+    @property
+    def quorum(self) -> int:
+        return self.node.quorums.view_change_done.value
 
     @property
     def routes(self) -> Iterable[Route]:
@@ -155,8 +159,7 @@ class PrimarySelector(PrimaryDecider):
         of them is the next primary
         """
         num_of_ready_nodes = len(self._view_change_done)
-        quorum = get_strong_quorum(f=self.f)
-        diff = quorum - num_of_ready_nodes
+        diff = self.quorum - num_of_ready_nodes
         if diff > 0:
             logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
             return False
@@ -164,7 +167,7 @@ class PrimarySelector(PrimaryDecider):
         logger.info("{} got view change quorum ({} >= {})"
                      .format(self.name,
                              num_of_ready_nodes,
-                             quorum))
+                             self.quorum))
         return True
 
     @property
@@ -192,7 +195,7 @@ class PrimarySelector(PrimaryDecider):
         votes = self._view_change_done.values()
         votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
         new_primary, ledger_info = mostCommonElement(votes)
-        if votes.count((new_primary, ledger_info)) >= get_strong_quorum(self.f):
+        if votes.count((new_primary, ledger_info)) >= self.quorum:
             logger.debug('{} found acceptable primary {} and ledger info {}'.
                          format(self, new_primary, ledger_info))
             return new_primary, ledger_info

@@ -127,10 +127,6 @@ class PrimaryElector(PrimaryDecider):
         return instId in self.primaryDeclarations and \
             self.replicas[instId].name in self.primaryDeclarations[instId]
 
-    @property
-    def quorum(self) -> int:
-        return self.node.quorums.election.value
-
     # overridden method of PrimaryDecider
     def decidePrimaries(self):
         self.scheduleElection()
