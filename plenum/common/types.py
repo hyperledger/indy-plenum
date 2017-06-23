@@ -375,8 +375,8 @@ class ViewChangeDone(MessageBase):
     schema = (
         # name is nullable because this message can be sent when
         # there were no view changes and instance has no primary yet
-        (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
     )
 

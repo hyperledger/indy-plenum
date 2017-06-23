@@ -6,8 +6,8 @@ from plenum.common.messages.fields import NonNegativeNumberField, \
 from plenum.common.types import ViewChangeDone
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
-    ("name", NonEmptyStringField),
     ("viewNo", NonNegativeNumberField),
+    ("name", NonEmptyStringField),
     ("ledgerInfo", IterableField)
 ])
 

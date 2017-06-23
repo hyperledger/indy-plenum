@@ -20,11 +20,23 @@ class PrimarySelector(PrimaryDecider):
     def __init__(self, node):
         super().__init__(node)
         self.previous_master_primary = None
-        self._view_change_done = {}  # replica name -> data
         self._ledger_manager = self.node.ledgerManager
+
+        self.set_defaults()
+
+    def set_defaults(self):
+        # Tracks view change done message
+        self._view_change_done = {}  # replica name -> data
+
         # Set when an appropriate view change quorum is found which has
         # sufficient same ViewChangeDone messages
         self.primary_verified = False
+
+        self._has_view_change_from_primary = False
+
+        self._has_acceptable_view_change_quorum = False
+
+        self._accepted_view_change_done_message = None
 
     @property
     def quorum(self) -> int:
@@ -36,16 +48,25 @@ class PrimarySelector(PrimaryDecider):
 
     # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
+        # Should not return a list, only done for compatibility with interface
         """
-        Returns the last `ViewChangeDone` message sent for specific instance.
+        Returns the last accepted `ViewChangeDone` message.
         If no view change has happened returns ViewChangeDone
         with view no 0 to a newly joined node 
         """
+        # TODO: Consider a case where more than one node joins immediately,
+        # then one of the node might not have an accepted
+        # ViewChangeDone message
         messages = []
-        if self.name in self._view_change_done:
-            new_primary_replica_name, ledger_info = self._view_change_done[self.name]
-            messages.append(ViewChangeDone(new_primary_replica_name,
-                                           self.viewNo, ledger_info))
+        accpeted = self._accepted_view_change_done_message
+        if accpeted:
+            messages.append(ViewChangeDone(self.viewNo, *accpeted))
+        elif self.name in self._view_change_done:
+                messages.append(ViewChangeDone(self.viewNo,
+                                               *self._view_change_done[self.name]))
+        else:
+            logger.debug('{} has no ViewChangeDone message to send for view {}'.
+                         format(self, self.viewNo))
         return messages
 
     # overridden method of PrimaryDecider
@@ -112,7 +133,6 @@ class PrimarySelector(PrimaryDecider):
         self._startSelection()
 
     def _verify_view_change(self):
-        # TODO: Result of `has_acceptable_view_change_quorum` should be cached
         if not self.has_acceptable_view_change_quorum:
             return False
 
@@ -172,41 +192,52 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def has_view_change_from_primary(self) -> bool:
-        next_primary_name = self.next_primary_node_name(0)
+        if not self._has_view_change_from_primary:
+            next_primary_name = self.next_primary_node_name(0)
 
-        if next_primary_name not in self._view_change_done:
-            logger.debug("{} has not received ViewChangeDone from the next "
-                         "primary {}".
-                         format(self.name, next_primary_name))
-            return False
+            if next_primary_name not in self._view_change_done:
+                logger.debug("{} has not received ViewChangeDone from the next "
+                             "primary {}".
+                             format(self.name, next_primary_name))
+                return False
+            else:
+                self._has_view_change_from_primary = True
 
         logger.debug('{} received ViewChangeDone from primary {}'
-                     .format(self, next_primary_name))
+                     .format(self, self.next_primary_node_name(0)))
         return True
 
     @property
     def has_acceptable_view_change_quorum(self):
-        return self._hasViewChangeQuorum and self.has_view_change_from_primary
+        if not self._has_acceptable_view_change_quorum:
+            self._has_acceptable_view_change_quorum = \
+                self._hasViewChangeQuorum and self.has_view_change_from_primary
+        return self._has_acceptable_view_change_quorum
 
     @property
     def has_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
         # Returns whether has a quorum of ViewChangeDone messages that are same
         # TODO: Does not look like optimal implementation.
-        votes = self._view_change_done.values()
-        votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
-        new_primary, ledger_info = mostCommonElement(votes)
-        if votes.count((new_primary, ledger_info)) >= self.quorum:
-            logger.debug('{} found acceptable primary {} and ledger info {}'.
-                         format(self, new_primary, ledger_info))
-            return new_primary, ledger_info
-        else:
-            logger.debug('{} does not have acceptable primary'.format(self))
-            return None
+        if self._accepted_view_change_done_message is None and \
+                self._view_change_done:
+            votes = self._view_change_done.values()
+            votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
+            new_primary, ledger_info = mostCommonElement(votes)
+            if votes.count((new_primary, ledger_info)) >= self.quorum:
+                logger.debug('{} found acceptable primary {} and ledger info {}'.
+                             format(self, new_primary, ledger_info))
+                self._accepted_view_change_done_message = (new_primary,
+                                                           ledger_info)
+            else:
+                logger.debug('{} does not have acceptable primary'.format(self))
+
+        return self._accepted_view_change_done_message
 
     def _startSelection(self):
         if not self._verify_view_change():
-            logger.debug('{} cannot start primary selection found failure in primary verification. '
-                         'This can happen due to lack of appropriate ViewChangeDone messages'.format(self))
+            logger.debug('{} cannot start primary selection found failure in '
+                         'primary verification. This can happen due to lack '
+                         'of appropriate ViewChangeDone messages'.format(self))
             return
 
         if not self.node.is_synced:
@@ -279,8 +310,8 @@ class PrimarySelector(PrimaryDecider):
         """
         new_primary_name = self.next_primary_node_name(0)
         ledger_info = self.ledger_info
-        message = ViewChangeDone(new_primary_name,
-                                 self.viewNo,
+        message = ViewChangeDone(self.viewNo,
+                                 new_primary_name,
                                  ledger_info)
         self.send(message)
         self._track_view_change_done(self.name,
@@ -291,8 +322,7 @@ class PrimarySelector(PrimaryDecider):
         :param viewNo: the new view number.
         """
         if super().view_change_started(viewNo):
-            self._view_change_done = {}
-            self.primary_verified = False
+            self.set_defaults()
 
     # overridden method of PrimaryDecider
     def start_election_for_instance(self, instance_id):

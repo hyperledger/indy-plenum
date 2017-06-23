@@ -114,8 +114,8 @@ def testProcessViewChangeDone():
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
-    msg = ViewChangeDone(name='Node2',
-                         viewNo=0,
+    msg = ViewChangeDone(viewNo=0,
+                         name='Node2',
                          ledgerInfo=ledgerInfo)
     node = FakeNode()
     selector = PrimarySelector(node)
@@ -146,8 +146,8 @@ def test_get_msgs_for_lagged_nodes():
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3'),
     )
     messages = [
-        (ViewChangeDone(name='Node2', viewNo=0, ledgerInfo=ledgerInfo), 'Node1'),
-        (ViewChangeDone(name='Node3', viewNo=0, ledgerInfo=ledgerInfo), 'Node2')
+        (ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo), 'Node1'),
+        (ViewChangeDone(viewNo=0, name='Node3', ledgerInfo=ledgerInfo), 'Node2')
     ]
     node = FakeNode()
     selector = PrimarySelector(node)
@@ -173,7 +173,7 @@ def test_send_view_change_done_message():
         (1, 5, (base58.alphabet[1] * 43)),
     ]
     messages = [
-        ViewChangeDone(name='Node2', viewNo=0, ledgerInfo=ledgerInfo)
+        ViewChangeDone(viewNo=0, name='Node2', ledgerInfo=ledgerInfo)
     ]
 
     assert len(selector.outBox) == 1
