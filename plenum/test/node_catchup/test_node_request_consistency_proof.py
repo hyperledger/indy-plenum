@@ -43,26 +43,23 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     txnPoolNodeSet.append(newNode)
     # The new node sends different ledger statuses to every node so it
     # does not get enough similar consistency proofs
-    sentSizes = set()
-
+    next_size = 0
     origMethod = newNode.build_ledger_status
     def build_broken_ledger_status(self, ledger_id):
+        nonlocal next_size
         if ledger_id != DOMAIN_LEDGER_ID:
             return origMethod(ledger_id)
+
         size = self.primaryStorage.size
-        newSize = randint(1, size)
-        if len(sentSizes) == size:
-            sentSizes.clear()
-        while newSize in sentSizes:
-            newSize = randint(1, size)
-        print("new size {}".format(newSize))
+        next_size = next_size + 1 if next_size < size else 1
+        print("new size {}".format(next_size))
+
         newRootHash = Ledger.hashToStr(
-            self.domainLedger.tree.merkle_tree_hash(0, newSize))
+            self.domainLedger.tree.merkle_tree_hash(0, next_size))
         three_pc_key = self.three_phase_key_for_txn_seq_no(ledger_id,
-                                                           newSize)
+                                                           next_size)
         v, p = three_pc_key if three_pc_key else None, None
-        sentSizes.add(newSize)
-        ledgerStatus =  LedgerStatus(1, newSize, v, p, newRootHash)
+        ledgerStatus =  LedgerStatus(1, next_size, v, p, newRootHash)
         print("dl status {}".format(ledgerStatus))
         return ledgerStatus
 
