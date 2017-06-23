@@ -74,6 +74,7 @@ from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
     RegistryPoolManager
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.propagator import Propagator
+from plenum.server.quorums import Quorums
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.view_change.view_change_msg_filter import ViewChangeMessageFilter
@@ -417,6 +418,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        self.quorums = Quorums(self.totalNodes)
 
     @property
     def poolLedger(self):
@@ -779,7 +781,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         - Set status to one of started, started_hungry or starting depending on
             the number of protocol instances.
         - Check protocol instances. See `checkInstances()`
-        
+
         """
         if self.isGoing():
             if self.connectedNodeCount == self.totalNodes:
@@ -841,7 +843,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _ask_for_ledger_status(self, node_name: str, ledger_id):
         """
-        Ask other node for LedgerStatus 
+        Ask other node for LedgerStatus
         """
         req = ReqLedgerStatus(ledger_id)
         self.sendToNodes(req, [node_name,])
@@ -2019,14 +2021,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return (2 * self.f) + 1
-
-    def primary_selected(self, instance_id):
+    def primary_found(self):
         # If the node has primary replica of master instance
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
@@ -2045,7 +2040,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         number and its view is less than or equal to the proposed view
         """
         msg = None
-        if not self.instanceChanges.hasQuorum(proposedViewNo, self.f):
+        quorum = self.quorums.view_change.value
+        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.viewNo:
             msg = '{} is in higher view more than {}'.format(self, proposedViewNo)

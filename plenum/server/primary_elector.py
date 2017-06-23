@@ -6,7 +6,7 @@ from functools import partial
 from typing import Sequence, Any, Union, List, Iterable
 
 from plenum.common.types import Nomination, Reelection, Primary, f
-from plenum.common.util import mostCommonElement, get_strong_quorum
+from plenum.common.util import mostCommonElement
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -129,10 +129,7 @@ class PrimaryElector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return get_strong_quorum(f=self.f)
+        return self.node.quorums.election.value
 
     # overridden method of PrimaryDecider
     def decidePrimaries(self):

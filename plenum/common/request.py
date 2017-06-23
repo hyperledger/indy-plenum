@@ -74,6 +74,9 @@ class Request:
         force = self.operation.get(FORCE)
         return str(force) == 'True'
 
+    def __hash__(self):
+        return hash(self.serialized())
+
 
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,
                                        f.REQ_ID,
