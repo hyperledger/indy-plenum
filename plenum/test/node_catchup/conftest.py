@@ -1,5 +1,6 @@
 import pytest
 
+from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
@@ -67,6 +68,17 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
     check_last_3pc_master(newNode, txnPoolNodeSet[:4])
+
+    # Check if catchup done once
+    catchup_done_once = True
     for li in newNode.ledgerManager.ledgerRegistry.values():
-        assert li.num_txns_caught_up > 0
+        catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
+
+    if not catchup_done_once:
+        # It might be the case that node has to do catchup again, in that case
+        # check the return value of `num_txns_caught_up_in_last_catchup` to be
+        # greater than 0
+
+        assert max(getAllReturnVals(newNode,
+                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
     return newNode

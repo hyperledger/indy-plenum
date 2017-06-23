@@ -1227,7 +1227,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self.enqueueCommit(commit, sender)
             return False
 
-        # TODO: Fix problem that can occur with malicious prepate
+        # TODO: Fix problem that can occur with a primary and non-primary(s)
+        # colluding and the honest nodes being slow
         if (key not in self.prepares and key not in self.sentPrePrepares) and \
                         key not in self.preparesWaitingForPrePrepare:
             logger.debug("{} rejecting COMMIT{} due to lack of prepares".
