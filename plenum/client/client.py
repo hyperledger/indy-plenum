@@ -14,6 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from plenum.common.ledger import Ledger
 from plenum.common.stacks import nodeStackClass
+from plenum.server.quorums import Quorums
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
@@ -203,6 +204,7 @@ class Client(Motor,
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
+        self.quorums = Quorums(nodeCount)
 
     @staticmethod
     def exists(name, basedirpath):
@@ -383,9 +385,7 @@ class Client(Motor,
         if not replies:
             raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
-        if self.f + 1 > len(replies):
-            return False  # UNCONFIRMED
-        else:
+        if self.quorums.reply.is_reached(len(replies)):
             onlyResults = {frm: reply["result"] for frm, reply in
                            replies.items()}
             resultsList = list(onlyResults.values())
@@ -397,6 +397,8 @@ class Client(Motor,
                 logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
+        else:
+            return False  # UNCONFIRMED
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
