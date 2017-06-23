@@ -1,3 +1,5 @@
+import pytest
+
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_3pc_messages, icDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
@@ -17,6 +19,7 @@ Max3PCBatchSize = 3
 TestRunningTimeLimitSec = 150
 
 
+@pytest.mark.skip('Test incorrect')
 def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
                                                                  looper,
                                                                  txnPoolNodeSet,

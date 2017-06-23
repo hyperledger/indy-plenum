@@ -24,8 +24,8 @@ def test_view_change_in_between_3pc_2_of_4_nodes_with_non_primary(
                                client)
 
 
-def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary(txnPoolNodeSet, looper,
-                                                 wallet1, client):
+def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary(
+        txnPoolNodeSet, looper, wallet1, client):
     """
     - Slow processing 3PC messages for 2 of 4 node (2>f)
     - Slow the current Primary node and the last non-primary node (it will not

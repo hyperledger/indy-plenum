@@ -79,16 +79,32 @@ def sendAddNewNode(newNodeName, stewardClient, stewardWallet,
 def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
                allPluginsPath=None, autoStart=True, nodeClass=TestNode,
                transformOpFunc=None):
+    nodeClass = nodeClass or TestNode
     req, nodeIp, nodePort, clientIp, clientPort, sigseed \
-        = sendAddNewNode(newNodeName, stewardClient, stewardWallet, transformOpFunc)
+        = sendAddNewNode(newNodeName, stewardClient, stewardWallet,
+                         transformOpFunc)
     waitForSufficientRepliesForRequests(looper, stewardClient,
                                         requests=[req], fVal=1)
 
-    initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
-    node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
-                     ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
-                     pluginPaths=allPluginsPath)
-    if autoStart:
+    # initNodeKeysForBothStacks(newNodeName, tdir, sigseed, override=True)
+    # node = nodeClass(newNodeName, basedirpath=tdir, config=tconf,
+    #                  ha=(nodeIp, nodePort), cliha=(clientIp, clientPort),
+    #                  pluginPaths=allPluginsPath)
+    # if autoStart:
+    #     looper.add(node)
+    # return node
+    return start_newly_added_node(looper, newNodeName, tdir, sigseed,
+                                  (nodeIp, nodePort), (clientIp, clientPort),
+                                  tconf, autoStart, allPluginsPath, nodeClass)
+
+
+def start_newly_added_node(looper, node_name, tdir, sigseed, node_ha, client_ha,
+                           conf, auto_start, plugin_path, nodeClass):
+    initNodeKeysForBothStacks(node_name, tdir, sigseed, override=True)
+    node = nodeClass(node_name, basedirpath=tdir, config=conf,
+                     ha=node_ha, cliha=client_ha,
+                     pluginPaths=plugin_path)
+    if auto_start:
         looper.add(node)
     return node
 
@@ -96,6 +112,7 @@ def addNewNode(looper, stewardClient, stewardWallet, newNodeName, tdir, tconf,
 def addNewSteward(looper, tdir,
                   creatorClient, creatorWallet, stewardName,
                   clientClass=TestClient):
+    clientClass = clientClass or TestClient
     newStewardWallet = addNewClient(STEWARD, looper, creatorClient,
                                     creatorWallet, stewardName)
     newSteward = clientClass(name=stewardName,
@@ -296,9 +313,11 @@ def reconnect_node_and_ensure_connected(looper, poolNodes,
 
 
 def add_2_nodes(looper, existing_nodes, steward, steward_wallet,
-                tdir_with_pool_txns, conf, all_plugins_path):
+                tdir_with_pool_txns, conf, all_plugins_path, names=None):
+    assert names is None or (isinstance(names, list) and len(names) == 2)
+    names = names or ("Zeta", "Eta")
     new_nodes = []
-    for node_name in ("Zeta", "Eta"):
+    for node_name in names:
         new_steward_name = "testClientSteward"+randomString(3)
         new_steward, new_steward_wallet, new_node = addNewStewardAndNode(looper,
                                                                          steward,

@@ -1,12 +1,13 @@
 import pytest
-from plenum.test.delayers import reset_delays_and_process_delayeds, icDelay, delayNonPrimaries, vcd_delay
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, waitForViewChange
+from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
+from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node, \
     ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 
 nodeCount = 7
+
 
 def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
     """
