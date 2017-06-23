@@ -296,7 +296,6 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
-# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58short = Base58Field(short=True)
