@@ -816,11 +816,14 @@ def get_master_primary_node(nodes):
         return nodeByName(nodes, nm)
     raise AssertionError('No primary found for master')
 
+
 def get_last_master_non_primary_node(nodes):
     return getNonPrimaryReplicas(nodes)[-1].node
 
+
 def get_first_master_non_primary_node(nodes):
     return getNonPrimaryReplicas(nodes)[0].node
+
 
 def primaryNodeNameForInstance(nodes, instanceId):
     primaryNames = {node.replicas[instanceId].primaryName for node in nodes}

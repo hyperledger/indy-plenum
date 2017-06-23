@@ -382,19 +382,29 @@ class LedgerManager(HasActionQueue):
         if end < start:
             self.discard(req, reason="Invalid range", logMethod=logger.warning)
             return
-        if start > ledger.size:
+
+        ledger_size = ledger.size
+
+        if start > ledger_size:
             self.discard(req, reason="{} not able to service since "
-                                     "ledger size is {}"
-                         .format(self, ledger.size),
+                                     "ledger size is {} and start is {}"
+                         .format(self, ledger_size, start),
+                         logMethod=logger.debug)
+            return
+
+        if req.catchupTill > ledger_size:
+            self.discard(req, reason="{} not able to service since "
+                                     "ledger size is {} and catchupTill is {}"
+                         .format(self, ledger_size, req.catchupTill),
                          logMethod=logger.debug)
             return
 
         # Adjusting for end greater than ledger size
-        if end > ledger.size:
+        if end > ledger_size:
             logger.debug("{} does not have transactions till {} "
                          "so sending only till {}"
-                         .format(self, end, ledger.size))
-            end = ledger.size
+                         .format(self, end, ledger_size))
+            end = ledger_size
 
         logger.debug("node {} requested catchup for {} from {} to {}"
                      .format(frm, end - start+1, start, end))

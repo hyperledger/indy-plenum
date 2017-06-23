@@ -93,15 +93,6 @@ class PrimarySelector(PrimaryDecider):
                          logMethod=logger.warning)
             return False
 
-        # if not self._track_view_change_done(sender,
-        #                                     new_primary_name,
-        #                                     ledger_info):
-        #     self.discard(msg,
-        #                  "already marked {} as done view change".
-        #                  format(sender),
-        #                  logger.warning)
-        #     return False
-
         # Since a node can send ViewChangeDone more than one time
         self._track_view_change_done(sender,
                                      new_primary_name,
@@ -129,7 +120,6 @@ class PrimarySelector(PrimaryDecider):
             return False
 
         return True
-
 
     def _verify_primary(self, new_primary, ledger_info):
         """

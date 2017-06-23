@@ -1227,8 +1227,9 @@ class Replica(HasActionQueue, MessageProcessor):
             self.enqueueCommit(commit, sender)
             return False
 
-        if (key not in self.prepares and
-                key not in self.preparesWaitingForPrePrepare):
+        # TODO: Fix problem that can occur with malicious prepate
+        if (key not in self.prepares and key not in self.sentPrePrepares) and \
+                        key not in self.preparesWaitingForPrePrepare:
             logger.debug("{} rejecting COMMIT{} due to lack of prepares".
                          format(self, key))
             # raise SuspiciousNode(sender, Suspicions.UNKNOWN_CM_SENT, commit)

@@ -1,6 +1,6 @@
 from plenum.test.delayers import delay_3pc_messages
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    countDiscarded, send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import countDiscarded, \
+    send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.node_request_helper import \
     chk_commits_prepares_recvd

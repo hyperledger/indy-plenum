@@ -160,8 +160,8 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
 
     reset_delays_and_process_delayeds(slow_nodes)
     # TODO: remove the lines below
-    looper.runFor(10)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    # looper.runFor(10)
+    # ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5, total_timeout=30)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 5, total_timeout=30)
@@ -181,7 +181,7 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
 
     reset_delays_and_process_delayeds(slow_nodes)
     # TODO: remove the lines below
-    looper.runFor(10)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    # looper.runFor(10)
+    # ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
