@@ -66,3 +66,14 @@ class ClientOperationField(MessageValidator):
             # check only if the schema is defined
             op = self.operations[schema_type]
             op.validate(dct)
+
+
+class CatchupOperationField(ClientOperationField):
+
+    def validate(self, dct):
+        fields = ["signature", "identifier", "reqId"]
+        for field in fields:
+            if field not in dct and field != "signature":
+                self._raise_missed_fields(field)
+            dct.pop(field)
+        return super().validate(dct)

@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
-from plenum.common.messages.client_request import ClientOperationField
+from plenum.common.messages.client_request import ClientOperationField, CatchupOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase, MessageValidator
 from stp_core.types import HA
@@ -114,7 +114,7 @@ class ClientMessageValidator(MessageValidator):
         (f.REQ_ID.nm, NonNegativeNumberField()),
         (OPERATION, ClientOperationField()),
         (f.SIG.nm, SignatureField(optional=True)),
-        (f.DIGEST.nm, NonEmptyStringField(optional=True)),
+        # (f.DIGEST.nm, NonEmptyStringField(optional=True)),
     )
 
 
@@ -417,11 +417,15 @@ class CatchupReq(MessageBase):
 
 
 class CatchupRep(MessageBase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
-                             value_field=AnyValueField())),
+                             value_field=CatchupOperationField())),
         (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
 
