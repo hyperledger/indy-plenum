@@ -16,7 +16,7 @@ from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
 Max3PCBatchSize = 3
-TestRunningTimeLimitSec = 150
+TestRunningTimeLimitSec = 200
 
 
 @pytest.mark.skip('Test incorrect')
@@ -40,8 +40,11 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
     slow_node = nprs[-1]
     # nodes_slow_to_inst_chg = [primary_node] + nprs[:2]
     nodes_slow_to_inst_chg = [n for n in txnPoolNodeSet if n != slow_node]
-    delay_3pc = 10
+    delay_3pc = 100
     delay_ic = 5
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
+                                        2 * Max3PCBatchSize)
 
     delay_3pc_messages([slow_node], 0, delay_3pc)
 
@@ -60,12 +63,15 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(tconf,
 
     waitForSufficientRepliesForRequests(looper, client1,
                                         requests=requests)
+    waitNodeDataEquality(looper, slow_node, *txnPoolNodeSet[:-1])
+
     e = start_count()
     assert e - s >= 2
+
     looper.run(eventually(checkViewNoForNodes, slow_node.viewNo))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         2 * Max3PCBatchSize)
 
-    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, new_node, *nodes_slow_to_inst_chg)

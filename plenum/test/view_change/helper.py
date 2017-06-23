@@ -80,6 +80,7 @@ def ensure_view_change(looper, nodes, exclude_from_check=None, custom_timeout=No
               perf_check_freq
     nodes_to_check = nodes if exclude_from_check is None else [n for n in nodes
                                                                if n not in exclude_from_check]
+    logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
     looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no+1,
                           retryWait=1, timeout=timeout))
     for node in nodes:
