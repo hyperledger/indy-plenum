@@ -75,6 +75,13 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
                "".format(types_str, type(val).__name__)
 
 
+class BooleanField(FieldBase):
+    _base_types = (bool,)
+
+    def _specific_validation(self, val):
+        return
+
+
 class NonEmptyStringField(FieldBase):
     _base_types = (str,)
 
@@ -284,7 +291,6 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
-# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58abbreviated = Base58Field(byte_lengths=(16,))

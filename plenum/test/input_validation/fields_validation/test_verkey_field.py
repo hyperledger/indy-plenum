@@ -1,4 +1,5 @@
 import pytest
+
 import base58
 from plenum.common.messages.fields import VerkeyField
 
