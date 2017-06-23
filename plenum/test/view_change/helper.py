@@ -179,5 +179,8 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
     ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     reset_delays_and_process_delayeds(slow_nodes)
+    # TODO: remove the lines below
+    looper.runFor(10)
+    ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
