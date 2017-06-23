@@ -361,3 +361,27 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class AnyValueField(FieldBase):
+    _base_types = None
+
+    def _specific_validation(self, val):
+        pass
+
+
+class StringifiedNonNegativeNumberField(NonNegativeNumberField):
+    """
+    This validator is needed because of json limitations: in some cases 
+    numbers being converted to strings.
+    """
+    # TODO: Probably this should be solved another way
+
+    _base_types = (str, int)
+    _num_validator = NonNegativeNumberField()
+
+    def _specific_validation(self, val):
+        try:
+            return self._num_validator.validate(int(val))
+        except ValueError:
+            return "stringified int expected, but was '{}'"\
+                .format(val)
+

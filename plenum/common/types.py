@@ -420,7 +420,7 @@ class CatchupRep(MessageBase):
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.TXNS.nm, MapField(key_field=AnyValueField(),
+        (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
                              value_field=AnyValueField())),
         (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
