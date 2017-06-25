@@ -429,42 +429,41 @@ class LedgerManager(HasActionQueue):
         txnsNum = len(txns) if txns else 0
         logger.debug("{} found {} transactions in the catchup from {}"
                      .format(self, txnsNum, frm))
-        if not txns:
-            return
-
         ledgerId = getattr(rep, f.LEDGER_ID.nm)
         ledger_info = self.getLedgerInfoByType(ledgerId)
-
         ledger = ledger_info.ledger
 
-        if frm not in ledger_info.recvdCatchupRepliesFrm:
-            ledger_info.recvdCatchupRepliesFrm[frm] = []
+        if txns:
+            if frm not in ledger_info.recvdCatchupRepliesFrm:
+                ledger_info.recvdCatchupRepliesFrm[frm] = []
 
-        ledger_info.recvdCatchupRepliesFrm[frm].append(rep)
+            ledger_info.recvdCatchupRepliesFrm[frm].append(rep)
 
-        catchUpReplies = ledger_info.receivedCatchUpReplies
-        # Creating a list of txns sorted on the basis of sequence
-        # numbers
-        logger.debug("{} merging all received catchups".format(self))
-        catchUpReplies = list(heapq.merge(catchUpReplies, txns,
-                                          key=operator.itemgetter(0)))
-        logger.debug(
-            "{} merged catchups, there are {} of them now, from {} to {}"
-            .format(self, len(catchUpReplies), catchUpReplies[0][0],
-                    catchUpReplies[-1][0]))
+            catchUpReplies = ledger_info.receivedCatchUpReplies
+            # Creating a list of txns sorted on the basis of sequence
+            # numbers
+            logger.debug("{} merging all received catchups".format(self))
+            catchUpReplies = list(heapq.merge(catchUpReplies, txns,
+                                              key=operator.itemgetter(0)))
+            logger.debug(
+                "{} merged catchups, there are {} of them now, from {} to {}"
+                .format(self, len(catchUpReplies), catchUpReplies[0][0],
+                        catchUpReplies[-1][0]))
 
-        numProcessed = self._processCatchupReplies(ledgerId, ledger,
-                                                   catchUpReplies)
-        logger.debug(
-            "{} processed {} catchup replies with sequence numbers {}"
-                .format(self, numProcessed, [seqNo for seqNo, _ in
-                                             catchUpReplies[
-                                             :numProcessed]]))
+            numProcessed = self._processCatchupReplies(ledgerId, ledger,
+                                                       catchUpReplies)
+            logger.debug(
+                "{} processed {} catchup replies with sequence numbers {}"
+                    .format(self, numProcessed, [seqNo for seqNo, _ in
+                                                 catchUpReplies[
+                                                 :numProcessed]]))
 
-        ledger_info.receivedCatchUpReplies = catchUpReplies[numProcessed:]
-        if getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm) == ledger.size:
-            cp = ledger_info.catchUpTill
-            self.catchupCompleted(ledgerId, (cp.viewNo, cp.ppSeqNo))
+            ledger_info.receivedCatchUpReplies = catchUpReplies[numProcessed:]
+
+        # This check needs to happen anyway since it might be the case that
+        # just before sending requests for catchup, it might have processed
+        # some ordered requests which might have removed the need for catchup
+        self.mark_catchup_completed_if_possible(ledger_info)
 
     def _processCatchupReplies(self, ledgerId, ledger: Ledger,
                                catchUpReplies: List):
@@ -581,6 +580,21 @@ class LedgerManager(HasActionQueue):
                 # Transfers of odcits in RAET converts integer keys to string
                 if str(seqNo) in txns:
                     return k, rep
+
+    def mark_catchup_completed_if_possible(self, ledger_info: LedgerInfo):
+        """
+        Checks if the ledger is caught up to the the sequence number
+        specified in the ConsistencyProof, if yes then mark the catchup as
+        done for this ledger.
+        :param ledger_info:
+        :return: True if catchup is done, false otherwise
+        """
+        cp = ledger_info.catchUpTill
+        assert cp
+        if getattr(cp, f.SEQ_NO_END.nm) <= ledger_info.ledger.size:
+            self.catchupCompleted(ledger_info.id, (cp.viewNo, cp.ppSeqNo))
+            return True
+        return False
 
     def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
         logger.debug("{} received consistency proof request: {} from {}".
@@ -741,18 +755,19 @@ class LedgerManager(HasActionQueue):
             self.preCatchupClbk(ledger_id)
 
     def startCatchUpProcess(self, ledgerId: int, proof: ConsistencyProof):
-        self.do_pre_catchup(ledgerId)
-        logger.debug("{} started catching up with consistency proof {}".
-                     format(self, proof))
         if ledgerId not in self.ledgerRegistry:
             self.discard(proof, reason="Unknown ledger type {}".
                          format(ledgerId))
             return
 
+        self.do_pre_catchup(ledgerId)
+        logger.debug("{} started catching up with consistency proof {}".
+                     format(self, proof))
+
         if proof is None:
             self.catchupCompleted(ledgerId)
             return
-        
+
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.state = LedgerState.syncing
         ledgerInfo.consistencyProofsTimer = None
@@ -761,21 +776,25 @@ class LedgerManager(HasActionQueue):
         p = ConsistencyProof(*proof)
         ledgerInfo.catchUpTill = p
 
-        eligible_nodes = self.nodes_to_request_txns_from
-        if eligible_nodes:
-            reqs = self.getCatchupReqs(p)
-            for (req, to) in zip(reqs, eligible_nodes):
-                self.sendTo(req, to)
-            if reqs:
-                ledgerInfo.catchupReplyTimer = time.perf_counter()
-                batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
-                            getattr(reqs[0], f.SEQ_NO_START.nm) + 1
-                timeout = self._getCatchupTimeout(len(reqs), batchSize)
-                self._schedule(partial(self.request_txns_if_needed, ledgerId),
-                               timeout)
+        if self.mark_catchup_completed_if_possible(ledgerInfo):
+            logger.debug('{} found that ledger {} does not need catchup'.
+                         format(self, ledgerId))
         else:
-            logger.info('{} needs to catchup ledger {} but it has not found '
-                        'any connected nodes'.format(self, ledgerId))
+            eligible_nodes = self.nodes_to_request_txns_from
+            if eligible_nodes:
+                reqs = self.getCatchupReqs(p)
+                for (req, to) in zip(reqs, eligible_nodes):
+                    self.sendTo(req, to)
+                if reqs:
+                    ledgerInfo.catchupReplyTimer = time.perf_counter()
+                    batchSize = getattr(reqs[0], f.SEQ_NO_END.nm) - \
+                                getattr(reqs[0], f.SEQ_NO_START.nm) + 1
+                    timeout = self._getCatchupTimeout(len(reqs), batchSize)
+                    self._schedule(partial(self.request_txns_if_needed, ledgerId),
+                                   timeout)
+            else:
+                logger.info('{} needs to catchup ledger {} but it has not found '
+                            'any connected nodes'.format(self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * (self.config.CatchupTransactionsTimeout +
