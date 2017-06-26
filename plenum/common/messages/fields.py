@@ -359,15 +359,14 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
-
-
 class LedgerInfoField(FieldBase):
     _base_types = (list, tuple)
+    _ledger_id_class = LedgerIdField
 
     def _specific_validation(self, val):
         assert len(val) == 3
         ledgerId, ledgerLength, merkleRoot = val
-        for validator, value in ((LedgerIdField().validate, ledgerId),
+        for validator, value in ((self._ledger_id_class().validate, ledgerId),
                                  (NonNegativeNumberField().validate, ledgerLength),
                                  (MerkleRootField().validate, merkleRoot)):
             err = validator(value)

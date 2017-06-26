@@ -396,6 +396,7 @@ class ReqLedgerStatus(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
     )
 
+
 class LedgerStatus(MessageBase):
     """
     Purpose: spread status of ledger copy on a specific node.

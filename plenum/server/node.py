@@ -101,6 +101,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     suspicions = {s.code: s.reason for s in Suspicions.get_list()}
     keygenScript = "init_plenum_keys"
     _client_request_class = SafeRequest
+    ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
 
     def __init__(self,
                  name: str,
@@ -446,10 +447,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def domainLedgerStatus(self):
         return self.build_ledger_status(DOMAIN_LEDGER_ID)
-
-    @property
-    def ledger_ids(self):
-        return [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
 
     def getLedgerRootHash(self, ledgerId, isCommitted=True):
         ledgerInfo = self.ledgerManager.getLedgerInfoByType(ledgerId)

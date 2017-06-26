@@ -26,6 +26,8 @@ class FakeLedger():
 
 # Question: Why doesn't this subclass Node.
 class FakeNode():
+    ledger_ids = [0]
+
     def __init__(self):
         self.name = 'Node1'
         self.f = 1
@@ -34,7 +36,6 @@ class FakeNode():
         self.rank = None
         self.allNodeNames = [self.name, 'Node2', 'Node3', 'Node4']
         self.totalNodes = len(self.allNodeNames)
-        self.ledger_ids = [0]
         self.mode = Mode.starting
         self.replicas = [
             Replica(node=self, instId=0, isMaster=True),
