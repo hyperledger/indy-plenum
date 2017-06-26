@@ -40,27 +40,32 @@ class MessageValidator(FieldValidator):
                 if validation_error:
                     self._raise_invalid_fields(k, v, validation_error)
 
-
-    def _raise_invalid_type(self, dct):
+    @staticmethod
+    def _raise_invalid_type(dct):
         raise TypeError("validation error: invalid type {}, dict expected"
                         .format(type(dct)))
 
-    def _validate_message(self, dct):
+    @staticmethod
+    def _validate_message(dct):
         return None
 
-    def _raise_missed_fields(self, *fields):
-        raise TypeError("validation error: missed fields: "
-                        "{}".format(', '.join(map(str, fields))))
+    @staticmethod
+    def _raise_missed_fields(*fields):
+        raise TypeError("validation error: missed fields - {}"
+                        .format(', '.join(map(str, fields))))
 
+    @staticmethod
     def _raise_unknown_fields(self, field, value):
-        raise TypeError("validation error: unknown field: "
+        raise TypeError("validation error: unknown field - "
                         "{}={}".format(field, value))
 
-    def _raise_invalid_fields(self, field, value, reason):
+    @staticmethod
+    def _raise_invalid_fields(field, value, reason):
         raise TypeError("validation error: {} "
                         "({}={})".format(reason, field, value))
 
-    def _raise_invalid_message(self, reason):
+    @staticmethod
+    def _raise_invalid_message(reason):
         raise TypeError("validation error: {}".format(reason))
 
 
