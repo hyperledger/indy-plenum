@@ -11,13 +11,28 @@ from stp_core.types import Identifier
 from plenum.common.util import rawToFriendly, friendlyToRaw
 from plenum.common.types import f
 
+
 class DidIdentity:
     def __init__(self, identifier, verkey=None, rawVerkey=None):
+        if verkey is None and rawVerkey is None:
+            if identifier:
+                self._identifier = identifier
+                self._verkey = None
+                return
+
         assert (verkey or rawVerkey) and not (verkey and rawVerkey)
         if identifier:
             self._identifier = identifier
-            self._verkey = verkey or rawToFriendly(rawVerkey)
-            self.abbreviated = False
+            if rawVerkey:
+                self._verkey = rawToFriendly(rawVerkey)
+                self.abbreviated = False
+            else:
+                if verkey.startswith("~"):
+                    self._verkey = verkey[1:]
+                    self.abbreviated = True
+                else:
+                    self._verkey = verkey
+                    self.abbreviated = False
         else:
             verraw = rawVerkey or friendlyToRaw(verkey)
             self._identifier = rawToFriendly(verraw[:16])
@@ -30,10 +45,21 @@ class DidIdentity:
 
     @property
     def verkey(self) -> str:
+        if self._verkey is None:
+            return None
+
         if self.abbreviated:
             return '~' + self._verkey
         else:
             return self._verkey
+
+    def full_verkey(self):
+        if self.abbreviated:
+            rtn = friendlyToRaw(self.identifier)
+            rtn += friendlyToRaw(self.verkey[1:])
+            return rawToFriendly(rtn)
+        else:
+            return self.verkey
 
 
 class DidSigner(DidIdentity, Signer):
