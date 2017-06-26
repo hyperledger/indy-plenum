@@ -35,8 +35,8 @@ def checkNodeDataForEquality(node: TestNode,
             checkStateEquality(node.getState(POOL_LEDGER_ID), n.getState(POOL_LEDGER_ID))
 
 
-def checkNodeDataForUnequality(node: TestNode,
-                             *otherNodes: Iterable[TestNode]):
+def checkNodeDataForInequality(node: TestNode,
+                               *otherNodes: Iterable[TestNode]):
     # Checks for node's ledgers and state's to be unequal
     with pytest.raises(AssertionError):
         checkNodeDataForEquality(node, *otherNodes)
@@ -60,10 +60,10 @@ def waitNodeDataEquality(looper,
                           retryWait=1, timeout=timeout))
 
 
-def waitNodeDataUnequality(looper,
-                         referenceNode: TestNode,
-                         *otherNodes: Iterable[TestNode],
-                         customTimeout=None):
+def waitNodeDataInequality(looper,
+                           referenceNode: TestNode,
+                           *otherNodes: Iterable[TestNode],
+                           customTimeout=None):
     """
     Wait for node ledger to become equal
 
@@ -72,7 +72,7 @@ def waitNodeDataUnequality(looper,
 
     numOfNodes = len(otherNodes) + 1
     timeout = customTimeout or waits.expectedPoolGetReadyTimeout(numOfNodes)
-    looper.run(eventually(checkNodeDataForUnequality,
+    looper.run(eventually(checkNodeDataForInequality,
                           referenceNode,
                           *otherNodes,
                           retryWait=1, timeout=timeout))

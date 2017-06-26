@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
-    waitNodeDataUnequality
+    waitNodeDataInequality
 from plenum.test.delayers import delay_3pc_messages, cr_delay, ppDelay, pDelay, \
     cDelay
 from plenum.test.spy_helpers import getAllReturnVals
@@ -52,7 +52,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
     slow_node.nodeIbStasher.delay(cDelay(3*delay, 0))
     for i in range(2):
         sendReqsToNodesAndVerifySuffReplies(looper, stewardWallet, steward1, 20)
-        waitNodeDataUnequality(looper, slow_node, *fast_nodes)
+        waitNodeDataInequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
         n.ledgerManager.processCatchupRep) for n in txnPoolNodeSet}

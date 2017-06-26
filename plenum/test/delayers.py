@@ -41,6 +41,7 @@ def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
                               getattr(msg, f.INST_ID.nm) == instFilter)):
             return seconds
 
+    inner.__name__ = opType.__name__
     return inner
 
 
@@ -91,7 +92,8 @@ def ppgDelay(delay: float, sender_filter: str=None):
 
 def ppDelay(delay: float, instId: int=None, sender_filter: str=None):
     # Delayer of PRE-PREPARE requests from a particular instance
-    return delayerMsgTuple(delay, PrePrepare, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(delay, PrePrepare, instFilter=instId,
+                           senderFilter=sender_filter)
 
 
 def pDelay(delay: float, instId: int=None, sender_filter: str=None):

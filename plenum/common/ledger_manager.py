@@ -589,13 +589,12 @@ class LedgerManager(HasActionQueue):
         :param ledger_info:
         :return: True if catchup is done, false otherwise
         """
-        cp = ledger_info.catchUpTill
-        # we may not have any Consistency Proof received if we get CatchUpRep after catchup completed.
-        if not cp:
-            return False
-        if getattr(cp, f.SEQ_NO_END.nm) <= ledger_info.ledger.size:
-            self.catchupCompleted(ledger_info.id, (cp.viewNo, cp.ppSeqNo))
-            return True
+        if ledger_info.state != LedgerState.synced:
+            cp = ledger_info.catchUpTill
+            assert cp
+            if getattr(cp, f.SEQ_NO_END.nm) <= ledger_info.ledger.size:
+                self.catchupCompleted(ledger_info.id, (cp.viewNo, cp.ppSeqNo))
+                return True
         return False
 
     def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
