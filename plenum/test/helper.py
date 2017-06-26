@@ -725,7 +725,7 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
         for func in funcs:
             try:
                 func()
-            except Exception:
+            except Exception as ex:
                 fails += 1
         assert fails <= acceptable_fails
 
