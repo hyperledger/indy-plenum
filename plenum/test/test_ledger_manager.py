@@ -7,7 +7,8 @@ from plenum.test.testable import spyable
                   LedgerManager.processConsistencyProof,
                   LedgerManager.processConsistencyProofReq,
                   LedgerManager.canProcessConsistencyProof,
-                  LedgerManager.processCatchupRep
+                  LedgerManager.processCatchupRep,
+                  LedgerManager.getCatchupReqs
                   ])
 class TestLedgerManager(LedgerManager):
     def __init__(self, *args, **kwargs):

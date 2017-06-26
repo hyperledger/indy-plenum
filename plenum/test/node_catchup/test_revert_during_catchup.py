@@ -6,7 +6,7 @@ from plenum.test.batching_3pc.conftest import tconf
 from plenum.test.delayers import cDelay, cpDelay, cqDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     check_last_ordered_3pc
-from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
+from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     make_a_node_catchup_twice, ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
@@ -47,7 +47,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         6 * Max3PCBatchSize)
-    waitNodeDataUnequality(looper, slow_node, *other_nodes)
+    waitNodeDataInequality(looper, slow_node, *other_nodes)
 
     # Make the slow node receive txns for a smaller ledger so it still finds
     # the need to catchup

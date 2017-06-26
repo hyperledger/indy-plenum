@@ -45,7 +45,7 @@ class Stasher:
                     self.delayeds.append((age + secondsToDelay, rx))
                     self.queue.remove(rx)
 
-    def unstashAll(self, age, ignore_age_check=False):
+    def unstashAll(self, age, *names, ignore_age_check=False):
         """
         Not terribly efficient, but for now, this is only used for testing.
         HasActionQueue is more efficient about knowing when to iterate through
@@ -58,9 +58,13 @@ class Stasher:
         for idx, d in enumerate(self.delayeds):
             # This is in-efficient as `ignore_age_check` wont change during loop
             # but its ok since its a testing util.
-            if ignore_age_check or age >= d[0]:
-                msg = '(forced)' if ignore_age_check else '({:.0f} milliseconds overdue)'\
-                    .format((age - d[0]) * 1000)
+            if ignore_age_check or (names and d[1][0].__name__ in names) or age >= d[0]:
+                if ignore_age_check:
+                    msg = '(forced)'
+                elif names and d[1][0].__name__ in names:
+                    msg = '({} present in {})'.format(d[1][0].__name__, names)
+                else:
+                    msg = '({:.0f} milliseconds overdue)'.format((age - d[0]) * 1000)
                 logger.debug(
                         "{} unstashing message {} {}".
                             format(self.name, d[1], msg))
@@ -75,9 +79,26 @@ class Stasher:
 
         return unstashed
 
-    def resetDelays(self):
-        logger.debug("{} resetting delays".format(self.name))
-        self.delayRules = set()
+    def resetDelays(self, *names):
+        if not names:
+            logger.debug("{} resetting all delays".format(self.name))
+            self.delayRules = set()
+        else:
+            logger.debug("{} resetting delays for {}".format(self.name, names))
+            to_remove = []
+            for r in self.delayRules:
+                if r.__name__ in names:
+                    to_remove.append(r)
 
-    def force_unstash(self):
-        return self.unstashAll(0, ignore_age_check=True)
+            for r in to_remove:
+                self.delayRules.remove(r)
+
+    def force_unstash(self, *names):
+        if not names:
+            return self.unstashAll(0, ignore_age_check=True)
+        else:
+            return self.unstashAll(0, *names)
+
+    def reset_delays_and_process_delayeds(self, *names):
+        self.resetDelays(*names)
+        self.force_unstash(*names)

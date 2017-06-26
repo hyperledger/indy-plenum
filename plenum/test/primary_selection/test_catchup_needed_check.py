@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataUnequality, \
+from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_twice
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
@@ -46,7 +46,7 @@ def test_caught_up_for_current_view_check(looper,
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
                                         6*Max3PCBatchSize)
-    waitNodeDataUnequality(looper, bad_node, *other_nodes)
+    waitNodeDataInequality(looper, bad_node, *other_nodes)
 
     # Patch all nodes to return ConsistencyProof of a smaller ledger to the
     # bad node but only once, so that the bad_node needs to do catchup again.
