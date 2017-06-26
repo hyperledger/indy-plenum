@@ -1,14 +1,14 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.types import PrePrepare, Commit, ConsistencyProof
-from plenum.common.types import Prepare
-from plenum.test.delayers import delay_3pc_messages, cpDelay, cDelay
+from plenum.common.types import Commit, ConsistencyProof
+from plenum.test.delayers import cpDelay, cDelay
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
 
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
-    send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataInequality, waitNodeDataEquality
+from plenum.test.primary_selection.test_primary_selection_pool_txn import \
+    ensure_pool_functional
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
@@ -66,3 +66,5 @@ def test_no_catchup_if_got_from_3pc(looper, txnPoolNodeSet, wallet1, client1,
     # Some stashed ordered requests have been processed
     rv = getAllReturnVals(slow_node, slow_node.processStashedOrderedReqs)
     assert sent_batches in rv
+
+    ensure_pool_functional(looper, txnPoolNodeSet, wallet1, client1)
