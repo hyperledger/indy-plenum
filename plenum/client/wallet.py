@@ -273,25 +273,36 @@ class Wallet:
 class WalletStorageHelper:
     """Manages wallets
 
-    :param keyringsBaseDir: base dir for wallets
-    :param dmode: (optional) permissions for wallet directories,
-        default is 0700
-    :param fmode: (optional) permissions for wallet files,
+    :param ``keyringsBaseDir``: keyrings base directory
+    :param dmode: (optional) permissions for directories inside
+        including the base one, default is 0700
+    :param fmode: (optional) permissions for files inside,
         default is 0600
     """
     def __init__(self, keyringsBaseDir, dmode=0o700, fmode=0o600):
-        self.keyringsBaseDir = os.path.realpath(keyringsBaseDir)
         self.dmode = dmode
         self.fmode = fmode
+        self.keyringsBaseDir = keyringsBaseDir
 
-        # create base keyring dir
-        self._createDirIfNotExists(self.keyringsBaseDir)
-        self._ensurePermissions(self.keyringsBaseDir, dmode)
+
+    @property
+    def keyringsBaseDir(self):
+        return self._baseDir
+
+
+    @keyringsBaseDir.setter
+    def keyringsBaseDir(self, path):
+        self._baseDir = os.path.realpath(path)
+        self._baseDirParts = self._splitPath(self._baseDir)
+
+        self._createDirIfNotExists(self._baseDir)
+        self._ensurePermissions(self._baseDir, self.dmode)
 
 
     def _ensurePermissions(self, path, mode):
         if stat.S_IMODE(os.stat(path).st_mode) != mode:
             os.chmod(path, mode)
+
 
     def _createDirIfNotExists(self, dpath):
         if os.path.exists(dpath):
@@ -300,25 +311,9 @@ class WalletStorageHelper:
         else:
             os.makedirs(dpath)
 
-    def _isPathInside(self, rootdir, path):
-        rootdir = os.path.realpath(rootdir)
-        path = os.path.realpath(path)
-        while True:
-            path, tail = os.path.split(path)
-            if rootdir == path:
-                return True
-            elif not tail:
-                break
-        return False
-
-
-    def _getPathInKeyring(self, fpath):
-        return os.normpath(os.path.join(self.keyringsBaseDir, fpath))
-
 
     def _splitPath(self, path):
         parts = []
-        path = os.path.normpath(path)
 
         head, tail = os.path.split(path)
         while True:
@@ -332,38 +327,50 @@ class WalletStorageHelper:
 
         return parts
 
+
     def saveWallet(self, wallet, fpath):
         """Save wallet into specified localtion.
 
+        Returns the canonical path for the ``fpath`` where ``wallet``
+        has been stored.
+
+        Error cases:
+            - ``fpath`` is not inside the keyrings base dir - TypeError raised
+            - directory part of ``fpath`` exists and it's not a directory - 
+              NotADirectoryError raised
+            - ``fpath`` exists and it's a directory - IsADirectoryError raised
+
         :param wallet: wallet to save
-        :param fpath: file path relative to base keyrings dir
+        :param fpath: wallet file path, absolute or relative to
+            keyrings base dir
         """
         if not fpath:
-           raise TypeError("empty path")
+            raise TypeError("empty path")
 
-        if os.path.isabs(fpath):
-           raise TypeError("path {} is absolute".format(fpath))
+        # in case of relative path construct the absolute one
+        _fpath = os.path.realpath(fpath if os.path.isabs(fpath) else 
+                    os.path.join(self._baseDir, fpath))
 
-        if not self._isPathInside(self.keyringsBaseDir,
-                os.path.join(self.keyringsBaseDir, fpath)):
+        # splitted path of wallet directory 
+        parts = self._splitPath(_fpath)[:-1]
+
+        baseLen = len(self._baseDirParts)
+        head, tail = parts[:baseLen], parts[baseLen:]
+
+        if head != self._baseDirParts:
             raise TypeError("path {} is not insdide the keyrings {}".format(
-                fpath, self.keyringsBaseDir))
+                fpath, self._baseDir))
 
-        parts = self._splitPath(os.path.normpath(fpath))
-        fpath = os.path.join(self.keyringsBaseDir, *parts)
-        parts.pop(-1)
-
-        if len(parts):
-            dpath = os.path.join(self.keyringsBaseDir, *parts)
-            self._createDirIfNotExists(dpath)
-
-            for i in reversed(range(len(parts))):
+        if len(tail):
+            self._createDirIfNotExists(os.path.join(*parts))
+            # ensure permissions from the bottom of directory hierarchy
+            for i in reversed(range(len(tail))):
                 self._ensurePermissions(os.path.join(
-                    self.keyringsBaseDir, *parts[:i+1]), self.dmode)
+                    self._baseDir, *tail[:i+1]), self.dmode)
 
-        with open(fpath, "w+") as walletFile:
-            self._ensurePermissions(fpath, self.fmode)
+        with open(_fpath, "w+") as wf:
+            self._ensurePermissions(_fpath, self.fmode)
             encodedWallet = jsonpickle.encode(wallet, keys=True)
-            walletFile.write(encodedWallet)
+            wf.write(encodedWallet)
 
-        return fpath
+        return _fpath

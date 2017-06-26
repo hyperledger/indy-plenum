@@ -102,22 +102,15 @@ def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_
         exc_info.match(r'empty path')
 
 
-def test_store_wallet_by_abs_path_fail(tdir_for_func, keyrings_base_dir, test_wallet):
-
-    wsh = WSH(keyrings_base_dir)
-    abs_path = "/1/2/3/wallet"
-
-    with pytest.raises(TypeError) as exc_info:
-        wsh.saveWallet(test_wallet, abs_path)
-
-    exc_info.match(r'path {} is absolute'.format(abs_path))
-
-
 def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet):
 
     wsh = WSH(keyrings_base_dir)
 
-    inv_paths = ['../wallet', 'a/../../wallet']
+    inv_paths = [
+        os.path.join(keyrings_base_dir, '../wallet'),
+        '../wallet',
+        'a/../../wallet'
+    ]
 
     #  docs says: "Availability: Unix.", so OSError is expected in some cases
     src_path = os.path.join(keyrings_base_dir, "../wallet")
@@ -150,7 +143,7 @@ def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
     with pytest.raises(NotADirectoryError) as exc_info:
         wsh.saveWallet(test_wallet, os.path.join(wdir, 'wallet'))
 
-        exc_info.match(r"{}".format(wdir))
+    exc_info.match(r"{}".format(wdir))
 
 
 
@@ -179,6 +172,13 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     wsh = WSH(root, fmode=mode2)
     wsh.saveWallet(test_wallet, files[0])
     check_permissions(wpath, mode2)
+
+
+def test_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+    wsh = WSH(keyrings_base_dir)
+    abs_path = os.path.join(keyrings_base_dir, "1/2/3/wallet")
+    wsh.saveWallet(test_wallet, abs_path)
+    check_permissions(abs_path, DEFAULT_FMODE)
 
 
 def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
