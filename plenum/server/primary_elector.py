@@ -6,7 +6,7 @@ from functools import partial
 from typing import Sequence, Any, Union, List
 
 from plenum.common.types import Nomination, Reelection, Primary, f
-from plenum.common.util import mostCommonElement, get_strong_quorum
+from plenum.common.util import mostCommonElement
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
@@ -166,10 +166,7 @@ class PrimaryElector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return get_strong_quorum(f=self.f)
+        return self.node.quorums.election.value
 
     def decidePrimaries(self):  # overridden method of PrimaryDecider
         self.scheduleElection()
@@ -360,62 +357,7 @@ class PrimaryElector(PrimaryDecider):
             self.primaryDeclarations[instId][sndrRep] = (prim.name,
                                                          prim.ordSeqNo)
 
-            # If got more than 2f+1 primary declarations then in a position to
-            # decide whether it is the primary or not `2f + 1` declarations
-            # are enough because even when all the `f` malicious nodes declare
-            # a primary, we still have f+1 primary declarations from
-            # non-malicious nodes. One more assumption is that all the non
-            # malicious nodes vote for the the same primary
-
-            # Find for which node there are maximum primary declarations.
-            # Cant be a tie among 2 nodes since all the non malicious nodes
-            # which would be greater than or equal to f+1 would vote for the
-            # same node
-
-            if replica.isPrimary is not None:
-                logger.debug(
-                    "{} Primary already selected; ignoring PRIMARY msg".format(
-                        replica))
-                return
-
-            if self.hasPrimaryQuorum(instId):
-                if replica.isPrimary is None:
-                    primary, seqNo = mostCommonElement(
-                        self.primaryDeclarations[instId].values())
-                    logger.display("{} selected primary {} for instance {} "
-                                   "(view {})".format(replica, primary,
-                                                      instId, self.viewNo),
-                                   extra={"cli": "ANNOUNCE",
-                                          "tags": ["node-election"]})
-                    logger.debug("{} selected primary on the basis of {}".
-                                 format(replica,
-                                        self.primaryDeclarations[instId]),
-                                 extra={"cli": False})
-
-                    # If the maximum primary declarations are for this node
-                    # then make it primary
-                    replica.primaryChanged(primary, seqNo)
-
-                    if instId == 0:
-                        self.previous_master_primary = None
-
-                    # If this replica has nominated itself and since the
-                    # election is over, reset the flag
-                    if self.replicaNominatedForItself == instId:
-                        self.replicaNominatedForItself = None
-
-                    self.node.primary_found()
-
-                    self.scheduleElection()
-                else:
-                    self.discard(prim,
-                                 "it already decided primary which is {}".
-                                 format(replica.primaryName),
-                                 logger.debug)
-            else:
-                logger.debug(
-                    "{} received {} but does it not have primary quorum "
-                    "yet".format(self.name, prim))
+            self.select_primary(instId, prim)
         else:
             self.discard(prim,
                          "already got primary declaration from {}".
@@ -428,6 +370,66 @@ class PrimaryElector(PrimaryDecider):
             # if self.duplicateMsgs[key] > 1:
             #     self.send(BlacklistMsg(
             #         Suspicions.DUPLICATE_PRI_SENT.code, sender))
+
+    def select_primary(self, inst_id: int, prim: Primary):
+        # If got more than 2f+1 primary declarations then in a position to
+        # decide whether it is the primary or not `2f + 1` declarations
+        # are enough because even when all the `f` malicious nodes declare
+        # a primary, we still have f+1 primary declarations from
+        # non-malicious nodes. One more assumption is that all the non
+        # malicious nodes vote for the the same primary
+
+        # Find for which node there are maximum primary declarations.
+        # Cant be a tie among 2 nodes since all the non malicious nodes
+        # which would be greater than or equal to f+1 would vote for the
+        # same node
+
+        replica = self.replicas[inst_id]
+
+        if replica.isPrimary is not None:
+            logger.debug(
+                "{} Primary already selected; ignoring PRIMARY msg".format(
+                    replica))
+            return
+
+        if self.hasPrimaryQuorum(inst_id):
+            if replica.isPrimary is None:
+                primary, seqNo = mostCommonElement(
+                    self.primaryDeclarations[inst_id].values())
+                logger.display("{} selected primary {} for instance {} "
+                               "(view {})".format(replica, primary,
+                                                  inst_id, self.viewNo),
+                               extra={"cli": "ANNOUNCE",
+                                      "tags": ["node-election"]})
+                logger.debug("{} selected primary on the basis of {}".
+                             format(replica,
+                                    self.primaryDeclarations[inst_id]),
+                             extra={"cli": False})
+
+                # If the maximum primary declarations are for this node
+                # then make it primary
+                replica.primaryChanged(primary, seqNo)
+
+                if inst_id == 0:
+                    self.previous_master_primary = None
+
+                # If this replica has nominated itself and since the
+                # election is over, reset the flag
+                if self.replicaNominatedForItself == inst_id:
+                    self.replicaNominatedForItself = None
+
+                self.node.primary_found()
+
+                self.scheduleElection()
+            else:
+                self.discard(prim,
+                             "it already decided primary which is {}".
+                             format(replica.primaryName),
+                             logger.debug)
+        else:
+            logger.debug(
+                "{} received {} but does it not have primary quorum "
+                "yet".format(self.name, prim))
 
     def processReelection(self, reelection: Reelection, sender: str):
         """
@@ -660,8 +662,10 @@ class PrimaryElector(PrimaryDecider):
         logger.debug("{} declaring primary as: {} on the basis of {}".
                      format(replica, primaryName,
                             self.nominations[instId]))
-        self.send(Primary(primaryName, instId, self.viewNo,
-                          lastOrderedSeqNo))
+        prim = Primary(primaryName, instId, self.viewNo,
+                          lastOrderedSeqNo)
+        self.send(prim)
+        self.select_primary(instId, prim)
 
     def sendReelection(self, instId: int,
                        primaryCandidates: Sequence[str] = None) -> None:

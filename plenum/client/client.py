@@ -14,6 +14,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
 
 from plenum.common.ledger import Ledger
 from plenum.common.stacks import nodeStackClass
+from plenum.server.quorums import Quorums
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
@@ -188,8 +189,7 @@ class Client(Motor,
         self.mode = Mode.discovered
         # For the scenario where client has already connected to nodes reading
         #  the genesis pool transactions and that is enough
-        if self.hasSufficientConnections:
-            self.flushMsgsPendingConnection()
+        self.flushMsgsPendingConnection()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType != 0:
@@ -204,6 +204,7 @@ class Client(Motor,
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
+        self.quorums = Quorums(nodeCount)
 
     @staticmethod
     def exists(name, basedirpath):
@@ -249,7 +250,8 @@ class Client(Motor,
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         for request in reqs:
-            if self.mode == Mode.discovered and self.hasSufficientConnections:
+            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
+               (request.isForced() and self.hasAnyConnections):
                 logger.debug('Client {} sending request {}'.format(self, request))
                 self.send(request)
                 self.expectingFor(request)
@@ -383,9 +385,7 @@ class Client(Motor,
         if not replies:
             raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
-        if self.f + 1 > len(replies):
-            return False  # UNCONFIRMED
-        else:
+        if self.quorums.reply.is_reached(len(replies)):
             onlyResults = {frm: reply["result"] for frm, reply in
                            replies.items()}
             resultsList = list(onlyResults.values())
@@ -397,6 +397,8 @@ class Client(Motor,
                 logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
+        else:
+            return False  # UNCONFIRMED
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
@@ -423,8 +425,7 @@ class Client(Motor,
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
-            if self.hasSufficientConnections and self.mode == Mode.discovered:
-                self.flushMsgsPendingConnection()
+            self.flushMsgsPendingConnection()
         if self._ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
@@ -438,6 +439,10 @@ class Client(Motor,
     @property
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
+
+    @property
+    def hasAnyConnections(self):
+        return len(self.nodestack.conns) > 0
 
     def hasMadeRequest(self, identifier, reqId: int):
         return self.reqRepStore.hasRequest(identifier, reqId)
@@ -469,9 +474,15 @@ class Client(Motor,
         if queueSize > 0:
             logger.debug("Flushing pending message queue of size {}"
                          .format(queueSize))
+            tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                self.send(req, signer=signer)
+                if (self.hasSufficientConnections and self.mode == Mode.discovered) or \
+                   (req.isForced() and self.hasAnyConnections):
+                    self.send(req, signer=signer)
+                else:
+                    tmp.append((req, signer))
+            self.reqsPendingConnection.extend(tmp)
 
     def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
         nodes = nodes or {r.name for r in self.nodestack.remotes.values()

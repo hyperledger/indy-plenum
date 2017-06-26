@@ -4,6 +4,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 from plenum.common.keygen_utils import initRemoteKeys
+from plenum.common.signer_did import DidIdentity
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
@@ -88,6 +89,7 @@ class TxnStackManager:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
                     cliNodeReg[clientStackName] = HA(*cHa)
+                # TODO: Need to handle abbreviated verkey
                 verkey = cryptonymToHex(txn[TARGET_NYM])
                 nodeKeys[nodeName] = verkey
 
@@ -110,7 +112,9 @@ class TxnStackManager:
         else:
             return nodeReg, cliNodeReg, nodeKeys, activeValidators
 
-    def connectNewRemote(self, txn, remoteName, nodeOrClientObj, addRemote=True):
+    def connectNewRemote(self, txn, remoteName, nodeOrClientObj,
+                         addRemote=True):
+        # TODO: Need to handle abbreviated verkey
         verkey = cryptonymToHex(txn[TARGET_NYM])
 
         nodeHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT])
@@ -168,13 +172,9 @@ class TxnStackManager:
         else:
             verkey = cryptonymToHex(txn[VERKEY])
 
-        try:
-            # Override any keys found
-            initRemoteKeys(self.name, remoteName, self.basedirpath,
-                                   verkey, override=True)
-        except Exception as ex:
-            logger.error("Exception while initializing keep for remote {}".
-                         format(ex))
+        # Override any keys found
+        initRemoteKeys(self.name, remoteName, self.basedirpath,
+                               verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)

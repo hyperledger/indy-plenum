@@ -8,11 +8,13 @@ from stp_core.crypto.nacl_wrappers import SigningKey, Signer as NaclSigner
 from stp_core.crypto.signer import Signer
 from plenum.common.signing import serializeMsg
 from stp_core.types import Identifier
-from plenum.common.util import rawToFriendly, friendlyToRaw
+from plenum.common.util import rawToFriendly, friendlyToRaw, cryptonymToHex
 from plenum.common.types import f
 
 
 class DidIdentity:
+    abbr_prfx = '~'
+
     def __init__(self, identifier, verkey=None, rawVerkey=None):
         if verkey is None and rawVerkey is None:
             if identifier:
@@ -49,7 +51,7 @@ class DidIdentity:
             return None
 
         if self.abbreviated:
-            return '~' + self._verkey
+            return self.abbr_prfx + self._verkey
         else:
             return self._verkey
 

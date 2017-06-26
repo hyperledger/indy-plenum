@@ -299,6 +299,10 @@ class Replica(HasActionQueue, MessageProcessor):
     def ledger_ids(self):
         return self.node.ledger_ids
 
+    @property
+    def quorums(self):
+        return self.node.quorums
+
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
         Replica should only participating in the consensus process and the
@@ -491,6 +495,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def send3PCBatch(self):
         r = 0
         for lid, q in self.requestQueues.items():
+            # TODO: make the condition more apparent
             if len(q) >= self.config.Max3PCBatchSize or (
                                 self.lastBatchCreated +
                                 self.config.Max3PCBatchWait <
@@ -555,7 +560,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                    self.stateRootHash(ledger_id),
                                    self.txnRootHash(ledger_id)
                                    )
-        logger.debug('{} created a PRE-PREPARE with {} requests for ledger {}'
+        logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
         if self.isMaster:
@@ -599,14 +604,6 @@ class Replica(HasActionQueue, MessageProcessor):
             msg = self.postElectionMsgs.popleft()
             logger.debug("{} processing pended msg {}".format(self, msg))
             self.dispatchThreePhaseMsg(*msg)
-
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        Return None if `f` is not yet determined.
-        """
-        return self.node.quorum
 
     def dispatchThreePhaseMsg(self, msg: ThreePhaseMsg, sender: str) -> Any:
         """
@@ -806,7 +803,15 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return {key for key in reqKeys if not self.requests.isFinalised(key)}
 
-    def isNextPrePrepare(self, ppSeqNo: int):
+    def __is_next_pre_prepare(self, ppSeqNo: int):
+        if ppSeqNo != self.__last_pp_seq_no + 1:
+            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
+                         format(self, ppSeqNo, self.__last_pp_seq_no))
+            return False
+        return True
+
+    @property
+    def __last_pp_seq_no(self):
         lastPp = self.lastPrePrepare
         if lastPp:
             # TODO: Is it possible that lastPp.ppSeqNo is less than
@@ -817,12 +822,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                             else self.lastOrderedPPSeqNo
         else:
             lastPpSeqNo = self.lastOrderedPPSeqNo
-
-        if ppSeqNo - lastPpSeqNo != 1:
-            logger.debug('{} missing PRE-PREPAREs between {} and {}'.
-                         format(self, ppSeqNo, lastPpSeqNo))
-            return False
-        return True
+        return lastPpSeqNo
 
     def revert(self, ledgerId, stateRootHash, reqCount):
         ledger = self.node.getLedger(ledgerId)
@@ -834,7 +834,7 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
-    def validatePrePrepare(self, pp: PrePrepare, sender: str):
+    def validate_pre_prepare(self, pp: PrePrepare, sender: str):
         """
         This will apply the requests part of the PrePrepare to the ledger
         and state. It will not commit though (the ledger on disk will not
@@ -912,18 +912,19 @@ class Replica(HasActionQueue, MessageProcessor):
             # do not make change to state or ledger
             return True
 
-        nonFinReqs = self.nonFinalisedReqs(pp.reqIdr)
+        if pp.ppSeqNo <= self.__last_pp_seq_no:
+            return False  # ignore old pre-prepare
 
-        if nonFinReqs:
-            self.enqueuePrePrepare(pp, sender, nonFinReqs)
+        non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
+
+        non_next_upstream_pp = pp.ppSeqNo > self.__last_pp_seq_no and \
+            not self.__is_next_pre_prepare(pp.ppSeqNo)
+
+        if non_fin_reqs or non_next_upstream_pp:
+            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
             return False
 
-        if not self.isNextPrePrepare(pp.ppSeqNo):
-            self.enqueuePrePrepare(pp, sender)
-            return False
-
-        self.validatePrePrepare(pp, sender)
-
+        self.validate_pre_prepare(pp, sender)
         return True
 
     def addToPrePrepares(self, pp: PrePrepare) -> None:
@@ -1062,7 +1063,8 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         if not self.shouldParticipate(prepare.viewNo, prepare.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(prepare)
-        if not self.prepares.hasQuorum(prepare, self.f):
+        quorum = self.quorums.prepare.value
+        if not self.prepares.hasQuorum(prepare, quorum):
             return False, 'does not have prepare quorum for {}'.format(prepare)
         if self.hasCommitted(prepare):
             return False, 'has already sent COMMIT for {}'.format(prepare)
@@ -1120,9 +1122,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         :param commit: the COMMIT
         """
-        if not self.commits.hasQuorum(commit, self.f):
-            return False, "no quorum: {} commits where f is {}".\
-                          format(commit, self.f)
+        quorum = self.quorums.commit.value
+        if not self.commits.hasQuorum(commit, quorum):
+            return False, "no quorum ({}): {} commits where f is {}".\
+                          format(quorum, commit, self.f)
 
         key = (commit.viewNo, commit.ppSeqNo)
         if self.hasOrdered(*key):
@@ -1224,7 +1227,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
-        logger.debug("{} ordering COMMIT{}".format(self, key))
+        logger.info("{} ordering COMMIT{}".format(self, key))
         pp = self.getPrePrepare(*key)
         assert pp
         self.addToOrdered(*key)
@@ -1466,8 +1469,8 @@ class Replica(HasActionQueue, MessageProcessor):
         if ppSeqNo > self.lastOrderedPPSeqNo:
             self.lastOrderedPPSeqNo = ppSeqNo
 
-    def enqueuePrePrepare(self, ppMsg: PrePrepare, sender: str,
-                          nonFinReqs: Set=None):
+    def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
+                            nonFinReqs: Set=None):
         if nonFinReqs:
             logger.debug("Queueing pre-prepares due to unavailability of finalised "
                          "requests. PrePrepare {} from {}".format(ppMsg, sender))
@@ -1505,7 +1508,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prePreparesPendingPrevPP[pp.viewNo, pp.ppSeqNo] = (pp, sender)
 
         r = 0
-        while self.prePreparesPendingPrevPP and self.isNextPrePrepare(
+        while self.prePreparesPendingPrevPP and self.__is_next_pre_prepare(
                 self.prePreparesPendingPrevPP.iloc[0][1]):
             _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
             if not self.can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
@@ -1623,7 +1626,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param rid: remote id of one recipient (sends to all recipients if None)
         :param msg: the message to send
         """
-        logger.display("{} sending {}".format(self, msg.__class__.__name__),
+        logger.info("{} sending {}".format(self, msg.__class__.__name__),
                        extra={"cli": True, "tags": ['sending']})
         logger.trace("{} sending {}".format(self, msg))
         if stat:

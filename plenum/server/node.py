@@ -77,6 +77,7 @@ from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
+from plenum.server.quorums import Quorums
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
@@ -384,6 +385,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        self.quorums = Quorums(self.totalNodes)
 
     @property
     def poolLedger(self):
@@ -1582,7 +1584,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("Node {} received propagated request: {}".
                      format(self.name, msg))
         reqDict = msg.request
-        request = SafeRequest(**reqDict)
+
+        request = self._client_request_class(**reqDict)
 
         clientName = msg.senderClient
 
@@ -1791,13 +1794,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return (2 * self.f) + 1
-
     def primary_found(self):
         # If the node has primary replica of master instance
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
@@ -1814,7 +1810,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         number and its view is less than or equal to the proposed view
         """
         msg = None
-        if not self.instanceChanges.hasQuorum(proposedViewNo, self.f):
+        quorum = self.quorums.view_change.value
+        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.viewNo:
             msg = '{} is in higher view more than {}'.format(self, proposedViewNo)
@@ -1902,7 +1899,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             req = msg.as_dict
 
         identifier = self.authNr(req).authenticate(req)
-        logger.display("{} authenticated {} signature on {} request {}".
+        logger.info("{} authenticated {} signature on {} request {}".
                        format(self, identifier, typ, req['reqId']),
                        extra={"cli": True,
                               "tags": ["node-msg-processing"]})
@@ -1934,7 +1931,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if committedTxns:
             lastTxnSeqNo = committedTxns[-1][F.seqNo.name]
             self.batchToSeqNos[ppSeqNo] = (ledgerId, lastTxnSeqNo)
-            logger.debug('{} storing ppSeqno {} for ledger {} seqNo {}'.
+            logger.display('{} storing ppSeqno {} for ledger {} seqNo {}'.
                          format(self, ppSeqNo, ledgerId, lastTxnSeqNo))
             if len(self.batchToSeqNos) > self.config.ProcessedBatchMapsToKeep:
                 x = self.batchToSeqNos.popitem(last=False)
@@ -1949,8 +1946,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              stateRoot, txnRoot) -> List:
         committedTxns = reqHandler.commit(len(reqs), stateRoot, txnRoot)
         self.updateSeqNoMap(committedTxns)
-        committedTxns = txnsWithMerkleInfo(reqHandler.ledger,
-                                           committedTxns)
         self.sendRepliesToClients(
             map(self.update_txn_with_extra_data, committedTxns),
             ppTime)
@@ -2232,12 +2227,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         seqNo = self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
-        else:
-            txn = ledger.get(identifier=request.identifier, reqId=request.reqId)
-        if txn:
-            txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
-            txn = self.update_txn_with_extra_data(txn)
-            return Reply(txn)
+            if txn:
+                txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
+                txn = self.update_txn_with_extra_data(txn)
+                return Reply(txn)
 
     def update_txn_with_extra_data(self, txn):
         """

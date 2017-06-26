@@ -1,5 +1,10 @@
+import pytest
 import base58
-from plenum.common.keygen_utils import initNodeKeysForBothStacks
+import types
+
+from plenum.common import stack_manager
+from plenum.common.keygen_utils import initNodeKeysForBothStacks, \
+        initRemoteKeys
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
@@ -51,3 +56,44 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdirWithPoolTxns,
     ensureClientConnectedToNodesAndPoolLedgerSame(looper, newSteward,
                                                   *txnPoolNodeSet)
 
+
+def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
+                                              nodeThetaAdded, monkeypatch):
+
+    TEST_EXCEPTION_MESSAGE = 'Failed to create some cert files'
+
+    newSteward, newStewardWallet, newNode = nodeThetaAdded
+
+    newNode.stop()
+    looper.removeProdable(name=newNode.name)
+    nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
+    sigseed = randomString(32).encode()
+    verkey = base58.b58encode(SimpleSigner(seed=sigseed).naclSigner.verraw)
+
+    def initRemoteKeysMock(name, *args, **kwargs):
+        if name in [node.name for node in txnPoolNodeSet]:
+            raise OSError(TEST_EXCEPTION_MESSAGE)
+        else:
+            return initRemoteKeys(name, *args, **kwargs)
+
+    def wrap(node):
+        oldMethod = node.poolManager.stackKeysChanged
+
+        def stackKeysChanged(self, *args, **kwargs):
+            with pytest.raises(OSError,
+                               message="exception was suppressed") as excinfo:
+                oldMethod(*args, **kwargs)
+            excinfo.match(r'{}'.format(TEST_EXCEPTION_MESSAGE))
+            return 0
+
+        node.poolManager.stackKeysChanged = types.MethodType(stackKeysChanged,
+                                                             node.poolManager)
+
+    for node in txnPoolNodeSet:
+        wrap(node)
+
+    monkeypatch.setattr(stack_manager, 'initRemoteKeys', initRemoteKeysMock)
+
+    changeNodeKeys(looper, newSteward, newStewardWallet, newNode, verkey)
+
+    monkeypatch.undo()
