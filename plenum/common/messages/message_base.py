@@ -55,7 +55,7 @@ class MessageValidator(FieldValidator):
                         .format(', '.join(map(str, fields))))
 
     @staticmethod
-    def _raise_unknown_fields(self, field, value):
+    def _raise_unknown_fields(field, value):
         raise TypeError("validation error: unknown field - "
                         "{}={}".format(field, value))
 

@@ -1,4 +1,5 @@
 import sys
+from importlib import import_module
 
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
@@ -8,13 +9,13 @@ from plenum.common.messages.message_base import MessageBase
 class MessageFactory:
 
     def __init__(self, class_module_name):
-        self.__classes = self.__get_message_classes(class_module_name)
-        assert len(self.__classes) > 0, \
-            "at least one message class loaded"
+        classes_module = self.__load_module_by_name(class_module_name)
+        self.__classes = self.__get_message_classes(classes_module)
+        assert len(self.__classes) > 0, "at least one message class loaded"
 
     def set_message_class(self, message_class):
-        assert self.__is_node_message(message_class), \
-            'must be a node message class'
+        doesnt_fit_reason = self.__check_obj_fits(message_class)
+        assert not doesnt_fit_reason, doesnt_fit_reason
         self.__classes.update({message_class.typename: message_class})
 
     def __call__(self, **message_raw):
@@ -27,20 +28,38 @@ class MessageFactory:
         return message_cls(**message_raw)
 
     @classmethod
-    def __get_message_classes(cls, class_module_name):
-        assert class_module_name in sys.modules, \
-            "{} is loaded".format(class_module_name)
-        class_module = sys.modules[class_module_name]
+    def __get_message_classes(cls, classes_module):
         classes = {}
-        for x in dir(class_module):
-            obj = getattr(class_module, x)
-            if cls.__is_node_message(obj):
+        for x in dir(classes_module):
+            obj = getattr(classes_module, x)
+            doesnt_fit_reason = cls.__check_obj_fits(obj)
+            if doesnt_fit_reason is None:
                 classes.update({obj.typename: obj})
         return classes
 
+    @classmethod
+    def __load_module_by_name(cls, module_name):
+        the_module = cls.__get_module_by_name(module_name)
+        if the_module is not None:
+            return the_module
+
+        import_module(module_name)  # can raise ImportError
+        the_module = cls.__get_module_by_name(module_name)
+        return the_module
+
     @staticmethod
-    def __is_node_message(obj):
-        return getattr(obj, "schema", None) and issubclass(obj, MessageBase)
+    def __get_module_by_name(module_name):
+        return sys.modules.get(module_name, None)
+
+    @staticmethod
+    def __check_obj_fits(obj):
+        if not getattr(obj, "schema", None):
+            return "must have a non empty 'schema'"
+        if not getattr(obj, "typename", None):
+            return "must have a non empty 'typename'"
+        # has to be the last because of: 'str' week ref error
+        if not issubclass(obj, MessageBase):
+            return "must be a subclass of 'MessageBase'"
 
 
 class NodeMessageFactory(MessageFactory):

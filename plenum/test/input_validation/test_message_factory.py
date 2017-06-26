@@ -1,6 +1,7 @@
 import pytest
 
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
+from plenum.common.messages.fields import NonNegativeNumberField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import MessageFactory, NodeMessageFactory
 from plenum.test.input_validation.stub_messages import AMessage1
@@ -12,7 +13,7 @@ def factory():
 
 
 def test_message_factory_module_is_not_found_fails():
-    with pytest.raises(AssertionError):
+    with pytest.raises(ImportError):
         MessageFactory('foo.bar')
 
 
@@ -44,10 +45,12 @@ def test_message_factory_set_non_message_class_fails(factory):
 def test_message_factory_set_message_class_can_add_message_class(factory):
     class ANewMessageClass(MessageBase):
         typename = 'NewMessage'
-        schema = ()
+        schema = (
+            ('a', NonNegativeNumberField()),
+        )
 
     factory.set_message_class(ANewMessageClass)
-    msg = {'op': 'NewMessage', 'a': 0, 'b': 'bar'}
+    msg = {'op': 'NewMessage', 'a': 0}
     assert isinstance(factory(**msg), ANewMessageClass)
 
 
