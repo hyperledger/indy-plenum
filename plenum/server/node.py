@@ -35,6 +35,7 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.node_messages import node_message_factory
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -1192,24 +1193,22 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(frm), logger.info)
             return None
 
-        op = msg.pop(OP_FIELD_NAME, None)
-        if not op:
-            raise MissingNodeOp
-        cls = TaggedTuples.get(op, None)
-        if not cls:
-            raise InvalidNodeOp(op)
         try:
-            cMsg = cls(**msg)
+            message = node_message_factory(**msg)
+        except (MissingNodeOp, InvalidNodeOp) as ex:
+            raise ex
         except Exception as ex:
             raise InvalidNodeMsg(str(ex))
+
         try:
-            self.verifySignature(cMsg)
+            self.verifySignature(message)
         except BaseExc as ex:
-            raise SuspiciousNode(frm, ex, cMsg) from ex
+            raise SuspiciousNode(frm, ex, message) from ex
+
         logger.debug("{} received node message from {}: {}".
-                     format(self, frm, cMsg),
+                     format(self, frm, message),
                      extra={"cli": False})
-        return cMsg, frm
+        return message, frm
 
     def unpackNodeMsg(self, msg, frm) -> None:
         """

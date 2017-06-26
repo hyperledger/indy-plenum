@@ -1,6 +1,7 @@
 import sys
 
 from plenum.common.constants import OP_FIELD_NAME
+from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
 from plenum.common.messages.message_base import MessageBase
 
 
@@ -11,11 +12,19 @@ class MessageFactory:
         assert len(self.__classes) > 0, \
             "at least one message class loaded"
 
-    def __call__(self, message_raw):
-        message_op = message_raw.pop(OP_FIELD_NAME)
+    def set_message_class(self, message_class):
+        assert self.__is_node_message(message_class), \
+            'must be a node message class'
+        self.__classes.update({message_class.typename: message_class})
+
+    def __call__(self, **message_raw):
+        message_op = message_raw.pop(OP_FIELD_NAME, None)
+        if message_op is None:
+            raise MissingNodeOp
         message_cls = self.__classes.get(message_op, None)
-        # TODO better to create an instance here
-        return message_cls
+        if message_cls is None:
+            raise InvalidNodeOp(message_op)
+        return message_cls(**message_raw)
 
     @classmethod
     def __get_message_classes(cls, class_module_name):
@@ -38,3 +47,6 @@ class NodeMessageFactory(MessageFactory):
 
     def __init__(self):
         super().__init__('plenum.common.types')
+
+
+node_message_factory = NodeMessageFactory()
