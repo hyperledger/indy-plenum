@@ -1223,8 +1223,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 m = self.nodestack.deserializeMsg(m)
                 self.handleOneNodeMsg((m, frm))
         else:
-            if "data" in str(msg):
-                print("JASDSAd")
             self.postToNodeInBox(msg, frm)
 
     def postToNodeInBox(self, msg, frm):
