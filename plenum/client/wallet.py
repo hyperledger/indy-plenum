@@ -1,4 +1,6 @@
 from typing import Optional, Dict, NamedTuple
+import os
+import stat
 
 import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
@@ -265,3 +267,104 @@ class Wallet:
         signer = self.idsToSigners.get(idr)
         idData = self.ids.get(idr)
         return IdData(signer, idData.lastReqId if idData else None)
+
+
+
+class WalletStorageHelper:
+    """Manages wallets
+
+    :param keyringsBaseDir: base dir for wallets
+    :param dmode: (optional) permissions for wallet directories,
+        default is 0700
+    :param fmode: (optional) permissions for wallet files,
+        default is 0600
+    """
+    def __init__(self, keyringsBaseDir, dmode=0o700, fmode=0o600):
+        self.keyringsBaseDir = os.path.realpath(keyringsBaseDir)
+        self.dmode = dmode
+        self.fmode = fmode
+
+        # create base keyring dir
+        self._createDirIfNotExists(self.keyringsBaseDir)
+        self._ensurePermissions(self.keyringsBaseDir, dmode)
+
+
+    def _ensurePermissions(self, path, mode):
+        if stat.S_IMODE(os.stat(path).st_mode) != mode:
+            os.chmod(path, mode)
+
+    def _createDirIfNotExists(self, dpath):
+        if os.path.exists(dpath):
+            if not os.path.isdir(dpath):
+                raise NotADirectoryError("{}".format(dpath))
+        else:
+            os.makedirs(dpath)
+
+
+    def _isSubdir(self, dir1, dir2):
+        dir1 = os.path.realpath(dir1)
+        dir2 = os.path.realpath(dir2)
+        while True:
+            dir2, tail = os.path.split(dir2)
+            if dir1 == dir2:
+                return True
+            elif not tail:
+                break
+        return False
+
+
+    def _getPathInKeyring(self, fpath):
+        return os.normpath(os.path.join(self.keyringsBaseDir, fpath))
+
+
+    def _splitPath(self, path):
+        parts = []
+        path = os.path.normpath(path)
+
+        head, tail = os.path.split(path)
+        while True:
+            if tail:
+                parts.insert(0, tail)
+                head, tail = os.path.split(head)
+            else:
+                if head:
+                    parts.insert(0, head)
+                break
+
+        return parts
+
+    def saveWallet(self, wallet, fpath):
+        """Save wallet into specified localtion.
+
+        :param wallet: wallet to save
+        :param fpath: file path relative to base keyrings dir
+        """
+        if not fpath:
+           raise TypeError("empty path")
+
+        if os.path.isabs(fpath):
+           raise TypeError("path {} is absolute".format(fpath))
+
+        if not self._isSubdir(self.keyringsBaseDir,
+                os.path.join(self.keyringsBaseDir, fpath)):
+            raise TypeError("path {} is not insdide the keyrings {}".format(
+                fpath, self.keyringsBaseDir))
+
+        parts = self._splitPath(os.path.normpath(fpath))
+        fpath = os.path.join(self.keyringsBaseDir, *parts)
+        parts.pop(-1)
+
+        if len(parts):
+            dpath = os.path.join(self.keyringsBaseDir, *parts)
+            self._createDirIfNotExists(dpath)
+
+            for i in reversed(range(len(parts))):
+                self._ensurePermissions(os.path.join(
+                    self.keyringsBaseDir, *parts[:i+1]), self.dmode)
+
+        with open(fpath, "w+") as walletFile:
+            self._ensurePermissions(fpath, self.fmode)
+            encodedWallet = jsonpickle.encode(wallet, keys=True)
+            walletFile.write(encodedWallet)
+
+        return fpath
