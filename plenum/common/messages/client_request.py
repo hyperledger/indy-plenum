@@ -86,6 +86,5 @@ class CatchupOperationField(ClientOperationField):
             elif not optional:
                 self._raise_missed_fields(field)
 
-
         return super().validate(dct)
 
