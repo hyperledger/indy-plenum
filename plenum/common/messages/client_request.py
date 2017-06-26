@@ -71,9 +71,21 @@ class ClientOperationField(MessageValidator):
 class CatchupOperationField(ClientOperationField):
 
     def validate(self, dct):
-        fields = ["signature", "identifier", "reqId"]
+        fields = [
+            ("signature", True),
+            ("identifier", True),
+            ("reqId", True),
+        ]
+
+        dct = dct.copy()
         for field in fields:
-            if field not in dct and field != "signature":
+            field, optional = field
+
+            if field in dct:
+                dct.pop(field)
+            elif not optional:
                 self._raise_missed_fields(field)
-            dct.pop(field)
+
+
         return super().validate(dct)
+
