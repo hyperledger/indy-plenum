@@ -42,12 +42,12 @@ class MessageValidator(FieldValidator):
         return None
 
     def _raise_missed_fields(self, *fields):
-        raise TypeError("validation error: missed fields "
+        raise TypeError("validation error: missed fields: "
                         "{}".format(', '.join(map(str, fields))))
 
     def _raise_unknown_fields(self, field, value):
-        raise TypeError("validation error: unknown field "
-                        "({}={})".format(field, value))
+        raise TypeError("validation error: unknown field: "
+                        "{}={}".format(field, value))
 
     def _raise_invalid_fields(self, field, value, reason):
         raise TypeError("validation error: {} "
