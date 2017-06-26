@@ -5,6 +5,7 @@ import base58
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
 
+
 class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
