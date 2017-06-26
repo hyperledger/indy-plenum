@@ -3,9 +3,11 @@ from plenum.test.view_change.helper import view_change_in_between_3pc
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
 
+
 def slow_nodes(node_set):
     return [get_first_master_non_primary_node(node_set),
                   get_last_master_non_primary_node(node_set)]
+
 
 def test_view_change_in_between_3pc_2_of_4_nodes_with_new_primary(
         txnPoolNodeSet, looper, wallet1, client):

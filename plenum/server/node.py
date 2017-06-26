@@ -347,6 +347,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
         self._view_change_in_progress = False
 
+        # Number of rounds of catchup done during a view change.
+        self.catchup_rounds_without_txns = 0
+
     @property
     def id(self):
         if isinstance(self.poolManager, TxnPoolManager):
@@ -1569,6 +1572,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     # TODO: should be renamed to `post_all_ledgers_caughtup`
     def allLedgersCaughtUp(self):
+        if self.num_txns_caught_up_in_last_catchup() == 0:
+            self.catchup_rounds_without_txns += 1
         last_caught_up_3PC = self.ledgerManager.last_caught_up_3PC
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
@@ -1595,13 +1600,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Check if last catchup resulted in no txns
         """
         if self.caught_up_for_current_view():
-            logger.info('{} is caught up for the current view {}'.format(self, self.viewNo))
+            logger.info('{} is caught up for the current view {}'.
+                        format(self, self.viewNo))
             return False
-        logger.debug('{} is not caught up for the current view {}'.format(self, self.viewNo))
-        if self.has_ordered_till_last_prepared_certificate() and \
-                        self.num_txns_caught_up_in_last_catchup() == 0:
-            return False
-
+        logger.debug('{} is not caught up for the current view {}'.
+                     format(self, self.viewNo))
+        if self.num_txns_caught_up_in_last_catchup() == 0:
+            if self.has_ordered_till_last_prepared_certificate():
+                logger.debug('{} ordered till last prepared certificate'.format(self))
+                return False
+            if self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE:
+                logger.debug('{} has completed {} catchup rounds'.
+                             format(self, self.catchup_rounds_without_txns))
+                return False
         return True
 
     def caught_up_for_current_view(self) -> bool:
@@ -1634,7 +1645,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def num_txns_caught_up_in_last_catchup(self) -> int:
         count = sum([l.num_txns_caught_up for l in
                     self.ledgerManager.ledgerRegistry.values()])
-        logger.debug('{} caught up to {} txns in the last catchup'.format(self, count))
+        logger.debug('{} caught up to {} txns in the last catchup'.
+                     format(self, count))
         return count
 
     def no_more_catchups_needed(self):
@@ -2102,6 +2114,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
+        # Set to 0 even when set to 0 in `on_view_change_complete` since
+        # catchup might be started due to several reasons.
+        self.catchup_rounds_without_txns = 0
         self.start_catchup()
 
     def on_view_change_complete(self, view_no):
@@ -2112,6 +2127,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.view_change_in_progress = False
         self.instanceChanges.pop(view_no-1, None)
         self.master_replica.on_view_change_done()
+        self.catchup_rounds_without_txns = 0
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica

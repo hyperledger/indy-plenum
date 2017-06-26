@@ -420,7 +420,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def on_view_change_start(self):
         assert self.isMaster
-        lst = self.last_prepared_certificate_in_view(self.viewNo)
+        lst = self.last_prepared_certificate_in_view()
         self.last_prepared_before_view_change = lst
         logger.debug('{} setting last prepared for master to {}'.format(self, lst))
 
@@ -1364,19 +1364,9 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug('{} encountered {} which belongs to a later view'
                          .format(self, commit))
             return False
-        # if view_no != self.viewNo and view_no not in self.view_ends_at:
-        #     logger.debug('{} encountered {} from past view for which dont know '
-        #                  'the end of view'.format(self, commit))
-        #     return False
-        #
-        # ppSeqNos = []
-        # for v, p in self.commits:
-        #     if v == commit.viewNo:
-        #         ppSeqNos.append(p)
-        # return min(ppSeqNos) == commit.ppSeqNo if ppSeqNos else True
         return commit.ppSeqNo == 1
 
-    def last_prepared_certificate_in_view(self, view_no) -> Optional[Tuple[int, int]]:
+    def last_prepared_certificate_in_view(self) -> Optional[Tuple[int, int]]:
         # Pick the latest sent COMMIT in the view.
         # TODO: Consider stashed messages too?
         assert self.isMaster

@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import random
-import string
 import time
 import math
 from binascii import unhexlify, hexlify

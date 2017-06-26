@@ -5,6 +5,7 @@ from plenum.test.helper import sendRandomRequests, waitRejectFromPoolWithReason,
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import check_replica_queue_empty, check_all_replica_queue_empty
 
+
 @pytest.mark.skip('Currently we stash client requests during view change')
 def test_no_requests_processed_during_view_change(looper, nodeSet,
                                                   client1, wallet1):
@@ -17,6 +18,7 @@ def test_no_requests_processed_during_view_change(looper, nodeSet,
 
     for node in nodeSet:
         check_replica_queue_empty(node)
+
 
 @pytest.mark.skip('The filter is not enabled now')
 def test_no_new_view_3pc_messages_processed_during_view_change(looper, nodeSet,

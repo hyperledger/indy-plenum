@@ -32,7 +32,9 @@ def test_view_change_on_performance_degraded(looper, nodeSet, up, viewNo,
     new_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     assert old_primary_node.name != new_primary_node.name
 
-def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up, wallet1, client1, viewNo):
+
+def test_view_change_on_quorum_of_master_degraded(nodeSet, looper, up,
+                                                  wallet1, client1, viewNo):
     """
     Node will change view even though it does not find the master to be degraded
     when a quorum of nodes agree that master performance degraded

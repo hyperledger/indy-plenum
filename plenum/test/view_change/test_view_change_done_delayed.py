@@ -1,6 +1,6 @@
 from plenum.test.delayers import delay_3pc_messages, vcd_delay
-from plenum.test.helper import sendRandomRequests, \
-    sendReqsToNodesAndVerifySuffReplies, send_reqs_batches_and_get_suff_replies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
