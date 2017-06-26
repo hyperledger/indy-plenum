@@ -3,10 +3,15 @@ import os
 import stat
 import jsonpickle
 
+
+from stp_core.common.log import getlogger
 from plenum.client.wallet import WalletStorageHelper as WSH
+
+logger = getlogger()
 
 DEFAULT_DMODE = 0o700
 DEFAULT_FMODE = 0o600
+NOT_LISTED_PERMISSION = stat.S_IWOTH
 
 
 def encode_wallet(wallet):
@@ -15,6 +20,18 @@ def encode_wallet(wallet):
 
 def decode_wallet(wdata):
     return jsonpickle.decode(wdata, keys=True)
+
+
+def set_permissions(path, mode):
+    os.chmod(path, mode)
+    return stat.S_IMODE(os.stat(path).st_mode)
+
+def get_permissions(path):
+    return stat.S_IMODE(os.stat(path).st_mode)
+
+
+def check_permissions(path, mode):
+    assert get_permissions(path) == mode
 
 
 @pytest.fixture(scope='function')
@@ -26,6 +43,14 @@ def tdir_hierarchy(tdir_for_func):
         os.makedirs(os.path.join(tdir_for_func, d))
     for f in files:
         open(os.path.join(tdir_for_func, f), 'a').close()
+
+    # switch off test permission
+    for path in dirs + files:
+        path = os.path.join(tdir_for_func, path)
+        mode = get_permissions(path)
+        if mode & NOT_LISTED_PERMISSION:
+            set_permissions(path, mode & ~NOT_LISTED_PERMISSION)
+
     return (tdir_for_func, dirs, files)
 
 
@@ -37,15 +62,6 @@ def keyrings_base_dir(tdir_for_func):
 @pytest.fixture(scope='function')
 def test_wallet():
     return {1: 2, 3: {5: 6}}  # TODO real wallet
-
-
-def get_permissions(path):
-    return stat.S_IMODE(os.stat(path).st_mode)
-
-
-def check_permissions(path, mode):
-    assert get_permissions(path) == mode
-
 
 def test_keyring_base_dir_new_permissions(tdir_for_func):
     # default
@@ -70,8 +86,8 @@ def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
     root, dirs, files = tdir_hierarchy
     dpath = os.path.join(root, dirs[0])
     mode1 = get_permissions(dpath)
-    mode2 = mode1 + 1
-    WSH(dpath)
+    mode2 = mode1 | NOT_LISTED_PERMISSION
+    WSH(dpath, dmode=mode2)
     check_permissions(dpath, mode2)
 
 
@@ -101,13 +117,28 @@ def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet
 
     wsh = WSH(keyrings_base_dir)
 
-    inv_paths = ['../wallet', 'a/../../wallet', 'b/./../wallet']
-    for path in inv_paths:
+    inv_paths = ['../wallet', 'a/../../wallet']
+
+    #  docs says: "Availability: Unix.", so OSError is expected in some cases
+    src_path = os.path.join(keyrings_base_dir, "../wallet")
+    link_path = os.path.join(keyrings_base_dir, "wallet")
+    try:
+        os.symlink(src_path, link_path)
+    except OSError:
+        logger.warning('Failed to create symlink {} for {}'.format(
+            link_path, src_path), exc_info=True)
+    else:
+        inv_paths.append('wallet')
+
+    def check_path(path):
         with pytest.raises(TypeError) as exc_info:
             wsh.saveWallet(test_wallet, path)
 
         exc_info.match(r"path {} is not insdide the keyrings {}".format(
             path, keyrings_base_dir))
+
+    for path in inv_paths:
+        check_path(path)
 
 
 def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
@@ -144,9 +175,9 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     root, dirs, files = tdir_hierarchy
     wpath = os.path.join(root, files[0])
     mode1 = get_permissions(wpath)
-    mode2 = mode1 + 1
+    mode2 = mode1 | NOT_LISTED_PERMISSION
     wsh = WSH(root, fmode=mode2)
-    wsh.saveWallet(test_wallet, wpath)
+    wsh.saveWallet(test_wallet, files[0])
     check_permissions(wpath, mode2)
 
 

@@ -300,13 +300,12 @@ class WalletStorageHelper:
         else:
             os.makedirs(dpath)
 
-
-    def _isSubdir(self, dir1, dir2):
-        dir1 = os.path.realpath(dir1)
-        dir2 = os.path.realpath(dir2)
+    def _isPathInside(self, rootdir, path):
+        rootdir = os.path.realpath(rootdir)
+        path = os.path.realpath(path)
         while True:
-            dir2, tail = os.path.split(dir2)
-            if dir1 == dir2:
+            path, tail = os.path.split(path)
+            if rootdir == path:
                 return True
             elif not tail:
                 break
@@ -345,7 +344,7 @@ class WalletStorageHelper:
         if os.path.isabs(fpath):
            raise TypeError("path {} is absolute".format(fpath))
 
-        if not self._isSubdir(self.keyringsBaseDir,
+        if not self._isPathInside(self.keyringsBaseDir,
                 os.path.join(self.keyringsBaseDir, fpath)):
             raise TypeError("path {} is not insdide the keyrings {}".format(
                 fpath, self.keyringsBaseDir))
