@@ -8,6 +8,8 @@ from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
+from plenum.common.txn_util import txnToReq
+
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -49,6 +51,9 @@ def testNodeRejectingInvalidTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
                     txns[seqNo][TXN_TYPE] = "randomtype"
             consProof = [Ledger.hashToStr(p) for p in
                          ledger.tree.consistency_proof(end, ledger.size)]
+            # Transform flattened transaction to request-like format
+            txns = {index : txnToReq(txn) for index, txn in txns.items()}
+
             self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                        consProof), to=frm)
         else:
