@@ -536,6 +536,7 @@ def getWalletFilePath(basedir, walletFileName):
 
 
 def getLastSavedWalletFileName(dir):
+    # TODO move that to WalletStorageHelper
     def getLastModifiedTime(file):
         return os.stat(file).st_mtime_ns
 
