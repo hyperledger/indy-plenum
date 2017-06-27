@@ -109,12 +109,13 @@ OPERATION = 'operation'
 
 
 class ClientMessageValidator(MessageValidator):
+
     schema = (
         (f.IDENTIFIER.nm, IdentifierField()),
         (f.REQ_ID.nm, NonNegativeNumberField()),
         (OPERATION, ClientOperationField()),
         (f.SIG.nm, SignatureField(optional=True)),
-        # (f.DIGEST.nm, NonEmptyStringField(optional=True)),
+        (f.DIGEST.nm, NonEmptyStringField(optional=True)),
     )
 
 
