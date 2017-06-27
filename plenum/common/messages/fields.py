@@ -359,3 +359,10 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class TxnSeqNoField(FieldBase):
+
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        if val < 1:
+            return 'cannot be smaller than 1'
