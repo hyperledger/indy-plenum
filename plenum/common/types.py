@@ -415,14 +415,6 @@ class CatchupReq(MessageBase):
 #     f.CATCHUP_TILL
 # ])
 
-
-class CatchupOperationField(FieldBase):
-    _base_types = None
-
-    def _specific_validation(self, val):
-        pass
-
-
 class CatchupRep(MessageBase):
 
     def __init__(self, *args, **kwargs):
@@ -432,7 +424,7 @@ class CatchupRep(MessageBase):
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
-                             value_field=CatchupOperationField())),
+                             value_field=ClientMessageValidator())),
         (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
 
