@@ -94,6 +94,7 @@ class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
     def __init__(self, max_length: int, **kwargs):
+        assert max_length > 0, 'should be greater than 0'
         super().__init__(**kwargs)
         self._max_length = max_length
 
