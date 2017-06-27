@@ -1,5 +1,6 @@
 import ast
 import os
+import stat
 import re
 import traceback
 from tempfile import gettempdir, mkdtemp
@@ -580,6 +581,10 @@ def checkWalletFilePersisted(filePath):
     assert os.path.exists(filePath)
 
 
+def checkPermissions(path, mode):
+    assert stat.S_IMODE(os.stat(path).st_mode) == mode
+
+
 def checkWalletRestored(cli, expectedWalletKeyName,
                        expectedIdentifiers):
 
@@ -617,6 +622,15 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     finalExpectedMsgs = expectedMsgs or \
                         ['Active keyring set to "{}"'.format(keyringName)]
     do('use keyring {}'.format(name),
+       expect=finalExpectedMsgs
+    )
+
+
+def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
+    keyringName = expectedName or name
+    finalExpectedMsgs = expectedMsgs or \
+                        ['Active keyring "{}" saved'.format(keyringName)]
+    do('save keyring'.format(name),
        expect=finalExpectedMsgs
     )
 

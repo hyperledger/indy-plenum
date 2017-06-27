@@ -26,7 +26,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
-from plenum.client.wallet import Wallet
+from plenum.client.wallet import Wallet, WalletStorageHelper
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
@@ -178,6 +178,11 @@ class Cli:
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
+
+        self.walletSaver = WalletStorageHelper(
+                self.getKeyringsBaseDir(),
+                dmode=self.config.KEYRING_DIR_MODE,
+                fmode=self.config.KEYRING_FILE_MODE)
         '''
         examples:
         status
@@ -1869,8 +1874,9 @@ class Cli:
 
     def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
         try:
-            walletFilePath = saveGivenWallet(self._activeWallet,
-                                             self.walletFileName, contextDir)
+            walletFilePath = self.walletSaver.saveWallet(
+                self._activeWallet,
+                os.path.join(contextDir, self.walletFileName))
             if printMsgs:
                 self.print('Active keyring "{}" saved'.format(
                     self._activeWallet.name), newline=False)
