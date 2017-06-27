@@ -9,14 +9,8 @@ def randomMsg() -> TaggedTuple:
                    'content ' + randomString())
 
 
-TESTMSG = "TESTMSG"
-TestMsg = TaggedTuple(TESTMSG, [
-    ("subject", str),
-    ("content", str)])
-
-
 class TestMsg(MessageBase):
-    typename = TESTMSG
+    typename = "TESTMSG"
     schema = (
         ("subject", NonEmptyStringField()),
         ("content", NonEmptyStringField()),
