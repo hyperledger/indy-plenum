@@ -57,11 +57,41 @@ def reqToTxn(req: Request):
     :param req:
     :return:
     """
-    data = req.signingState
+    # TODO: we should not reformat transaction this way
+    # When refactor keep in mind thought about back compatibility
+
+    # data = req.signingState
+    # res = {
+    #     f.IDENTIFIER.nm: req.identifier,
+    #     f.REQ_ID.nm: req.reqId,
+    #     f.SIG.nm: req.signature
+    # }
+    # res.update(data[OPERATION])
+    # return res
+    
+    if isinstance(req, dict):
+        if TXN_TYPE in req:
+            return req
+        data = req
+    else :
+        data = req.as_dict
+
     res = {
-        f.IDENTIFIER.nm: req.identifier,
-        f.REQ_ID.nm: req.reqId,
-        f.SIG.nm: req.signature
+        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
+        f.REQ_ID.nm: data[f.REQ_ID.nm],
+        f.SIG.nm: data[f.SIG.nm]
     }
     res.update(data[OPERATION])
     return res
+
+
+def txnToReq(txn):
+    """
+    Transforms transactions to request form (not to Request)  
+    """
+    txn = txn.copy()
+    request = {}
+    for field_name in [f.IDENTIFIER.nm, f.REQ_ID.nm, f.SIG.nm]:
+        request[field_name] = txn.get(field_name, None)
+    request[OPERATION] = txn
+    return request

@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
-from plenum.common.messages.client_request import ClientOperationField, CatchupOperationField
+from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase, MessageValidator
 from stp_core.types import HA
@@ -416,6 +416,13 @@ class CatchupReq(MessageBase):
 # ])
 
 
+class CatchupOperationField(FieldBase):
+    _base_types = None
+
+    def _specific_validation(self, val):
+        pass
+
+
 class CatchupRep(MessageBase):
 
     def __init__(self, *args, **kwargs):
@@ -428,6 +435,7 @@ class CatchupRep(MessageBase):
                              value_field=CatchupOperationField())),
         (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
+
 
 # CatchupRep = TaggedTuple(CATCHUP_REP, [
 #     f.LEDGER_ID,
