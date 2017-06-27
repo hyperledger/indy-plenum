@@ -5,7 +5,7 @@ import jsonpickle
 
 
 from stp_core.common.log import getlogger
-from plenum.client.wallet import WalletStorageHelper as WSH
+from plenum.client.wallet import Wallet, WalletStorageHelper as WSH
 
 logger = getlogger()
 
@@ -61,7 +61,7 @@ def keyrings_base_dir(tdir_for_func):
 
 @pytest.fixture(scope='function')
 def test_wallet():
-    return {1: 2, 3: {5: 6}}  # TODO real wallet
+    return Wallet("TestWallet")
 
 def test_keyring_base_dir_new_permissions(tdir_for_func):
     # default
@@ -174,7 +174,7 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     check_permissions(wpath, mode2)
 
 
-def test_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+def test_store_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
     wsh = WSH(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "1/2/3/wallet")
     wsh.saveWallet(test_wallet, abs_path)
@@ -189,9 +189,71 @@ def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
     wpath_res = wsh.saveWallet(test_wallet, wpath)
     assert wpath_res == os.path.join(keyrings_base_dir, wpath)
 
-    with open(wpath_res, "rb") as wf:
+    with open(wpath_res) as wf:
         wdata = wf.read()
 
-    assert wdata == encode_wallet(test_wallet).encode()
-    assert test_wallet == decode_wallet(wdata.decode())
+    # TODO no comparison operator for Wallet
+    assert wdata == encode_wallet(test_wallet)
 
+
+def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
+
+    wsh = WSH(keyrings_base_dir)
+
+    for path in (None, ''):
+        with pytest.raises(TypeError) as exc_info:
+            wsh.loadWallet(path)
+
+        exc_info.match(r'empty path')
+
+
+def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
+
+    wsh = WSH(keyrings_base_dir)
+
+    inv_paths = [
+        os.path.join(keyrings_base_dir, '../wallet'),
+        '../wallet',
+        'a/../../wallet'
+    ]
+
+    #  docs says: "Availability: Unix.", so OSError is expected in some cases
+    src_path = os.path.join(keyrings_base_dir, "../wallet")
+    link_path = os.path.join(keyrings_base_dir, "wallet")
+    try:
+        os.symlink(src_path, link_path)
+    except OSError:
+        logger.warning('Failed to create symlink {} for {}'.format(
+            link_path, src_path), exc_info=True)
+    else:
+        inv_paths.append('wallet')
+
+    def check_path(path):
+        with pytest.raises(TypeError) as exc_info:
+            wsh.loadWallet(path)
+
+        exc_info.match(r"path {} is not insdide the keyrings {}".format(
+            path, keyrings_base_dir))
+
+    for path in inv_paths:
+        check_path(path)
+
+
+def test_loaded_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
+    wpath = 'ctx/test.wallet'
+
+    wsh = WSH(keyrings_base_dir)
+
+    wsh.saveWallet(test_wallet, wpath)
+    loaded_wallet = wsh.loadWallet(wpath)
+    # TODO no comparison operator for Wallet (and classes it used)
+    assert encode_wallet(test_wallet) == encode_wallet(loaded_wallet)
+
+
+def test_load_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
+    wsh = WSH(keyrings_base_dir)
+    abs_path = os.path.join(keyrings_base_dir, "5/6/7/wallet")
+    wsh.saveWallet(test_wallet, abs_path)
+    loaded_wallet = wsh.loadWallet(abs_path)
+    # TODO no comparison operator for Wallet (and classes it used)
+    assert encode_wallet(test_wallet) == encode_wallet(loaded_wallet)

@@ -312,6 +312,19 @@ class WalletStorageHelper:
             os.makedirs(dpath)
 
 
+    def _normalize(self, fpath):
+        # in case of relative path construct the absolute one
+        _fpath = os.path.realpath(fpath if os.path.isabs(fpath) else 
+                    os.path.join(self._baseDir, fpath))
+        parts = self._splitPath(_fpath)
+        return _fpath, parts[:-1], parts[-1]
+
+
+    def _splitByBaseDir(self, parts):
+        baseLen = len(self._baseDirParts)
+        return parts[:baseLen], parts[baseLen:]
+
+
     def _splitPath(self, path):
         parts = []
 
@@ -326,6 +339,14 @@ class WalletStorageHelper:
                 break
 
         return parts
+
+
+    def encode(self, data):
+        return jsonpickle.encode(data, keys=True)
+
+
+    def decode(self, data):
+        return jsonpickle.decode(data, keys=True)
 
 
     def saveWallet(self, wallet, fpath):
@@ -347,22 +368,15 @@ class WalletStorageHelper:
         if not fpath:
             raise TypeError("empty path")
 
-        # in case of relative path construct the absolute one
-        _fpath = os.path.realpath(fpath if os.path.isabs(fpath) else 
-                    os.path.join(self._baseDir, fpath))
-
-        # splitted path of wallet directory 
-        parts = self._splitPath(_fpath)[:-1]
-
-        baseLen = len(self._baseDirParts)
-        head, tail = parts[:baseLen], parts[baseLen:]
+        _fpath, dirParts, _ = self._normalize(fpath)
+        head, tail = self._splitByBaseDir(dirParts)
 
         if head != self._baseDirParts:
             raise TypeError("path {} is not insdide the keyrings {}".format(
                 fpath, self._baseDir))
 
         if len(tail):
-            self._createDirIfNotExists(os.path.join(*parts))
+            self._createDirIfNotExists(os.path.join(*dirParts))
             # ensure permissions from the bottom of directory hierarchy
             for i in reversed(range(len(tail))):
                 self._ensurePermissions(os.path.join(
@@ -370,8 +384,36 @@ class WalletStorageHelper:
 
         with open(_fpath, "w+") as wf:
             self._ensurePermissions(_fpath, self.fmode)
-            encodedWallet = jsonpickle.encode(wallet, keys=True)
+            encodedWallet = self.encode(wallet)
             wf.write(encodedWallet)
             logger.debug("stored wallet '{}' in {}".format(wallet.name, _fpath))
 
         return _fpath
+
+
+    def loadWallet(self, fpath):
+        """Load wallet from specified localtion.
+
+        Returns loaded wallet.
+
+        Error cases:
+            - ``fpath`` is not inside the keyrings base dir - TypeError raised
+            - ``fpath`` exists and it's a directory - IsADirectoryError raised
+
+        :param fpath: wallet file path, absolute or relative to
+            keyrings base dir
+        """
+        if not fpath:
+            raise TypeError("empty path")
+
+        _fpath, dirParts, _ = self._normalize(fpath)
+        head, tail = self._splitByBaseDir(dirParts)
+
+        if head != self._baseDirParts:
+            raise TypeError("path {} is not insdide the keyrings {}".format(
+                fpath, self._baseDir))
+
+        with open(_fpath) as wf:
+            wallet = self.decode(wf.read())
+        
+        return wallet
