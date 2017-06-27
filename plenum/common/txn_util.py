@@ -92,6 +92,6 @@ def txnToReq(txn):
     txn = txn.copy()
     request = {}
     for field_name in [f.IDENTIFIER.nm, f.REQ_ID.nm, f.SIG.nm]:
-        request[field_name] = txn.get(field_name, None)
+        request[field_name] = txn.pop(field_name, None)
     request[OPERATION] = txn
     return request
