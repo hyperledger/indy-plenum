@@ -102,7 +102,7 @@ class LimitedLengthStringField(FieldBase):
         if not val:
             return 'empty string'
         if len(val) > self._max_length:
-            val = val[100:] + '...'
+            val = val[:100] + ('...' if len(val) > 100 else '')
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
