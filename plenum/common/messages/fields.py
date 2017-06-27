@@ -11,6 +11,8 @@ class FieldValidator(metaclass=ABCMeta):
     Interface for field validators
     """
 
+    optional = False
+
     @abstractmethod
     def validate(self, val):
         """
