@@ -359,3 +359,20 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class VersionField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, comp_num=(2, 3,), **kwargs):
+        super().__init__(**kwargs)
+        self._comp_num = comp_num
+
+    def _specific_validation(self, val):
+        parts = val.split(".")
+        if len(parts) not in self._comp_num:
+            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+        for p in parts:
+            try:
+                int(p)
+            except ValueError:
+                return "version component {} is not a number".format(p)
+        return None
