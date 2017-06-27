@@ -186,3 +186,7 @@ CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
+
+# permissions for keyring dirs/files
+KEYRING_DIR_MODE = 0o700  # drwx------ 
+KEYRING_FILE_MODE = 0o600  # -rw-------
