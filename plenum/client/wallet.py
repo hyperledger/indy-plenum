@@ -372,5 +372,6 @@ class WalletStorageHelper:
             self._ensurePermissions(_fpath, self.fmode)
             encodedWallet = jsonpickle.encode(wallet, keys=True)
             wf.write(encodedWallet)
+            logger.debug("stored wallet '{}' in {}".format(wallet.name, _fpath))
 
         return _fpath
