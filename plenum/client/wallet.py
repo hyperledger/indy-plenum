@@ -356,7 +356,7 @@ class WalletStorageHelper:
         has been stored.
 
         Error cases:
-            - ``fpath`` is not inside the keyrings base dir - TypeError raised
+            - ``fpath`` is not inside the keyrings base dir - ValueError raised
             - directory part of ``fpath`` exists and it's not a directory - 
               NotADirectoryError raised
             - ``fpath`` exists and it's a directory - IsADirectoryError raised
@@ -366,13 +366,13 @@ class WalletStorageHelper:
             keyrings base dir
         """
         if not fpath:
-            raise TypeError("empty path")
+            raise ValueError("empty path")
 
         _fpath, dirParts, _ = self._normalize(fpath)
         head, tail = self._splitByBaseDir(dirParts)
 
         if head != self._baseDirParts:
-            raise TypeError("path {} is not insdide the keyrings {}".format(
+            raise ValueError("path {} is not insdide the keyrings {}".format(
                 fpath, self._baseDir))
 
         if len(tail):
@@ -397,20 +397,20 @@ class WalletStorageHelper:
         Returns loaded wallet.
 
         Error cases:
-            - ``fpath`` is not inside the keyrings base dir - TypeError raised
+            - ``fpath`` is not inside the keyrings base dir - ValueError raised
             - ``fpath`` exists and it's a directory - IsADirectoryError raised
 
         :param fpath: wallet file path, absolute or relative to
             keyrings base dir
         """
         if not fpath:
-            raise TypeError("empty path")
+            raise ValueError("empty path")
 
         _fpath, dirParts, _ = self._normalize(fpath)
         head, tail = self._splitByBaseDir(dirParts)
 
         if head != self._baseDirParts:
-            raise TypeError("path {} is not insdide the keyrings {}".format(
+            raise ValueError("path {} is not insdide the keyrings {}".format(
                 fpath, self._baseDir))
 
         with open(_fpath) as wf:

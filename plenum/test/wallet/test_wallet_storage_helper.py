@@ -96,7 +96,7 @@ def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_
     wsh = WSH(keyrings_base_dir)
 
     for path in (None, ''):
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             wsh.saveWallet(test_wallet, path)
 
         exc_info.match(r'empty path')
@@ -124,7 +124,7 @@ def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet
         inv_paths.append('wallet')
 
     def check_path(path):
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             wsh.saveWallet(test_wallet, path)
 
         exc_info.match(r"path {} is not insdide the keyrings {}".format(
@@ -201,7 +201,7 @@ def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
     wsh = WSH(keyrings_base_dir)
 
     for path in (None, ''):
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             wsh.loadWallet(path)
 
         exc_info.match(r'empty path')
@@ -229,7 +229,7 @@ def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
         inv_paths.append('wallet')
 
     def check_path(path):
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             wsh.loadWallet(path)
 
         exc_info.match(r"path {} is not insdide the keyrings {}".format(
