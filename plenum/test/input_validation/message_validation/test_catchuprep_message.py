@@ -2,12 +2,12 @@ import pytest
 from plenum.common.types import CatchupRep
 from collections import OrderedDict
 from plenum.common.messages.fields import \
-    IterableField, LedgerIdField
+    IterableField, LedgerIdField, MapField
 
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
-    ("txns", IterableField),
+    ("txns", MapField),
     ("consProof", IterableField),
 ])
 
