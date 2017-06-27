@@ -1526,7 +1526,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainRequestApplication(self, request: Request):
         return self.reqHandler.apply(request)
 
-    def processRequest(self, request: Request, frm: str):
+    def processRequest(self, request: Request, frm: str, seqNo=None):
         """
         Handle a REQUEST from the client.
         If the request has already been executed, the node re-sends the reply to
@@ -1556,7 +1556,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        reply = self.getReplyFromLedger(ledger, request)
+        reply = self.getReplyFromLedger(ledger, request, seqNo)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
@@ -2221,10 +2221,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    def getReplyFromLedger(self, ledger, request):
+    def getReplyFromLedger(self, ledger, request, seqNo=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seqNo = self.seqNoDB.get(request.identifier, request.reqId)
+        seqNo = seqNo if seqNo else self.seqNoDB.get(request.identifier, request.reqId)
         if seqNo:
             txn = ledger.getBySeqNo(int(seqNo))
             if txn:
