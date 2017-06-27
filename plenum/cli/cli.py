@@ -74,7 +74,7 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
-    getFriendlyIdentifier, saveGivenWallet, \
+    getFriendlyIdentifier, \
     normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
@@ -1876,7 +1876,7 @@ class Cli:
         try:
             walletFilePath = self.walletSaver.saveWallet(
                 self._activeWallet,
-                os.path.join(contextDir, self.walletFileName))
+                getWalletFilePath(contextDir, self.walletFileName))
             if printMsgs:
                 self.print('Active keyring "{}" saved'.format(
                     self._activeWallet.name), newline=False)
