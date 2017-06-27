@@ -75,7 +75,7 @@ from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
     getFriendlyIdentifier, \
-    normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
+    normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
     getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
@@ -1378,6 +1378,7 @@ class Cli:
 
     def _listKeyringsAction(self, matchedVars):
         if matchedVars.get('list_krs') == 'list keyrings':
+            # TODO move file system related routine to WalletStorageHelper
             keyringBaseDir = self.getKeyringsBaseDir()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             dirs_to_scan = self.getAllSubDirNamesForKeyrings()
@@ -1738,7 +1739,7 @@ class Cli:
 
     def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
-            wallet = getWalletByPath(walletFilePath)
+            wallet = self.walletSaver.loadWallet(walletFilePath)
 
             if copyAs:
                 wallet.name=copyAs
@@ -1841,6 +1842,7 @@ class Cli:
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
+        # TODO move that to WalletStorageHelper
         files = glob.glob(pattern)
         if files:
             return True

@@ -535,12 +535,6 @@ def getWalletFilePath(basedir, walletFileName):
     return os.path.join(basedir, walletFileName)
 
 
-def getWalletByPath(walletFilePath):
-    with open(walletFilePath) as walletFile:
-        wallet = decode(walletFile.read(), keys=True)
-        return wallet
-
-
 def getLastSavedWalletFileName(dir):
     def getLastModifiedTime(file):
         return os.stat(file).st_mtime_ns
