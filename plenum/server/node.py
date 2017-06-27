@@ -102,6 +102,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     keygenScript = "init_plenum_keys"
     _client_request_class = SafeRequest
     ledger_ids = [POOL_LEDGER_ID, DOMAIN_LEDGER_ID]
+    _wallet_class = Wallet
 
     def __init__(self,
                  name: str,
@@ -359,7 +360,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @property
     def wallet(self):
         if not self._wallet:
-            wallet = Wallet(self.name)
+            wallet = self._wallet_class(self.name)
+            # TODO: Should use DidSigner to move away from cryptonyms
             signer = SimpleSigner(seed=unhexlify(self.nodestack.keyhex))
             wallet.addIdentifier(signer=signer)
             self._wallet = wallet
@@ -1798,8 +1800,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.startedProcessingReq(*request.key, clientName)
         self.requests.addPropagate(request, frm)
 
-        # # Only propagate if the node is participating in the consensus process
-        # # which happens when the node has completed the catchup process
         self.propagate(request, clientName)
         self.tryForwarding(request)
 

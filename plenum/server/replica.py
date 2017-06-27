@@ -336,14 +336,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def quorums(self):
         return self.node.quorums
 
-    def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
-        """
-        Replica should only participating in the consensus process and the
-        replica did not stash any of this request's 3-phase request
-        """
-        return self.node.isParticipating and (viewNo, ppSeqNo) \
-                                             not in self.stashingWhileCatchingUp
-
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -465,57 +457,6 @@ class Replica(HasActionQueue, MessageProcessor):
             lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
             self.last_ordered_3pc = (self.viewNo, lowest_ordered)
-
-    # def removeObsoletePpReqs(self):
-    #     # If replica was primary in previous view then remove every sent
-    #     # Pre-Prepare with less than f+1 Prepares.
-    #     viewNos = self.primaryNames.keys()
-    #     if len(viewNos) > 1:
-    #         viewNos = list(viewNos)
-    #         lastViewNo = viewNos[-2]
-    #         if self.primaryNames[lastViewNo] == self.name:
-    #             lastViewPPs = []
-    #             for (v, ps), pp in self.sentPrePrepares.items():
-    #                 if v > lastViewNo:
-    #                     break
-    #                 if v == lastViewNo:
-    #                     lastViewPPs.append(pp)
-    #
-    #             obs = set()
-    #             for pp in lastViewPPs:
-    #                 if not self.prepares.hasEnoughVotes(pp, self.f):
-    #                     obs.add((pp.viewNo, pp.ppSeqNo))
-    #
-    #             for key in sorted(list(obs), key=itemgetter(1), reverse=True):
-    #                 ppReq = self.sentPrePrepares[key]
-    #                 count, _, prevStateRoot = self.batches.pop(key)
-    #                 self.revert(ppReq.ledgerId, prevStateRoot, count)
-    #                 self.sentPrePrepares.pop(key)
-    #                 self.prepares.pop(key, None)
-
-    # def revert_onordered_3pc_till(self, ordered_till: Tuple[int, int]):
-    #     """
-    #     Revert any changes to state and ledger that were not ordered by the
-    #     replica but the replica got them through catchup
-    #     """
-    #     assert self.isMaster
-    #     to_remove = []
-    #     for key in reversed(self.batches):
-    #         # TODO: Need to consider `self.ordered`
-    #         if compare_3PC_keys(ordered_till, key) > 0:
-    #             to_remove.append(key)
-    #         else:
-    #             break
-    #
-    #     for key in to_remove:
-    #         ppReq = self.getPrePrepare(*key)
-    #         count, _, prevStateRoot = self.batches.pop(key)
-    #         self.revert(ppReq.ledgerId, prevStateRoot, count)
-    #         # This GC should be done only once on view change complete
-    #         # self.sentPrePrepares.pop(key, None)
-    #         # self.prePrepares.pop(key, None)
-    #         # self.prepares.pop(key, None)
-    #         # self.prepares.pop(key, None)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """

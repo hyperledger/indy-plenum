@@ -43,8 +43,7 @@ def testTestNodeDelay(tdir_for_func):
                                                    customTimeout=timeout))
 
             # reset the delay, and find another message comes quickly
-            nodeB.nodeIbStasher.resetDelays()
-            nodeB.nodeIbStasher.force_unstash()
+            nodeB.nodeIbStasher.reset_delays_and_process_delayeds()
             looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
 
 
