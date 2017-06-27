@@ -6,12 +6,17 @@ from collections import OrderedDict
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
 
+
 class MessageValidator(FieldValidator):
 
     # the schema has to be an ordered iterable because the message class
     # can be create with positional arguments __init__(*args)
+
     schema = ()
     optional = False
+
+    def __init__(self, schema_is_strict = True):
+        self.schema_is_strict = schema_is_strict
 
     def validate(self, dct):
         self._validate_fields_with_schema(dct, self.schema)
@@ -28,10 +33,12 @@ class MessageValidator(FieldValidator):
             self._raise_missed_fields(*missed_required_fields)
         for k, v in dct.items():
             if k not in schema_dct:
-                self._raise_unknown_fields(k, v)
-            validation_error = schema_dct[k].validate(v)
-            if validation_error:
-                self._raise_invalid_fields(k, v, validation_error)
+                if self.schema_is_strict:
+                    self._raise_unknown_fields(k, v)
+            else:
+                validation_error = schema_dct[k].validate(v)
+                if validation_error:
+                    self._raise_invalid_fields(k, v, validation_error)
 
 
     def _raise_invalid_type(self, dct):

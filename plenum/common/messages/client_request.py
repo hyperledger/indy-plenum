@@ -40,14 +40,18 @@ class ClientNYMOperation(MessageValidator):
         # TODO: validate role using ChooseField,
         # do roles list expandable form outer context
     )
+    schema_is_strict = False
 
 
 class ClientOperationField(MessageValidator):
 
-    operations = {
-        NODE: ClientNodeOperation(),
-        NYM: ClientNYMOperation(),
-    }
+    def __init__(self, *args, **kwargs):
+        strict = kwargs.get("schema_is_strict", True)
+        self.operations = {
+            NODE: ClientNodeOperation(schema_is_strict=strict),
+            NYM: ClientNYMOperation(schema_is_strict=strict),
+        }
+        super().__init__(*args, **kwargs)
 
     def validate(self, dct):
         """

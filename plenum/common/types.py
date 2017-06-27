@@ -110,6 +110,20 @@ OPERATION = 'operation'
 
 class ClientMessageValidator(MessageValidator):
 
+    def __init__(self, operation_schema_is_strict, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Following code is for support of non-strict schema
+        # TODO: refactor this
+        # TODO: this (and all related functionality) can be removed when
+        # when fixed problem with transaction serialization (INDY-338)
+        strict = operation_schema_is_strict
+        if not strict:
+            operation_field_index = 2
+            op = ClientOperationField(schema_is_strict=False)
+            schema = list(self.schema)
+            schema[operation_field_index] = (OPERATION, op)
+            self.schema = tuple(schema)
+
     schema = (
         (f.IDENTIFIER.nm, IdentifierField()),
         (f.REQ_ID.nm, NonNegativeNumberField()),
@@ -240,7 +254,7 @@ class Ordered(MessageBase):
 class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
-        (f.REQUEST.nm, ClientMessageValidator()),
+        (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
         (f.SENDER_CLIENT.nm, NonEmptyStringField()),
     )
 # Propagate = TaggedTuple(PROPAGATE, [
@@ -331,7 +345,7 @@ class ThreePCState(MessageBase):
     typename = THREE_PC_STATE
     schema = (
         (f.INST_ID.nm, NonNegativeNumberField()),
-        (f.MSGS.nm, IterableField(ClientMessageValidator())),
+        (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
     )
 # ThreePCState = TaggedTuple(THREE_PC_STATE, [
 #     f.INST_ID,
@@ -418,14 +432,11 @@ class CatchupReq(MessageBase):
 
 class CatchupRep(MessageBase):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
-                             value_field=ClientMessageValidator())),
+                             value_field=ClientMessageValidator(operation_schema_is_strict=False))),
         (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
     )
 
