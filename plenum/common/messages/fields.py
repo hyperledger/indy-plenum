@@ -90,21 +90,18 @@ class NonEmptyStringField(FieldBase):
             return 'empty string'
 
 
-class LimitedLengthStringField(NonEmptyStringField):
+class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
     def __init__(self, max_length: int, **kwargs):
-        if max_length < 1:
-            raise Exception('Incorrect validation parameters')
-
         super().__init__(**kwargs)
         self._max_length = max_length
 
     def _specific_validation(self, val):
-        super_ret = super()._specific_validation(val)
-        if super_ret:
-            return super_ret
+        if not val:
+            return 'empty string'
         if len(val) > self._max_length:
+            val = val[100:] + '...'
             return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
