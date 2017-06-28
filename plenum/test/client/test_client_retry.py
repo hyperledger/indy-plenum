@@ -100,7 +100,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
     origTrans = alpha.transmitToClient
 
     def nackReq(self, req, frm):
-        self.transmitToClient(RequestNack(*req.key, reason="testing"), frm)
+        self.transmitToClient(RequestNack(*req.key, "testing"), frm)
 
     def onlyTransNack(msg, remoteName):
         if not isinstance(msg, RequestNack):
