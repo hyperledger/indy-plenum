@@ -70,6 +70,18 @@ class MessageFactory:
         if not issubclass(obj, MessageBase):
             return "must be a subclass of 'MessageBase'"
 
+    # TODO: it is a workaround which helps extend some fields from
+    # downstream projects, should be removed after we find a better way
+    # to do this
+    def update_schemas_by_field_type(self, old_field_type, new_field_type):
+        for cls in self.__classes.values():
+            new_schema = []
+            for name, field in cls.schema:
+                if isinstance(field, old_field_type):
+                    field = new_field_type()
+                new_schema.append((name, field))
+            cls.schema = tuple(new_schema)
+
 
 class NodeMessageFactory(MessageFactory):
 
