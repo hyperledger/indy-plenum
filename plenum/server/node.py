@@ -46,7 +46,7 @@ from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import Propagate, \
-    Reply, Nomination, TaggedTuples, Primary, \
+    Reply, Nomination, Primary, \
     Reelection, PrePrepare, Prepare, Commit, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
     RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
@@ -1194,7 +1194,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             return None
 
         try:
-            message = node_message_factory(**msg)
+            message = node_message_factory.get_instance(**msg)
         except (MissingNodeOp, InvalidNodeOp) as ex:
             raise ex
         except Exception as ex:
@@ -1304,10 +1304,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                     msg[OPERATION])
             cls = self._client_request_class
         elif OP_FIELD_NAME in msg:
-            op = msg.pop(OP_FIELD_NAME)
-            cls = TaggedTuples.get(op, None)
-            if not cls:
-                raise InvalidClientOp(op, msg.get(f.REQ_ID.nm))
+            op = msg[OP_FIELD_NAME]
+            cls = node_message_factory.get_type(op)
             if cls not in (Batch, LedgerStatus, CatchupReq):
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:

@@ -220,9 +220,16 @@ Reject = TaggedTuple(REJECT, [
     f.REQ_ID,
     f.REASON])
 
-PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
-    f.TXN
-])
+
+# TODO implement actual rules
+class PoolLedgerTxns(MessageBase):
+    typename = POOL_LEDGER_TXNS
+    schema = (
+        (f.TXN, AnyValueField()),
+    )
+# PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
+#     f.TXN
+# ])
 
 
 class Ordered(MessageBase):

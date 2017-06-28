@@ -22,7 +22,7 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, f
+from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
 from plenum.common.util import Seconds, getMaxFailures, adict

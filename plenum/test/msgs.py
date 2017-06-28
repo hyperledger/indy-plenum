@@ -1,10 +1,10 @@
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_messages import node_message_factory
-from plenum.common.types import TaggedTuple, NonEmptyStringField
+from plenum.common.types import NonEmptyStringField
 from plenum.common.util import randomString
 
 
-def randomMsg() -> TaggedTuple:
+def randomMsg():
     return TestMsg('subject ' + randomString(),
                    'content ' + randomString())
 
