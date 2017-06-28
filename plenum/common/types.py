@@ -202,30 +202,59 @@ class Primary(MessageBase):
 #     f.VIEW_NO,
 #     f.ORD_SEQ_NO])
 
-BlacklistMsg = NamedTuple(BLACKLIST, [
-    f.SUSP_CODE,
-    f.NODE_NAME])
+# TODO implement actual rules
+class BlacklistMsg(MessageBase):
+    typename = BLACKLIST
+    schema = (
+        (f.SUSP_CODE.nm, AnyValueField()),
+        (f.NODE_NAME.nm, AnyValueField()),
+    )
+# BlacklistMsg = NamedTuple(BLACKLIST, [
+#     f.SUSP_CODE,
+#     f.NODE_NAME])
 
-RequestAck = TaggedTuple(REQACK, [
-    f.IDENTIFIER,
-    f.REQ_ID])
+# TODO implement actual rules
+class RequestAck(MessageBase):
+    typename = REQACK
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField())
+    )
+# RequestAck = TaggedTuple(REQACK, [
+#     f.IDENTIFIER,
+#     f.REQ_ID])
+# TODO implement actual rules
+class RequestNack(MessageBase):
+    typename = REQNACK
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField()),
+        (f.REASON.nm, AnyValueField()),
+    )
+# RequestNack = TaggedTuple(REQNACK, [
+#     f.IDENTIFIER,
+#     f.REQ_ID,
+#     f.REASON])
+# TODO implement actual rules
+class Reject(MessageBase):
+    typename = REJECT
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField()),
+        (f.REASON.nm, AnyValueField()),
+    )
 
-RequestNack = TaggedTuple(REQNACK, [
-    f.IDENTIFIER,
-    f.REQ_ID,
-    f.REASON])
-
-Reject = TaggedTuple(REJECT, [
-    f.IDENTIFIER,
-    f.REQ_ID,
-    f.REASON])
+# Reject = TaggedTuple(REJECT, [
+#     f.IDENTIFIER,
+#     f.REQ_ID,
+#     f.REASON])
 
 
 # TODO implement actual rules
 class PoolLedgerTxns(MessageBase):
     typename = POOL_LEDGER_TXNS
     schema = (
-        (f.TXN, AnyValueField()),
+        (f.TXN.nm, AnyValueField()),
     )
 # PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
 #     f.TXN
@@ -367,9 +396,13 @@ CheckpointState = NamedTuple(CHECKPOINT_STATE, [
     f.RECEIVED_DIGESTS,
     f.IS_STABLE
     ])
-
-
-Reply = TaggedTuple(REPLY, [f.RESULT])
+# TODO implement actual rules
+class Reply(MessageBase):
+    typename = REPLY
+    schema = (
+        (f.RESULT.nm, AnyValueField()),
+    )
+#Reply = TaggedTuple(REPLY, [f.RESULT])
 
 
 class InstanceChange(MessageBase):
@@ -453,19 +486,22 @@ class CatchupRep(MessageBase):
 #     f.TXNS,
 #     f.CONS_PROOF
 # ])
-
-# class ConsProofRequest(MessageBase):
-#     typename = CONS_PROOF_REQUEST
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#     )
-ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-    f.LEDGER_ID,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END
-])
+# TODO implement actual rules
+class ConsProofRequest(MessageBase):
+    typename = CONS_PROOF_REQUEST
+    schema = (
+        # (f.LEDGER_ID.nm, LedgerIdField()),
+        # (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        # (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.LEDGER_ID.nm, AnyValueField()),
+        (f.SEQ_NO_START.nm, AnyValueField()),
+        (f.SEQ_NO_END.nm, AnyValueField()),
+    )
+# ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
+#     f.LEDGER_ID,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END
+# ])
 
 
 TaggedTuples = None  # type: Dict[str, class]
