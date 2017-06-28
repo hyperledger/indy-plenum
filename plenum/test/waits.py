@@ -43,6 +43,7 @@ def expectedNodeToNodeMessageDeliveryTime():
     """
     return __Peer2PeerRequestDeliveryTime
 
+
 def expectedNodeToAllNodesMessageDeliveryTime(nodeCount):
     """
     From: The Node ready to send a message

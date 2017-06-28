@@ -1,6 +1,7 @@
 import ipaddress
 
 import os
+from abc import abstractmethod
 from collections import OrderedDict
 
 import base58
@@ -32,20 +33,24 @@ logger = getlogger()
 
 
 class PoolManager:
+    @abstractmethod
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         """
         Returns a tuple(nodestack, clientstack, nodeReg)
         """
-        raise NotImplementedError
 
     @property
-    def merkleRootHash(self):
-        raise NotImplementedError
+    @abstractmethod
+    def merkleRootHash(self) -> str:
+        """
+        """
 
     @property
-    def txnSeqNo(self):
-        raise NotImplementedError
+    @abstractmethod
+    def txnSeqNo(self) -> int:
+        """
+        """
 
     @staticmethod
     def _get_rank(needle_id: str, haystack_ids: List[str]):
@@ -55,11 +60,15 @@ class PoolManager:
         return haystack_ids.index(needle_id)
 
     @property
+    @abstractmethod
     def id(self):
-        raise NotImplementedError
+        """
+        """
 
+    @abstractmethod
     def get_rank_of(self, node_id) -> int:
-        raise NotImplementedError
+        """
+        """
 
     @property
     def rank(self) -> Optional[int]:
@@ -69,11 +78,13 @@ class PoolManager:
             self._rank = self.get_rank_of(self.id)
         return self._rank
 
+    @abstractmethod
     def get_name_by_rank(self, rank):
         # Needed for communicating primary name to others and also nodeReg
         # uses node names (alias) and not ids
         # TODO: Should move to using node ids and not node names (alias)
-        raise NotImplementedError
+        """
+        """
 
 
 class HasPoolManager:
@@ -336,11 +347,11 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return self.reqHandler.apply(request)
 
     @property
-    def merkleRootHash(self):
+    def merkleRootHash(self) -> str:
         return self.ledger.root_hash
 
     @property
-    def txnSeqNo(self):
+    def txnSeqNo(self) -> int:
         return self.ledger.seqNo
 
     def getNodeData(self, nym):
