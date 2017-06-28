@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import base58
+import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
@@ -77,12 +78,35 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
                "".format(types_str, type(val).__name__)
 
 
+class BooleanField(FieldBase):
+    _base_types = (bool,)
+
+    def _specific_validation(self, val):
+        return
+
+
 class NonEmptyStringField(FieldBase):
     _base_types = (str,)
 
     def _specific_validation(self, val):
         if not val:
             return 'empty string'
+
+
+class LimitedLengthStringField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, max_length: int, **kwargs):
+        assert max_length > 0, 'should be greater than 0'
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
+    def _specific_validation(self, val):
+        if not val:
+            return 'empty string'
+        if len(val) > self._max_length:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
 class SignatureField(FieldBase):
@@ -206,30 +230,25 @@ class LedgerIdField(ChooseField):
 class Base58Field(FieldBase):
     _base_types = (str,)
 
-    #long id is 32 bye long; short is 16 bytes long;
-    #upper limit is calculated according to formula
-    #for the max length of encoded data
-    #ceil(n * 138 / 100 + 1)
-    #lower formula is based on data from field
-    def __init__(self, short=False, long=False, *args, **kwargs):
+    def __init__(self, byte_lengths=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._alphabet = set(base58.alphabet)
-        self._lengthLimits = []
-        if short:
-            self._lengthLimits.append(range(15, 26))
-        if long:
-            self._lengthLimits.append(range(43, 46))
+        self.byte_lengths = byte_lengths
 
     def _specific_validation(self, val):
-        if self._lengthLimits:
-            inlen = len(val)
-            goodlen = any(inlen in r for r in self._lengthLimits)
-            if not goodlen:
-                return 'value length {} is not in ranges {}'\
-                    .format(inlen, self._lengthLimits)
-        if set(val) - self._alphabet:
-            return 'should not contains chars other than {}' \
-                .format(self._alphabet)
+        invalid_chars = set(val) - self._alphabet
+        if invalid_chars:
+            # only 10 chars to shorten the output
+            to_print = sorted(invalid_chars)[:10]
+            return 'should not contains the following chars {}{}' \
+                .format(to_print,
+                        ' (truncated)' if len(to_print) < len(invalid_chars) else '')
+        if self.byte_lengths is not None:
+            # TODO could impact performace, need to check
+            b58len = len(base58.b58decode(val))
+            if b58len not in self.byte_lengths:
+                return 'b58 decoded value length {} should be one of {}' \
+                    .format(b58len, list(self.byte_lengths))
 
 
 class IdentifierField(Base58Field):
@@ -239,7 +258,7 @@ class IdentifierField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(short=True, long=True, *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class DestNodeField(Base58Field):
@@ -249,7 +268,7 @@ class DestNodeField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(short=True, long=True, *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class DestNymField(Base58Field):
@@ -259,7 +278,7 @@ class DestNymField(Base58Field):
         # TODO the tests in client are failing because the field
         # can be short and long both. It is can be an error.
         # We have to double check the type of the field.
-        super().__init__(short=True, long=True, *args, **kwargs)
+        super().__init__(byte_lengths=(16, 32), *args, **kwargs)
 
 
 class RequestIdentifierField(FieldBase):
@@ -295,18 +314,15 @@ class TieAmongField(FieldBase):
 # TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
-    _b58short = Base58Field(short=True)
-    _b58long = Base58Field(long=True)
+    _b58abbreviated = Base58Field(byte_lengths=(16,))
+    _b58full = Base58Field(byte_lengths=(32,) )
 
     def _specific_validation(self, val):
-        vk_error = NonEmptyStringField().validate(val)
-        if vk_error:
-            return vk_error
         if val.startswith('~'):
-            #short base58
-            return self._b58short.validate(val[1:])
-        #long base58
-        return self._b58long.validate(val)
+            #abbreviated base58
+            return self._b58abbreviated.validate(val[1:])
+        #full base58
+        return self._b58full.validate(val)
 
 
 class HexField(FieldBase):
@@ -329,7 +345,7 @@ class MerkleRootField(Base58Field):
     _base_types = (str, )
 
     def __init__(self, *args, **kwargs):
-        super().__init__(long=True, *args, **kwargs)
+        super().__init__(byte_lengths=(32,), *args, **kwargs)
 
 
 class TimestampField(FieldBase):
@@ -364,6 +380,27 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class TxnSeqNoField(FieldBase):
+
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        if val < 1:
+            return 'cannot be smaller than 1'
+
+
+class Sha256HexField(FieldBase):
+    """
+    Validates a sha-256 hash specified in hex
+    """
+    _base_types = (str,)
+    regex = re.compile('^[A-Fa-f0-9]{64}$')
+
+    def _specific_validation(self, val):
+        if self.regex.match(val) is None:
+            return 'not a valid hash (needs to be in hex too)'
+
+
 class AnyValueField(FieldBase):
     """
     Stub field validator
@@ -390,3 +427,4 @@ class StringifiedNonNegativeNumberField(NonNegativeNumberField):
         except ValueError:
             return "stringified int expected, but was '{}'"\
                 .format(val)
+        

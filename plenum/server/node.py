@@ -25,7 +25,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -77,6 +77,7 @@ from plenum.server.pool_manager import HasPoolManager, TxnPoolManager, \
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.primary_elector import PrimaryElector
 from plenum.server.propagator import Propagator
+from plenum.server.quorums import Quorums
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
@@ -384,6 +385,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
         self.minimumNodes = (2 * self.f) + 1  # minimum for a functional pool
+        self.quorums = Quorums(self.totalNodes)
 
     @property
     def poolLedger(self):
@@ -1792,13 +1794,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ratchet = Ratchet(a=2, b=0.05, c=1, base=2, peak=windowSize)
         self.insChngThrottler = Throttler(windowSize, ratchet.get)
 
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return (2 * self.f) + 1
-
     def primary_found(self):
         # If the node has primary replica of master instance
         self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
@@ -1815,7 +1810,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         number and its view is less than or equal to the proposed view
         """
         msg = None
-        if not self.instanceChanges.hasQuorum(proposedViewNo, self.f):
+        quorum = self.quorums.view_change.value
+        if not self.instanceChanges.hasQuorum(proposedViewNo, quorum):
             msg = '{} has no quorum for view {}'.format(self, proposedViewNo)
         elif not proposedViewNo > self.viewNo:
             msg = '{} is in higher view more than {}'.format(self, proposedViewNo)
@@ -2028,9 +2024,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be {}".
-                                 format(Roles.STEWARD.name))
-                    return
+                    if role not in (STEWARD, TRUSTEE, None):
+                        logger.error("Role if present must be {} and not {}".
+                                     format(Roles.STEWARD.name, role))
+                        return
                 self.clientAuthNr.addIdr(identifier,
                                          verkey=v.verkey,
                                          role=role)

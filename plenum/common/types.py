@@ -437,7 +437,7 @@ class CatchupRep(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
                              value_field=ClientMessageValidator(operation_schema_is_strict=False))),
-        (f.CONS_PROOF.nm, IterableField(Base58Field(long=True))),
+        (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
 
 

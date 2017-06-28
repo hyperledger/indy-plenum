@@ -4,6 +4,7 @@ from abc import abstractmethod
 
 from base58 import b58decode, b58encode
 from plenum.common.signing import serializeMsg
+from plenum.common.exceptions import InvalidKey
 from stp_core.crypto.nacl_wrappers import Verifier as NaclVerifier
 
 
@@ -19,6 +20,7 @@ class Verifier:
 
 class DidVerifier(Verifier):
     def __init__(self, verkey, identifier=None):
+        _verkey = verkey
         self._verkey = None
         self._vr = None
         if identifier:
@@ -30,7 +32,10 @@ class DidVerifier(Verifier):
             if verkey[0] == '~':  # abbreviated
                 verkey = b58encode(b58decode(identifier) +
                                    b58decode(verkey[1:]))
-        self.verkey = verkey
+        try:
+            self.verkey = verkey
+        except Exception as ex:
+            raise InvalidKey("verkey {}".format(_verkey)) from ex
 
     @property
     def verkey(self):

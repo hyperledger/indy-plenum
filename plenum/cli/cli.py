@@ -258,7 +258,9 @@ class Cli:
 
         if logFileName:
             Logger().enableFileLogging(logFileName)
-        Logger().setupRaet(RAETVerbosity, RAETLogFile)
+
+        # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
+        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
@@ -826,7 +828,7 @@ class Cli:
         self.print("Clients: " + clients)
         f = getMaxFailures(len(self.nodes))
         self.print("f-value (number of possible faulty nodes): {}".format(f))
-        if f != 0 and len(self.nodes) >= 2 * f + 1:
+        if f != 0:
             node = list(self.nodes.values())[0]
             mPrimary = node.replicas[node.instances.masterId].primaryName
             bPrimary = node.replicas[node.instances.backupIds[0]].primaryName
