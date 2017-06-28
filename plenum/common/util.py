@@ -42,12 +42,13 @@ Seconds = TypeVar("Seconds", int, float)
 
 def randomString(size: int = 20) -> str:
     """
-    Generate a random string of the specified size,
-    DONOT use python provided random class its a Pseudo Random Number Generator
+    Generate a random string in hex of the specified size
+
+    DO NOT use python provided random class its a Pseudo Random Number Generator
     and not secure enough for our needs
 
     :param size: size of the random string to generate
-    :return: the random string generated
+    :return: the hexadecimal random string
     """
 
     def randomStr(size):
