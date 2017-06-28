@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.types import CatchupReq
+from plenum.common.messages.node_messages import CatchupReq
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, LedgerIdField

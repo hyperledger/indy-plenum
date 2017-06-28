@@ -5,7 +5,8 @@ from collections import Counter, deque
 from functools import partial
 from typing import Sequence, Any, Union, List
 
-from plenum.common.types import Nomination, Reelection, Primary, f
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.common.util import mostCommonElement
 from stp_core.common.log import getlogger
 from plenum.server import replica

@@ -42,7 +42,7 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
 from plenum.test.testable import spyable
 from plenum.test import waits
-from plenum.common.messages.node_messages import node_message_factory
+from plenum.common.messages.node_message_factory import node_message_factory
 
 logger = getlogger()
 

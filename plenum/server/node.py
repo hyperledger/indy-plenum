@@ -35,7 +35,7 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.messages.node_messages import node_message_factory
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
@@ -45,14 +45,12 @@ from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Propagate, \
-    Reply, Nomination, Primary, \
-    Reelection, PrePrepare, Prepare, Commit, \
-    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
-    PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    Reject
+from plenum.common.types import OPERATION, f, \
+    HA, PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING
+from plenum.common.messages.node_messages import ElectionMsg, ElectionType
+from plenum.common.messages.node_messages import Nomination, Batch, Reelection, Primary, BlacklistMsg, RequestAck, \
+    RequestNack, Reject, PoolLedgerTxns, Ordered, Propagate, PrePrepare, Prepare, Commit, Checkpoint, ThreePCState, \
+    Reply, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, ConsProofRequest
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore

@@ -1,9 +1,9 @@
 import random
 from typing import Iterable
 
-from plenum.common.types import f, Propagate, PrePrepare, \
-    Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, \
-    Nomination, CatchupRep, Primary, Reelection
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary, Propagate, PrePrepare, Prepare, \
+    Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient

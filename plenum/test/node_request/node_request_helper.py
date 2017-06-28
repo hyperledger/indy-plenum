@@ -2,7 +2,8 @@ import time
 from functools import partial
 
 from stp_core.loop.eventually import eventuallyAll
-from plenum.common.types import PrePrepare, OPERATION, f
+from plenum.common.types import OPERATION, f
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.types import OPERATION, f
 from plenum.common.util import getMaxFailures

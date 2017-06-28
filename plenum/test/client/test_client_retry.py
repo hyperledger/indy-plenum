@@ -6,7 +6,7 @@ import time
 
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
-from plenum.common.types import Reply, RequestNack
+from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.test.helper import sendRandomRequest, checkReqAck, wait_for_replies
 from plenum.test import waits
 

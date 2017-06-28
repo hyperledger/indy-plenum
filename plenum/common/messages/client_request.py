@@ -1,6 +1,8 @@
 from plenum.common.constants import *
 from plenum.common.messages.fields import *
+from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField, NonEmptyStringField
 from plenum.common.messages.message_base import MessageValidator
+from plenum.common.types import OPERATION, f
 
 
 class ClientNodeOperationData(MessageValidator):
@@ -70,3 +72,28 @@ class ClientOperationField(MessageValidator):
             # check only if the schema is defined
             op = self.operations[schema_type]
             op.validate(dct)
+
+
+class ClientMessageValidator(MessageValidator):
+
+    def __init__(self, operation_schema_is_strict, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Following code is for support of non-strict schema
+        # TODO: refactor this
+        # TODO: this (and all related functionality) can be removed when
+        # when fixed problem with transaction serialization (INDY-338)
+        strict = operation_schema_is_strict
+        if not strict:
+            operation_field_index = 2
+            op = ClientOperationField(schema_is_strict=False)
+            schema = list(self.schema)
+            schema[operation_field_index] = (OPERATION, op)
+            self.schema = tuple(schema)
+
+    schema = (
+        (f.IDENTIFIER.nm, IdentifierField()),
+        (f.REQ_ID.nm, NonNegativeNumberField()),
+        (OPERATION, ClientOperationField()),
+        (f.SIG.nm, SignatureField(optional=True)),
+        (f.DIGEST.nm, NonEmptyStringField(optional=True)),
+    )

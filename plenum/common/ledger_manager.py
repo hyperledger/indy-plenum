@@ -12,8 +12,9 @@ from plenum.common.ledger import Ledger
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 
-from plenum.common.types import LedgerStatus, CatchupRep, \
-    ConsistencyProof, f, CatchupReq, ConsProofRequest
+from plenum.common.types import f
+from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
+    ConsProofRequest
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.common.config_util import getConfig

@@ -1,80 +1,266 @@
-import sys
-from importlib import import_module
+from typing import TypeVar, NamedTuple
 
-from plenum.common.constants import OP_FIELD_NAME
-from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
+from plenum.common.constants import *
+from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase
+from plenum.common.types import f
+from plenum.common.messages.client_request import ClientMessageValidator
 
 
-class MessageFactory:
+class Nomination(MessageBase):
+    typename = NOMINATE
 
-    def __init__(self, class_module_name):
-        classes_module = self.__load_module_by_name(class_module_name)
-        self.__classes = self.__get_message_classes(classes_module)
-        assert len(self.__classes) > 0, "at least one message class loaded"
-
-    @classmethod
-    def __load_module_by_name(cls, module_name):
-        the_module = cls.__get_module_by_name(module_name)
-        if the_module is not None:
-            return the_module
-
-        import_module(module_name)  # can raise ImportError
-        the_module = cls.__get_module_by_name(module_name)
-        return the_module
-
-    @classmethod
-    def __get_message_classes(cls, classes_module):
-        classes = {}
-        for x in dir(classes_module):
-            obj = getattr(classes_module, x)
-            doesnt_fit_reason = cls.__check_obj_fits(obj)
-            if doesnt_fit_reason is None:
-                classes.update({obj.typename: obj})
-        return classes
-
-    def get_instance(self, **message_raw):
-        message_op = message_raw.get(OP_FIELD_NAME, None)
-        if message_op is None:
-            raise MissingNodeOp
-        cls = self.get_type(message_op)
-        msg = self.__msg_without_op_field(message_raw)
-        return cls(**msg)
-
-    def get_type(self, message_op):
-        message_cls = self.__classes.get(message_op, None)
-        if message_cls is None:
-            raise InvalidNodeOp(message_op)
-        return message_cls
-
-    @staticmethod
-    def __msg_without_op_field(msg):
-        return {k: v for k, v in msg.items() if k != OP_FIELD_NAME}
-
-    def set_message_class(self, message_class):
-        doesnt_fit_reason = self.__check_obj_fits(message_class)
-        assert not doesnt_fit_reason, doesnt_fit_reason
-        self.__classes.update({message_class.typename: message_class})
-
-    @staticmethod
-    def __get_module_by_name(module_name):
-        return sys.modules.get(module_name, None)
-
-    @staticmethod
-    def __check_obj_fits(obj):
-        if not getattr(obj, "schema", None):
-            return "must have a non empty 'schema'"
-        if not getattr(obj, "typename", None):
-            return "must have a non empty 'typename'"
-        # has to be the last because of: 'str' week ref error
-        if not issubclass(obj, MessageBase):
-            return "must be a subclass of 'MessageBase'"
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
 
 
-class NodeMessageFactory(MessageFactory):
+class Batch(MessageBase):
+    typename = BATCH
 
-    def __init__(self):
-        super().__init__('plenum.common.types')
+    schema = (
+        (f.MSGS.nm, IterableField(SerializedValueField())),
+        (f.SIG.nm, SignatureField()),
+    )
 
 
-node_message_factory = NodeMessageFactory()
+class Reelection(MessageBase):
+    typename = REELECTION
+
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.ROUND.nm, NonNegativeNumberField()),
+        (f.TIE_AMONG.nm, IterableField(TieAmongField())),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+    )
+
+
+class Primary(MessageBase):
+    typename = PRIMARY
+
+    schema = (
+        (f.NAME.nm, NonEmptyStringField()),
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+
+
+# TODO implement actual rules
+class BlacklistMsg(MessageBase):
+    typename = BLACKLIST
+    schema = (
+        (f.SUSP_CODE.nm, AnyValueField()),
+        (f.NODE_NAME.nm, AnyValueField()),
+    )
+
+
+# TODO implement actual rules
+class RequestAck(MessageBase):
+    typename = REQACK
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField())
+    )
+
+
+# TODO implement actual rules
+class RequestNack(MessageBase):
+    typename = REQNACK
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField()),
+        (f.REASON.nm, AnyValueField()),
+    )
+
+
+# TODO implement actual rules
+class Reject(MessageBase):
+    typename = REJECT
+    schema = (
+        (f.IDENTIFIER.nm, AnyValueField()),
+        (f.REQ_ID.nm, AnyValueField()),
+        (f.REASON.nm, AnyValueField()),
+    )
+
+
+# TODO implement actual rules
+class PoolLedgerTxns(MessageBase):
+    typename = POOL_LEDGER_TXNS
+    schema = (
+        (f.TXN.nm, AnyValueField()),
+    )
+
+
+class Ordered(MessageBase):
+    typename = ORDERED
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+
+
+class Propagate(MessageBase):
+    typename = PROPAGATE
+    schema = (
+        (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
+        (f.SENDER_CLIENT.nm, NonEmptyStringField()),
+    )
+
+
+class PrePrepare(MessageBase):
+    typename = PREPREPARE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.PP_TIME.nm, TimestampField()),
+        (f.REQ_IDR.nm, IterableField(RequestIdentifierField())),
+        (f.DISCARDED.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+
+
+class Prepare(MessageBase):
+    typename = PREPARE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+    )
+
+
+class Commit(MessageBase):
+    typename = COMMIT
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+    )
+
+
+class Checkpoint(MessageBase):
+    typename = CHECKPOINT
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.DIGEST.nm, NonEmptyStringField()),
+    )
+
+
+class ThreePCState(MessageBase):
+    typename = THREE_PC_STATE
+    schema = (
+        (f.INST_ID.nm, NonNegativeNumberField()),
+        (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
+    )
+
+
+# TODO implement actual rules
+class CheckpointState(MessageBase):
+    typename = CHECKPOINT_STATE
+    schema = (
+        (f.SEQ_NO.nm, AnyValueField()),
+        (f.DIGESTS.nm, AnyValueField()),
+        (f.DIGEST.nm, AnyValueField()),
+        (f.RECEIVED_DIGESTS.nm, AnyValueField()),
+        (f.IS_STABLE.nm, AnyValueField())
+    )
+
+
+# TODO implement actual rules
+class Reply(MessageBase):
+    typename = REPLY
+    schema = (
+        (f.RESULT.nm, AnyValueField()),
+    )
+
+
+class InstanceChange(MessageBase):
+    typename = INSTANCE_CHANGE
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.REASON.nm, NonNegativeNumberField())
+    )
+
+
+class LedgerStatus(MessageBase):
+    typename = LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.MERKLE_ROOT.nm, MerkleRootField()),
+    )
+
+
+class ConsistencyProof(MessageBase):
+    typename = CONSISTENCY_PROOF
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
+        (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
+        (f.HASHES.nm, IterableField(NonEmptyStringField())),
+    )
+
+
+class CatchupReq(MessageBase):
+    typename = CATCHUP_REQ
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.CATCHUP_TILL.nm, NonNegativeNumberField()),
+    )
+
+
+class CatchupRep(MessageBase):
+
+    typename = CATCHUP_REP
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.TXNS.nm, MapField(key_field=StringifiedNonNegativeNumberField(),
+                             value_field=ClientMessageValidator(operation_schema_is_strict=False))),
+        (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
+    )
+
+
+class ConsProofRequest(MessageBase):
+    typename = CONS_PROOF_REQUEST
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+    )
+
+
+ThreePhaseType = (PrePrepare, Prepare, Commit)
+ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
+
+
+ElectionType = (Nomination, Primary, Reelection)
+ElectionMsg = TypeVar("ElectionMsg", *ElectionType)
+
+ThreePhaseKey = NamedTuple("ThreePhaseKey", [
+                        f.VIEW_NO,
+                        f.PP_SEQ_NO
+                    ])

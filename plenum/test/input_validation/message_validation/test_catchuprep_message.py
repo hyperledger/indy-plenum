@@ -1,5 +1,4 @@
-import pytest
-from plenum.common.types import CatchupRep, MapField
+from plenum.common.messages.node_messages import CatchupRep
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     IterableField, LedgerIdField, MapField

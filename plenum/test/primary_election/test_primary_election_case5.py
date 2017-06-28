@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from plenum.common.types import Primary, Nomination
+from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.test import waits
 from stp_core.common.log import getlogger
 

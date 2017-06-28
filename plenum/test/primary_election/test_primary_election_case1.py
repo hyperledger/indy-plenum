@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import Nomination
+from plenum.common.messages.node_messages import Nomination
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple

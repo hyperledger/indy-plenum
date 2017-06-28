@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Propagate
+from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay
 from plenum.test.helper import assertLength
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \

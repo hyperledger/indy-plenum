@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Nomination, PrePrepare
+from plenum.common.messages.node_messages import Nomination, PrePrepare
 from plenum.common.util import randomString
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import checkDiscardMsg

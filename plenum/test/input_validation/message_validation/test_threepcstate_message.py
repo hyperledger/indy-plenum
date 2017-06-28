@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.types import ThreePCState
+from plenum.common.messages.node_messages import ThreePCState
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, IterableField

@@ -3,7 +3,7 @@ import pytest
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
 from plenum.common.messages.fields import NonNegativeNumberField
 from plenum.common.messages.message_base import MessageBase
-from plenum.common.messages.node_messages import MessageFactory, NodeMessageFactory
+from plenum.common.messages.node_message_factory import MessageFactory, NodeMessageFactory
 from plenum.test.input_validation.stub_messages import AMessage1
 
 

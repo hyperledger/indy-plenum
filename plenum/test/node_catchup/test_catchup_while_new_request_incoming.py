@@ -1,7 +1,8 @@
 import types
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.types import CatchupReq, f
+from plenum.common.types import f
+from plenum.common.messages.node_messages import CatchupReq
 from plenum.common.util import randomString
 from plenum.test.delayers import cqDelay
 from plenum.test.helper import sendRandomRequests, \

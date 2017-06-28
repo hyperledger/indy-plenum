@@ -3,7 +3,8 @@ from functools import partial
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import PrePrepare, f
+from plenum.common.types import f
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import adict
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
