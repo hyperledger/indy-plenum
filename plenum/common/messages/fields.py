@@ -91,6 +91,22 @@ class NonEmptyStringField(FieldBase):
             return 'empty string'
 
 
+class LimitedLengthStringField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, max_length: int, **kwargs):
+        assert max_length > 0, 'should be greater than 0'
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
+    def _specific_validation(self, val):
+        if not val:
+            return 'empty string'
+        if len(val) > self._max_length:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, self._max_length)
+
+
 class SignatureField(FieldBase):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
