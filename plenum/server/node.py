@@ -802,26 +802,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isReady():
             self.checkInstances()
 
-
-            # TODO: Should we only send election messages when lagged or
-            # otherwise too?
-            # if isinstance(self.elector, PrimaryElector) and joined:
-            #     msgs = self.elector.get_msgs_for_lagged_nodes()
-            #     logger.debug("{} has msgs {} for new nodes {}".
-            #                  format(self, msgs, joined))
-            #     for joinedNode in joined:
-            #         self.sendElectionMsgsToLaggingNode(joinedNode, msgs)
-            #         # Communicate current view number if any view change
-            #         # happened to the connected node
-            #         if self.viewNo > 0:
-            #             logger.debug("{} communicating view number {} to {}"
-            #                          .format(self, self.viewNo-1, joinedNode))
-            #             rid = self.nodestack.getRemote(joinedNode).uid
-            #             self.send(
-            #                 self._create_instance_change_msg(self.viewNo, 0),
-            #                 rid)
-            # TODO: Make sure newly joined nodes are able to select the
-            # correct primary
             for n in joined:
                 msgs = self.elector.get_msgs_for_lagged_nodes()
                 self.sendElectionMsgsToLaggingNode(n, msgs)
