@@ -79,32 +79,6 @@ class f:  # provides a namespace for reusable field constants
     DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
 
 
-class TaggedTupleBase:
-    def melted(self):
-        """
-        Return the tagged tuple in a dictionary form.
-        """
-        if hasattr(self, "__dict__"):
-            m = self.__dict__
-        elif hasattr(self, "_asdict"):
-            m = self._asdict()
-        else:
-            raise RuntimeError("Cannot convert argument to a dictionary")
-        m[OP_FIELD_NAME] = self.typename
-        m.move_to_end(OP_FIELD_NAME, False)
-        return m
-
-
-# noinspection PyProtectedMember
-def TaggedTuple(typename, fields) -> NamedTuple:
-    cls = NamedTuple(typename, fields)
-    if OP_FIELD_NAME in cls._fields:
-        raise RuntimeError("field name '{}' is reserved in TaggedTuple"
-                           .format(OP_FIELD_NAME))
-    cls.__bases__ += (TaggedTupleBase,)
-    cls.typename = typename
-    return cls
-
 OPERATION = 'operation'
 
 
@@ -142,11 +116,6 @@ class Nomination(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
     )
-# Nomination = TaggedTuple(NOMINATE, [
-#     f.NAME,
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.ORD_SEQ_NO])
 
 
 class Batch(MessageBase):
@@ -157,10 +126,6 @@ class Batch(MessageBase):
         (f.SIG.nm, SignatureField()),
     )
 
-
-# Batch = TaggedTuple(BATCH, [
-#     f.MSGS,
-#     f.SIG])
 
 # Reelection messages that nodes send when they find the 2 or more nodes have
 # equal nominations for primary. `round` indicates the reelection round
@@ -179,13 +144,6 @@ class Reelection(MessageBase):
         (f.TIE_AMONG.nm, IterableField(TieAmongField())),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
     )
-# Reelection = TaggedTuple(REELECTION, [
-#     f.INST_ID,
-#     f.ROUND,
-#     f.TIE_AMONG,
-#     f.VIEW_NO])
-
-# Declaration of a winner
 
 class Primary(MessageBase):
     typename = PRIMARY
@@ -196,11 +154,6 @@ class Primary(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.ORD_SEQ_NO.nm, NonNegativeNumberField()),
     )
-# Primary = TaggedTuple(PRIMARY, [
-#     f.NAME,
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.ORD_SEQ_NO])
 
 # TODO implement actual rules
 class BlacklistMsg(MessageBase):
@@ -209,9 +162,6 @@ class BlacklistMsg(MessageBase):
         (f.SUSP_CODE.nm, AnyValueField()),
         (f.NODE_NAME.nm, AnyValueField()),
     )
-# BlacklistMsg = NamedTuple(BLACKLIST, [
-#     f.SUSP_CODE,
-#     f.NODE_NAME])
 
 # TODO implement actual rules
 class RequestAck(MessageBase):
@@ -220,9 +170,7 @@ class RequestAck(MessageBase):
         (f.IDENTIFIER.nm, AnyValueField()),
         (f.REQ_ID.nm, AnyValueField())
     )
-# RequestAck = TaggedTuple(REQACK, [
-#     f.IDENTIFIER,
-#     f.REQ_ID])
+
 # TODO implement actual rules
 class RequestNack(MessageBase):
     typename = REQNACK
@@ -231,10 +179,7 @@ class RequestNack(MessageBase):
         (f.REQ_ID.nm, AnyValueField()),
         (f.REASON.nm, AnyValueField()),
     )
-# RequestNack = TaggedTuple(REQNACK, [
-#     f.IDENTIFIER,
-#     f.REQ_ID,
-#     f.REASON])
+
 # TODO implement actual rules
 class Reject(MessageBase):
     typename = REJECT
@@ -244,21 +189,12 @@ class Reject(MessageBase):
         (f.REASON.nm, AnyValueField()),
     )
 
-# Reject = TaggedTuple(REJECT, [
-#     f.IDENTIFIER,
-#     f.REQ_ID,
-#     f.REASON])
-
-
 # TODO implement actual rules
 class PoolLedgerTxns(MessageBase):
     typename = POOL_LEDGER_TXNS
     schema = (
         (f.TXN.nm, AnyValueField()),
     )
-# PoolLedgerTxns = TaggedTuple(POOL_LEDGER_TXNS, [
-#     f.TXN
-# ])
 
 
 class Ordered(MessageBase):
@@ -273,16 +209,6 @@ class Ordered(MessageBase):
         (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
         (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
     )
-# Ordered = NamedTuple(ORDERED, [
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.REQ_IDR,
-#     f.PP_SEQ_NO,
-#     f.PP_TIME,
-#     f.LEDGER_ID,
-#     f.STATE_ROOT,
-#     f.TXN_ROOT,
-#     ])
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
@@ -293,9 +219,6 @@ class Propagate(MessageBase):
         (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
         (f.SENDER_CLIENT.nm, NonEmptyStringField()),
     )
-# Propagate = TaggedTuple(PROPAGATE, [
-#     f.REQUEST,
-#     f.SENDER_CLIENT])
 
 
 class PrePrepare(MessageBase):
@@ -312,18 +235,6 @@ class PrePrepare(MessageBase):
         (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
         (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
     )
-# PrePrepare = TaggedTuple(PREPREPARE, [
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.PP_SEQ_NO,
-#     f.PP_TIME,
-#     f.REQ_IDR,
-#     f.DISCARDED,
-#     f.DIGEST,
-#     f.LEDGER_ID,
-#     f.STATE_ROOT,
-#     f.TXN_ROOT,
-#     ])
 
 
 class Prepare(MessageBase):
@@ -336,14 +247,6 @@ class Prepare(MessageBase):
         (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
         (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
     )
-# Prepare = TaggedTuple(PREPARE, [
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.PP_SEQ_NO,
-#     f.DIGEST,
-#     f.STATE_ROOT,
-#     f.TXN_ROOT,
-#     ])
 
 
 class Commit(MessageBase):
@@ -353,11 +256,6 @@ class Commit(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
     )
-# Commit = TaggedTuple(COMMIT, [
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.PP_SEQ_NO
-#     ])
 
 
 class Checkpoint(MessageBase):
@@ -369,12 +267,6 @@ class Checkpoint(MessageBase):
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
     )
-# Checkpoint = TaggedTuple(CHECKPOINT, [
-#     f.INST_ID,
-#     f.VIEW_NO,
-#     f.SEQ_NO_START,
-#     f.SEQ_NO_END,
-#     f.DIGEST])
 
 
 class ThreePCState(MessageBase):
@@ -383,26 +275,24 @@ class ThreePCState(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.MSGS.nm, IterableField(ClientMessageValidator(operation_schema_is_strict=True))),
     )
-# ThreePCState = TaggedTuple(THREE_PC_STATE, [
-#     f.INST_ID,
-#     f.MSGS])
 
+# TODO implement actual rules
+class CheckpointState(MessageBase):
+    typename = CHECKPOINT_STATE
+    schema = (
+        (f.SEQ_NO.nm, AnyValueField()),
+        (f.DIGESTS.nm, AnyValueField()),
+        (f.DIGEST.nm, AnyValueField()),
+        (f.RECEIVED_DIGESTS.nm, AnyValueField()),
+        (f.IS_STABLE.nm, AnyValueField())
+    )
 
-CheckpointState = NamedTuple(CHECKPOINT_STATE, [
-    f.SEQ_NO,   # Current ppSeqNo in the checkpoint
-    f.DIGESTS,  # Digest of all the requests in the checkpoint
-    f.DIGEST,   # Final digest of the checkpoint, after all requests in its
-    # range have been ordered
-    f.RECEIVED_DIGESTS,
-    f.IS_STABLE
-    ])
 # TODO implement actual rules
 class Reply(MessageBase):
     typename = REPLY
     schema = (
         (f.RESULT.nm, AnyValueField()),
     )
-#Reply = TaggedTuple(REPLY, [f.RESULT])
 
 
 class InstanceChange(MessageBase):
@@ -411,10 +301,6 @@ class InstanceChange(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.REASON.nm, NonNegativeNumberField())
     )
-# InstanceChange = TaggedTuple(INSTANCE_CHANGE, [
-#     f.VIEW_NO,
-#     f.REASON
-# ])
 
 
 class LedgerStatus(MessageBase):
@@ -424,10 +310,6 @@ class LedgerStatus(MessageBase):
         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
     )
-# LedgerStatus = TaggedTuple(LEDGER_STATUS, [
-#     f.LEDGER_ID,
-#     f.TXN_SEQ_NO,
-#     f.MERKLE_ROOT])
 
 
 class ConsistencyProof(MessageBase):
@@ -441,19 +323,9 @@ class ConsistencyProof(MessageBase):
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),
         (f.HASHES.nm, IterableField(NonEmptyStringField())),
     )
-# ConsistencyProof = TaggedTuple(CONSISTENCY_PROOF, [
-#     f.LEDGER_ID,
-#     f.SEQ_NO_START,
-#     f.SEQ_NO_END,
-#     f.PP_SEQ_NO,
-#     f.OLD_MERKLE_ROOT,
-#     f.NEW_MERKLE_ROOT,
-#     f.HASHES
-# ])
 
 # TODO: Catchup is not a good name, replace it with `sync` or something which
 # is familiar
-
 
 class CatchupReq(MessageBase):
     typename = CATCHUP_REQ
@@ -463,12 +335,6 @@ class CatchupReq(MessageBase):
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
         (f.CATCHUP_TILL.nm, NonNegativeNumberField()),
     )
-# CatchupReq = TaggedTuple(CATCHUP_REQ, [
-#     f.LEDGER_ID,
-#     f.SEQ_NO_START,
-#     f.SEQ_NO_END,
-#     f.CATCHUP_TILL
-# ])
 
 class CatchupRep(MessageBase):
 
@@ -481,49 +347,15 @@ class CatchupRep(MessageBase):
     )
 
 
-# CatchupRep = TaggedTuple(CATCHUP_REP, [
-#     f.LEDGER_ID,
-#     f.TXNS,
-#     f.CONS_PROOF
-# ])
-# TODO implement actual rules
+# TODO implement actual rules if it is required
 class ConsProofRequest(MessageBase):
     typename = CONS_PROOF_REQUEST
     schema = (
-        # (f.LEDGER_ID.nm, LedgerIdField()),
-        # (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-        # (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-        (f.LEDGER_ID.nm, AnyValueField()),
-        (f.SEQ_NO_START.nm, AnyValueField()),
-        (f.SEQ_NO_END.nm, AnyValueField()),
+        (f.LEDGER_ID.nm, LedgerIdField()),
+        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
+        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
     )
-# ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-#     f.LEDGER_ID,
-#     f.SEQ_NO_START,
-#     f.SEQ_NO_END
-# ])
 
-
-TaggedTuples = None  # type: Dict[str, class]
-
-
-def loadRegistry():
-    global TaggedTuples
-    if not TaggedTuples:
-        this = sys.modules[__name__]
-        TaggedTuples = {getattr(this, x).__name__: getattr(this, x)
-                        for x in dir(this) if
-                        callable(getattr(getattr(this, x), "melted", None))
-                        and getattr(getattr(this, x), "_fields", None)}
-        # attach MessageBase, for pre-testing procedure
-        # TODO: add MessageBase classes another way
-        TaggedTuples.update(
-            {getattr(this, x).typename: getattr(this, x)
-             for x in dir(this)
-             if getattr(getattr(this, x), "schema", None) and issubclass(getattr(this, x), MessageBase)}
-        )
-
-loadRegistry()
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)

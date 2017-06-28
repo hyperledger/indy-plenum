@@ -107,9 +107,6 @@ class MessageBase(Mapping, MessageValidator):
         raise TypeError("Invalid argument type.")
 
     def _asdict(self):
-        """
-        Legacy form TaggedTuple
-        """
         return self.__dict__
 
     @property
