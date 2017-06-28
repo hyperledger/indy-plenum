@@ -48,8 +48,7 @@ def expectedNodeToAllNodesMessageDeliveryTime(nodeCount):
     From: The Node ready to send a message
     To: The message is received by all other Nodes
     """
-    interconnectionCount = totalConnections(nodeCount)
-    return expectedNodeToNodeMessageDeliveryTime() * interconnectionCount
+    return expectedNodeToNodeMessageDeliveryTime() * (nodeCount - 1)
 
 
 #########################
