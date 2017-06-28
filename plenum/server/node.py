@@ -25,7 +25,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -2024,9 +2024,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if identifier not in self.clientAuthNr.clients:
                 role = txn.get(ROLE)
                 if role not in (STEWARD, None):
-                    logger.error("Role if present must be {}".
-                                 format(Roles.STEWARD.name))
-                    return
+                    if role not in (STEWARD, TRUSTEE, None):
+                        logger.error("Role if present must be {} and not {}".
+                                     format(Roles.STEWARD.name, role))
+                        return
                 self.clientAuthNr.addIdr(identifier,
                                          verkey=v.verkey,
                                          role=role)

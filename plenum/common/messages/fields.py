@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import base58
+import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
@@ -88,6 +89,22 @@ class NonEmptyStringField(FieldBase):
     def _specific_validation(self, val):
         if not val:
             return 'empty string'
+
+
+class LimitedLengthStringField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, max_length: int, **kwargs):
+        assert max_length > 0, 'should be greater than 0'
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
+    def _specific_validation(self, val):
+        if not val:
+            return 'empty string'
+        if len(val) > self._max_length:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, self._max_length)
 
 
 class SignatureField(FieldBase):
@@ -376,3 +393,24 @@ class VersionField(FieldBase):
             except ValueError:
                 return "version component {} is not a number".format(p)
         return None
+
+
+class TxnSeqNoField(FieldBase):
+
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        if val < 1:
+            return 'cannot be smaller than 1'
+
+
+class Sha256HexField(FieldBase):
+    """
+    Validates a sha-256 hash specified in hex
+    """
+    _base_types = (str,)
+    regex = re.compile('^[A-Fa-f0-9]{64}$')
+
+    def _specific_validation(self, val):
+        if self.regex.match(val) is None:
+            return 'not a valid hash (needs to be in hex too)'
