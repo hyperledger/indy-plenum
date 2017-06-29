@@ -1303,7 +1303,7 @@ class Cli:
         signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("Identifier for key is {}".format(signer.identifier))
-        self.print("verification key is {}".format(signer.verkey))
+        self.print("Verification key is {}".format(signer.verkey))
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
