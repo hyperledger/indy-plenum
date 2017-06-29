@@ -1,4 +1,3 @@
-import pytest
 from plenum.common.types import Checkpoint
 from collections import OrderedDict
 from plenum.common.messages.fields import \
