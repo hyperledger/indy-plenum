@@ -1,6 +1,6 @@
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality, waitNodeDataUnequality, checkNodeDataForEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality, waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 
 # Do not remove the next import
@@ -29,7 +29,7 @@ def testNodeCatchupAfterDisconnect(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     # Make sure new node got out of sync
-    waitNodeDataUnequality(looper, newNode, *txnPoolNodeSet[:-1])
+    waitNodeDataInequality(looper, newNode, *txnPoolNodeSet[:-1])
 
     logger.debug("Starting the stopped node, {}".format(newNode))
     looper.add(newNode)

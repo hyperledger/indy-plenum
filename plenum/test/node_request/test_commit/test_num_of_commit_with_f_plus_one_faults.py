@@ -18,13 +18,15 @@ whitelist = ['InvalidSignature',
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
+    # Making nodes faulty such that no primary is chosen
+    A = startedNodes.Eta
+    B = startedNodes.Gamma
+    G = startedNodes.Zeta
     for node in A, B, G:
         makeNodeFaulty(node, changesRequest, partial(delaysPrePrepareProcessing,
                                                      delay=90))
-        node.delaySelfNomination(10)
+        # Delaying nomination to avoid becoming primary
+        # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 

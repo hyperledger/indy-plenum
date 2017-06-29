@@ -8,7 +8,8 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     ORDERED, PROPAGATE, PREPREPARE, REPLY, COMMIT, PREPARE, BATCH, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
-    CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+    CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
+    VIEW_CHANGE_DONE, REQ_LEDGER_STATUS
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase, MessageValidator
@@ -41,6 +42,7 @@ class f:  # provides a namespace for reusable field constants
     SENDER_NODE = Field('senderNode', str)
     REQ_ID = Field('reqId', int)
     VIEW_NO = Field('viewNo', int)
+    LEDGER_INFO = Field("ledgerInfo", List[tuple])
     INST_ID = Field('instId', int)
     IS_STABLE = Field('isStable', bool)
     MSGS = Field('messages', List[Mapping])
@@ -174,7 +176,6 @@ class Reelection(MessageBase):
 
 class Primary(MessageBase):
     typename = PRIMARY
-
     schema = (
         (f.NAME.nm, NonEmptyStringField()),
         (f.INST_ID.nm, NonNegativeNumberField()),
@@ -219,8 +220,8 @@ class Ordered(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # Ordered = NamedTuple(ORDERED, [
 #     f.INST_ID,
@@ -235,6 +236,7 @@ class Ordered(MessageBase):
 
 # <PROPAGATE, <REQUEST, o, s, c> σc, i>~μi
 # s = client sequence number (comes from Aardvark paper)
+
 
 class Propagate(MessageBase):
     typename = PROPAGATE
@@ -258,8 +260,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # PrePrepare = TaggedTuple(PREPREPARE, [
 #     f.INST_ID,
@@ -282,8 +284,8 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 # Prepare = TaggedTuple(PREPARE, [
 #     f.INST_ID,
@@ -362,11 +364,52 @@ class InstanceChange(MessageBase):
 # ])
 
 
+class ViewChangeDone(MessageBase):
+    """    
+    Node sends this kind of message when view change steps done and it is 
+    ready to switch to the new primary.
+    In contrast to 'Primary' message this one does not imply election.
+    """
+    typename = VIEW_CHANGE_DONE
+
+    schema = (
+        # name is nullable because this message can be sent when
+        # there were no view changes and instance has no primary yet
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, NonEmptyStringField(nullable=True)),
+        (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
+    )
+
+
+# ViewChangeDone = TaggedTuple(VIEW_CHANGE_DONE, [
+#     f.NAME,
+#     f.INST_ID,
+#     f.VIEW_NO,
+#     f.ORD_SEQ_NO])
+
+class ReqLedgerStatus(MessageBase):
+    """
+    Purpose: ask node for LedgerStatus of specific ledger   
+    """
+    typename = REQ_LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+    )
+
+
 class LedgerStatus(MessageBase):
+    """
+    Purpose: spread status of ledger copy on a specific node.
+    When node receives this message and see that it has different 
+    status of ledger it should reply with LedgerStatus that contains its 
+    status
+    """
     typename = LEDGER_STATUS
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
     )
 # LedgerStatus = TaggedTuple(LEDGER_STATUS, [
@@ -381,6 +424,7 @@ class ConsistencyProof(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),

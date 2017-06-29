@@ -13,14 +13,16 @@ whitelist = ['cannot process incoming PREPARE']
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
+    # Making nodes faulty such that no primary is chosen
+    A = startedNodes.Gamma
+    B = startedNodes.Zeta
     # Delay processing of PRE-PREPARE messages by Alpha and Beta for 90
     # seconds since the timeout for checking sufficient commits is 60 seconds
     makeNodeFaulty(A, partial(delaysPrePrepareProcessing, delay=90))
     makeNodeFaulty(B, partial(delaysPrePrepareProcessing, delay=90))
-    A.delaySelfNomination(10)
-    B.delaySelfNomination(10)
+    # Delaying nomination to avoid becoming primary
+    # A.delaySelfNomination(10)
+    # B.delaySelfNomination(10)
     return adict(faulties=(A, B))
 
 

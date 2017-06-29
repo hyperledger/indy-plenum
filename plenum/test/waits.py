@@ -44,6 +44,14 @@ def expectedNodeToNodeMessageDeliveryTime():
     return __Peer2PeerRequestDeliveryTime
 
 
+def expectedNodeToAllNodesMessageDeliveryTime(nodeCount):
+    """
+    From: The Node ready to send a message
+    To: The message is received by all other Nodes
+    """
+    return expectedNodeToNodeMessageDeliveryTime() * (nodeCount - 1)
+
+
 #########################
 # Pool internal timeouts
 #########################

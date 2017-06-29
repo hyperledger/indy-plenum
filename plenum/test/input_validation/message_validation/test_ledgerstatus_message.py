@@ -8,6 +8,8 @@ from plenum.common.types import LedgerStatus
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("txnSeqNo", NonNegativeNumberField),
+    ("viewNo", NonNegativeNumberField),
+    ("ppSeqNo", NonNegativeNumberField),
     ("merkleRoot", MerkleRootField),
 ])
 
