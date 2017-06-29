@@ -1,5 +1,3 @@
-import pytest
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
 from plenum.test.delayers import nom_delay, delay_3pc_messages

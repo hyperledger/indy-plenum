@@ -3,10 +3,8 @@ from time import perf_counter
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.util import updateNamedTuple
-from plenum.test.delayers import cqDelay, cr_delay
+from plenum.test.delayers import cr_delay
 from plenum.test.spy_helpers import get_count
-from stp_zmq.zstack import KITZStack
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
@@ -15,7 +13,8 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     check_last_ordered_3pc
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits

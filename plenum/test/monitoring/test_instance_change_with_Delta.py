@@ -2,7 +2,6 @@ import logging
 
 import pytest
 
-from plenum.common.types import PrePrepare
 from stp_core.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits
@@ -10,7 +9,6 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change
-from plenum.test.helper import waitForViewChange
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
