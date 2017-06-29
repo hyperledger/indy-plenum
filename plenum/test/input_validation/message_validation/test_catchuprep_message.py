@@ -1,4 +1,4 @@
-from plenum.common.messages.node_messages import CatchupRep
+from plenum.common.messages.node_messages import CatchupRep, AnyValueField
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     IterableField, LedgerIdField, MapField
@@ -6,7 +6,7 @@ from plenum.common.messages.fields import \
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
-    ("txns", MapField),
+    ("txns", AnyValueField),
     ("consProof", IterableField),
 ])
 
