@@ -315,7 +315,7 @@ class TieAmongField(FieldBase):
 class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58abbreviated = Base58Field(byte_lengths=(16,))
-    _b58full = Base58Field(byte_lengths=(32,) )
+    _b58full = Base58Field(byte_lengths=(32,))
 
     def _specific_validation(self, val):
         if val.startswith('~'):

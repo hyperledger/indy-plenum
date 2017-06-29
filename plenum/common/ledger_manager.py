@@ -515,9 +515,10 @@ class LedgerManager(HasActionQueue):
     def _transform(self, txn):
         # Certain transactions other than pool ledger might need to be
         # transformed to certain format before applying to the ledger
+        txn = reqToTxn(txn)
         z = txn if not self.ownedByNode else  \
             self.owner.transform_txn_for_ledger(txn)
-        return reqToTxn(z)
+        return z
 
     def hasValidCatchupReplies(self, ledgerId, ledger, seqNo, catchUpReplies):
         # Here seqNo has to be the seqNo of first transaction of
