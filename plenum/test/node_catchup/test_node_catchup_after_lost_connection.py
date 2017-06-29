@@ -1,7 +1,8 @@
 from stp_core.common.log import getlogger
 from plenum.test.test_node import ensure_node_disconnected
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality, waitNodeDataUnequality, checkNodeDataForEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    waitNodeDataInequality, checkNodeDataForEquality
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -14,8 +15,9 @@ txnCount = 5
 def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
                                    nodeSetWithNodeAddedAfterSomeTxns):
     """
-    A node that has poor internet connection and got unsynced after some transactions should eventually get the
-    transactions which happened while it was not accessible
+    A node that has poor internet connection and got unsynced after some
+    transactions should eventually get the transactions which happened while
+    it was not accessible
     :return:
     """
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
@@ -27,7 +29,7 @@ def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
     logger.debug("Sending requests")
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
     # Make sure new node got out of sync
-    waitNodeDataUnequality(looper, newNode, *txnPoolNodeSet[:-1])
+    waitNodeDataInequality(looper, newNode, *txnPoolNodeSet[:-1])
 
     logger.debug("Ensure node {} gets disconnected".format(newNode))
     ensure_node_disconnected(looper, newNode, txnPoolNodeSet[:-1])

@@ -1,15 +1,18 @@
 import pytest
 
+from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
     addNewStewardAndNode, buildPoolClientAndWallet
 from plenum.test.pool_transactions.conftest import stewardAndWallet1, \
-    steward1, stewardWallet
+    steward1, stewardWallet, clientAndWallet1, client1, wallet1, \
+    client1Connected
 from plenum.test.test_client import TestClient
 from plenum.test.test_node import checkNodesConnected
 
@@ -27,7 +30,7 @@ def looper(txnPoolNodesLooper):
 
 
 @pytest.yield_fixture("module")
-def nodeCreatedAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet,
+def nodeCreatedAfterSomeTxns(looper, txnPoolNodeSet,
                              tdirWithPoolTxns, poolTxnStewardData, tconf,
                              allPluginsPath, request):
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
@@ -36,7 +39,7 @@ def nodeCreatedAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet,
     looper.add(client)
     looper.run(client.ensureConnectedToNodes())
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+    sendReqsToNodesAndVerifySuffReplies(looper,
                                         wallet,
                                         client,
                                         txnCount)
@@ -64,4 +67,18 @@ def nodeSetWithNodeAddedAfterSomeTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
     looper, newNode, _, _, _, _ = nodeSetWithNodeAddedAfterSomeTxns
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4])
+    check_last_3pc_master(newNode, txnPoolNodeSet[:4])
+
+    # Check if catchup done once
+    catchup_done_once = True
+    for li in newNode.ledgerManager.ledgerRegistry.values():
+        catchup_done_once = catchup_done_once and (li.num_txns_caught_up > 0)
+
+    if not catchup_done_once:
+        # It might be the case that node has to do catchup again, in that case
+        # check the return value of `num_txns_caught_up_in_last_catchup` to be
+        # greater than 0
+
+        assert max(getAllReturnVals(newNode,
+                                    newNode.num_txns_caught_up_in_last_catchup)) > 0
     return newNode

@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import random
-import string
 import time
 import math
 from binascii import unhexlify, hexlify
@@ -42,12 +41,13 @@ Seconds = TypeVar("Seconds", int, float)
 
 def randomString(size: int = 20) -> str:
     """
-    Generate a random string of the specified size,
-    DONOT use python provided random class its a Pseudo Random Number Generator
+    Generate a random string in hex of the specified size
+
+    DO NOT use python provided random class its a Pseudo Random Number Generator
     and not secure enough for our needs
 
     :param size: size of the random string to generate
-    :return: the random string generated
+    :return: the hexadecimal random string
     """
 
     def randomStr(size):
@@ -568,3 +568,25 @@ def pop_keys(mapping: Dict, cond: Callable):
             rem.append(k)
     for i in rem:
         mapping.pop(i)
+
+
+def check_if_all_equal_in_list(lst):
+    return lst.count(lst[0]) == len(lst)
+
+
+def compare_3PC_keys(key1, key2) -> int:
+    """
+    Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
+    """
+    if key1[0] == key2[0]:
+        return key2[1] - key1[1]
+    else:
+        return key2[0] - key1[0]
+
+
+def min_3PC_key(keys) -> Tuple[int, int]:
+    return min(keys, key=lambda k: (k[0], k[1]))
+
+
+def max_3PC_key(keys) -> Tuple[int, int]:
+    return max(keys, key=lambda k: (k[0], k[1]))

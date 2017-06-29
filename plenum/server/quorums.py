@@ -19,4 +19,5 @@ class Quorums:
         self.commit = Quorum(n - f)
         self.reply = Quorum(f + 1)
         self.view_change = Quorum(n - f)
-        self.election = Quorum(2 * f + 1)
+        self.election = Quorum(n - f)
+        self.view_change_done = Quorum(n - f)

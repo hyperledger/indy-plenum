@@ -49,6 +49,33 @@ class Primary(MessageBase):
     )
 
 
+class ViewChangeDone(MessageBase):
+    """
+    Node sends this kind of message when view change steps done and it is
+    ready to switch to the new primary.
+    In contrast to 'Primary' message this one does not imply election.
+    """
+    typename = VIEW_CHANGE_DONE
+
+    schema = (
+        # name is nullable because this message can be sent when
+        # there were no view changes and instance has no primary yet
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, NonEmptyStringField(nullable=True)),
+        (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
+    )
+
+
+class ReqLedgerStatus(MessageBase):
+    """
+    Purpose: ask node for LedgerStatus of specific ledger
+    """
+    typename = REQ_LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+    )
+
+
 # TODO implement actual rules
 class BlacklistMsg(MessageBase):
     typename = BLACKLIST
@@ -253,6 +280,8 @@ class ConsProofRequest(MessageBase):
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
     )
+
+
 
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)

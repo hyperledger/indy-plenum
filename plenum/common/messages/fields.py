@@ -18,8 +18,8 @@ class FieldValidator(metaclass=ABCMeta):
     def validate(self, val):
         """
         Validates field value
-        
-        :param val: field value to validate 
+
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -37,10 +37,10 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
 
     def validate(self, val):
         """
-        Performs basic validation of field value and then passes it for 
+        Performs basic validation of field value and then passes it for
         specific validation.
-        
-        :param val: field value to validate 
+
+        :param val: field value to validate
         :return: error message or None
         """
 
@@ -57,11 +57,11 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
     @abstractmethod
     def _specific_validation(self, val):
         """
-        Performs specific validation of field. Should be implemented in 
+        Performs specific validation of field. Should be implemented in
         subclasses. Use it instead of overriding 'validate'.
-        
-        :param val: field value to validate 
-        :return: error message or None 
+
+        :param val: field value to validate
+        :return: error message or None
         """
 
     def __type_check(self, val):
@@ -428,3 +428,16 @@ class StringifiedNonNegativeNumberField(NonNegativeNumberField):
             return "stringified int expected, but was '{}'"\
                 .format(val)
         
+class LedgerInfoField(FieldBase):
+    _base_types = (list, tuple)
+    _ledger_id_class = LedgerIdField
+
+    def _specific_validation(self, val):
+        assert len(val) == 3
+        ledgerId, ledgerLength, merkleRoot = val
+        for validator, value in ((self._ledger_id_class().validate, ledgerId),
+                                 (NonNegativeNumberField().validate, ledgerLength),
+                                 (MerkleRootField().validate, merkleRoot)):
+            err = validator(value)
+            if err:
+                return err

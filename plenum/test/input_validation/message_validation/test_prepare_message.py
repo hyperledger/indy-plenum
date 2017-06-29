@@ -2,17 +2,18 @@ import pytest
 
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    NonEmptyStringField, \
-    HexField
+    NonEmptyStringField, MerkleRootField
+
 from plenum.common.messages.node_messages import Prepare
+
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
     ("digest", NonEmptyStringField),
-    ("stateRootHash", HexField),
-    ("txnRootHash", HexField),
+    ("stateRootHash", MerkleRootField),
+    ("txnRootHash", MerkleRootField),
 ])
 
 

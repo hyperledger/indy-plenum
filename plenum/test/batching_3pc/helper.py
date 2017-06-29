@@ -21,7 +21,7 @@ def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
     if checkLastOrderedPpSeqNo:
         ppSeqNos = set()
         for node in nodes:
-            ppSeqNos.add(node.replicas[0].lastOrderedPPSeqNo)
+            ppSeqNos.add(node.replicas[0].last_ordered_3pc)
 
         assert len(ppSeqNos) == 1
 
@@ -80,7 +80,7 @@ def add_txns_to_ledger_before_order(replica, reqs):
             ledger_manager.preCatchupClbk(ledger_id)
             for req in reqs:
                 ledger_manager._add_txn(ledger_id, ledger, ledgerInfo, reqToTxn(req))
-            ledger_manager.catchupCompleted(DOMAIN_LEDGER_ID, commit.ppSeqNo)
+            ledger_manager.catchupCompleted(DOMAIN_LEDGER_ID, (node.viewNo, commit.ppSeqNo))
 
             added = True
 
