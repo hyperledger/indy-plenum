@@ -11,8 +11,10 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitReqNackFromPoolWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import addNewClient, addNewStewardAndNode, sendAddNewNode
-from plenum.test.test_node import checkNodesConnected, \
+from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
+    updateNodeData, addNewStewardAndNode, changeNodeKeys, sendUpdateNode, \
+    sendAddNewNode, updateNodeDataAndReconnect, addNewSteward, add_2_nodes
+from plenum.test.test_node import TestNode, checkNodesConnected, \
     checkProtocolInstanceSetup
 
 from stp_core.common.log import getlogger
@@ -209,20 +211,10 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     """
     Add 2 new nodes to trigger replica addition and primary election
     """
-    for nodeName in ("Zeta", "Eta"):
-        newStewardName = "testClientSteward" + randomString(3)
-        newSteward, newStewardWallet, newNode = addNewStewardAndNode(looper,
-                                                                     steward1,
-                                                                     stewardWallet,
-                                                                     newStewardName,
-                                                                     nodeName,
-                                                                     tdirWithPoolTxns,
-                                                                     tconf,
-                                                                     allPluginsPath)
-        txnPoolNodeSet.append(newNode)
-        looper.run(checkNodesConnected(txnPoolNodeSet))
-        logger.debug("{} connected to the pool".format(newNode))
-        waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1])
+    new_nodes = add_2_nodes(looper, txnPoolNodeSet, steward1, stewardWallet,
+                            tdirWithPoolTxns, tconf, allPluginsPath)
+    for n in new_nodes:
+        logger.debug("{} connected to the pool".format(n))
 
     f = getMaxFailures(len(txnPoolNodeSet))
 

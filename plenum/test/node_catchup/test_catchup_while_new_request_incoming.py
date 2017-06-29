@@ -37,7 +37,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
             chkAfterCall, node.ledgerManager)
         node.nodeIbStasher.delay(cqDelay(3))
 
-    print('Sending 10 requests')
+    print('Sending 5 requests')
     sendRandomRequests(stewardWallet, steward1, 5)
     looper.runFor(1)
     newStewardName = randomString()

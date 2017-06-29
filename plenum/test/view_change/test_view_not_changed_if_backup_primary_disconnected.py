@@ -9,7 +9,7 @@ from plenum.test.test_node import primaryNodeNameForInstance, nodeByName
 def testViewNotChangedIfBackupPrimaryDisconnected(txnPoolNodeSet,
                                                   txnPoolNodesLooper, tconf):
     """
-    View change does not occurs when master's primary is disconnected
+    View change does not occurs when backup's primary is disconnected
     """
 
     # Setup

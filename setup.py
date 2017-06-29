@@ -38,7 +38,7 @@ if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
 
 setup(
-    name='plenum-dev',
+    name='plenum-simple-election',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -62,7 +62,8 @@ setup(
                       'state-trie-dev==0.1.15', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip',
+                      'intervaltree'],
     extras_require={
         'stats': ['python-firebase']
     },
