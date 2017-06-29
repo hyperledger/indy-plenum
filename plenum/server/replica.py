@@ -103,28 +103,25 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
-
         self.config = getConfig()
 
-        routerArgs = [(ReqKey, self.readyFor3PC)]
-
-        for r in [PrePrepare, Prepare, Commit]:
-            routerArgs.append((r, self.processThreePhaseMsg))
-
-        routerArgs.append((Checkpoint, self.processCheckpoint))
-        routerArgs.append((ThreePCState, self.process3PhaseState))
-
-        self.inBoxRouter = Router(*routerArgs)
+        self.inBoxRouter = Router(
+            (ReqKey,       self.readyFor3PC),
+            (PrePrepare,   self.processThreePhaseMsg),
+            (Prepare,      self.processThreePhaseMsg),
+            (Commit,       self.processThreePhaseMsg),
+            (Checkpoint,   self.processCheckpoint),
+            (ThreePCState, self.process3PhaseState),
+        )
 
         self.threePhaseRouter = Router(
-                (PrePrepare, self.processPrePrepare),
-                (Prepare, self.processPrepare),
-                (Commit, self.processCommit)
+            (PrePrepare, self.processPrePrepare),
+            (Prepare,    self.processPrepare),
+            (Commit,     self.processCommit)
         )
 
         self.node = node
         self.instId = instId
-
         self.name = self.generateName(node.name, self.instId)
 
         self.outBox = deque()
