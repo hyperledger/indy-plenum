@@ -104,8 +104,10 @@ class Ordered(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        # TODO fix f.STATE_ROOT rule
+        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
+        # TODO fix f.TXN_ROOT rule
+        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
     )
 
 
@@ -128,7 +130,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
+        # TODO fix f.STATE_ROOT rule
+        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
         # TODO fix f.TXN_ROOT rule
         (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
     )
@@ -141,8 +144,10 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
-        (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        # TODO fix f.STATE_ROOT rule
+        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
+        # TODO fix f.TXN_ROOT rule
+        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
     )
 
 
@@ -225,6 +230,7 @@ class ConsistencyProof(MessageBase):
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.OLD_MERKLE_ROOT.nm, MerkleRootField()),
         (f.NEW_MERKLE_ROOT.nm, MerkleRootField()),

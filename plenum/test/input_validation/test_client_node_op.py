@@ -13,13 +13,13 @@ def test_only_alias_passes():
 def test_empty_alias_fails():
     with pytest.raises(TypeError) as ex_info:
         op.validate({ALIAS: ''})
-    ex_info.match('validation error: empty string')
+    ex_info.match('validation error [ClientNodeOperationData]: empty string (alias=)')
 
 
 def test_missed_alias_fails():
     with pytest.raises(Exception) as ex_info:
         op.validate({SERVICES: []})
-    ex_info.match('validation error: missed fields - alias')
+    ex_info.match('validation error [ClientNodeOperationData]: missed fields - node_ip')
 
 
 def test_missed_a_ha_field_fails():
@@ -30,7 +30,7 @@ def test_missed_a_ha_field_fails():
             CLIENT_IP: '8.8.8.8',
             CLIENT_PORT: 9701,
         })
-    ex_info.match('validation error: missed fields - node_ip')
+    ex_info.match('validation error [ClientNodeOperationData]: missed fields - alias')
 
 
 def test_update_services_passes():
