@@ -325,20 +325,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return nodeTxn[DATA][ALIAS]
 
     def doStaticValidation(self, identifier, reqId, operation):
-        if operation[TXN_TYPE] == NODE:
-            if not (DATA in operation and isinstance(operation[DATA], dict)):
-                error = "'{}' is missed or not a dict".format(DATA)
-                raise InvalidClientRequest(identifier, reqId, error)
-            # VerKey must be base58
-            if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
-                error = "'{}' is not a base58 string".format(TARGET_NYM)
-                raise InvalidClientRequest(identifier, reqId, error)
-
-            data = operation[DATA]
-            for fn, validator in self._dataFieldsValidators:
-                if fn in data and not validator(data[fn]):
-                    error = "'{}' ('{}') is invalid".format(fn, data[fn])
-                    raise InvalidClientRequest(identifier, reqId, error)
+        pass
 
     def doDynamicValidation(self, request: Request):
         self.reqHandler.validate(request)

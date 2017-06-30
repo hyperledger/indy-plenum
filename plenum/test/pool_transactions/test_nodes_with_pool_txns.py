@@ -83,7 +83,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
     sendAddNewNode(newNodeName, newSteward, newStewardWallet,
                    transformOpFunc=_setHexVerkey)
     waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  'is not a base58 string')
+                                  'should not contain the following chars')
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
@@ -118,7 +118,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
         waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "'{}' ('{}') is invalid".format(field, value))
+                                      "invalid network ip address")
 
 
 def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
