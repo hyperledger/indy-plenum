@@ -1,7 +1,8 @@
 from functools import partial
 
 import pytest
-from plenum.common.util import adict, getNoInstances
+from plenum.common.util import getNoInstances
+from stp_core.common.util import adict
 from plenum.test import waits
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \

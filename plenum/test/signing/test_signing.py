@@ -3,7 +3,7 @@ import pytest
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InvalidSignature
 from stp_core.common.log import getlogger
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.test import waits
 from plenum.test.malicious_behaviors_node import changesRequest, makeNodeFaulty
 from plenum.test.node_request.node_request_helper import checkPropagated

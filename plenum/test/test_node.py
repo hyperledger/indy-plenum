@@ -25,7 +25,8 @@ from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
-from plenum.common.util import Seconds, getMaxFailures, adict
+from plenum.common.util import Seconds, getMaxFailures
+from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
