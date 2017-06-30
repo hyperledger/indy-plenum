@@ -471,10 +471,27 @@ class LedgerManager(HasActionQueue):
                                              :numProcessed]]))
 
         ledger_info.receivedCatchUpReplies = catchUpReplies[numProcessed:]
-        if getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm) == ledger.size:
+
+        # This check needs to happen anyway since it might be the case that
+        # just before sending requests for catchup, it might have processed
+        # some ordered requests which might have removed the need for catchup
+        self.mark_catchup_completed_if_possible(ledger_info)
+
+    def mark_catchup_completed_if_possible(self, ledger_info: LedgerInfo):
+        """
+        Checks if the ledger is caught up to the the sequence number
+        specified in the ConsistencyProof, if yes then mark the catchup as
+        done for this ledger.
+        :param ledger_info:
+        :return: True if catchup is done, false otherwise
+        """
+        if ledger_info.state != LedgerState.synced:
             cp = ledger_info.catchUpTill
-            ledger_info.catchUpTill = None
-            self.catchupCompleted(ledgerId, cp.ppSeqNo)
+            assert cp
+            if getattr(cp, f.SEQ_NO_END.nm) <= ledger_info.ledger.size:
+                self.catchupCompleted(ledger_info.id, (cp.viewNo, cp.ppSeqNo))
+                return True
+        return False
 
     def _processCatchupReplies(self, ledgerId, ledger: Ledger,
                                catchUpReplies: List):
