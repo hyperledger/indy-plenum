@@ -259,11 +259,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # Three phase key for the last ordered batch
         self.last_ordered_3pc = (0, 0)
 
-        # Keeps the `lastOrderedPPSeqNo` and ledger_summary for each view no.
-        # GC when ordered last batch of the view
-        # TODO: Should not be needed anymore
-        self.view_ends_at = OrderedDict()
-
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
