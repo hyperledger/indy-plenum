@@ -413,9 +413,9 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
-        txns = ledger.getAllTxn(start, end)
-        for seq_no in txns:
-            txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
+        txns = {}
+        for seq_no, txn in ledger.getAllTxn(start, end):
+            txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
 
