@@ -16,6 +16,7 @@ class DidIdentity:
     abbr_prfx = '~'
 
     def __init__(self, identifier, verkey=None, rawVerkey=None):
+        self.abbreviated = None
         if verkey is None and rawVerkey is None:
             if identifier:
                 self._identifier = identifier
@@ -55,6 +56,7 @@ class DidIdentity:
         else:
             return self._verkey
 
+    @property
     def full_verkey(self):
         if self.abbreviated:
             rtn = friendlyToRaw(self.identifier)
