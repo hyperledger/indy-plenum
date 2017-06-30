@@ -129,7 +129,8 @@ class PrePrepare(MessageBase):
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.STATE_ROOT.nm, HexField(length=64, nullable=True)),
-        (f.TXN_ROOT.nm, HexField(length=64, nullable=True)),
+        # TODO fix f.TXN_ROOT rule
+        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
     )
 
 
