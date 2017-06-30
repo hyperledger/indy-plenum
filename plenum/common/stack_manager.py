@@ -90,8 +90,15 @@ class TxnStackManager:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
                     cliNodeReg[clientStackName] = HA(*cHa)
-                # TODO: Need to handle abbreviated verkey
-                verkey = cryptonymToHex(txn[TARGET_NYM])
+
+                try:
+                    # TODO: Need to handle abbreviated verkey
+                    verkey = cryptonymToHex(txn[TARGET_NYM])
+                except ValueError as ex:
+                    verkey = b''
+                    logger.error("Exception while parsing verkey: {}".
+                                 format(ex))
+
                 nodeKeys[nodeName] = verkey
 
                 services = txn[DATA].get(SERVICES)
