@@ -372,11 +372,22 @@ class Replica(HasActionQueue, MessageProcessor):
         :param value: the value to set isPrimary to
         """
         self.primaryNames[self.viewNo] = value
+        self.compact_primary_names()
         if not value == self._primaryName:
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             self._stateChanged()
+
+    def compact_primary_names(self):
+        min_allowed_view_no = self.viewNo - 1
+        views_to_remove = []
+        for view_no in self.primaryNames:
+            if view_no >= min_allowed_view_no:
+                break
+            views_to_remove.append(view_no)
+        for view_no in views_to_remove:
+            self.primaryNames.pop(view_no)
 
     def primaryChanged(self, primaryName):
         self.batches.clear()
@@ -1546,7 +1557,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.ordered.add((viewNo, ppSeqNo))
         self.last_ordered_3pc = (viewNo, ppSeqNo)
         self.compact_ordered()
-
 
     def compact_ordered(self):
         min_allowed_view_no = self.viewNo - 1
