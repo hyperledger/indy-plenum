@@ -12,7 +12,7 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-# @pytest.mark.skip(reason="INDY-147")
+
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
                                         wallet1, client1Connected, tconf):
     """
