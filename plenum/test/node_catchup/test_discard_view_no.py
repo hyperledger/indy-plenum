@@ -4,15 +4,12 @@ from functools import partial
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Nomination, PrePrepare, ViewChangeDone
-from plenum.common.util import randomString
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import checkDiscardMsg
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test.test_node import checkNodesConnected, \
-    checkProtocolInstanceSetup, getPrimaryReplica
+from plenum.test.test_node import checkProtocolInstanceSetup, getPrimaryReplica
 from plenum.test import waits
 
 

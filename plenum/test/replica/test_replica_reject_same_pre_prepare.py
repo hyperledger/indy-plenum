@@ -3,13 +3,12 @@ import types
 
 import pytest
 
-from plenum.server.replica import TPCStat
 from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import PrePrepare, f
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures, updateNamedTuple
+from plenum.common.util import getMaxFailures
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \

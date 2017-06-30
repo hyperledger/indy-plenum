@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from plenum.common.types import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits

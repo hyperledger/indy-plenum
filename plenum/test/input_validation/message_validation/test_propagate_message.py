@@ -2,7 +2,8 @@ import pytest
 
 from collections import OrderedDict
 from plenum.common.messages.fields import NonEmptyStringField
-from plenum.common.types import Propagate, ClientMessageValidator
+from plenum.common.messages.client_request import ClientMessageValidator
+from plenum.common.messages.node_messages import Propagate
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("request", ClientMessageValidator),

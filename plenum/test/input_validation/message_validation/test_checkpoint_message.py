@@ -1,4 +1,4 @@
-from plenum.common.types import Checkpoint
+from plenum.common.messages.node_messages import Checkpoint
 from collections import OrderedDict
 from plenum.common.messages.fields import \
     NonNegativeNumberField, NonEmptyStringField

@@ -4,11 +4,14 @@ import types
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
-from plenum.common.types import CatchupReq, f, CatchupRep
+from plenum.common.types import f
+from plenum.common.messages.node_messages import CatchupReq, CatchupRep
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
+from plenum.common.txn_util import txnToReq
+
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
@@ -34,7 +37,6 @@ def testNodeRejectingInvalidTxns(conf, txnPoolNodeSet, patched_node,
     do_not_tell_clients_about_newly_joined_node(txnPoolNodeSet)
 
     logger.debug('Catchup request processor of {} patched'.format(bad_node))
-
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # catchup #1 -> CatchupTransactionsTimeout -> catchup #2
@@ -79,7 +81,8 @@ def _sendIncorrectTxns(self, req, frm):
         logger.info("{} being malicious and sending incorrect transactions"
                     " for catchup request {} from {}".
                     format(self, req, frm))
-        start, end = getattr(req, f.SEQ_NO_START.nm), \
+        start, end = \
+            getattr(req, f.SEQ_NO_START.nm), \
             getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
         txns = ledger.getAllTxn(start, end)
@@ -89,7 +92,9 @@ def _sendIncorrectTxns(self, req, frm):
                 txns[seqNo][TXN_TYPE] = "randomtype"
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
-        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
+        txns = {index : txnToReq(txn) for index, txn in txns.items()}
+        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm),
+                                   txns,
                                    consProof), to=frm)
     else:
         self.processCatchupReq(req, frm)

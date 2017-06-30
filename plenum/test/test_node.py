@@ -22,7 +22,7 @@ from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.common.startable import Status
-from plenum.common.types import TaggedTuples, NodeDetail, f
+from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
 from plenum.common.util import Seconds, getMaxFailures, adict
@@ -43,6 +43,7 @@ from plenum.test.test_stack import StackedTester, getTestableStack, CONNECTED, \
     checkRemoteExists, RemoteState, checkState
 from plenum.test.testable import spyable
 from plenum.test import waits
+from plenum.common.messages.node_message_factory import node_message_factory
 
 logger = getlogger()
 
@@ -204,9 +205,7 @@ class TestNodeCore(StackedTester):
         super().blacklistClient(clientName, reason, code)
 
     def validateNodeMsg(self, wrappedMsg):
-        nm = TestMsg.__name__
-        if nm not in TaggedTuples:
-            TaggedTuples[nm] = TestMsg
+        node_message_factory.set_message_class(TestMsg)
         return super().validateNodeMsg(wrappedMsg)
 
     async def eatTestMsg(self, msg, frm):

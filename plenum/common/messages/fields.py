@@ -12,6 +12,8 @@ class FieldValidator(metaclass=ABCMeta):
     Interface for field validators
     """
 
+    optional = False
+
     @abstractmethod
     def validate(self, val):
         """
@@ -165,7 +167,8 @@ class IterableField(FieldBase):
 class MapField(FieldBase):
     _base_types = (dict, )
 
-    def __init__(self, key_field: FieldBase, value_field: FieldBase,
+    def __init__(self, key_field: FieldValidator,
+                 value_field: FieldValidator,
                  **kwargs):
         super().__init__(**kwargs)
         self._key_field = key_field
@@ -241,7 +244,7 @@ class Base58Field(FieldBase):
                 .format(to_print,
                         ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check 
+            # TODO could impact performace, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
@@ -308,10 +311,11 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
+# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58abbreviated = Base58Field(byte_lengths=(16,))
-    _b58full = Base58Field(byte_lengths=(32,) )
+    _b58full = Base58Field(byte_lengths=(32,))
 
     def _specific_validation(self, val):
         if val.startswith('~'):
@@ -397,6 +401,33 @@ class Sha256HexField(FieldBase):
             return 'not a valid hash (needs to be in hex too)'
 
 
+class AnyValueField(FieldBase):
+    """
+    Stub field validator
+    """
+    _base_types = None
+
+    def _specific_validation(self, val):
+        pass
+
+
+class StringifiedNonNegativeNumberField(NonNegativeNumberField):
+    """
+    This validator is needed because of json limitations: in some cases 
+    numbers being converted to strings.
+    """
+    # TODO: Probably this should be solved another way
+
+    _base_types = (str, int)
+    _num_validator = NonNegativeNumberField()
+
+    def _specific_validation(self, val):
+        try:
+            return self._num_validator.validate(int(val))
+        except ValueError:
+            return "stringified int expected, but was '{}'"\
+                .format(val)
+        
 class LedgerInfoField(FieldBase):
     _base_types = (list, tuple)
     _ledger_id_class = LedgerIdField

@@ -17,7 +17,8 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
-from plenum.common.types import Reply, f, PrePrepare, Prepare, Commit
+from plenum.common.messages.node_messages import PrePrepare, Commit, Reply
+from plenum.common.types import f
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
 from plenum.config import poolTransactionsFile, domainTransactionsFile
@@ -880,7 +881,7 @@ def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
         for func in funcs:
             try:
                 func()
-            except Exception:
+            except Exception as ex:
                 fails += 1
         assert fails <= acceptable_fails
 
