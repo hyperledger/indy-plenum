@@ -1359,31 +1359,44 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
         return True
 
-    def processCheckpoint(self, msg: Checkpoint, sender: str):
-        logger.debug('{} received checkpoint {} from {}'.
-                     format(self, msg, sender))
+    def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
+        """
+        Process checkpoint messages
+         
+        :return: whether processed (True) or stashed (False)
+        """
+
+        logger.debug('{} processing checkpoint {} from {}'
+                     .format(self, msg, sender))
+
         seqNoEnd = msg.seqNoEnd
         if self.isPpSeqNoStable(seqNoEnd):
-            self.discard(msg, reason="Checkpoint already stable",
+            self.discard(msg,
+                         reason="Checkpoint already stable",
                          logMethod=logger.debug)
-            return
+            return True
 
         seqNoStart = msg.seqNoStart
         key = (seqNoStart, seqNoEnd)
-        if key in self.checkpoints and self.checkpoints[key].digest:
-            ckState = self.checkpoints[key]
-            if ckState.digest == msg.digest:
-                ckState.receivedDigests[sender] = msg.digest
-            else:
-                logger.error("{} received an incorrect digest {} for "
-                             "checkpoint {} from {}".format(self,
-                                                            msg.digest,
-                                                            key,
-                                                            sender))
-                return
-            self.checkIfCheckpointStable(key)
-        else:
+
+        if key not in self.checkpoints or not self.checkpoints[key].digest:
             self.stashCheckpoint(msg, sender)
+            return False
+
+        checkpoint_state = self.checkpoints[key]
+        if checkpoint_state.digest != msg.digest:
+            logger.error("{} received an incorrect digest {} for "
+                         "checkpoint {} from {}".format(self,
+                                                        msg.digest,
+                                                        key,
+                                                        sender))
+            return True
+
+        checkpoint_state.receivedDigests[sender] = msg.digest
+        self.checkIfCheckpointStable(key)
+        return True
+
+
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1454,14 +1467,29 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd][sender] = ck
 
     def processStashedCheckpoints(self, key):
-        i = 0
-        if key in self.stashedRecvdCheckpoints:
-            for sender, ck in self.stashedRecvdCheckpoints[key].items():
-                self.processCheckpoint(ck, sender)
-                i += 1
-        logger.debug('{} processed {} stashed checkpoints for {}'.
-                     format(self, i, key))
-        return i
+
+        if key not in self.stashedRecvdCheckpoints:
+            logger.debug("{} have no stashed checkpoints for {}")
+            return 0
+
+        total_processed = 0
+        senders_of_completed_checkpoints = []
+
+        for sender, checkpoint in self.stashedRecvdCheckpoints[key].items():
+            if self.processCheckpoint(checkpoint, sender):
+                senders_of_completed_checkpoints.append(sender)
+            total_processed += 1
+
+        for sender in senders_of_completed_checkpoints:
+            # unstash checkpoint
+            del self.stashedRecvdCheckpoints[key][sender]
+
+        restashed_num = total_processed - len(senders_of_completed_checkpoints)
+        logger.debug('{} processed {} stashed checkpoints for {}, '
+                     '{} of them were stashed again'
+                     .format(self, total_processed, key, restashed_num))
+
+        return total_processed
 
     def gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
