@@ -41,32 +41,34 @@ class MessageValidator(FieldValidator):
                     self._raise_invalid_fields(k, v, validation_error)
 
     @staticmethod
-    def _raise_invalid_type(dct):
-        raise TypeError("validation error: invalid type {}, dict expected"
-                        .format(type(dct)))
-
-    @staticmethod
     def _validate_message(dct):
         return None
 
-    @staticmethod
-    def _raise_missed_fields(*fields):
-        raise TypeError("validation error: missed fields - {}"
-                        .format(', '.join(map(str, fields))))
+    def _raise_invalid_type(self, dct):
+        raise TypeError("{} invalid type {}, dict expected"
+                        .format(self.__error_msg_prefix, type(dct)))
 
-    @staticmethod
-    def _raise_unknown_fields(field, value):
-        raise TypeError("validation error: unknown field - "
-                        "{}={}".format(field, value))
+    def _raise_missed_fields(self, *fields):
+        raise TypeError("{} missed fields - {}"
+                        .format(self.__error_msg_prefix,
+                                ', '.join(map(str, fields))))
 
-    @staticmethod
-    def _raise_invalid_fields(field, value, reason):
-        raise TypeError("validation error: {} "
-                        "({}={})".format(reason, field, value))
+    def _raise_unknown_fields(self, field, value):
+        raise TypeError("{} unknown field - "
+                        "{}={}".format(self.__error_msg_prefix,
+                                       field, value))
 
-    @staticmethod
-    def _raise_invalid_message(reason):
-        raise TypeError("validation error: {}".format(reason))
+    def _raise_invalid_fields(self, field, value, reason):
+        raise TypeError("{} {} "
+                        "({}={})".format(self.__error_msg_prefix, reason,
+                                         field, value))
+
+    def _raise_invalid_message(self, reason):
+        raise TypeError("{} {}".format(self.__error_msg_prefix, reason))
+
+    @property
+    def __error_msg_prefix(self):
+        return 'validation error [{}]:'.format(self.__class__.__name__)
 
 
 class MessageBase(Mapping, MessageValidator):
