@@ -1541,9 +1541,21 @@ class Replica(HasActionQueue, MessageProcessor):
     def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
 
+
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
         self.last_ordered_3pc = (viewNo, ppSeqNo)
+        self.compact_ordered()
+
+
+    def compact_ordered(self):
+        min_allowed_view_no = self.viewNo - 1
+        i = 0
+        for view_no, _ in self.ordered:
+            if view_no >= min_allowed_view_no:
+                break
+            i += 1
+        self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set=None):
