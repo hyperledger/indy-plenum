@@ -14,7 +14,8 @@ from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
-from plenum.common.util import hexToFriendly, adict
+from plenum.common.util import hexToFriendly
+from stp_core.common.util import adict
 
 
 class TestNetworkSetup:

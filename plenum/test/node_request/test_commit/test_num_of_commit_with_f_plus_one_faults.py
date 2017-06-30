@@ -2,7 +2,8 @@ from functools import partial
 
 import pytest
 
-from plenum.common.util import getNoInstances, adict
+from plenum.common.util import getNoInstances
+from stp_core.common.util import adict
 from plenum.test.node_request.node_request_helper import checkCommitted
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \

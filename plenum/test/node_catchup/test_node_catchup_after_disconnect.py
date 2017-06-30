@@ -1,7 +1,9 @@
 from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.helper import waitNodeDataEquality, waitNodeDataInequality, checkNodeDataForEquality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
+from plenum.test.node_catchup.helper import waitNodeDataEquality, \
+    waitNodeDataInequality, checkNodeDataForEquality
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
 
 # Do not remove the next import
 from plenum.test.node_catchup.conftest import whitelist
