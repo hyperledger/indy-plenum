@@ -8,7 +8,7 @@ from plenum.test.helper import sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test.test_node import checkNodesConnected, TestNode
+from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
 

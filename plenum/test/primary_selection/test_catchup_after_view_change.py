@@ -3,7 +3,7 @@ import pytest
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
     waitNodeDataInequality
-from plenum.test.delayers import delay_3pc_messages, cr_delay, ppDelay, pDelay, \
+from plenum.test.delayers import cr_delay, ppDelay, pDelay, \
     cDelay
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas, \
