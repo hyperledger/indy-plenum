@@ -2298,10 +2298,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @staticmethod
     def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
-        # If the trie is empty then initialize it by applying
-        # txns from ledger
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
         if state.isEmpty:
-            txns = [_ for _ in ledger.getAllTxn().values()]
+            txns = [_ for _, _ in ledger.getAllTxn()]
             reqHandler.updateState(txns, isCommitted=True)
             state.commit(rootHash=state.headHash)
 
@@ -2310,7 +2312,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                  self.domainLedger, self.reqHandler)
 
     def addGenesisNyms(self):
-        for _, txn in self.domainLedger.getAllTxn().items():
+        # THIS SHOULD NOT BE DONE FOR PRODUCTION
+        for _, txn in self.domainLedger.getAllTxn():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
@@ -2553,8 +2556,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def collectNodeInfo(self):
         nodeAddress = None
         if self.poolLedger:
-            txns = self.poolLedger.getAllTxn()
-            for key, txn in txns.items():
+            for _, txn in self.poolLedger.getAllTxn():
                 data = txn[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
