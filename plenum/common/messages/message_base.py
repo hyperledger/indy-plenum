@@ -141,7 +141,16 @@ class MessageBase(Mapping, MessageValidator):
     def __str__(self):
         return "{}{}".format(self.typename, dict(self.items()))
 
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         if not issubclass(other.__class__, self.__class__):
             return False
         return self._asdict() == other._asdict()
+
+    def __hash__(self):
+        h = 1
+        for index, value in enumerate(list(self.__iter__())):
+            h = h * (index + 1) * (hash(value) + 1)
+        return h

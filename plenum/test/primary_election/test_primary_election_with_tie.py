@@ -30,6 +30,7 @@ def electTieFixture(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionWithTie(electTieFixture, looper, keySharedNodes):
     """
     Primary selection (Rainy Day)

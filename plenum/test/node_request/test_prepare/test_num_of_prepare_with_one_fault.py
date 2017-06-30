@@ -4,7 +4,7 @@ import pytest
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
-from plenum.common.util import adict
+from stp_core.common.util import adict
 
 nodeCount = 4
 faultyNodes = 1
@@ -13,11 +13,13 @@ whitelist = ['cannot process incoming PREPARE']
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    A.delaySelfNomination(10)
-    makeNodeFaulty(A,
+    # Making nodes faulty such that no primary is chosen
+    G = startedNodes.Gamma
+    # Delaying nomination to avoid becoming primary
+    # G.delaySelfNomination(10)
+    makeNodeFaulty(G,
                    partial(delaysPrePrepareProcessing, delay=60))
-    return adict(faulty=A)
+    return adict(faulty=G)
 
 
 @pytest.fixture(scope="module")

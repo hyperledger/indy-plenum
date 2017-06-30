@@ -427,4 +427,18 @@ class StringifiedNonNegativeNumberField(NonNegativeNumberField):
         except ValueError:
             return "stringified int expected, but was '{}'"\
                 .format(val)
-        
+
+
+class LedgerInfoField(FieldBase):
+    _base_types = (list, tuple)
+    _ledger_id_class = LedgerIdField
+
+    def _specific_validation(self, val):
+        assert len(val) == 3
+        ledgerId, ledgerLength, merkleRoot = val
+        for validator, value in ((self._ledger_id_class().validate, ledgerId),
+                                 (NonNegativeNumberField().validate, ledgerLength),
+                                 (MerkleRootField().validate, merkleRoot)):
+            err = validator(value)
+            if err:
+                return err

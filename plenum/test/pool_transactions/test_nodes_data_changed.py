@@ -3,8 +3,8 @@ from plenum.common.util import randomString
 from plenum.test.helper import waitRejectWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import addNewStewardAndNode, sendUpdateNode, \
-    updateNodeDataAndReconnect
+from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
+    sendUpdateNode, updateNodeDataAndReconnect
 from plenum.test.test_node import checkNodesConnected
 
 from stp_core.common.log import getlogger
@@ -22,7 +22,6 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # Whitelisting "got error while verifying message" since a node while not have
 # initialised a connection for a new node by the time the new node's message
 # reaches it
-
 
 
 def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,

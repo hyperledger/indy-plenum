@@ -3,17 +3,18 @@ from time import perf_counter
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.util import updateNamedTuple
-from plenum.test.delayers import cqDelay, cr_delay
-from stp_zmq.zstack import KITZStack
+from plenum.test.delayers import cr_delay
+from plenum.test.spy_helpers import get_count
 
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
 from stp_core.common.log import getlogger
-from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
+    check_last_ordered_3pc
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected
 from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test import waits
@@ -27,7 +28,7 @@ txnCount = 5
 
 def testNewNodeCatchup(newNodeCaughtUp):
     """
-    A new node that joins after some transactions should eventually get
+    A new node that joins after some transactions are done should eventually get
     those transactions.
     TODO: Test correct statuses are exchanged
     TODO: Test correct consistency proofs are generated
@@ -99,7 +100,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     #                       txnPoolNodeSet[:4], retryWait=1, timeout=5))
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    more_requests = 5
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, more_requests)
     logger.debug("Starting the stopped node, {}".format(newNode))
     nodeHa, nodeCHa = HA(*newNode.nodestack.ha), HA(*newNode.clientstack.ha)
     newNode = TestNode(newNode.name, basedirpath=tdirWithPoolTxns, config=tconf,
@@ -117,7 +119,8 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
                           LedgerState.syncing, retryWait=.5, timeout=5))
 
     confused_node = txnPoolNodeSet[0]
-    cp = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID].catchUpTill
+    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
+    cp = new_node_ledger.catchUpTill
     start, end = cp.seqNoStart, cp.seqNoEnd
     cons_proof = confused_node.ledgerManager._buildConsistencyProof(
         DOMAIN_LEDGER_ID, start, end)
@@ -147,10 +150,42 @@ def testNodeCatchupAfterRestart(newNodeCaughtUp, txnPoolNodeSet, tconf,
     # Not accurate timeout but a conservative one
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
               2*delay_catchup_reply
-    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:4],
+    waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=timeout)
-
+    assert new_node_ledger.num_txns_caught_up == more_requests
     send_and_chk(LedgerState.synced)
-    # cons_proof = updateNamedTuple(cons_proof, seqNoEnd=cons_proof.seqNoStart,
-    #                               seqNoStart=cons_proof.seqNoEnd)
-    # send_and_chk(LedgerState.synced)
+
+
+def testNodeCatchupAfterRestart1(newNodeCaughtUp, txnPoolNodeSet, tconf,
+                                nodeSetWithNodeAddedAfterSomeTxns,
+                                tdirWithPoolTxns, allPluginsPath):
+    """
+    A node restarts but no transactions have happened while it was down.
+    It would then use the `LedgerStatus` to catchup
+    """
+    looper, new_node, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
+
+    logger.debug("Stopping node {} with pool ledger size {}".
+                 format(new_node, new_node.poolManager.txnSeqNo))
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, new_node)
+    looper.removeProdable(name=new_node.name)
+
+    logger.debug("Starting the stopped node, {}".format(new_node))
+    nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)
+    new_node = TestNode(new_node.name, basedirpath=tdirWithPoolTxns, config=tconf,
+                       ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    looper.add(new_node)
+    txnPoolNodeSet[-1] = new_node
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+
+    def chk():
+        for node in txnPoolNodeSet[:-1]:
+            check_last_ordered_3pc(new_node, node)
+
+    looper.run(eventually(chk, retryWait=1))
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5)
+    waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
+    # Did not receive any consistency proofs
+    assert get_count(new_node.ledgerManager,
+                     new_node.ledgerManager.processConsistencyProof) == 0

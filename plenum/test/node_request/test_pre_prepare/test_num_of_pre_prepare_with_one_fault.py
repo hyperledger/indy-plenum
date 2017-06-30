@@ -1,7 +1,7 @@
 from functools import partial
 
 import pytest
-from plenum.common.util import adict
+from stp_core.common.util import adict
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
@@ -13,10 +13,10 @@ whitelist = ['cannot process incoming PREPARE']
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
+    A = startedNodes.Gamma
     makeNodeFaulty(A,
                    partial(delaysPrePrepareProcessing, delay=60))
-    A.delaySelfNomination(10)
+    # A.delaySelfNomination(10)
     return adict(faulties=A)
 
 

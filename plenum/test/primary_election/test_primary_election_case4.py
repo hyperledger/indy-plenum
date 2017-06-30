@@ -40,6 +40,7 @@ def case4Setup(keySharedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase4(case4Setup, looper):
     """
     Case 4 - A node making multiple primary declarations for a particular node.

@@ -8,6 +8,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
+    ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
     ("oldMerkleRoot", MerkleRootField),
     ("newMerkleRoot", MerkleRootField),

@@ -1,6 +1,5 @@
 import pytest
 
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 
 from plenum.test import waits

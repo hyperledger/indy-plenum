@@ -202,10 +202,18 @@ class InstanceChange(MessageBase):
 
 
 class LedgerStatus(MessageBase):
+    """
+    Purpose: spread status of ledger copy on a specific node.
+    When node receives this message and see that it has different
+    status of ledger it should reply with LedgerStatus that contains its
+    status
+    """
     typename = LEDGER_STATUS
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
         (f.TXN_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.VIEW_NO.nm, NonNegativeNumberField(nullable=True)),
+        (f.PP_SEQ_NO.nm, NonNegativeNumberField(nullable=True)),
         (f.MERKLE_ROOT.nm, MerkleRootField()),
     )
 
@@ -254,6 +262,32 @@ class ConsProofRequest(MessageBase):
         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
     )
 
+
+class ReqLedgerStatus(MessageBase):
+    """
+    Purpose: ask node for LedgerStatus of specific ledger
+    """
+    typename = REQ_LEDGER_STATUS
+    schema = (
+        (f.LEDGER_ID.nm, LedgerIdField()),
+    )
+
+
+class ViewChangeDone(MessageBase):
+    """
+    Node sends this kind of message when view change steps done and it is
+    ready to switch to the new primary.
+    In contrast to 'Primary' message this one does not imply election.
+    """
+    typename = VIEW_CHANGE_DONE
+
+    schema = (
+        # name is nullable because this message can be sent when
+        # there were no view changes and instance has no primary yet
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.NAME.nm, NonEmptyStringField(nullable=True)),
+        (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
+    )
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)

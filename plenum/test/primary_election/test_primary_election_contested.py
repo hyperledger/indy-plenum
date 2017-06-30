@@ -32,6 +32,7 @@ def electContFixture(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     """
     Primary selection (Rainy Day)

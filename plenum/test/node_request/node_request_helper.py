@@ -1,11 +1,9 @@
 import time
 from functools import partial
 
-from stp_core.loop.eventually import eventuallyAll
-from plenum.common.types import OPERATION, f
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.types import OPERATION, f
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
 from plenum.server.replica import Replica
@@ -16,6 +14,7 @@ from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
     getAllReplicas, getPrimaryReplica
 
 
+# This code is unclear, refactor
 def checkPropagated(looper, nodeSet, request, faultyNodes=0):
     nodesSize = len(list(nodeSet.nodes))
 
@@ -292,16 +291,14 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
         allReplicas = getAllReplicas(nodeSet, instId)
         primaryReplica = getPrimaryReplica(nodeSet, instId)
 
-        # Question: Why 2 checks are being made, one with the data structure
-        # and then the spylog
-        def replicasSeesCorrectNumOfCOMMITs():
+        def replicas_gets_correct_num_of_COMMITs():
             """
             num of commit messages must be = n when zero fault;
             n = num of nodes and greater than or equal to
             2f + 1 with faults.
             """
             passes = 0
-            numOfMsgsWithZFN = nodeCount
+            numOfMsgsWithZFN = (2 * f) + 1
             numOfMsgsWithFault = (2 * f) + 1
 
             key = (primaryReplica.viewNo, primaryReplica.lastPrePrepareSeqNo)
@@ -316,37 +313,10 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
                                              numOfMsgsWithZFN,
                                              numOfMsgsWithFault))
 
-            assert passes >= len(allReplicas) - faultyNodes
+            assert passes >= min(len(allReplicas) - faultyNodes,
+                                 numOfMsgsWithZFN)
 
-        def replicasReceivesCorrectNumberOfCOMMITs():
-            """
-            num of commit messages seen by replica must be equal to n - 1;
-            when zero fault and greater than or equal to
-            2f+1 with faults.
-            """
-            passes = 0
-            numOfMsgsWithZFN = nodeCount - 1
-            numOfMsgsWithFault = 2 * f
-
-            for r in allReplicas:
-                args = getAllArgs(r, r.processCommit)
-                actualMsgsReceived = len(args)
-
-                passes += int(msgCountOK(nodeCount,
-                                         faultyNodes,
-                                         actualMsgsReceived,
-                                         numOfMsgsWithZFN,
-                                         numOfMsgsWithFault))
-
-                for arg in args:
-                    assert arg['commit'].viewNo == primaryReplica.viewNo and \
-                           arg['commit'].ppSeqNo == primaryReplica.lastPrePrepareSeqNo
-                    assert r.name != arg['sender']
-
-            assert passes >= len(allReplicas) - faultyNodes
-
-        replicasReceivesCorrectNumberOfCOMMITs()
-        replicasSeesCorrectNumOfCOMMITs()
+        replicas_gets_correct_num_of_COMMITs()
 
     funcs = [partial(g, instId) for instId in instIds]
     # TODO Select or create the timeout from 'waits'. Don't use constant.
@@ -368,3 +338,19 @@ def msgCountOK(nodesSize,
         # Less than or equal to `numOfSufficientMsgs` since the faults may
         # not reduce the number of correct messages
         return actualMessagesReceived <= numOfSufficientMsgs
+
+
+def chk_commits_prepares_recvd(count, receivers, sender):
+    counts = {}
+    sender_replica_names = {r.instId: r.name for r in sender.replicas}
+    for node in receivers:
+        for replica in node.replicas:
+            if replica.instId not in counts:
+                counts[replica.instId] = 0
+            nm = sender_replica_names[replica.instId]
+            for commit in replica.commits.values():
+                counts[replica.instId] += int(nm in commit.voters)
+            for prepare in replica.prepares.values():
+                counts[replica.instId] += int(nm in prepare.voters)
+    for c in counts.values():
+        assert count == c, "expected {}, but have {}".format(count, c)
