@@ -4,7 +4,7 @@ from functools import partial
 import pytest
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from stp_core.common.log import getlogger
 
 from plenum.test.test_node import TestNodeSet
@@ -18,13 +18,14 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    for node in A, B:
+    G = startedNodes.Gamma
+    Z = startedNodes.Zeta
+    for node in G, Z:
         makeNodeFaulty(node,
                        partial(delaysPrePrepareProcessing, delay=60))
-        node.delaySelfNomination(10)
-    return adict(faulties=(A, B))
+        # Delaying nomination to avoid becoming primary
+        # node.delaySelfNomination(10)
+    return adict(faulties=(G, Z))
 
 
 @pytest.fixture(scope="module")

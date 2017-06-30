@@ -72,4 +72,3 @@ def testWindowsNoDocker = {
 }
 
 testAndPublish(name, [ubuntu: testUbuntu])
-

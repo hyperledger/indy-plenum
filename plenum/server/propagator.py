@@ -133,16 +133,12 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            # Only propagate if the node is participating in the consensus
-            # process which happens when the node has completed the
-            # catchup process. QUESTION: WHY?
-            if self.isParticipating:
-                propagate = self.createPropagate(request, clientName)
-                logger.info("{} propagating {} request {} from client {}".
-                               format(self, request.identifier, request.reqId,
-                                      clientName),
-                               extra={"cli": True, "tags": ["node-propagate"]})
-                self.send(propagate)
+            propagate = self.createPropagate(request, clientName)
+            logger.info("{} propagating {} request {} from client {}".
+                           format(self, request.identifier, request.reqId,
+                                  clientName),
+                           extra={"cli": True, "tags": ["node-propagate"]})
+            self.send(propagate)
 
     @staticmethod
     def createPropagate(request: Union[Request, dict], identifier) -> Propagate:
@@ -216,8 +212,6 @@ class Propagator:
         :param clientName:
         """
         self.requests.add(request)
-        # # Only propagate if the node is participating in the consensus process
-        # # which happens when the node has completed the catchup process
         self.propagate(request, clientName)
         self.tryForwarding(request)
 

@@ -6,7 +6,8 @@ import pytest
 from plenum.test import waits
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, changesRequest
-from plenum.common.util import adict, getNoInstances
+from plenum.common.util import getNoInstances
+from stp_core.common.util import adict
 from stp_core.common.log import getlogger
 
 from plenum.test.node_request.node_request_helper import checkPrePrepared
@@ -26,14 +27,16 @@ delayPrePrepareSec = 60
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    G = startedNodes.Gamma
+    # Making nodes faulty such that no primary is chosen
+    A = startedNodes.Eta
+    B = startedNodes.Gamma
+    G = startedNodes.Zeta
     for node in A, B, G:
         makeNodeFaulty(node,
                        changesRequest,
                        partial(delaysPrePrepareProcessing, delay=delayPrePrepareSec))
-        node.delaySelfNomination(10)
+        # Delaying nomination to avoid becoming primary
+        # node.delaySelfNomination(10)
     return adict(faulties=(A, B, G))
 
 

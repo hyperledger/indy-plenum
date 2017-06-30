@@ -58,7 +58,8 @@ def test_unordered_state_reverted_before_catchup(tconf, looper, txnPoolNodeSet, 
 
     # CHECK
 
-    # check that initial uncommitted state differs from the state during 3PC but committed does not
+    # check that initial uncommitted state differs from the state during 3PC
+    #  but committed does not
     assert committed_ledger_before == committed_ledger_during_3pc
     assert uncommitted_ledger_before != uncommitted_ledger_during_3pc
     assert committed_state_before == committed_state_during_3pc

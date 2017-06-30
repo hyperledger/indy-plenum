@@ -1,5 +1,3 @@
-import pytest
-
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
 from plenum.test.delayers import nom_delay, delay_3pc_messages
@@ -12,7 +10,7 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
-@pytest.mark.skip(reason="INDY-147")
+
 def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
                                         wallet1, client1Connected, tconf):
     """
@@ -48,7 +46,7 @@ def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(nom_delay(delay))
 
-    ensure_view_change(looper, txnPoolNodeSet, client1, wallet1)
+    ensure_view_change(looper, txnPoolNodeSet)
     reqs = sendRandomRequests(wallet1, client1, 2 * tconf.Max3PCBatchSize)
     looper.run(eventually(chk, 2 * tconf.Max3PCBatchSize))
 

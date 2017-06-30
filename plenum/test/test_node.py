@@ -7,7 +7,7 @@ from copy import copy
 from functools import partial
 from itertools import combinations, permutations
 from typing import Iterable, Iterator, Tuple, Sequence, Union, Dict, TypeVar, \
-    List
+    List, Optional
 
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.server.domain_req_handler import DomainRequestHandler
@@ -25,12 +25,14 @@ from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
-from plenum.common.util import Seconds, getMaxFailures, adict
+from plenum.common.util import Seconds, getMaxFailures
+from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
 from plenum.server.primary_elector import PrimaryElector
+from plenum.server.primary_selector import PrimarySelector
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -126,14 +128,21 @@ class TestNodeCore(StackedTester):
 
     def newPrimaryDecider(self):
         pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimaryElector
+            TestPrimarySelector
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):
-        logger.debug("{} delaying start election".format(self))
-        delayerElection = partial(delayers.delayerMethod,
-                                  TestPrimaryElector.startElection)
-        self.elector.actionQueueStasher.delay(delayerElection(delay))
+        if isinstance(self.primaryDecider, PrimaryElector):
+            logger.debug("{} delaying start election".format(self))
+            delayerElection = partial(delayers.delayerMethod,
+                                      TestPrimaryElector.startElection)
+            self.elector.actionQueueStasher.delay(delayerElection(delay))
+        elif isinstance(self.primaryDecider, PrimarySelector):
+            raise RuntimeError('Does not support nomination since primary is '
+                               'selected deterministically')
+        else:
+            raise RuntimeError('Unknown primary decider encountered {}'.
+                               format(self.primaryDecider))
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
@@ -153,9 +162,13 @@ class TestNodeCore(StackedTester):
         c += self.nodeIbStasher.force_unstash()
         for r in self.replicas:
             c += r.outBoxTestStasher.force_unstash()
-        logger.debug("{} forced processing of delayed messages, {} processed in total".
-                     format(self, c))
+        logger.debug("{} forced processing of delayed messages, "
+                     "{} processed in total".format(self, c))
         return c
+
+    def reset_delays_and_process_delayeds(self):
+        self.resetDelays()
+        self.force_process_delayeds()
 
     def whitelistNode(self, nodeName: str, *codes: int):
         if nodeName not in self.whitelistedClients:
@@ -238,7 +251,14 @@ class TestNodeCore(StackedTester):
                   Node.lost_master_primary,
                   Node.propose_view_change,
                   Node.getReplyFromLedger,
-                  Node.recordAndPropagate
+                  Node.recordAndPropagate,
+                  Node.allLedgersCaughtUp,
+                  Node.is_catchup_needed,
+                  Node.no_more_catchups_needed,
+                  Node.caught_up_for_current_view,
+                  Node._check_view_change_completed,
+                  Node.primary_selected,
+                  Node.num_txns_caught_up_in_last_catchup
                   ])
 class TestNode(TestNodeCore, Node):
 
@@ -285,6 +305,13 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
+@spyable(methods=[
+        PrimarySelector.decidePrimaries
+    ])
+class TestPrimarySelector(PrimarySelector):
+    pass
+
+
 @spyable(methods=[replica.Replica.sendPrePrepare,
                   replica.Replica.canProcessPrePrepare,
                   replica.Replica.canPrepare,
@@ -296,7 +323,9 @@ class TestPrimaryElector(PrimaryElector):
                   replica.Replica.doPrepare,
                   replica.Replica.doOrder,
                   replica.Replica.discard,
-                  replica.Replica.stashOutsideWatermarks
+                  replica.Replica.stashOutsideWatermarks,
+                  replica.Replica.revert_unordered_batches,
+                  replica.Replica.can_process_since_view_change_in_progress
                   ])
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
@@ -389,8 +418,13 @@ class TestNodeSet(ExitStack):
     def __iter__(self) -> Iterator[TestNode]:
         return self.nodes.values().__iter__()
 
-    def __getitem__(self, key) -> TestNode:
-        return self.nodes.get(key)
+    def __getitem__(self, key) -> Optional[TestNode]:
+        if key in self.nodes:
+            return self.nodes[key]
+        elif isinstance(key, int):
+            return list(self.nodes.values())[key]
+        else:
+            return None
 
     def __len__(self):
         return self.nodes.__len__()
@@ -398,6 +432,12 @@ class TestNodeSet(ExitStack):
     @property
     def nodeNames(self):
         return sorted(self.nodes.keys())
+
+    @property
+    def nodes_by_rank(self):
+        return [t[1] for t in sorted([(node.rank, node)
+                                      for node in self.nodes.values()],
+                                     key=operator.itemgetter(0))]
 
     @property
     def f(self):
@@ -427,7 +467,7 @@ class TestNodeSet(ExitStack):
     def getLastMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
         return getLastMsgReceivedForNode(self.getNode(node), method)
 
-    def getAllMsgReceived(self, node: NodeRef, method: str = None) -> Tuple:
+    def getAllMsgReceived(self, node: NodeRef, method: str = None) -> List:
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
 
@@ -661,6 +701,9 @@ def ensureElectionsDone(looper: Looper,
                         retryWait: float = None,  # seconds
                         customTimeout: float = None,
                         numInstances: int = None) -> Sequence[TestNode]:
+    # TODO: Change the name to something like `ensure_primaries_selected`
+    # since there might not always be an election, there might be a round
+    # robin selection
     """
     Wait for elections to be complete
 
@@ -780,6 +823,14 @@ def get_master_primary_node(nodes):
         nm = TestReplica.getNodeName(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
     raise AssertionError('No primary found for master')
+
+
+def get_last_master_non_primary_node(nodes):
+    return getNonPrimaryReplicas(nodes)[-1].node
+
+
+def get_first_master_non_primary_node(nodes):
+    return getNonPrimaryReplicas(nodes)[0].node
 
 
 def primaryNodeNameForInstance(nodes, instanceId):
