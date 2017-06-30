@@ -379,9 +379,9 @@ class SerializedValueField(FieldBase):
 class VersionField(FieldBase):
     _base_types = (str,)
 
-    def __init__(self, comp_num=(2, 3,), **kwargs):
+    def __init__(self, components_number=(3,), **kwargs):
         super().__init__(**kwargs)
-        self._comp_num = comp_num
+        self._comp_num = components_number
 
     def _specific_validation(self, val):
         parts = val.split(".")
@@ -389,7 +389,9 @@ class VersionField(FieldBase):
             return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
         for p in parts:
             try:
-                int(p)
+                convertedint = int(p)
+                if convertedint < 0:
+                    return "version component shouldn't be negative"
             except ValueError:
                 return "version component {} is not a number".format(p)
         return None
