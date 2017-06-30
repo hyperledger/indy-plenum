@@ -1,11 +1,12 @@
 from plenum.common.constants import ALIAS, SERVICES, VALIDATOR
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
-from plenum.test.node_catchup.conftest import whitelist
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    checkNodeDataForInequality, checkNodeDataForEquality
+    checkNodeDataForInequality
 from plenum.test.pool_transactions.helper import \
     updateNodeData
 from stp_core.common.log import getlogger
+
+from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 

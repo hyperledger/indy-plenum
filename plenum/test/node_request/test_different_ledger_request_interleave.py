@@ -1,17 +1,19 @@
-from plenum.test.conftest import tdirWithPoolTxns
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.conftest import clientAndWallet1, \
-    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
-    stewardAndWallet1, steward1, stewardWallet
 from plenum.test.pool_transactions.helper import addNewSteward, sendAddNewNode
-from plenum.test.primary_selection.conftest import one_node_added
-from plenum.test.batching_3pc.conftest import tconf
 from plenum.test.primary_selection.test_primary_selection_pool_txn import \
     ensure_pool_functional
 from plenum.test.test_node import checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
+
+
+from plenum.test.conftest import tdirWithPoolTxns
+from plenum.test.pool_transactions.conftest import clientAndWallet1, \
+    client1, wallet1, client1Connected, looper, nodeThetaAdded, \
+    stewardAndWallet1, steward1, stewardWallet
+from plenum.test.primary_selection.conftest import one_node_added
+from plenum.test.batching_3pc.conftest import tconf
 
 
 def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,

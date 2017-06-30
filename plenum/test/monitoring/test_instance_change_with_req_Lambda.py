@@ -1,10 +1,7 @@
-from functools import partial
-
 import pytest
 
-from stp_core.loop.eventually import eventually
 from plenum.common.types import PrePrepare, f
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getPrimaryReplica

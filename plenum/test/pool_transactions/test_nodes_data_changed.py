@@ -3,8 +3,8 @@ from plenum.common.util import randomString
 from plenum.test.helper import waitRejectWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import addNewStewardAndNode, sendUpdateNode, \
-    updateNodeDataAndReconnect
+from plenum.test.pool_transactions.helper import addNewStewardAndNode, \
+    sendUpdateNode, updateNodeDataAndReconnect
 from plenum.test.test_node import checkNodesConnected
 
 from stp_core.common.log import getlogger
