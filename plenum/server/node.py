@@ -2296,21 +2296,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          verkey=v.verkey,
                                          role=role)
 
-    @staticmethod
-    def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
-        # If the trie is empty then initialize it by applying
-        # txns from ledger
+    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
         if state.isEmpty:
-            txns = [_ for _ in ledger.getAllTxn().values()]
-            reqHandler.updateState(txns, isCommitted=True)
-            state.commit(rootHash=state.headHash)
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn[f.SEQ_NO.nm] = seq_no
+                txn = self.update_txn_with_extra_data(txn)
+                reqHandler.updateState([txn, ], isCommitted=True)
+                state.commit(rootHash=state.headHash)
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
                                  self.domainLedger, self.reqHandler)
 
     def addGenesisNyms(self):
-        for _, txn in self.domainLedger.getAllTxn().items():
+        # THIS SHOULD NOT BE DONE FOR PRODUCTION
+        for _, txn in self.domainLedger.getAllTxn():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
@@ -2553,8 +2559,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def collectNodeInfo(self):
         nodeAddress = None
         if self.poolLedger:
-            txns = self.poolLedger.getAllTxn()
-            for key, txn in txns.items():
+            for _, txn in self.poolLedger.getAllTxn():
                 data = txn[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
