@@ -2296,14 +2296,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          verkey=v.verkey,
                                          role=role)
 
-    @staticmethod
-    def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
+    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
         """
         If the trie is empty then initialize it by applying
         txns from ledger.
         """
         if state.isEmpty:
-            for _, txn in ledger.getAllTxn():
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn[f.SEQ_NO.nm] = seq_no
+                txn = self.update_txn_with_extra_data(txn)
                 reqHandler.updateState([txn, ], isCommitted=True)
                 state.commit(rootHash=state.headHash)
 
