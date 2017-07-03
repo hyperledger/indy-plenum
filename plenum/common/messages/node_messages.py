@@ -104,10 +104,8 @@ class Ordered(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        # TODO fix f.STATE_ROOT rule
-        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
-        # TODO fix f.TXN_ROOT rule
-        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
     )
 
 
@@ -130,10 +128,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        # TODO fix f.STATE_ROOT rule
-        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
-        # TODO fix f.TXN_ROOT rule
-        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
     )
 
 
@@ -144,10 +140,8 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
-        # TODO fix f.STATE_ROOT rule
-        (f.STATE_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
-        # TODO fix f.TXN_ROOT rule
-        (f.TXN_ROOT.nm, AnyValueField()),  # HexField(length=64, nullable=True)
+        (f.STATE_ROOT.nm, MerkleRootField()),
+        (f.TXN_ROOT.nm, MerkleRootField()),
     )
 
 

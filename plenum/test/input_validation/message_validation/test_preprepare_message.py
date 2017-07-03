@@ -15,8 +15,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("discarded", NonNegativeNumberField),
     ("digest", NonEmptyStringField),
     ("ledgerId", LedgerIdField),
-    ("stateRootHash", AnyValueField),
-    ("txnRootHash", AnyValueField),
+    ("stateRootHash", MerkleRootField),
+    ("txnRootHash", MerkleRootField),
 ])
 
 
