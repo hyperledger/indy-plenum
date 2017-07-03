@@ -4,7 +4,7 @@ import shutil
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, \
-    waitNodeDataEquality, checkNodeDataForEquality
+    waitNodeDataEquality
 
 from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
     client1, wallet1, client1Connected
@@ -36,13 +36,13 @@ def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
     shutil.rmtree(state_db_path)
 
     restarted_node = TestNode(node_to_stop.name, basedirpath=tdirWithPoolTxns,
-                        config=tconf, ha=nodeHa, cliha=nodeCHa,
+                              config=tconf, ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)
     looper.add(restarted_node)
     txnPoolNodeSet[-1] = restarted_node
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    checkNodeDataForEquality(restarted_node, *txnPoolNodeSet[:-1])
+    waitNodeDataEquality(looper, restarted_node, *txnPoolNodeSet[:-1])
 
 
 def test_memory_consumption_while_recreating_state_db():
