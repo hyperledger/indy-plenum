@@ -4,9 +4,12 @@ from plenum.test.view_change.helper import view_change_in_between_3pc, \
     view_change_in_between_3pc_random_delays
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
+import pytest
 
 TestRunningTimeLimitSec = 300
 
+
+@pytest.mark.skip('INDY-365 plenum/test_view_change_complex is disabled')
 def test_view_change_complex(
         txnPoolNodeSet, looper, wallet1, client):
     """
