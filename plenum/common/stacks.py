@@ -2,6 +2,7 @@ from typing import Callable, Any, List, Dict
 
 from plenum import config
 from plenum.common.batched import Batched, logger
+from plenum.common.config_util import getConfig
 from plenum.common.message_processor import MessageProcessor
 from stp_raet.rstack import SimpleRStack, KITRStack
 from stp_core.types import HA
@@ -9,11 +10,11 @@ from stp_zmq.zstack import SimpleZStack, KITZStack
 
 
 class ClientZStack(SimpleZStack, MessageProcessor):
-    def __init__(self, stackParams: dict, msgHandler: Callable, seed=None):
+    def __init__(self, stackParams: dict, msgHandler: Callable, seed=None,
+                 config=None):
+        config = config or getConfig()
         SimpleZStack.__init__(self, stackParams, msgHandler, seed=seed,
-                              onlyListener=True,
-                              listenerQuota=config.LISTENER_MESSAGE_QUOTA,
-                              remoteQuota=config.REMOTES_MESSAGE_QUOTA)
+                              onlyListener=True, config=config)
         MessageProcessor.__init__(self, allowDictOnly=False)
         self.connectedClients = set()
 
@@ -55,12 +56,12 @@ class ClientZStack(SimpleZStack, MessageProcessor):
 
 class NodeZStack(Batched, KITZStack):
     def __init__(self, stackParams: dict, msgHandler: Callable,
-                 registry: Dict[str, HA], seed=None, sighex: str=None):
+                 registry: Dict[str, HA], seed=None, sighex: str=None,
+                 config=None):
+        config = config or getConfig()
         Batched.__init__(self)
         KITZStack.__init__(self, stackParams, msgHandler, registry=registry,
-                           seed=seed, sighex=sighex,
-                           listenerQuota=config.LISTENER_MESSAGE_QUOTA,
-                           remoteQuota=config.REMOTES_MESSAGE_QUOTA)
+                           seed=seed, sighex=sighex, config=config)
         MessageProcessor.__init__(self, allowDictOnly=False)
 
     # TODO: Reconsider defaulting `reSetupAuth` to True.

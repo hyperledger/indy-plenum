@@ -37,6 +37,7 @@ def testKeyShareParty(tdir_for_func):
                      msgAll(nodeSet))
 
 
+@pytest.mark.skip('INDY-364 plenum/testConnectWithoutKeySharingFails is disabled')
 # noinspection PyIncorrectDocstring
 def testConnectWithoutKeySharingFails(tdir_for_func):
     """

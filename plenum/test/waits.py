@@ -78,7 +78,8 @@ def expectedPoolInterconnectionTime(nodeCount):
     # multiply by 2 because we need to re-create connections which can be done on a second re-try only
     # (we may send pings on some of the re-tries)
     return min(0.8 * config.TestRunningTimeLimitSec,
-               interconnectionCount * nodeConnectionTimeout + 2 * KITZStack.RETRY_TIMEOUT_RESTRICTED + 2)
+               interconnectionCount * nodeConnectionTimeout +
+               2 * config.RETRY_TIMEOUT_RESTRICTED + 2)
 
 
 def expectedPoolDisconnectionTime(nodeCount):
@@ -243,7 +244,7 @@ def expectedClientToPoolConnectionTimeout(nodeCount):
     # fixed in the 3pcbatch feature
     # https://evernym.atlassian.net/browse/SOV-995
     return config.ExpectedConnectTime * nodeCount + \
-           KITZStack.RETRY_TIMEOUT_RESTRICTED
+           config.RETRY_TIMEOUT_RESTRICTED
 
 
 def expectedClientConsistencyProof(nodeCount):

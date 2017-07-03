@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.util import adict
+from stp_core.common.util import adict
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
 

@@ -79,10 +79,9 @@ class DomainRequestHandler(RequestHandler):
         Note: This is inefficient, a production use case of this function
         should require an efficient storage mechanism
         """
-        # TODO: do not load all transactions!!!
-        allTxns = self.ledger.getAllTxn().values()
-        return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
-                   (txn.get(ROLE) == STEWARD))
+        # THIS SHOULD NOT BE DONE FOR PRODUCTION
+        return sum(1 for _, txn in self.ledger.getAllTxn() if
+                   (txn[TXN_TYPE] == NYM) and (txn.get(ROLE) == STEWARD))
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added
