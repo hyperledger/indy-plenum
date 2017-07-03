@@ -1560,8 +1560,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if compare_3PC_keys(self.master_last_ordered_3PC,
                             last_caught_up_3PC) > 0:
             self.master_replica.caught_up_till_3pc(last_caught_up_3PC)
-            logger.debug('{} caught up till {}'.format(self,
-                                                       last_caught_up_3PC))
+            logger.info('{} caught up till {}'.format(self, last_caught_up_3PC),
+                        extra={'cli': True})
 
         # TODO: Maybe a slight optimisation is to check result of
         # `self.num_txns_caught_up_in_last_catchup()`
@@ -1571,7 +1571,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug('{} needs to catchup again'.format(self))
             self.start_catchup()
         else:
-            logger.debug('{} does not need any more catchups'.format(self))
+            logger.info('{} does not need any more catchups'.format(self),
+                        extra={'cli': True})
             self.no_more_catchups_needed()
 
     def is_catchup_needed(self) -> bool:
@@ -1594,6 +1595,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if self.catchup_rounds_without_txns >= self.config.MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE:
                 logger.debug('{} has completed {} catchup rounds'.
                              format(self, self.catchup_rounds_without_txns))
+                # No more 3PC messages will be processed since maximum catchup
+                # rounds have been done
+                self.master_replica.last_prepared_before_view_change = None
                 return False
         return True
 
@@ -2296,21 +2300,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                          verkey=v.verkey,
                                          role=role)
 
-    @staticmethod
-    def initStateFromLedger(state: State, ledger: Ledger, reqHandler):
-        # If the trie is empty then initialize it by applying
-        # txns from ledger
+    def initStateFromLedger(self, state: State, ledger: Ledger, reqHandler):
+        """
+        If the trie is empty then initialize it by applying
+        txns from ledger.
+        """
         if state.isEmpty:
-            txns = [_ for _ in ledger.getAllTxn().values()]
-            reqHandler.updateState(txns, isCommitted=True)
-            state.commit(rootHash=state.headHash)
+            logger.info('{} found state to be empty, recreating from '
+                        'ledger'.format(self))
+            for seq_no, txn in ledger.getAllTxn():
+                txn[f.SEQ_NO.nm] = seq_no
+                txn = self.update_txn_with_extra_data(txn)
+                reqHandler.updateState([txn, ], isCommitted=True)
+                state.commit(rootHash=state.headHash)
 
     def initDomainState(self):
         self.initStateFromLedger(self.states[DOMAIN_LEDGER_ID],
                                  self.domainLedger, self.reqHandler)
 
     def addGenesisNyms(self):
-        for _, txn in self.domainLedger.getAllTxn().items():
+        # THIS SHOULD NOT BE DONE FOR PRODUCTION
+        for _, txn in self.domainLedger.getAllTxn():
             if txn.get(TXN_TYPE) == NYM:
                 self.addNewRole(txn)
 
@@ -2553,8 +2563,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def collectNodeInfo(self):
         nodeAddress = None
         if self.poolLedger:
-            txns = self.poolLedger.getAllTxn()
-            for key, txn in txns.items():
+            for _, txn in self.poolLedger.getAllTxn():
                 data = txn[DATA]
                 if data[ALIAS] == self.name:
                     nodeAddress = data[NODE_IP]
