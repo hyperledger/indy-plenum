@@ -1042,7 +1042,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
-    def hasPrepared(self, request) -> bool:
+    def has_pre_prepared(self, request) -> bool:
         return self.prepares.hasPrepareFrom(request, self.name)
 
     def canPrepare(self, ppReq) -> (bool, str):
@@ -1054,7 +1054,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         if not self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(ppReq)
-        if self.hasPrepared(ppReq):
+        if self.has_pre_prepared(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
 
@@ -1119,6 +1119,7 @@ class Replica(HasActionQueue, MessageProcessor):
         :param prepare: the PREPARE to add to the list
         """
         self.prepares.addVote(prepare, sender)
+        self.dequeueCommits(prepare.viewNo, prepare.ppSeqNo)
         self.tryCommit(prepare)
 
     def getPrePrepare(self, viewNo, ppSeqNo):
@@ -1320,6 +1321,10 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Consider stashed messages too?
         assert self.isMaster
         return max_3PC_key(self.commits.keys()) if self.commits else None
+
+    def has_prepared(self, key):
+        return self.getPrePrepare(*key) and self.prepares.hasQuorum(
+            ThreePhaseKey(*key), self.quorums.prepare.value)
 
     def doOrder(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -1648,17 +1653,21 @@ class Replica(HasActionQueue, MessageProcessor):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
             i = 0
-            # Keys of pending prepares that will be processed below
-            while self.commitsWaitingForPrepare[key]:
-                commit, sender = self.commitsWaitingForPrepare[
-                    key].popleft()
-                logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                self.processCommit(commit, sender)
-                i += 1
-            self.commitsWaitingForPrepare.pop(key)
-            logger.debug("{} processed {} COMMITs waiting for PREPARE for"
-                         " view no {} and seq no {}".
-                         format(self, i, viewNo, ppSeqNo))
+            if self.has_prepared(key):
+                # Keys of pending prepares that will be processed below
+                while self.commitsWaitingForPrepare[key]:
+                    commit, sender = self.commitsWaitingForPrepare[
+                        key].popleft()
+                    logger.debug("{} popping stashed COMMIT{}".format(self, key))
+                    self.processCommit(commit, sender)
+                    i += 1
+                self.commitsWaitingForPrepare.pop(key)
+                logger.debug("{} processed {} COMMITs waiting for PREPARE for"
+                             " view no {} and seq no {}".
+                             format(self, i, viewNo, ppSeqNo))
+            else:
+                logger.debug('{} has not prepared {}, will dequeue the '
+                             'COMMITs later'.format(self, key))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)

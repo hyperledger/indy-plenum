@@ -601,26 +601,6 @@ class LedgerManager(HasActionQueue):
                 return True
         return False
 
-    # def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
-    #     logger.debug("{} received consistency proof request: {} from {}".
-    #                  format(self, req, frm))
-    #     if not self.ownedByNode:
-    #         self.discard(req,
-    #                      reason='Only nodes can service this request',
-    #                      logMethod=logger.warning)
-    #         return
-    #
-    #     ledgerId = getattr(req, f.LEDGER_ID.nm)
-    #     seqNoStart = getattr(req, f.SEQ_NO_START.nm)
-    #     seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
-    #     consistencyProof = self._buildConsistencyProof(ledgerId,
-    #                                                    seqNoStart,
-    #                                                    seqNoEnd)
-    #     # TODO: Build a test for this scenario where a node cannot service a
-    #     # consistency proof request
-    #     if consistencyProof:
-    #         self.sendTo(consistencyProof, frm)
-
     def canProcessCatchupReply(self, catchupReply: CatchupRep) -> List[Tuple]:
         ledgerId = getattr(catchupReply, f.LEDGER_ID.nm)
         ledgerState = self.getLedgerInfoByType(ledgerId).state

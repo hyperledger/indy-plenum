@@ -41,7 +41,5 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     def chk():
         assert orderedCount + batch_count == pr.stats.get(TPCStat.OrderSent)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend,
-                                        1, override_timeout_limit=True,
-                                        total_timeout=total_timeout)
-    looper.run(eventually(chk, retryWait=1, timeout=3))
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, reqsToSend)
+    looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

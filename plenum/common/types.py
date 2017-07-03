@@ -381,15 +381,6 @@ class ViewChangeDone(MessageBase):
 #     f.VIEW_NO,
 #     f.ORD_SEQ_NO])
 
-# class ReqLedgerStatus(MessageBase):
-#     """
-#     Purpose: ask node for LedgerStatus of specific ledger
-#     """
-#     typename = REQ_LEDGER_STATUS
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#     )
-
 
 class LedgerStatus(MessageBase):
     """
@@ -465,19 +456,6 @@ CatchupRep = TaggedTuple(CATCHUP_REP, [
     f.TXNS,
     f.CONS_PROOF
 ])
-
-# class ConsProofRequest(MessageBase):
-#     typename = CONS_PROOF_REQUEST
-#     schema = (
-#         (f.LEDGER_ID.nm, LedgerIdField()),
-#         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-#         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-#     )
-# ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-#     f.LEDGER_ID,
-#     f.SEQ_NO_START,
-#     f.SEQ_NO_END
-# ])
 
 
 class MessageReq(MessageBase):

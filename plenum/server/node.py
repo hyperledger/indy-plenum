@@ -299,10 +299,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         nodeRoutes.extend([
-            # (ReqLedgerStatus, self.process_req_ledger_status),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            # (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep)
         ])
@@ -829,17 +827,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Ask other node for LedgerStatus
         """
-        # req = ReqLedgerStatus(ledger_id)
-        # self.sendToNodes(req, [node_name,])
         self.request_msg(LEDGER_STATUS, {f.LEDGER_ID.nm: ledger_id},
                          [node_name,])
         logger.debug("{} asking {} for ledger status of ledger {}"
                      .format(self, node_name, ledger_id))
-
-    # def process_req_ledger_status(self, request: ReqLedgerStatus, frm: str):
-    #     logger.debug("{} processing request for ledger status from {}: {}"
-    #                  .format(self, frm, request))
-    #     self.sendLedgerStatus(frm, request.ledgerId)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)

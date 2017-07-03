@@ -151,15 +151,6 @@ messages = (
         ],
     ),
 
-    # MessageDescriptor(
-    #     klass=ConsProofRequest,
-    #     fields=[
-    #         ledger_id_field,
-    #         seq_no_start_field,
-    #         seq_no_stop_field,
-    #     ],
-    # ),
-
     MessageDescriptor(
         klass=CatchupReq,
         fields=[
