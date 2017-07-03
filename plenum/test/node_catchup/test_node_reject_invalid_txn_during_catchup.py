@@ -86,11 +86,12 @@ def _sendIncorrectTxns(self, req, frm):
         start, end = getattr(req, f.SEQ_NO_START.nm), \
             getattr(req, f.SEQ_NO_END.nm)
         ledger = self.getLedgerForMsg(req)
-        txns = ledger.getAllTxn(start, end)
-        for seqNo in txns.keys():
+        txns = {}
+        for seqNo, txn in ledger.getAllTxn(start, end):
             # Since the type of random request is `buy`
-            if txns[seqNo].get(TXN_TYPE) == "buy":
-                txns[seqNo][TXN_TYPE] = "randomtype"
+            if txn.get(TXN_TYPE) == "buy":
+                txn[TXN_TYPE] = "randomtype"
+            txns[seqNo] = txn
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, ledger.size)]
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,

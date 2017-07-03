@@ -376,7 +376,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     @property
     def id(self):
         if not self._id:
-            for txn in self.ledger.getAllTxn().values():
+            for _, txn in self.ledger.getAllTxn():
                 if self.name == txn[DATA][ALIAS]:
                     self._id = txn[TARGET_NYM]
         return self._id
@@ -384,7 +384,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     @property
     def node_ids_in_ordered_by_rank(self) -> List:
         ids = OrderedDict()
-        for txn in self.ledger.getAllTxn().values():
+        for _, txn in self.ledger.getAllTxn():
             ids[txn[TARGET_NYM]] = True
         return list(ids.keys())
 
@@ -398,7 +398,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         # This is expensive but only required while start or view change
         id = self.node_ids_in_ordered_by_rank[rank]
         # We don't allow changing ALIAS
-        for txn in self.ledger.getAllTxn().values():
+        for _, txn in self.ledger.getAllTxn():
             if txn[TARGET_NYM] == id and DATA in txn and ALIAS in txn[DATA]:
                 return txn[DATA][ALIAS]
 

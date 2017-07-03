@@ -416,19 +416,12 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
-        txns = ledger.getAllTxn(start, end)
-        for seq_no in txns:
-            txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
-        # Following transformation is needed to simplify
-        # validation of CatchupRep messages.
-        # TODO: Remove it when flattening of transactions removed
-        # (which is done by calling reqToTxn when saving to landger)
-        formatted_txns = {seq_no : txnToReq(txn)
-                          for seq_no, txn in txns.items()}
-        message = CatchupRep(getattr(req, f.LEDGER_ID.nm),
-                             formatted_txns,
-                             consProof)
-        self.sendTo(msg=message, to=frm)
+
+        txns = {}
+        for seq_no, txn in ledger.getAllTxn(start, end):
+            txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
+        self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
+                                   consProof), to=frm)
 
     def processCatchupRep(self, rep: CatchupRep, frm: str):
         logger.debug("{} received catchup reply from {}: {}".
