@@ -3,9 +3,8 @@ import os
 import stat
 import jsonpickle
 
-
 from stp_core.common.log import getlogger
-from plenum.client.wallet import Wallet, WalletStorageHelper as WSH
+from plenum.client.wallet import Wallet, WalletStorageHelper
 
 logger = getlogger()
 
@@ -66,20 +65,20 @@ def test_wallet():
 def test_keyring_base_dir_new_permissions(tdir_for_func):
     # default
     keyringsBaseDir = os.path.join(tdir_for_func, 'keyrings')
-    WSH(keyringsBaseDir)
+    WalletStorageHelper(keyringsBaseDir)
     check_permissions(keyringsBaseDir, DEFAULT_DMODE)
 
     # non-default
     dmode = DEFAULT_DMODE + 1
     keyringsBaseDir = os.path.join(tdir_for_func, 'keyrings2')
-    WSH(keyringsBaseDir, dmode=dmode)
+    WalletStorageHelper(keyringsBaseDir, dmode=dmode)
     check_permissions(keyringsBaseDir, dmode)
 
 
 def test_keyring_base_dir_exists_as_file(tdir_hierarchy):
     root, dirs, files = tdir_hierarchy
     with pytest.raises(NotADirectoryError):
-        WSH(os.path.join(root, files[0]))
+        WalletStorageHelper(os.path.join(root, files[0]))
 
 
 def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
@@ -87,13 +86,13 @@ def test_keyring_base_dir_exists_as_dir(tdir_hierarchy):
     dpath = os.path.join(root, dirs[0])
     mode1 = get_permissions(dpath)
     mode2 = mode1 | NOT_LISTED_PERMISSION
-    WSH(dpath, dmode=mode2)
+    WalletStorageHelper(dpath, dmode=mode2)
     check_permissions(dpath, mode2)
 
 
 def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_wallet):
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
         with pytest.raises(ValueError) as exc_info:
@@ -104,7 +103,7 @@ def test_store_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir, test_
 
 def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet):
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [
         os.path.join(keyrings_base_dir, '../wallet'),
@@ -139,7 +138,7 @@ def test_wallet_dir_path_exists_as_file(tdir_hierarchy, test_wallet):
 
     wdir = files[0]
 
-    wsh = WSH(root)
+    wsh = WalletStorageHelper(root)
     with pytest.raises(NotADirectoryError) as exc_info:
         wsh.saveWallet(test_wallet, os.path.join(wdir, 'wallet'))
 
@@ -151,14 +150,14 @@ def test_new_file_wallet_permissions(tdir_for_func, keyrings_base_dir, test_wall
     wpath = 'ctx/test.wallet'
 
     # default
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
     wpath = '1/2/3/wallet'
     wpath_res = wsh.saveWallet(test_wallet, wpath)
     check_permissions(wpath_res, DEFAULT_FMODE)
 
     # non-default
     fmode = DEFAULT_DMODE + 1
-    wsh = WSH(keyrings_base_dir, fmode=fmode)
+    wsh = WalletStorageHelper(keyrings_base_dir, fmode=fmode)
     wpath = '4/5/6/wallet'
     wpath_res = wsh.saveWallet(test_wallet, wpath)
     check_permissions(wpath_res, fmode)
@@ -169,13 +168,13 @@ def test_existed_wallet_permissions(tdir_hierarchy, test_wallet):
     wpath = os.path.join(root, files[0])
     mode1 = get_permissions(wpath)
     mode2 = mode1 | NOT_LISTED_PERMISSION
-    wsh = WSH(root, fmode=mode2)
+    wsh = WalletStorageHelper(root, fmode=mode2)
     wsh.saveWallet(test_wallet, files[0])
     check_permissions(wpath, mode2)
 
 
 def test_store_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "1/2/3/wallet")
     wsh.saveWallet(test_wallet, abs_path)
     check_permissions(abs_path, DEFAULT_FMODE)
@@ -184,7 +183,7 @@ def test_store_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet)
 def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
     wpath = 'ctx/test.wallet'
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     wpath_res = wsh.saveWallet(test_wallet, wpath)
     assert wpath_res == os.path.join(keyrings_base_dir, wpath)
@@ -198,7 +197,7 @@ def test_stored_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
 
 def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     for path in (None, ''):
         with pytest.raises(ValueError) as exc_info:
@@ -209,7 +208,7 @@ def test_load_wallet_by_empty_path_fail(tdir_for_func, keyrings_base_dir):
 
 def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     inv_paths = [
         os.path.join(keyrings_base_dir, '../wallet'),
@@ -242,7 +241,7 @@ def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
 def test_loaded_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
     wpath = 'ctx/test.wallet'
 
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
 
     wsh.saveWallet(test_wallet, wpath)
     loaded_wallet = wsh.loadWallet(wpath)
@@ -251,7 +250,7 @@ def test_loaded_wallet_data(tdir_for_func, keyrings_base_dir, test_wallet):
 
 
 def test_load_wallet_by_abs_path(tdir_for_func, keyrings_base_dir, test_wallet):
-    wsh = WSH(keyrings_base_dir)
+    wsh = WalletStorageHelper(keyrings_base_dir)
     abs_path = os.path.join(keyrings_base_dir, "5/6/7/wallet")
     wsh.saveWallet(test_wallet, abs_path)
     loaded_wallet = wsh.loadWallet(abs_path)
