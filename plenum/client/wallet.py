@@ -1,6 +1,8 @@
 from typing import Optional, Dict, NamedTuple
 import os
+import sys
 import stat
+from pathlib import Path
 
 import jsonpickle
 from libnacl import crypto_secretbox_open, randombytes, \
@@ -269,7 +271,6 @@ class Wallet:
         return IdData(signer, idData.lastReqId if idData else None)
 
 
-
 class WalletStorageHelper:
     """Manages wallets
 
@@ -284,70 +285,43 @@ class WalletStorageHelper:
         self.fmode = fmode
         self.keyringsBaseDir = keyringsBaseDir
 
-
     @property
     def keyringsBaseDir(self):
-        return self._baseDir
-
+        return str(self._baseDir)
 
     @keyringsBaseDir.setter
     def keyringsBaseDir(self, path):
-        self._baseDir = os.path.realpath(path)
-        self._baseDirParts = self._splitPath(self._baseDir)
+        self._baseDir = self._resolve(Path(path))
 
         self._createDirIfNotExists(self._baseDir)
         self._ensurePermissions(self._baseDir, self.dmode)
 
-
     def _ensurePermissions(self, path, mode):
-        if stat.S_IMODE(os.stat(path).st_mode) != mode:
-            os.chmod(path, mode)
-
+        if stat.S_IMODE(path.stat().st_mode) != mode:
+            path.chmod(mode)
 
     def _createDirIfNotExists(self, dpath):
-        if os.path.exists(dpath):
-            if not os.path.isdir(dpath):
+        if dpath.exists():
+            if not dpath.is_dir():
                 raise NotADirectoryError("{}".format(dpath))
         else:
-            os.makedirs(dpath)
+            dpath.mkdir(parents=True, exist_ok=True)
 
+    def _resolve(self, path):
+        # ``strict`` argument appeared only version 3.6 of python
+        if sys.version_info < (3, 6, 0):
+            return Path(os.path.realpath(str(path)))
+        else:
+            return path.resolve(strict=False)
 
     def _normalize(self, fpath):
-        # in case of relative path construct the absolute one
-        _fpath = os.path.realpath(fpath if os.path.isabs(fpath) else 
-                    os.path.join(self._baseDir, fpath))
-        parts = self._splitPath(_fpath)
-        return _fpath, parts[:-1], parts[-1]
-
-
-    def _splitByBaseDir(self, parts):
-        baseLen = len(self._baseDirParts)
-        return parts[:baseLen], parts[baseLen:]
-
-
-    def _splitPath(self, path):
-        parts = []
-
-        head, tail = os.path.split(path)
-        while True:
-            if tail:
-                parts.insert(0, tail)
-                head, tail = os.path.split(head)
-            else:
-                if head:
-                    parts.insert(0, head)
-                break
-
-        return parts
-
+        return self._resolve(self._baseDir / fpath)
 
     def encode(self, data):
         return jsonpickle.encode(data, keys=True)
 
-
     def decode(self, data):
         return jsonpickle.decode(data, keys=True)
-
 
     def saveWallet(self, wallet, fpath):
         """Save wallet into specified localtion.
@@ -357,7 +331,7 @@ class WalletStorageHelper:
 
         Error cases:
             - ``fpath`` is not inside the keyrings base dir - ValueError raised
-            - directory part of ``fpath`` exists and it's not a directory - 
+            - directory part of ``fpath`` exists and it's not a directory -
               NotADirectoryError raised
             - ``fpath`` exists and it's a directory - IsADirectoryError raised
 
@@ -368,28 +342,31 @@ class WalletStorageHelper:
         if not fpath:
             raise ValueError("empty path")
 
-        _fpath, dirParts, _ = self._normalize(fpath)
-        head, tail = self._splitByBaseDir(dirParts)
+        _fpath = self._normalize(fpath)
+        _dpath = _fpath.parent
 
-        if head != self._baseDirParts:
-            raise ValueError("path {} is not insdide the keyrings {}".format(
-                fpath, self._baseDir))
+        try:
+            _dpath.relative_to(self._baseDir)
+        except ValueError:
+            raise ValueError(
+                "path {} is not is not relative to the keyrings {}".format(
+                    fpath, self._baseDir))
 
-        if len(tail):
-            self._createDirIfNotExists(os.path.join(*dirParts))
-            # ensure permissions from the bottom of directory hierarchy
-            for i in reversed(range(len(tail))):
-                self._ensurePermissions(os.path.join(
-                    self._baseDir, *tail[:i+1]), self.dmode)
+        self._createDirIfNotExists(_dpath)
 
-        with open(_fpath, "w+") as wf:
+        # ensure permissions from the bottom of the directory hierarchy
+        while _dpath != self._baseDir:
+            self._ensurePermissions(_dpath, self.dmode)
+            _dpath = _dpath.parent
+
+        with _fpath.open("w") as wf:
             self._ensurePermissions(_fpath, self.fmode)
             encodedWallet = self.encode(wallet)
             wf.write(encodedWallet)
-            logger.debug("stored wallet '{}' in {}".format(wallet.name, _fpath))
+            logger.debug("stored wallet '{}' in {}".format(
+                wallet.name, _fpath))
 
-        return _fpath
-
+        return str(_fpath)
 
     def loadWallet(self, fpath):
         """Load wallet from specified localtion.
@@ -406,14 +383,17 @@ class WalletStorageHelper:
         if not fpath:
             raise ValueError("empty path")
 
-        _fpath, dirParts, _ = self._normalize(fpath)
-        head, tail = self._splitByBaseDir(dirParts)
+        _fpath = self._normalize(fpath)
+        _dpath = _fpath.parent
 
-        if head != self._baseDirParts:
-            raise ValueError("path {} is not insdide the keyrings {}".format(
-                fpath, self._baseDir))
+        try:
+            _dpath.relative_to(self._baseDir)
+        except ValueError:
+            raise ValueError(
+                "path {} is not is not relative to the keyrings {}".format(
+                    fpath, self._baseDir))
 
-        with open(_fpath) as wf:
+        with _fpath.open() as wf:
             wallet = self.decode(wf.read())
-        
+
         return wallet
