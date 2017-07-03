@@ -1526,7 +1526,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def domainRequestApplication(self, request: Request):
         return self.reqHandler.apply(request)
 
-    def processRequest(self, request: Request, frm: str, seqNo=None):
+    def processRequest(self, request: Request, frm: str):
         """
         Handle a REQUEST from the client.
         If the request has already been executed, the node re-sends the reply to
@@ -1556,7 +1556,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        reply = self.getReplyFromLedger(ledger, request, seqNo)
+        reply = self.getReplyFromLedger(ledger, request)
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
