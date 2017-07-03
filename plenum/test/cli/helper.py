@@ -342,10 +342,10 @@ def newKeyPair(cli: TestCli, alias: str=None):
     new_identifer = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
     expected = ['Key created in keyring Default']
     if alias:
-        id = cli.activeWallet.aliasesToIds.get(alias)
-        verkey = cli.activeWallet.getVerkey(id)
+        idr = cli.activeWallet.aliasesToIds.get(alias)
+        verkey = cli.activeWallet.getVerkey(idr)
         expected.append('Identifier for key is {}'.
-                        format(id))
+                        format(idr))
         expected.append('Verification key is {}'.format(verkey))
         expected.append('Alias for identifier is {}'.format(alias))
     else:
