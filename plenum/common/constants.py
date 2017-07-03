@@ -75,6 +75,7 @@ ROLE = 'role'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
 VERIFIABLE_ATTRIBUTES = 'verifiableAttributes'
+PREDICATES = 'predicates'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
