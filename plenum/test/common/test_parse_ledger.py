@@ -8,10 +8,6 @@ from plenum.common.stack_manager import TxnStackManager
 
 whitelist = ['substring not found']
 
-"""
-Test that invalid keys raise the proper exception (INDY-150)
-"""
-
 @pytest.fixture(scope="module")
 def tdirWithLedger(tdir):
     tree = CompactMerkleTree()
@@ -30,8 +26,11 @@ def tdirWithLedger(tdir):
         ledger.add(txn)
     return ledger
                                                             
-  
-def testParsing(tdirWithLedger,tdir):
+"""
+Test that invalid base58 TARGET_NYM in pool_transaction raises the proper exception (INDY-150)
+"""
+
+def test_parse_non_base58_txn_type_field_raises_descriptive_error(tdirWithLedger,tdir):
     with pytest.raises(ValueError) as excinfo:
         ledger = Ledger(CompactMerkleTree(), dataDir=tdir)
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
