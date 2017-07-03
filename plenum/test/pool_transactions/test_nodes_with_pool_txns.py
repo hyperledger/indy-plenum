@@ -11,10 +11,9 @@ from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     waitReqNackFromPoolWithReason
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame
-from plenum.test.pool_transactions.helper import addNewClient, addNewNode, \
-    updateNodeData, addNewStewardAndNode, changeNodeKeys, sendUpdateNode, \
-    sendAddNewNode, updateNodeDataAndReconnect, addNewSteward, add_2_nodes
-from plenum.test.test_node import TestNode, checkNodesConnected, \
+from plenum.test.pool_transactions.helper import addNewClient, \
+    addNewStewardAndNode, sendAddNewNode, add_2_nodes
+from plenum.test.test_node import checkNodesConnected, \
     checkProtocolInstanceSetup
 
 from stp_core.common.log import getlogger

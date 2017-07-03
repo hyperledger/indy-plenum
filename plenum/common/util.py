@@ -1,15 +1,16 @@
 import asyncio
 import collections
+import functools
 import glob
 import inspect
 import ipaddress
 import itertools
 import json
 import logging
+import math
 import os
 import random
 import time
-import math
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
@@ -20,9 +21,9 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
-from libnacl import randombytes, randombytes_uniform
 import psutil
 from jsonpickle import encode, decode
+from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 
 from ledger.util import F
@@ -30,9 +31,10 @@ from plenum.cli.constants import WALLET_FILE_EXTENSION
 from plenum.common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
-    MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
-import functools
+
+# Do not remove the next import until imports in sovrin are fixed
+from stp_core.common.util import adict
 
 
 T = TypeVar('T')
@@ -216,37 +218,6 @@ def prime_gen() -> int:
             while x in D:
                 x += p
             D[x] = p
-
-
-class adict(dict):
-    """Dict with attr access to keys."""
-    marker = object()
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        for key in kwargs:
-            self.__setitem__(key, kwargs[key])
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict) and not isinstance(value, adict):
-            value = adict(**value)
-        super(adict, self).__setitem__(key, value)
-
-    def __getitem__(self, key):
-        found = self.get(key, adict.marker)
-        if found is adict.marker:
-            found = adict()
-            super(adict, self).__setitem__(key, found)
-        return found
-
-    def copy(self):
-        return self.__copy__()
-
-    def __copy__(self):
-        return adict(**self)
-
-    __setattr__ = __setitem__
-    __getattr__ = __getitem__
 
 
 async def untilTrue(condition, *args, timeout=5) -> bool:

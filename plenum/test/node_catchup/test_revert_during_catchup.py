@@ -2,8 +2,7 @@ from itertools import combinations
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test import waits
-from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.delayers import cDelay, cpDelay, cqDelay
+from plenum.test.delayers import cDelay, cqDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     check_last_ordered_3pc
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
@@ -13,6 +12,9 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
     checkProtocolInstanceSetup
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
+
+# Do not remove the next imports
+from plenum.test.batching_3pc.conftest import tconf
 
 Max3PCBatchSize = 2
 

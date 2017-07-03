@@ -1,5 +1,4 @@
 from plenum.common.constants import ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensureClientConnectedToNodesAndPoolLedgerSame

@@ -2,7 +2,6 @@ import types
 
 from plenum.common.util import check_if_all_equal_in_list
 from stp_core.common.log import getlogger
-from stp_zmq.zstack import KITZStack
 from typing import Iterable
 
 from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
@@ -11,9 +10,8 @@ from stp_core.types import HA
 from plenum.test.helper import checkLedgerEquality, checkStateEquality, \
     check_seqno_db_equality, assertEquality, check_last_ordered_3pc
 from plenum.test.test_client import TestClient
-from plenum.test.test_node import TestNode, TestNodeSet
+from plenum.test.test_node import TestNode
 from plenum.test import waits
-from plenum.common import util
 import pytest
 
 

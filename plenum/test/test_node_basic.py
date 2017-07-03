@@ -3,7 +3,8 @@ import pytest
 from plenum.test import waits
 from plenum.test.test_node import TestNode, checkProtocolInstanceSetup
 from plenum.test.node_helpers.node_helper import getProtocolInstanceNums
-from plenum.common.util import getMaxFailures, adict
+from plenum.common.util import getMaxFailures
+from stp_core.common.util import adict
 from plenum.test.helper import checkNodesConnected, sendMessageAndCheckDelivery, msgAll
 from plenum.test.msgs import randomMsg
 
