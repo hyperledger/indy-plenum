@@ -4,7 +4,7 @@ import pytest
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing
-from plenum.common.util import adict
+from stp_core.common.util import adict
 
 nodeCount = 4
 faultyNodes = 1

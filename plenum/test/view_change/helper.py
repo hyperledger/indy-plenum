@@ -45,15 +45,18 @@ def provoke_and_wait_for_view_change(looper,
                                  client,
                                  timeout=timeout))
 
-def simulate_slow_master(looper, nodeSet, wallet, client):
+
+def simulate_slow_master(looper, nodeSet, wallet, client, delay=10, num_reqs=4):
     m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, 10)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 4)
+    delayNonPrimaries(nodeSet, 0, delay)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, num_reqs)
+    return m_primary_node
 
 
-def ensure_view_change(looper, nodes, exclude_from_check=None, custom_timeout=None):
+def ensure_view_change(looper, nodes, exclude_from_check=None,
+                       custom_timeout=None):
     """
     This method patches the master performance check to return False and thus
     ensures that all given nodes do a view change
@@ -159,9 +162,6 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
     ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     reset_delays_and_process_delayeds(slow_nodes)
-    # TODO: remove the lines below
-    # looper.runFor(10)
-    # ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet, client, 5, total_timeout=30)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 5, total_timeout=30)
@@ -180,8 +180,5 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
     ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     reset_delays_and_process_delayeds(slow_nodes)
-    # TODO: remove the lines below
-    # looper.runFor(10)
-    # ensure_all_nodes_have_same_data(looper, nodes=nodes)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)

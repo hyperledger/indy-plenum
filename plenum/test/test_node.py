@@ -25,7 +25,8 @@ from plenum.common.startable import Status
 from plenum.common.types import TaggedTuples, NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
-from plenum.common.util import Seconds, getMaxFailures, adict
+from plenum.common.util import Seconds, getMaxFailures
+from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
@@ -858,9 +859,11 @@ def check_node_disconnected_from(needle: str, haystack: Iterable[TestNode]):
     assert all([needle not in node.nodestack.connecteds for node in haystack])
 
 
-def ensure_node_disconnected(looper, disconnected_name, other_nodes,
+def ensure_node_disconnected(looper, disconnected, other_nodes,
                              timeout=None):
     timeout = timeout or (len(other_nodes) - 1)
+    disconnected_name = disconnected if isinstance(disconnected, str) \
+        else disconnected.name
     looper.run(eventually(check_node_disconnected_from, disconnected_name,
                           [n for n in other_nodes
                            if n.name != disconnected_name],

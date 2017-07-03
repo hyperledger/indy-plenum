@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.test_node import getNonPrimaryReplicas
 
