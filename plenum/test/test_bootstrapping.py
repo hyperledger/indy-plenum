@@ -1,11 +1,10 @@
 import pytest
-from stp_core.network.exceptions import RemoteNotFound, PublicKeyNotFoundOnDisk
+from stp_core.network.exceptions import PublicKeyNotFoundOnDisk
 from stp_core.common.log import getlogger
 from plenum.test.greek import genNodeNames
 
 from stp_core.loop.looper import Looper
 from plenum.test.helper import msgAll
-from plenum.test.test_stack import NOT_CONNECTED
 from plenum.test.test_node import TestNodeSet, checkNodesConnected, genNodeReg
 
 logger = getlogger()
@@ -48,6 +47,5 @@ def testConnectWithoutKeySharingFails(tdir_for_func):
         with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func,
                          keyshare=False) as nodes:
             with Looper(nodes) as looper:
-                    looper.run(
-                            checkNodesConnected(nodes, NOT_CONNECTED))
+                looper.runFor(2)
 

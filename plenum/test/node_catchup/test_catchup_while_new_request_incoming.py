@@ -8,7 +8,7 @@ from plenum.test.helper import sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import addNewStewardAndNode
-from plenum.test.test_node import checkNodesConnected, TestNode
+from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
 
@@ -37,7 +37,7 @@ def testNewNodeCatchupWhileIncomingRequests(looper, txnPoolNodeSet,
             chkAfterCall, node.ledgerManager)
         node.nodeIbStasher.delay(cqDelay(3))
 
-    print('Sending 10 requests')
+    print('Sending 5 requests')
     sendRandomRequests(stewardWallet, steward1, 5)
     looper.runFor(1)
     newStewardName = randomString()

@@ -161,7 +161,7 @@ overriddenConfigValues = {
     "DefaultPluginPath": {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
-    },
+    }
 }
 
 
@@ -322,7 +322,6 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-
     return waitForViewChange(looper, nodeSet)
 
 

@@ -7,6 +7,10 @@ from ledger.stores.chunked_file_store import ChunkedFileStore
 from ledger.stores.file_store import FileStore
 
 from ledger.ledger import Ledger as _Ledger
+from stp_core.common.log import getlogger
+
+
+logger = getlogger()
 
 
 class Ledger(_Ledger):
@@ -81,6 +85,7 @@ class Ledger(_Ledger):
         :param count:
         :return:
         """
+        old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
@@ -88,6 +93,8 @@ class Ledger(_Ledger):
         else:
             self.uncommittedTree = self.treeWithAppliedTxns(self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
+        logger.debug('Discarding {} txns and root hash {} and new root hash '
+                     'is {}'.format(count, old_hash, self.uncommittedRootHash))
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """
@@ -103,6 +110,11 @@ class Ledger(_Ledger):
         for txn in txns:
             tempTree.append(self.serializeLeaf(txn))
         return tempTree
+
+    def reset_uncommitted(self):
+        self.uncommittedTxns = []
+        self.uncommittedRootHash = None
+        self.uncommittedTree = None
 
     @staticmethod
     def hashToStr(h):

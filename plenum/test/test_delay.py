@@ -43,11 +43,11 @@ def testTestNodeDelay(tdir_for_func):
                                                    customTimeout=timeout))
 
             # reset the delay, and find another message comes quickly
-            nodeB.nodeIbStasher.resetDelays()
-            nodeB.nodeIbStasher.force_unstash()
+            nodeB.nodeIbStasher.reset_delays_and_process_delayeds()
             looper.run(sendMessageAndCheckDelivery(nodes, nodeA, nodeB))
 
 
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testSelfNominationDelay(tdir_for_func):
     nodeNames = ["testA", "testB", "testC", "testD"]
     with TestNodeSet(names=nodeNames, tmpdir=tdir_for_func) as nodeSet:

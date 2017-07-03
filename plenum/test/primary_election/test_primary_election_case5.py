@@ -58,6 +58,7 @@ def case5Setup(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     """
     Case 5 - A node making primary declarations for a multiple other nodes.

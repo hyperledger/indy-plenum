@@ -1,5 +1,6 @@
 from plenum.common.types import Prepare
-from plenum.test.batching_3pc.helper import make_node_syncing, fail_on_execute_batch_on_master
+from plenum.test.batching_3pc.helper import make_node_syncing, \
+    fail_on_execute_batch_on_master
 from plenum.test.helper import sendRandomRequests
 from plenum.test.test_node import getNonPrimaryReplicas
 
