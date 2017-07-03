@@ -1,5 +1,7 @@
-from stp_core.common.log import getlogger
+from plenum.test.pool_transactions.helper import \
+    disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensure_node_disconnected
+from stp_core.common.log import getlogger
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
@@ -21,8 +23,10 @@ def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
     :return:
     """
     looper, newNode, client, wallet, _, _ = nodeSetWithNodeAddedAfterSomeTxns
-    logger.debug("Stopping node {} with pool ledger size {}".
-                 format(newNode, newNode.poolManager.txnSeqNo))
+    logger.debug("Disconnecting node {}, ledger size {}".
+                 format(newNode, newNode.domainLedger.size))
+    disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, newNode,
+                                            stopNode=False)
     looper.removeProdable(newNode)
 
     # TODO: Check if the node has really stopped processing requests?
@@ -31,10 +35,11 @@ def testNodeCatchupAfterLostConnection(newNodeCaughtUp, txnPoolNodeSet,
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, newNode, *txnPoolNodeSet[:-1])
 
-    logger.debug("Ensure node {} gets disconnected".format(newNode))
+    # logger.debug("Ensure node {} gets disconnected".format(newNode))
     ensure_node_disconnected(looper, newNode, txnPoolNodeSet[:-1])
 
-    logger.debug("Starting the stopped node, {}".format(newNode))
+    logger.debug("Connecting the node {} back, ledger size {}".
+                 format(newNode, newNode.domainLedger.size))
     looper.add(newNode)
 
     logger.debug("Waiting for the node to catch up, {}".format(newNode))
