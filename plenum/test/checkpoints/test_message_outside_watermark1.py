@@ -3,7 +3,7 @@ import math
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
-from plenum.test.delayers import ppDelay
+from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
@@ -32,6 +32,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
 
     for r in npr:
         r.node.nodeIbStasher.delay(ppDelay(delay, instId))
+        r.node.nodeIbStasher.delay(pDelay(delay, instId))
 
     tm_exec_1_batch = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     batch_count = math.ceil(reqsToSend / tconf.Max3PCBatchSize)

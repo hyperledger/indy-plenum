@@ -22,7 +22,8 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE, \
+    LEDGER_STATUS, CONS_PROOF_REQUEST, PREPREPARE, CONSISTENCY_PROOF
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -47,8 +48,8 @@ from plenum.common.types import Propagate, \
     Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
     RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
     PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    Reject, ViewChangeDone, ReqLedgerStatus
+    ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
+    Reject, ViewChangeDone, MessageReq, MessageRep
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys
 from plenum.common.verifier import DidVerifier
@@ -254,7 +255,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.__message_filter_engine = MessageFilterEngine()
 
         nodeRoutes = [(Propagate, self.processPropagate),
-                      (InstanceChange, self.processInstanceChange)]
+                      (InstanceChange, self.processInstanceChange),
+                      (MessageReq, self.process_message_req),
+                      (MessageRep, self.process_message_rep)]
 
         nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
                           [PrePrepare, Prepare, Commit, Checkpoint,
@@ -286,9 +289,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                Batch, ViewChangeDone,
                                PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
-                               ReqLedgerStatus, ConsistencyProof,
-                               CatchupReq, CatchupRep,
-                               ConsProofRequest, ThreePCState)
+                               ConsistencyProof, CatchupReq, CatchupRep,
+                               ThreePCState, MessageReq, MessageRep)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
@@ -297,10 +299,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         nodeRoutes.extend([
-            (ReqLedgerStatus, self.process_req_ledger_status),
+            # (ReqLedgerStatus, self.process_req_ledger_status),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
+            # (ConsProofRequest, self.ledgerManager.processConsistencyProofReq),
             (CatchupReq, self.ledgerManager.processCatchupReq),
             (CatchupRep, self.ledgerManager.processCatchupRep)
         ])
@@ -827,15 +829,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         Ask other node for LedgerStatus
         """
-        req = ReqLedgerStatus(ledger_id)
-        self.sendToNodes(req, [node_name,])
+        # req = ReqLedgerStatus(ledger_id)
+        # self.sendToNodes(req, [node_name,])
+        self.request_msg(LEDGER_STATUS, {f.LEDGER_ID.nm: ledger_id},
+                         [node_name,])
         logger.debug("{} asking {} for ledger status of ledger {}"
                      .format(self, node_name, ledger_id))
 
-    def process_req_ledger_status(self, request: ReqLedgerStatus, frm: str):
-        logger.debug("{} processing request for ledger status from {}: {}"
-                     .format(self, frm, request))
-        self.sendLedgerStatus(frm, request.ledgerId)
+    # def process_req_ledger_status(self, request: ReqLedgerStatus, frm: str):
+    #     logger.debug("{} processing request for ledger status from {}: {}"
+    #                  .format(self, frm, request))
+    #     self.sendLedgerStatus(frm, request.ledgerId)
 
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendPoolLedgerStatus(node_name)
@@ -2129,6 +2133,161 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def _is_there_pool_ledger(self):
         # TODO isinstance is not OK
         return isinstance(self.poolManager, TxnPoolManager)
+
+    def process_message_req(self, msg: MessageReq, frm):
+        # Assumes a shared memory architecture. In case of multiprocessing,
+        # RPC architecture, use deques to communicate the message and node will
+        # maintain a unique internal message id to correlate responses.
+        resp = None
+        msg_type = msg.msg_type
+        if msg_type == LEDGER_STATUS:
+            params = msg.params
+            ledger_id = params.get(f.LEDGER_ID.nm)
+            if self.valid_requested_msg(msg_type, ledger_id=ledger_id):
+                resp = self.getLedgerStatus(ledger_id)
+            else:
+                self.discard(msg, 'cannot serve request',
+                             logMethod=logger.debug)
+                return
+        elif msg_type == CONSISTENCY_PROOF:
+            params = msg.params
+            ledger_id = params.get(f.LEDGER_ID.nm)
+            seq_no_start = params.get(f.SEQ_NO_START.nm)
+            seq_no_end = params.get(f.SEQ_NO_END.nm)
+            if self.valid_requested_msg(msg_type, ledger_id=ledger_id,
+                                        seq_no_start=seq_no_start,
+                                        seq_no_end=seq_no_end):
+                resp = self.ledgerManager._buildConsistencyProof(ledger_id,
+                                                                 seq_no_start,
+                                                                 seq_no_end)
+            else:
+                self.discard(msg, 'cannot serve request',
+                             logMethod=logger.debug)
+                return
+
+        elif msg_type == PREPREPARE:
+            params = msg.params
+            inst_id = params.get(f.INST_ID.nm)
+            view_no = params.get(f.VIEW_NO.nm)
+            pp_seq_no = params.get(f.PP_SEQ_NO.nm)
+            if self.valid_requested_msg(msg_type, inst_id=inst_id,
+                                        view_no=view_no, pp_seq_no=pp_seq_no):
+                resp = self.replicas[inst_id].getPrePrepare(view_no, pp_seq_no)
+            else:
+                self.discard(msg, 'cannot serve request', logMethod=logger.debug)
+                return
+        else:
+            raise RuntimeError('{} encountered request for unknown message '
+                               'type {}'.format(self, msg_type))
+
+        self.sendToNodes(MessageRep(**{
+            f.MSG_TYPE.nm: msg_type,
+            f.PARAMS.nm: msg.params,
+            f.MSG.nm: resp
+        }), names=[frm,])
+
+    def process_message_rep(self, msg: MessageRep, frm):
+        msg_type = msg.msg_type
+        if msg.msg is None:
+            logger.debug('{} got null response for requested {} from {}'.
+                         format(self, msg_type, frm))
+            return
+        if msg_type == LEDGER_STATUS:
+            params = msg.params
+            ledger_id = params.get(f.LEDGER_ID.nm)
+            ledger_status = msg.msg
+            ledger_status = self.valid_requested_msg(msg_type,
+                                                     ledger_id=ledger_id,
+                                                     ledger_status=ledger_status)
+            if ledger_status:
+                self.ledgerManager.processLedgerStatus(ledger_status, frm=frm)
+                return
+            self.discard(msg,
+                         'cannot processed requested message resposnse',
+                         logMethod=logger.debug)
+        elif msg_type == CONSISTENCY_PROOF:
+            params = msg.params
+            ledger_id = params.get(f.LEDGER_ID.nm)
+            seq_no_start = params.get(f.SEQ_NO_START.nm)
+            seq_no_end = params.get(f.SEQ_NO_END.nm)
+            cons_proof = msg.msg
+            cons_proof = self.valid_requested_msg(msg_type, ledger_id=ledger_id,
+                                                  seq_no_start=seq_no_start,
+                                                  seq_no_end=seq_no_end,
+                                                  cons_proof=cons_proof)
+            if cons_proof:
+                self.ledgerManager.processConsistencyProof(cons_proof, frm=frm)
+                return
+            self.discard(msg,
+                         'cannot processed requested message resposnse',
+                         logMethod=logger.debug)
+        elif msg_type == PREPREPARE:
+            params = msg.params
+            inst_id = params.get(f.INST_ID.nm)
+            view_no = params.get(f.VIEW_NO.nm)
+            pp_seq_no = params.get(f.PP_SEQ_NO.nm)
+            pp = msg.msg
+            pp = self.valid_requested_msg(msg_type, inst_id=inst_id,
+                                          view_no=view_no, pp_seq_no=pp_seq_no,
+                                          pp=pp)
+            if pp:
+                frm = replica.Replica.generateName(frm, inst_id)
+                self.replicas[inst_id].process_requested_pre_prepare(pp,
+                                                                     sender=frm)
+                return
+            self.discard(msg,
+                         'cannot processed requested message resposnse',
+                         logMethod=logger.debug)
+            return
+
+        else:
+            raise RuntimeError('{} encountered response for unknown message '
+                               'type {}'.format(self, msg_type))
+
+    def valid_requested_msg(self, msg_type, **kwargs):
+        if msg_type == LEDGER_STATUS:
+            if kwargs['ledger_id'] in self.ledger_ids:
+                if 'ledger_status' in kwargs:
+                    try:
+                        return LedgerStatus(*kwargs['ledger_status'])
+                    except TypeError as ex:
+                        logger.warning('{} could not create LEDGER_STATUS out of {}'.
+                                       format(self, *kwargs['ledger_status']))
+                else:
+                    return True
+        elif msg_type == CONSISTENCY_PROOF:
+            if kwargs['ledger_id'] in self.ledger_ids and \
+                    (isinstance(kwargs['seq_no_start'], int) and kwargs['seq_no_start'] > 0) and \
+                    (isinstance(kwargs['seq_no_end'], int) and kwargs['seq_no_end'] > 0):
+                if 'cons_proof' in kwargs:
+                    try:
+                        pp = ConsistencyProof(*kwargs['cons_proof'])
+                        return pp
+                    except TypeError as ex:
+                        logger.warning('{} could not create CONSISTENCY_PROOF out of {}'.
+                                       format(self, *kwargs['cons_proof']))
+                else:
+                    return True
+        elif msg_type == PREPREPARE:
+            if kwargs['inst_id'] in range(len(self.replicas)) and \
+                            kwargs['view_no'] == self.viewNo and \
+                    isinstance(kwargs['pp_seq_no'], int) and \
+                            kwargs['pp_seq_no'] > 0:
+                if 'pp' in kwargs:
+                    try:
+                        pp = PrePrepare(*kwargs['pp'])
+                        return pp
+                    except TypeError as ex:
+                        logger.warning('{} could not create PREPREPARE out of {}'.
+                                       format(self, *kwargs['pp']))
+                else:
+                    return True
+
+    def request_msg(self, typ, params, frm):
+        self.sendToNodes(MessageReq(**{
+            f.MSG_TYPE.nm: typ,
+            f.PARAMS.nm: params
+        }), names=frm)
 
     def ordered_prev_view_msgs(self, inst_id, pp_seqno):
         logger.debug('{} ordered previous view batch {} by instance {}'.

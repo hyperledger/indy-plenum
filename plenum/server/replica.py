@@ -14,6 +14,7 @@ from sortedcontainers import SortedList
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
+from plenum.common.constants import PREPREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.signing import serialize
@@ -22,7 +23,8 @@ from plenum.common.types import PrePrepare, \
     CheckpointState, Checkpoint, Reject, f
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
-from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key
+from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
+    mostCommonElement
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -270,6 +272,10 @@ class Replica(HasActionQueue, MessageProcessor):
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
+
+        # Tracks for which keys PRE-PREPAREs have been requested.
+        # Cleared in `gc`
+        self.requested_pre_prepares = {}    # type: Dict[Tuple[int, int], Tuple[str, str, str]]
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -988,13 +994,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Check whether it is rejecting PRE-PREPARE from previous view
         # PRE-PREPARE should not be sent from non primary
         if not self.isMsgFromPrimary(pp, sender):
-            raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
+            # Since PRE-PREPARE might be requested from others
+            if (pp.viewNo, pp.ppSeqNo) not in self.requested_pre_prepares:
+                raise SuspiciousNode(sender, Suspicions.PPR_FRM_NON_PRIMARY, pp)
 
         # A PRE-PREPARE is being sent to primary
         if self.isPrimaryForMsg(pp) is True:
             raise SuspiciousNode(sender, Suspicions.PPR_TO_PRIMARY, pp)
 
-        # A PRE-PREPARE is sent that has already been received
+        # Already has a PRE-PREPARE with same 3 phase key
         if (pp.viewNo, pp.ppSeqNo) in self.prePrepares:
             raise SuspiciousNode(sender, Suspicions.DUPLICATE_PPR_SENT, pp)
 
@@ -1610,6 +1618,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
+        self.request_pre_prepare_if_possible(key)
 
     def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -1687,6 +1696,83 @@ class Replica(HasActionQueue, MessageProcessor):
                                           self.last_prepared_before_view_change and
                                           compare_3PC_keys((view_no, pp_seq_no),
                                                            self.last_prepared_before_view_change) >= 0)
+
+    def request_pre_prepare_if_possible(self, three_pc_key) -> bool:
+        """
+        Check if has an acceptable PRE_PREPARE already stashed, if not then
+        check count of PREPAREs, make sure >f consistent PREPAREs are found,
+        store the acceptable PREPARE state (digest, roots) for verification of
+        the received PRE-PREPARE
+        """
+        if len(self.preparesWaitingForPrePrepare[three_pc_key]) < self.quorums.prepare.value:
+            logger.debug('{} not requesting a PRE-PREPARE because does not have'
+                         ' sufficient PREPAREs for {}'.format(self, three_pc_key))
+            return False
+
+        if three_pc_key in self.requested_pre_prepares:
+            logger.debug('{} not requesting a PRE-PREPARE since already '
+                         'requested for {}'.format(self, three_pc_key))
+            return False
+
+        if three_pc_key in self.prePreparesPendingPrevPP:
+            logger.debug('{} not requesting a PRE-PREPARE since already found '
+                         'stashed for {}'.format(self, three_pc_key))
+            return False
+
+        # Choose a better data structure for `prePreparesPendingFinReqs`
+        pre_prepares = [pp for pp, _, _ in self.prePreparesPendingFinReqs
+                        if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
+        digest, state_root, txn_root, prepare_senders = \
+            self.get_acceptable_stashed_prepare_state(three_pc_key)
+        if pre_prepares:
+            if [pp for pp in pre_prepares if
+                (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
+                logger.debug('{} not requesting a PRE-PREPARE since already '
+                             'found stashed for {}'.format(self, three_pc_key))
+                return False
+
+        # TODO: Using a timer to retry would be a better thing to do
+        logger.debug('{} requesting PRE-PREPARE({}) from {}'.
+                     format(self, three_pc_key, prepare_senders))
+        self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
+                                           f.VIEW_NO.nm: three_pc_key[0],
+                                           f.PP_SEQ_NO.nm: three_pc_key[1]},
+                              [self.getNodeName(s) for s in prepare_senders])
+        self.requested_pre_prepares[three_pc_key] = digest, state_root, txn_root
+        return True
+
+    def get_acceptable_stashed_prepare_state(self, three_pc_key):
+        prepares = {s: (m.digest, m.stateRootHash, m.txnRootHash) for m, s in
+                    self.preparesWaitingForPrePrepare[three_pc_key]}
+        acceptable = mostCommonElement(prepares.values())
+        return (*acceptable, {s for s, state in prepares.items()
+                              if state == acceptable})
+
+    def process_requested_pre_prepare(self, pp: PrePrepare, sender: str):
+        if pp is None:
+            logger.debug('{} received null PRE-PREPARE from {}'.
+                         format(self, sender))
+            return
+        key = (pp.viewNo, pp.ppSeqNo)
+        logger.debug('{} received requested PRE-PREPARE({}) from {}'.
+                     format(self, key, sender))
+
+        if key not in self.requested_pre_prepares:
+            logger.debug('{} had either not requested a PRE-PREPARE or already '
+                         'received a PRE-PREPARE for {}'.format(self, key))
+            return
+        if self.has_already_ordered(*key):
+            logger.debug('{} has already ordered PRE-PREPARE({})'.format(self, key))
+            return
+        if self.getPrePrepare(*key):
+            logger.debug(
+                '{} has already received PRE-PREPARE({})'.format(self, key))
+            return
+        # There still might be stashed PRE-PREPARE but not checking that
+        # it is expensive, also reception of PRE-PREPAREs is idempotent
+        digest, state_root, txn_root = self.requested_pre_prepares[key]
+        if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root):
+            self.processThreePhaseMsg(pp, sender)
 
     # @property
     # def threePhaseState(self):

@@ -6,6 +6,7 @@ from collections import OrderedDict
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
 
+
 class MessageValidator(FieldValidator):
 
     # the schema has to be an ordered iterable because the message class

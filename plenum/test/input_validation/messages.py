@@ -1,6 +1,7 @@
 from plenum.common.request import Request
-from plenum.common.types import Nomination, Reelection, Primary, Ordered, Propagate, PrePrepare, Prepare, Commit, \
-    InstanceChange, Checkpoint, ThreePCState, LedgerStatus, ConsistencyProof, ConsProofRequest, CatchupReq, CatchupRep
+from plenum.common.types import Nomination, Reelection, Primary, Ordered, \
+    Propagate, PrePrepare, Prepare, Commit, InstanceChange, Checkpoint, \
+    ThreePCState, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep
 from plenum.test.input_validation.fields import *
 from plenum.test.input_validation.helper import *
 
@@ -150,14 +151,14 @@ messages = (
         ],
     ),
 
-    MessageDescriptor(
-        klass=ConsProofRequest,
-        fields=[
-            ledger_id_field,
-            seq_no_start_field,
-            seq_no_stop_field,
-        ],
-    ),
+    # MessageDescriptor(
+    #     klass=ConsProofRequest,
+    #     fields=[
+    #         ledger_id_field,
+    #         seq_no_start_field,
+    #         seq_no_stop_field,
+    #     ],
+    # ),
 
     MessageDescriptor(
         klass=CatchupReq,

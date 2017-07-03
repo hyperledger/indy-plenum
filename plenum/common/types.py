@@ -9,7 +9,7 @@ from plenum.common.constants import NOMINATE, PRIMARY, REELECTION, REQACK, \
     INSTANCE_CHANGE, BLACKLIST, REQNACK, LEDGER_STATUS, CONSISTENCY_PROOF, \
     CATCHUP_REQ, CATCHUP_REP, POOL_LEDGER_TXNS, CONS_PROOF_REQUEST, CHECKPOINT, \
     CHECKPOINT_STATE, THREE_PC_STATE, REJECT, OP_FIELD_NAME, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, \
-    VIEW_CHANGE_DONE, REQ_LEDGER_STATUS
+    VIEW_CHANGE_DONE, REQ_LEDGER_STATUS, MESSAGE_REQUEST, MESSAGE_RESPONSE
 from plenum.common.messages.client_request import ClientOperationField
 from plenum.common.messages.fields import *
 from plenum.common.messages.message_base import MessageBase, MessageValidator
@@ -70,15 +70,9 @@ class f:  # provides a namespace for reusable field constants
     TXNS = Field("txns", List[Any])
     TXN = Field("txn", Any)
     NODES = Field('nodes', Dict[str, HA])
-    POOL_LEDGER_STATUS = Field("poolLedgerStatus", Any)
-    DOMAIN_LEDGER_STATUS = Field("domainLedgerStatus", Any)
     CONS_PROOF = Field("consProof", Any)
-    POOL_CONS_PROOF = Field("poolConsProof", Any)
-    DOMAIN_CONS_PROOF = Field("domainConsProof", Any)
-    POOL_CATCHUP_REQ = Field("poolCatchupReq", Any)
-    DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", Any)
-    POOL_CATCHUP_REP = Field("poolCatchupRep", Any)
-    DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
+    MSG_TYPE = Field("msg_type", str)
+    PARAMS = Field("params", dict)
 
 
 class TaggedTupleBase:
@@ -387,14 +381,14 @@ class ViewChangeDone(MessageBase):
 #     f.VIEW_NO,
 #     f.ORD_SEQ_NO])
 
-class ReqLedgerStatus(MessageBase):
-    """
-    Purpose: ask node for LedgerStatus of specific ledger   
-    """
-    typename = REQ_LEDGER_STATUS
-    schema = (
-        (f.LEDGER_ID.nm, LedgerIdField()),
-    )
+# class ReqLedgerStatus(MessageBase):
+#     """
+#     Purpose: ask node for LedgerStatus of specific ledger
+#     """
+#     typename = REQ_LEDGER_STATUS
+#     schema = (
+#         (f.LEDGER_ID.nm, LedgerIdField()),
+#     )
 
 
 class LedgerStatus(MessageBase):
@@ -479,11 +473,36 @@ CatchupRep = TaggedTuple(CATCHUP_REP, [
 #         (f.SEQ_NO_START.nm, NonNegativeNumberField()),
 #         (f.SEQ_NO_END.nm, NonNegativeNumberField()),
 #     )
-ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
-    f.LEDGER_ID,
-    f.SEQ_NO_START,
-    f.SEQ_NO_END
-])
+# ConsProofRequest = TaggedTuple(CONS_PROOF_REQUEST, [
+#     f.LEDGER_ID,
+#     f.SEQ_NO_START,
+#     f.SEQ_NO_END
+# ])
+
+
+class MessageReq(MessageBase):
+    """
+    Purpose: ask node for any message
+    """
+    typename = MESSAGE_REQUEST
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, HetroMapField())
+    )
+
+
+class MessageRep(MessageBase):
+    """
+    Purpose: respond to a node for any requested message
+    """
+    typename = MESSAGE_RESPONSE
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, HetroMapField()),
+        (f.MSG.nm, AnyField())
+    )
 
 
 TaggedTuples = None  # type: Dict[str, class]

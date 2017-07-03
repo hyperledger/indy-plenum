@@ -258,7 +258,9 @@ class TestNodeCore(StackedTester):
                   Node.caught_up_for_current_view,
                   Node._check_view_change_completed,
                   Node.primary_selected,
-                  Node.num_txns_caught_up_in_last_catchup
+                  Node.num_txns_caught_up_in_last_catchup,
+                  Node.process_message_req,
+                  Node.process_message_rep
                   ])
 class TestNode(TestNodeCore, Node):
 

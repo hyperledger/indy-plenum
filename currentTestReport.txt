@@ -1,0 +1,85 @@
+============================= test session starts ==============================
+platform linux -- Python 3.5.2, pytest-3.0.6, py-1.4.32, pluggy-0.4.0
+rootdir: /home/lovesh/dev/evernym/plenum-public, inifile: 
+plugins: xdist-1.15.0, profiling-1.2.6
+2017-07-03 20:50:26,621 | DEBUG    | __init__.py          (60) | register | Registered VCS backend: git
+2017-07-03 20:50:26,633 | DEBUG    | __init__.py          (60) | register | Registered VCS backend: hg
+2017-07-03 20:50:26,665 | DEBUG    | __init__.py          (60) | register | Registered VCS backend: svn
+2017-07-03 20:50:26,665 | DEBUG    | __init__.py          (60) | register | Registered VCS backend: bzr
+2017-07-03 20:50:27,740 | DEBUG    | testable.py          (134) | decorator | in SpyableTestClient added spy on __init__
+2017-07-03 20:50:27,740 | DEBUG    | testable.py          (134) | decorator | in SpyableTestClient added spy on resendRequests
+2017-07-03 20:50:27,740 | WARNING  | testable.py          (142) | decorator | method <function Client.handleOneNodeMsg at 0x7fec29a07b70> not found, so no spy added
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on __init__
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on canProcessConsistencyProof
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on catchupCompleted
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on getCatchupReqs
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on processCatchupRep
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on processConsistencyProof
+2017-07-03 20:50:27,781 | DEBUG    | testable.py          (134) | decorator | in SpyableTestLedgerManager added spy on startCatchUpProcess
+2017-07-03 20:50:27,804 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on __init__
+2017-07-03 20:50:27,804 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on _check_view_change_completed
+2017-07-03 20:50:27,804 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on allLedgersCaughtUp
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on caught_up_for_current_view
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on checkPerformance
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on decidePrimaries
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on discard
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on eatTestMsg
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on forward
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on getReplyFromLedger
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on handleInvalidClientMsg
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on handleOneNodeMsg
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on is_catchup_needed
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on lost_master_primary
+2017-07-03 20:50:27,805 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on no_more_catchups_needed
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on num_txns_caught_up_in_last_catchup
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on postToClientInBox
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on postToNodeInBox
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on primary_selected
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on processInstanceChange
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on processOrdered
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on processPropagate
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on processRequest
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on processStashedOrderedReqs
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on process_message_rep
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on process_message_req
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on propagate
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on propose_view_change
+2017-07-03 20:50:27,806 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on recordAndPropagate
+2017-07-03 20:50:27,807 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on reportSuspiciousClient
+2017-07-03 20:50:27,807 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on reportSuspiciousNode
+2017-07-03 20:50:27,807 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on send
+2017-07-03 20:50:27,807 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on sendInstanceChange
+2017-07-03 20:50:27,807 | DEBUG    | testable.py          (134) | decorator | in SpyableTestNode added spy on startViewChange
+2017-07-03 20:50:28,464 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimaryElector added spy on __init__
+2017-07-03 20:50:28,464 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimaryElector added spy on discard
+2017-07-03 20:50:28,470 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimaryElector added spy on processPrimary
+2017-07-03 20:50:28,471 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimaryElector added spy on sendPrimary
+2017-07-03 20:50:28,477 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimarySelector added spy on __init__
+2017-07-03 20:50:28,477 | DEBUG    | testable.py          (134) | decorator | in SpyableTestPrimarySelector added spy on decidePrimaries
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on __init__
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on addToPrePrepares
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on canPrepare
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on canProcessPrePrepare
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on can_process_since_view_change_in_progress
+2017-07-03 20:50:28,483 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on discard
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on doOrder
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on doPrepare
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on processCommit
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on processPrePrepare
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on processPrepare
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on revert_unordered_batches
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on sendPrePrepare
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on stashOutsideWatermarks
+2017-07-03 20:50:28,484 | DEBUG    | testable.py          (134) | decorator | in SpyableTestReplica added spy on validatePrepare
+2017-07-03 20:50:28,488 | DEBUG    | testable.py          (134) | decorator | in SpyableTestMonitor added spy on __init__
+2017-07-03 20:50:28,489 | DEBUG    | testable.py          (134) | decorator | in SpyableTestMonitor added spy on isMasterReqLatencyTooHigh
+2017-07-03 20:50:28,489 | DEBUG    | testable.py          (134) | decorator | in SpyableTestMonitor added spy on isMasterThroughputTooLow
+2017-07-03 20:50:28,489 | DEBUG    | testable.py          (134) | decorator | in SpyableTestMonitor added spy on sendThroughput
+2017-07-03 20:50:28,489 | WARNING  | testable.py          (142) | decorator | method <function Monitor.requestOrdered at 0x7fec291de6a8> not found, so no spy added
+2017-07-03 20:50:28,489 | WARNING  | testable.py          (142) | decorator | method <function Monitor.reset at 0x7fec291de400> not found, so no spy added
+2017-07-03 20:50:28,672 | DEBUG    | testable.py          (134) | decorator | in SpyableTestCli added spy on __init__
+2017-07-03 20:50:28,673 | DEBUG    | testable.py          (134) | decorator | in SpyableTestCli added spy on print
+2017-07-03 20:50:28,673 | DEBUG    | testable.py          (134) | decorator | in SpyableTestCli added spy on printTokens
+collected 510 items
+
+plenum/test/checkpoints/test_basic_checkpointing.py 

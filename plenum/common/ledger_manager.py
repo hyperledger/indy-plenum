@@ -13,8 +13,9 @@ from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 
 from plenum.common.types import LedgerStatus, CatchupRep, \
-    ConsistencyProof, f, CatchupReq, ConsProofRequest
-from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID
+    ConsistencyProof, f, CatchupReq
+from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
+    CONSISTENCY_PROOF
 from plenum.common.util import getMaxFailures, compare_3PC_keys
 from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
@@ -95,10 +96,15 @@ class LedgerManager(HasActionQueue):
             return
         result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
         if not result:
-            cpReq = self.getConsistencyProofRequest(ledgerId, groupedProofs)
+            ledger_id, start, end = self.get_consistency_proof_request_params(ledgerId, groupedProofs)
             logger.debug("{} sending consistency proof request: {}".
-                         format(self, cpReq))
-            self.send(cpReq)
+                         format(self, ledger_id, start, end))
+            self.owner.request_msg(CONSISTENCY_PROOF,
+                                   {f.LEDGER_ID.nm: ledger_id,
+                                    f.SEQ_NO_START.nm: start,
+                                    f.SEQ_NO_END.nm: end},
+                                   self.nodes_to_request_txns_from)
+            # self.send(cpReq)
 
         ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.consistencyProofsTimer = None
@@ -595,25 +601,25 @@ class LedgerManager(HasActionQueue):
                 return True
         return False
 
-    def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
-        logger.debug("{} received consistency proof request: {} from {}".
-                     format(self, req, frm))
-        if not self.ownedByNode:
-            self.discard(req,
-                         reason='Only nodes can service this request',
-                         logMethod=logger.warning)
-            return
-
-        ledgerId = getattr(req, f.LEDGER_ID.nm)
-        seqNoStart = getattr(req, f.SEQ_NO_START.nm)
-        seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
-        consistencyProof = self._buildConsistencyProof(ledgerId,
-                                                       seqNoStart,
-                                                       seqNoEnd)
-        # TODO: Build a test for this scenario where a node cannot service a
-        # consistency proof request
-        if consistencyProof:
-            self.sendTo(consistencyProof, frm)
+    # def processConsistencyProofReq(self, req: ConsProofRequest, frm: str):
+    #     logger.debug("{} received consistency proof request: {} from {}".
+    #                  format(self, req, frm))
+    #     if not self.ownedByNode:
+    #         self.discard(req,
+    #                      reason='Only nodes can service this request',
+    #                      logMethod=logger.warning)
+    #         return
+    #
+    #     ledgerId = getattr(req, f.LEDGER_ID.nm)
+    #     seqNoStart = getattr(req, f.SEQ_NO_START.nm)
+    #     seqNoEnd = getattr(req, f.SEQ_NO_END.nm)
+    #     consistencyProof = self._buildConsistencyProof(ledgerId,
+    #                                                    seqNoStart,
+    #                                                    seqNoEnd)
+    #     # TODO: Build a test for this scenario where a node cannot service a
+    #     # consistency proof request
+    #     if consistencyProof:
+    #         self.sendTo(consistencyProof, frm)
 
     def canProcessCatchupReply(self, catchupReply: CatchupRep) -> List[Tuple]:
         ledgerId = getattr(catchupReply, f.LEDGER_ID.nm)
@@ -737,7 +743,7 @@ class LedgerManager(HasActionQueue):
                 latest = (start, end) + (view_no, last_pp_seq_no, oldRoot, newRoot, hashes)
         return latest
 
-    def getConsistencyProofRequest(self, ledgerId, groupedProofs):
+    def get_consistency_proof_request_params(self, ledgerId, groupedProofs):
         # Choose the consistency proof which occurs median number of times in
         # grouped proofs. Not choosing the highest since some malicious nodes
         # might be sending non-existent sequence numbers and not choosing the
@@ -745,9 +751,10 @@ class LedgerManager(HasActionQueue):
         # behind a lot or some malicious nodes might send low sequence numbers.
         proofs = sorted(groupedProofs.items(), key=lambda t: max(t[1].values()))
         ledger = self.getLedgerInfoByType(ledgerId).ledger
-        return ConsProofRequest(ledgerId,
-                                ledger.size,
-                                proofs[len(proofs) // 2][0][1])
+        return ledgerId, ledger.size, proofs[len(proofs) // 2][0][1]
+        # return ConsProofRequest(ledgerId,
+        #                         ledger.size,
+        #                         proofs[len(proofs) // 2][0][1])
 
     def do_pre_catchup(self, ledger_id):
         if self.preCatchupClbk:
