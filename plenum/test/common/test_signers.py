@@ -18,6 +18,7 @@ def test_signer_compatable():
     else:
         verkey = friendlyToRaw(did_signer.verkey)
     assert friendlyToRaw(s_signer.verkey) == verkey
+    assert friendlyToRaw(s_signer.verkey) == friendlyToRaw(did_signer.full_verkey)
 
 
 def test_compare_identities():
