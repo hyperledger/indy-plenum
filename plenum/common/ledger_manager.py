@@ -816,8 +816,8 @@ class LedgerManager(HasActionQueue):
                     self._schedule(partial(self.request_txns_if_needed, ledgerId),
                                    timeout)
             else:
-                logger.info('{} needs to catchup ledger {} but it has not found '
-                            'any connected nodes'.format(self, ledgerId))
+                logger.info('{} needs to catchup ledger {} but it has not found'
+                            ' any connected nodes'.format(self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * (self.config.CatchupTransactionsTimeout +
@@ -837,8 +837,9 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.done_syncing()
-        logger.debug("{} completed catching up ledger {}, caught up {} in total"
-                     .format(self, ledgerId, ledgerInfo.num_txns_caught_up))
+        logger.info("{} completed catching up ledger {}, caught up {} in total".
+                    format(self, ledgerId, ledgerInfo.num_txns_caught_up),
+                    extra={'cli': True})
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
