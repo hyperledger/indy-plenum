@@ -388,14 +388,8 @@ class VersionField(FieldBase):
         if len(parts) not in self._comp_num:
             return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
         for p in parts:
-            try:
-                convertedint = int(p)
-                if convertedint < 0:
-                    return "version component shouldn't be negative"
-                if p != p.strip():
-                    return "version component cannot have spaces in the beginning or in the end"
-            except ValueError:
-                return "version component {} is not a number".format(p)
+            if not p.isdigit():
+                return "version component should contain only digits"
         return None
 
 
