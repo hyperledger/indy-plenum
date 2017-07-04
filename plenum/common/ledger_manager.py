@@ -413,11 +413,9 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
-        # TODO: This is very inefficient for long ledgers if the ledger does
-        # not use `ChunkedFileStore`
-        txns = ledger.getAllTxn(start, end)
-        for seq_no in txns:
-            txns[seq_no] = self.owner.update_txn_with_extra_data(txns[seq_no])
+        txns = {}
+        for seq_no, txn in ledger.getAllTxn(start, end):
+            txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
         self.sendTo(msg=CatchupRep(getattr(req, f.LEDGER_ID.nm), txns,
                                    consProof), to=frm)
 
@@ -794,8 +792,8 @@ class LedgerManager(HasActionQueue):
                     self._schedule(partial(self.request_txns_if_needed, ledgerId),
                                    timeout)
             else:
-                logger.info('{} needs to catchup ledger {} but it has not found '
-                            'any connected nodes'.format(self, ledgerId))
+                logger.info('{} needs to catchup ledger {} but it has not found'
+                            ' any connected nodes'.format(self, ledgerId))
 
     def _getCatchupTimeout(self, numRequest, batchSize):
         return numRequest * (self.config.CatchupTransactionsTimeout +
@@ -815,8 +813,9 @@ class LedgerManager(HasActionQueue):
 
         ledgerInfo = self.getLedgerInfoByType(ledgerId)
         ledgerInfo.done_syncing()
-        logger.debug("{} completed catching up ledger {}, caught up {} in total"
-                     .format(self, ledgerId, ledgerInfo.num_txns_caught_up))
+        logger.info("{} completed catching up ledger {}, caught up {} in total".
+                    format(self, ledgerId, ledgerInfo.num_txns_caught_up),
+                    extra={'cli': True})
 
         if self.postAllLedgersCaughtUp:
             if all(l.state == LedgerState.synced
