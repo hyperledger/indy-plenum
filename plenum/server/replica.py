@@ -1483,6 +1483,9 @@ class Replica(HasActionQueue, MessageProcessor):
         for sender in senders_of_completed_checkpoints:
             # unstash checkpoint
             del self.stashedRecvdCheckpoints[key][sender]
+            if len(self.stashedRecvdCheckpoints[key]) == 0:
+                del self.stashedRecvdCheckpoints[key]
+            
 
         restashed_num = total_processed - len(senders_of_completed_checkpoints)
         logger.debug('{} processed {} stashed checkpoints for {}, '
