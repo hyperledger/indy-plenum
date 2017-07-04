@@ -1528,6 +1528,8 @@ class Replica(HasActionQueue, MessageProcessor):
                              format(self, len(reqKeys)))
                 self.requests.pop(k)
 
+        self.compact_ordered()
+
     def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
         self.stashingWhileOutsideWaterMarks.append(item)
 
@@ -1587,7 +1589,6 @@ class Replica(HasActionQueue, MessageProcessor):
     def addToOrdered(self, viewNo: int, ppSeqNo: int):
         self.ordered.add((viewNo, ppSeqNo))
         self.last_ordered_3pc = (viewNo, ppSeqNo)
-        self.compact_ordered()
 
     def compact_ordered(self):
         min_allowed_view_no = self.viewNo - 1
