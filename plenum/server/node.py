@@ -32,23 +32,17 @@ from plenum.common.keygen_utils import areKeysSetup
 from plenum.common.ledger import Ledger
 from plenum.common.ledger_manager import LedgerManager
 from plenum.common.message_processor import MessageProcessor
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.motor import Motor
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request, SafeRequest
-from plenum.common.roles import Roles
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stacks import nodeStackClass, clientStackClass
 from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Propagate, \
-    Reply, Nomination, TaggedTuples, Primary, \
-    Reelection, PrePrepare, Prepare, Commit, \
-    Ordered, RequestAck, InstanceChange, Batch, OPERATION, BlacklistMsg, f, \
-    RequestNack, HA, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
-    PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, PoolLedgerTxns, \
-    ConsProofRequest, ElectionType, ThreePhaseType, Checkpoint, ThreePCState, \
-    Reject, ViewChangeDone, ReqLedgerStatus
+from plenum.common.messages.node_messages import *
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, OPERATION
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
     compare_3PC_keys
 from plenum.common.verifier import DidVerifier
@@ -84,6 +78,7 @@ from stp_core.crypto.signer import Signer
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
+from stp_core.types import HA
 from stp_zmq.zstack import ZStack
 
 from state.state import State
@@ -1276,24 +1271,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(frm), logger.info)
             return None
 
-        op = msg.pop(OP_FIELD_NAME, None)
-        if not op:
-            raise MissingNodeOp
-        cls = TaggedTuples.get(op, None)
-        if not cls:
-            raise InvalidNodeOp(op)
         try:
-            cMsg = cls(**msg)
+            message = node_message_factory.get_instance(**msg)
+        except (MissingNodeOp, InvalidNodeOp) as ex:
+            raise ex
         except Exception as ex:
             raise InvalidNodeMsg(str(ex))
+
         try:
-            self.verifySignature(cMsg)
+            self.verifySignature(message)
         except BaseExc as ex:
-            raise SuspiciousNode(frm, ex, cMsg) from ex
+            raise SuspiciousNode(frm, ex, message) from ex
         logger.debug("{} received node message from {}: {}".
-                     format(self, frm, cMsg),
+                     format(self, frm, message),
                      extra={"cli": False})
-        return cMsg, frm
+        return message, frm
 
     def unpackNodeMsg(self, msg, frm) -> None:
         """
@@ -1377,7 +1369,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def validateClientMsg(self, wrappedMsg):
         """
         Validate a message sent by a client.
-
         :param wrappedMsg: a message from a client
         :return: Tuple of clientMessage and client address
         """
@@ -1393,10 +1384,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             cls = self._client_request_class
             needStaticValidation = True
         elif OP_FIELD_NAME in msg:
-            op = msg.pop(OP_FIELD_NAME)
-            cls = TaggedTuples.get(op, None)
-            if not cls:
-                raise InvalidClientOp(op, msg.get(f.REQ_ID.nm))
+            op = msg[OP_FIELD_NAME]
+            cls = node_message_factory.get_type(op)
             if cls not in (Batch, LedgerStatus, CatchupReq):
                 raise InvalidClientMsgType(cls, msg.get(f.REQ_ID.nm))
         else:

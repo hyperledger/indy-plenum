@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from stp_core.common.log import getlogger
-from plenum.common.types import CatchupReq
+from plenum.common.messages.node_messages import CatchupReq
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas

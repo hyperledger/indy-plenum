@@ -3,7 +3,7 @@ from itertools import groupby
 
 from typing import Dict, Tuple, Union, Optional
 
-from plenum.common.types import Propagate
+from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey
 from stp_core.common.log import getlogger
 

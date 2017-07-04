@@ -5,7 +5,7 @@ import pytest
 
 from plenum.common.startable import Mode
 from plenum.server.primary_selector import PrimarySelector
-from plenum.common.types import ViewChangeDone
+from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.common.ledger_manager import LedgerManager
