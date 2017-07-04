@@ -1,4 +1,4 @@
-from plenum.common.types import Nomination, Primary
+from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.server.replica import Replica
 from plenum.test.test_node import TestNode
 

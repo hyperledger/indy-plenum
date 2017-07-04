@@ -1,7 +1,8 @@
 import time
 from functools import partial
 
-from plenum.common.types import PrePrepare, OPERATION, f
+from plenum.common.messages.node_messages import PrePrepare
+from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node

@@ -3,7 +3,7 @@ Some model objects used in Plenum protocol.
 """
 from typing import NamedTuple, Set, Tuple, Dict
 
-from plenum.common.types import Commit, Prepare
+from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str])])

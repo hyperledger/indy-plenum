@@ -6,7 +6,7 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
-from plenum.common.types import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_ledger_manager import TestLedgerManager
