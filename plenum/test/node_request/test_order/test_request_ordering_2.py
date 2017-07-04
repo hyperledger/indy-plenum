@@ -1,6 +1,6 @@
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import Commit, PrePrepare
+from plenum.common.messages.node_messages import PrePrepare, Commit
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests, checkLedgerEquality, checkAllLedgersEqual
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica

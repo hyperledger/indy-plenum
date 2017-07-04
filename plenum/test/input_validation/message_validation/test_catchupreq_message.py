@@ -1,26 +1,28 @@
 import pytest
-from plenum.common.messages.node_messages import ThreePCState
+from plenum.common.messages.node_messages import CatchupReq
 from collections import OrderedDict
 from plenum.common.messages.fields import \
-    NonNegativeNumberField, IterableField
+    NonNegativeNumberField, LedgerIdField
 
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
-    ("instId", NonNegativeNumberField),
-    ("messages", IterableField),
+    ("ledgerId", LedgerIdField),
+    ("seqNoStart", NonNegativeNumberField),
+    ("seqNoEnd", NonNegativeNumberField),
+    ("catchupTill", NonNegativeNumberField),
 ])
 
 
 def test_hash_expected_type():
-    assert ThreePCState.typename == "THREE_PC_STATE"
+    assert CatchupReq.typename == "CATCHUP_REQ"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(ThreePCState.schema).keys()
+    actual_field_names = OrderedDict(CatchupReq.schema).keys()
     assert actual_field_names == EXPECTED_ORDERED_FIELDS.keys()
 
 
 def test_has_expected_validators():
-    schema = dict(ThreePCState.schema)
+    schema = dict(CatchupReq.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)

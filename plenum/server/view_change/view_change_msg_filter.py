@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 from plenum.common.request import Request
-from plenum.common.types import PrePrepare, Prepare, Commit, Ordered
+from plenum.common.messages.node_messages import *
 from plenum.server.msg_filter import MessageFilter
 
 

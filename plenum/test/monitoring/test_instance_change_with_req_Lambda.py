@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.types import PrePrepare, f
+from plenum.common.messages.node_messages import PrePrepare
 from stp_core.common.util import adict
 from plenum.test.helper import waitForViewChange, \
     sendReqsToNodesAndVerifySuffReplies

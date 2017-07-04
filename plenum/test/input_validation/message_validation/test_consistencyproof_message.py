@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.types import ConsistencyProof
+from plenum.common.messages.node_messages import ConsistencyProof
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, MerkleRootField, IterableField
