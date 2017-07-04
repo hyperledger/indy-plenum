@@ -15,11 +15,10 @@ from typing import Union
 
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME, DOMAIN_LEDGER_ID
 from plenum.common.request import Request
-from plenum.common.types import Reply, f, PrePrepare, Prepare, Commit
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems
+from plenum.common.messages.node_messages import *
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test import waits

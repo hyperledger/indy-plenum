@@ -3,7 +3,7 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     IterableField, NonEmptyStringField
-from plenum.common.types import ViewChangeDone
+from plenum.common.messages.node_messages import ViewChangeDone
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("viewNo", NonNegativeNumberField),

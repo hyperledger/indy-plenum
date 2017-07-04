@@ -1,6 +1,6 @@
 import pytest
 from plenum.common.messages.fields import LedgerIdField
-from plenum.common.types import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
+from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID
 
 validator = LedgerIdField()
 
