@@ -179,10 +179,8 @@ class Cli:
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
 
-        self.walletSaver = WalletStorageHelper(
-                self.getKeyringsBaseDir(),
-                dmode=self.config.KEYRING_DIR_MODE,
-                fmode=self.config.KEYRING_FILE_MODE)
+        self._walletSaver = None
+
         '''
         examples:
         status
@@ -347,6 +345,16 @@ class Cli:
         else:
             self._config = getConfig()
             return self._config
+
+
+    @property
+    def walletSaver(self):
+        if self._walletSaver is None:
+            self._walletSaver = WalletStorageHelper(
+                    self.getKeyringsBaseDir(),
+                    dmode=self.config.KEYRING_DIR_MODE,
+                    fmode=self.config.KEYRING_FILE_MODE)
+        return self._walletSaver
 
     @property
     def allGrams(self):
