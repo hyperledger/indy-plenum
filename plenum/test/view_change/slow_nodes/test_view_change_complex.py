@@ -9,7 +9,6 @@ import pytest
 TestRunningTimeLimitSec = 300
 
 
-@pytest.mark.skip('INDY-365 plenum/test_view_change_complex is disabled')
 def test_view_change_complex(
         txnPoolNodeSet, looper, wallet1, client):
     """
