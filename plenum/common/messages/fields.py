@@ -240,7 +240,7 @@ class Base58Field(FieldBase):
         if invalid_chars:
             # only 10 chars to shorten the output
             to_print = sorted(invalid_chars)[:10]
-            return 'should not contains the following chars {}{}' \
+            return 'should not contain the following chars {}{}' \
                 .format(to_print,
                         ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
