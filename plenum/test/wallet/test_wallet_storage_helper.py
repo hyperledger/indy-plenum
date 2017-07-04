@@ -126,7 +126,7 @@ def test_store_wallet_outside_fail(tdir_for_func, keyrings_base_dir, test_wallet
         with pytest.raises(ValueError) as exc_info:
             wsh.saveWallet(test_wallet, path)
 
-        exc_info.match(r"path {} is not insdide the keyrings {}".format(
+        exc_info.match(r"path {} is not is not relative to the keyrings {}".format(
             path, keyrings_base_dir))
 
     for path in inv_paths:
@@ -231,7 +231,7 @@ def test_load_wallet_outside_fail(tdir_for_func, keyrings_base_dir):
         with pytest.raises(ValueError) as exc_info:
             wsh.loadWallet(path)
 
-        exc_info.match(r"path {} is not insdide the keyrings {}".format(
+        exc_info.match(r"path {} is not is not relative to the keyrings {}".format(
             path, keyrings_base_dir))
 
     for path in inv_paths:
