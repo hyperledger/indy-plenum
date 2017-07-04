@@ -58,7 +58,10 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet, client1,
     old_count_mrp = get_count(slow_node, slow_node.process_message_rep)
 
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 15, 5)
+
     waitNodeDataEquality(looper, slow_node, *other_nodes)
+
+    assert not slow_node.master_replica.requested_pre_prepares
 
     # `slow_node` processed PRE-PREPARE
     assert get_count(slow_node.master_replica,
@@ -162,6 +165,8 @@ def test_node_requests_missing_preprepare_malicious(looper, txnPoolNodeSet,
 
     assert check_if_all_equal_in_list([n.master_replica.ordered
                                        for n in txnPoolNodeSet])
+
+    assert not slow_node.master_replica.requested_pre_prepares
 
     if bad_method.__name__ == 'do_not_send':
         assert get_reply_count_frm(bad_node) == old_reply_count_from_bad_node

@@ -1499,6 +1499,7 @@ class Replica(HasActionQueue, MessageProcessor):
             self.prepares.pop(k, None)
             self.commits.pop(k, None)
             self.batches.pop(k, None)
+            self.requested_pre_prepares.pop(k, None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
@@ -1562,9 +1563,13 @@ class Replica(HasActionQueue, MessageProcessor):
     def isPpSeqNoBetweenWaterMarks(self, ppSeqNo: int):
         return self.h < ppSeqNo <= self.H
 
-    def addToOrdered(self, viewNo: int, ppSeqNo: int):
-        self.ordered.add((viewNo, ppSeqNo))
-        self.last_ordered_3pc = (viewNo, ppSeqNo)
+    def addToOrdered(self, view_no: int, pp_seq_no: int):
+        self.ordered.add((view_no, pp_seq_no))
+        self.last_ordered_3pc = (view_no, pp_seq_no)
+
+        # This might not be called always as Pre-Prepare might be requested
+        # but never received and catchup might be done
+        self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set=None):
@@ -1623,7 +1628,7 @@ class Replica(HasActionQueue, MessageProcessor):
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
-        self.request_pre_prepare_if_possible(key)
+        self._request_pre_prepare_if_possible(key)
 
     def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -1652,22 +1657,22 @@ class Replica(HasActionQueue, MessageProcessor):
     def dequeueCommits(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
         if key in self.commitsWaitingForPrepare:
-            i = 0
-            if self.has_prepared(key):
-                # Keys of pending prepares that will be processed below
-                while self.commitsWaitingForPrepare[key]:
-                    commit, sender = self.commitsWaitingForPrepare[
-                        key].popleft()
-                    logger.debug("{} popping stashed COMMIT{}".format(self, key))
-                    self.processCommit(commit, sender)
-                    i += 1
-                self.commitsWaitingForPrepare.pop(key)
-                logger.debug("{} processed {} COMMITs waiting for PREPARE for"
-                             " view no {} and seq no {}".
-                             format(self, i, viewNo, ppSeqNo))
-            else:
+            if not self.has_prepared(key):
                 logger.debug('{} has not prepared {}, will dequeue the '
                              'COMMITs later'.format(self, key))
+                return
+            i = 0
+            # Keys of pending prepares that will be processed below
+            while self.commitsWaitingForPrepare[key]:
+                commit, sender = self.commitsWaitingForPrepare[
+                    key].popleft()
+                logger.debug("{} popping stashed COMMIT{}".format(self, key))
+                self.processCommit(commit, sender)
+                i += 1
+            self.commitsWaitingForPrepare.pop(key)
+            logger.debug("{} processed {} COMMITs waiting for PREPARE for"
+                         " view no {} and seq no {}".
+                         format(self, i, viewNo, ppSeqNo))
 
     def getDigestFor3PhaseKey(self, key: ThreePhaseKey) -> Optional[str]:
         reqKey = self.getReqKeyFrom3PhaseKey(key)
@@ -1706,7 +1711,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                           compare_3PC_keys((view_no, pp_seq_no),
                                                            self.last_prepared_before_view_change) >= 0)
 
-    def request_pre_prepare_if_possible(self, three_pc_key) -> bool:
+    def _request_pre_prepare_if_possible(self, three_pc_key) -> bool:
         """
         Check if has an acceptable PRE_PREPARE already stashed, if not then
         check count of PREPAREs, make sure >f consistent PREPAREs are found,
