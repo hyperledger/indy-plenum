@@ -38,7 +38,7 @@ def test_invalid_symbols():
     res = Base58Field().validate(
             b58_by_len(10)[slice(0, -len(INVALID_CHARS))] + INVALID_CHARS)
     assert res
-    assert (res == 'should not contains the following chars {}'
+    assert (res == 'should not contain the following chars {}'
             .format(sorted(set(INVALID_CHARS))[:10]))
 
 
@@ -47,5 +47,5 @@ def test_invalid_symbols_truncated_output():
     res = Base58Field().validate(
             b58_by_len(20)[slice(0, -len(INVALID_CHARS))] + INVALID_CHARS)
     assert res
-    assert (res == 'should not contains the following chars '
+    assert (res == 'should not contain the following chars '
             '{} (truncated)'.format(sorted(set(INVALID_CHARS))[:10]))

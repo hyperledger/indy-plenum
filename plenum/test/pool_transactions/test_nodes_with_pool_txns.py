@@ -32,128 +32,6 @@ whitelist = ['found legacy entry', "doesn't match", 'reconciling nodeReg',
 # initialised a connection for a new node by the time the new node's message
 # reaches it
 
-
-def testNodesConnect(txnPoolNodeSet):
-    pass
-
-
-def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
-                               client1Connected):
-    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
-                                                  *txnPoolNodeSet)
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
-
-
-def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
-    wallet = addNewClient(None, looper, steward1, stewardWallet, randomString())
-
-    def chk():
-        for node in txnPoolNodeSet:
-            assert wallet.defaultId in node.clientAuthNr.clients
-
-    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
-    looper.run(eventually(chk, retryWait=1, timeout=timeout))
-
-
-def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
-                                                txnPoolNodeSet,
-                                                newAdHocSteward):
-    """
-    The Case:
-        Steward accidentally sends the NODE txn with a non base58 verkey.
-    The expected result:
-        Steward gets NAck response from the pool.
-    """
-    # create a new steward
-    newSteward, newStewardWallet = newAdHocSteward
-
-    newNodeName = "Epsilon"
-
-    # get hex VerKey
-    sigseed = randomString(32).encode()
-    nodeSigner = SimpleSigner(seed=sigseed)
-    b = base58.b58decode(nodeSigner.identifier)
-    hexVerKey = bytearray(b).hex()
-
-    def _setHexVerkey(op):
-        op[TARGET_NYM] = hexVerKey
-        return op
-
-    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
-                   transformOpFunc=_setHexVerkey)
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  'is not a base58 string')
-
-
-def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
-                                          txnPoolNodeSet,
-                                          newAdHocSteward):
-    """
-    The case:
-        Steward accidentally sends the NODE txn with an invalid HA.
-    The expected result:
-        Steward gets NAck response from the pool.
-    """
-    newNodeName = "Epsilon"
-
-    newSteward, newStewardWallet = newAdHocSteward
-
-    # a sequence of the test cases for each field
-    tests = itertools.chain(
-        itertools.product(
-            (NODE_IP, CLIENT_IP), ('127.0.0.1 ', '256.0.0.1', '0.0.0.0')
-        ),
-        itertools.product(
-            (NODE_PORT, CLIENT_PORT), ('foo', '9700', 0, 65535 + 1, 4351683546843518184)
-        ),
-    )
-
-    for field, value in tests:
-        # create a transform function for each test
-        def _tnf(op): op[DATA].update({field: value})
-
-        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
-                       transformOpFunc=_tnf)
-        # wait NAcks with exact message. it does not works for just 'is invalid'
-        # because the 'is invalid' will check only first few cases
-        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "'{}' ('{}') is invalid".format(field, value))
-
-
-def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
-                                                 txnPoolNodeSet,
-                                                 newAdHocSteward):
-    """
-    The case:
-        Steward accidentally sends the NODE txn without full fields set.
-    The expected result:
-        Steward gets NAck response from the pool.
-    """
-    newNodeName = "Epsilon"
-
-    newSteward, newStewardWallet = newAdHocSteward
-
-    # case from the ticket
-    def _renameNodePortField(op):
-        op[DATA].update({NODE_PORT + ' ': op[DATA][NODE_PORT]})
-        del op[DATA][NODE_PORT]
-
-    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
-                   transformOpFunc=_renameNodePortField)
-    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                  "unknown field")
-
-    for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
-        def _tnf(op): del op[DATA][fn]
-
-        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
-                       transformOpFunc=_tnf)
-        # wait NAcks with exact message. it does not works for just 'is missed'
-        # because the 'is missed' will check only first few cases
-        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
-                                      "unknown field")
-
-
 def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet, steward1,
                                         stewardWallet, tdirWithPoolTxns, tconf,
                                         allPluginsPath):
@@ -174,7 +52,6 @@ def testNonStewardCannotAddNode(looper, txnPoolNodeSet, client1,
     for node in txnPoolNodeSet:
         waitRejectWithReason(looper, client1, 'is not a steward so cannot add a '
                                               'new node', node.clientstack.name)
-
 
 def testClientConnectsToNewNode(looper, txnPoolNodeSet, tdirWithPoolTxns,
                                 tconf, steward1, stewardWallet, allPluginsPath):
@@ -225,3 +102,124 @@ def testAdd2NewNodes(looper, txnPoolNodeSet, tdirWithPoolTxns, tconf, steward1,
     timeout = waits.expectedClientToPoolConnectionTimeout(len(txnPoolNodeSet))
     looper.run(eventually(checkFValue, retryWait=1, timeout=timeout))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
+
+
+def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir,
+                                                 txnPoolNodeSet,
+                                                 newAdHocSteward):
+    """
+    The case:
+        Steward accidentally sends the NODE txn without full fields set.
+    The expected result:
+        Steward gets NAck response from the pool.
+    """
+    newNodeName = "Epsilon"
+
+    newSteward, newStewardWallet = newAdHocSteward
+
+    # case from the ticket
+    def _renameNodePortField(op):
+        op[DATA].update({NODE_PORT + ' ': op[DATA][NODE_PORT]})
+        del op[DATA][NODE_PORT]
+
+    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+                   transformOpFunc=_renameNodePortField)
+    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                  "unknown field")
+
+    for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
+        def _tnf(op): del op[DATA][fn]
+
+        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+                       transformOpFunc=_tnf)
+        # wait NAcks with exact message. it does not works for just 'is missed'
+        # because the 'is missed' will check only first few cases
+        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                      "unknown field")
+
+
+def testNodesConnect(txnPoolNodeSet):
+    pass
+
+
+def testNodesReceiveClientMsgs(looper, txnPoolNodeSet, wallet1, client1,
+                               client1Connected):
+    ensureClientConnectedToNodesAndPoolLedgerSame(looper, client1,
+                                                  *txnPoolNodeSet)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1)
+
+
+def testAddNewClient(looper, txnPoolNodeSet, steward1, stewardWallet):
+    wallet = addNewClient(None, looper, steward1, stewardWallet, randomString())
+
+    def chk():
+        for node in txnPoolNodeSet:
+            assert wallet.defaultId in node.clientAuthNr.clients
+
+    timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
+    looper.run(eventually(chk, retryWait=1, timeout=timeout))
+
+
+def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir,
+                                                txnPoolNodeSet,
+                                                newAdHocSteward):
+    """
+    The Case:
+        Steward accidentally sends the NODE txn with a non base58 verkey.
+    The expected result:
+        Steward gets NAck response from the pool.
+    """
+    # create a new steward
+    newSteward, newStewardWallet = newAdHocSteward
+
+    newNodeName = "Epsilon"
+
+    # get hex VerKey
+    sigseed = randomString(32).encode()
+    nodeSigner = SimpleSigner(seed=sigseed)
+    b = base58.b58decode(nodeSigner.identifier)
+    hexVerKey = bytearray(b).hex()
+
+    def _setHexVerkey(op):
+        op[TARGET_NYM] = hexVerKey
+        return op
+
+    sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+                   transformOpFunc=_setHexVerkey)
+    waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                  'should not contain the following chars')
+
+
+def testStewardCannotAddNodeWithInvalidHa(looper, tdir,
+                                          txnPoolNodeSet,
+                                          newAdHocSteward):
+    """
+    The case:
+        Steward accidentally sends the NODE txn with an invalid HA.
+    The expected result:
+        Steward gets NAck response from the pool.
+    """
+    newNodeName = "Epsilon"
+
+    newSteward, newStewardWallet = newAdHocSteward
+
+    # a sequence of the test cases for each field
+    tests = itertools.chain(
+        itertools.product(
+            (NODE_IP, CLIENT_IP), ('127.0.0.1 ', '256.0.0.1', '0.0.0.0')
+        ),
+        itertools.product(
+            (NODE_PORT, CLIENT_PORT), ('foo', '9700', 0, 65535 + 1, 4351683546843518184)
+        ),
+    )
+
+    for field, value in tests:
+        # create a transform function for each test
+        def _tnf(op): op[DATA].update({field: value})
+
+        sendAddNewNode(newNodeName, newSteward, newStewardWallet,
+                       transformOpFunc=_tnf)
+        # wait NAcks with exact message. it does not works for just 'is invalid'
+        # because the 'is invalid' will check only first few cases
+        waitReqNackFromPoolWithReason(looper, txnPoolNodeSet, newSteward,
+                                      "invalid network ip address")
