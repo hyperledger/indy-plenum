@@ -187,4 +187,4 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
         (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor
     assert req.key not in client1.expectingRepliesFor
-    alpha.processRequest = origTrans
+    alpha.transmitToClient = origTrans

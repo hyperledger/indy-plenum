@@ -1782,6 +1782,10 @@ class Replica(HasActionQueue, MessageProcessor):
         digest, state_root, txn_root = self.requested_pre_prepares[key]
         if (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root):
             self.processThreePhaseMsg(pp, sender)
+        else:
+            self.discard(pp, reason='does not have expected state({} {} {})'.
+                         format(digest, state_root, txn_root),
+                         logMethod=logger.warning)
 
     # @property
     # def threePhaseState(self):
