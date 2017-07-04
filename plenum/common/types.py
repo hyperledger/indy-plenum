@@ -466,7 +466,7 @@ class MessageReq(MessageBase):
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
                                             CONSISTENCY_PROOF, PREPREPARE})),
-        (f.PARAMS.nm, HetroMapField())
+        (f.PARAMS.nm, AnyMapField())
     )
 
 
@@ -478,7 +478,7 @@ class MessageRep(MessageBase):
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
                                             CONSISTENCY_PROOF, PREPREPARE})),
-        (f.PARAMS.nm, HetroMapField()),
+        (f.PARAMS.nm, AnyMapField()),
         (f.MSG.nm, AnyField())
     )
 

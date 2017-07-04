@@ -188,7 +188,7 @@ class MapField(FieldBase):
                 return val_error
 
 
-class HetroMapField(FieldBase):
+class AnyMapField(FieldBase):
     # A map where key and value can be of arbitrary types
     _base_types = (dict,)
 

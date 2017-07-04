@@ -2204,8 +2204,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     'seq_no_end'] > 0):
             if 'cons_proof' in kwargs:
                 try:
-                    pp = ConsistencyProof(*kwargs['cons_proof'])
-                    return pp
+                    return ConsistencyProof(*kwargs['cons_proof'])
                 except TypeError as ex:
                     logger.warning(
                         '{} could not create CONSISTENCY_PROOF out of {}'.
@@ -2220,8 +2219,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         kwargs['pp_seq_no'] > 0:
             if 'pp' in kwargs:
                 try:
-                    pp = PrePrepare(*kwargs['pp'])
-                    return pp
+                    return PrePrepare(*kwargs['pp'])
                 except TypeError as ex:
                     logger.warning('{} could not create PREPREPARE out of {}'.
                                    format(self, *kwargs['pp']))

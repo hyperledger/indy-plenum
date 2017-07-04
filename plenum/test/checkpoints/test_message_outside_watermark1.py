@@ -19,6 +19,7 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def tconf(tconf, request):
+    # Delaying perf check as the test sends a lot of requests with delays
     old_freq = tconf.PerfCheckFreq
     tconf.PerfCheckFreq = 30
 

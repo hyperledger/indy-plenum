@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
     PREPREPARE
-from plenum.common.types import MessageReq, f, ChooseField, HetroMapField, \
+from plenum.common.types import MessageReq, f, ChooseField, AnyMapField, \
     MessageRep, AnyField
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
@@ -19,7 +19,7 @@ patched_schema = (
     (f.MSG_TYPE.nm, ChooseField(values={'invalid_type', LEDGER_STATUS,
                                         CONSISTENCY_PROOF,
                                         PREPREPARE})),
-    (f.PARAMS.nm, HetroMapField())
+    (f.PARAMS.nm, AnyMapField())
 )
 
 

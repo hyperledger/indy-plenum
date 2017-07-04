@@ -1042,7 +1042,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.tryPrepare(pp)
 
-    def has_pre_prepared(self, request) -> bool:
+    def has_sent_prepare(self, request) -> bool:
         return self.prepares.hasPrepareFrom(request, self.name)
 
     def canPrepare(self, ppReq) -> (bool, str):
@@ -1054,7 +1054,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         if not self.shouldParticipate(ppReq.viewNo, ppReq.ppSeqNo):
             return False, 'should not participate in consensus for {}'.format(ppReq)
-        if self.has_pre_prepared(ppReq):
+        if self.has_sent_prepare(ppReq):
             return False, 'has already sent PREPARE for {}'.format(ppReq)
         return True, ''
 
