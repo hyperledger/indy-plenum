@@ -1,4 +1,4 @@
-from plenum.common.types import Prepare
+from plenum.common.messages.node_messages import Prepare
 from plenum.test.delayers import ppDelay, pDelay, ppgDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import checkNodeDataForInequality, \

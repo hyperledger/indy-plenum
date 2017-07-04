@@ -6,8 +6,7 @@ from plenum import config
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
-from plenum.common.types import PrePrepare, Prepare, \
-    Commit, Primary
+from plenum.common.messages.node_messages import Primary, PrePrepare, Prepare, Commit
 from plenum.common.util import getMaxFailures
 from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple

@@ -3,7 +3,8 @@ import types
 import pytest
 
 from plenum.common.constants import PREPREPARE
-from plenum.common.types import MessageReq, MessageRep, f
+from plenum.common.messages.node_messages import MessageReq, MessageRep
+from plenum.common.types import f
 from plenum.common.util import check_if_all_equal_in_list, updateNamedTuple
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \

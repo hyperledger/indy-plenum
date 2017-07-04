@@ -8,7 +8,7 @@ from plenum.common.ledger import Ledger
 from plenum.test.node_request.message_request.helper import \
     count_msg_reqs_of_type
 from stp_core.common.log import getlogger
-from plenum.common.types import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_ledger_manager import TestLedgerManager

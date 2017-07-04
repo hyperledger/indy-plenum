@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.types import Commit
+from plenum.common.messages.node_messages import Commit
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField
 

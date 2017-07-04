@@ -1,5 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.types import Commit, ConsistencyProof
+from plenum.common.messages.node_messages import Commit, ConsistencyProof
 from plenum.test.delayers import cpDelay, cDelay
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper

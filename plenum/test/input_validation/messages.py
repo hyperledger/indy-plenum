@@ -1,5 +1,4 @@
-from plenum.common.request import Request
-from plenum.common.types import Nomination, Reelection, Primary, Ordered, \
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary, Ordered, \
     Propagate, PrePrepare, Prepare, Commit, InstanceChange, Checkpoint, \
     ThreePCState, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep
 from plenum.test.input_validation.fields import *

@@ -12,7 +12,7 @@ from plenum.common.ledger import Ledger
 from ledger.merkle_verifier import MerkleVerifier
 from ledger.util import F
 
-from plenum.common.types import LedgerStatus, CatchupRep, \
+from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF
@@ -21,6 +21,8 @@ from plenum.common.config_util import getConfig
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.common.ledger_info import LedgerInfo
+from plenum.common.txn_util import reqToTxn
+
 
 logger = getlogger()
 
@@ -104,7 +106,6 @@ class LedgerManager(HasActionQueue):
                                     f.SEQ_NO_START.nm: start,
                                     f.SEQ_NO_END.nm: end},
                                    self.nodes_to_request_txns_from)
-            # self.send(cpReq)
 
         ledgerInfo.recvdConsistencyProofs = {}
         ledgerInfo.consistencyProofsTimer = None
@@ -419,6 +420,7 @@ class LedgerManager(HasActionQueue):
         consProof = [Ledger.hashToStr(p) for p in
                      ledger.tree.consistency_proof(end, req.catchupTill)]
 
+
         txns = {}
         for seq_no, txn in ledger.getAllTxn(start, end):
             txns[seq_no] = self.owner.update_txn_with_extra_data(txn)
@@ -433,6 +435,9 @@ class LedgerManager(HasActionQueue):
         txnsNum = len(txns) if txns else 0
         logger.debug("{} found {} transactions in the catchup from {}"
                      .format(self, txnsNum, frm))
+        if not txns:
+            return
+
         ledgerId = getattr(rep, f.LEDGER_ID.nm)
         ledger_info = self.getLedgerInfoByType(ledgerId)
         ledger = ledger_info.ledger
@@ -488,7 +493,7 @@ class LedgerManager(HasActionQueue):
                 if result:
                     ledgerInfo = self.getLedgerInfoByType(ledgerId)
                     for _, txn in catchUpReplies[:toBeProcessed]:
-                        self._add_txn(ledgerId, ledger, ledgerInfo, txn)
+                        self._add_txn(ledgerId, ledger, ledgerInfo, reqToTxn(txn))
                     self._removePrcdCatchupReply(ledgerId, nodeName, seqNo)
                     return numProcessed + toBeProcessed + \
                         self._processCatchupReplies(ledgerId, ledger,
@@ -522,10 +527,10 @@ class LedgerManager(HasActionQueue):
     def _transform(self, txn):
         # Certain transactions other than pool ledger might need to be
         # transformed to certain format before applying to the ledger
-        if not self.ownedByNode:
-            return txn
-        else:
-            return self.owner.transform_txn_for_ledger(txn)
+        txn = reqToTxn(txn)
+        z = txn if not self.ownedByNode else  \
+            self.owner.transform_txn_for_ledger(txn)
+        return z
 
     def hasValidCatchupReplies(self, ledgerId, ledger, seqNo, catchUpReplies):
         # Here seqNo has to be the seqNo of first transaction of
@@ -541,8 +546,9 @@ class LedgerManager(HasActionQueue):
         # Add only those transaction in the temporary tree from the above
         # batch
 
-        # Transfers of odcits in RAET converts integer keys to string
-        txns = [self._transform(txn) for s, txn in catchUpReplies[:len(txns)]
+        # Integer keys being converted to strings when marshaled to JSON
+        txns = [self._transform(txn)
+                for s, txn in catchUpReplies[:len(txns)]
                 if str(s) in txns]
 
         # Creating a temporary tree which will be used to verify consistency
@@ -732,9 +738,6 @@ class LedgerManager(HasActionQueue):
         proofs = sorted(groupedProofs.items(), key=lambda t: max(t[1].values()))
         ledger = self.getLedgerInfoByType(ledgerId).ledger
         return ledgerId, ledger.size, proofs[len(proofs) // 2][0][1]
-        # return ConsProofRequest(ledgerId,
-        #                         ledger.size,
-        #                         proofs[len(proofs) // 2][0][1])
 
     def do_pre_catchup(self, ledger_id):
         if self.preCatchupClbk:

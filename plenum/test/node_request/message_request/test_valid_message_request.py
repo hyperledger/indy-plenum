@@ -2,8 +2,9 @@ import pytest
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
     PREPREPARE
-from plenum.common.types import MessageReq, f, ChooseField, AnyMapField, \
-    MessageRep, AnyField
+from plenum.common.messages.node_messages import MessageReq, ChooseField, \
+    AnyMapField, MessageRep, AnyField
+from plenum.common.types import f
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
 

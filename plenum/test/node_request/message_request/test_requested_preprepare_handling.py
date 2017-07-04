@@ -1,13 +1,13 @@
 import types
 
 from plenum.common.constants import PREPREPARE
-from plenum.common.types import MessageRep, f
+from plenum.common.messages.node_messages import MessageRep
+from plenum.common.types import f
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
-from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 from stp_core.loop.eventually import eventually
 
 
