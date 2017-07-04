@@ -20,5 +20,5 @@ def test_empty_string():
 def test_invalid_symbol():
     res = validator.validate(b58_by_len(32)[:-1] + '0')
     assert res
-    assert (res == "should not contains the following chars {}".
+    assert (res == "should not contain the following chars {}".
             format(sorted(set('0'))))
