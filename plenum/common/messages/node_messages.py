@@ -104,8 +104,8 @@ class Ordered(MessageBase):
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.PP_TIME.nm, TimestampField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, MerkleRootField()),
-        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 
 
@@ -128,8 +128,8 @@ class PrePrepare(MessageBase):
         (f.DISCARDED.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.STATE_ROOT.nm, MerkleRootField()),
-        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 
 
@@ -140,8 +140,8 @@ class Prepare(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
         (f.DIGEST.nm, NonEmptyStringField()),
-        (f.STATE_ROOT.nm, MerkleRootField()),
-        (f.TXN_ROOT.nm, MerkleRootField()),
+        (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
+        (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
     )
 
 
