@@ -2239,7 +2239,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.ledgerManager.processLedgerStatus(ledger_status, frm=frm)
             return
         self.discard(msg,
-                     'cannot processed requested message resposnse',
+                     'cannot process requested message resposnse',
                      logMethod=logger.debug)
 
     def _process_requested_cons_proof(self, msg, frm):
@@ -2256,7 +2256,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.ledgerManager.processConsistencyProof(cons_proof, frm=frm)
             return
         self.discard(msg,
-                     'cannot processed requested message resposnse',
+                     'cannot process requested message resposnse',
                      logMethod=logger.debug)
 
     def _process_requested_preprepare(self, msg, frm):
@@ -2274,7 +2274,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                                  sender=frm)
             return
         self.discard(msg,
-                     'cannot processed requested message resposnse',
+                     'cannot process requested message resposnse',
                      logMethod=logger.debug)
 
     def _serve_ledger_status_request(self, msg):

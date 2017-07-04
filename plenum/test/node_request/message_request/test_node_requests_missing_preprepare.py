@@ -7,37 +7,14 @@ from plenum.common.types import MessageReq, MessageRep, f
 from plenum.common.util import check_if_all_equal_in_list, updateNamedTuple
 from plenum.test.delayers import ppDelay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
-    send_reqs_to_nodes_and_verify_all_replies, countDiscarded
-from plenum.test.node_catchup.helper import waitNodeDataEquality, \
-    ensure_all_nodes_have_same_data
+    countDiscarded
+from plenum.test.node_catchup.helper import waitNodeDataEquality
+from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 
 
 whitelist = ['does not have expected state']
-
-
-@pytest.fixture(scope="module")
-def teardown(request, looper, txnPoolNodeSet, client1, wallet1):
-
-    def tear():
-        # Repair any broken network
-        for node in txnPoolNodeSet:
-            node.reset_delays_and_process_delayeds()
-        # Give a little time to process any delayed messages
-        looper.runFor(3)
-
-        # Check each node has same data
-        ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-
-        # Check each node has ordered all requests (no catchup)
-        assert check_if_all_equal_in_list([n.master_replica.ordered
-                                           for n in txnPoolNodeSet])
-
-        # Check the network is functional since all nodes reply
-        send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 5)
-
-    request.addfinalizer(tear)
 
 
 def test_node_requests_missing_preprepare(looper, txnPoolNodeSet, client1,
@@ -46,8 +23,7 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet, client1,
     A node has bad network with primary and thus loses PRE-PREPARE,
     it requests PRE-PREPARE from non-primaries once it has sufficient PREPAREs
     """
-    slow_node = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
-    other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
+    slow_node, other_nodes, _, _ = split_nodes(txnPoolNodeSet)
 
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
