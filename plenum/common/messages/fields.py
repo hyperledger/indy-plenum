@@ -171,15 +171,15 @@ class MapField(FieldBase):
                  value_field: FieldValidator,
                  **kwargs):
         super().__init__(**kwargs)
-        self._key_field = key_field
-        self._value_field = value_field
+        self.key_field = key_field
+        self.value_field = value_field
 
     def _specific_validation(self, val):
         for k, v in val.items():
-            key_error = self._key_field.validate(k)
+            key_error = self.key_field.validate(k)
             if key_error:
                 return key_error
-            val_error = self._value_field.validate(v)
+            val_error = self.value_field.validate(v)
             if val_error:
                 return val_error
 

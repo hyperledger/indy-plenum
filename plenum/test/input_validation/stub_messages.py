@@ -1,22 +1,38 @@
-from plenum.common.messages.fields import NonNegativeNumberField, NonEmptyStringField, AnyValueField
+from plenum.common.messages.fields import NonNegativeNumberField, NonEmptyStringField, AnyValueField, IterableField, \
+    MapField
 from plenum.common.messages.message_base import MessageBase
 
 
-class AMessage1(MessageBase):
-    typename = 'AMessage1'
+class Message1(MessageBase):
+    typename = 'Message1'
     schema = (
         ('a', NonNegativeNumberField()),
         ('b', NonEmptyStringField()),
     )
 
 
-class AMessage2(MessageBase):
-    typename = 'AMessage2'
+class Message2(MessageBase):
+    typename = 'Message2'
     schema = (
         ('a', NonNegativeNumberField()),
-        ('c', AnyValueField()),
+        ('b', AnyValueField()),
     )
 
+
+class Message3(MessageBase):
+    typename = 'Message3'
+    schema = (
+        ('a', NonNegativeNumberField()),
+        ('b', IterableField(AnyValueField())),
+    )
+
+
+class Message4(MessageBase):
+    typename = 'Message4'
+    schema = (
+        ('a', NonNegativeNumberField()),
+        ('b', MapField(AnyValueField(), AnyValueField())),
+    )
 
 class SomeNonMessageClass:
     typename = 'SomeNonMessageClass'

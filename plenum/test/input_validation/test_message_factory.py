@@ -1,10 +1,10 @@
 import pytest
 
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
-from plenum.common.messages.fields import NonNegativeNumberField
+from plenum.common.messages.fields import NonNegativeNumberField, AnyValueField
 from plenum.common.messages.message_base import MessageBase
 from plenum.common.messages.node_message_factory import MessageFactory, NodeMessageFactory
-from plenum.test.input_validation.stub_messages import AMessage1
+from plenum.test.input_validation.stub_messages import Message1, Message2, Message3, Message4
 
 
 @pytest.fixture
@@ -30,8 +30,8 @@ def test_message_factory_invalid_op_fails(factory):
 
 
 def test_message_factory_stub_module_is_loaded(factory):
-    msg = {'op': 'AMessage1', 'a': 0, 'b': 'bar'}
-    assert isinstance(factory.get_instance(**msg), AMessage1)
+    msg = {'op': 'Message1', 'a': 0, 'b': 'bar'}
+    assert isinstance(factory.get_instance(**msg), Message1)
 
 
 def test_message_factory_set_non_message_class_fails(factory):
@@ -56,3 +56,39 @@ def test_message_factory_set_message_class_can_add_message_class(factory):
 
 def test_node_message_factory_module_is_loaded():
     NodeMessageFactory()
+
+
+def test_message_factory_can_replace_field(factory):
+    # check precondition
+    msg = {'op': 'Message2', 'a': 0, 'b': 'foo'}
+    assert isinstance(factory.get_instance(**msg), Message2)
+
+    factory.update_schemas_by_field_type(AnyValueField, NonNegativeNumberField)
+
+    with pytest.raises(TypeError) as exc_info:
+        factory.get_instance(**msg)
+    exc_info.match("expected types 'int', got 'str'")
+
+
+def test_message_factory_can_replace_iterable_field(factory):
+    # check precondition
+    msg = {'op': 'Message3', 'a': 0, 'b': ['foo', 'bar']}
+    assert isinstance(factory.get_instance(**msg), Message3)
+
+    factory.update_schemas_by_field_type(AnyValueField, NonNegativeNumberField)
+
+    with pytest.raises(TypeError) as exc_info:
+        factory.get_instance(**msg)
+    exc_info.match("expected types 'int', got 'str'")
+
+
+def test_message_factory_can_replace_map_field(factory):
+    # check precondition
+    msg = {'op': 'Message4', 'a': 0, 'b': {'foo': 'bar'}}
+    assert isinstance(factory.get_instance(**msg), Message4)
+
+    factory.update_schemas_by_field_type(AnyValueField, NonNegativeNumberField)
+
+    with pytest.raises(TypeError) as exc_info:
+        factory.get_instance(**msg)
+    exc_info.match("expected types 'int', got 'str'")
