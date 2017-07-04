@@ -1382,12 +1382,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                          .format(frm), logger.info)
             return None
 
+        needStaticValidation = False
         if all(attr in msg.keys()
                for attr in [OPERATION, f.IDENTIFIER.nm, f.REQ_ID.nm]):
-            self.doStaticValidation(msg[f.IDENTIFIER.nm],
-                                    msg[f.REQ_ID.nm],
-                                    msg[OPERATION])
             cls = self._client_request_class
+            needStaticValidation = True
         elif OP_FIELD_NAME in msg:
             op = msg.pop(OP_FIELD_NAME)
             cls = TaggedTuples.get(op, None)
@@ -1407,6 +1406,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         except Exception as ex:
             raise InvalidClientRequest(msg.get(f.IDENTIFIER.nm),
                                        msg.get(f.REQ_ID.nm)) from ex
+
+        if needStaticValidation:
+            self.doStaticValidation(msg[f.IDENTIFIER.nm],
+                                    msg[f.REQ_ID.nm],
+                                    msg[OPERATION])
 
         if self.isSignatureVerificationNeeded(msg):
             self.verifySignature(cMsg)
