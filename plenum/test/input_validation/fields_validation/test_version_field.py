@@ -48,3 +48,6 @@ def test_spaces():
     assert validator.validate(' 1 .2.3')
     assert validator.validate('1. 2 .3')
     assert validator.validate('1.2. 3 ')
+    assert validator.validate(' -1.2.3')
+    assert validator.validate('1. -2 .3')
+    assert validator.validate('1.2.-3 ')

@@ -392,7 +392,7 @@ class VersionField(FieldBase):
                 convertedint = int(p)
                 if convertedint < 0:
                     return "version component shouldn't be negative"
-                if p == p.strip():
+                if p != p.strip():
                     return "version component cannot have spaces in the beginning or in the end"
             except ValueError:
                 return "version component {} is not a number".format(p)
