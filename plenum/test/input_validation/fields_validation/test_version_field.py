@@ -36,3 +36,15 @@ def test_invalid_negative_comp():
     assert validator.validate('-1.-2.-3')
     assert validator.validate('-1.2.3')
     assert validator.validate('1.2.-3')
+
+
+def test_spaces():
+    assert validator.validate(' 1.2.3')
+    assert validator.validate('1. 2.3')
+    assert validator.validate('1.2. 3')
+    assert validator.validate('1 .2.3')
+    assert validator.validate('1.2 .3')
+    assert validator.validate('1.2.3 ')
+    assert validator.validate(' 1 .2.3')
+    assert validator.validate('1. 2 .3')
+    assert validator.validate('1.2. 3 ')
