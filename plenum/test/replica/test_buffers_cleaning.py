@@ -28,6 +28,9 @@ def test_ordered_cleaning():
             replica.addToOrdered(*reqId)
             total.append(reqId)
 
+    # gc is called after stable checkpoint, since no request executed
+    # in this test starting it manually
+    replica.gc(100)
     # Requests with view lower then previous view
     # should not be in ordered
     assert len(replica.ordered) == len(total[num_requests_per_view:])
