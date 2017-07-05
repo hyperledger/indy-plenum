@@ -104,28 +104,25 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         HasActionQueue.__init__(self)
         self.stats = Stats(TPCStat)
-
         self.config = getConfig()
 
-        routerArgs = [(ReqKey, self.readyFor3PC)]
-
-        for r in [PrePrepare, Prepare, Commit]:
-            routerArgs.append((r, self.processThreePhaseMsg))
-
-        routerArgs.append((Checkpoint, self.processCheckpoint))
-        routerArgs.append((ThreePCState, self.process3PhaseState))
-
-        self.inBoxRouter = Router(*routerArgs)
+        self.inBoxRouter = Router(
+            (ReqKey,       self.readyFor3PC),
+            (PrePrepare,   self.processThreePhaseMsg),
+            (Prepare,      self.processThreePhaseMsg),
+            (Commit,       self.processThreePhaseMsg),
+            (Checkpoint,   self.processCheckpoint),
+            (ThreePCState, self.process3PhaseState),
+        )
 
         self.threePhaseRouter = Router(
-                (PrePrepare, self.processPrePrepare),
-                (Prepare, self.processPrepare),
-                (Commit, self.processCommit)
+            (PrePrepare, self.processPrePrepare),
+            (Prepare,    self.processPrepare),
+            (Commit,     self.processCommit)
         )
 
         self.node = node
         self.instId = instId
-
         self.name = self.generateName(node.name, self.instId)
 
         self.outBox = deque()
@@ -263,11 +260,6 @@ class Replica(HasActionQueue, MessageProcessor):
         # Three phase key for the last ordered batch
         self.last_ordered_3pc = (0, 0)
 
-        # Keeps the `lastOrderedPPSeqNo` and ledger_summary for each view no.
-        # GC when ordered last batch of the view
-        # TODO: Should not be needed anymore
-        self.view_ends_at = OrderedDict()
-
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
         self.last_prepared_before_view_change = None
@@ -385,11 +377,22 @@ class Replica(HasActionQueue, MessageProcessor):
         :param value: the value to set isPrimary to
         """
         self.primaryNames[self.viewNo] = value
+        self.compact_primary_names()
         if not value == self._primaryName:
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
             self._stateChanged()
+
+    def compact_primary_names(self):
+        min_allowed_view_no = self.viewNo - 1
+        views_to_remove = []
+        for view_no in self.primaryNames:
+            if view_no >= min_allowed_view_no:
+                break
+            views_to_remove.append(view_no)
+        for view_no in views_to_remove:
+            self.primaryNames.pop(view_no)
 
     def primaryChanged(self, primaryName):
         self.batches.clear()
@@ -1368,31 +1371,44 @@ class Replica(HasActionQueue, MessageProcessor):
         self.addToCheckpoint(pp.ppSeqNo, pp.digest)
         return True
 
-    def processCheckpoint(self, msg: Checkpoint, sender: str):
-        logger.debug('{} received checkpoint {} from {}'.
-                     format(self, msg, sender))
+    def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
+        """
+        Process checkpoint messages
+
+        :return: whether processed (True) or stashed (False)
+        """
+
+        logger.debug('{} processing checkpoint {} from {}'
+                     .format(self, msg, sender))
+
         seqNoEnd = msg.seqNoEnd
         if self.isPpSeqNoStable(seqNoEnd):
-            self.discard(msg, reason="Checkpoint already stable",
+            self.discard(msg,
+                         reason="Checkpoint already stable",
                          logMethod=logger.debug)
-            return
+            return True
 
         seqNoStart = msg.seqNoStart
         key = (seqNoStart, seqNoEnd)
-        if key in self.checkpoints and self.checkpoints[key].digest:
-            ckState = self.checkpoints[key]
-            if ckState.digest == msg.digest:
-                ckState.receivedDigests[sender] = msg.digest
-            else:
-                logger.error("{} received an incorrect digest {} for "
-                             "checkpoint {} from {}".format(self,
-                                                            msg.digest,
-                                                            key,
-                                                            sender))
-                return
-            self.checkIfCheckpointStable(key)
-        else:
+
+        if key not in self.checkpoints or not self.checkpoints[key].digest:
             self.stashCheckpoint(msg, sender)
+            return False
+
+        checkpoint_state = self.checkpoints[key]
+        if checkpoint_state.digest != msg.digest:
+            logger.error("{} received an incorrect digest {} for "
+                         "checkpoint {} from {}".format(self,
+                                                        msg.digest,
+                                                        key,
+                                                        sender))
+            return True
+
+        checkpoint_state.receivedDigests[sender] = msg.digest
+        self.checkIfCheckpointStable(key)
+        return True
+
+
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1463,14 +1479,32 @@ class Replica(HasActionQueue, MessageProcessor):
         self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd][sender] = ck
 
     def processStashedCheckpoints(self, key):
-        i = 0
-        if key in self.stashedRecvdCheckpoints:
-            for sender, ck in self.stashedRecvdCheckpoints[key].items():
-                self.processCheckpoint(ck, sender)
-                i += 1
-        logger.debug('{} processed {} stashed checkpoints for {}'.
-                     format(self, i, key))
-        return i
+
+        if key not in self.stashedRecvdCheckpoints:
+            logger.debug("{} have no stashed checkpoints for {}")
+            return 0
+
+        total_processed = 0
+        senders_of_completed_checkpoints = []
+
+        for sender, checkpoint in self.stashedRecvdCheckpoints[key].items():
+            if self.processCheckpoint(checkpoint, sender):
+                senders_of_completed_checkpoints.append(sender)
+            total_processed += 1
+
+        for sender in senders_of_completed_checkpoints:
+            # unstash checkpoint
+            del self.stashedRecvdCheckpoints[key][sender]
+            if len(self.stashedRecvdCheckpoints[key]) == 0:
+                del self.stashedRecvdCheckpoints[key]
+
+
+        restashed_num = total_processed - len(senders_of_completed_checkpoints)
+        logger.debug('{} processed {} stashed checkpoints for {}, '
+                     '{} of them were stashed again'
+                     .format(self, total_processed, key, restashed_num))
+
+        return total_processed
 
     def gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
@@ -1506,6 +1540,8 @@ class Replica(HasActionQueue, MessageProcessor):
                 logger.debug('{} clearing requests {} from previous checkpoints'.
                              format(self, len(reqKeys)))
                 self.requests.pop(k)
+
+        self.compact_ordered()
 
     def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
         self.stashingWhileOutsideWaterMarks.append(item)
@@ -1569,6 +1605,15 @@ class Replica(HasActionQueue, MessageProcessor):
         # This might not be called always as Pre-Prepare might be requested
         # but never received and catchup might be done
         self.requested_pre_prepares.pop((view_no, pp_seq_no), None)
+
+    def compact_ordered(self):
+        min_allowed_view_no = self.viewNo - 1
+        i = 0
+        for view_no, _ in self.ordered:
+            if view_no >= min_allowed_view_no:
+                break
+            i += 1
+        self.ordered = self.ordered[i:]
 
     def enqueue_pre_prepare(self, ppMsg: PrePrepare, sender: str,
                             nonFinReqs: Set=None):

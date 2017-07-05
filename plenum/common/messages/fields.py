@@ -178,15 +178,15 @@ class MapField(FieldBase):
                  value_field: FieldValidator,
                  **kwargs):
         super().__init__(**kwargs)
-        self._key_field = key_field
-        self._value_field = value_field
+        self.key_field = key_field
+        self.value_field = value_field
 
     def _specific_validation(self, val):
         for k, v in val.items():
-            key_error = self._key_field.validate(k)
+            key_error = self.key_field.validate(k)
             if key_error:
                 return key_error
-            val_error = self._value_field.validate(v)
+            val_error = self.value_field.validate(v)
             if val_error:
                 return val_error
 
@@ -393,6 +393,23 @@ class SerializedValueField(FieldBase):
     def _specific_validation(self, val):
         if not val:
             return 'empty serialized value'
+
+
+class VersionField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, components_number=(3,), **kwargs):
+        super().__init__(**kwargs)
+        self._comp_num = components_number
+
+    def _specific_validation(self, val):
+        parts = val.split(".")
+        if len(parts) not in self._comp_num:
+            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+        for p in parts:
+            if not p.isdigit():
+                return "version component should contain only digits"
+        return None
 
 
 class TxnSeqNoField(FieldBase):
