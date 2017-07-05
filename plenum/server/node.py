@@ -22,7 +22,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, ORIGIN, TRUSTEE
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, ORIGIN, TRUSTEE, GET_TXN
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -1740,7 +1740,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        reply = self.getReplyFromLedger(ledger, request)
+
+        reply = self.handleGetTnxReq(request, frm) if request.operation[TXN_TYPE] == GET_TXN \
+            else self.getReplyFromLedger(ledger, request)
+
         if reply:
             logger.debug("{} returning REPLY from already processed "
                          "REQUEST: {}".format(self, request))
