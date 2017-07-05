@@ -25,7 +25,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, ORIGIN
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -2316,4 +2316,28 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+
+    def handleGetTnxReq(self, request: Request, frm: str):
+        """
+        Handle GET_TXN request
+        """
+        ledgerId = self.ledgerIdForRequest(request)
+        ledger = self.getLedger(ledgerId)
+        tnx = self.getReplyFromLedger(ledger, request, request.operation[DATA])
+
+        result = {
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId,
+            DATA: {}
+        }
+
+        if tnx:
+            data = json.loads(tnx.result[DATA])
+            data.update({ORIGIN: tnx.result[f.IDENTIFIER.nm]})
+            result[DATA] = data
+            result[TXN_TYPE] = tnx.result[TXN_TYPE]
+            result[f.SEQ_NO.nm] = tnx.result[f.SEQ_NO.nm]
+
+        return result
 
