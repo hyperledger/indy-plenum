@@ -5,7 +5,8 @@ from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
 from plenum.common.constants import REQDIGEST, REQKEY, FORCE
-from plenum.common.types import f, OPERATION, ClientMessageValidator
+from plenum.common.types import f, OPERATION
+from plenum.common.messages.client_request import ClientMessageValidator
 
 
 class Request:

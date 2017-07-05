@@ -2,6 +2,14 @@
 
 [![Build Status](https://jenkins.evernym.com/buildStatus/icon?job=Plenum/master)](https://jenkins.evernym.com/job/Plenum/job/master/)    
 
+Plenum is the heart of the distributed ledger technology inside Hyperledger
+Indy. As such, it provides features somewhat similar in scope to those
+found in Fabric. However, it is special-purposed for use in an identity
+system, whereas Fabric is general purpose.
+
+You can log bugs against Plenum in [Hyperledger's Jira](https://jira.hyperledger.org); use
+project "INDY".
+
 Plenum makes extensive use of coroutines and the async/await keywords in
 Python, and as such, requires Python version 3.5.0 or later. Plenum also
 depends on libsodium, an awesome crypto library. These need to be installed
