@@ -340,15 +340,21 @@ def newKeyPair(cli: TestCli, alias: str=None):
         idrs = set(cli.activeWallet.idsToSigners.keys())
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.idsToSigners.keys()) == len(idrs) + 1
-    pubKey = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
+    new_identifer = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
     expected = ['Key created in keyring Default']
     if alias:
+        idr = cli.activeWallet.aliasesToIds.get(alias)
+        verkey = cli.activeWallet.getVerkey(idr)
         expected.append('Identifier for key is {}'.
-                        format(cli.activeWallet.aliasesToIds.get(alias)))
+                        format(idr))
+        expected.append('Verification key is {}'.format(verkey))
         expected.append('Alias for identifier is {}'.format(alias))
     else:
-        expected.append('Identifier for key is {}'.format(pubKey))
-    expected.append('Current identifier set to {}'.format(alias or pubKey))
+        expected.append('Identifier for key is {}'.format(new_identifer))
+        verkey = cli.activeWallet.getVerkey(new_identifer)
+        expected.append('Verification key is {}'.format(verkey))
+
+    expected.append('Current identifier set to {}'.format(alias or new_identifer))
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
@@ -358,10 +364,10 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
-    needle = alias if alias else pubKey
+    needle = alias if alias else new_identifer
     # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     assert needle in cli.lastCmdOutput
-    return pubKey
+    return new_identifer
 
 
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")

@@ -30,6 +30,7 @@ from plenum.client.wallet import Wallet, WalletStorageHelper
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
+from plenum.common.signer_did import DidSigner
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
@@ -1312,9 +1313,10 @@ class Cli:
 
         cseed = cleanSeed(seed)
 
-        signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
+        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("Identifier for key is {}".format(signer.identifier))
+        self.print("Verification key is {}".format(signer.verkey))
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
