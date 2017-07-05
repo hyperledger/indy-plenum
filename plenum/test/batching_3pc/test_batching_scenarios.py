@@ -1,5 +1,5 @@
 from stp_core.common.log import getlogger
-from plenum.common.types import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sendRandomRequests, \
     waitForSufficientRepliesForRequests

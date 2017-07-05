@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Nomination
+from plenum.common.messages.node_messages import Nomination
 from plenum.test import waits
 
 whitelist = ['already got nomination',

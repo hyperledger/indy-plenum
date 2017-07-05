@@ -1,11 +1,10 @@
-import time
 import types
 
 import pytest
 
-from stp_core.loop.eventually import eventually
+from plenum.common.constants import DOMAIN_LEDGER_ID
 from stp_core.common.log import getlogger
-from plenum.common.types import CatchupReq
+from plenum.common.messages.node_messages import CatchupReq
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
@@ -17,12 +16,14 @@ from plenum.test.node_catchup.conftest import whitelist
 
 logger = getlogger()
 
+TestRunningTimeLimitSec = 150
+
 
 @pytest.fixture(scope="module")
-def catchupTimeoutReduced(conf, tdir, request):
+def reduced_catchup_timeout_conf(conf, tdir, request):
     defaultCatchupTransactionsTimeout = conf.CatchupTransactionsTimeout
     conf.baseDir = tdir
-    conf.CatchupTransactionsTimeout = 1
+    conf.CatchupTransactionsTimeout = 10
 
     def reset():
         conf.CatchupTransactionsTimeout = defaultCatchupTransactionsTimeout
@@ -31,7 +32,8 @@ def catchupTimeoutReduced(conf, tdir, request):
     return conf
 
 
-def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
+def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
+                           nodeCreatedAfterSomeTxns):
     """
     A newly joined node is catching up and sends catchup requests to other
     nodes but one of the nodes does not reply and the newly joined node cannot
@@ -39,6 +41,10 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
     transactions.
     """
     looper, newNode, client, wallet, _, _ = nodeCreatedAfterSomeTxns
+    new_node_ledger = newNode.ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID]
+    old_size = len(new_node_ledger.ledger)
+    old_size_others = txnPoolNodeSet[0].ledgerManager.ledgerRegistry[DOMAIN_LEDGER_ID].ledger.size
+
     # So nodes wont tell the clients about the newly joined node so they
     # dont send any request to the newly joined node
     for node in txnPoolNodeSet:
@@ -56,11 +62,18 @@ def testNodeRequestingTxns(txnPoolNodeSet, nodeCreatedAfterSomeTxns):
 
     badNode.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, badNode.ledgerManager)
-    sendRandomRequests(wallet, client, 10)
+    more_requests = 10
+    sendRandomRequests(wallet, client, more_requests)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
     # Since one of the nodes does not reply, this new node will experience a
     # timeout and retry catchup requests, hence a long test timeout.
-    # Dont reduce it.
+    timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet)) + \
+              reduced_catchup_timeout_conf.CatchupTransactionsTimeout
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
-                         customTimeout=100)
+                         customTimeout=timeout)
+    new_size = len(new_node_ledger.ledger)
+
+    # The new node ledger might catchup some transactions from the batch of `more_request` transactions
+    assert old_size_others - old_size <= new_node_ledger.num_txns_caught_up <= new_size - old_size
+    sendRandomRequests(wallet, client, 2)

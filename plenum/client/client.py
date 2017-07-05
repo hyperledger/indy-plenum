@@ -13,6 +13,7 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
 from plenum.common.ledger import Ledger
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.stacks import nodeStackClass
 from plenum.server.quorums import Quorums
 from stp_core.crypto.nacl_wrappers import Signer
@@ -38,7 +39,8 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
     POOL_LEDGER_ID, TXN_TIME, LedgerState
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Reply, LedgerStatus
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
@@ -282,14 +284,7 @@ class Client(Motor,
                      extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
             if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
-                op = msg.get(OP_FIELD_NAME, None)
-                if not op:
-                    raise MissingNodeOp
-                # TODO: Refactor this copying
-                cls = TaggedTuples.get(op, None)
-                t = copy.deepcopy(msg)
-                t.pop(OP_FIELD_NAME, None)
-                cMsg = cls(**t)
+                cMsg = node_message_factory.get_instance(**msg)
                 if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
                     self.poolTxnReceived(cMsg, frm)
                 if msg[OP_FIELD_NAME] == LEDGER_STATUS:
@@ -612,7 +607,7 @@ class Client(Motor,
                     queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
+        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size, None, None,
                                     self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)

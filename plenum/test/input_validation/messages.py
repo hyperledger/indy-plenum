@@ -1,6 +1,7 @@
 from plenum.common.request import Request
-from plenum.common.types import Nomination, Reelection, Primary, Ordered, Propagate, PrePrepare, Prepare, Commit, \
-    InstanceChange, Checkpoint, ThreePCState, LedgerStatus, ConsistencyProof, ConsProofRequest, CatchupReq, CatchupRep
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary, Ordered, Propagate, PrePrepare, \
+    Prepare, Commit, Checkpoint, ThreePCState, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, CatchupRep, \
+    ConsProofRequest
 from plenum.test.input_validation.fields import *
 from plenum.test.input_validation.helper import *
 

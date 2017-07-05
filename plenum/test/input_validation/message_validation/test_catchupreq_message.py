@@ -1,29 +1,28 @@
 import pytest
-from plenum.common.types import Checkpoint
+from plenum.common.messages.node_messages import CatchupReq
 from collections import OrderedDict
 from plenum.common.messages.fields import \
-    NonNegativeNumberField, NonEmptyStringField
+    NonNegativeNumberField, LedgerIdField
 
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
-    ("instId", NonNegativeNumberField),
-    ("viewNo", NonNegativeNumberField),
+    ("ledgerId", LedgerIdField),
     ("seqNoStart", NonNegativeNumberField),
     ("seqNoEnd", NonNegativeNumberField),
-    ("digest", NonEmptyStringField),
+    ("catchupTill", NonNegativeNumberField),
 ])
 
 
 def test_hash_expected_type():
-    assert Checkpoint.typename == "CHECKPOINT"
+    assert CatchupReq.typename == "CATCHUP_REQ"
 
 
 def test_has_expected_fields():
-    actual_field_names = OrderedDict(Checkpoint.schema).keys()
+    actual_field_names = OrderedDict(CatchupReq.schema).keys()
     assert actual_field_names == EXPECTED_ORDERED_FIELDS.keys()
 
 
 def test_has_expected_validators():
-    schema = dict(Checkpoint.schema)
+    schema = dict(CatchupReq.schema)
     for field, validator in EXPECTED_ORDERED_FIELDS.items():
         assert isinstance(schema[field], validator)

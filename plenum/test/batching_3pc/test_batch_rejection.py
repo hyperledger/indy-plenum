@@ -19,7 +19,7 @@ def setup(tconf, looper, txnPoolNodeSet, client, wallet1):
     reqs = sendRandomRequests(wallet1, client, tconf.Max3PCBatchSize)
     waitForSufficientRepliesForRequests(looper, client, requests=reqs,
                                         customTimeoutPerReq=tconf.Max3PCBatchWait)
-    stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, toHex=False)
+    stateRoot = pr.stateRootHash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr.create3PCBatch
     malignedOnce = None
@@ -43,7 +43,7 @@ def reverted(setup, looper):
 
     def chkStateRoot(root):
         for r in [pr]+otherR:
-            r.stateRootHash(DOMAIN_LEDGER_ID, toHex=False) == root
+            r.stateRootHash(DOMAIN_LEDGER_ID, to_str=False) == root
 
     looper.run(eventually(chkStateRoot, oldStateRoot))
 

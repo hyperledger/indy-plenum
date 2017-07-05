@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import base58
+import re
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,8 @@ class FieldValidator(metaclass=ABCMeta):
     """"
     Interface for field validators
     """
+
+    optional = False
 
     @abstractmethod
     def validate(self, val):
@@ -90,6 +93,22 @@ class NonEmptyStringField(FieldBase):
             return 'empty string'
 
 
+class LimitedLengthStringField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, max_length: int, **kwargs):
+        assert max_length > 0, 'should be greater than 0'
+        super().__init__(**kwargs)
+        self._max_length = max_length
+
+    def _specific_validation(self, val):
+        if not val:
+            return 'empty string'
+        if len(val) > self._max_length:
+            val = val[:100] + ('...' if len(val) > 100 else '')
+            return '{} is longer than {} symbols'.format(val, self._max_length)
+
+
 class SignatureField(FieldBase):
     _base_types = (str, type(None))
     # TODO do nothing because EmptySignature should be raised somehow
@@ -148,7 +167,8 @@ class IterableField(FieldBase):
 class MapField(FieldBase):
     _base_types = (dict, )
 
-    def __init__(self, key_field: FieldBase, value_field: FieldBase,
+    def __init__(self, key_field: FieldValidator,
+                 value_field: FieldValidator,
                  **kwargs):
         super().__init__(**kwargs)
         self._key_field = key_field
@@ -220,11 +240,11 @@ class Base58Field(FieldBase):
         if invalid_chars:
             # only 10 chars to shorten the output
             to_print = sorted(invalid_chars)[:10]
-            return 'should not contains the following chars {}{}' \
+            return 'should not contain the following chars {}{}' \
                 .format(to_print,
                         ' (truncated)' if len(to_print) < len(invalid_chars) else '')
         if self.byte_lengths is not None:
-            # TODO could impact performace, need to check 
+            # TODO could impact performace, need to check
             b58len = len(base58.b58decode(val))
             if b58len not in self.byte_lengths:
                 return 'b58 decoded value length {} should be one of {}' \
@@ -291,10 +311,11 @@ class TieAmongField(FieldBase):
             return ts_error
 
 
+# TODO: think about making it a subclass of Base58Field
 class VerkeyField(FieldBase):
     _base_types = (str, )
     _b58abbreviated = Base58Field(byte_lengths=(16,))
-    _b58full = Base58Field(byte_lengths=(32,) )
+    _b58full = Base58Field(byte_lengths=(32,))
 
     def _specific_validation(self, val):
         if val.startswith('~'):
@@ -359,3 +380,82 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class VersionField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, components_number=(3,), **kwargs):
+        super().__init__(**kwargs)
+        self._comp_num = components_number
+
+    def _specific_validation(self, val):
+        parts = val.split(".")
+        if len(parts) not in self._comp_num:
+            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+        for p in parts:
+            if not p.isdigit():
+                return "version component should contain only digits"
+        return None
+
+
+class TxnSeqNoField(FieldBase):
+
+    _base_types = (int,)
+
+    def _specific_validation(self, val):
+        if val < 1:
+            return 'cannot be smaller than 1'
+
+
+class Sha256HexField(FieldBase):
+    """
+    Validates a sha-256 hash specified in hex
+    """
+    _base_types = (str,)
+    regex = re.compile('^[A-Fa-f0-9]{64}$')
+
+    def _specific_validation(self, val):
+        if self.regex.match(val) is None:
+            return 'not a valid hash (needs to be in hex too)'
+
+
+class AnyValueField(FieldBase):
+    """
+    Stub field validator
+    """
+    _base_types = None
+
+    def _specific_validation(self, val):
+        pass
+
+
+class StringifiedNonNegativeNumberField(NonNegativeNumberField):
+    """
+    This validator is needed because of json limitations: in some cases 
+    numbers being converted to strings.
+    """
+    # TODO: Probably this should be solved another way
+
+    _base_types = (str, int)
+    _num_validator = NonNegativeNumberField()
+
+    def _specific_validation(self, val):
+        try:
+            return self._num_validator.validate(int(val))
+        except ValueError:
+            return "stringified int expected, but was '{}'"\
+                .format(val)
+
+
+class LedgerInfoField(FieldBase):
+    _base_types = (list, tuple)
+    _ledger_id_class = LedgerIdField
+
+    def _specific_validation(self, val):
+        assert len(val) == 3
+        ledgerId, ledgerLength, merkleRoot = val
+        for validator, value in ((self._ledger_id_class().validate, ledgerId),
+                                 (NonNegativeNumberField().validate, ledgerLength),
+                                 (MerkleRootField().validate, merkleRoot)):
+            err = validator(value)
+            if err:
+                return err

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.types import Primary, Nomination, Reelection
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.test.delayers import delay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import checkNodesConnected, \
@@ -55,7 +55,7 @@ def elections_done(case_6_setup, looper, keySharedNodes):
         assert B.replicas[i].name not in A.elector.primaryDeclarations[i]
 
 
-@pytest.mark.skip(reason='INDY-13, is going to be outdated after the ticket is done')
+@pytest.mark.skip('Nodes use round robin primary selection')
 def test_primary_election_case6(elections_done, looper, client1, wallet1):
     """
     A is disconnected with B so A does not get any Nomination/Primary from

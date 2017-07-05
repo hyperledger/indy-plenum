@@ -1,9 +1,8 @@
 import random
 from typing import Iterable
 
-from plenum.common.types import f, Propagate, PrePrepare, \
-    Prepare, Commit, InstanceChange, LedgerStatus, ConsistencyProof, CatchupReq, \
-    Nomination, CatchupRep, Primary, Reelection
+from plenum.common.types import f
+from plenum.common.messages.node_messages import *
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.util import getCallableName
 from plenum.test.test_client import TestClient
@@ -41,6 +40,7 @@ def delayerMsgTuple(seconds, opType, senderFilter=None, instFilter: int = None):
                               getattr(msg, f.INST_ID.nm) == instFilter)):
             return seconds
 
+    inner.__name__ = opType.__name__
     return inner
 
 
@@ -79,6 +79,11 @@ def rel_delay(delay: float, inst_id=None, sender_filter: str=None):
     return delayerMsgTuple(delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
+def vcdDelay(delay: float):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, ViewChangeDone)
+
+
 def ppgDelay(delay: float, sender_filter: str=None):
     # Delayer of PROPAGATE requests
     return delayerMsgTuple(delay, Propagate, senderFilter=sender_filter)
@@ -86,7 +91,8 @@ def ppgDelay(delay: float, sender_filter: str=None):
 
 def ppDelay(delay: float, instId: int=None, sender_filter: str=None):
     # Delayer of PRE-PREPARE requests from a particular instance
-    return delayerMsgTuple(delay, PrePrepare, instFilter=instId, senderFilter=sender_filter)
+    return delayerMsgTuple(delay, PrePrepare, instFilter=instId,
+                           senderFilter=sender_filter)
 
 
 def pDelay(delay: float, instId: int=None, sender_filter: str=None):
@@ -102,6 +108,11 @@ def cDelay(delay: float, instId: int=None, sender_filter: str=None):
 def icDelay(delay: float):
     # Delayer of INSTANCE-CHANGE requests
     return delayerMsgTuple(delay, InstanceChange)
+
+
+def vcd_delay(delay: float):
+    # Delayer of VIEW_CHANGE_DONE requests
+    return delayerMsgTuple(delay, ViewChangeDone)
 
 
 def lsDelay(delay: float):
@@ -185,3 +196,8 @@ def delay_3pc_messages(nodes, inst_id, delay=None, min_delay=None,
                        max_delay=None):
     # Delay 3 phase commit message
     delay_messages('3pc', nodes, inst_id, delay, min_delay, max_delay)
+
+
+def reset_delays_and_process_delayeds(nodes):
+    for node in nodes:
+        node.reset_delays_and_process_delayeds()

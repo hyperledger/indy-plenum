@@ -1,6 +1,7 @@
 import os
 from importlib import import_module
 from importlib.util import module_from_spec, spec_from_file_location
+from stp_core.common.config.util import getConfig as STPConfig
 
 
 CONFIG = None
@@ -35,7 +36,10 @@ def getConfig(homeDir=None):
     """
     global CONFIG
     if not CONFIG:
-        refConfig = import_module("plenum.config")
+        stp_config = STPConfig(homeDir)
+        plenum_config = import_module("plenum.config")
+        refConfig = stp_config
+        refConfig.__dict__.update(plenum_config.__dict__)
         try:
             homeDir = os.path.expanduser(homeDir or "~")
 

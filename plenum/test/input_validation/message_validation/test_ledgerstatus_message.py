@@ -3,11 +3,13 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     LedgerIdField, MerkleRootField
-from plenum.common.types import LedgerStatus
+from plenum.common.messages.node_messages import LedgerStatus
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),
     ("txnSeqNo", NonNegativeNumberField),
+    ("viewNo", NonNegativeNumberField),
+    ("ppSeqNo", NonNegativeNumberField),
     ("merkleRoot", MerkleRootField),
 ])
 
