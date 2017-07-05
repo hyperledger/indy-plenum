@@ -2221,12 +2221,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                      .format(self, msg, recipientsNum, remoteNames))
         self.nodestack.send(msg, *rids, signer=signer)
 
-    def getReplyFromLedger(self, ledger, request, seqNo=None):
+    def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seqNo = seqNo if seqNo else self.seqNoDB.get(request.identifier, request.reqId)
-        if seqNo:
-            txn = ledger.getBySeqNo(int(seqNo))
+        seq_no = seq_no if seq_no else self.seqNoDB.get(request.identifier, request.reqId)
+        if seq_no:
+            txn = ledger.getBySeqNo(int(seq_no))
             if txn:
                 txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
                 txn = self.update_txn_with_extra_data(txn)
@@ -2324,7 +2324,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        tnx = self.getReplyFromLedger(ledger, request, request.operation[DATA])
+        tnx = self.getReplyFromLedger(ledger=ledger, seq_no=request.operation[DATA])
 
         result = {
             f.IDENTIFIER.nm: request.identifier,
