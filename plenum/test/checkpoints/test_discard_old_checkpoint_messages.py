@@ -1,5 +1,5 @@
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Checkpoint
+from plenum.common.messages.node_messages import Checkpoint
 from plenum.test.checkpoints.helper import chkChkpoints
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     checkDiscardMsg

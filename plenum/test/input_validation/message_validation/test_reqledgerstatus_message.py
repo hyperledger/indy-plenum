@@ -2,7 +2,7 @@ import pytest
 
 from collections import OrderedDict
 from plenum.common.messages.fields import LedgerIdField
-from plenum.common.types import ReqLedgerStatus
+from plenum.common.messages.node_messages import ReqLedgerStatus
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ledgerId", LedgerIdField),

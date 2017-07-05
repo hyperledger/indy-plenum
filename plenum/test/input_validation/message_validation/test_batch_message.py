@@ -3,7 +3,7 @@ import pytest
 from collections import OrderedDict
 from plenum.common.messages.fields import IterableField, \
     SignatureField
-from plenum.common.types import Batch
+from plenum.common.messages.node_messages import Batch
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("messages", IterableField),

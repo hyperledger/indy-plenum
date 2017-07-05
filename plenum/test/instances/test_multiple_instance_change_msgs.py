@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.types import InstanceChange
+from plenum.common.messages.node_messages import InstanceChange
 from plenum.server.node import Node
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions

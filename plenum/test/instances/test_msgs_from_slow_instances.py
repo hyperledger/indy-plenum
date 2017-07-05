@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Commit
+from plenum.common.messages.node_messages import Commit
 from plenum.server.replica import Replica
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.test_node import TestNode

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.types import Primary, Nomination, Reelection
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary
 from plenum.test.delayers import delay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import checkNodesConnected, \

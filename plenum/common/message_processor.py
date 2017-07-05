@@ -2,7 +2,6 @@ import logging
 from typing import Dict
 
 from plenum.common.request import Request
-from plenum.common.types import TaggedTupleBase
 from stp_core.crypto.signer import Signer
 
 
@@ -37,9 +36,7 @@ class MessageProcessor:
             for transmission
         """
 
-        if isinstance(msg, TaggedTupleBase):
-            tmsg = msg.melted()
-        elif isinstance(msg, Request):
+        if isinstance(msg, Request):
             tmsg = msg.as_dict
         elif hasattr(msg, "_asdict"):
             tmsg = dict(msg._asdict())
