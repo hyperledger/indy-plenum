@@ -3,6 +3,7 @@ from importlib import import_module
 
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.exceptions import MissingNodeOp, InvalidNodeOp
+from plenum.common.messages.fields import IterableField, MapField
 from plenum.common.messages.message_base import MessageBase
 
 
@@ -77,10 +78,29 @@ class MessageFactory:
         for cls in self.__classes.values():
             new_schema = []
             for name, field in cls.schema:
-                if isinstance(field, old_field_type):
-                    field = new_field_type()
+                field = self._transform_field(field, old_field_type, new_field_type)
                 new_schema.append((name, field))
             cls.schema = tuple(new_schema)
+
+    def _transform_field(self, field, old_field_type, new_field_type):
+        if isinstance(field, old_field_type):
+            return new_field_type()
+        elif self.__is_iterable_and_contains_type(field, old_field_type):
+            return IterableField(new_field_type())
+        elif isinstance(field, MapField):
+            key = field.key_field
+            val = field.value_field
+            if isinstance(field.key_field, old_field_type):
+                key = new_field_type()
+            if isinstance(field.value_field, old_field_type):
+                val = new_field_type()
+            return MapField(key, val)
+        return field
+
+    @staticmethod
+    def __is_iterable_and_contains_type(field, field_type):
+        return isinstance(field, IterableField) and \
+            isinstance(field.inner_field_type, field_type)
 
 
 class NodeMessageFactory(MessageFactory):
