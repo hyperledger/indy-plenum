@@ -1,5 +1,5 @@
 from plenum.common.messages.fields import NonNegativeNumberField, NonEmptyStringField, AnyValueField, IterableField, \
-    MapField
+    MapField, HexField, BooleanField
 from plenum.common.messages.message_base import MessageBase
 
 
@@ -23,7 +23,7 @@ class Message3(MessageBase):
     typename = 'Message3'
     schema = (
         ('a', NonNegativeNumberField()),
-        ('b', IterableField(AnyValueField())),
+        ('b', IterableField(BooleanField())),
     )
 
 
@@ -31,8 +31,9 @@ class Message4(MessageBase):
     typename = 'Message4'
     schema = (
         ('a', NonNegativeNumberField()),
-        ('b', MapField(AnyValueField(), AnyValueField())),
+        ('b', MapField(HexField(), HexField())),
     )
+
 
 class SomeNonMessageClass:
     typename = 'SomeNonMessageClass'
