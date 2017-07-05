@@ -252,6 +252,7 @@ class TestNodeCore(StackedTester):
                   Node.getReplyFromLedger,
                   Node.recordAndPropagate,
                   Node.allLedgersCaughtUp,
+                  Node.start_catchup,
                   Node.is_catchup_needed,
                   Node.no_more_catchups_needed,
                   Node.caught_up_for_current_view,

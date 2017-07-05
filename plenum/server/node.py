@@ -465,7 +465,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def is_synced(self):
-        return Mode.done_syncing(self.mode)
+        return Mode.is_done_syncing(self.mode)
 
     @property
     def isParticipating(self) -> bool:
@@ -834,7 +834,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # behind and it will not receive sufficient consistency proofs to
         # verify the exact state of the ledger.
         # if self.mode in (Mode.discovered, Mode.participating):
-        if Mode.done_discovering(self.mode):
+        if Mode.is_done_discovering(self.mode):
             self.sendDomainLedgerStatus(node_name)
 
     def newNodeJoined(self, txn):

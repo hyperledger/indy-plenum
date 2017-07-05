@@ -86,6 +86,8 @@ def ensure_view_change(looper, nodes, exclude_from_check=None,
     logger.debug('Checking view no for nodes {}'.format(nodes_to_check))
     looper.run(eventually(checkViewNoForNodes, nodes_to_check, old_view_no+1,
                           retryWait=1, timeout=timeout))
+
+    logger.debug('Patching back perf check for all nodes')
     for node in nodes:
         node.monitor.isMasterDegraded = old_meths[node.name]
     return old_view_no + 1
