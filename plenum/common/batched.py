@@ -2,10 +2,11 @@ from collections import deque
 from typing import Any, Iterable
 from typing import Dict
 
-from plenum.common.constants import BATCH
+from plenum.common.constants import BATCH, OP_FIELD_NAME
 from stp_core.crypto.signer import Signer
 from stp_core.common.log import getlogger
-from plenum.common.types import Batch, OP_FIELD_NAME, f
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Batch
 from plenum.common.message_processor import MessageProcessor
 
 logger = getlogger()

@@ -5,8 +5,9 @@ from functools import partial
 import time
 
 import plenum.common.error
-from plenum.common.types import Propagate, PrePrepare, Prepare, ThreePhaseMsg, \
-    Commit, Reply, f
+from plenum.common.types import f
+
+from plenum.common.messages.node_messages import *
 from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
@@ -16,7 +17,7 @@ from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
-from plenum.test.delayers import ppDelay
+from plenum.test.delayers import ppDelay, cDelay
 
 logger = getlogger()
 
@@ -43,6 +44,10 @@ def changesRequest(node):
 
 def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
+
+
+def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+    node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
 
 
 # Could have this method directly take a replica rather than a node and an

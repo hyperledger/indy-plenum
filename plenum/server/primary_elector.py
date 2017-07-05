@@ -3,15 +3,15 @@ import random
 import time
 from collections import Counter, deque
 from functools import partial
-from typing import Sequence, Any, Union, List
+from typing import Sequence, Any, Union, List, Iterable
 
-from plenum.common.types import Nomination, Reelection, Primary, f
-from plenum.common.util import mostCommonElement, get_strong_quorum
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Nomination, Reelection, Primary
+from plenum.common.util import mostCommonElement
 from stp_core.common.log import getlogger
 from plenum.server import replica
 from plenum.server.primary_decider import PrimaryDecider
-from plenum.server.router import Router
-
+from plenum.server.router import Router, Route
 
 logger = getlogger()
 
@@ -34,10 +34,6 @@ class PrimaryElector(PrimaryDecider):
 
     def __init__(self, node):
         super().__init__(node)
-
-        # TODO: How does primary decider ensure that a node does not have a
-        # primary while its catching up
-        self.node = node
 
         # Flag variable which indicates which replica has nominated for itself
         self.replicaNominatedForItself = None
@@ -74,10 +70,13 @@ class PrimaryElector(PrimaryDecider):
         # elections, the elector will set it before doing triggering new
         # election and will reset it after primary is decided for master
         # instance
-        self.previous_master_primary = None
+        # self.previous_master_primary = None
 
-    def __repr__(self):
-        return "{}".format(self.name)
+    @property
+    def routes(self) -> Iterable[Route]:
+        return [(Nomination, self.processNominate),
+                (Primary, self.processPrimary),
+                (Reelection, self.processReelection)]
 
     @property
     def hasPrimaryReplica(self) -> bool:
@@ -86,9 +85,9 @@ class PrimaryElector(PrimaryDecider):
         """
         return any([r.isPrimary for r in self.replicas])
 
-    @property
-    def was_master_primary_in_prev_view(self):
-        return self.previous_master_primary == self.name
+    # @property
+    # def was_master_primary_in_prev_view(self):
+    #     return self.previous_master_primary == self.name
 
     def setDefaults(self, instId: int):
         """
@@ -111,31 +110,6 @@ class PrimaryElector(PrimaryDecider):
         if instId not in self.nominations:
             self.setDefaults(instId)
 
-    def filterMsgs(self, wrappedMsgs: deque) -> deque:
-        """
-        Filters messages by view number so that only the messages that have the
-        current view number are retained.
-
-        :param wrappedMsgs: the messages to filter
-        """
-        filtered = deque()
-        while wrappedMsgs:
-            wrappedMsg = wrappedMsgs.popleft()
-            msg, sender = wrappedMsg
-            if hasattr(msg, f.VIEW_NO.nm):
-                reqViewNo = getattr(msg, f.VIEW_NO.nm)
-                if reqViewNo == self.viewNo:
-                    filtered.append(wrappedMsg)
-                else:
-                    self.discard(wrappedMsg,
-                                 "its view no {} is less than the elector's {}"
-                                 .format(reqViewNo, self.viewNo),
-                                 logger.debug)
-            else:
-                filtered.append(wrappedMsg)
-
-        return filtered
-
     def didReplicaNominate(self, instId: int):
         """
         Return whether this replica nominated a candidate for election
@@ -154,24 +128,8 @@ class PrimaryElector(PrimaryDecider):
         return instId in self.primaryDeclarations and \
             self.replicas[instId].name in self.primaryDeclarations[instId]
 
-    async def serviceQueues(self, limit=None):
-        """
-        Service at most `limit` messages from the inBox.
-
-        :param limit: the maximum number of messages to service
-        :return: the number of messages successfully processed
-        """
-        return await self.inBoxRouter.handleAll(self.filterMsgs(self.inBox),
-                                                limit)
-
-    @property
-    def quorum(self) -> int:
-        r"""
-        Return the quorum of this RBFT system. Equal to :math:`2f + 1`.
-        """
-        return get_strong_quorum(f=self.f)
-
-    def decidePrimaries(self):  # overridden method of PrimaryDecider
+    # overridden method of PrimaryDecider
+    def decidePrimaries(self):
         self.scheduleElection()
 
     def scheduleElection(self):
@@ -191,9 +149,9 @@ class PrimaryElector(PrimaryDecider):
 
         self.nominateItself()
 
-    def start_election_for_instance(self, inst_id):
-        # Called when starting election for a particular protocol instance
-        self.prepareReplicaForElection(self.replicas[inst_id])
+    # overridden method of PrimaryDecider
+    def start_election_for_instance(self, instance_id):
+        self.prepareReplicaForElection(self.replicas[instance_id])
         self._schedule(self.nominateItself, random.random())
 
     def nominateItself(self):
@@ -246,11 +204,11 @@ class PrimaryElector(PrimaryDecider):
         replica = self.replicas[instId]
         if not self.didReplicaNominate(instId):
             self.nominations[instId][replica.name] = (replica.name,
-                                                      replica.lastOrderedPPSeqNo)
+                                                      replica.last_ordered_3pc[1])
             logger.info("{} nominating itself for instance {}".
                         format(replica, instId),
                         extra={"cli": "PLAIN", "tags": ["node-nomination"]})
-            self.sendNomination(replica.name, instId, self.viewNo, replica.lastOrderedPPSeqNo)
+            self.sendNomination(replica.name, instId, self.viewNo, replica.last_ordered_3pc[1])
         else:
             logger.debug(
                 "{} already nominated, so hanging back".format(replica))
@@ -387,13 +345,11 @@ class PrimaryElector(PrimaryDecider):
         # which would be greater than or equal to f+1 would vote for the
         # same node
 
-        replica = self.replicas[inst_id]
-
-        if replica.isPrimary is not None:
-            logger.debug(
-                "{} Primary already selected; ignoring PRIMARY msg".format(
-                    replica))
-            return
+        if replica.hasPrimary:
+          logger.debug("{} Primary already selected; "
+                       "ignoring PRIMARY msg"
+                       .format(replica))
+          return
 
         if self.hasPrimaryQuorum(inst_id):
             if replica.isPrimary is None:
@@ -421,7 +377,7 @@ class PrimaryElector(PrimaryDecider):
                 if self.replicaNominatedForItself == inst_id:
                     self.replicaNominatedForItself = None
 
-                self.node.primary_found()
+                self.node.primary_selected()
 
                 self.scheduleElection()
             else:
@@ -729,16 +685,7 @@ class PrimaryElector(PrimaryDecider):
         return (time.perf_counter() - self.scheduledPrimaryDecisions[instId]) \
                > (1 * self.nodeCount)
 
-    def send(self, msg):
-        """
-        Send a message to the node on which this replica resides.
-
-        :param msg: the message to send
-        """
-        logger.debug("{}'s elector sending {}".format(self.name, msg))
-        self.outBox.append(msg)
-
-    def viewChanged(self, viewNo: int):
+    def view_change_started(self, viewNo: int):
         """
         Actions to perform when a view change occurs.
 
@@ -749,14 +696,7 @@ class PrimaryElector(PrimaryDecider):
 
         :param viewNo: the new view number.
         """
-        if viewNo > self.viewNo:
-            self.previous_master_primary = self.node.master_primary
-
-            self.viewNo = viewNo
-
-            for replica in self.replicas:
-                replica.primaryName = None
-
+        if super().view_change_started(viewNo):
             # Reset to defaults values for different data structures as new
             # elections would begin
             for r in self.replicas:
@@ -764,9 +704,25 @@ class PrimaryElector(PrimaryDecider):
             self.replicaNominatedForItself = None
 
             self.nominateRandomReplica()
-        else:
-            logger.warning("Provided view no {} is not greater than the "
-                           "current view no {}".format(viewNo, self.viewNo))
+
+        # if viewNo > self.viewNo:
+        #     self.previous_master_primary = self.node.master_primary
+        #
+        #     self.viewNo = viewNo
+        #
+        #     for replica in self.replicas:
+        #         replica.primaryName = None
+        #
+        #     # Reset to defaults values for different data structures as new
+        #     # elections would begin
+        #     for r in self.replicas:
+        #         self.setDefaults(r.instId)
+        #     self.replicaNominatedForItself = None
+        #
+        #     self.nominateRandomReplica()
+        # else:
+        #     logger.warning("Provided view no {} is not greater than the "
+        #                    "current view no {}".format(viewNo, self.viewNo))
 
     def getElectionMsgsForInstance(self, instId: int) -> \
             Sequence[Union[Nomination, Primary]]:
@@ -779,7 +735,7 @@ class PrimaryElector(PrimaryDecider):
         # primary declaration for the selected primary
         if replica.isPrimary is not None:
             msgs.append(Primary(replica.primaryName, instId, self.viewNo,
-                                replica.lastOrderedPPSeqNo))
+                                replica.last_ordered_3pc[1]))
         else:
             # If a primary for this instance has not been selected then send
             # nomination and primary declaration that this node made for the
@@ -792,8 +748,7 @@ class PrimaryElector(PrimaryDecider):
                 msgs.append(Primary(nm, instId, self.viewNo, seqNo))
         return msgs
 
-    def getElectionMsgsForLaggedNodes(self) -> \
-            List[Union[Nomination, Primary]]:
+    def get_msgs_for_lagged_nodes(self) -> List[Union[Nomination, Primary]]:
         """
         Get nomination and primary messages for instance with id `instId` that
         need to be sent to a node which has lagged behind (for example, a newly

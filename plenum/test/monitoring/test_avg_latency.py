@@ -1,4 +1,3 @@
-from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
 from plenum.server.node import Node

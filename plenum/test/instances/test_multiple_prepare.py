@@ -3,8 +3,8 @@ from functools import partial
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Prepare
-from plenum.common.util import adict
+from plenum.common.messages.node_messages import Prepare
+from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions, whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \

@@ -58,11 +58,12 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-dev==0.2.28', 'stp-dev==0.1.57',
-                      'state-trie-dev==0.1.15', 'jsonpickle',
+    install_requires=['ledger-dev==0.3.48', 'stp-dev==0.2.40',
+                      'state-trie-dev==0.2.3', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
-                      'sortedcontainers==1.5.7', 'psutil', 'pip'],
+                      'sortedcontainers==1.5.7', 'psutil', 'pip',
+                      'intervaltree'],
     extras_require={
         'stats': ['python-firebase']
     },
