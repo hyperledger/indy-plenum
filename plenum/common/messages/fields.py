@@ -380,6 +380,23 @@ class SerializedValueField(FieldBase):
             return 'empty serialized value'
 
 
+class VersionField(FieldBase):
+    _base_types = (str,)
+
+    def __init__(self, components_number=(3,), **kwargs):
+        super().__init__(**kwargs)
+        self._comp_num = components_number
+
+    def _specific_validation(self, val):
+        parts = val.split(".")
+        if len(parts) not in self._comp_num:
+            return "version consists of {} components, but it should contain {}".format(len(parts), self._comp_num)
+        for p in parts:
+            if not p.isdigit():
+                return "version component should contain only digits"
+        return None
+
+
 class TxnSeqNoField(FieldBase):
 
     _base_types = (int,)
