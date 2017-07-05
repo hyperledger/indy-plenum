@@ -1,6 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.types import ViewChangeDone
+from plenum.common.messages.node_messages import ViewChangeDone
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider

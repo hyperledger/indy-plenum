@@ -6,7 +6,8 @@ import pytest as pytest
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.request import ReqDigest
-from plenum.common.types import PrePrepare, f
+from plenum.common.types import f
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import compareNamedTuple
 from plenum.server.suspicion_codes import Suspicions
