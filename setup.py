@@ -58,8 +58,8 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger==0.2.15', 'stp==0.1.11',
-                      'state-trie==0.1.1', 'jsonpickle',
+    install_requires=['ledger==0.2.16', 'stp==0.1.12',
+                      'state-trie==0.1.3', 'jsonpickle',
                       'prompt_toolkit==0.57', 'pygments',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip'],
