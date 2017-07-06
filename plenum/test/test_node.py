@@ -226,8 +226,7 @@ class TestNodeCore(StackedTester):
                                         self.states[DOMAIN_LEDGER_ID],
                                         self.reqProcessors)
 
-
-@spyable(methods=[Node.handleOneNodeMsg,
+node_spyables = [Node.handleOneNodeMsg,
                   Node.handleInvalidClientMsg,
                   Node.processRequest,
                   Node.processOrdered,
@@ -258,7 +257,10 @@ class TestNodeCore(StackedTester):
                   Node._check_view_change_completed,
                   Node.primary_selected,
                   Node.num_txns_caught_up_in_last_catchup
-                  ])
+                  ]
+
+
+@spyable(methods=node_spyables)
 class TestNode(TestNodeCore, Node):
 
     def __init__(self, *args, **kwargs):
@@ -287,11 +289,14 @@ class TestNode(TestNodeCore, Node):
                                  preCatchupClbk=self.preLedgerCatchUp)
 
 
-@spyable(methods=[
+elector_spyables = [
         PrimaryElector.discard,
         PrimaryElector.processPrimary,
         PrimaryElector.sendPrimary
-    ])
+    ]
+
+
+@spyable(methods=elector_spyables)
 class TestPrimaryElector(PrimaryElector):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -304,28 +309,33 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-@spyable(methods=[
-        PrimarySelector.decidePrimaries
-    ])
+selector_spyables = [PrimarySelector.decidePrimaries]
+
+
+@spyable(methods=selector_spyables)
 class TestPrimarySelector(PrimarySelector):
     pass
 
 
-@spyable(methods=[replica.Replica.sendPrePrepare,
-                  replica.Replica.canProcessPrePrepare,
-                  replica.Replica.canPrepare,
-                  replica.Replica.validatePrepare,
-                  replica.Replica.addToPrePrepares,
-                  replica.Replica.processPrePrepare,
-                  replica.Replica.processPrepare,
-                  replica.Replica.processCommit,
-                  replica.Replica.doPrepare,
-                  replica.Replica.doOrder,
-                  replica.Replica.discard,
-                  replica.Replica.stashOutsideWatermarks,
-                  replica.Replica.revert_unordered_batches,
-                  replica.Replica.can_process_since_view_change_in_progress
-                  ])
+replica_spyables = [
+    replica.Replica.sendPrePrepare,
+    replica.Replica.canProcessPrePrepare,
+    replica.Replica.canPrepare,
+    replica.Replica.validatePrepare,
+    replica.Replica.addToPrePrepares,
+    replica.Replica.processPrePrepare,
+    replica.Replica.processPrepare,
+    replica.Replica.processCommit,
+    replica.Replica.doPrepare,
+    replica.Replica.doOrder,
+    replica.Replica.discard,
+    replica.Replica.stashOutsideWatermarks,
+    replica.Replica.revert_unordered_batches,
+    replica.Replica.can_process_since_view_change_in_progress
+                    ]
+
+
+@spyable(methods=replica_spyables)
 class TestReplica(replica.Replica):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -470,11 +480,15 @@ class TestNodeSet(ExitStack):
         return getAllMsgReceivedForNode(self.getNode(node), method)
 
 
-@spyable(methods=[Monitor.isMasterThroughputTooLow,
-                  Monitor.isMasterReqLatencyTooHigh,
-                  Monitor.sendThroughput,
-                  Monitor.requestOrdered,
-                  Monitor.reset])
+monitor_spyables = [Monitor.isMasterThroughputTooLow,
+                    Monitor.isMasterReqLatencyTooHigh,
+                    Monitor.sendThroughput,
+                    Monitor.requestOrdered,
+                    Monitor.reset
+                    ]
+
+
+@spyable(methods=monitor_spyables)
 class TestMonitor(Monitor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

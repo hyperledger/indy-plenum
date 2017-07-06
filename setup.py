@@ -65,7 +65,8 @@ setup(
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'intervaltree'],
     extras_require={
-        'stats': ['python-firebase']
+        'stats': ['python-firebase'],
+        'benchmark': ['pympler']
     },
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-xdist'],
