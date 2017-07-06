@@ -25,4 +25,4 @@ def test_view_change_in_between_3pc_all_nodes_random_delays_long_delay(txnPoolNo
                                              txnPoolNodeSet,
                                              wallet1, client,
                                              min_delay=5,
-                                             max_delay=50)
+                                             max_delay=30)
