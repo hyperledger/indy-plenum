@@ -26,7 +26,7 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
-from plenum.client.wallet import Wallet
+from plenum.client.wallet import Wallet, WalletStorageHelper
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
@@ -75,8 +75,8 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
-    getFriendlyIdentifier, saveGivenWallet, \
-    normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
+    getFriendlyIdentifier, \
+    normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
     getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
@@ -179,6 +179,9 @@ class Cli:
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
+
+        self._walletSaver = None
+
         '''
         examples:
         status
@@ -343,6 +346,16 @@ class Cli:
         else:
             self._config = getConfig()
             return self._config
+
+
+    @property
+    def walletSaver(self):
+        if self._walletSaver is None:
+            self._walletSaver = WalletStorageHelper(
+                    self.getKeyringsBaseDir(),
+                    dmode=self.config.KEYRING_DIR_MODE,
+                    fmode=self.config.KEYRING_FILE_MODE)
+        return self._walletSaver
 
     @property
     def allGrams(self):
@@ -1375,6 +1388,7 @@ class Cli:
 
     def _listKeyringsAction(self, matchedVars):
         if matchedVars.get('list_krs') == 'list keyrings':
+            # TODO move file system related routine to WalletStorageHelper
             keyringBaseDir = self.getKeyringsBaseDir()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             dirs_to_scan = self.getAllSubDirNamesForKeyrings()
@@ -1735,7 +1749,7 @@ class Cli:
 
     def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
-            wallet = getWalletByPath(walletFilePath)
+            wallet = self.walletSaver.loadWallet(walletFilePath)
 
             if copyAs:
                 wallet.name=copyAs
@@ -1838,6 +1852,7 @@ class Cli:
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
+        # TODO move that to WalletStorageHelper
         files = glob.glob(pattern)
         if files:
             return True
@@ -1871,8 +1886,9 @@ class Cli:
 
     def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
         try:
-            walletFilePath = saveGivenWallet(self._activeWallet,
-                                             self.walletFileName, contextDir)
+            walletFilePath = self.walletSaver.saveWallet(
+                self._activeWallet,
+                getWalletFilePath(contextDir, self.walletFileName))
             if printMsgs:
                 self.print('Active keyring "{}" saved'.format(
                     self._activeWallet.name), newline=False)

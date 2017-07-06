@@ -1,5 +1,4 @@
 from plenum.server.quorums import Quorums
-from stp_zmq.zstack import KITZStack
 
 from stp_core.common.log import getlogger
 from plenum.common.config_util import getConfig

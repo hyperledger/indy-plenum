@@ -5,6 +5,11 @@ from typing import Any, List, NamedTuple, Tuple, Optional, Iterable, Union, \
     Callable
 from typing import Dict
 
+try:
+    from plenum.test import NO_SPIES
+except ImportError:
+    pass
+
 from plenum.common.util import objSearchReplace
 from stp_core.common.log import getlogger
 
@@ -109,6 +114,14 @@ def spy(func, is_init, should_spy, spy_log=None):
 
 def spyable(name: str = None, methods: SpyableMethods = None, deep_level: int = None):
     def decorator(clas):
+
+        if 'NO_SPIES' in globals() and globals()['NO_SPIES']:
+            # Since spylog consumes resources, benchmarking tests need to be
+            # able to not have spyables, so they set a module global `NO_SPIES`,
+            #  it's their responsibility to unset it
+            logger.info('NOT USING SPIES ON METHODS AS THEY ARE EXPLICITLY DISABLED')
+            return clas
+
         nonlocal name
         name = name if name else "Spyable" + clas.__name__
 
