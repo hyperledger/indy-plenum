@@ -1741,7 +1741,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
 
-        reply = None
         if request.operation[TXN_TYPE] == GET_TXN:
             self.transmitToClient(RequestAck(*request.key), frm)
             reply = self.handleGetTnxReq(request, frm)
@@ -2607,9 +2606,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         if tnx:
-            data = json.loads(tnx.result[DATA])
-            data.update({ORIGIN: tnx.result[f.IDENTIFIER.nm]})
-            result[DATA] = data
+            result[DATA] = json.dumps(tnx.result)
             result[TXN_TYPE] = tnx.result[TXN_TYPE]
             result[f.SEQ_NO.nm] = tnx.result[f.SEQ_NO.nm]
 
