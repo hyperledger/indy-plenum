@@ -1741,8 +1741,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
 
-        reply = self.handleGetTnxReq(request, frm) if request.operation[TXN_TYPE] == GET_TXN \
-            else self.getReplyFromLedger(ledger, request)
+        reply = None
+        if request.operation[TXN_TYPE] == GET_TXN:
+            self.transmitToClient(RequestAck(*request.key), frm)
+            reply = self.handleGetTnxReq(request, frm)
+        else:
+            reply = self.getReplyFromLedger(ledger, request)
 
         if reply:
             logger.debug("{} returning REPLY from already processed "
@@ -2609,5 +2613,5 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             result[TXN_TYPE] = tnx.result[TXN_TYPE]
             result[f.SEQ_NO.nm] = tnx.result[f.SEQ_NO.nm]
 
-        return result
+        return Reply(result)
 
