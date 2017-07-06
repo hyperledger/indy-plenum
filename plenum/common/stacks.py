@@ -6,8 +6,7 @@ from plenum.common.config_util import getConfig
 from plenum.common.message_processor import MessageProcessor
 from stp_raet.rstack import SimpleRStack, KITRStack
 from stp_core.types import HA
-from stp_zmq.simple_zstack import SimpleZStack
-from stp_zmq.kit_zstack import KITZStack
+from stp_zmq.zstack import SimpleZStack, KITZStack
 
 
 class ClientZStack(SimpleZStack, MessageProcessor):
