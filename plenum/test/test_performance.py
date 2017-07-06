@@ -7,7 +7,7 @@ import math
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.perf_util import get_size
+from plenum.common.perf_util import get_size, get_collection_sizes
 from plenum.test.delayers import cr_delay
 from plenum.test.test_client import TestClient
 
@@ -53,6 +53,11 @@ def disable_node_monitor_config(tconf):
     return tconf
 
 
+@pytest.fixture(scope="module")
+def change_checkpoint_freq(tconf):
+    tconf.CHK_FREQ = 3
+
+
 @skipper
 def test_node_load(looper, txnPoolNodeSet, tconf,
                    tdirWithPoolTxns, allPluginsPath,
@@ -76,10 +81,12 @@ def test_node_load(looper, txnPoolNodeSet, tconf,
 
 
 # @skipper
-def test_node_load_consistent_time(disable_node_monitor_config, looper,
-                                   txnPoolNodeSet, tconf,
-                                   tdirWithPoolTxns, allPluginsPath,
-                                   poolTxnStewardData, capsys):
+def test_node_load_consistent_time(tconf, change_checkpoint_freq,
+                                   disable_node_monitor_config, looper,
+                                   txnPoolNodeSet, tdirWithPoolTxns,
+                                   allPluginsPath, poolTxnStewardData, capsys):
+
+    # One of the reason memory grows is because spylog grows
     client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
                                               tdirWithPoolTxns,
                                               clientClass=TestClient)
@@ -91,9 +98,7 @@ def test_node_load_consistent_time(disable_node_monitor_config, looper,
     time_log = []
     warm_up_batches = 10
     tolerance_factor = 2
-    import psutil
     from pympler import asizeof
-    p = psutil.Process()
     for i in range(client_batches):
         s = perf_counter()
         sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
@@ -103,15 +108,16 @@ def test_node_load_consistent_time(disable_node_monitor_config, looper,
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, t))
-            print(p.memory_info())
             for node in txnPoolNodeSet:
                 # print(sys.getsizeof(node))
                 print('---Node {}-----'.format(node))
                 print(asizeof.asizeof(node, detail=1))
-                print(asizeof.asizeof(node.requests, detail=1))
+                # print('Requests {}'.format(asizeof.asizeof(node.requests, detail=1)))
+                print(get_collection_sizes(node))
                 for r in node.replicas:
                     print('---Replica {}-----'.format(r))
                     print(asizeof.asizeof(r, detail=1))
+                    print(get_collection_sizes(r))
 
         if len(time_log) >= warm_up_batches:
             m = mean(time_log)

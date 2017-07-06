@@ -1,7 +1,10 @@
+from collections import abc
+from collections import deque
 from functools import wraps
 
 import sys
 import time
+from typing import Optional, Tuple
 
 
 def get_size(obj, seen=None):
@@ -38,3 +41,21 @@ def timeit(method):
         return result
 
     return timed
+
+
+def get_collection_sizes(obj, collections: Optional[Tuple]=None):
+    """
+    Iterates over `collections` of the gives object and gives its byte size
+    and number of items in collection
+    """
+    from pympler import asizeof
+    collections = collections or (list, dict, set, deque, abc.Sized)
+    if not isinstance(collections, tuple):
+        collections = tuple(collections)
+
+    result = []
+    for attr_name in dir(obj):
+        attr = getattr(obj, attr_name)
+        if isinstance(attr, collections):
+            result.append((attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
+    return result
