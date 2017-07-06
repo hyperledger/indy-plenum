@@ -176,7 +176,7 @@ MaxStateProofTime = 3
 
 
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
-CHK_FREQ = 10000
+CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3*CHK_FREQ

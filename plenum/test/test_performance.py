@@ -1,5 +1,4 @@
 import logging
-from pprint import pprint
 from statistics import pstdev, mean
 from time import perf_counter
 from types import MethodType
@@ -8,8 +7,7 @@ import math
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.perf_util import get_size, get_collection_sizes, \
-    get_memory_usage
+from plenum.common.perf_util import get_memory_usage
 from plenum.test.delayers import cr_delay
 from plenum.test.test_client import TestClient
 
@@ -82,7 +80,7 @@ def test_node_load(looper, txnPoolNodeSet, tconf,
                   format(i + 1, txns_per_batch, perf_counter() - s))
 
 
-# @skipper
+@skipper
 def test_node_load_consistent_time(tconf, change_checkpoint_freq,
                                    disable_node_monitor_config, looper,
                                    txnPoolNodeSet, tdirWithPoolTxns,
