@@ -506,23 +506,8 @@ def getWalletFilePath(basedir, walletFileName):
     return os.path.join(basedir, walletFileName)
 
 
-def saveGivenWallet(wallet, fileName, contextDir):
-    createDirIfNotExists(contextDir)
-    walletFilePath = getWalletFilePath(
-        contextDir, fileName)
-    with open(walletFilePath, "w+") as walletFile:
-        encodedWallet = encode(wallet, keys=True)
-        walletFile.write(encodedWallet)
-    return walletFilePath
-
-
-def getWalletByPath(walletFilePath):
-    with open(walletFilePath) as walletFile:
-        wallet = decode(walletFile.read(), keys=True)
-        return wallet
-
-
 def getLastSavedWalletFileName(dir):
+    # TODO move that to WalletStorageHelper
     def getLastModifiedTime(file):
         return os.stat(file).st_mtime_ns
 
