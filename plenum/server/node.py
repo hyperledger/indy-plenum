@@ -1746,10 +1746,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             reply = self.handleGetTnxReq(request, frm)
         else:
             reply = self.getReplyFromLedger(ledger, request)
+            if reply:
+                logger.debug("{} returning REPLY from already processed "
+                             "REQUEST: {}".format(self, request))
 
         if reply:
-            logger.debug("{} returning REPLY from already processed "
-                         "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
             if not self.isProcessingReq(*request.key):
