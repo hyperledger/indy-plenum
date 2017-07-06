@@ -1,4 +1,5 @@
 import logging
+from pprint import pprint
 from statistics import pstdev, mean
 from time import perf_counter
 from types import MethodType
@@ -7,7 +8,8 @@ import math
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
-from plenum.common.perf_util import get_size, get_collection_sizes
+from plenum.common.perf_util import get_size, get_collection_sizes, \
+    get_memory_usage
 from plenum.test.delayers import cr_delay
 from plenum.test.test_client import TestClient
 
@@ -108,16 +110,16 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, t))
+            print('--------Memory Usage details start')
             for node in txnPoolNodeSet:
                 # print(sys.getsizeof(node))
                 print('---Node {}-----'.format(node))
-                print(asizeof.asizeof(node, detail=1))
                 # print('Requests {}'.format(asizeof.asizeof(node.requests, detail=1)))
-                print(get_collection_sizes(node))
+                print(get_memory_usage(node, True, get_only_non_empty=True))
                 for r in node.replicas:
                     print('---Replica {}-----'.format(r))
-                    print(asizeof.asizeof(r, detail=1))
-                    print(get_collection_sizes(r))
+                    print(get_memory_usage(r, True, get_only_non_empty=True))
+            print('--------Memory Usage details end')
 
         if len(time_log) >= warm_up_batches:
             m = mean(time_log)

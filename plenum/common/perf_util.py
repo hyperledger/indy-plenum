@@ -43,7 +43,8 @@ def timeit(method):
     return timed
 
 
-def get_collection_sizes(obj, collections: Optional[Tuple]=None):
+def get_collection_sizes(obj, collections: Optional[Tuple]=None,
+                         get_only_non_empty=False):
     """
     Iterates over `collections` of the gives object and gives its byte size
     and number of items in collection
@@ -56,6 +57,17 @@ def get_collection_sizes(obj, collections: Optional[Tuple]=None):
     result = []
     for attr_name in dir(obj):
         attr = getattr(obj, attr_name)
-        if isinstance(attr, collections):
+        if isinstance(attr, collections) and (not get_only_non_empty or len(attr) > 0):
             result.append((attr_name, len(attr), asizeof.asizeof(attr, detail=1)))
+    return result
+
+
+def get_memory_usage(obj, get_collections_memory_usage=False,
+                     get_only_non_empty=False):
+    result = []
+    from pympler import asizeof
+    result.append(asizeof.asizeof(obj))
+    if get_collections_memory_usage:
+        result.append(get_collection_sizes(obj,
+                                           get_only_non_empty=get_only_non_empty))
     return result
