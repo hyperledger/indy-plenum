@@ -440,7 +440,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 break
 
         for (v, p), pr in self.preparesWaitingForPrePrepare.items():
-            if v == view_no and len(pr) >= 2*self.f:
+            if v == view_no and len(pr) >= self.quorums.prepare.value:
                 seq_no_p.add(p)
 
         for n in seq_no_pp:
@@ -1147,10 +1147,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         Decision criteria:
 
-        - If this replica has got just 2f PREPARE requests then commit request.
-        - If less than 2f PREPARE requests then probably there's no consensus on
+        - If this replica has got just n-f-1 PREPARE requests then commit request.
+        - If less than n-f-1 PREPARE requests then probably there's no consensus on
             the request; don't commit
-        - If more than 2f then already sent COMMIT; don't commit
+        - If more than n-f-1 then already sent COMMIT; don't commit
 
         :param prepare: the PREPARE
         """
@@ -1206,10 +1206,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         Decision criteria:
 
-        - If have got just 2f+1 Commit requests then return request to node
-        - If less than 2f+1 of commit requests then probably don't have
+        - If have got just n-f Commit requests then return request to node
+        - If less than n-f of commit requests then probably don't have
             consensus on the request; don't return request to node
-        - If more than 2f+1 then already returned to node; don't return request
+        - If more than n-f then already returned to node; don't return request
             to node
 
         :param commit: the COMMIT
@@ -1451,7 +1451,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
-        if len(ckState.receivedDigests) == 2 * self.f:
+        if len(ckState.receivedDigests) == self.quorums.checkpoint.value:
             self.markCheckPointStable(ckState.seqNo)
             return True
         else:

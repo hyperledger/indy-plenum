@@ -86,7 +86,7 @@ class PrimarySelector(PrimaryDecider):
                                       msg: ViewChangeDone,
                                       sender: str) -> bool:
         """
-        Processes ViewChangeDone messages. Once 2f + 1 messages have been 
+        Processes ViewChangeDone messages. Once n-f messages have been
         received, decides on a primary for specific replica. 
 
         :param msg: ViewChangeDone message
@@ -175,7 +175,7 @@ class PrimarySelector(PrimaryDecider):
     def _hasViewChangeQuorum(self):
         # This method should just be present for master instance.
         """
-        Checks whether 2f+1 nodes completed view change and whether one 
+        Checks whether n-f nodes completed view change and whether one
         of them is the next primary
         """
         num_of_ready_nodes = len(self._view_change_done)

@@ -4,9 +4,11 @@ from itertools import product
 import pytest
 
 from plenum.common.util import getNoInstances
+from plenum.test.batching_3pc.helper import send_and_check
 from stp_core.common.util import adict
 from plenum.test import waits
-from plenum.test.helper import checkRequestReturnedToNode, checkRequestNotReturnedToNode
+from plenum.test.helper import checkRequestReturnedToNode, checkRequestNotReturnedToNode, signed_random_requests, \
+    check_request_is_not_returned_to_nodes
 from plenum.test.node_request.node_request_helper import checkCommitted
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
     delaysPrePrepareProcessing, \
@@ -39,26 +41,13 @@ def afterElection(setup, up):
             assert not r.isPrimary
 
 
-def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
-    instances = range(getNoInstances(len(nodeSet)))
-    coros = []
-    for node, inst_id in product(nodeSet, instances):
-        c = partial(checkRequestNotReturnedToNode,
-                    node=node,
-                    identifier=request.identifier,
-                    reqId=request.reqId,
-                    instId=inst_id
-                    )
-        coros.append(c)
-    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
-    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
-
-
 def test_6_nodes_pool_cannot_reach_quorum_with_2_faulty(afterElection, looper,
                                                         nodeSet, prepared1,
-                                                        noRetryReq):
-
-    check_request_is_not_returned_to_nodes(looper, nodeSet, prepared1)
+                                                        wallet1, client1):
+    reqs = signed_random_requests(wallet1, 1)
+    with pytest.raises(AssertionError):
+        send_and_check(reqs, looper, nodeSet, client1)
+    check_request_is_not_returned_to_nodes(looper, nodeSet, reqs[0])
 
 
 

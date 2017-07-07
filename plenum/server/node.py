@@ -2094,7 +2094,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         pop_keys(self.msgsForFutureViews, lambda x: x <= self.viewNo)
         self.initInsChngThrottling()
         self.logNodeInfo()
-        # Keep on doing catchup until >2f nodes LedgerStatus same on have a
+        # Keep on doing catchup until >(n-f) nodes LedgerStatus same on have a
         # prepared certificate the first PRE-PREPARE of the new view
         logger.info('{} changed to view {}, will start catchup now'.
                     format(self, self.viewNo))
