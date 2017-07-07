@@ -44,6 +44,13 @@ class ClientNYMOperation(MessageValidator):
     schema_is_strict = False
 
 
+class ClientGetTxnOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_TXN)),
+        (DATA, TxnSeqNoField()),
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -51,6 +58,7 @@ class ClientOperationField(MessageValidator):
         self.operations = {
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
+            GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
         }
         super().__init__(*args, **kwargs)
 
