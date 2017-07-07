@@ -8,7 +8,8 @@ from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 def ensure_pool_functional(looper, nodes, wallet, client, num_reqs=10,
                            num_batches=2):
-    send_reqs_batches_and_get_suff_replies(looper, wallet, client, 10, 2)
+    send_reqs_batches_and_get_suff_replies(looper, wallet, client, num_reqs,
+                                           num_batches)
     ensure_all_nodes_have_same_data(looper, nodes)
 
 

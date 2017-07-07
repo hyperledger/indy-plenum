@@ -59,15 +59,9 @@ class f:  # provides a namespace for reusable field constants
     TXNS = Field("txns", List[Any])
     TXN = Field("txn", Any)
     NODES = Field('nodes', Dict[str, HA])
-    POOL_LEDGER_STATUS = Field("poolLedgerStatus", Any)
-    DOMAIN_LEDGER_STATUS = Field("domainLedgerStatus", Any)
     CONS_PROOF = Field("consProof", Any)
-    POOL_CONS_PROOF = Field("poolConsProof", Any)
-    DOMAIN_CONS_PROOF = Field("domainConsProof", Any)
-    POOL_CATCHUP_REQ = Field("poolCatchupReq", Any)
-    DOMAIN_CATCHUP_REQ = Field("domainCatchupReq", Any)
-    POOL_CATCHUP_REP = Field("poolCatchupRep", Any)
-    DOMAIN_CATCHUP_REP = Field("domainCatchupRep", Any)
+    MSG_TYPE = Field("msg_type", str)
+    PARAMS = Field("params", dict)
 
 
 OPERATION = 'operation'

@@ -689,7 +689,9 @@ def checkDiscardMsg(processors, discardedMsg,
 def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):
-        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+        if 'reason' in entry.params and (
+                (isinstance(entry.params['reason'], str) and
+                         reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
             c += 1
     return c
 

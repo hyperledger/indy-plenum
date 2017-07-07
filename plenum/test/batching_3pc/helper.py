@@ -105,6 +105,7 @@ def start_precatchup_before_order(replica):
 
     replica.tryOrder = types.MethodType(tryOrderAndAddTxns, replica)
 
+
 def make_node_syncing(replica, three_phase_type: ThreePhaseType):
     added = False
 
