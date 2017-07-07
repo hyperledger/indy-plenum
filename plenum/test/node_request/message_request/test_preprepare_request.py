@@ -11,9 +11,8 @@ from stp_core.loop.eventually import eventually
 def count_requested_preprepare_resp(node):
     # Returns the number of times PRE-PREPARE was requested
     sr = node.master_replica
-    return sum([1 for v in
-                getAllReturnVals(sr, sr._request_pre_prepare_if_possible)
-                if v])
+    return len(getAllReturnVals(sr, sr._request_pre_prepare_if_possible,
+                                compare_val_to=True))
 
 
 def count_requested_preprepare_req(node):
