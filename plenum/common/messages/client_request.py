@@ -1,6 +1,5 @@
 from plenum.common.constants import *
 from plenum.common.messages.fields import *
-from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField, NonEmptyStringField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 
@@ -45,6 +44,13 @@ class ClientNYMOperation(MessageValidator):
     schema_is_strict = False
 
 
+class ClientGetTxnOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_TXN)),
+        (DATA, TxnSeqNoField()),
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -52,6 +58,7 @@ class ClientOperationField(MessageValidator):
         self.operations = {
             NODE: ClientNodeOperation(schema_is_strict=strict),
             NYM: ClientNYMOperation(schema_is_strict=strict),
+            GET_TXN: ClientGetTxnOperation(schema_is_strict=strict),
         }
         super().__init__(*args, **kwargs)
 

@@ -58,9 +58,8 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
                               delay_batches * Max3PCBatchSize)
 
     def is_catchup_needed_count():
-        return sum([1 for rv in getAllReturnVals(slow_node,
-                                                 slow_node.is_catchup_needed) if rv == True])
-
+        return len(getAllReturnVals(slow_node, slow_node.is_catchup_needed,
+                                    compare_val_to=True))
     old_lcu_count = slow_node.spylog.count(slow_node.allLedgersCaughtUp)
     old_cn_count = is_catchup_needed_count()
 

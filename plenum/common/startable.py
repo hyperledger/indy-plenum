@@ -57,9 +57,9 @@ class Mode(IntEnum):
     participating = 500   # caught up completely and chosen primary
 
     @classmethod
-    def done_discovering(cls, mode):
+    def is_done_discovering(cls, mode):
         return mode >= cls.discovered
 
     @classmethod
-    def done_syncing(cls, mode):
+    def is_done_syncing(cls, mode):
         return mode >= cls.synced

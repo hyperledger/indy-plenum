@@ -3,6 +3,9 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
 
 
+TestRunningTimeLimitSec = 300
+
+
 def test_view_change_in_between_3pc_all_nodes_random_delays(txnPoolNodeSet,
                                                             looper, wallet1,
                                                             client):
@@ -25,4 +28,4 @@ def test_view_change_in_between_3pc_all_nodes_random_delays_long_delay(txnPoolNo
                                              txnPoolNodeSet,
                                              wallet1, client,
                                              min_delay=5,
-                                             max_delay=50)
+                                             max_delay=30)

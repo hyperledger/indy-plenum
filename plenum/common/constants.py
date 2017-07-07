@@ -41,6 +41,8 @@ CONSISTENCY_PROOF = "CONSISTENCY_PROOF"
 CATCHUP_REQ = "CATCHUP_REQ"
 CATCHUP_REP = "CATCHUP_REP"
 CONS_PROOF_REQUEST = "CONS_PROOF_REQUEST"
+MESSAGE_REQUEST = 'MESSAGE_REQUEST'
+MESSAGE_RESPONSE = 'MESSAGE_RESPONSE'
 
 BLACKLIST = "BLACKLIST"
 
@@ -77,6 +79,7 @@ ROLE = 'role'
 NONCE = 'nonce'
 ATTRIBUTES = 'attributes'
 VERIFIABLE_ATTRIBUTES = 'verifiableAttributes'
+PREDICATES = 'predicates'
 TXN_TIME = 'txnTime'
 TXN_DATA = "txnData"
 LAST_TXN = "lastTxn"
@@ -91,6 +94,7 @@ TRUSTEE = Roles.TRUSTEE.value
 # TXNs
 NODE = PlenumTransactions.NODE.value
 NYM = PlenumTransactions.NYM.value
+GET_TXN = PlenumTransactions.GET_TXN.value
 
 POOL_TXN_TYPES = {NODE, }
 
