@@ -290,6 +290,38 @@ class ViewChangeDone(MessageBase):
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
     )
 
+
+"""
+The choice to do a generic 'request message' feature instead of a specific
+one was debated. It has some pros and some cons. We wrote up the analysis in
+http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
+lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
+"""
+class MessageReq(MessageBase):
+    """
+    Purpose: ask node for any message
+    """
+    typename = MESSAGE_REQUEST
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, AnyMapField())
+    )
+
+
+class MessageRep(MessageBase):
+    """
+    Purpose: respond to a node for any requested message
+    """
+    typename = MESSAGE_RESPONSE
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, AnyMapField()),
+        (f.MSG.nm, AnyField())
+    )
+
+
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)
 

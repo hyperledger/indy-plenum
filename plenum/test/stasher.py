@@ -93,6 +93,10 @@ class Stasher:
             for r in to_remove:
                 self.delayRules.remove(r)
 
+    def drop_delayeds(self):
+        # This will empty the stashed message queue
+        self.delayeds = []
+
     def force_unstash(self, *names):
         if not names:
             return self.unstashAll(0, ignore_age_check=True)

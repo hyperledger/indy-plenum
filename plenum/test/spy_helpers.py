@@ -36,5 +36,5 @@ def getAllReturnVals(obj: Any, method: SpyableMethod) -> List[Any]:
     return [m.result for m in obj.spylog.getAll(methodName)]
 
 
-def get_count(obj: Any, method: SpyableMethod) -> List[Any]:
+def get_count(obj: Any, method: SpyableMethod) -> int:
     return obj.spylog.count(method)

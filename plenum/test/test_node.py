@@ -251,12 +251,15 @@ node_spyables = [Node.handleOneNodeMsg,
                   Node.getReplyFromLedger,
                   Node.recordAndPropagate,
                   Node.allLedgersCaughtUp,
+                  Node.start_catchup,
                   Node.is_catchup_needed,
                   Node.no_more_catchups_needed,
                   Node.caught_up_for_current_view,
                   Node._check_view_change_completed,
                   Node.primary_selected,
-                  Node.num_txns_caught_up_in_last_catchup
+                  Node.num_txns_caught_up_in_last_catchup,
+                  Node.process_message_req,
+                  Node.process_message_rep
                   ]
 
 
@@ -331,8 +334,11 @@ replica_spyables = [
     replica.Replica.discard,
     replica.Replica.stashOutsideWatermarks,
     replica.Replica.revert_unordered_batches,
-    replica.Replica.can_process_since_view_change_in_progress
-                    ]
+    replica.Replica.can_process_since_view_change_in_progress,
+    replica.Replica.processThreePhaseMsg,
+    replica.Replica.process_requested_pre_prepare,
+    replica.Replica._request_pre_prepare_if_possible
+]
 
 
 @spyable(methods=replica_spyables)

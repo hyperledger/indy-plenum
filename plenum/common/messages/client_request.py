@@ -1,6 +1,5 @@
 from plenum.common.constants import *
 from plenum.common.messages.fields import *
-from plenum.common.messages.fields import IdentifierField, NonNegativeNumberField, SignatureField, NonEmptyStringField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 
