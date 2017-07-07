@@ -22,6 +22,6 @@ class Quorums:
         self.view_change = Quorum(n - f)
         self.election = Quorum(n - f)
         self.view_change_done = Quorum(n - f)
-        self.catchup_start = Quorum(f + 1)
-        self.catchup_complete = Quorum(2 * f + 1)
+        self.same_consistency_proof = Quorum(f + 1)
+        self.consistency_proof = Quorum(2 * f + 1)
         self.checkpoint = Quorum(2 * f)

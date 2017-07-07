@@ -16,7 +16,7 @@ from plenum.common.messages.node_messages import LedgerStatus, CatchupRep, \
     ConsistencyProof, f, CatchupReq
 from plenum.common.constants import POOL_LEDGER_ID, LedgerState, DOMAIN_LEDGER_ID, \
     CONSISTENCY_PROOF
-from plenum.common.util import getMaxFailures, compare_3PC_keys
+from plenum.common.util import compare_3PC_keys
 from plenum.common.config_util import getConfig
 from plenum.server.quorums import Quorums
 from stp_core.common.log import getlogger
@@ -92,10 +92,10 @@ class LedgerManager(HasActionQueue):
         logger.debug("{} requesting consistency "
                      "proofs after timeout".format(self))
 
-        adjustedF = getMaxFailures(self.owner.totalNodes - 1)
+        quorum = Quorums(self.owner.totalNodes - 1)
         proofs = ledgerInfo.recvdConsistencyProofs
-        groupedProofs, nullProofs = self._groupConsistencyProofs(proofs)
-        if nullProofs > adjustedF:
+        groupedProofs, null_proofs_count = self._groupConsistencyProofs(proofs)
+        if quorum.same_consistency_proof.is_reached(null_proofs_count):
             return
         result = self._latestReliableProof(groupedProofs, ledgerInfo.ledger)
         if not result:
@@ -290,7 +290,7 @@ class LedgerManager(HasActionQueue):
         # post sending this ledger status
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
-        quorum = Quorums(self.owner.totalNodes).catchup_complete.value - 1
+        quorum = Quorums(self.owner.totalNodes).consistency_proof.value - 1
         if len(ledgerInfo.ledgerStatusOk) == quorum:
             logger.debug("{} found out from {} that its "
                          "ledger of type {} is latest".
@@ -372,10 +372,9 @@ class LedgerManager(HasActionQueue):
     def checkLedgerIsOutOfSync(self, ledgerInfo) -> bool:
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         # Consider an f value when this node had not been added
-        currTotalNodes = self.owner.totalNodes - 1
-        adjustedF = getMaxFailures(currTotalNodes)
-        filtered = self._getNotEmptyProofs(recvdConsProof)
-        return len(filtered) >= (currTotalNodes - adjustedF)
+        adjustedQuorum = Quorums(self.owner.totalNodes - 1)
+        equal_state_proofs = self.__get_equal_state_proofs_count(recvdConsProof)
+        return not adjustedQuorum.same_consistency_proof.is_reached(equal_state_proofs)
 
     def processCatchupReq(self, req: CatchupReq, frm: str):
         logger.debug("{} received catchup request: {} from {}".
@@ -648,7 +647,7 @@ class LedgerManager(HasActionQueue):
         recvdConsProof = ledgerInfo.recvdConsistencyProofs
         # Consider an f value when this node was not connected
         adjustedQuorum = Quorums(self.owner.totalNodes - 1)
-        if len(recvdConsProof) == adjustedQuorum.catchup_start.value:
+        if len(recvdConsProof) == adjustedQuorum.f + 1:
             # At least once correct node believes that this node is behind.
 
             # Start timer that will expire in some time and if till that time
@@ -659,13 +658,13 @@ class LedgerManager(HasActionQueue):
             self._schedule(partial(self.request_CPs_if_needed, ledgerId),
                            self.config.ConsistencyProofsTimeout * (
                                self.owner.totalNodes - 1))
-        if len(recvdConsProof) >= adjustedQuorum.catchup_complete.value:
+        if adjustedQuorum.consistency_proof.is_reached(len(recvdConsProof)):
             logger.debug("{} deciding on the basis of CPs {} and f {}".
                          format(self, recvdConsProof, adjustedQuorum.f))
-            grpdPrf, nullProofs = self._groupConsistencyProofs(recvdConsProof)
+            grpdPrf, null_proofs_count = self._groupConsistencyProofs(recvdConsProof)
             # If more than f nodes were found to be at the same state then this
             #  node's state is good too
-            if nullProofs >= adjustedQuorum.catchup_start.value:
+            if adjustedQuorum.same_consistency_proof.is_reached(null_proofs_count):
                 return True, None
             result = self._latestReliableProof(grpdPrf,
                                                ledgerInfo.ledger)
@@ -674,7 +673,7 @@ class LedgerManager(HasActionQueue):
 
         logger.debug("{} cannot start catchup since received only {} "
                      "consistency proofs but need at least {}".
-                     format(self, len(recvdConsProof), adjustedQuorum.catchup_complete.value))
+                     format(self, len(recvdConsProof), adjustedQuorum.consistency_proof.value))
         return False, None
 
     def _groupConsistencyProofs(self, proofs):
@@ -704,11 +703,11 @@ class LedgerManager(HasActionQueue):
         return recvdPrf, nullProofs
 
     def _reliableProofs(self, groupedProofs):
-        adjustedF = getMaxFailures(self.owner.totalNodes - 1)
+        adjustedQuorum = Quorums(self.owner.totalNodes - 1)
         result = {}
         for (start, end), val in groupedProofs.items():
             for (view_no, lastPpSeqNo, oldRoot, newRoot, hashes), count in val.items():
-                if count > adjustedF:
+                if adjustedQuorum.same_consistency_proof.is_reached(count):
                     result[(start, end)] = (view_no, lastPpSeqNo, oldRoot,
                                             newRoot, hashes)
                     # There would be only one correct proof for a range of
@@ -856,8 +855,8 @@ class LedgerManager(HasActionQueue):
         seqNoEnd = ledger.size
         return self._buildConsistencyProof(ledgerId, seqNoStart, seqNoEnd)
 
-    def _getNotEmptyProofs(self, proofs):
-        return [proof for frm, proof in proofs.items() if proof]
+    def __get_equal_state_proofs_count(self, proofs):
+        return sum(1 for frm, proof in proofs.items() if not proof)
 
     def _buildConsistencyProof(self, ledgerId, seqNoStart, seqNoEnd):
 
