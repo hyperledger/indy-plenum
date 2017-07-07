@@ -2,6 +2,8 @@ import pytest
 from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.primary_selection.test_primary_selection_pool_txn import \
+    ensure_pool_functional
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import get_master_primary_node, \
     ensureElectionsDone
@@ -68,3 +70,4 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
     for node in nodeSet:
         assert (node.viewNo - initial_view_no) > 1
 
+    ensure_pool_functional(looper, nodeSet, wallet1, client1)
