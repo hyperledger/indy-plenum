@@ -291,6 +291,12 @@ class ViewChangeDone(MessageBase):
     )
 
 
+"""
+The choice to do a generic 'request message' feature instead of a specific
+one was debated. It has some pros and some cons. We wrote up the analysis in
+http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
+lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
+"""
 class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
