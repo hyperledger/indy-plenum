@@ -961,8 +961,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This thing checks whether new primary was elected.
         If it was not - starts view change again
         """
+        logger.debug('{} running the scheduled check for view change '
+                     'completion'.format(self))
         if not self.view_change_in_progress:
-            return
+            return False
 
         next_view_no = self.viewNo + 1
         logger.debug("view change to view {} is not completed in time, "
@@ -971,7 +973,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.info("{} initiating a view change to {} from {}".
                     format(self, next_view_no, self.viewNo))
         self.sendInstanceChange(next_view_no,
-                                Suspicions.PRIMARY_DISCONNECTED)
+                                Suspicions.INSTANCE_CHANGE_TIMEOUT)
+        return True
 
     def createReplica(self, instId: int, isMaster: bool) -> 'replica.Replica':
         """
@@ -1737,8 +1740,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         ledger = self.getLedger(ledgerId)
 
         if request.operation[TXN_TYPE] == GET_TXN:
-            self.transmitToClient(RequestAck(*request.key), frm)
-            reply = self.handleGetTnxReq(request, frm)
+            self.send_ack_to_client(request.key, frm)
+            reply = self.handle_get_txn_req(request)
         else:
             reply = self.getReplyFromLedger(ledger, request)
             if reply:
@@ -1753,7 +1756,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # If not already got the propagate request(PROPAGATE) for the
             # corresponding client request(REQUEST)
             self.recordAndPropagate(request, frm)
-            self.transmitToClient(RequestAck(*request.key), frm)
+            self.send_ack_to_client(request.key, frm)
 
     # noinspection PyUnusedLocal
     def processPropagate(self, msg: Propagate, frm):
@@ -1791,10 +1794,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def doneProcessingReq(self, identifier, reqId):
         self.requestSender.pop((identifier, reqId))
 
-    def handleGetTnxReq(self, request: Request, frm: str):
-        # TODO: We use "txn" as short for transaction and not "txn",
-        # so the method name needs to be corrected. Also we dont need
-        # `frm` arg, needs to be removed
+    def send_ack_to_client(self, req_key, to_client):
+        self.transmitToClient(RequestAck(*req_key), to_client)
+
+    def handle_get_txn_req(self, request: Request):
         """
         Handle GET_TXN request
         """

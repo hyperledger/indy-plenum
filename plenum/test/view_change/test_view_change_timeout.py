@@ -2,6 +2,7 @@ import pytest
 from plenum.test.delayers import reset_delays_and_process_delayeds, vcd_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import get_master_primary_node, \
     ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -31,6 +32,14 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
     #    delayNonPrimaries(nodeSet, instId=i, delay=10)
     #sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
+    times = {}
+    for node in nodeSet:
+        times[node.name] = {
+            'called': get_count(node, node._check_view_change_completed),
+            'returned_true': len(getAllReturnVals(
+                node, node._check_view_change_completed, compare_val_to=True))
+        }
+
     for node in nodeSet:
         node.startViewChange(initial_view_no + 1)
 
@@ -50,7 +59,10 @@ def test_view_change_timeout(nodeSet, looper, up, wallet1, client1):
 
     # The timeout method has been called at least once
     for node in nodeSet:
-        assert node.spylog.count('_check_view_change_completed') > 0
+        assert get_count(node, node._check_view_change_completed) > times[node.name]['called']
+        assert len(getAllReturnVals(node,
+                                    node._check_view_change_completed,
+                                    compare_val_to=True)) > times[node.name]['returned_true']
 
     # Multiple view changes have been initiated
     for node in nodeSet:
