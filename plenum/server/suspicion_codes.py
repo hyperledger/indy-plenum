@@ -63,6 +63,8 @@ class Suspicions:
     PRIMARY_ABOUT_TO_BE_DISCONNECTED = Suspicion(23, 'Primary of master '
                                                      'protocol instance '
                                                      'about to be disconnected')
+    INSTANCE_CHANGE_TIMEOUT = Suspicion(24, 'View change could not complete '
+                                            'in time')
 
     @classmethod
     def get_list(cls):
