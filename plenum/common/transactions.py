@@ -8,6 +8,7 @@ class PlenumTransactions(Enum):
     #  Also the numeric constants CANNOT collide with transactions in dependent components.
     NODE = "0"
     NYM = "1"
+    GET_TXN = "3"
 
     def __str__(self):
         return self.name

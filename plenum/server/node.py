@@ -22,7 +22,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE
+    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, ORIGIN, TRUSTEE, GET_TXN
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
@@ -1740,10 +1740,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         ledgerId = self.ledgerIdForRequest(request)
         ledger = self.getLedger(ledgerId)
-        reply = self.getReplyFromLedger(ledger, request)
+
+        if request.operation[TXN_TYPE] == GET_TXN:
+            self.transmitToClient(RequestAck(*request.key), frm)
+            reply = self.handleGetTnxReq(request, frm)
+        else:
+            reply = self.getReplyFromLedger(ledger, request)
+            if reply:
+                logger.debug("{} returning REPLY from already processed "
+                             "REQUEST: {}".format(self, request))
+
         if reply:
-            logger.debug("{} returning REPLY from already processed "
-                         "REQUEST: {}".format(self, request))
             self.transmitToClient(reply, frm)
         else:
             if not self.isProcessingReq(*request.key):
@@ -2493,12 +2500,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         rids = [rid for rid, r in self.nodestack.remotes.items() if r.name in names]
         self.send(msg, *rids)
 
-    def getReplyFromLedger(self, ledger, request):
+    def getReplyFromLedger(self, ledger, request=None, seq_no=None):
         # DoS attack vector, client requesting already processed request id
         # results in iterating over ledger (or its subset)
-        seqNo = self.seqNoDB.get(request.identifier, request.reqId)
-        if seqNo:
-            txn = ledger.getBySeqNo(int(seqNo))
+        seq_no = seq_no if seq_no else self.seqNoDB.get(request.identifier, request.reqId)
+        if seq_no:
+            txn = ledger.getBySeqNo(int(seq_no))
             if txn:
                 txn.update(ledger.merkleInfo(txn.get(F.seqNo.name)))
                 txn = self.update_txn_with_extra_data(txn)
@@ -2583,4 +2590,26 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         with closing(open(os.path.join(self.config.baseDir, 'node_info'), 'w')) \
                 as logNodeInfoFile:
             logNodeInfoFile.write(json.dumps(self.nodeInfo['data']))
+
+
+    def handleGetTnxReq(self, request: Request, frm: str):
+        """
+        Handle GET_TXN request
+        """
+        ledgerId = self.ledgerIdForRequest(request)
+        ledger = self.getLedger(ledgerId)
+        tnx = self.getReplyFromLedger(ledger=ledger, seq_no=request.operation[DATA])
+
+        result = {
+            f.IDENTIFIER.nm: request.identifier,
+            f.REQ_ID.nm: request.reqId,
+            DATA: {}
+        }
+
+        if tnx:
+            result[DATA] = json.dumps(tnx.result)
+            result[TXN_TYPE] = tnx.result[TXN_TYPE]
+            result[f.SEQ_NO.nm] = tnx.result[f.SEQ_NO.nm]
+
+        return Reply(result)
 
