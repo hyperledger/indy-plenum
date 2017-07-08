@@ -1,10 +1,10 @@
 #!groovy
 
-@Library('SovrinHelpers') _
+@Library('SovrinHelpersRepoMerge') _
 
 def name = 'plenum'
 
-def testUbuntu = {
+def plenumTestUbuntu = {
     try {
         echo 'Ubuntu Test: Checkout csm'
         checkout scm
@@ -17,7 +17,7 @@ def testUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt")
+            testHelpers.testRunner([resFile: "test-result.${NODE_NAME}.txt", testDir: 'plenum'])
         }
     }
     finally {
@@ -26,7 +26,29 @@ def testUbuntu = {
     }
 }
 
-def testWindows = {
+def ledgerTestUbuntu = {
+    try {
+        echo 'Ubuntu Test: Checkout csm'
+        checkout scm
+
+        echo 'Ubuntu Test: Build docker image'
+        def testEnv = dockerHelpers.build(name)
+
+        testEnv.inside {
+            echo 'Ubuntu Test: Install dependencies'
+            testHelpers.installDeps()
+
+            echo 'Ubuntu Test: Test'
+            testHelpers.testJunit([testDir: 'ledger'])
+        }
+    }
+    finally {
+        echo 'Ubuntu Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def plenumTestWindows = {
     echo 'TODO: Implement me'
 
     /* win2016 for now (03-23-2017) is not supported by Docker for Windows
@@ -52,7 +74,22 @@ def testWindows = {
     //}
 }
 
-def testWindowsNoDocker = {
+def ledgerTestWindows = {
+    try {
+        echo 'Windows Test: Checkout csm'
+        checkout scm
+
+        echo 'Windows Test: Build docker image'
+        dockerHelpers.buildAndRunWindows(name, testHelpers.installDepsWindowsCommands() + testHelpers.testJunitWindowsCommands())
+        junit 'test-result.xml'
+    }
+    finally {
+        echo 'Windows Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+def plenumTestWindowsNoDocker = {
     try {
         echo 'Windows No Docker Test: Checkout csm'
         checkout scm
@@ -71,4 +108,23 @@ def testWindowsNoDocker = {
     }
 }
 
-testAndPublish(name, [ubuntu: testUbuntu])
+def ledgerTestWindowsNoDocker = {
+    try {
+        echo 'Windows No Docker Test: Checkout csm'
+        checkout scm   
+
+        testHelpers.createVirtualEnvAndExecute({ python, pip ->
+            echo 'Windows No Docker Test: Install dependencies'
+            testHelpers.installDepsBat(python, pip)
+            
+            echo 'Windows No Docker Test: Test'
+            testHelpers.testJunitBat(python, pip)
+        })
+    }
+    finally {
+        echo 'Windows No Docker Test: Cleanup'
+        step([$class: 'WsCleanup'])
+    }
+}
+
+testAndPublish(name, [ubuntu: [plenumTestUbuntu, ledgerTestUbuntu]]])
