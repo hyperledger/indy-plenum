@@ -39,7 +39,7 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'ledger', testFile: 'ledger/ledger-test-result.xml'])
+            testHelpers.testJUnit([testDir: 'ledger', resFile: 'ledger/ledger-test-result.xml'])
         }
     }
     finally {
@@ -61,7 +61,7 @@ def stateTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'state', testFile: 'state/state-test-result.xml'])
+            testHelpers.testJUnit([testDir: 'state', resFile: 'state/state-test-result.xml'])
         }
     }
     finally {
@@ -83,8 +83,8 @@ def stpTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'stp_raet', testFile: 'stp_raet/stp_raet-test-result.xml'])
-            testHelpers.testJUnit([testDir: 'stp_zmq', testFile: 'stp_zmq/stp_zmq-test-result.xml'])
+            testHelpers.testJUnit([testDir: 'stp_raet', resFile: 'stp_raet/stp_raet-test-result.xml'])
+            testHelpers.testJUnit([testDir: 'stp_zmq', resFile: 'stp_zmq/stp_zmq-test-result.xml'])
         }
     }
     finally {
