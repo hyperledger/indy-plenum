@@ -167,7 +167,7 @@ cliNodeReg = OrderedDict([
 ])
 ```
 
-## Immutable Ledger used in Plenum. 
+# Immutable Ledger used in Plenum. 
 
 This codebase provides a simple, python-based, immutable, ordered log of transactions 
 backed by a merkle tree. This is an efficient way to generate verifiable proofs of presence
@@ -183,3 +183,9 @@ You can log issues against this codebase in [Hyperledger's Jira](https://jira.hy
 
 Join us on [Hyperledger's Rocket.Chat](http://chat.hyperledger.org), on the #indy
 channel, to discuss.
+
+# state
+Plenum's state storage using python 3 version of Ethereum's Patricia Trie
+
+# stp
+Secure Transport Protocol

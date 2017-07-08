@@ -38,7 +38,7 @@ if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
 
 setup(
-    name='plenum-dev',
+    name='plenum-repo-merge',
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
@@ -60,9 +60,11 @@ setup(
     )],
     install_requires=['jsonpickle', 'ujson',
                       'prompt_toolkit==0.57', 'pygments',
+                      'crypto==1.4.1', 'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
-                      'intervaltree'],
+                      'portalocker==0.5.7', 'pyzmq', 'raet', 'ioflo==1.5.4',
+                      'ujson', 'psutil', 'intervaltree'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
