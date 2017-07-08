@@ -17,7 +17,7 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner([resFile: "plenum/test-result.${NODE_NAME}.txt", testDir: 'plenum'])
         }
     }
     finally {
@@ -39,7 +39,7 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'ledger', resFile: "test-result.${NODE_NAME}.txt"])
+            testHelpers.testRunner([testDir: 'ledger', resFile: "ledger/test-result.${NODE_NAME}.txt"])
         }
     }
     finally {
@@ -61,7 +61,7 @@ def stateTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'state', resFile: "test-result.${NODE_NAME}.txt"])
+            testHelpers.testRunner([testDir: 'state', resFile: "state/test-result.${NODE_NAME}.txt"])
         }
     }
     finally {
@@ -83,8 +83,8 @@ def stpTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'stp_raet', resFile: "test-result.raet.${NODE_NAME}.txt"])
-            testHelpers.testRunner([testDir: 'stp_zmq', resFile: "test-result.zmq.${NODE_NAME}.txt"])
+            testHelpers.testRunner([testDir: 'stp_raet', resFile: "stp_raet/test-result.raet.${NODE_NAME}.txt"])
+            testHelpers.testRunner([testDir: 'stp_zmq', resFile: "stp_zmq/test-result.zmq.${NODE_NAME}.txt"])
         }
     }
     finally {
