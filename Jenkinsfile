@@ -17,7 +17,7 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "test-result.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner(resFile: "test-result.${NODE_NAME}.txt", testDir: 'plenum')
         }
     }
     finally {
@@ -39,7 +39,7 @@ def ledgerTestUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJunit([testDir: 'ledger'])
+            testHelpers.testJunit(testDir: 'ledger')
         }
     }
     finally {
@@ -61,7 +61,7 @@ def stateTestUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJunit([testDir: 'state'])
+            testHelpers.testJunit(testDir: 'state')
         }
     }
     finally {
@@ -83,9 +83,9 @@ def stpTestUbuntu = {
             testHelpers.installDeps()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJunit([testDir: 'stp_core'])
-            testHelpers.testJunit([testDir: 'stp_raet'])
-            testHelpers.testJunit([testDir: 'stp_zmq'])
+            testHelpers.testJunit(testDir: 'stp_core')
+            testHelpers.testJunit(testDir: 'stp_raet')
+            testHelpers.testJunit(testDir: 'stp_zmq')
         }
     }
     finally {
