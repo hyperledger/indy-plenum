@@ -36,10 +36,10 @@ def ledgerTestUbuntu = {
 
         testEnv.inside {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.installDeps()
+            testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit(testDir: 'ledger', testFile: 'ledger/test-result.xml')
+            testHelpers.testJUnit(testDir: 'ledger', testFile: 'ledger/ledger-test-result.xml')
         }
     }
     finally {
@@ -58,10 +58,10 @@ def stateTestUbuntu = {
 
         testEnv.inside {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.installDeps()
+            testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit(testDir: 'state', testFile: 'state/test-result.xml')
+            testHelpers.testJUnit(testDir: 'state', testFile: 'state/state-test-result.xml')
         }
     }
     finally {
@@ -80,12 +80,12 @@ def stpTestUbuntu = {
 
         testEnv.inside {
             echo 'Ubuntu Test: Install dependencies'
-            testHelpers.installDeps()
+            testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit(testDir: 'stp_core', testFile: 'stp_core/test-result.xml')
-            testHelpers.testJUnit(testDir: 'stp_raet', testFile: 'stp_raet/test-result.xml')
-            testHelpers.testJUnit(testDir: 'stp_zmq', testFile: 'stp_zmq/test-result.xml')
+            testHelpers.testJUnit(testDir: 'stp_core', testFile: 'stp_core/stp_core-test-result.xml')
+            testHelpers.testJUnit(testDir: 'stp_raet', testFile: 'stp_raet/stp_raet-test-result.xml')
+            testHelpers.testJUnit(testDir: 'stp_zmq', testFile: 'stp_zmq/stp_zmq-test-result.xml')
         }
     }
     finally {
@@ -210,4 +210,4 @@ def stateTestWindowsNoDocker = {
 def options = new TestAndPublishOptions()
 options.setPublishableBranches(['repo-merge']) //REMOVE IT BEFORE MERGE
 options.setPostfixes([master: 'repo-merge']) //REMOVE IT BEFORE MERGE
-testAndPublish(name, [ubuntu: [plenumTestUbuntu, ledgerTestUbuntu, stateTestUbuntu, stpTestUbuntu]], true, options)
+testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
