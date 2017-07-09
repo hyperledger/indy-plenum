@@ -24,5 +24,5 @@ RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
 USER sovrin
 WORKDIR /home/sovrin
-ADD setup.py setup.py
-RUN pip3 install .
+ADD . src/
+RUN cd src && pip3 install .
