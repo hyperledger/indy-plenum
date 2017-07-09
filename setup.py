@@ -64,7 +64,7 @@ setup(
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet', 'ioflo==1.5.4',
-                      'ujson', 'psutil', 'intervaltree'],
+                      'psutil', 'intervaltree'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']
