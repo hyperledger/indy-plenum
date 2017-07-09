@@ -23,6 +23,7 @@ USER root
 RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
 USER sovrin
+# TODO: Automate dependency collection
 RUN pip install jsonpickle \
 	ujson \
 	prompt_toolkit==0.57 \
