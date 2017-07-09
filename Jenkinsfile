@@ -10,7 +10,6 @@ def plenumTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside('--network host') {
@@ -33,7 +32,6 @@ def ledgerTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {
@@ -56,7 +54,6 @@ def stateTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {
@@ -79,7 +76,6 @@ def stpTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
-        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {

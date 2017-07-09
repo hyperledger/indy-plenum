@@ -22,6 +22,7 @@ RUN virtualenv -p python3.5 /home/sovrin/test
 USER root
 RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
+RUN pip3 install leveldb
 USER sovrin
 RUN pip3 install leveldb
 WORKDIR /home/sovrin
