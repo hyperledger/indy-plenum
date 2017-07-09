@@ -22,7 +22,8 @@ RUN virtualenv -p python3.5 /home/sovrin/test
 USER root
 RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
-RUN pip3 install jsonpickle \
+USER sovrin
+RUN pip install jsonpickle \
 	ujson \
 	prompt_toolkit==0.57 \
 	pygments \
@@ -43,5 +44,4 @@ RUN pip3 install jsonpickle \
 	ioflo==1.5.4 \
 	psutil \
 	intervaltree
-USER sovrin
 WORKDIR /home/sovrin
