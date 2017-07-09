@@ -18,7 +18,7 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "plenum/test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner([resFile: "test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum'])
         }
     }
     finally {
