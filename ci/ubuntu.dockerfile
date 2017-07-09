@@ -23,4 +23,6 @@ USER root
 RUN ln -sf /home/sovrin/test/bin/python /usr/local/bin/python
 RUN ln -sf /home/sovrin/test/bin/pip /usr/local/bin/pip
 USER sovrin
+ADD setup.py /home/sovrin/setup.py
+RUN pip3 install /home/sovrin/setup.py
 WORKDIR /home/sovrin

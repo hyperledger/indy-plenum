@@ -10,6 +10,7 @@ def plenumTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
+        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside('--network host') {
@@ -17,7 +18,7 @@ def plenumTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([resFile: "plenum/test-result.${NODE_NAME}.txt", testDir: 'plenum'])
+            testHelpers.testRunner([resFile: "plenum/test-result-plenum.${NODE_NAME}.txt", testDir: 'plenum'])
         }
     }
     finally {
@@ -32,6 +33,7 @@ def ledgerTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
+        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {
@@ -39,7 +41,7 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'ledger', resFile: "ledger/test-result.${NODE_NAME}.txt"])
+            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-legder.${NODE_NAME}.xml"])
         }
     }
     finally {
@@ -54,6 +56,7 @@ def stateTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
+        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {
@@ -61,7 +64,7 @@ def stateTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'state', resFile: "state/test-result.${NODE_NAME}.txt"])
+            testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
         }
     }
     finally {
@@ -76,6 +79,7 @@ def stpTestUbuntu = {
         checkout scm
 
         echo 'Ubuntu Test: Build docker image'
+        helpers.shell('cp setup.py ci/setup.py')
         def testEnv = dockerHelpers.build(name)
 
         testEnv.inside {
@@ -83,8 +87,8 @@ def stpTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testRunner([testDir: 'stp_raet', resFile: "stp_raet/test-result.raet.${NODE_NAME}.txt"])
-            testHelpers.testRunner([testDir: 'stp_zmq', resFile: "stp_zmq/test-result.zmq.${NODE_NAME}.txt"])
+            testHelpers.testJUnit([testDir: 'stp_raet', resFile: "test-result-stp-raet.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'stp_zmq', resFile: "test-result-stp-zmq.${NODE_NAME}.xml"])
         }
     }
     finally {
