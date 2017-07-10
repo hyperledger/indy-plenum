@@ -3,8 +3,10 @@ from random import randint
 
 import pytest
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF
 from plenum.common.ledger import Ledger
+from plenum.test.node_request.message_request.helper import \
+    count_msg_reqs_of_type
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sendRandomRequests
@@ -77,7 +79,6 @@ def testNodeRequestingConsProof(tconf, txnPoolNodeSet,
     waitNodeDataEquality(looper, newNode, *txnPoolNodeSet[:-1],
                          customTimeout=75)
 
-    # Other nodes should have received a `ConsProofRequest` and processed it.
+    # Other nodes should have received a request for `CONSISTENCY_PROOF` and processed it.
     for node in txnPoolNodeSet[:-1]:
-        assert node.ledgerManager.spylog.count(
-            TestLedgerManager.processConsistencyProofReq.__name__) > 0, node
+        assert count_msg_reqs_of_type(node, CONSISTENCY_PROOF) > 0, node

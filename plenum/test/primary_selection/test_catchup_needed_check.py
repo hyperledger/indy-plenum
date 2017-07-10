@@ -55,13 +55,13 @@ def test_caught_up_for_current_view_check(looper,
                               Max3PCBatchSize)
 
     def is_catchup_needed_count():
-        return sum([1 for rv in getAllReturnVals(bad_node,
-                                                 bad_node.is_catchup_needed) if rv == True])
+        return len(getAllReturnVals(bad_node, bad_node.is_catchup_needed,
+                                    compare_val_to=True))
 
     def caught_up_for_current_view_count():
-        return sum([1 for rv in getAllReturnVals(bad_node,
-                                                 bad_node.caught_up_for_current_view)
-                    if rv is True])
+        return len(getAllReturnVals(bad_node,
+                                    bad_node.caught_up_for_current_view,
+                                    compare_val_to=True))
 
     old_count_1 = is_catchup_needed_count()
     old_count_2 = caught_up_for_current_view_count()

@@ -42,8 +42,8 @@ setup(
     version=__version__,
     description='Plenum Byzantine Fault Tolerant Protocol',
     long_description='Plenum Byzantine Fault Tolerant Protocol',
-    url='https://github.com/evernym/plenum',
-    download_url='https://github.com/evernym/plenum/tarball/{}'.
+    url='https://github.com/hyperledger/indy-plenum',
+    download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
         format(__version__),
     author=__author__,
     author_email='dev@evernym.us',
@@ -58,12 +58,13 @@ setup(
     data_files=[(
         (BASE_DIR, ['data/pool_transactions_sandbox', ])
     )],
-    install_requires=['ledger-dev==0.3.48', 'stp-dev==0.2.42',
-                      'state-trie-dev==0.2.3', 'jsonpickle',
+    install_requires=['jsonpickle', 'ujson',
                       'prompt_toolkit==0.57', 'pygments',
+                      'crypto==1.4.1', 'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
-                      'intervaltree'],
+                      'portalocker==0.5.7', 'pyzmq', 'raet', 'ioflo==1.5.4',
+                      'psutil', 'intervaltree'],
     extras_require={
         'stats': ['python-firebase'],
         'benchmark': ['pympler']

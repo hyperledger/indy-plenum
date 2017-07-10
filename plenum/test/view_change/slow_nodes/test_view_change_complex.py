@@ -1,10 +1,8 @@
-from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node, \
-    get_last_master_non_primary_node, get_first_master_non_primary_node
-from plenum.test.view_change.helper import view_change_in_between_3pc, \
+from plenum.test.view_change.helper import \
     view_change_in_between_3pc_random_delays
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
-import pytest
+
 
 TestRunningTimeLimitSec = 300
 

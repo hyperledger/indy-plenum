@@ -4,7 +4,7 @@ import types
 def testInstChngMsgThrottling(nodeSet, looper, up, viewNo):
     """
     2 nodes out of 4 keep on sending INSTANCE_CHANGE messages as they
-    find the master to be slow but since we need 3 out of 4 (2f+1) to say that
+    find the master to be slow but since we need 3 out of 4 (n-f) to say that
     master is slow for a view change to happen, a view change does not happen
     but the nodes finding the master to be slow should not send INSTANCE_CHANGE
     messages to often. So nodes should throttle sending INSTANCE_CHANGE messages

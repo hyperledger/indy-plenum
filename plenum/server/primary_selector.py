@@ -86,7 +86,7 @@ class PrimarySelector(PrimaryDecider):
                                       msg: ViewChangeDone,
                                       sender: str) -> bool:
         """
-        Processes ViewChangeDone messages. Once 2f + 1 messages have been 
+        Processes ViewChangeDone messages. Once n-f messages have been
         received, decides on a primary for specific replica. 
 
         :param msg: ViewChangeDone message
@@ -151,9 +151,6 @@ class PrimarySelector(PrimaryDecider):
         received and makes steps to switch to the new primary
         """
 
-        # TODO: implement case when we get equal number of ViewChangeDone
-        # with different primaries specified
-
         expected_primary = self.next_primary_node_name(0)
         if new_primary != expected_primary:
             logger.error("{} expected next primary to be {}, but majority "
@@ -167,15 +164,15 @@ class PrimarySelector(PrimaryDecider):
         # TODO: check if ledger status is expected
 
     def _track_view_change_done(self, sender_name, new_primary_name,
-                                ledger_info):
-        data = (new_primary_name, ledger_info)
+                                ledger_summary):
+        data = (new_primary_name, ledger_summary)
         self._view_change_done[sender_name] = data
 
     @property
     def _hasViewChangeQuorum(self):
         # This method should just be present for master instance.
         """
-        Checks whether 2f+1 nodes completed view change and whether one 
+        Checks whether n-f nodes completed view change and whether one
         of them is the next primary
         """
         num_of_ready_nodes = len(self._view_change_done)
@@ -233,6 +230,19 @@ class PrimarySelector(PrimaryDecider):
 
         return self._accepted_view_change_done_message
 
+    @property
+    def is_behind_for_view(self) -> bool:
+        # Checks if the node is currently behind the accepted state for this
+        # view, only makes sense to call when the node has an acceptable
+        # view change quorum
+        _, accepted_ledger_summary = self.has_sufficient_same_view_change_done_messages
+        for (_, own_ledger_size, _), (_, accepted_ledger_size, _) in \
+                zip(self.ledger_summary, accepted_ledger_summary):
+            if own_ledger_size < accepted_ledger_size:
+                print(own_ledger_size, accepted_ledger_size)
+                return True
+        return False
+
     def _startSelection(self):
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
@@ -244,11 +254,11 @@ class PrimarySelector(PrimaryDecider):
             logger.info('{} cannot start primary selection since mode is {}'
                         .format(self, self.node.mode))
             return
-        if not self.primary_verified:
-            logger.info('{} cannot start primary selection since primary is '
-                        'not verified yet, this can happen due to lack of '
-                        'appropriate ViewChangeDone messages'
-                        .format(self))
+
+        if self.is_behind_for_view:
+            logger.info('{} is synced and has an acceptable view change quorum '
+                        'but is behind the accepted state'.format(self))
+            self.node.start_catchup()
             return
 
         logger.debug("{} starting selection".format(self))
@@ -284,7 +294,7 @@ class PrimarySelector(PrimaryDecider):
                                    self.viewNo,
                                    instance_id,
                                    new_primary_name,
-                                   self.ledger_info),
+                                   self.ledger_summary),
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
@@ -309,13 +319,13 @@ class PrimarySelector(PrimaryDecider):
         Sends ViewChangeDone message to other protocol participants
         """
         new_primary_name = self.next_primary_node_name(0)
-        ledger_info = self.ledger_info
+        ledger_summary = self.ledger_summary
         message = ViewChangeDone(self.viewNo,
                                  new_primary_name,
-                                 ledger_info)
+                                 ledger_summary)
         self.send(message)
         self._track_view_change_done(self.name,
-                                     new_primary_name, ledger_info)
+                                     new_primary_name, ledger_summary)
 
     def view_change_started(self, viewNo: int):
         """
@@ -330,6 +340,6 @@ class PrimarySelector(PrimaryDecider):
                                   "all instances only")
 
     @property
-    def ledger_info(self):
+    def ledger_summary(self):
         return [li.ledger_summary for li in
                 self._ledger_manager.ledgerRegistry.values()]

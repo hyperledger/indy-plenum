@@ -38,7 +38,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(looper,
                                                                  slow_node):
     """
     Delay 3PC to 1 node and then cause view change so by the time the view
-    change happens(each node gets >2f+1 `INSTANCE_CHANGE`s), the slow node is
+    change happens(each node gets >n-f `INSTANCE_CHANGE`s), the slow node is
     behind other nodes. The should initiate catchup to come to the same state
     as other nodes.
     """

@@ -78,6 +78,13 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
                "".format(types_str, type(val).__name__)
 
 
+class AnyField(FieldBase):
+    _base_types = (object,)
+
+    def _specific_validation(self, _):
+        return
+
+
 class BooleanField(FieldBase):
     _base_types = (bool,)
 
@@ -182,6 +189,14 @@ class MapField(FieldBase):
             val_error = self.value_field.validate(v)
             if val_error:
                 return val_error
+
+
+class AnyMapField(FieldBase):
+    # A map where key and value can be of arbitrary types
+    _base_types = (dict,)
+
+    def _specific_validation(self, _):
+        return
 
 
 class NetworkPortField(FieldBase):

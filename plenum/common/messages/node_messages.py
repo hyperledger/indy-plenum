@@ -253,26 +253,7 @@ class CatchupRep(MessageBase):
         (f.TXNS.nm, AnyValueField()),
         (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
-
-
-class ConsProofRequest(MessageBase):
-    typename = CONS_PROOF_REQUEST
-    schema = (
-        (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-    )
-
-
-class ReqLedgerStatus(MessageBase):
-    """
-    Purpose: ask node for LedgerStatus of specific ledger
-    """
-    typename = REQ_LEDGER_STATUS
-    schema = (
-        (f.LEDGER_ID.nm, LedgerIdField()),
-    )
-
+    
 
 class ViewChangeDone(MessageBase):
     """
@@ -289,6 +270,38 @@ class ViewChangeDone(MessageBase):
         (f.NAME.nm, NonEmptyStringField(nullable=True)),
         (f.LEDGER_INFO.nm, IterableField(LedgerInfoField()))
     )
+
+
+"""
+The choice to do a generic 'request message' feature instead of a specific
+one was debated. It has some pros and some cons. We wrote up the analysis in
+http://bit.ly/2uxf6Se. This decision can and should be revisited if we feel a
+lot of ongoing dissonance about it. Lovesh, Alex, and Daniel, July 2017
+"""
+class MessageReq(MessageBase):
+    """
+    Purpose: ask node for any message
+    """
+    typename = MESSAGE_REQUEST
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, AnyMapField())
+    )
+
+
+class MessageRep(MessageBase):
+    """
+    Purpose: respond to a node for any requested message
+    """
+    typename = MESSAGE_RESPONSE
+    schema = (
+        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
+                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.PARAMS.nm, AnyMapField()),
+        (f.MSG.nm, AnyField())
+    )
+
 
 ThreePhaseType = (PrePrepare, Prepare, Commit)
 ThreePhaseMsg = TypeVar("3PhaseMsg", *ThreePhaseType)

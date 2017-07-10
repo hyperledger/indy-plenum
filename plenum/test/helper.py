@@ -17,7 +17,7 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems
+    checkIfMoreThanFSameItems, getNoInstances
 from plenum.common.messages.node_messages import *
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
@@ -206,7 +206,7 @@ def send_reqs_batches_and_get_suff_replies(looper: Looper,
 def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
                                       fValue: int) -> bool:
     """
-    the client must get at least :math:`2f+1` responses
+    the client must get at least :math:`f+1` responses
     """
     msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][f.IDENTIFIER.nm])
             for msg in getRepliesFromClientInbox(receivedMsgs, reqId)]
@@ -338,6 +338,7 @@ def sendRandomRequest(wallet: Wallet, client: Client):
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
+    logger.debug('Sending {} random requests'.format(count))
     return send_signed_requests(client,
                                 signed_random_requests(wallet, count))
 
@@ -478,6 +479,19 @@ def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                instId: int):
     assert not requestReturnedToNode(node, identifier, reqId, instId)
 
+def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+    instances = range(getNoInstances(len(nodeSet)))
+    coros = []
+    for node, inst_id in itertools.product(nodeSet, instances):
+        c = partial(checkRequestNotReturnedToNode,
+                    node=node,
+                    identifier=request.identifier,
+                    reqId=request.reqId,
+                    instId=inst_id
+                    )
+        coros.append(c)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
@@ -509,7 +523,7 @@ def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
                                    ppSeqNo: int):
     key = (viewNo, ppSeqNo)
     assert key in replica.prepares
-    assert len(replica.prepares[key][1]) >= 2 * replica.f
+    assert len(replica.prepares[key][1]) >= replica.quorums.prepare.value
 
 
 def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
@@ -518,7 +532,7 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         key = (viewNo, ppSeqNo)
         assert key in replica.commits
         received = len(replica.commits[key][1])
-        minimum = 2 * replica.f
+        minimum = replica.quorums.commit.value
         assert received > minimum
 
 
@@ -676,7 +690,9 @@ def checkDiscardMsg(processors, discardedMsg,
 def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):
-        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+        if 'reason' in entry.params and (
+                (isinstance(entry.params['reason'], str) and
+                         reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
             c += 1
     return c
 
