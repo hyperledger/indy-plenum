@@ -36,11 +36,7 @@ def sig(cli, msg):
 
 
 def test_authenticate_raises_correct_exception(testcase=unittest.TestCase()):
-    """When a cryptonym not on the ledger is attempted to be authenticated,
-    it should check the ledger and not depend on the credentials provided
-    by the client.  When this occurs, the authenticator should  throw an
-    exception (because the verkey is None)."""
-    msg = dict(myMsg="42 (forty-two) is the natural number that succeeds 41 and precedes 43.")
+    msg = dict(myMsg=msg_str)
     simple_signer = SimpleSigner()
     identifier = simple_signer.identifier
     signature = simple_signer.sign(msg)
