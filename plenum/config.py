@@ -116,9 +116,6 @@ ConsistencyProofsTimeout = 5
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
 
-# Timeout after which the view change is performed
-ViewChangeTimeout = 10
-
 
 # Log configuration
 logRotationWhen = 'D'
