@@ -382,6 +382,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
+            self._gc_before_new_view()
+            self._reset_watermarks_before_new_view()
             self._stateChanged()
 
     def compact_primary_names(self):
@@ -407,7 +409,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
@@ -446,7 +447,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 break
 
         for (v, p), pr in self.preparesWaitingForPrePrepare.items():
-            if v == view_no and len(pr) >= 2*self.f:
+            if v == view_no and len(pr) >= self.quorums.prepare.value:
                 seq_no_p.add(p)
 
         for n in seq_no_pp:
@@ -1156,10 +1157,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         Decision criteria:
 
-        - If this replica has got just 2f PREPARE requests then commit request.
-        - If less than 2f PREPARE requests then probably there's no consensus on
+        - If this replica has got just n-f-1 PREPARE requests then commit request.
+        - If less than n-f-1 PREPARE requests then probably there's no consensus on
             the request; don't commit
-        - If more than 2f then already sent COMMIT; don't commit
+        - If more than n-f-1 then already sent COMMIT; don't commit
 
         :param prepare: the PREPARE
         """
@@ -1215,10 +1216,10 @@ class Replica(HasActionQueue, MessageProcessor):
 
         Decision criteria:
 
-        - If have got just 2f+1 Commit requests then return request to node
-        - If less than 2f+1 of commit requests then probably don't have
+        - If have got just n-f Commit requests then return request to node
+        - If less than n-f of commit requests then probably don't have
             consensus on the request; don't return request to node
-        - If more than 2f+1 then already returned to node; don't return request
+        - If more than n-f then already returned to node; don't return request
             to node
 
         :param commit: the COMMIT
@@ -1408,8 +1409,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.checkIfCheckpointStable(key)
         return True
 
-
-
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
         logger.debug("{} adding new checkpoint state for {}".
@@ -1458,13 +1457,13 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in previousCheckpoints:
             logger.debug("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self.gc(seqNo)
+        self._gc(seqNo)
         logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
-        if len(ckState.receivedDigests) == 2 * self.f:
+        if len(ckState.receivedDigests) == self.quorums.checkpoint.value:
             self.markCheckPointStable(ckState.seqNo)
             return True
         else:
@@ -1506,7 +1505,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         return total_processed
 
-    def gc(self, tillSeqNo):
+    def _gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
         tpcKeys = set()
         reqKeys = set()
@@ -1542,6 +1541,19 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.requests.pop(k)
 
         self.compact_ordered()
+
+    def _gc_before_new_view(self):
+        # Trigger GC for all batches of old view
+        # Clear any checkpoints, since they are valid only in a view
+        self._gc(self.last_ordered_3pc[1])
+        self.checkpoints.clear()
+
+    def _reset_watermarks_before_new_view(self):
+        # Reset any previous view watermarks since for view change to
+        # successfully complete, the node must have reached the same state
+        # as other nodes
+        self.h = 0
+        self._lastPrePrepareSeqNo = self.h
 
     def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
         self.stashingWhileOutsideWaterMarks.append(item)
