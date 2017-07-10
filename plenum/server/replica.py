@@ -382,6 +382,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
+            self._gc_before_new_view()
+            self._reset_watermarks_before_new_view()
             self._stateChanged()
 
     def compact_primary_names(self):
@@ -407,7 +409,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._lastPrePrepareSeqNo = 0
         self.set_last_ordered_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
@@ -1408,8 +1409,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self.checkIfCheckpointStable(key)
         return True
 
-
-
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
         logger.debug("{} adding new checkpoint state for {}".
@@ -1458,7 +1457,7 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in previousCheckpoints:
             logger.debug("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self.gc(seqNo)
+        self._gc(seqNo)
         logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
@@ -1506,7 +1505,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         return total_processed
 
-    def gc(self, tillSeqNo):
+    def _gc(self, tillSeqNo):
         logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
         tpcKeys = set()
         reqKeys = set()
@@ -1542,6 +1541,19 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.requests.pop(k)
 
         self.compact_ordered()
+
+    def _gc_before_new_view(self):
+        # Trigger GC for all batches of old view
+        # Clear any checkpoints, since they are valid only in a view
+        self._gc(self.last_ordered_3pc[1])
+        self.checkpoints.clear()
+
+    def _reset_watermarks_before_new_view(self):
+        # Reset any previous view watermarks since for view change to
+        # successfully complete, the node must have reached the same state
+        # as other nodes
+        self.h = 0
+        self._lastPrePrepareSeqNo = self.h
 
     def stashOutsideWatermarks(self, item: Union[ReqDigest, Tuple]):
         self.stashingWhileOutsideWaterMarks.append(item)

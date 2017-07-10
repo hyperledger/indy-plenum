@@ -338,6 +338,7 @@ def sendRandomRequest(wallet: Wallet, client: Client):
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
+    logger.debug('Sending {} random requests'.format(count))
     return send_signed_requests(client,
                                 signed_random_requests(wallet, count))
 
