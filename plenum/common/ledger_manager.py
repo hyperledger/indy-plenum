@@ -290,7 +290,7 @@ class LedgerManager(HasActionQueue):
         # post sending this ledger status
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
-        quorum = Quorums(self.owner.totalNodes).consistency_proof.value - 1
+        quorum = Quorums(self.owner.totalNodes).ledger_status.value
         if len(ledgerInfo.ledgerStatusOk) == quorum:
             logger.debug("{} found out from {} that its "
                          "ledger of type {} is latest".
