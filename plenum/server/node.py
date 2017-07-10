@@ -1780,12 +1780,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         result = {
             f.IDENTIFIER.nm: request.identifier,
             f.REQ_ID.nm: request.reqId,
+            TXN_TYPE: request.operation[TXN_TYPE],
             DATA: {}
         }
 
         if txn:
             result[DATA] = json.dumps(txn.result)
-            result[TXN_TYPE] = txn.result[TXN_TYPE]
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
 
         self.transmitToClient(Reply(result), frm)
