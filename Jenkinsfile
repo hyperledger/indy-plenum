@@ -207,6 +207,4 @@ def stateTestWindowsNoDocker = {
 }
 
 def options = new TestAndPublishOptions()
-options.setPublishableBranches(['feature/repo-merge']) //REMOVE IT BEFORE MERGE
-options.setPostfixes([master: 'repo-merge']) //REMOVE IT BEFORE MERGE
 testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
