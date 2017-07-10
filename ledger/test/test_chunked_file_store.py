@@ -38,9 +38,12 @@ def populatedChunkedFileStore(chunkedTextFileStore) -> ChunkedFileStore:
     dirPath = "/tmp/chunked_data"
     for d in data:
         store.put(d)
-    assert len(os.listdir(dirPath)) == math.ceil(dataSize / chunkSize)
-    assert all(countLines(dirPath + os.path.sep + f) <= chunkSize
-               for f in os.listdir(dirPath))
+    allFiles = []
+    for root, dirs, files in os.walk(dirPath):
+        for name in files:
+            assert countLines(root + "/" + name) <= chunkSize
+            allFiles.append(name)
+    assert len(allFiles) == math.ceil(dataSize / chunkSize)
     yield store
     store.close()
 

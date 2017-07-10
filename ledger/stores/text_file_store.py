@@ -24,6 +24,8 @@ class TextFileStore(FileStore):
     def _initDB(self, dbDir, dbName):
         super()._initDB(dbDir, dbName)
         self.dbPath = os.path.join(os.path.expanduser(dbDir), dbName)
+        if not os.path.exists(os.path.dirname(self.dbPath)):
+          os.mkdir(os.path.dirname(self.dbPath))
         self.dbFile = open(self.dbPath, mode="a+")
 
     def _lines(self):
