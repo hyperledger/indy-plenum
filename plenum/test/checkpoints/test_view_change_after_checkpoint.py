@@ -24,10 +24,9 @@ def sent_batches(request, chkFreqPatched):
         return CHK_FREQ
 
 
-def test_checkpoint_across_views(sent_batches, looper,
-                                 txnPoolNodeSet, client1,
-                                 wallet1, client1Connected,
-                                 reqs_for_checkpoint):
+def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
+                                 txnPoolNodeSet, client1, wallet1,
+                                 client1Connected):
     """
     Test checkpointing across views.
     This test checks that checkpointing and garbage collection works correctly
@@ -53,6 +52,11 @@ def test_checkpoint_across_views(sent_batches, looper,
     for node in txnPoolNodeSet:
         for r in node.replicas:
             assert not r.checkpoints
+            assert r._h == 0
+            assert r._lastPrePrepareSeqNo == 0
+            assert r.h == 0
+            assert r.H == r._h + chkFreqPatched.LOG_SIZE
+
     checkRequestCounts(txnPoolNodeSet, 0, 0, 0)
 
     # Even after view change, chekpointing works
