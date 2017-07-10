@@ -6,6 +6,7 @@ from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import getMaxFailures
 from plenum.server.node import Node
+from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.helper import chk_all_funcs
@@ -176,7 +177,7 @@ def checkPrePrepared(looper,
 def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
                   timeout=30):
     nodeCount = len(list(nodeSet.nodes))
-    f = getMaxFailures(nodeCount)
+    quorums = Quorums(nodeCount)
 
     def g(instId):
         allReplicas = getAllReplicas(nodeSet, instId)
@@ -196,11 +197,11 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
             """
             1. no of PREPARE received by replicas must be n - 1;
             n = num of nodes without fault, and greater than or equal to
-             2f with faults.
+            n-f-1 with faults.
             """
             passes = 0
             numOfMsgsWithZFN = nodeCount - 1
-            numOfMsgsWithFaults = 2 * f
+            numOfMsgsWithFaults = quorums.prepare.value
 
             for replica in allReplicas:
                 key = primary.viewNo, primary.lastPrePrepareSeqNo
@@ -218,7 +219,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
             """
             num of PREPARE seen by primary replica is n - 1;
                 n = num of nodes without fault, and greater than or equal to
-             2f with faults.
+             n-f-1 with faults.
             """
             actualMsgs = len([param for param in
                               getAllArgs(primary,
@@ -231,7 +232,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
                               param['sender'] != primary.name])
 
             numOfMsgsWithZFN = nodeCount - 1
-            numOfMsgsWithFaults = 2 * f - 1
+            numOfMsgsWithFaults = quorums.prepare.value
 
             assert msgCountOK(nodeCount,
                               faultyNodes,
@@ -243,11 +244,11 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
         def nonPrimaryReplicasReceiveCorrectNumberOfPREPAREs():
             """
             num of PREPARE seen by Non primary replica is n - 2 without
-            faults and 2f - 1 with faults.
+            faults and n-f-2 with faults.
             """
             passes = 0
             numOfMsgsWithZFN = nodeCount - 2
-            numOfMsgsWithFaults = (2 * f) - 1
+            numOfMsgsWithFaults = quorums.prepare.value - 1
 
             for npr in nonPrimaryReplicas:
                 actualMsgs = len([param for param in
@@ -285,7 +286,7 @@ def checkPrepared(looper, nodeSet, preprepared1, instIds, faultyNodes=0,
 def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
     timeout = waits.expectedCommittedTime(len(nodeSet))
     nodeCount = len((list(nodeSet)))
-    f = getMaxFailures(nodeCount)
+    quorums = Quorums(nodeCount)
 
     def g(instId):
         allReplicas = getAllReplicas(nodeSet, instId)
@@ -295,11 +296,11 @@ def checkCommitted(looper, nodeSet, prepared1, instIds, faultyNodes=0):
             """
             num of commit messages must be = n when zero fault;
             n = num of nodes and greater than or equal to
-            2f + 1 with faults.
+            n-f with faults.
             """
             passes = 0
-            numOfMsgsWithZFN = (2 * f) + 1
-            numOfMsgsWithFault = (2 * f) + 1
+            numOfMsgsWithZFN = quorums.commit.value
+            numOfMsgsWithFault = quorums.commit.value
 
             key = (primaryReplica.viewNo, primaryReplica.lastPrePrepareSeqNo)
             for r in allReplicas:
