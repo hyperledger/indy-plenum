@@ -253,26 +253,7 @@ class CatchupRep(MessageBase):
         (f.TXNS.nm, AnyValueField()),
         (f.CONS_PROOF.nm, IterableField(Base58Field(byte_lengths=(32,)))),
     )
-
-
-class ConsProofRequest(MessageBase):
-    typename = CONS_PROOF_REQUEST
-    schema = (
-        (f.LEDGER_ID.nm, LedgerIdField()),
-        (f.SEQ_NO_START.nm, NonNegativeNumberField()),
-        (f.SEQ_NO_END.nm, NonNegativeNumberField()),
-    )
-
-
-class ReqLedgerStatus(MessageBase):
-    """
-    Purpose: ask node for LedgerStatus of specific ledger
-    """
-    typename = REQ_LEDGER_STATUS
-    schema = (
-        (f.LEDGER_ID.nm, LedgerIdField()),
-    )
-
+    
 
 class ViewChangeDone(MessageBase):
     """

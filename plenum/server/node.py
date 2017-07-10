@@ -14,19 +14,13 @@ from ledger.stores.file_hash_store import FileHashStore
 from ledger.stores.hash_store import HashStore
 from ledger.stores.memory_hash_store import MemoryHashStore
 from ledger.util import F
-from orderedset._orderedset import OrderedSet
+from orderedset import OrderedSet
 
 from plenum.client.wallet import Wallet
 from plenum.common.config_util import getConfig
-from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
-    TARGET_NYM, ROLE, STEWARD, NYM, VERKEY, OP_FIELD_NAME, CLIENT_STACK_SUFFIX, \
-    CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
-    NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
-    NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE, \
-    LEDGER_STATUS, CONS_PROOF_REQUEST, PREPREPARE, CONSISTENCY_PROOF, ORIGIN, GET_TXN
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
-    InvalidClientOp, InvalidClientRequest, BaseExc, \
+    InvalidClientRequest, BaseExc, \
     InvalidClientMessageException, KeysNotFoundException as REx, BlowUp
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.keygen_utils import areKeysSetup
@@ -72,7 +66,6 @@ from plenum.server.propagator import Propagator
 from plenum.server.quorums import Quorums
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-from plenum.server.view_change.view_change_msg_filter import ViewChangeMessageFilter
 from state.pruning_state import PruningState
 from stp_core.common.log import getlogger
 from stp_core.crypto.signer import Signer
@@ -247,8 +240,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
 
-        self.__message_filter_engine = MessageFilterEngine()
-
         nodeRoutes = [(Propagate, self.processPropagate),
                       (InstanceChange, self.processInstanceChange),
                       (MessageReq, self.process_message_req),
@@ -289,8 +280,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
-        # TODO: This should be persisted in
-        # case the node crashes before sending the reply to the client
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
         nodeRoutes.extend([
@@ -385,12 +374,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_change_in_progress.setter
     def view_change_in_progress(self, value):
         self._view_change_in_progress = value
-        # if self._view_change_in_progress:
-        #     # Question: Why 2 args, won't every filter have a name?
-        #     self.__message_filter_engine.add_filter(ViewChangeMessageFilter.NAME,
-        #                                             ViewChangeMessageFilter(self.viewNo))
-        # else:
-        #     self.__message_filter_engine.remove_filter(ViewChangeMessageFilter.NAME)
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
@@ -1317,11 +1300,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         while self.nodeInBox:
             m = self.nodeInBox.popleft()
-
-            msg, frm = m
-            # if self.__message_filter_engine.filter_node_to_node(msg):
-            #     continue
-
             try:
                 await self.nodeMsgRouter.handle(m)
             except SuspiciousNode as ex:
@@ -1462,11 +1440,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                            format(self.clientstack.name, frm, req),
                            extra={"cli": True,
                                   "tags": ["node-msg-processing"]})
-
-            # filtered = self.__message_filter_engine.filter_client_to_node(req)
-            # if filtered:
-            #     self._reject_msg(req, frm, filtered)
-            #     continue
 
             try:
                 await self.clientMsgRouter.handle(m)
