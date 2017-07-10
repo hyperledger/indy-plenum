@@ -23,7 +23,7 @@ from plenum.common.constants import TXN_TYPE, TXN_TIME, POOL_TXN_TYPES, \
     CLIENT_BLACKLISTER_SUFFIX, NODE_BLACKLISTER_SUFFIX, \
     NODE_PRIMARY_STORAGE_SUFFIX, NODE_HASH_STORE_SUFFIX, HS_FILE, DATA, ALIAS, \
     NODE_IP, HS_LEVELDB, POOL_LEDGER_ID, DOMAIN_LEDGER_ID, LedgerState, TRUSTEE, \
-    LEDGER_STATUS, CONS_PROOF_REQUEST, PREPREPARE, CONSISTENCY_PROOF, ORIGIN, GET_TXN
+    LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF, ORIGIN, GET_TXN
 from plenum.common.exceptions import SuspiciousNode, SuspiciousClient, \
     MissingNodeOp, InvalidNodeOp, InvalidNodeMsg, InvalidClientMsgType, \
     InvalidClientOp, InvalidClientRequest, BaseExc, \
