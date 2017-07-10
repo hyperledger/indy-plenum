@@ -1,12 +1,17 @@
 import pytest
+import unittest
 
-from plenum.common.exceptions import InvalidSignature
+from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
 from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
 
 idr = '5G72199XZB7wREviUbQma7'
+msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 
+class DummyAuthenticator(SimpleAuthNr):
+    def getVerkey(self, _):
+        return None
 
 @pytest.fixture(scope="module")
 def cli():
@@ -22,12 +27,28 @@ def sa(cli):
 
 @pytest.fixture(scope="module")
 def msg():
-    return dict(myMsg="42 (forty-two) is the natural number that succeeds 41 and precedes 43.")
+    return dict(myMsg=msg_str)
 
 
 @pytest.fixture(scope="module")
 def sig(cli, msg):
     return cli.sign(msg)
+
+
+def test_authenticate_raises_correct_exception(testcase=unittest.TestCase()):
+    """When a cryptonym not on the ledger is attempted to be authenticated,
+    it should check the ledger and not depend on the credentials provided
+    by the client.  When this occurs, the authenticator should  throw an
+    exception (because the verkey is None)."""
+    msg = dict(myMsg="42 (forty-two) is the natural number that succeeds 41 and precedes 43.")
+    simple_signer = SimpleSigner()
+    identifier = simple_signer.identifier
+    signature = simple_signer.sign(msg)
+    verkey = simple_signer.verkey
+    dummyAr = DummyAuthenticator()
+    dummyAr.addIdr(identifier, verkey)
+    testcase.assertRaises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
+
 
 
 def testClientAuthentication(sa, cli, msg, sig):
