@@ -253,6 +253,7 @@ class Propagator:
                 self.request_msg(PROPAGATE, {f.IDENTIFIER.nm: idr,
                                              f.REQ_ID.nm: req_id})
                 self._add_to_recently_requested((idr, req_id))
+                i += 1
             else:
                 logger.debug('{} already requested PROPAGATE recently for {}'.
                              format(self, (idr, req_id)))

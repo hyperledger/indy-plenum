@@ -1022,7 +1022,7 @@ class Replica(HasActionQueue, MessageProcessor):
         non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
         if non_fin_reqs:
             self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
-            # TODO: An optimisation is to not request PROPAGATEs if some
+            # TODO: An optimisation might be to not request PROPAGATEs if some
             # PROPAGATEs are present or a client request is present and
             # sufficient PREPAREs and PRE-PREPARE are present, then the digest
             # can be compared but this is expensive as the PREPARE
