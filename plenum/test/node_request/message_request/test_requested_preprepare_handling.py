@@ -29,7 +29,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet, client1,
         last_pp = orig_method(msg)
         return last_pp
 
-    confused_node._serve_preprepare_request = types.MethodType(patched_method,
+    confused_node.req_handlers[PREPREPARE] = types.MethodType(patched_method,
                                                                confused_node)
 
     # Delay PRE-PREPAREs by large amount simulating loss

@@ -1,5 +1,3 @@
-import pytest
-
 from collections import OrderedDict
 from plenum.common.messages.fields import NonEmptyStringField
 from plenum.common.messages.client_request import ClientMessageValidator
