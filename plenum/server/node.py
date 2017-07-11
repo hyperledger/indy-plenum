@@ -1785,8 +1785,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         }
 
         if txn:
-            result[DATA] = json.dumps(txn.result)
+            result[DATA] = txn.result
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
+
+        result[DATA] = json.dumps(result[DATA])
 
         self.transmitToClient(Reply(result), frm)
 
