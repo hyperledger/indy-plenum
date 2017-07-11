@@ -1,8 +1,8 @@
 #!groovy
 
-@Library('SovrinHelpersRepoMerge') _
+@Library('SovrinHelpersNewPackageNames') _
 
-def name = 'plenum'
+def name = 'indy-plenum'
 
 def plenumTestUbuntu = {
     try {
@@ -207,4 +207,6 @@ def stateTestWindowsNoDocker = {
 }
 
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
+options.setPublishableBranches(['feature/indy-399']) //REMOVE IT BEFORE MERGE     
+options.setPostfixes([master: 'new-names']) //REMOVE IT BEFORE MERGE
+testAndPublish(name, [:], true, options)
