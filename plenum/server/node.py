@@ -74,7 +74,7 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
-
+from sovrin_common.constants import openTxns
 from state.state import State
 
 pluginManager = PluginManager()
@@ -2344,7 +2344,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     def isSignatureVerificationNeeded(self, msg: Any):
-        return msg[OPERATION][TXN_TYPE] != GET_TXN if OPERATION in msg and DATA in msg[OPERATION] else True
+        op = msg.get(OPERATION)
+        if op:
+            if op.get(TXN_TYPE) in openTxns:
+                return False
+        return True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
         if ledger_id in self.txn_seq_range_to_3phase_key:
