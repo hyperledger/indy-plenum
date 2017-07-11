@@ -13,3 +13,8 @@ def test_that_service_fields_not_being_serialized():
     deserialized = ZStack.deserializeMsg(serialized)
     service_fields = {'typename', 'schema', 'optional', 'nullable'}
     assert service_fields - set(deserialized) == service_fields
+
+
+def test_that_dir_returns_only_message_keys():
+    message = LedgerStatus(1, 10, None, None, "AwgQhPR9cgRubttBGjRruCRMLhZFBffbejbPipj7WBBm")
+    assert set(dir(message)) == set(message.keys())
