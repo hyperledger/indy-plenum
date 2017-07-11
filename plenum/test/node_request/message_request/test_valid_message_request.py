@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import LEDGER_STATUS, CONSISTENCY_PROOF, \
-    PREPREPARE
+    PREPREPARE, PROPAGATE
 from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     AnyMapField, MessageRep, AnyField
 from plenum.common.types import f
@@ -18,8 +18,8 @@ whitelist = [invalid_type_discard_log, ]
 
 patched_schema = (
     (f.MSG_TYPE.nm, ChooseField(values={'invalid_type', LEDGER_STATUS,
-                                        CONSISTENCY_PROOF,
-                                        PREPREPARE})),
+                                        CONSISTENCY_PROOF, PREPREPARE,
+                                        PROPAGATE})),
     (f.PARAMS.nm, AnyMapField())
 )
 
@@ -101,6 +101,9 @@ def test_node_reject_invalid_req_resp_params(looper, nodes):
                                           f.VIEW_NO.nm: 1,
                                           f.PP_SEQ_NO.nm: 10}),
         patched_MessageReq()(LEDGER_STATUS, {f.LEDGER_ID.nm: 100}),
+        patched_MessageReq()(REQUEST, {f.IDENTIFIER.nm: 'aa', f.REQ_ID.nm: 'fr'}),
+        patched_MessageReq()(REQUEST, {f.IDENTIFIER.nm: '4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ'}),
+        patched_MessageReq()(REQUEST, {f.REQ_ID.nm: 1499707723017300}),
     ]
 
     for bad_msg in bad_msgs:

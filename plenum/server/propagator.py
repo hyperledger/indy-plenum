@@ -3,8 +3,12 @@ from itertools import groupby
 
 from typing import Dict, Tuple, Union, Optional
 
+from orderedset._orderedset import OrderedSet
+from plenum.common.constants import PROPAGATE
 from plenum.common.messages.node_messages import Propagate
 from plenum.common.request import Request, ReqKey
+from plenum.common.types import f
+from plenum.server.quorums import Quorum
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -23,16 +27,14 @@ class ReqState:
         self.propagates = {}
         self.finalised = None
 
-    @property
-    def most_propagated_request_with_senders(self):
-        groups = defaultdict(set)
+    def req_with_acceptable_quorum(self, quorum: Quorum):
+        digests = defaultdict(set)
         # this is workaround because we are getting a propagate from somebody with
         # non-str (byte) name
-        propagates = filter(lambda x: type(x[0]) == str, self.propagates.items())
-        for key, value in sorted(propagates):
-            groups[value].add(key)
-        most_common_requests = sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
-        return most_common_requests[0] if most_common_requests else (None, set())
+        for sender, req in filter(lambda x: type(x[0]) == str, self.propagates.items()):
+            digests[req.digest].add(sender)
+            if quorum.is_reached(len(digests[req.digest])):
+                return req
 
     def set_finalised(self, req):
         # TODO: make it much explicitly and simpler
@@ -94,9 +96,9 @@ class Requests(OrderedDict):
             votes = 0
         return votes
 
-    def most_propagated_request_with_senders(self, req: Request):
+    def req_with_acceptable_quorum(self, req: Request, quorum: Quorum):
         state = self[req.key]
-        return state.most_propagated_request_with_senders
+        return state.req_with_acceptable_quorum(quorum)
 
     def set_finalised(self, req: Request):
         state = self[req.key]
@@ -119,8 +121,11 @@ class Requests(OrderedDict):
 
 
 class Propagator:
+    MAX_REQUESTED_KEYS_TO_KEEP = 1000
+
     def __init__(self):
         self.requests = Requests()
+        self.requested_propagates_for = OrderedSet()
 
     # noinspection PyUnresolvedReferences
     def propagate(self, request: Request, clientName):
@@ -141,7 +146,7 @@ class Propagator:
             self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], identifier) -> Propagate:
+    def createPropagate(request: Union[Request, dict], client_name) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -154,9 +159,9 @@ class Propagator:
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.as_dict if isinstance(request, Request) else \
             request
-        if isinstance(identifier, bytes):
-            identifier = identifier.decode()
-        return Propagate(request, identifier)
+        if isinstance(client_name, bytes):
+            client_name = client_name.decode()
+        return Propagate(request, client_name)
 
     # noinspection PyUnresolvedReferences
     def canForward(self, request: Request):
@@ -179,10 +184,13 @@ class Propagator:
         if self.requests.forwarded(request):
             return 'already forwarded'
 
-        req, senders = self.requests.most_propagated_request_with_senders(request)
-        if self.name in senders:
-            senders.remove(self.name)
-        if req and self.quorums.propagate.is_reached(len(senders)):
+        # If not enough Propogates, don't bother comparing
+        if not self.quorums.propagate.is_reached(self.requests.votes(request)):
+            return 'not finalised'
+
+        req = self.requests.req_with_acceptable_quorum(request,
+                                                       self.quorums.propagate)
+        if req:
             self.requests.set_finalised(req)
             return None
         else:
@@ -230,3 +238,27 @@ class Propagator:
         else:
             logger.debug("{} not forwarding request {} to its replicas "
                          "since {}".format(self, request, cannot_reason_msg))
+
+    def request_propagates(self, req_keys):
+        """
+        Request PROPAGATEs for the given request keys. Since replicas can
+        request PROPAGATEs independently of each other, check if it has
+        been requested recently
+        :param req_keys:
+        :return:
+        """
+        i = 0
+        for (idr, req_id) in req_keys:
+            if (idr, req_id) not in self.requested_propagates_for:
+                self.request_msg(PROPAGATE, {f.IDENTIFIER.nm: idr,
+                                             f.REQ_ID.nm: req_id})
+                self._add_to_recently_requested((idr, req_id))
+            else:
+                logger.debug('{} already requested PROPAGATE recently for {}'.
+                             format(self, (idr, req_id)))
+        return i
+
+    def _add_to_recently_requested(self, key):
+        while len(self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
+            self.requested_propagates_for.pop(last=False)
+        self.requested_propagates_for.add(key)
