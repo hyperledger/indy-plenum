@@ -156,3 +156,6 @@ class MessageBase(Mapping, MessageValidator):
         for index, value in enumerate(list(self.__iter__())):
             h = h * (index + 1) * (hash(value) + 1)
         return h
+
+    def __dir__(self):
+        return self.keys()
