@@ -101,9 +101,9 @@ def test_node_reject_invalid_req_resp_params(looper, nodes):
                                           f.VIEW_NO.nm: 1,
                                           f.PP_SEQ_NO.nm: 10}),
         patched_MessageReq()(LEDGER_STATUS, {f.LEDGER_ID.nm: 100}),
-        patched_MessageReq()(REQUEST, {f.IDENTIFIER.nm: 'aa', f.REQ_ID.nm: 'fr'}),
-        patched_MessageReq()(REQUEST, {f.IDENTIFIER.nm: '4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ'}),
-        patched_MessageReq()(REQUEST, {f.REQ_ID.nm: 1499707723017300}),
+        patched_MessageReq()(PROPAGATE, {f.IDENTIFIER.nm: 'aa', f.REQ_ID.nm: 'fr'}),
+        patched_MessageReq()(PROPAGATE, {f.IDENTIFIER.nm: '4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ'}),
+        patched_MessageReq()(PROPAGATE, {f.REQ_ID.nm: 1499707723017300}),
     ]
 
     for bad_msg in bad_msgs:
