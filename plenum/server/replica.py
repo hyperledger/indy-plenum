@@ -1095,7 +1095,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if not ppReq:
-                self.enqueuePrepare(prepare, sender)
+                self.enqueue_prepare(prepare, sender)
                 return False
         # If primary replica
         if primaryStatus is True:
@@ -1107,7 +1107,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
 
         if primaryStatus is None and not ppReq:
-            self.enqueuePrepare(prepare, sender)
+            self.enqueue_prepare(prepare, sender)
             return False
 
         if prepare.digest != ppReq.digest:
@@ -1685,7 +1685,7 @@ class Replica(HasActionQueue, MessageProcessor):
             r += 1
         return r
 
-    def enqueuePrepare(self, pMsg: Prepare, sender: str):
+    def enqueue_prepare(self, pMsg: Prepare, sender: str):
         logger.debug("Queueing prepare due to unavailability of PRE-PREPARE. "
                      "Prepare {} from {}".format(pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)

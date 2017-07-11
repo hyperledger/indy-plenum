@@ -1,5 +1,5 @@
 import random
-from typing import Iterable
+from typing import Iterable, List
 
 from plenum.common.request import Request
 from plenum.common.types import f
@@ -134,6 +134,26 @@ def cr_delay(delay: float):
 def req_delay(delay: float):
     # Delayer of Request requests
     return delayerMsgTuple(delay, Request)
+
+
+def msg_req_delay(delay: float, types_to_delay: List=None):
+    # Delayer of MessageReq messages
+    def specific_msgs(msg):
+        if isinstance(msg[0], MessageReq) and (not types_to_delay or
+                                                    msg[0].msg_type in types_to_delay):
+            return delay
+
+    return specific_msgs
+
+
+def msg_rep_delay(delay: float, types_to_delay: List=None):
+    # Delayer of MessageRep messages
+    def specific_msgs(msg):
+        if isinstance(msg[0], MessageRep) and (not types_to_delay or
+                                                    msg[0].msg_type in types_to_delay):
+            return delay
+
+    return specific_msgs
 
 
 def delay(what, frm, to, howlong):
