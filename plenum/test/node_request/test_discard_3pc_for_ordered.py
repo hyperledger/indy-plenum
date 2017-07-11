@@ -30,7 +30,7 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
                                            2 * sent_batches, sent_batches)
 
     def chk(node, inst_id, p_count, c_count):
-        # A node will still record PREPRAREs even if more than 2f, till the
+        # A node will still record PREPRAREs even if more than n-f-1, till the
         # request is not ordered
         assert len(node.replicas[inst_id].prepares) >= p_count
         assert len(node.replicas[inst_id].commits) == c_count

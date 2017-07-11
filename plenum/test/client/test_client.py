@@ -168,7 +168,7 @@ def testReplyWhenRepliesFromExactlyFPlusOneNodesAreSame(looper,
                                                         client1,
                                                         wallet1):
     """
-    When only :math:`2f+1` replies from the nodes are matching, the client
+    When only :math:`f+1` replies from the nodes are matching, the client
     would accept the reply
     """
     request = sendRandomRequest(wallet1, client1)
