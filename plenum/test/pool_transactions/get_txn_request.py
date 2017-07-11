@@ -7,7 +7,8 @@ from plenum.test import waits
 from plenum.test.helper import checkSufficientRepliesReceived
 from plenum.common.util import getMaxFailures
 import json
-
+from plenum.common.request import Request
+from plenum.common.util import getTimeBasedId
 
 c_delay = 10
 fValue = getMaxFailures(4)
@@ -18,8 +19,8 @@ def testSendGetTxnReqForExistsSeqNo(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: 1
     }
-    req = stewardWallet.signOp(op)
-    send_signed_requests(steward1, [req])
+    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    steward1.submitReqs(req)
 
     timeout = waits.expectedTransactionExecutionTime(len(steward1.inBox)) + c_delay
     get_txn_response = looper.run(
@@ -35,8 +36,8 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: randint(100, 1000)
     }
-    req = stewardWallet.signOp(op)
-    send_signed_requests(steward1, [req])
+    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    steward1.submitReqs(req)
 
     timeout = waits.expectedTransactionExecutionTime(len(steward1.inBox)) + c_delay
     get_txn_response = looper.run(
@@ -44,7 +45,7 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
                    req.reqId, fValue,
                    retryWait=1, timeout=timeout))
 
-    assert not get_txn_response[DATA]
+    assert get_txn_response[DATA] == '{}'
 
 
 def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
@@ -60,8 +61,8 @@ def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
         TXN_TYPE: GET_TXN,
         DATA: nym_response['seqNo']
     }
-    req = stewardWallet.signOp(op)
-    send_signed_requests(steward1, [req])
+    req = Request(identifier=stewardWallet.defaultId, operation=op, reqId=getTimeBasedId())
+    steward1.submitReqs(req)
 
     get_txn_response = looper.run(
         eventually(checkSufficientRepliesReceived, steward1.inBox,

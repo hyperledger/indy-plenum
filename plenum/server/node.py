@@ -2344,7 +2344,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     def isSignatureVerificationNeeded(self, msg: Any):
-        return True
+        return msg[OPERATION][TXN_TYPE] != GET_TXN if OPERATION in msg and DATA in msg[OPERATION] else True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
         if ledger_id in self.txn_seq_range_to_3phase_key:
