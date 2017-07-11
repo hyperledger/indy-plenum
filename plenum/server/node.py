@@ -2122,6 +2122,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica
+        # TODO: What if catchup already is started? Should we handle it?
         self.force_process_ordered()
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
