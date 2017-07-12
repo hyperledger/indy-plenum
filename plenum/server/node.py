@@ -288,7 +288,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (LedgerStatus,     self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq,       self.ledgerManager.processCatchupReq),
-            (CatchupRep,       self.ledgerManager.processCatchupRep)
+            (CatchupRep,       self.ledgerManager.processCatchupRep),
+            (CurrentState,     self.process_current_state_message)
         )
 
         self.clientMsgRouter = Router(
@@ -860,6 +861,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} sending current state {} to lagged node {}".
                      format(self, message, nodeName))
         self.send(message, rid)
+
+    def process_current_state_message(self, msg: CurrentState, frm):
+        election_message = msg.primary
+        self.sendToReplica(election_message, frm)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
