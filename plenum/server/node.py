@@ -780,13 +780,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isReady():
             self.checkInstances()
 
-            for n in joined:
-                msgs = self.elector.get_msgs_for_lagged_nodes()
-                self.sendElectionMsgsToLaggingNode(n, msgs)
+            for node in joined:
+                self.sendCurrentStateToLaggingNode(node)
 
         # Send ledger status whether ready (connected to enough nodes) or not
-        for n in joined:
-            self.send_ledger_status_to_newly_connected_node(n)
+        for node in joined:
+            self.send_ledger_status_to_newly_connected_node(node)
 
     def _sync_ledger(self, ledger_id):
         """
@@ -848,12 +847,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getClientStackHaOfNode(self, nodeName: str) -> HA:
         return self.cliNodeReg.get(self.getClientStackNameOfNode(nodeName))
 
-    def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
+    # def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
+    #     rid = self.nodestack.getRemote(nodeName).uid
+    #     for msg in msgs:
+    #         logger.debug("{} sending election message {} to lagged node {}".
+    #                      format(self, msg, nodeName))
+    #         self.send(msg, rid)
+
+    def sendCurrentStateToLaggingNode(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
-        for msg in msgs:
-            logger.debug("{} sending election message {} to lagged node {}".
-                         format(self, msg, nodeName))
-            self.send(msg, rid)
+        election_messages = self.elector.get_msgs_for_lagged_nodes()
+        message = CurrentState(viewNo=self.viewNo,
+                               primary=election_messages)
+        logger.debug("{} sending current state {} to lagged node {}".
+                     format(self, message, nodeName))
+        self.send(message, rid)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1276,6 +1284,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
+        # TODO: why do we unpack batches here? Batching is a feature of
+        # a transport, it should be encapsulated.
+
         if isinstance(msg, Batch):
             logger.debug("{} processing a batch {}".format(self, msg))
             for m in msg.messages:
