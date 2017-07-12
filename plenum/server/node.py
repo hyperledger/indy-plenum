@@ -2122,7 +2122,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica
-        # TODO: What if catchup already is started? Should we handle it?
 
         if self.mode == Mode.starting:
             logger.info('{} does not start the catchup procedure '

@@ -1442,7 +1442,12 @@ class Replica(HasActionQueue, MessageProcessor):
         return True
 
     def __start_catchup_if_needed(self):
-        if self.stashed_checkpoints_with_quorum() > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP:
+        stashed_chks_with_quorum = self.stashed_checkpoints_with_quorum()
+        is_stashed_enough = stashed_chks_with_quorum > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
+        is_non_primary_master = self.isMaster and not self.isPrimary
+        if is_stashed_enough and is_non_primary_master:
+            logger.info('{} has stashed {} checkpoints with quorum '
+                        'so the catchup procedure starts'.format(self, stashed_chks_with_quorum))
             self.node.start_catchup()
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
@@ -1533,11 +1538,9 @@ class Replica(HasActionQueue, MessageProcessor):
                 self.stashedRecvdCheckpoints.pop(view_no)
 
     def stashed_checkpoints_with_quorum(self):
-        quorums_num = 0
-        for key, senders in self.stashedRecvdCheckpoints.items():
-            if self.quorums.checkpoint.is_reached(len(senders.keys())):
-                quorums_num += 1
-        return quorums_num
+        quorum = self.quorums.checkpoint
+        return sum(quorum.is_reached(len(senders))
+                   for senders in self.stashedRecvdCheckpoints.values())
 
     def processStashedCheckpoints(self, key):
         self._clear_prev_view_stashed_checkpoints()

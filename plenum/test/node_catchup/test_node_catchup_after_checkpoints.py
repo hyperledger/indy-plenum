@@ -49,7 +49,7 @@ def slow_node_and_others(txnPoolNodeSet):
     other = [n for n in txnPoolNodeSet if n != node]
 
     delay = 1000
-    logger.info("Delay commits for {} on {} sec".format(node, delay))
+    logger.info("Delay 3pc messages for {} on {} sec".format(node, delay))
 
     node.nodeIbStasher.delay(
         cDelay(delay_3pc_messages([node, ], inst_id=None, delay=delay))
