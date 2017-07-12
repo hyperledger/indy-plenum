@@ -294,6 +294,7 @@ class MessageRep(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
+    # TODO: support a setter for `msg` to create an instance of a type according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
         (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),
