@@ -27,6 +27,10 @@ class FileHashStore(HashStore):
         self.nodeSize = nodeSize
         self.leafSize = leafSize
 
+    @property
+    def is_persistent(self) -> bool:
+        return True
+
     @staticmethod
     def write(data, store, size):
         if not isinstance(data, bytes):

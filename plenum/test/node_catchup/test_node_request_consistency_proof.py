@@ -1,7 +1,4 @@
 import types
-from random import randint
-
-import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, CONSISTENCY_PROOF
 from plenum.common.ledger import Ledger
