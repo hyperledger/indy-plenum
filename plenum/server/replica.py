@@ -14,11 +14,9 @@ from sortedcontainers import SortedList
 
 import plenum.server.node
 from plenum.common.config_util import getConfig
-from plenum.common.constants import PREPREPARE
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
 from plenum.common.signing import serialize
-from plenum.common.types import f
 from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
@@ -1019,12 +1017,22 @@ class Replica(HasActionQueue, MessageProcessor):
         if compare_3PC_keys((pp.viewNo, pp.ppSeqNo), self.__last_pp_3pc) > 0:
             return False  # ignore old pre-prepare
 
+        # Do not combine the next if conditions, the idea is to exit as soon
+        # as possible
         non_fin_reqs = self.nonFinalisedReqs(pp.reqIdr)
+        if non_fin_reqs:
+            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
+            # TODO: An optimisation might be to not request PROPAGATEs if some
+            # PROPAGATEs are present or a client request is present and
+            # sufficient PREPAREs and PRE-PREPARE are present, then the digest
+            # can be compared but this is expensive as the PREPARE
+            # and PRE-PREPARE contain a combined digest
+            self.node.request_propagates(non_fin_reqs)
+            return False
 
         non_next_upstream_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
-
-        if non_fin_reqs or non_next_upstream_pp:
-            self.enqueue_pre_prepare(pp, sender, non_fin_reqs)
+        if non_next_upstream_pp:
+            self.enqueue_pre_prepare(pp, sender)
             return False
 
         self.validate_pre_prepare(pp, sender)
@@ -1087,7 +1095,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 raise SuspiciousNode(sender, Suspicions.DUPLICATE_PR_SENT, prepare)
             # If PRE-PREPARE not received for the PREPARE, might be slow network
             if not ppReq:
-                self.enqueuePrepare(prepare, sender)
+                self.enqueue_prepare(prepare, sender)
                 return False
         # If primary replica
         if primaryStatus is True:
@@ -1099,7 +1107,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 raise SuspiciousNode(sender, Suspicions.UNKNOWN_PR_SENT, prepare)
 
         if primaryStatus is None and not ppReq:
-            self.enqueuePrepare(prepare, sender)
+            self.enqueue_prepare(prepare, sender)
             return False
 
         if prepare.digest != ppReq.digest:
@@ -1677,7 +1685,7 @@ class Replica(HasActionQueue, MessageProcessor):
             r += 1
         return r
 
-    def enqueuePrepare(self, pMsg: Prepare, sender: str):
+    def enqueue_prepare(self, pMsg: Prepare, sender: str):
         logger.debug("Queueing prepare due to unavailability of PRE-PREPARE. "
                      "Prepare {} from {}".format(pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
@@ -1789,11 +1797,12 @@ class Replica(HasActionQueue, MessageProcessor):
                          'stashed for {}'.format(self, three_pc_key))
             return False
 
+        digest, state_root, txn_root, prepare_senders = \
+            self.get_acceptable_stashed_prepare_state(three_pc_key)
+
         # Choose a better data structure for `prePreparesPendingFinReqs`
         pre_prepares = [pp for pp, _, _ in self.prePreparesPendingFinReqs
                         if (pp.viewNo, pp.ppSeqNo) == three_pc_key]
-        digest, state_root, txn_root, prepare_senders = \
-            self.get_acceptable_stashed_prepare_state(three_pc_key)
         if pre_prepares:
             if [pp for pp in pre_prepares if
                 (pp.digest, pp.stateRootHash, pp.txnRootHash) == (digest, state_root, txn_root)]:
@@ -1804,6 +1813,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # TODO: Using a timer to retry would be a better thing to do
         logger.debug('{} requesting PRE-PREPARE({}) from {}'.
                      format(self, three_pc_key, prepare_senders))
+        # An optimisation can be to request PRE-PREPARE from f+1 or
+        # f+x (f+x<2f) nodes only rather than 2f since only 1 correct
+        # PRE-PREPARE is needed.
         self.node.request_msg(PREPREPARE, {f.INST_ID.nm: self.instId,
                                            f.VIEW_NO.nm: three_pc_key[0],
                                            f.PP_SEQ_NO.nm: three_pc_key[1]},

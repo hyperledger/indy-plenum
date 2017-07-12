@@ -20,7 +20,7 @@ from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
-from plenum.persistence.util import txnsWithMerkleInfo, pop_merkle_info
+from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState

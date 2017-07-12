@@ -11,7 +11,6 @@ from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
 from plenum.test.helper import sendRandomRequests
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.test_ledger_manager import TestLedgerManager
 from plenum.test.test_node import checkNodesConnected
 
 # Do not remove the next imports
