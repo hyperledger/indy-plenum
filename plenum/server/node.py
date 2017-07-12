@@ -782,7 +782,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.isReady():
             self.checkInstances()
             for node in joined:
-                self.sendCurrentStateToLaggingNode(node)
+                self.send_current_state_to_lagging_node(node)
         # Send ledger status whether ready (connected to enough nodes) or not
         for node in joined:
             self.send_ledger_status_to_newly_connected_node(node)
@@ -854,11 +854,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     #                      format(self, msg, nodeName))
     #         self.send(msg, rid)
 
-    def sendCurrentStateToLaggingNode(self, nodeName: str):
+    def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
         election_messages = self.elector.get_msgs_for_lagged_nodes()
         message = CurrentState(viewNo=self.viewNo,
                                primary=election_messages)
+
         logger.debug("{} sending current state {} to lagged node {}".
                      format(self, message, nodeName))
         self.send(message, rid)
