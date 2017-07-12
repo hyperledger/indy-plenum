@@ -1,6 +1,7 @@
 import random
-from typing import Iterable
+from typing import Iterable, List
 
+from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.common.messages.node_messages import *
 from plenum.common.constants import OP_FIELD_NAME
@@ -79,11 +80,6 @@ def rel_delay(delay: float, inst_id=None, sender_filter: str=None):
     return delayerMsgTuple(delay, Reelection, instFilter=inst_id, senderFilter=sender_filter)
 
 
-def vcdDelay(delay: float):
-    # Delayer of VIEW_CHANGE_DONE requests
-    return delayerMsgTuple(delay, ViewChangeDone)
-
-
 def ppgDelay(delay: float, sender_filter: str=None):
     # Delayer of PROPAGATE requests
     return delayerMsgTuple(delay, Propagate, senderFilter=sender_filter)
@@ -133,6 +129,31 @@ def cqDelay(delay: float):
 def cr_delay(delay: float):
     # Delayer of CATCHUP_REP requests
     return delayerMsgTuple(delay, CatchupRep)
+
+
+def req_delay(delay: float):
+    # Delayer of Request requests
+    return delayerMsgTuple(delay, Request)
+
+
+def msg_req_delay(delay: float, types_to_delay: List=None):
+    # Delayer of MessageReq messages
+    def specific_msgs(msg):
+        if isinstance(msg[0], MessageReq) and (not types_to_delay or
+                                                    msg[0].msg_type in types_to_delay):
+            return delay
+
+    return specific_msgs
+
+
+def msg_rep_delay(delay: float, types_to_delay: List=None):
+    # Delayer of MessageRep messages
+    def specific_msgs(msg):
+        if isinstance(msg[0], MessageRep) and (not types_to_delay or
+                                                    msg[0].msg_type in types_to_delay):
+            return delay
+
+    return specific_msgs
 
 
 def delay(what, frm, to, howlong):

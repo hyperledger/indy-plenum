@@ -1,5 +1,6 @@
+from plenum.common.constants import PROPAGATE
 from plenum.common.messages.node_messages import Prepare
-from plenum.test.delayers import ppDelay, pDelay, ppgDelay
+from plenum.test.delayers import ppDelay, pDelay, ppgDelay, msg_rep_delay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import checkNodeDataForInequality, \
     waitNodeDataEquality
@@ -84,6 +85,7 @@ def test_no_preprepare_requested(looper, txnPoolNodeSet, client1,
     """
     slow_node, other_nodes, _, _ = split_nodes(txnPoolNodeSet)
     slow_node.nodeIbStasher.delay(ppgDelay(20))
+    slow_node.nodeIbStasher.delay(msg_rep_delay(20, [PROPAGATE, ]))
 
     old_count_resp = count_requested_preprepare_resp(slow_node)
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1, 4, 2)
