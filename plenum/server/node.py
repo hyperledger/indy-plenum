@@ -240,14 +240,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
 
-        nodeRoutes = [(Propagate, self.processPropagate),
-                      (InstanceChange, self.processInstanceChange),
-                      (MessageReq, self.process_message_req),
-                      (MessageRep, self.process_message_rep)]
-
-        nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit, Checkpoint,
-                           ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -282,19 +274,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        nodeRoutes.extend([
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+        # CurrentState
+        self.nodeMsgRouter = Router(
+            (Propagate,        self.processPropagate),
+            (InstanceChange,   self.processInstanceChange),
+            (MessageReq,       self.process_message_req),
+            (MessageRep,       self.process_message_rep),
+            (PrePrepare,       self.sendToReplica),
+            (Prepare,          self.sendToReplica),
+            (Commit,           self.sendToReplica),
+            (Checkpoint,       self.sendToReplica),
+            (ThreePCState,     self.sendToReplica),
+            (LedgerStatus,     self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-            (CatchupRep, self.ledgerManager.processCatchupRep)
-        ])
-
-        self.nodeMsgRouter = Router(*nodeRoutes)
+            (CatchupReq,       self.ledgerManager.processCatchupReq),
+            (CatchupRep,       self.ledgerManager.processCatchupRep)
+        )
 
         self.clientMsgRouter = Router(
-            (Request, self.processRequest),
+            (Request,      self.processRequest),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
+            (CatchupReq,   self.ledgerManager.processCatchupReq),
         )
 
         # Ordered requests received from replicas while the node was not
@@ -779,10 +779,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.lost_master_primary()
         if self.isReady():
             self.checkInstances()
-
             for node in joined:
                 self.sendCurrentStateToLaggingNode(node)
-
         # Send ledger status whether ready (connected to enough nodes) or not
         for node in joined:
             self.send_ledger_status_to_newly_connected_node(node)
