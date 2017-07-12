@@ -74,7 +74,7 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
-from sovrin_common.constants import openTxns
+from plenum.common.constants import openTxns
 from state.state import State
 
 pluginManager = PluginManager()
