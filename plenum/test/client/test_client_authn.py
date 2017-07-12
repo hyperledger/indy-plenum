@@ -1,5 +1,4 @@
 import pytest
-import unittest
 
 from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
 from plenum.common.signer_simple import SimpleSigner
@@ -35,7 +34,7 @@ def sig(cli, msg):
     return cli.sign(msg)
 
 
-def test_authenticate_raises_correct_exception(testcase=unittest.TestCase()):
+def test_authenticate_raises_correct_exception():
     msg = dict(myMsg=msg_str)
     simple_signer = SimpleSigner()
     identifier = simple_signer.identifier
@@ -43,7 +42,7 @@ def test_authenticate_raises_correct_exception(testcase=unittest.TestCase()):
     verkey = simple_signer.verkey
     dummyAr = DummyAuthenticator()
     dummyAr.addIdr(identifier, verkey)
-    testcase.assertRaises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
+    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
 
 
 
