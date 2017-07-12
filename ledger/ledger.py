@@ -79,11 +79,11 @@ class Ledger(ImmutableStore):
         if not self.tree.hashStore \
                 or isinstance(self.tree.hashStore, MemoryHashStore) \
                 or self.tree.leafCount == 0:
-            logging.info("Recovering tree from transaction log")
+            logging.debug("Recovering tree from transaction log")
             self.recoverTreeFromTxnLog()
         else:
             try:
-                logging.info("Recovering tree from hash store of size {}".
+                logging.debug("Recovering tree from hash store of size {}".
                               format(self.tree.leafCount))
                 self.recoverTreeFromHashStore()
             except ConsistencyVerificationFailed:
