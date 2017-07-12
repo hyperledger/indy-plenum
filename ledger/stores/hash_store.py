@@ -8,6 +8,10 @@ class HashStore:
     """
     Store of nodeHashes and leafHashes mapped against their sequence numbers.
     """
+    @property
+    @abstractmethod
+    def is_persistent(self) -> bool:
+        pass
 
     @abstractmethod
     def writeLeaf(self, leafHash):

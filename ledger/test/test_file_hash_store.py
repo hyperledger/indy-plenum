@@ -15,6 +15,7 @@ def nodesLeaves():
 
 def writtenFhs(tempdir, nodes, leaves):
     fhs = FileHashStore(tempdir)
+    assert fhs.is_persistent
     for leaf in leaves:
         fhs.writeLeaf(leaf)
     for node in nodes:

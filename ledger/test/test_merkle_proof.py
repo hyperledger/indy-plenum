@@ -117,9 +117,12 @@ TXN_COUNT = 1000
 def hashStore(request, tdir):
     if request.param == 'File':
         fhs = FileHashStore(tdir)
+        assert fhs.is_persistent
         yield fhs
     elif request.param == 'Memory':
-        yield MemoryHashStore()
+        mhs = MemoryHashStore()
+        assert not mhs.is_persistent
+        yield mhs
 
 
 @pytest.fixture()
@@ -149,7 +152,6 @@ def addTxns(hasherAndTree):
         serNo = d+1
         data = str(serNo).encode()
         auditPaths.append([hexlify(h) for h in m.append(data)])
-        print(m.hashStore.leafCount, m.hashStore.nodeCount)
     return TXN_COUNT, auditPaths
 
 
