@@ -73,7 +73,7 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.ratchet import Ratchet
 from stp_core.types import HA
 from stp_zmq.zstack import ZStack
-
+from plenum.common.constants import openTxns
 from state.state import State
 
 pluginManager = PluginManager()
@@ -1791,13 +1791,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         result = {
             f.IDENTIFIER.nm: request.identifier,
             f.REQ_ID.nm: request.reqId,
+            TXN_TYPE: request.operation[TXN_TYPE],
             DATA: {}
         }
 
         if txn:
-            result[DATA] = json.dumps(txn.result)
-            result[TXN_TYPE] = txn.result[TXN_TYPE]
+            result[DATA] = txn.result
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
+
+        result[DATA] = json.dumps(result[DATA])
 
         self.transmitToClient(Reply(result), frm)
 
@@ -2169,6 +2171,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.clientAuthNr
 
     def isSignatureVerificationNeeded(self, msg: Any):
+        op = msg.get(OPERATION)
+        if op:
+            if op.get(TXN_TYPE) in openTxns:
+                return False
         return True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
