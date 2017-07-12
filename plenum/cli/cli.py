@@ -252,10 +252,10 @@ class Cli:
             eventloop=eventloop,
             output=out)
 
-        RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-                                                  Console.Wordage.mute,
-                                                  self.config)
-        RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
+        # RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
+        #                                           Console.Wordage.mute,
+        #                                           self.config)
+        # RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
