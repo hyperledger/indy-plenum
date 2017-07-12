@@ -261,10 +261,24 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
     def nodeCount(self) -> int:
         return self.hashStore.nodeCount
 
-    def verifyConsistency(self, expectedLeafCount = -1) -> bool:
-        if expectedLeafCount > 0 and expectedLeafCount != self.leafCount:
+    @staticmethod
+    def get_expected_node_count(leaf_count):
+        """
+        The number of nodes is the number of full subtrees present
+        """
+        count = 0
+        while leaf_count > 1:
+            leaf_count //= 2
+            count += leaf_count
+        return count
+
+    def verify_consistency(self, expected_leaf_count) -> bool:
+        """
+        Check that the tree has same leaf count as expected and the
+        number of nodes are also as expected
+        """
+        if expected_leaf_count != self.leafCount:
             raise ConsistencyVerificationFailed()
-        expectedNodeCount = count_bits_set(self.leafCount)
-        if not expectedNodeCount == self.nodeCount:
+        if self.get_expected_node_count(self.leafCount) != self.nodeCount:
             raise ConsistencyVerificationFailed()
         return True

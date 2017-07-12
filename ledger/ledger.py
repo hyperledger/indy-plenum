@@ -1,10 +1,8 @@
 import base64
 import logging
 import time
-from collections import OrderedDict
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.chunked_file_store import ChunkedFileStore
 from ledger.tree_hasher import TreeHasher
 from ledger.merkle_tree import MerkleTree
 from ledger.serializers.mapping_serializer import MappingSerializer
@@ -12,7 +10,7 @@ from ledger.serializers.json_serializer import JsonSerializer
 from ledger.stores.file_store import FileStore
 from ledger.stores.text_file_store import TextFileStore
 from ledger.immutable_store import ImmutableStore
-from ledger.util import F
+from ledger.util import F, ConsistencyVerificationFailed
 
 
 class Ledger(ImmutableStore):
@@ -71,36 +69,26 @@ class Ledger(ImmutableStore):
             logging.error("Do not know how to recover {}".format(self.tree))
             raise TypeError("Merkle tree type {} is not supported"
                             .format(type(self.tree)))
-
-
-        # ATTENTION!
-        # This functionality is disabled until better consistency verification
-        # implemented - always using recovery from transaction log
-        # from ledger.stores.memory_hash_store import MemoryHashStore
-        # from ledger.util import ConsistencyVerificationFailed
-        # if not self.tree.hashStore \
-        #         or isinstance(self.tree.hashStore, MemoryHashStore) \
-        #         or self.tree.leafCount == 0:
-        #     logging.info("Recovering tree from transaction log")
-        #     self.recoverTreeFromTxnLog()
-        # else:
-        #     try:
-        #         logging.info("Recovering tree from hash store of size {}".
-        #                       format(self.tree.leafCount))
-        #         self.recoverTreeFromHashStore()
-        #     except ConsistencyVerificationFailed:
-        #         logging.error("Consistency verification of merkle tree "
-        #                       "from hash store failed, "
-        #                       "falling back to transaction log")
-        #         self.recoverTreeFromTxnLog()
-
-        logging.debug("Recovering tree from transaction log")
         start = time.perf_counter()
-        self.recoverTreeFromTxnLog()
+        if not self.tree.hashStore \
+                or not self.tree.hashStore.is_persistent \
+                or self.tree.leafCount == 0:
+            logging.debug("Recovering tree from transaction log")
+            self.recoverTreeFromTxnLog()
+        else:
+            try:
+                logging.debug("Recovering tree from hash store of size {}".
+                              format(self.tree.leafCount))
+                self.recoverTreeFromHashStore()
+            except ConsistencyVerificationFailed:
+                logging.error("Consistency verification of merkle tree "
+                              "from hash store failed, "
+                              "falling back to transaction log")
+                self.recoverTreeFromTxnLog()
+
         end = time.perf_counter()
         t = end - start
-        logging.debug("Recovered tree from transaction log in {} seconds".
-                      format(t))
+        logging.debug("Recovered tree in {} seconds".format(t))
 
     def recoverTreeFromTxnLog(self):
         # TODO: in this and some other lines specific fields of
@@ -118,7 +106,7 @@ class Ledger(ImmutableStore):
         hashes = list(reversed(self.tree.inclusion_proof(treeSize,
                                                          treeSize + 1)))
         self.tree._update(self.tree.leafCount, hashes)
-        self.tree.verifyConsistency(self._transactionLog.numKeys)
+        self.tree.verify_consistency(self._transactionLog.numKeys)
 
     def add(self, leaf):
         self._addToStore(leaf)

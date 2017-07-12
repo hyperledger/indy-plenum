@@ -18,7 +18,7 @@ def tdirWithLedger(tdir):
                 DATA: {
                 NAME: str(d),
                 ALIAS: 'test' + str(d),
-                SERVICES: {VALIDATOR},
+                SERVICES: [VALIDATOR],
                 }
               }
         if d == 1:

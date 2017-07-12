@@ -95,6 +95,8 @@ NODE = PlenumTransactions.NODE.value
 NYM = PlenumTransactions.NYM.value
 GET_TXN = PlenumTransactions.GET_TXN.value
 
+openTxns = (GET_TXN)
+
 POOL_TXN_TYPES = {NODE, }
 
 

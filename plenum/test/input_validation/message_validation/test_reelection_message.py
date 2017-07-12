@@ -1,5 +1,3 @@
-import pytest
-
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
     IterableField

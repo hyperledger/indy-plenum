@@ -114,7 +114,7 @@ class Propagate(MessageBase):
     typename = PROPAGATE
     schema = (
         (f.REQUEST.nm, ClientMessageValidator(operation_schema_is_strict=True)),
-        (f.SENDER_CLIENT.nm, NonEmptyStringField()),
+        (f.SENDER_CLIENT.nm, NonEmptyStringField(nullable=True)),
     )
 
 
@@ -244,7 +244,6 @@ class CatchupReq(MessageBase):
 
 
 class CatchupRep(MessageBase):
-
     typename = CATCHUP_REP
     schema = (
         (f.LEDGER_ID.nm, LedgerIdField()),
@@ -297,10 +296,11 @@ class MessageReq(MessageBase):
     """
     Purpose: ask node for any message
     """
+    allowed_types = {LEDGER_STATUS, CONSISTENCY_PROOF, PREPREPARE,
+                     PROPAGATE}
     typename = MESSAGE_REQUEST
     schema = (
-        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
-                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.MSG_TYPE.nm, ChooseField(values=allowed_types)),
         (f.PARAMS.nm, AnyMapField())
     )
 
@@ -309,10 +309,10 @@ class MessageRep(MessageBase):
     """
     Purpose: respond to a node for any requested message
     """
+    # TODO: support a setter for `msg` to create an instance of a type according to `msg_type`
     typename = MESSAGE_RESPONSE
     schema = (
-        (f.MSG_TYPE.nm, ChooseField(values={LEDGER_STATUS,
-                                            CONSISTENCY_PROOF, PREPREPARE})),
+        (f.MSG_TYPE.nm, ChooseField(values=MessageReq.allowed_types)),
         (f.PARAMS.nm, AnyMapField()),
         (f.MSG.nm, AnyField())
     )
