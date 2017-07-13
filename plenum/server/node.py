@@ -269,7 +269,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ThreePCState, MessageReq, MessageRep)
+                               ThreePCState, MessageReq, MessageRep, CurrentState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
