@@ -206,4 +206,5 @@ def stateTestWindowsNoDocker = {
     }
 }
 
-testAndPublish(name, [ubuntu:[:]])
+def options = new TestAndPublishOptions()		 +testAndPublish(name, [ubuntu:[:]])
+testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
