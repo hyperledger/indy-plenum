@@ -29,13 +29,12 @@ def test_current_state_propagation(newNodeCaughtUp,
     # 3. Start it again
     looper.add(new_node)
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, new_node)
-
     looper.runFor(5)
 
     # 4. Check that all nodes sent CurrentState
     for node in txnPoolNodeSet[:-1]:
         sent_times = node.spylog.count(node.send_current_state_to_lagging_node.__name__)
-        assert sent_times != 0
+        assert sent_times != 0, "{} haven't sent CurrentState".format(node)
     looper.runFor(5)
 
     # 5. Check that it received CurrentState messages
