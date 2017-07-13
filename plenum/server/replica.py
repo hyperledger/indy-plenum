@@ -263,6 +263,20 @@ class Replica(HasActionQueue, MessageProcessor):
         # Cleared in `gc`
         self.requested_pre_prepares = {}    # type: Dict[Tuple[int, int], Tuple[str, str, str]]
 
+        # Time of the last PRE-PREPARE which satisfied all validation rules
+        # (time, digest, roots were all correct). This time is not to be
+        # reverted even if the PRE-PREPAREs are not ordered. This implies that
+        # the next primary would have seen all accepted PRE-PREPAREs or another
+        # view change will happen
+        self.last_accepted_pre_prepare_time = None
+
+        # Keeps a map of PRE-PREPAREs which did not satisfy timestamp
+        # criteria, they can be accepted if >f PREPAREs are encountered.
+        # This is emptied on view change. With each PRE-PREPARE, a flag is
+        # stored which indicates whether there are sufficient acceptable
+        # PREPAREs or not
+        self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
+
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
             return None
@@ -613,7 +627,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
-        prePrepareReq = PrePrepare(self.instId,
+        pre_prepare = PrePrepare(self.instId,
                                    self.viewNo,
                                    ppSeqNo,
                                    tm,
@@ -627,11 +641,12 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
+        self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
             self.outBox.extend(rejects)
             self.node.onBatchCreated(ledger_id,
                                      self.stateRootHash(ledger_id, to_str=False))
-        return prePrepareReq
+        return pre_prepare
 
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
@@ -931,12 +946,39 @@ class Replica(HasActionQueue, MessageProcessor):
         ledger.discardTxns(reqCount)
         self.node.onBatchRejected(ledgerId)
 
+    def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
+        return (self.last_accepted_pre_prepare_time is None or
+                pp.ppTime > self.last_accepted_pre_prepare_time) and \
+               abs(pp.ppTime-get_utc_epoch()) <= self.config.ACCEPTED_DEVIATION_PREPREPARE_TIME
+
+    def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
+        """
+        Returns True or False depending on the whether the time in PRE-PREPARE
+        is acceptable. Can return True if time is not acceptable but sufficient
+        PREPAREs are found to support the PRE-PREPARE
+        :param pp:
+        :return:
+        """
+        correct = self.is_pre_prepare_time_correct(pp)
+        if not correct:
+            logger.error('{} found {} to have incorrect time.'.format(self, pp))
+            key = (pp.viewNo, pp.ppSeqNo)
+            if key in self.pre_prepares_stashed_for_incorrect_time and \
+                    self.pre_prepares_stashed_for_incorrect_time[key][-1]:
+                logger.info('{} marking time as correct for {}'.format(self, pp))
+                correct = True
+        return correct
+
     def validate_pre_prepare(self, pp: PrePrepare, sender: str):
         """
         This will apply the requests part of the PrePrepare to the ledger
         and state. It will not commit though (the ledger on disk will not
         change, neither the committed state root hash will change)
         """
+        if not self.is_pre_prepare_time_acceptable(pp):
+            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (pp, sender, False)
+            raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
+
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -1046,6 +1088,7 @@ class Replica(HasActionQueue, MessageProcessor):
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
         self.lastPrePrepareSeqNo = pp.ppSeqNo
+        self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeuePrepares(*key)
         self.dequeueCommits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
@@ -1503,7 +1546,6 @@ class Replica(HasActionQueue, MessageProcessor):
             if len(self.stashedRecvdCheckpoints[key]) == 0:
                 del self.stashedRecvdCheckpoints[key]
 
-
         restashed_num = total_processed - len(senders_of_completed_checkpoints)
         logger.debug('{} processed {} stashed checkpoints for {}, '
                      '{} of them were stashed again'
@@ -1531,13 +1573,18 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
 
+        to_clean_up = (
+            self.sentPrePrepares,
+            self.prePrepares,
+            self.prepares,
+            self.commits,
+            self.batches,
+            self.requested_pre_prepares,
+            self.pre_prepares_stashed_for_incorrect_time,
+        )
         for k in tpcKeys:
-            self.sentPrePrepares.pop(k, None)
-            self.prePrepares.pop(k, None)
-            self.prepares.pop(k, None)
-            self.commits.pop(k, None)
-            self.batches.pop(k, None)
-            self.requested_pre_prepares.pop(k, None)
+            for coll in to_clean_up:
+                coll.pop(k, None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
@@ -1553,6 +1600,9 @@ class Replica(HasActionQueue, MessageProcessor):
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc[1])
         self.checkpoints.clear()
+        for v, p in list(self.pre_prepares_stashed_for_incorrect_time.keys()):
+            if v < self.viewNo:
+                self.pre_prepares_stashed_for_incorrect_time.pop((v, p))
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
@@ -1684,13 +1734,17 @@ class Replica(HasActionQueue, MessageProcessor):
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        logger.debug("Queueing prepare due to unavailability of PRE-PREPARE. "
-                     "Prepare {} from {}".format(pMsg, sender))
+        logger.debug("{} queueing prepare due to unavailability of PRE-PREPARE. "
+                     "Prepare {} from {}".format(self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
-        self._request_pre_prepare_if_possible(key)
+        if key not in self.pre_prepares_stashed_for_incorrect_time:
+            self._request_pre_prepare_if_possible(key)
+        else:
+            self._process_stashed_pre_prepare_for_time_if_possible(key)
+
 
     def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -1857,6 +1911,28 @@ class Replica(HasActionQueue, MessageProcessor):
             self.discard(pp, reason='does not have expected state({} {} {})'.
                          format(digest, state_root, txn_root),
                          logMethod=logger.warning)
+
+    def _process_stashed_pre_prepare_for_time_if_possible(self, key: Tuple[int, int]):
+        logger.debug('{} going to process stashed PRE-PREPAREs with '
+                     'incorrect times'.format(self))
+        q = self.quorums.f
+        if len(self.preparesWaitingForPrePrepare[key]) > q:
+            times = [pr.ppTime for (pr, _) in
+                     self.preparesWaitingForPrePrepare[key]]
+            most_common_time = mostCommonElement(times)
+            if times.count(most_common_time) > q:
+                logger.debug('{} found sufficient PREPAREs for the '
+                             'PRE-PREPARE{}'.format(self, key))
+                pp, sender, done = self.pre_prepares_stashed_for_incorrect_time[key]
+                if done:
+                    logger.debug('{} already processed PRE-PREPARE{}'.format(self, key))
+                    return True
+                # True is set since that will indicate to `is_pre_prepare_time_acceptable`
+                # that sufficient PREPAREs are received
+                self.pre_prepares_stashed_for_incorrect_time[key] = (pp, sender, True)
+                self.processPrePrepare(pp, sender)
+                return True
+        return False
 
     # @property
     # def threePhaseState(self):

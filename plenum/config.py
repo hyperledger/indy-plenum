@@ -190,3 +190,5 @@ MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 # permissions for keyring dirs/files
 KEYRING_DIR_MODE = 0o700  # drwx------ 
 KEYRING_FILE_MODE = 0o600  # -rw-------
+
+ACCEPTED_DEVIATION_PREPREPARE_TIME = 10  # seconds

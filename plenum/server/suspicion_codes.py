@@ -42,8 +42,8 @@ class Suspicions:
         Suspicion(16, "REELECTION request already received")
     WRONG_PPSEQ_NO = \
         Suspicion(17, "Wrong PRE-PREPARE seq number")
-    PR_TIME_WRONG = \
-        Suspicion(18, "PREPARE time does not match with PRE-PREPARE")
+    PPR_TIME_WRONG = \
+        Suspicion(18, "PRE-PREPARE time not acceptable")
     CM_TIME_WRONG = \
         Suspicion(19, "COMMIT time does not match with PRE-PREPARE")
     PPR_REJECT_WRONG = \
