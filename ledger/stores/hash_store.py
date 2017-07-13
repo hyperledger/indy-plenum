@@ -8,6 +8,10 @@ class HashStore:
     """
     Store of nodeHashes and leafHashes mapped against their sequence numbers.
     """
+    @property
+    @abstractmethod
+    def is_persistent(self) -> bool:
+        pass
 
     @abstractmethod
     def writeLeaf(self, leafHash):
@@ -136,6 +140,14 @@ class HashStore:
         """
         pos = self.getNodePosition(start, height)
         return self.readNode(pos)
+
+    @property
+    def is_consistent(self) -> bool:
+        """
+        Returns True if number of nodes are consistent with number of leaves
+        """
+        from ledger.compact_merkle_tree import CompactMerkleTree
+        return self.nodeCount == CompactMerkleTree.get_expected_node_count(self.leafCount)
 
     @staticmethod
     def _validatePos(start, end=None):

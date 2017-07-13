@@ -110,13 +110,19 @@ hexlify(c(
 """
 
 
+TXN_COUNT = 1000
+
+
 @pytest.yield_fixture(scope="module", params=['File', 'Memory'])
 def hashStore(request, tdir):
     if request.param == 'File':
         fhs = FileHashStore(tdir)
+        assert fhs.is_persistent
         yield fhs
     elif request.param == 'Memory':
-        yield MemoryHashStore()
+        mhs = MemoryHashStore()
+        assert not mhs.is_persistent
+        yield mhs
 
 
 @pytest.fixture()
@@ -141,15 +147,12 @@ def hasherAndTree(hasher):
 def addTxns(hasherAndTree):
     h, m = hasherAndTree
 
-    txn_count = 1000
-
     auditPaths = []
-    for d in range(txn_count):
+    for d in range(TXN_COUNT):
         serNo = d+1
         data = str(serNo).encode()
         auditPaths.append([hexlify(h) for h in m.append(data)])
-
-    return txn_count, auditPaths
+    return TXN_COUNT, auditPaths
 
 
 @pytest.fixture()
@@ -200,7 +203,7 @@ def testCompactMerkleTree2(hasherAndTree, verifier):
 def testCompactMerkleTree(hasherAndTree, verifier):
     h, m = hasherAndTree
     printEvery = 1000
-    count = 1000
+    count = TXN_COUNT
     for d in range(count):
         data = str(d + 1).encode()
         data_hex = hexlify(data)
@@ -208,6 +211,8 @@ def testCompactMerkleTree(hasherAndTree, verifier):
         audit_path_hex = [hexlify(h) for h in audit_path]
         incl_proof = m.inclusion_proof(d, d+1)
         assert audit_path == incl_proof
+        assert m.nodeCount == m.get_expected_node_count(m.leafCount)
+        assert m.hashStore.is_consistent
         if d % printEvery == 0:
             show(h, m, data_hex)
             print("audit path is {}".format(audit_path_hex))

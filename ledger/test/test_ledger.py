@@ -107,7 +107,7 @@ def testRecoverLedgerFromHashStore(tempdir):
     fhs = FileHashStore(tempdir)
     tree = CompactMerkleTree(hashStore=fhs)
     ledger = Ledger(tree=tree, dataDir=tempdir)
-    for d in range(10):
+    for d in range(100):
         ledger.add(str(d).encode())
     updatedTree = ledger.tree
     ledger.stop()
