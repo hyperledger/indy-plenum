@@ -1540,7 +1540,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def stashed_checkpoints_with_quorum(self):
         quorum = self.quorums.checkpoint
         return sum(quorum.is_reached(len(senders))
-                   for senders in self.stashedRecvdCheckpoints.values())
+                   for senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).values())
 
     def processStashedCheckpoints(self, key):
         self._clear_prev_view_stashed_checkpoints()
