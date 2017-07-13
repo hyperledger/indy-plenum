@@ -229,7 +229,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # Stashed checkpoints for each view. The key of the outermost
         # dictionary is the view_no, value being a dictionary with key as the
-        # range of the checkpint and its value again being a mapping between
+        # range of the checkpoint and its value again being a mapping between
         # senders and their sent checkpoint
         self.stashedRecvdCheckpoints = {}   # type: Dict[int, Dict[Tuple,
         # Dict[str, Checkpoint]]]
@@ -411,7 +411,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self._set_last_ordered_for_non_master()
+        self._setup_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
@@ -457,7 +457,13 @@ class Replica(HasActionQueue, MessageProcessor):
                 return n
         return None
 
-    def _set_last_ordered_for_non_master(self):
+    def _setup_for_non_master(self):
+        """
+        Since last ordered view_no and pp_seq_no are only communicated for
+        master instance, `last_ordered_3pc` if backup instance and clear
+        last view messages
+        :return:
+        """
         if not self.isMaster:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -917,7 +923,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
                          format(self, pp_seq_no, last_pp_seq_no))
             # TODO: think of a better way, urgently
-            self._set_last_ordered_for_non_master()
+            self._setup_for_non_master()
             return False
 
         return True
@@ -1418,7 +1424,7 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
 
         checkpoint_state = self.checkpoints[key]
-        # Raise the error only if master since view only master's last
+        # Raise the error only if master since only master's last
         # ordered 3PC is communicated during view change
         if self.isMaster and checkpoint_state.digest != msg.digest:
             logger.error("{} received an incorrect digest {} for "
@@ -1502,7 +1508,7 @@ class Replica(HasActionQueue, MessageProcessor):
         stashed_for_view = self.stashedRecvdCheckpoints[ck.viewNo]
         if (seqNoStart, seqNoEnd) not in stashed_for_view:
             stashed_for_view[seqNoStart, seqNoEnd] = {}
-            stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
+        stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
 
     def _clear_prev_view_stashed_checkpoints(self):
         for view_no in list(self.stashedRecvdCheckpoints.keys()):
