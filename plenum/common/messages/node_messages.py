@@ -282,7 +282,7 @@ class CurrentState(MessageBase):
 
     schema = (
         (f.VIEW_NO.nm, NonNegativeNumberField()),
-        (f.PRIMARY.nm, AnyMapField()),  # ViewChangeDone
+        (f.PRIMARY.nm, IterableField(AnyMapField())),  # ViewChangeDone
     )
 
 
