@@ -35,6 +35,7 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
         self.optional = optional
         self.nullable = nullable
 
+    # TODO: `validate` should be renamed to `validation_error`
     def validate(self, val):
         """
         Performs basic validation of field value and then passes it for 
@@ -76,6 +77,9 @@ class FieldBase(FieldValidator, metaclass=ABCMeta):
         types_str = ', '.join(map(lambda x: x.__name__, self._base_types))
         return "expected types '{}', got '{}'" \
                "".format(types_str, type(val).__name__)
+
+
+# TODO: The fields below should be singleton.
 
 
 class AnyField(FieldBase):
