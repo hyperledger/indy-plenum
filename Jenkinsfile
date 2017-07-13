@@ -1,8 +1,8 @@
 #!groovy
 
-@Library('SovrinHelpersRepoMerge') _
+@Library('SovrinHelpersNewPackageNames') _
 
-def name = 'plenum'
+def name = 'indy-plenum'
 
 def plenumTestUbuntu = {
     try {
