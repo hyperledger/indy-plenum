@@ -865,6 +865,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send(message, rid)
 
     def process_current_state_message(self, msg: CurrentState, frm):
+        logger.debug("{} processing current state {} from {}".format(self, msg, frm))
         election_message = msg.primary
         self.sendToReplica(election_message, frm)
 
