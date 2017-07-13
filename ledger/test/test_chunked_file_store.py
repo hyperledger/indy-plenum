@@ -154,3 +154,55 @@ def test_chunk_size_limitation_when_default_file_used(tmpdir):
                          chunkStoreConstructor=TextFileStore,
                          defaultFile=defaultFile)
     assert "Default file is larger than chunk size" in str(err)
+
+
+def test_valid_inputs_fileNameToChunkIndex():
+    """
+    Checks valid inputs to _fileNameToChunkIndex
+    NOTE: chunksPerDir is 10000 with zero pad of 4
+    """
+    assert ChunkedFileStore._fileNameToChunkIndex("99/0789.log") == 990789
+    assert ChunkedFileStore._fileNameToChunkIndex("99/9789.log") == 999789
+    assert ChunkedFileStore._fileNameToChunkIndex("9/9789.log") == 99789
+    assert ChunkedFileStore._fileNameToChunkIndex("1/0000.log") == 10000
+    assert ChunkedFileStore._fileNameToChunkIndex("0/9999.log") == 9999
+    assert ChunkedFileStore._fileNameToChunkIndex("0/0001.log") == 1
+
+
+def test_invalid_inputs_fileNameToChunkIndex():
+    """
+    Checks invalid inputs to _fileNameToChunkIndex
+    """
+    with pytest.raises(ValueError) as excinfo:
+        ChunkedFileStore._fileNameToChunkIndex("asdf")
+    assert("invalid literal for int" in str(excinfo.value))
+
+    with pytest.raises(ValueError) as excinfo:
+        ChunkedFileStore._fileNameToChunkIndex("99/asdf")
+    assert("invalid literal for int" in str(excinfo.value))
+
+
+def test_chunkIndexToFileName():
+    """
+    Checks valid inputs to _chunkIndexToFileName
+    NOTE: chunksPerDir is 10000 with zero pad of 4
+    """
+    assert ChunkedFileStore._chunkIndexToFileName(990789) == "99/0789.log"
+    assert ChunkedFileStore._chunkIndexToFileName(999789) == "99/9789.log"
+    assert ChunkedFileStore._chunkIndexToFileName(99789) == "9/9789.log"
+    assert ChunkedFileStore._chunkIndexToFileName(10000) == "1/0000.log"
+    assert ChunkedFileStore._chunkIndexToFileName(9999) == "0/9999.log"
+    assert ChunkedFileStore._chunkIndexToFileName(1) == "0/0001.log"
+
+
+def test_invalid_inputs_chunkIndexToFileName():
+    """
+    Checks invalid inputs to _chunkIndexToFileName
+    """
+    with pytest.raises(ValueError) as excinfo:
+        ChunkedFileStore._chunkIndexToFileName("asdf")
+    assert("invalid literal for int" in str(excinfo.value))
+
+    assert ChunkedFileStore._chunkIndexToFileName("-1") == None
+
+

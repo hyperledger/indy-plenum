@@ -5,7 +5,10 @@ from typing import List, Generator
 from ledger.stores.file_store import FileStore
 from ledger.stores.text_file_store import TextFileStore
 
-chunksPerDir = 1000
+
+CHUNKS_PER_DIR = 10000
+ZERO_PAD_DIGITS = 4
+FILE_EXTENSION = ".log"
 
 
 class ChunkedFileStore(FileStore):
@@ -25,27 +28,46 @@ class ChunkedFileStore(FileStore):
 
     firstChunkIndex = 1
 
-    def _fileNameToChunkIndex(self, fileName) -> int:
-        try:
-            path, fileName = os.path.split(fileName)
+    @staticmethod
+    def _fileNameToChunkIndex(fileName) -> int:
+        """
+        :param fileName: dir/filename.log
+        :return: chunk index
+        where "dir" is an integer and filename is a zero-padded integer
+        examples: 99/0789.log -> 990789
+                   1/9873.log -> 19873
+                   1/0000.log -> 10000
+        """
+        path, fileName = os.path.split(fileName)
 
-            path = int(path)
-            fileName = int(os.path.splitext(fileName)[0])
+        path = int(path)
+        fileName = int(os.path.splitext(fileName)[0])
 
-            path *= chunksPerDir
-            return path + fileName
-        except:
-            return None
+        path *= CHUNKS_PER_DIR
+        return path + fileName
+
 
     @staticmethod
     def _chunkIndexToFileName(index):
+        """
+        Converts an integer into the appropriate path for chunking
+        :param index:  any positive integer
+        :return: path
+        examples: 990789 -> "99/0789.log"
+                   19873 -> "1/9873.log"
+                   10000 -> "1/0000.log"
+        """
         if isinstance(index, str):
             index = int(os.path.splitext(index)[0])
 
-        dir_path  = int(index / chunksPerDir)
-        file_name = int(index % chunksPerDir)
+        if index < 0:
+            return None
 
-        return os.path.join(str(dir_path), str(file_name).zfill(4) + ".log")
+        dir_path  = int(index / CHUNKS_PER_DIR)
+        file_name = int(index % CHUNKS_PER_DIR)
+
+        return os.path.join(str(dir_path), str(file_name).zfill(ZERO_PAD_DIGITS) + FILE_EXTENSION)
+
 
     def __init__(self,
                  dbDir,
