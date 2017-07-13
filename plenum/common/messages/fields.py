@@ -368,16 +368,13 @@ class MerkleRootField(Base58Field):
 
 
 class TimestampField(FieldBase):
-    _base_types = (float, int)
+    _base_types = (int,)
+    _oldest_time = 1499906902
 
     def _specific_validation(self, val):
-        normal_val = val
-        if isinstance(val, int):
-            # This is needed because timestamp is usually multiplied
-            # by 1000 to "make it compatible to JavaScript Date()"
-            normal_val /= 1000
-        if normal_val <= 0:
-            return 'should be a positive number but was {}'.format(val)
+        if val < self._oldest_time:
+            return 'should be greater than {} but was {}'.\
+                format(self._oldest_time, val)
 
 
 class JsonField(FieldBase):

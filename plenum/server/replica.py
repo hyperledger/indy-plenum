@@ -1,14 +1,11 @@
 import time
 from collections import deque, OrderedDict
-from enum import IntEnum
-from enum import unique
 from typing import Dict, List, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
 from hashlib import sha256
 
-import base58
 from orderedset import OrderedSet
 from sortedcontainers import SortedList
 
@@ -21,7 +18,7 @@ from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
-    mostCommonElement
+    mostCommonElement, get_utc_epoch
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
@@ -604,7 +601,7 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.info("{} creating batch {} for ledger {} with state root {}".
                     format(self, ppSeqNo, ledger_id,
                            self.stateRootHash(ledger_id, to_str=False)))
-        tm = time.time() * 1000
+        tm = get_utc_epoch()
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -858,6 +855,7 @@ class Replica(HasActionQueue, MessageProcessor):
         prepare = Prepare(self.instId,
                           pp.viewNo,
                           pp.ppSeqNo,
+                          pp.ppTime,
                           pp.digest,
                           pp.stateRootHash,
                           pp.txnRootHash

@@ -1,20 +1,16 @@
-import pytest
 from plenum.common.messages.fields import TimestampField
-from datetime import datetime
+from plenum.common.util import get_utc_epoch
 
 validator = TimestampField()
-timestamp = datetime.now().timestamp()
+timestamp = get_utc_epoch()
 
 
 def test_valid_value():
     assert not validator.validate(timestamp)
 
-    # This is needed because timestamp is usually multiplied
-    # by 1000 to "make it compatible to JavaScript Date()"
-    assert not validator.validate(round(timestamp * 1000))
-
 
 def test_invalid_value():
     assert validator.validate(-1)
+    assert validator.validate(validator._oldest_time-1)
 
 

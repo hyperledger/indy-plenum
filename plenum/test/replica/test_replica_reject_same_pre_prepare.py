@@ -9,7 +9,7 @@ from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures, updateNamedTuple
+from plenum.common.util import getMaxFailures, updateNamedTuple, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
@@ -90,7 +90,7 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.lastPrePrepareSeqNo,
-        time.time(),
+        get_utc_epoch(),
         reqIdr,
         1,
         primaryRepl.batchDigest([request2]),

@@ -63,15 +63,16 @@ def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
 
-    def evilSendPrepare(self, request):
+    def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
-                          request.viewNo,
-                          request.ppSeqNo,
-                          request.digest,
-                          request.stateRootHash,
-                          request.txnRootHash)
+                          ppReq.viewNo,
+                          ppReq.ppSeqNo,
+                          ppReq.ppTime,
+                          ppReq.digest,
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(request, prepare))
+                     format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -143,6 +144,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prepare = Prepare(self.instId,
                           ppReq.viewNo,
                           ppReq.ppSeqNo,
+                          ppReq.ppTime,
                           digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)
