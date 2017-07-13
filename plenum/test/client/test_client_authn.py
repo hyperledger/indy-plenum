@@ -1,12 +1,16 @@
 import pytest
 
-from plenum.common.exceptions import InvalidSignature
+from plenum.common.exceptions import InvalidSignature, CouldNotAuthenticate
 from plenum.common.signer_simple import SimpleSigner
 from plenum.server.client_authn import SimpleAuthNr
 
 
 idr = '5G72199XZB7wREviUbQma7'
+msg_str = "42 (forty-two) is the natural number that succeeds 41 and precedes 43."
 
+class DummyAuthenticator(SimpleAuthNr):
+    def getVerkey(self, _):
+        return None
 
 @pytest.fixture(scope="module")
 def cli():
@@ -22,12 +26,24 @@ def sa(cli):
 
 @pytest.fixture(scope="module")
 def msg():
-    return dict(myMsg="42 (forty-two) is the natural number that succeeds 41 and precedes 43.")
+    return dict(myMsg=msg_str)
 
 
 @pytest.fixture(scope="module")
 def sig(cli, msg):
     return cli.sign(msg)
+
+
+def test_authenticate_raises_correct_exception():
+    msg = dict(myMsg=msg_str)
+    simple_signer = SimpleSigner()
+    identifier = simple_signer.identifier
+    signature = simple_signer.sign(msg)
+    verkey = simple_signer.verkey
+    dummyAr = DummyAuthenticator()
+    dummyAr.addIdr(identifier, verkey)
+    pytest.raises(CouldNotAuthenticate, dummyAr.authenticate, msg,identifier, signature)
+
 
 
 def testClientAuthentication(sa, cli, msg, sig):

@@ -94,9 +94,9 @@ class NaclAuthNr(ClientAuthNr):
                 raise InvalidSignatureFormat from ex
             ser = self.serializeForSig(msg, topLevelKeysToIgnore=[f.SIG.nm])
             verkey = self.getVerkey(identifier)
-            #
-            # if verkey is None:
-            #     raise CouldNotAuthenticate
+
+            if verkey is None:
+                raise CouldNotAuthenticate
 
             vr = DidVerifier(verkey, identifier=identifier)
             isVerified = vr.verify(sig, ser)
