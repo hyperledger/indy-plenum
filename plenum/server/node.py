@@ -75,6 +75,8 @@ from stp_core.types import HA
 from stp_zmq.zstack import ZStack
 from plenum.common.constants import openTxns
 from state.state import State
+from plenum.common.messages.node_messages import ViewChangeDone
+
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -866,8 +868,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def process_current_state_message(self, msg: CurrentState, frm):
         logger.debug("{} processing current state {} from {}".format(self, msg, frm))
-        election_message = msg.primary
-        self.sendToReplica(election_message, frm)
+        election_messages = msg.primary
+        for message in election_messages:
+            message = ViewChangeDone(**message)
+            self.sendToElector(message, frm)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
