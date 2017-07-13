@@ -224,8 +224,12 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.checkpoints = SortedDict(lambda k: k[1])
 
-        self.stashedRecvdCheckpoints = {}   # type: Dict[Tuple,
-        # Dict[str, Checkpoint]]
+        # Stashed checkpoints for each view. The key of the outermost
+        # dictionary is the view_no, value being a dictionary with key as the
+        # range of the checkpoint and its value again being a mapping between
+        # senders and their sent checkpoint
+        self.stashedRecvdCheckpoints = {}   # type: Dict[int, Dict[Tuple,
+        # Dict[str, Checkpoint]]]
 
         self.stashingWhileOutsideWaterMarks = deque()
 
@@ -418,7 +422,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self.set_last_ordered_for_non_master()
+        self._setup_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
@@ -464,7 +468,13 @@ class Replica(HasActionQueue, MessageProcessor):
                 return n
         return None
 
-    def set_last_ordered_for_non_master(self):
+    def _setup_for_non_master(self):
+        """
+        Since last ordered view_no and pp_seq_no are only communicated for
+        master instance, `last_ordered_3pc` if backup instance and clear
+        last view messages
+        :return:
+        """
         if not self.isMaster:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -475,6 +485,15 @@ class Replica(HasActionQueue, MessageProcessor):
             lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
             self.last_ordered_3pc = (self.viewNo, lowest_ordered)
+            logger.debug('Setting last ordered for non-master {} as {}'.
+                         format(self, self.last_ordered_3pc))
+            self._clear_last_view_message_for_non_master(self.viewNo)
+
+    def _clear_last_view_message_for_non_master(self, current_view):
+        assert not self.isMaster
+        for v in list(self.stashed_out_of_order_commits.keys()):
+            if v < current_view:
+                self.stashed_out_of_order_commits.pop(v)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -918,7 +937,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
                          format(self, pp_seq_no, last_pp_seq_no))
             # TODO: think of a better way, urgently
-            self.set_last_ordered_for_non_master()
+            self._setup_for_non_master()
             return False
 
         return True
@@ -1455,7 +1474,9 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
 
         checkpoint_state = self.checkpoints[key]
-        if checkpoint_state.digest != msg.digest:
+        # Raise the error only if master since only master's last
+        # ordered 3PC is communicated during view change
+        if self.isMaster and checkpoint_state.digest != msg.digest:
             logger.error("{} received an incorrect digest {} for "
                          "checkpoint {} from {}".format(self,
                                                         msg.digest,
@@ -1530,30 +1551,44 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
 
     def stashCheckpoint(self, ck: Checkpoint, sender: str):
+        logger.debug('{} stashing {} from {}'.format(self, ck, sender))
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
-        if (seqNoStart, seqNoEnd) not in self.stashedRecvdCheckpoints:
-            self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd] = {}
-        self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd][sender] = ck
+        if ck.viewNo not in self.stashedRecvdCheckpoints:
+            self.stashedRecvdCheckpoints[ck.viewNo] = {}
+        stashed_for_view = self.stashedRecvdCheckpoints[ck.viewNo]
+        if (seqNoStart, seqNoEnd) not in stashed_for_view:
+            stashed_for_view[seqNoStart, seqNoEnd] = {}
+        stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
+
+    def _clear_prev_view_stashed_checkpoints(self):
+        for view_no in list(self.stashedRecvdCheckpoints.keys()):
+            if view_no < self.viewNo:
+                logger.debug('{} found stashed checkpoints for view {} which '
+                             'is less than the current view {}, so ignoring it'
+                             .format(self, view_no, self.viewNo))
+                self.stashedRecvdCheckpoints.pop(view_no)
 
     def processStashedCheckpoints(self, key):
+        self._clear_prev_view_stashed_checkpoints()
 
-        if key not in self.stashedRecvdCheckpoints:
+        if key not in self.stashedRecvdCheckpoints.get(self.viewNo, {}):
             logger.debug("{} have no stashed checkpoints for {}")
             return 0
 
+        stashed = self.stashedRecvdCheckpoints[self.viewNo][key]
         total_processed = 0
         senders_of_completed_checkpoints = []
 
-        for sender, checkpoint in self.stashedRecvdCheckpoints[key].items():
+        for sender, checkpoint in stashed.items():
             if self.processCheckpoint(checkpoint, sender):
                 senders_of_completed_checkpoints.append(sender)
             total_processed += 1
 
         for sender in senders_of_completed_checkpoints:
             # unstash checkpoint
-            del self.stashedRecvdCheckpoints[key][sender]
-            if len(self.stashedRecvdCheckpoints[key]) == 0:
-                del self.stashedRecvdCheckpoints[key]
+            del stashed[sender]
+        if len(stashed) == 0:
+            del self.stashedRecvdCheckpoints[self.viewNo][key]
 
         restashed_num = total_processed - len(senders_of_completed_checkpoints)
         logger.debug('{} processed {} stashed checkpoints for {}, '
@@ -1609,9 +1644,7 @@ class Replica(HasActionQueue, MessageProcessor):
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc[1])
         self.checkpoints.clear()
-        for v, p in list(self.pre_prepares_stashed_for_incorrect_time.keys()):
-            if v < self.viewNo:
-                self.pre_prepares_stashed_for_incorrect_time.pop((v, p))
+        self._clear_prev_view_stashed_checkpoints()
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
@@ -1703,7 +1736,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # pre-prepare and over-write the correct one?
             logger.debug(
                 "Queueing pre-prepares due to unavailability of previous "
-                "pre-prepares. PrePrepare {} from {}".format(ppMsg, sender))
+                "pre-prepares. {} from {}".format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (ppMsg, sender)
 
     def dequeuePrePrepares(self):
