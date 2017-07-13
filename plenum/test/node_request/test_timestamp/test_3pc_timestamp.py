@@ -1,10 +1,12 @@
 import types
 from collections import defaultdict
 
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies
+from plenum.server.suspicion_codes import Suspicions
+from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
+    getNodeSuspicions
 from plenum.test.instances.helper import recvd_prepares
-from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
-    client1, wallet1, client1Connected
+from plenum.test.node_request.test_timestamp.helper import \
+    get_timestamp_suspicion_count
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -52,10 +54,14 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
 
     old_acceptable_rvs = getAllReturnVals(confused_npr,
                                       confused_npr.is_pre_prepare_time_acceptable)
+    old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
+
+    assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count
 
     new_acceptable_rvs = getAllReturnVals(confused_npr,
                                           confused_npr.is_pre_prepare_time_acceptable)
 
     # `is_pre_prepare_time_acceptable` first returned False then returned True
-    assert [*old_acceptable_rvs, False, True] == new_acceptable_rvs
+    assert [True, False, *old_acceptable_rvs] == new_acceptable_rvs
+

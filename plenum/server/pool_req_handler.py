@@ -39,10 +39,10 @@ class PoolRequestHandler(RequestHandler):
             raise UnauthorizedClientRequest(req.identifier, req.reqId,
                                             error)
 
-    def apply(self, req: Request):
+    def apply(self, req: Request, tm: int):
         typ = req.operation.get(TXN_TYPE)
         if typ == NODE:
-            txn = reqToTxn(req)
+            txn = reqToTxn(req, tm)
             (start, end), _ = self.ledger.appendTxns([txn])
             self.updateState(txnsWithSeqNo(start, end, [txn]))
             return txn

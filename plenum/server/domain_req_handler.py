@@ -38,16 +38,16 @@ class DomainRequestHandler(RequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request):
-        txn = reqToTxn(req)
+    def _reqToTxn(self, req: Request, tm: int):
+        txn = reqToTxn(req, tm)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
 
         return txn
 
-    def apply(self, req: Request):
-        txn = self._reqToTxn(req)
+    def apply(self, req: Request, tm: int):
+        txn = self._reqToTxn(req, tm)
         (start, end), _ = self.ledger.appendTxns([self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
         return txn

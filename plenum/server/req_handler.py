@@ -29,7 +29,7 @@ class RequestHandler:
         """
         pass
 
-    def apply(self, req: Request):
+    def apply(self, req: Request, tm: int):
         """
         Applies request
         """

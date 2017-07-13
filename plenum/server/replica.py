@@ -592,7 +592,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
-    def processReqDuringBatch(self, req: Request, validReqs: List,
+    def processReqDuringBatch(self, req: Request, tm: int, validReqs: List,
                               inValidReqs: List, rejects: List):
         """
         This method will do dynamic validation and apply requests, also it
@@ -601,7 +601,7 @@ class Replica(HasActionQueue, MessageProcessor):
         try:
             if self.isMaster:
                 self.node.doDynamicValidation(req)
-                self.node.applyReq(req)
+                self.node.applyReq(req, tm)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                             'will reject'.format(self, ex, req))
@@ -616,6 +616,7 @@ class Replica(HasActionQueue, MessageProcessor):
                     format(self, ppSeqNo, ledger_id,
                            self.stateRootHash(ledger_id, to_str=False)))
         tm = get_utc_epoch()
+
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -623,7 +624,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)  # Remove the first element
             fin_req = self.requests[key].finalised
-            self.processReqDuringBatch(fin_req, validReqs, inValidReqs, rejects)
+            self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
 
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
@@ -947,8 +948,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self.node.onBatchRejected(ledgerId)
 
     def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
+        """
+        Check if this PRE-PREPARE is not older than (not checking for greater
+        than since batches maybe sent in less than 1 second) last PRE-PREPARE
+        and in a sufficient range of local clock's UTC time.
+        :param pp:
+        :return:
+        """
         return (self.last_accepted_pre_prepare_time is None or
-                pp.ppTime > self.last_accepted_pre_prepare_time) and \
+                pp.ppTime >= self.last_accepted_pre_prepare_time) and \
                abs(pp.ppTime-get_utc_epoch()) <= self.config.ACCEPTED_DEVIATION_PREPREPARE_TIME
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
@@ -992,7 +1000,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         for reqKey in pp.reqIdr:
             req = self.requests[reqKey].finalised
-            self.processReqDuringBatch(req, validReqs, inValidReqs, rejects)
+            self.processReqDuringBatch(req, pp.ppTime, validReqs, inValidReqs,
+                                       rejects)
 
         if len(validReqs) != pp.discarded:
             if self.isMaster:

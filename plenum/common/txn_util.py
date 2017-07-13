@@ -50,11 +50,12 @@ def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
     ledger.stop()
 
 
-def reqToTxn(req: Request):
+def reqToTxn(req: Request, tm=None):
     """
     Transform a client request such that it can be stored in the ledger.
     Also this is what will be returned to the client in the reply
     :param req:
+    :param tm:
     :return:
     """
     # TODO: we should not reformat transaction this way
@@ -79,7 +80,8 @@ def reqToTxn(req: Request):
     res = {
         f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
         f.REQ_ID.nm: data[f.REQ_ID.nm],
-        f.SIG.nm: data[f.SIG.nm]
+        f.SIG.nm: data[f.SIG.nm],
+        TXN_TIME: data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
     return res
