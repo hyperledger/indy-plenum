@@ -6,8 +6,7 @@ from plenum import config
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from stp_core.loop.looper import Looper
-from plenum.common.types import PrePrepare, Prepare, \
-    Commit, Primary
+from plenum.common.messages.node_messages import Primary, PrePrepare, Prepare, Commit
 from plenum.common.util import getMaxFailures
 from plenum.test import waits
 from plenum.test.delayers import delayerMsgTuple
@@ -44,53 +43,12 @@ def testReqExecWhenReturnedByMaster(tdir_for_func):
                         if arg.instId == node.instances.masterId:
                             assert result
                         else:
-                            assert result is None
+                            assert result is False
             timeout = waits.expectedOrderingTime(nodeSet.nodes['Alpha'].instances.count)
             looper.run(eventually(chk, timeout=timeout))
 
 
-# noinspection PyIncorrectDocstring
-@pytest.mark.skip(reason="SOV-539. Implementation changed")
-def testRequestReturnToNodeWhenPrePrepareNotReceivedByOneNode(tdir_for_func):
-    """Test no T-3"""
-    nodeNames = genNodeNames(7)
-    nodeReg = genNodeReg(names=nodeNames)
-    with TestNodeSet(nodeReg=nodeReg, tmpdir=tdir_for_func) as nodeSet:
-        with Looper(nodeSet) as looper:
-            prepareNodeSet(looper, nodeSet)
-            logger.debug("Add the seven nodes back in")
-            # Every node except A delays self nomination so A can become primary
-            nodeA = addNodeBack(nodeSet, looper, nodeNames[0])
-            for i in range(1, 7):
-                node = addNodeBack(nodeSet, looper, nodeNames[i])
-                node.delaySelfNomination(15)
-
-            nodeB = nodeSet.getNode(nodeNames[1])
-            # Node B delays PREPREPARE from node A(which would be the primary)
-            # for a long time.
-            nodeB.nodeIbStasher.delay(
-                delayerMsgTuple(120, PrePrepare, nodeA.name))
-
-            # Ensure elections are done
-            ensureElectionsDone(looper=looper, nodes=nodeSet)
-            assert nodeA.hasPrimary
-
-            instNo = nodeA.primaryReplicaNo
-            client1, wallet1 = setupClient(looper, nodeSet, tmpdir=tdir_for_func)
-            req = sendRandomRequest(wallet1, client1)
-
-            # All nodes including B should return their ordered requests
-            for node in nodeSet:
-                # TODO set timeout from 'waits' after the test enabled
-                looper.run(eventually(checkRequestReturnedToNode, node,
-                                      wallet1.defaultId, req.reqId,
-                                      instNo, retryWait=1, timeout=30))
-
-            # Node B should not have received the PRE-PREPARE request yet
-            replica = nodeB.replicas[instNo]  # type: Replica
-            assert len(replica.prePrepares) == 0
-
-
+@pytest.mark.skip('Since primary is selected immediately now')
 def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
     nodeNames = genNodeNames(4)
     nodeReg = genNodeReg(names=nodeNames)
@@ -101,17 +59,18 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
             nodeA, nodeB, nodeC, nodeD = tuple(
                 addNodeBack(nodeSet, looper, nodeNames[i]) for i in range(0, 4))
 
+            # Since primary selection is round robin, A and B will be primaries
+
             # Nodes C and D delays self nomination so A and B can become
             # primaries
-            nodeC.delaySelfNomination(30)
-            nodeD.delaySelfNomination(30)
+            # nodeC.delaySelfNomination(10)
+            # nodeD.delaySelfNomination(10)
 
             # Node D delays receiving PRIMARY messages from all nodes so it
             # will not know whether it is primary or not
 
-            # nodeD.nodestack.delay(delayer(20, PRIMARY))
-            delayD = 20
-            nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
+            # delayD = 5
+            # nodeD.nodeIbStasher.delay(delayerMsgTuple(delayD, Primary))
 
             checkPoolReady(looper=looper, nodes=nodeSet)
 
@@ -131,22 +90,23 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                                request.identifier,
                                request.reqId, retryWait=1, timeout=timeout))
 
-            # Node D should have 1 pending PRE-PREPARE request
-            def assertOnePrePrepare():
+            def assert_msg_count(typ, count):
                 assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                        PrePrepare)) == 1
+                                                        typ)) == count
 
+            # Node D should have 1 pending PRE-PREPARE request
             timeout = waits.expectedPrePrepareTime(len(nodeSet))
-            looper.run(eventually(assertOnePrePrepare, retryWait=1, timeout=timeout))
+            looper.run(eventually(assert_msg_count, PrePrepare, 1,
+                                  retryWait=1, timeout=timeout))
 
             # Node D should have 2 pending PREPARE requests(from node B and C)
+            timeout = waits.expectedPrepareTime(len(nodeSet))
+            looper.run(eventually(assert_msg_count, Prepare, 2, retryWait=1,
+                                  timeout=timeout))
 
-            def assertTwoPrepare():
-                assert len(getPendingRequestsForReplica(nodeD.replicas[instNo],
-                                                        Prepare)) == 2
-
-            timeout = waits.expectedPrePrepareTime(len(nodeSet))
-            looper.run(eventually(assertTwoPrepare, retryWait=1, timeout=timeout))
+            # Its been checked above that replica stashes 3 phase messages in
+            # lack of primary, now avoid delay (fix the network)
+            nodeD.nodeIbStasher.reset_delays_and_process_delayeds()
 
             # Node D should have no pending PRE-PREPARE, PREPARE or COMMIT
             # requests
@@ -154,7 +114,7 @@ def testPrePrepareWhenPrimaryStatusIsUnknown(tdir_for_func):
                 looper.run(eventually(lambda: assertLength(
                     getPendingRequestsForReplica(nodeD.replicas[instNo],
                                                  reqType),
-                    0), retryWait=1, timeout=delayD))
+                    0), retryWait=1, timeout=delayD)) # wait little more than delay
 
 
 async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
@@ -171,7 +131,7 @@ async def checkIfPropagateRecvdFromNode(recvrNode: TestNode,
                          "or implement a `stats` feature in ZStack")
 def testMultipleRequests(tdir_for_func):
     """
-    Send multiple requests to the client
+    Send multiple requests to the node
     """
     with TestNodeSet(count=7, tmpdir=tdir_for_func) as nodeSet:
         with Looper(nodeSet) as looper:

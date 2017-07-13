@@ -2,6 +2,14 @@
 
 [![Build Status](https://jenkins.evernym.com/buildStatus/icon?job=Plenum/master)](https://jenkins.evernym.com/job/Plenum/job/master/)    
 
+Plenum is the heart of the distributed ledger technology inside Hyperledger
+Indy. As such, it provides features somewhat similar in scope to those
+found in Fabric. However, it is special-purposed for use in an identity
+system, whereas Fabric is general purpose.
+
+You can log bugs against Plenum in [Hyperledger's Jira](https://jira.hyperledger.org); use
+project "INDY".
+
 Plenum makes extensive use of coroutines and the async/await keywords in
 Python, and as such, requires Python version 3.5.0 or later. Plenum also
 depends on libsodium, an awesome crypto library. These need to be installed
@@ -158,3 +166,26 @@ cliNodeReg = OrderedDict([
     ('DeltaC', (('127.0.0.1', 9708), '3af81a541097e3e042cacbe8761c0f9e54326049e1ceda38017c95c432312f6f', '8b112025d525c47e9df81a6de2966e1b4ee1ac239766e769f19d831175a04264'))
 ])
 ```
+
+# Immutable Ledger used in Plenum. 
+
+This codebase provides a simple, python-based, immutable, ordered log of transactions 
+backed by a merkle tree. This is an efficient way to generate verifiable proofs of presence
+and data consistency.
+
+The scope of concerns here is fairly narrow; it is not a full-blown
+distributed ledger technology like Fabric, but simply the persistence
+mechanism that Plenum needs. The repo is intended to be collapsed into the indy-node codebase
+over time; hence there is no wiki, no documentation, and no intention to
+use github issues to track bugs.
+
+You can log issues against this codebase in [Hyperledger's Jira](https://jira.hyperledger.org).
+
+Join us on [Hyperledger's Rocket.Chat](http://chat.hyperledger.org), on the #indy
+channel, to discuss.
+
+# state
+Plenum's state storage using python 3 version of Ethereum's Patricia Trie
+
+# stp
+Secure Transport Protocol

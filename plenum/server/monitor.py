@@ -126,6 +126,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         self.startRepeating(self.checkPerformance,
                             config.notifierEventTriggeringConfig['clusterThroughputSpike']['freq'])
 
+        if 'disable_view_change' in config.unsafe:
+            self.isMasterDegraded = lambda: False
+        if 'disable_monitor' in config.unsafe:
+            self.requestOrdered = lambda *args, **kwargs: {}
+            self.sendPeriodicStats = lambda: None
+            self.checkPerformance = lambda: None
+
     def __repr__(self):
         return self.name
 

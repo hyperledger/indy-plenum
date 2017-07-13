@@ -5,8 +5,9 @@ from functools import partial
 import time
 
 import plenum.common.error
-from plenum.common.types import Propagate, PrePrepare, Prepare, ThreePhaseMsg, \
-    Commit, Reply, f
+from plenum.common.types import f
+
+from plenum.common.messages.node_messages import *
 from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
@@ -14,8 +15,9 @@ from plenum.common.util import updateNamedTuple
 from stp_core.common.log import getlogger
 from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
-from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica
-from plenum.test.delayers import ppDelay
+from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
+    getNonPrimaryReplicas
+from plenum.test.delayers import ppDelay, cDelay
 
 logger = getlogger()
 
@@ -42,6 +44,10 @@ def changesRequest(node):
 
 def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
+
+
+def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+    node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
 
 
 # Could have this method directly take a replica rather than a node and an
@@ -181,12 +187,20 @@ def faultyReply(node):
     node.generateReply = types.MethodType(newGenerateReply, node)
 
 
-def slow_primary(nodes, instId=0, delay=5):
+def slow_primary(nodes, inst_id=0, delay=5):
     # make primary replica slow to send PRE-PREPAREs
     def ifPrePrepare(msg):
         if isinstance(msg, PrePrepare):
             return delay
 
-    pr = getPrimaryReplica(nodes, instId)
+    pr = getPrimaryReplica(nodes, inst_id)
     pr.outBoxTestStasher.delay(ifPrePrepare)
     return pr
+
+
+def slow_non_primary(nodes, inst_id=0, delay=5):
+    # make non-primary replica slow to receive PRE-PREPAREs
+    npr = getNonPrimaryReplicas(nodes, inst_id)[0]
+    slow_node = npr.node
+    slow_node.nodeIbStasher.delay(ppDelay(delay, inst_id))
+    return npr

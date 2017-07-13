@@ -6,7 +6,7 @@ import time
 
 from stp_core.loop.eventually import eventually, eventuallyAll
 from plenum.common.request import Request
-from plenum.common.types import Reply, RequestNack
+from plenum.common.messages.node_messages import RequestNack, Reply
 from plenum.test.helper import sendRandomRequest, checkReqAck, wait_for_replies
 from plenum.test import waits
 
@@ -100,7 +100,7 @@ def testClientNotRetryRequestWhenReqnackReceived(looper, nodeSet, client1,
     origTrans = alpha.transmitToClient
 
     def nackReq(self, req, frm):
-        self.transmitToClient(RequestNack(*req.key, reason="testing"), frm)
+        self.transmitToClient(RequestNack(*req.key, "testing"), frm)
 
     def onlyTransNack(msg, remoteName):
         if not isinstance(msg, RequestNack):
@@ -187,4 +187,4 @@ def testClientNotRetryingRequestAfterMaxTriesDone(looper,
         (totalResends + withFewerRetryReq.CLIENT_MAX_RETRY_REPLY)
     assert req.key not in client1.expectingAcksFor
     assert req.key not in client1.expectingRepliesFor
-    alpha.processRequest = origTrans
+    alpha.transmitToClient = origTrans

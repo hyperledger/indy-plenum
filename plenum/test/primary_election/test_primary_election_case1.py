@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import Nomination
+from plenum.common.messages.node_messages import Nomination
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple
@@ -21,6 +21,7 @@ whitelist = ['already got nomination',
 logger = getlogger()
 
 delayOfNomination = 5
+
 
 @pytest.fixture()
 def case1Setup(startedNodes: TestNodeSet):
@@ -57,6 +58,7 @@ def case1Setup(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
     """
     Case 1 - A node making multiple nominations for a particular node. Consider
@@ -71,10 +73,9 @@ def testPrimaryElectionCase1(case1Setup, looper, keySharedNodes):
 
     # Node B sends multiple NOMINATE messages for Node D but only after A has
     # nominated itself
-    timeout = waits.expectedPoolNominationTimeout(nodeCount=1)
+    timeout = waits.expectedPoolNominationTimeout(nodeCount=len(keySharedNodes))
     looper.run(eventually(checkNomination, nodeA, nodeA.name,
-                          retryWait=.25,
-                          timeout=timeout))
+                          retryWait=.25, timeout=timeout))
 
     instId = getSelfNominationByNode(nodeA)
 

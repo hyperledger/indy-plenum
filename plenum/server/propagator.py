@@ -1,12 +1,15 @@
-from collections import OrderedDict
-from collections import deque
-from typing import Dict, Tuple, Union
-import weakref
+from collections import OrderedDict, Counter, defaultdict
+from itertools import groupby
 
-from plenum.common.types import Propagate
-from plenum.common.request import Request
+from typing import Dict, Tuple, Union, Optional
+
+from orderedset._orderedset import OrderedSet
+from plenum.common.constants import PROPAGATE
+from plenum.common.messages.node_messages import Propagate
+from plenum.common.request import Request, ReqKey
+from plenum.common.types import f
+from plenum.server.quorums import Quorum
 from stp_core.common.log import getlogger
-from plenum.common.util import checkIfMoreThanFSameItems
 
 logger = getlogger()
 
@@ -24,13 +27,21 @@ class ReqState:
         self.propagates = {}
         self.finalised = None
 
-    def isFinalised(self, f):
-        if self.finalised is None:
-            req = checkIfMoreThanFSameItems([v.__getstate__() for v in
-                                             self.propagates.values()], f)
-            if req:
-                self.finalised = Request.fromState(req)
-        return self.finalised
+    def req_with_acceptable_quorum(self, quorum: Quorum):
+        digests = defaultdict(set)
+        # this is workaround because we are getting a propagate from somebody with
+        # non-str (byte) name
+        for sender, req in filter(lambda x: type(x[0]) == str, self.propagates.items()):
+            digests[req.digest].add(sender)
+            if quorum.is_reached(len(digests[req.digest])):
+                return req
+
+    def set_finalised(self, req):
+        # TODO: make it much explicitly and simpler
+        # !side affect! if `req` is an instance of a child of `Request` class
+        # here we construct the parent from child it is rather implicit that
+        # `finalised` contains not the same type than `propagates` has
+        self.finalised = Request.fromState(req.__getstate__())
 
 
 class Requests(OrderedDict):
@@ -85,19 +96,13 @@ class Requests(OrderedDict):
             votes = 0
         return votes
 
-    def canForward(self, req: Request, requiredVotes: int) -> (bool, str):
-        """
-        Check whether the request specified is eligible to be forwarded to the
-        protocol instances.
-        """
+    def req_with_acceptable_quorum(self, req: Request, quorum: Quorum):
         state = self[req.key]
-        if state.forwarded:
-            msg = 'already forwarded'
-        elif not state.isFinalised(requiredVotes):
-            msg = 'not finalised'
-        else:
-            msg = None
-        return not bool(msg), msg
+        return state.req_with_acceptable_quorum(quorum)
+
+    def set_finalised(self, req: Request):
+        state = self[req.key]
+        state.set_finalised(req)
 
     def hasPropagated(self, req: Request, sender: str) -> bool:
         """
@@ -116,13 +121,11 @@ class Requests(OrderedDict):
 
 
 class Propagator:
+    MAX_REQUESTED_KEYS_TO_KEEP = 1000
+
     def __init__(self):
         self.requests = Requests()
-        # If the node does not have any primary and at least one protocol
-        # instance is missing a primary then add the request in
-        # `reqs_stashed_for_primary`. Note that this does not prevent the
-        # request from being processed as its marked as finalised
-        self.reqs_stashed_for_primary = deque()
+        self.requested_propagates_for = OrderedSet()
 
     # noinspection PyUnresolvedReferences
     def propagate(self, request: Request, clientName):
@@ -135,19 +138,15 @@ class Propagator:
             logger.trace("{} already propagated {}".format(self, request))
         else:
             self.requests.addPropagate(request, self.name)
-            # Only propagate if the node is participating in the consensus
-            # process which happens when the node has completed the
-            # catchup process. QUESTION: WHY?
-            if self.isParticipating:
-                propagate = self.createPropagate(request, clientName)
-                logger.display("{} propagating {} request {} from client {}".
-                               format(self, request.identifier, request.reqId,
-                                      clientName),
-                               extra={"cli": True, "tags": ["node-propagate"]})
-                self.send(propagate)
+            propagate = self.createPropagate(request, clientName)
+            logger.info("{} propagating {} request {} from client {}".
+                           format(self, request.identifier, request.reqId,
+                                  clientName),
+                           extra={"cli": True, "tags": ["node-propagate"]})
+            self.send(propagate)
 
     @staticmethod
-    def createPropagate(request: Union[Request, dict], identifier) -> Propagate:
+    def createPropagate(request: Union[Request, dict], client_name) -> Propagate:
         """
         Create a new PROPAGATE for the given REQUEST.
 
@@ -160,12 +159,12 @@ class Propagator:
         logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.as_dict if isinstance(request, Request) else \
             request
-        if isinstance(identifier, bytes):
-            identifier = identifier.decode()
-        return Propagate(request, identifier)
+        if isinstance(client_name, bytes):
+            client_name = client_name.decode()
+        return Propagate(request, client_name)
 
     # noinspection PyUnresolvedReferences
-    def canForward(self, request: Request) -> (bool, str):
+    def canForward(self, request: Request):
         """
         Determine whether to forward client REQUESTs to replicas, based on the
         following logic:
@@ -181,7 +180,21 @@ class Propagator:
 
         :param request: the client REQUEST
         """
-        return self.requests.canForward(request, self.f + 1)
+
+        if self.requests.forwarded(request):
+            return 'already forwarded'
+
+        # If not enough Propogates, don't bother comparing
+        if not self.quorums.propagate.is_reached(self.requests.votes(request)):
+            return 'not finalised'
+
+        req = self.requests.req_with_acceptable_quorum(request,
+                                                       self.quorums.propagate)
+        if req:
+            self.requests.set_finalised(req)
+            return None
+        else:
+            return 'not finalised'
 
     # noinspection PyUnresolvedReferences
     def forward(self, request: Request):
@@ -191,15 +204,9 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        fin_req = self.requests[key].finalised
-        if self.primaryReplicaNo is not None:
-            self.msgsToReplicas[self.primaryReplicaNo].append(fin_req)
-            logger.debug("{} forwarding client request {} to replica {}".
-                         format(self, key, self.primaryReplicaNo))
-        elif not self.all_instances_have_primary:
-            logger.debug('{} stashing request {} since at least one replica '
-                         'lacks primary'.format(self, key))
-            self.reqs_stashed_for_primary.append(fin_req)
+        logger.debug('{} forwarding request {} to replicas'.format(self, key))
+        for q in self.msgsToReplicas:
+            q.append(ReqKey(*key))
 
         self.monitor.requestUnOrdered(*key)
         self.requests.flagAsForwarded(request, len(self.msgsToReplicas))
@@ -213,8 +220,6 @@ class Propagator:
         :param clientName:
         """
         self.requests.add(request)
-        # # Only propagate if the node is participating in the consensus process
-        # # which happens when the node has completed the catchup process
         self.propagate(request, clientName)
         self.tryForwarding(request)
 
@@ -224,27 +229,37 @@ class Propagator:
         See the method `canForward` for the conditions to check before
         forwarding a request.
         """
-        r, msg = self.canForward(request)
-        if r:
+        cannot_reason_msg = self.canForward(request)
+        if cannot_reason_msg is None:
             # If haven't got the client request(REQUEST) for the corresponding
             # propagate request(PROPAGATE) but have enough propagate requests
             # to move ahead
             self.forward(request)
         else:
-            logger.trace("{} not forwarding request {} to its replicas "
-                         "since {}".format(self, request, msg))
+            logger.debug("{} not forwarding request {} to its replicas "
+                         "since {}".format(self, request, cannot_reason_msg))
 
-    def process_reqs_stashed_for_primary(self):
-        if self.reqs_stashed_for_primary:
-            if self.primaryReplicaNo is not None:
-                self.msgsToReplicas[self.primaryReplicaNo].extend(
-                    self.reqs_stashed_for_primary)
-                logger.debug("{} forwarding stashed {} client requests to "
-                             "replica {}".
-                             format(self, len(self.reqs_stashed_for_primary),
-                                    self.primaryReplicaNo))
-            elif not self.all_instances_have_primary:
-                return
-            # Either the stashed requests have been given to a primary or this
-            # node does not have a primary, so clear the queue
-            self.reqs_stashed_for_primary.clear()
+    def request_propagates(self, req_keys):
+        """
+        Request PROPAGATEs for the given request keys. Since replicas can
+        request PROPAGATEs independently of each other, check if it has
+        been requested recently
+        :param req_keys:
+        :return:
+        """
+        i = 0
+        for (idr, req_id) in req_keys:
+            if (idr, req_id) not in self.requested_propagates_for:
+                self.request_msg(PROPAGATE, {f.IDENTIFIER.nm: idr,
+                                             f.REQ_ID.nm: req_id})
+                self._add_to_recently_requested((idr, req_id))
+                i += 1
+            else:
+                logger.debug('{} already requested PROPAGATE recently for {}'.
+                             format(self, (idr, req_id)))
+        return i
+
+    def _add_to_recently_requested(self, key):
+        while len(self.requested_propagates_for) > self.MAX_REQUESTED_KEYS_TO_KEEP:
+            self.requested_propagates_for.pop(last=False)
+        self.requested_propagates_for.add(key)

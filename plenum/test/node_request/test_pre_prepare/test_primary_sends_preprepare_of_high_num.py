@@ -4,7 +4,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
-from plenum.common.types import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.replica import TPCStat
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions

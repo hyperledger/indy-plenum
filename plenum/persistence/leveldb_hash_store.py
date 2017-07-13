@@ -17,6 +17,10 @@ class LevelDbHashStore(HashStore):
         self.leavesDb = None
         self.open()
 
+    @property
+    def is_persistent(self) -> bool:
+        return True
+
     def writeLeaf(self, leafHash):
         self.leavesDb.put(str(self.leafCount + 1), leafHash)
         self.leafCount += 1

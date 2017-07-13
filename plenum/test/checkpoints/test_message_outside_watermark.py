@@ -1,7 +1,5 @@
 from plenum.test import waits
-from plenum.test.checkpoints.conftest import CHK_FREQ
-from plenum.test.checkpoints.helper import chkChkpoints
-from plenum.test.delayers import ppDelay
+from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies, \
     countDiscarded
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
@@ -11,22 +9,24 @@ from stp_core.loop.eventually import eventually
 
 def testNonPrimaryRecvs3PhaseMessageOutsideWatermarks(chkFreqPatched, looper,
                                                       txnPoolNodeSet, client1,
-                                                      wallet1, client1Connected):
+                                                      wallet1, client1Connected,
+                                                      reqs_for_logsize):
     """
-    A node is slow in processing PRE-PREPAREs such that lot of requests happen 
-    and the slow node has started getting 3 phase messages outside of it 
-    watermarks. Check that it queues up requests outside watermarks and once it 
+    A node is slow in processing PRE-PREPAREs and PREPAREs such that lot of
+    requests happen and the slow node has started getting 3 phase messages
+    outside of it watermarks. Check that it queues up requests outside watermarks and once it
     has received stable checkpoint it processes more requests. It sends other 
     nodes 3 phase messages older than their stable checkpoint so they should 
     discard them.    
     """
     delay = 15
     instId = 1
-    reqsToSend = chkFreqPatched.LOG_SIZE + 2
+    reqsToSend = reqs_for_logsize + 2
     npr = getNonPrimaryReplicas(txnPoolNodeSet, instId)
     slowReplica = npr[0]
     slowNode = slowReplica.node
     slowNode.nodeIbStasher.delay(ppDelay(delay, instId))
+    slowNode.nodeIbStasher.delay(pDelay(delay, instId))
 
     def discardCounts(replicas, pat):
         counts = {}

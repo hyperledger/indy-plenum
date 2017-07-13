@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Nomination
+from plenum.common.messages.node_messages import Nomination
 from plenum.server.replica import Replica
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import delayerMsgTuple
@@ -37,8 +37,8 @@ def case2Setup(startedNodes: TestNodeSet):
     for node in A, C, D:
         node.whitelistNode(B.name, Suspicions.DUPLICATE_NOM_SENT.code)
 
-
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase2(case2Setup, looper, keySharedNodes):
     """
     Case 2 - A node making nominations for a multiple other nodes. Consider 4

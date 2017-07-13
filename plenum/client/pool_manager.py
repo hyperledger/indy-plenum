@@ -8,7 +8,8 @@ from stp_core.types import HA
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.constants import TXN_TYPE, NODE, ALIAS, DATA, TARGET_NYM, NODE_IP,\
     NODE_PORT, CLIENT_IP, CLIENT_PORT, VERKEY, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
-from plenum.common.types import PoolLedgerTxns, f, HA
+from plenum.common.types import f, HA
+from plenum.common.messages.node_messages import PoolLedgerTxns
 from plenum.common.util import getMaxFailures
 from stp_core.common.log import getlogger
 
@@ -118,7 +119,7 @@ class HasPoolManager(TxnStackManager):
                 # If validator service is disabled
                 del self.nodeReg[remoteName]
                 try:
-                    rid = self.nodestack.removeRemoteByName(remoteName)
+                    rid = TxnStackManager.removeRemote(self.nodestack, remoteName)
                     if rid:
                         self.nodestack.outBoxes.pop(rid, None)
                 except RemoteNotFound:

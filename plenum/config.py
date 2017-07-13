@@ -116,9 +116,6 @@ ConsistencyProofsTimeout = 5
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
 
-# Timeout after which the view change is performed
-ViewChangeTimeout = 10
-
 
 # Log configuration
 logRotationWhen = 'D'
@@ -137,14 +134,6 @@ TestRunningTimeLimitSec = 100
 
 # Expected time for one stack to get connected to another
 ExpectedConnectTime = 3.3 if sys.platform == 'win32' else 2
-
-
-# After ordering every `CHK_FREQ` requests, replica sends a CHECKPOINT
-CHK_FREQ = 100000
-
-# Difference between low water mark and high water mark
-LOG_SIZE = 3*CHK_FREQ
-
 
 # Since the ledger is stored in a flat file, this makes the ledger do
 # an fsync on every write. Making it True can significantly slow
@@ -167,11 +156,8 @@ REMOTES_MESSAGE_QUOTA = 100
 # Max batch size for 3 phase commit
 Max3PCBatchSize = 100
 # Max time to wait before creating a batch for 3 phase commit
-Max3PCBatchWait = 1
+Max3PCBatchWait = .001
 
-# Maximum lifespan for a batch, this needs to be changed if
-# `Max3PCBatchSize` is changed
-ThreePCBatchTimeout = 25
 
 # Each node keeps a map of PrePrepare sequence numbers and the corresponding
 # txn seqnos that came out of it. Helps in servicing Consistency Proof Requests
@@ -186,7 +172,21 @@ MaxStateProofSize = 10
 MaxStateProofTime = 3
 
 
+# After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
+CHK_FREQ = 100
+
+# Difference between low water mark and high water mark
+LOG_SIZE = 3*CHK_FREQ
+
+
 CLIENT_REQACK_TIMEOUT = 5
-CLIENT_REPLY_TIMEOUT = Max3PCBatchWait + 10
+CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
+
+VIEW_CHANGE_TIMEOUT = 60  # seconds
+MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+
+# permissions for keyring dirs/files
+KEYRING_DIR_MODE = 0o700  # drwx------ 
+KEYRING_FILE_MODE = 0o600  # -rw-------

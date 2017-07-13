@@ -13,7 +13,9 @@ from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
 from plenum.common.ledger import Ledger
+from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.stacks import nodeStackClass
+from plenum.server.quorums import Quorums
 from stp_core.crypto.nacl_wrappers import Signer
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.network_interface import NetworkInterface
@@ -37,7 +39,8 @@ from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
     LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
     POOL_LEDGER_ID, TXN_TIME, LedgerState
 from plenum.common.txn_util import getTxnOrderedFields
-from plenum.common.types import Reply, f, LedgerStatus, TaggedTuples
+from plenum.common.types import f
+from plenum.common.messages.node_messages import Reply, LedgerStatus
 from plenum.common.util import getMaxFailures, checkIfMoreThanFSameItems, rawToFriendly
 from plenum.common.message_processor import MessageProcessor
 from plenum.persistence.client_req_rep_store_file import ClientReqRepStoreFile
@@ -188,8 +191,7 @@ class Client(Motor,
         self.mode = Mode.discovered
         # For the scenario where client has already connected to nodes reading
         #  the genesis pool transactions and that is enough
-        if self.hasSufficientConnections:
-            self.flushMsgsPendingConnection()
+        self.flushMsgsPendingConnection()
 
     def postTxnFromCatchupAddedToLedger(self, ledgerType: int, txn: Any):
         if ledgerType != 0:
@@ -204,6 +206,7 @@ class Client(Motor,
         self.f = getMaxFailures(nodeCount)
         self.minNodesToConnect = self.f + 1
         self.totalNodes = nodeCount
+        self.quorums = Quorums(nodeCount)
 
     @staticmethod
     def exists(name, basedirpath):
@@ -249,7 +252,8 @@ class Client(Motor,
     def submitReqs(self, *reqs: Request) -> List[Request]:
         requests = []
         for request in reqs:
-            if self.mode == Mode.discovered and self.hasSufficientConnections:
+            if (self.mode == Mode.discovered and self.hasSufficientConnections) or \
+               (request.isForced() and self.hasAnyConnections):
                 logger.debug('Client {} sending request {}'.format(self, request))
                 self.send(request)
                 self.expectingFor(request)
@@ -280,14 +284,7 @@ class Client(Motor,
                      extra={"cli": printOnCli})
         if OP_FIELD_NAME in msg:
             if msg[OP_FIELD_NAME] in ledgerTxnTypes and self._ledger:
-                op = msg.get(OP_FIELD_NAME, None)
-                if not op:
-                    raise MissingNodeOp
-                # TODO: Refactor this copying
-                cls = TaggedTuples.get(op, None)
-                t = copy.deepcopy(msg)
-                t.pop(OP_FIELD_NAME, None)
-                cMsg = cls(**t)
+                cMsg = node_message_factory.get_instance(**msg)
                 if msg[OP_FIELD_NAME] == POOL_LEDGER_TXNS:
                     self.poolTxnReceived(cMsg, frm)
                 if msg[OP_FIELD_NAME] == LEDGER_STATUS:
@@ -383,9 +380,7 @@ class Client(Motor,
         if not replies:
             raise KeyError('{}{}'.format(identifier, reqId))  # NOT_FOUND
         # Check if at least f+1 replies are received or not.
-        if self.f + 1 > len(replies):
-            return False  # UNCONFIRMED
-        else:
+        if self.quorums.reply.is_reached(len(replies)):
             onlyResults = {frm: reply["result"] for frm, reply in
                            replies.items()}
             resultsList = list(onlyResults.values())
@@ -397,6 +392,8 @@ class Client(Motor,
                 logger.error(
                     "Received a different result from at least one of the nodes..")
                 return checkIfMoreThanFSameItems(resultsList, self.f)
+        else:
+            return False  # UNCONFIRMED
 
     def showReplyDetails(self, identifier: str, reqId: int):
         """
@@ -423,8 +420,7 @@ class Client(Motor,
                 self.status = Status.started
             elif len(self.nodestack.conns) >= self.minNodesToConnect:
                 self.status = Status.started_hungry
-            if self.hasSufficientConnections and self.mode == Mode.discovered:
-                self.flushMsgsPendingConnection()
+            self.flushMsgsPendingConnection()
         if self._ledger:
             for n in joined:
                 self.sendLedgerStatus(n)
@@ -438,6 +434,10 @@ class Client(Motor,
     @property
     def hasSufficientConnections(self):
         return len(self.nodestack.conns) >= self.minNodesToConnect
+
+    @property
+    def hasAnyConnections(self):
+        return len(self.nodestack.conns) > 0
 
     def hasMadeRequest(self, identifier, reqId: int):
         return self.reqRepStore.hasRequest(identifier, reqId)
@@ -469,9 +469,15 @@ class Client(Motor,
         if queueSize > 0:
             logger.debug("Flushing pending message queue of size {}"
                          .format(queueSize))
+            tmp = deque()
             while self.reqsPendingConnection:
                 req, signer = self.reqsPendingConnection.popleft()
-                self.send(req, signer=signer)
+                if (self.hasSufficientConnections and self.mode == Mode.discovered) or \
+                   (req.isForced() and self.hasAnyConnections):
+                    self.send(req, signer=signer)
+                else:
+                    tmp.append((req, signer))
+            self.reqsPendingConnection.extend(tmp)
 
     def expectingFor(self, request: Request, nodes: Optional[Set[str]]=None):
         nodes = nodes or {r.name for r in self.nodestack.remotes.values()
@@ -572,7 +578,7 @@ class Client(Motor,
             # even if pool is just busy and cannot answer quickly,
             # that's why using maintainConnections instead
             # self.nodestack.connect(name=remote.name)
-            self.nodestack.maintainConnections()
+            self.nodestack.maintainConnections(force=True)
 
         if aliveRequests:
             # Need a delay in case connection has to be established with some
@@ -601,7 +607,7 @@ class Client(Motor,
                     queue[key] = (nodes, now, retries + 1)
 
     def sendLedgerStatus(self, nodeName: str):
-        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size,
+        ledgerStatus = LedgerStatus(POOL_LEDGER_ID, self.ledger.size, None, None,
                                     self.ledger.root_hash)
         rid = self.nodestack.getRemote(nodeName).uid
         self.send(ledgerStatus, rid)

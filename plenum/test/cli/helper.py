@@ -1,5 +1,6 @@
 import ast
 import os
+import stat
 import re
 import traceback
 from tempfile import gettempdir, mkdtemp
@@ -339,15 +340,21 @@ def newKeyPair(cli: TestCli, alias: str=None):
         idrs = set(cli.activeWallet.idsToSigners.keys())
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.idsToSigners.keys()) == len(idrs) + 1
-    pubKey = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
+    new_identifer = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
     expected = ['Key created in keyring Default']
     if alias:
+        idr = cli.activeWallet.aliasesToIds.get(alias)
+        verkey = cli.activeWallet.getVerkey(idr)
         expected.append('Identifier for key is {}'.
-                        format(cli.activeWallet.aliasesToIds.get(alias)))
+                        format(idr))
+        expected.append('Verification key is {}'.format(verkey))
         expected.append('Alias for identifier is {}'.format(alias))
     else:
-        expected.append('Identifier for key is {}'.format(pubKey))
-    expected.append('Current identifier set to {}'.format(alias or pubKey))
+        expected.append('Identifier for key is {}'.format(new_identifer))
+        verkey = cli.activeWallet.getVerkey(new_identifer)
+        expected.append('Verification key is {}'.format(verkey))
+
+    expected.append('Current identifier set to {}'.format(alias or new_identifer))
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might
@@ -357,10 +364,10 @@ def newKeyPair(cli: TestCli, alias: str=None):
 
     # the public key and alias are listed
     cli.enterCmd("list ids")
-    needle = alias if alias else pubKey
+    needle = alias if alias else new_identifer
     # assert cli.lastMsg().split("\n")[0] == alias if alias else pubKey
     assert needle in cli.lastCmdOutput
-    return pubKey
+    return new_identifer
 
 
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
@@ -580,6 +587,10 @@ def checkWalletFilePersisted(filePath):
     assert os.path.exists(filePath)
 
 
+def checkPermissions(path, mode):
+    assert stat.S_IMODE(os.stat(path).st_mode) == mode
+
+
 def checkWalletRestored(cli, expectedWalletKeyName,
                        expectedIdentifiers):
 
@@ -617,6 +628,15 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     finalExpectedMsgs = expectedMsgs or \
                         ['Active keyring set to "{}"'.format(keyringName)]
     do('use keyring {}'.format(name),
+       expect=finalExpectedMsgs
+    )
+
+
+def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
+    keyringName = expectedName or name
+    finalExpectedMsgs = expectedMsgs or \
+                        ['Active keyring "{}" saved'.format(keyringName)]
+    do('save keyring'.format(name),
        expect=finalExpectedMsgs
     )
 

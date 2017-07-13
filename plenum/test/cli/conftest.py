@@ -7,7 +7,7 @@ from _pytest.recwarn import WarningsRecorder
 
 from stp_core.loop.eventually import eventually
 from stp_core.loop.looper import Looper
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.test.cli.helper import newCLI, waitAllNodesUp, loadPlugin, \
     doByCtx
 from stp_core.network.port_dispenser import genHa

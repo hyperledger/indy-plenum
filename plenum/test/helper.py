@@ -2,6 +2,7 @@ import itertools
 import os
 import random
 import string
+import time
 from _signal import SIGINT
 from functools import partial
 from itertools import permutations, combinations
@@ -12,15 +13,12 @@ from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
     List, Any, Sequence
 from typing import Union
 
-from psutil import Popen
-
 from plenum.client.client import Client
 from plenum.client.wallet import Wallet
-from plenum.common.constants import REPLY, REQACK, REQNACK, REJECT, OP_FIELD_NAME
 from plenum.common.request import Request
-from plenum.common.types import Reply, f, PrePrepare
 from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems
+    checkIfMoreThanFSameItems, getNoInstances
+from plenum.common.messages.node_messages import *
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
 from plenum.test import waits
@@ -29,7 +27,8 @@ from plenum.test.spy_helpers import getLastClientReqReceivedForNode, getAllArgs,
     getAllReturnVals
 from plenum.test.test_client import TestClient, genTestClient
 from plenum.test.test_node import TestNode, TestReplica, TestNodeSet, \
-    checkNodesConnected, ensureElectionsDone, NodeRef
+    checkNodesConnected, ensureElectionsDone, NodeRef, getPrimaryReplica
+from psutil import Popen
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventuallyAll, eventually
 from stp_core.loop.looper import Looper
@@ -69,8 +68,8 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
     logger.debug("received replies for reqId {}: {}".
                  format(reqId, receivedReplies))
     assert len(receivedReplies) > fValue, "Received {} replies but expected " \
-                                          "at-least {} for reqId {}".\
-        format(len(receivedReplies), fValue+1, reqId)
+                                          "at-least {} for reqId {}". \
+        format(len(receivedReplies), fValue + 1, reqId)
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
     assert result
@@ -83,10 +82,13 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
 def waitForSufficientRepliesForRequests(looper,
                                         client,
                                         *,  # To force usage of names
-                                        requests = None,
-                                        requestIds = None,
+                                        requests=None,
+                                        requestIds=None,
                                         fVal=None,
-                                        customTimeoutPerReq=None):
+                                        customTimeoutPerReq=None,
+                                        add_delay_to_timeout: float = 0,
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     """
     Checks number of replies for given requests of specific client and
     raises exception if quorum not reached at least for one
@@ -104,16 +106,17 @@ def waitForSufficientRepliesForRequests(looper,
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
 
-    timeoutPerRequest = customTimeoutPerReq or \
-                        waits.expectedTransactionExecutionTime(nodeCount)
-
-    # here we try to take into account what timeout for execution
-    # N request - totalTimeout should be in
-    # timeoutPerRequest < totalTimeout < timeoutPerRequest * N
-    # we cannot just take (timeoutPerRequest * N) because it is so huge.
-    # (for timeoutPerRequest=5 and N=10, totalTimeout=50sec)
-    # lets start with some simple formula:
-    totalTimeout = (1 + len(requestIds) / 10) * timeoutPerRequest
+    if not total_timeout:
+        timeoutPerRequest = customTimeoutPerReq or \
+                            waits.expectedTransactionExecutionTime(nodeCount)
+        timeoutPerRequest += add_delay_to_timeout
+        # here we try to take into account what timeout for execution
+        # N request - total_timeout should be in
+        # timeoutPerRequest < total_timeout < timeoutPerRequest * N
+        # we cannot just take (timeoutPerRequest * N) because it is so huge.
+        # (for timeoutPerRequest=5 and N=10, total_timeout=50sec)
+        # lets start with some simple formula:
+        total_timeout = (1 + len(requestIds) / 10) * timeoutPerRequest
 
     coros = []
     for requestId in requestIds:
@@ -122,9 +125,13 @@ def waitForSufficientRepliesForRequests(looper,
                              requestId,
                              fVal))
 
-    looper.run(eventuallyAll(*coros,
-                             retryWait=1,
-                             totalTimeout=totalTimeout))
+    chk_all_funcs(looper, coros, retry_wait=1, timeout=total_timeout,
+                  override_eventually_timeout=override_timeout_limit)
+
+    # looper.run(eventuallyAll(*coros,
+    #                          retryWait=1,
+    #                          totalTimeout=total_timeout,
+    #                          override_timeout_limit=override_timeout_limit))
 
 
 def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
@@ -132,22 +139,74 @@ def sendReqsToNodesAndVerifySuffReplies(looper: Looper,
                                         client: TestClient,
                                         numReqs: int,
                                         fVal: int=None,
-                                        customTimeoutPerReq: float=None):
+                                        customTimeoutPerReq: float=None,
+                                        add_delay_to_timeout: float=0,
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
     nodeCount = len(client.nodeReg)
     fVal = fVal or getMaxFailures(nodeCount)
     requests = sendRandomRequests(wallet, client, numReqs)
     waitForSufficientRepliesForRequests(looper, client,
                                         requests=requests,
+                                        fVal=fVal,
                                         customTimeoutPerReq=customTimeoutPerReq,
-                                        fVal=fVal)
+                                        add_delay_to_timeout=add_delay_to_timeout,
+                                        override_timeout_limit=override_timeout_limit,
+                                        total_timeout=total_timeout)
     return requests
+
+
+def send_reqs_to_nodes_and_verify_all_replies(looper: Looper,
+                                        wallet: Wallet,
+                                        client: TestClient,
+                                        numReqs: int,
+                                        customTimeoutPerReq: float=None,
+                                        add_delay_to_timeout: float=0,
+                                        override_timeout_limit=False,
+                                        total_timeout=None):
+    requests = sendRandomRequests(wallet, client, numReqs)
+    nodeCount = len(client.nodeReg)
+    # wait till more than nodeCount replies are received (that is all nodes answered)
+    waitForSufficientRepliesForRequests(looper, client,
+                                        requests=requests,
+                                        fVal=nodeCount - 1,
+                                        customTimeoutPerReq=customTimeoutPerReq,
+                                        add_delay_to_timeout=add_delay_to_timeout,
+                                        override_timeout_limit=override_timeout_limit,
+                                        total_timeout=total_timeout)
+    return requests
+
+
+def send_reqs_batches_and_get_suff_replies(looper: Looper,
+                                           wallet: Wallet,
+                                           client: TestClient,
+                                           num_reqs: int, num_batches=1, **kwargs):
+    # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
+    if num_batches == 1:
+        return sendReqsToNodesAndVerifySuffReplies(looper, wallet, client,
+                                                   num_reqs, **kwargs)
+    else:
+        requests = []
+        for _ in range(num_batches-1):
+            requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
+                                                                client,
+                                                                num_reqs//num_batches,
+                                                                **kwargs))
+        rem = num_reqs % num_batches
+        if rem == 0:
+            rem = num_reqs // num_batches
+        requests.extend(sendReqsToNodesAndVerifySuffReplies(looper, wallet,
+                                                            client,
+                                                            rem,
+                                                            **kwargs))
+        return requests
 
 
 # noinspection PyIncorrectDocstring
 def checkResponseCorrectnessFromNodes(receivedMsgs: Iterable, reqId: int,
                                       fValue: int) -> bool:
     """
-    the client must get at least :math:`2f+1` responses
+    the client must get at least :math:`f+1` responses
     """
     msgs = [(msg[f.RESULT.nm][f.REQ_ID.nm], msg[f.RESULT.nm][f.IDENTIFIER.nm])
             for msg in getRepliesFromClientInbox(receivedMsgs, reqId)]
@@ -179,8 +238,8 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
 
 def assertLength(collection: Iterable[Any], expectedLength: int):
     assert len(
-            collection) == expectedLength, "Observed length was {} but " \
-                                           "expected length was {}".\
+        collection) == expectedLength, "Observed length was {} but " \
+                                       "expected length was {}". \
         format(len(collection), expectedLength)
 
 
@@ -258,14 +317,30 @@ def randomOperation():
     }
 
 
+def random_requests(count):
+    return [{
+                "type": "buy",
+                "amount": random.randint(10, 100)
+            } for _ in range(count)]
+
+
+def signed_random_requests(wallet, count):
+    reqs = random_requests(count)
+    return [wallet.signOp(req) for req in reqs]
+
+
+def send_signed_requests(client: Client, signed_reqs: Sequence):
+    return client.submitReqs(*signed_reqs)
+
+
 def sendRandomRequest(wallet: Wallet, client: Client):
     return sendRandomRequests(wallet, client, 1)[0]
 
 
 def sendRandomRequests(wallet: Wallet, client: Client, count: int):
-    logger.debug('{} random requests will be sent'.format(count))
-    reqs = [wallet.signOp(randomOperation()) for _ in range(count)]
-    return client.submitReqs(*reqs)
+    logger.debug('Sending {} random requests'.format(count))
+    return send_signed_requests(client,
+                                signed_random_requests(wallet, count))
 
 
 def buildCompletedTxnFromReply(request, reply: Reply) -> Dict:
@@ -281,10 +356,32 @@ async def msgAll(nodes: TestNodeSet):
         await sendMessageAndCheckDelivery(nodes, p[0], p[1])
 
 
+def sendMessage(nodes: TestNodeSet,
+                frm: NodeRef,
+                to: NodeRef,
+                msg: Optional[Tuple]=None):
+    """
+    Sends message from one node to another
+
+    :param nodes:
+    :param frm: sender
+    :param to: recepient
+    :param msg: optional message - by default random one generated
+    :return:
+    """
+
+    logger.debug("Sending msg from {} to {}".format(frm, to))
+    msg = msg if msg else randomMsg()
+    sender = nodes.getNode(frm)
+    rid = sender.nodestack.getRemote(nodes.getNodeName(to)).uid
+    sender.nodestack.send(msg, rid)
+
+
 async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
                                       frm: NodeRef,
                                       to: NodeRef,
-                                      msg: Optional[Tuple]=None,
+                                      msg: Optional[Tuple] = None,
+                                      method = None,
                                       customTimeout=None):
     """
     Sends message from one node to another and checks that it was delivered
@@ -305,11 +402,45 @@ async def sendMessageAndCheckDelivery(nodes: TestNodeSet,
 
     timeout = customTimeout or waits.expectedNodeToNodeMessageDeliveryTime()
 
-    await eventually(checkMessageReceived, msg, nodes, to,
+    await eventually(checkMessageReceived, msg, nodes, to, method,
                      retryWait=.1,
                      timeout=timeout,
                      ratchetSteps=10)
 
+def sendMessageToAll(nodes: TestNodeSet,
+                frm: NodeRef,
+                msg: Optional[Tuple]=None):
+    """
+    Sends message from one node to all others
+
+    :param nodes:
+    :param frm: sender
+    :param msg: optional message - by default random one generated
+    :return:
+    """
+    for node in nodes:
+        if node != frm:
+            sendMessage(nodes, frm, node, msg)
+
+async def sendMessageAndCheckDeliveryToAll(nodes: TestNodeSet,
+                                      frm: NodeRef,
+                                      msg: Optional[Tuple]=None,
+                                      method = None,
+                                      customTimeout=None):
+    """
+    Sends message from one node to all other and checks that it was delivered
+
+    :param nodes:
+    :param frm: sender
+    :param msg: optional message - by default random one generated
+    :param customTimeout:
+    :return:
+    """
+    customTimeout = customTimeout or waits.expectedNodeToAllNodesMessageDeliveryTime(len(nodes))
+    for node in nodes:
+        if node != frm:
+            await sendMessageAndCheckDelivery(nodes, frm, node, msg, method, customTimeout)
+            break
 
 def checkMessageReceived(msg, nodes, to, method: str = None):
     allMsgs = nodes.getAllMsgReceived(to, method)
@@ -324,20 +455,14 @@ def addNodeBack(nodeSet: TestNodeSet,
     return node
 
 
-# def checkMethodCalled(node: TestNode,
-#                       method: str,
-#                       args: Tuple):
-#     assert node.spylog.getLastParams(method) == args
-
-
 def checkPropagateReqCountOfNode(node: TestNode, identifier: str, reqId: int):
     key = identifier, reqId
     assert key in node.requests
-    assert len(node.requests[key].propagates) >= node.f + 1
+    assert node.quorums.propagate.is_reached(len(node.requests[key].propagates))
 
 
 def requestReturnedToNode(node: TestNode, identifier: str, reqId: int,
-                               instId: int):
+                          instId: int):
     params = getAllArgs(node, node.processOrdered)
     # Skipping the view no and time from each ordered request
     recvdOrderedReqs = [(p['ordered'].instId, *p['ordered'].reqIdr[0]) for p in params]
@@ -349,6 +474,24 @@ def checkRequestReturnedToNode(node: TestNode, identifier: str, reqId: int,
                                instId: int):
     assert requestReturnedToNode(node, identifier, reqId, instId)
 
+
+def checkRequestNotReturnedToNode(node: TestNode, identifier: str, reqId: int,
+                               instId: int):
+    assert not requestReturnedToNode(node, identifier, reqId, instId)
+
+def check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+    instances = range(getNoInstances(len(nodeSet)))
+    coros = []
+    for node, inst_id in itertools.product(nodeSet, instances):
+        c = partial(checkRequestNotReturnedToNode,
+                    node=node,
+                    identifier=request.identifier,
+                    reqId=request.reqId,
+                    instId=inst_id
+                    )
+        coros.append(c)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
 
 def checkPrePrepareReqSent(replica: TestReplica, req: Request):
     prePreparesSent = getAllArgs(replica, replica.sendPrePrepare)
@@ -365,13 +508,14 @@ def checkPrePrepareReqRecvd(replicas: Iterable[TestReplica],
         assert expectedRequest.reqIdr in [p['pp'].reqIdr for p in params]
 
 
-def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int):
+def checkPrepareReqSent(replica: TestReplica, identifier: str, reqId: int,
+                        view_no: int):
     paramsList = getAllArgs(replica, replica.canPrepare)
     rv = getAllReturnVals(replica,
                           replica.canPrepare)
-    assert [(identifier, reqId)] in \
-           [p["ppReq"].reqIdr for p in paramsList]
-    idx = [p["ppReq"].reqIdr for p in paramsList].index([(identifier, reqId)])
+    args = [p["ppReq"].reqIdr for p in paramsList if p["ppReq"].viewNo == view_no]
+    assert [(identifier, reqId)] in args
+    idx = args.index([(identifier, reqId)])
     assert rv[idx]
 
 
@@ -379,7 +523,7 @@ def checkSufficientPrepareReqRecvd(replica: TestReplica, viewNo: int,
                                    ppSeqNo: int):
     key = (viewNo, ppSeqNo)
     assert key in replica.prepares
-    assert len(replica.prepares[key][1]) >= 2 * replica.f
+    assert len(replica.prepares[key][1]) >= replica.quorums.prepare.value
 
 
 def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
@@ -388,11 +532,11 @@ def checkSufficientCommitReqRecvd(replicas: Iterable[TestReplica], viewNo: int,
         key = (viewNo, ppSeqNo)
         assert key in replica.commits
         received = len(replica.commits[key][1])
-        minimum = 2 * replica.f
+        minimum = replica.quorums.commit.value
         assert received > minimum
 
 
-def checkReqAck(client, node, idr, reqId, update: Dict[str, str]=None):
+def checkReqAck(client, node, idr, reqId, update: Dict[str, str] = None):
     rec = {OP_FIELD_NAME: REQACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
     if update:
         rec.update(update)
@@ -403,7 +547,7 @@ def checkReqAck(client, node, idr, reqId, update: Dict[str, str]=None):
     assert client.inBox.count(expected) > 0
 
 
-def checkReqNack(client, node, idr, reqId, update: Dict[str, str]=None):
+def checkReqNack(client, node, idr, reqId, update: Dict[str, str] = None):
     rec = {OP_FIELD_NAME: REQNACK, f.REQ_ID.nm: reqId, f.IDENTIFIER.nm: idr}
     if update:
         rec.update(update)
@@ -434,7 +578,7 @@ def wait_for_replies(looper, client, idr, reqId, count, custom_timeout=None):
 def checkReqNackWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "")\
+        if msg[OP_FIELD_NAME] == REQNACK and reason in msg.get(f.REASON.nm, "") \
                 and sdr == sender:
             found = True
             break
@@ -458,7 +602,7 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
 def checkRejectWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "")\
+        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "") \
                 and sdr == sender:
             found = True
             break
@@ -487,7 +631,7 @@ def waitReqNackFromPoolWithReason(looper, nodes, client, reason):
 def waitRejectFromPoolWithReason(looper, nodes, client, reason):
     for node in nodes:
         waitRejectWithReason(looper, client, reason,
-                              node.clientstack.name)
+                             node.clientstack.name)
 
 
 def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
@@ -511,7 +655,7 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     return vNo
 
 
-def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout = None):
+def waitForViewChange(looper, nodeSet, expectedViewNo=None, customTimeout=None):
     """
     Waits for nodes to come to same view.
     Raises exception when time is out
@@ -546,7 +690,9 @@ def checkDiscardMsg(processors, discardedMsg,
 def countDiscarded(processor, reasonPat):
     c = 0
     for entry in processor.spylog.getAll(processor.discard):
-        if 'reason' in entry.params and reasonPat in entry.params['reason']:
+        if 'reason' in entry.params and (
+                (isinstance(entry.params['reason'], str) and
+                         reasonPat in entry.params['reason']), (reasonPat in str(entry.params['reason']))):
             c += 1
     return c
 
@@ -599,9 +745,18 @@ def checkStateEquality(state1, state2):
 
 
 def check_seqno_db_equality(db1, db2):
-    assert db1.size == db2.size
+    assert db1.size == db2.size,\
+        "{} != {}".format(db1.size, db2.size)
     assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
            {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
+
+
+def check_last_ordered_3pc(node1, node2):
+    master_replica_1 = node1.master_replica
+    master_replica_2 = node2.master_replica
+    assert master_replica_1.last_ordered_3pc == master_replica_2.last_ordered_3pc, \
+        "{} != {}".format(master_replica_1.last_ordered_3pc, master_replica_2.last_ordered_3pc)
+    return master_replica_1.last_ordered_3pc
 
 
 def randomText(size):
@@ -686,3 +841,70 @@ def nodeByName(nodes, name):
         if node.name == name:
             return node
     raise Exception("Node with the name '{}' has not been found.".format(name))
+
+
+def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_root=None):
+    last_req_id = wallet._getIdData().lastReqId or 0
+    pre_prepare = PrePrepare(
+            0,
+            view_no,
+            pp_seq_no,
+            time.time(),
+            [(wallet.defaultId, last_req_id+1)],
+            0,
+            "random digest",
+            DOMAIN_LEDGER_ID,
+            state_root or '0'*44,
+            txn_root or '0'*44
+            )
+    primary_node = getPrimaryReplica(nodes).node
+    non_primary_nodes = set(nodes) - {primary_node}
+
+    sendMessageToAll(nodes, primary_node, pre_prepare)
+    for non_primary_node in non_primary_nodes:
+        sendMessageToAll(nodes, non_primary_node, pre_prepare)
+
+
+def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):
+    prepare = Prepare(
+            0,
+            view_no,
+            pp_seq_no,
+            "random digest",
+            state_root or '0'*44,
+            txn_root or '0'*44
+            )
+    primary_node = getPrimaryReplica(nodes).node
+    sendMessageToAll(nodes, primary_node, prepare)
+
+
+def send_commit(view_no, pp_seq_no, nodes):
+    commit = Commit(
+            0,
+            view_no,
+            pp_seq_no)
+    primary_node = getPrimaryReplica(nodes).node
+    sendMessageToAll(nodes, primary_node, commit)
+
+
+def chk_all_funcs(looper, funcs, acceptable_fails=0, retry_wait=None,
+                  timeout=None, override_eventually_timeout=False):
+    # TODO: Move this logic to eventuallyAll
+    def chk():
+        fails = 0
+        for func in funcs:
+            try:
+                func()
+            except Exception:
+                fails += 1
+        assert fails <= acceptable_fails
+
+    kwargs = {}
+    if retry_wait:
+        kwargs['retryWait'] = retry_wait
+    if timeout:
+        kwargs['timeout'] = timeout
+    if override_eventually_timeout:
+        kwargs['override_timeout_limit'] = override_eventually_timeout
+
+    looper.run(eventually(chk, **kwargs))

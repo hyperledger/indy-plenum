@@ -26,10 +26,11 @@ from plenum.cli.constants import SIMPLE_CMDS, CLI_CMDS, NODE_OR_CLI, NODE_CMDS, 
 from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
-from plenum.client.wallet import Wallet
+from plenum.client.wallet import Wallet, WalletStorageHelper
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
+from plenum.common.signer_did import DidSigner
 from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_raet.util import getLocalEstateData
 from plenum.common.signer_simple import SimpleSigner
@@ -74,8 +75,8 @@ from pygments.token import Token
 from plenum.client.client import Client
 from plenum.common.util import getMaxFailures, \
     firstValue, randomString, bootstrapClientKeys, \
-    getFriendlyIdentifier, saveGivenWallet, \
-    normalizedWalletFileName, getWalletFilePath, getWalletByPath, \
+    getFriendlyIdentifier, \
+    normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
     getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
@@ -178,6 +179,9 @@ class Cli:
         self._wallets = {}  # type: Dict[str, Wallet]
         self._activeWallet = None  # type: Wallet
         self.keyPairs = {}
+
+        self._walletSaver = None
+
         '''
         examples:
         status
@@ -248,17 +252,19 @@ class Cli:
             eventloop=eventloop,
             output=out)
 
-        RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
-                                                  Console.Wordage.mute,
-                                                  self.config)
-        RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
+        # RAETVerbosity = getRAETLogLevelFromConfig("RAETLogLevelCli",
+        #                                           Console.Wordage.mute,
+        #                                           self.config)
+        # RAETLogFile = getRAETLogFilePath("RAETLogFilePathCli", self.config)
         # Patch stdout in something that will always print *above* the prompt
         # when something is written to stdout.
         sys.stdout = self.cli.stdout_proxy()
 
         if logFileName:
             Logger().enableFileLogging(logFileName)
-        Logger().setupRaet(RAETVerbosity, RAETLogFile)
+
+        # TODO: If we want RAET logging in CLI we need fix this. See INDY-315.
+        #Logger().setupRaet(RAETVerbosity, RAETLogFile)
 
         self.logger = getlogger("cli")
         self.print("\n{}-CLI (c) 2017 Evernym, Inc.".format(self.properName))
@@ -340,6 +346,16 @@ class Cli:
         else:
             self._config = getConfig()
             return self._config
+
+
+    @property
+    def walletSaver(self):
+        if self._walletSaver is None:
+            self._walletSaver = WalletStorageHelper(
+                    self.getKeyringsBaseDir(),
+                    dmode=self.config.KEYRING_DIR_MODE,
+                    fmode=self.config.KEYRING_FILE_MODE)
+        return self._walletSaver
 
     @property
     def allGrams(self):
@@ -826,7 +842,7 @@ class Cli:
         self.print("Clients: " + clients)
         f = getMaxFailures(len(self.nodes))
         self.print("f-value (number of possible faulty nodes): {}".format(f))
-        if f != 0 and len(self.nodes) >= 2 * f + 1:
+        if f != 0:
             node = list(self.nodes.values())[0]
             mPrimary = node.replicas[node.instances.masterId].primaryName
             bPrimary = node.replicas[node.instances.backupIds[0]].primaryName
@@ -1154,7 +1170,9 @@ class Cli:
                     """)
 
     def getMatchedHelpableMsg(self, helpable):
-        matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values() if hm and hm.id == helpable]
+        cmd_prefix = ' '.join(helpable.split(' ')[:2])
+        matchedHelpMsgs = [hm for hm in self.cmdHandlerToCmdMappings().values()
+                           if hm and hm.id == cmd_prefix]
         if matchedHelpMsgs:
             return matchedHelpMsgs[0]
         return None
@@ -1295,9 +1313,10 @@ class Cli:
 
         cseed = cleanSeed(seed)
 
-        signer = SimpleSigner(identifier=identifier, seed=cseed, alias=alias)
+        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
         self.print("Identifier for key is {}".format(signer.identifier))
+        self.print("Verification key is {}".format(signer.verkey))
         if alias:
             self.print("Alias for identifier is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
@@ -1369,6 +1388,7 @@ class Cli:
 
     def _listKeyringsAction(self, matchedVars):
         if matchedVars.get('list_krs') == 'list keyrings':
+            # TODO move file system related routine to WalletStorageHelper
             keyringBaseDir = self.getKeyringsBaseDir()
             contextDirPath = self.getContextBasedKeyringsBaseDir()
             dirs_to_scan = self.getAllSubDirNamesForKeyrings()
@@ -1729,7 +1749,7 @@ class Cli:
 
     def restoreWalletByPath(self, walletFilePath, copyAs=None, override=False):
         try:
-            wallet = getWalletByPath(walletFilePath)
+            wallet = self.walletSaver.loadWallet(walletFilePath)
 
             if copyAs:
                 wallet.name=copyAs
@@ -1832,6 +1852,7 @@ class Cli:
         return self.isAnyWalletFileExistsForGivenContext(pattern)
 
     def isAnyWalletFileExistsForGivenContext(self, pattern):
+        # TODO move that to WalletStorageHelper
         files = glob.glob(pattern)
         if files:
             return True
@@ -1865,8 +1886,9 @@ class Cli:
 
     def _saveActiveWalletInDir(self, contextDir, printMsgs=True):
         try:
-            walletFilePath = saveGivenWallet(self._activeWallet,
-                                             self.walletFileName, contextDir)
+            walletFilePath = self.walletSaver.saveWallet(
+                self._activeWallet,
+                getWalletFilePath(contextDir, self.walletFileName))
             if printMsgs:
                 self.print('Active keyring "{}" saved'.format(
                     self._activeWallet.name), newline=False)
