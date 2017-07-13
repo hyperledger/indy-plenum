@@ -781,20 +781,23 @@ class Replica(HasActionQueue, MessageProcessor):
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
         oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-        if self.canProcessPrePrepare(pp, sender):
-            self.addToPrePrepares(pp)
-            if not self.node.isParticipating:
-                self.stashingWhileCatchingUp.add(key)
-                logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
-                return
+        try:
+            if self.canProcessPrePrepare(pp, sender):
+                self.addToPrePrepares(pp)
+                if not self.node.isParticipating:
+                    self.stashingWhileCatchingUp.add(key)
+                    logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
+                    return
 
-            if self.isMaster:
-                self.node.onBatchCreated(pp.ledgerId,
-                                         self.stateRootHash(pp.ledgerId,
-                                                            to_str=False))
-            self.trackBatches(pp, oldStateRoot)
-            logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
-                         extra={"tags": ["processing"]})
+                if self.isMaster:
+                    self.node.onBatchCreated(pp.ledgerId,
+                                             self.stateRootHash(pp.ledgerId,
+                                                                to_str=False))
+                self.trackBatches(pp, oldStateRoot)
+                logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
+                             extra={"tags": ["processing"]})
+        except SuspiciousNode as ex:
+            self.node.reportSuspiciousNodeEx(ex)
 
     def tryPrepare(self, pp: PrePrepare):
         """

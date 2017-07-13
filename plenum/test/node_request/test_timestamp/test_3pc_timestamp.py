@@ -11,9 +11,6 @@ from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
-whitelist = ['to have incorrect time']
-
-
 def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
                                 wallet1, client1Connected):
     # Check that each replica's PREPARE time is same as the PRE-PREPARE time
