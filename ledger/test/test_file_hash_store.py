@@ -15,6 +15,7 @@ def nodesLeaves():
 
 def writtenFhs(tempdir, nodes, leaves):
     fhs = FileHashStore(tempdir)
+    assert fhs.is_persistent
     for leaf in leaves:
         fhs.writeLeaf(leaf)
     for node in nodes:
@@ -50,6 +51,14 @@ def testSimpleReadWrite(nodesLeaves, tempdir):
     nds = fhs.readNodes(1, len(nodes))
     for i, n in enumerate(nds):
         assert nodes[i][2] == n
+
+    # Check that hash store can be closed and re-opened and the contents remain same
+    leaf_count = fhs.leafCount
+    node_count = fhs.nodeCount
+    fhs.close()
+    reopened_hash_store = FileHashStore(tempdir)
+    assert reopened_hash_store.leafCount == leaf_count
+    assert reopened_hash_store.nodeCount == node_count
 
 
 def testIncorrectWrites(tempdir):

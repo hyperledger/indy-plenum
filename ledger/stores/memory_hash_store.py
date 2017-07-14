@@ -6,6 +6,10 @@ class MemoryHashStore(HashStore):
         self.reset()
         self._closed = False
 
+    @property
+    def is_persistent(self) -> bool:
+        return False
+
     def writeLeaf(self, leafHash):
         self._leafs.append(leafHash)
 

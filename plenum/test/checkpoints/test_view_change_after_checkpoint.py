@@ -34,8 +34,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
     """
     batch_size = 2
     send_reqs_batches_and_get_suff_replies(looper, wallet1, client1,
-                                                  batch_size*sent_batches,
-                                                  sent_batches)
+                                           batch_size*sent_batches,
+                                           sent_batches)
 
     # Check that correct garbage collection happens
     non_gced_batch_count = (sent_batches - CHK_FREQ) if sent_batches >= CHK_FREQ else sent_batches
@@ -52,6 +52,8 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper,
     for node in txnPoolNodeSet:
         for r in node.replicas:
             assert not r.checkpoints
+            # No stashed checkpoint for previous view
+            assert not [view_no for view_no in r.stashedRecvdCheckpoints if view_no < r.viewNo]
             assert r._h == 0
             assert r._lastPrePrepareSeqNo == 0
             assert r.h == 0
