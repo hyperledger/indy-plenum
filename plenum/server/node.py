@@ -1667,20 +1667,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.domainDynamicValidation(request)
 
-    def applyReq(self, request: Request, tm: int):
+    def applyReq(self, request: Request, cons_time: int):
         """
-        Apply request to appropriate ledger and state
+        Apply request to appropriate ledger and state. `cons_time` is the
+        UTC epoch at which consensus was reached.
         """
         if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
-            return self.poolManager.applyReq(request, tm)
+            return self.poolManager.applyReq(request, cons_time)
         else:
-            return self.domainRequestApplication(request, tm)
+            return self.domainRequestApplication(request, cons_time)
 
     def domainDynamicValidation(self, request: Request):
         self.reqHandler.validate(request, self.config)
 
-    def domainRequestApplication(self, request: Request, tm: int):
-        return self.reqHandler.apply(request, tm)
+    def domainRequestApplication(self, request: Request, cons_time: int):
+        return self.reqHandler.apply(request, cons_time)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -2361,7 +2362,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # stashed ordered requests was not processed.
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
-                    self.applyReq(req)
+                    self.applyReq(req, msg.ppTime)
                 self.processOrdered(msg)
             else:
                 self.processOrdered(msg)

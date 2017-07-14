@@ -50,12 +50,12 @@ def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
     ledger.stop()
 
 
-def reqToTxn(req: Request, tm=None):
+def reqToTxn(req: Request, cons_time=None):
     """
     Transform a client request such that it can be stored in the ledger.
     Also this is what will be returned to the client in the reply
     :param req:
-    :param tm:
+    :param cons_time: UTC epoch at which consensus was reached
     :return:
     """
     # TODO: we should not reformat transaction this way
@@ -81,7 +81,7 @@ def reqToTxn(req: Request, tm=None):
         f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
         f.REQ_ID.nm: data[f.REQ_ID.nm],
         f.SIG.nm: data[f.SIG.nm],
-        TXN_TIME: data.get(TXN_TIME)
+        TXN_TIME: cons_time or data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
     return res

@@ -25,11 +25,11 @@ class RequestHandler:
 
     def validate(self, req: Request, config=None):
         """
-        Validates request. Raises exception if requiest is invalid.  
+        Validates request. Raises exception if request is invalid.
         """
         pass
 
-    def apply(self, req: Request, tm: int):
+    def apply(self, req: Request, cons_time: int):
         """
         Applies request
         """

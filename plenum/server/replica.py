@@ -611,7 +611,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
-    def processReqDuringBatch(self, req: Request, tm: int, validReqs: List,
+    def processReqDuringBatch(self, req: Request, cons_time: int, validReqs: List,
                               inValidReqs: List, rejects: List):
         """
         This method will do dynamic validation and apply requests, also it
@@ -620,7 +620,7 @@ class Replica(HasActionQueue, MessageProcessor):
         try:
             if self.isMaster:
                 self.node.doDynamicValidation(req)
-                self.node.applyReq(req, tm)
+                self.node.applyReq(req, cons_time)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                             'will reject'.format(self, ex, req))
@@ -979,7 +979,7 @@ class Replica(HasActionQueue, MessageProcessor):
         """
         return (self.last_accepted_pre_prepare_time is None or
                 pp.ppTime >= self.last_accepted_pre_prepare_time) and \
-               abs(pp.ppTime-get_utc_epoch()) <= self.config.ACCEPTED_DEVIATION_PREPREPARE_TIME
+               abs(pp.ppTime-get_utc_epoch()) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
 
     def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
         """
@@ -1436,7 +1436,7 @@ class Replica(HasActionQueue, MessageProcessor):
                              'catchup process'.format(self, pp.ppSeqNo))
                 for reqKey in pp.reqIdr[:pp.discarded]:
                     req = self.requests[reqKey].finalised
-                    self.node.applyReq(req)
+                    self.node.applyReq(req, pp.ppTime)
             self.stashingWhileCatchingUp.remove(key)
 
         for k in pp.reqIdr:
