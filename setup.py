@@ -60,7 +60,7 @@ setup(
     )],
     install_requires=['jsonpickle', 'ujson==1.33',
                       'prompt_toolkit==0.57', 'pygments',
-                      'crypto==1.4.1', 'rlp', 'sha3', 'leveldb',
+                      'rlp', 'sha3', 'leveldb',
                       'ioflo==1.5.4', 'semver', 'base58', 'orderedset',
                       'sortedcontainers==1.5.7', 'psutil', 'pip',
                       'portalocker==0.5.7', 'pyzmq', 'raet',
