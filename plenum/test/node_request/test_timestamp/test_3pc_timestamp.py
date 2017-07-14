@@ -1,7 +1,7 @@
 import types
 from collections import defaultdict
 
-from plenum.server.suspicion_codes import Suspicions
+from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_TIME
 from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
     getNodeSuspicions
 from plenum.test.instances.helper import recvd_prepares
@@ -31,6 +31,14 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, client1,
 
             # `last_accepted_pre_prepare_time` is the time of the last PRE-PREPARE
             assert r.last_accepted_pre_prepare_time == pp_coll.peekitem(-1)[1].ppTime
+
+            # The ledger should store time for each txn and it should be same
+            # as the time for that PRE-PREPARE
+            if r.isMaster:
+                for iv in node.txn_seq_range_to_3phase_key[DOMAIN_LEDGER_ID]:
+                    three_pc_key = iv.data
+                    for seq_no in range(iv.begin, iv.end):
+                        assert node.domainLedger.getBySeqNo(seq_no)[TXN_TIME] == pp_coll[three_pc_key].ppTime
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
