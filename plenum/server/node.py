@@ -860,11 +860,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.send(message, rid)
 
     def process_current_state_message(self, msg: CurrentState, frm):
-        logger.debug("{} processing current state {} from {}".format(self, msg, frm))
-        election_messages = msg.primary
-        for message in election_messages:
-            message = ViewChangeDone(**message)
-            self.sendToElector(message, frm)
+        logger.debug("{} processing current state {} from {}"
+                     .format(self, msg, frm))
+        try:
+            messages = [ViewChangeDone(**message) for message in msg.primary]
+            for message in messages:
+                self.sendToElector(message, frm)
+        except TypeError as ex:
+            self.discard(msg,
+                         reason="invalid election messages",
+                         logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
