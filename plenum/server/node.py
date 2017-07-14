@@ -849,13 +849,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getClientStackHaOfNode(self, nodeName: str) -> HA:
         return self.cliNodeReg.get(self.getClientStackNameOfNode(nodeName))
 
-    # def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
-    #     rid = self.nodestack.getRemote(nodeName).uid
-    #     for msg in msgs:
-    #         logger.debug("{} sending election message {} to lagged node {}".
-    #                      format(self, msg, nodeName))
-    #         self.send(msg, rid)
-
     def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
         election_messages = self.elector.get_msgs_for_lagged_nodes()
