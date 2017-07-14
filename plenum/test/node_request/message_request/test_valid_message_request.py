@@ -7,6 +7,7 @@ from plenum.common.messages.node_messages import MessageReq, ChooseField, \
     AnyMapField, MessageRep, AnyField, LedgerStatus, ConsistencyProof, \
     PrePrepare, Propagate
 from plenum.common.types import f
+from plenum.common.util import get_utc_epoch
 from plenum.test.helper import countDiscarded
 from stp_core.loop.eventually import eventually
 
@@ -45,17 +46,17 @@ def patched_MessageRep():
 discard_counts = {}
 
 pre_prepare_msg = PrePrepare(
-             0,
-             1,
-             3,
-             time.time(),
-             [['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ', 1499707723017300]],
-             1,
-             'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
-             1,
-             'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
-             '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
-         )
+    0,
+    1,
+    3,
+    get_utc_epoch(),
+    [['4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ', 1499707723017300]],
+    1,
+    'f99937241d4c891c08e92a3cc25966607315ca66b51827b170d492962d58a9be',
+    1,
+    'CZecK1m7VYjSNCC7pGHj938DSW2tfbqoJp1bMJEtFqvG',
+    '7WrAMboPTcMaQCU1raoj28vnhu2bPMMd2Lr9tEcsXeCJ',
+)
 
 propagate_msg = Propagate(**{'request':
                                  {'identifier': '5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC',

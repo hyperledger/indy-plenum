@@ -4,14 +4,11 @@ import types
 from plenum.common.ledger import Ledger
 from stp_core.common.log import getlogger
 from plenum.common.constants import TXN_TYPE, DOMAIN_LEDGER_ID
-from plenum.common.types import f
 from plenum.common.messages.node_messages import CatchupReq, CatchupRep
-from plenum.test.helper import sendRandomRequests
 from plenum.common.types import f
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 from plenum.test import waits
-from plenum.common.txn_util import txnToReq
 
 
 # Do not remove the next import

@@ -19,6 +19,7 @@ class Nomination(MessageBase):
 
 
 class Batch(MessageBase):
+
     typename = BATCH
 
     schema = (
@@ -139,6 +140,7 @@ class Prepare(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.PP_TIME.nm, TimestampField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
@@ -271,6 +273,20 @@ class ViewChangeDone(MessageBase):
     )
 
 
+class CurrentState(MessageBase):
+    """
+    Node sends this kind of message for nodes which 
+    suddenly reconnected (lagged). It contains information about current 
+    pool state, like view no, primary etc.
+    """
+    typename = CURRENT_STATE
+
+    schema = (
+        (f.VIEW_NO.nm, NonNegativeNumberField()),
+        (f.PRIMARY.nm, IterableField(AnyField())),  # ViewChangeDone
+    )
+
+
 """
 The choice to do a generic 'request message' feature instead of a specific
 one was debated. It has some pros and some cons. We wrote up the analysis in
@@ -314,3 +330,5 @@ ThreePhaseKey = NamedTuple("ThreePhaseKey", [
                         f.VIEW_NO,
                         f.PP_SEQ_NO
                     ])
+
+

@@ -55,23 +55,21 @@ def delaysCommitProcessing(node, delay: float=30, instId: int=None):
 def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
                            instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, tm, *reqDigest)
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
 
-    def evilSendPrepare(self, request):
+    def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
-                          request.viewNo,
-                          request.ppSeqNo,
-                          request.digest,
-                          request.stateRootHash,
-                          request.txnRootHash)
+                          ppReq.viewNo,
+                          ppReq.ppSeqNo,
+                          ppReq.ppTime,
+                          ppReq.digest,
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(request, prepare))
+                     format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -128,10 +126,6 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
 def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                                      instId: int=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # reqDigest = ReqDigest(reqDigest.identifier, reqDigest.reqId, "random")
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, *reqDigest, tm)
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
         ppReq = updateNamedTuple(ppReq, digest=ppReq.digest+'random')
@@ -143,6 +137,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prepare = Prepare(self.instId,
                           ppReq.viewNo,
                           ppReq.ppSeqNo,
+                          ppReq.ppTime,
                           digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)

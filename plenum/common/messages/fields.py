@@ -238,6 +238,23 @@ class ChooseField(FieldBase):
                    .format(', '.join(map(str, self._possible_values)), val)
 
 
+class MessageField(FieldBase):
+    _base_types = None
+
+    def __init__(self, message_type, **kwargs):
+        self._message_type = message_type
+        super().__init__(**kwargs)
+
+    def _specific_validation(self, val):
+        if isinstance(val, self._message_type):
+            return
+        try:
+            self._message_type(**val)
+        except TypeError as ex:
+            return "value {} cannot be represented as {} due to: {}"\
+                   .format(val, self._message_type.typename, ex)
+
+
 class LedgerIdField(ChooseField):
     _base_types = (int,)
     ledger_ids = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
@@ -368,16 +385,13 @@ class MerkleRootField(Base58Field):
 
 
 class TimestampField(FieldBase):
-    _base_types = (float, int)
+    _base_types = (int,)
+    _oldest_time = 1499906902
 
     def _specific_validation(self, val):
-        normal_val = val
-        if isinstance(val, int):
-            # This is needed because timestamp is usually multiplied
-            # by 1000 to "make it compatible to JavaScript Date()"
-            normal_val /= 1000
-        if normal_val <= 0:
-            return 'should be a positive number but was {}'.format(val)
+        if val < self._oldest_time:
+            return 'should be greater than {} but was {}'.\
+                format(self._oldest_time, val)
 
 
 class JsonField(FieldBase):
