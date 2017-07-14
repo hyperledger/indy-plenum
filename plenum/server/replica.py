@@ -91,6 +91,8 @@ class Stats:
 
 
 class Replica(HasActionQueue, MessageProcessor):
+    STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
+
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
         """
@@ -1049,8 +1051,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self.node.request_propagates(non_fin_reqs)
             return False
 
-        non_next_upstream_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
-        if non_next_upstream_pp:
+        non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
+        if non_next_pp:
             self.enqueue_pre_prepare(pp, sender)
             return False
 
@@ -1421,6 +1423,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if key not in self.checkpoints or not self.checkpoints[key].digest:
             self.stashCheckpoint(msg, sender)
+            self.__start_catchup_if_needed()
             return False
 
         checkpoint_state = self.checkpoints[key]
@@ -1437,6 +1440,15 @@ class Replica(HasActionQueue, MessageProcessor):
         checkpoint_state.receivedDigests[sender] = msg.digest
         self.checkIfCheckpointStable(key)
         return True
+
+    def __start_catchup_if_needed(self):
+        stashed_chks_with_quorum = self.stashed_checkpoints_with_quorum()
+        is_stashed_enough = stashed_chks_with_quorum > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
+        is_non_primary_master = self.isMaster and not self.isPrimary
+        if is_stashed_enough and is_non_primary_master:
+            logger.info('{} has stashed {} checkpoints with quorum '
+                        'so the catchup procedure starts'.format(self, stashed_chks_with_quorum))
+            self.node.start_catchup()
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1459,6 +1471,9 @@ class Replica(HasActionQueue, MessageProcessor):
             s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
 
         if len(state.digests) == self.config.CHK_FREQ:
+            # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+            # 1. check if updateNamedTuple works for the new message type
+            # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
                                          serialize(state.digests).encode()
@@ -1473,6 +1488,9 @@ class Replica(HasActionQueue, MessageProcessor):
         previousCheckpoints = []
         for (s, e), state in self.checkpoints.items():
             if e == seqNo:
+                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+                # 1. check if updateNamedTuple works for the new message type
+                # 2. choose another name
                 state = updateNamedTuple(state, isStable=True)
                 self.checkpoints[s, e] = state
                 break
@@ -1492,6 +1510,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
+        # TODO: what if len(ckState.receivedDigests) > 2 * f?
         if len(ckState.receivedDigests) == self.quorums.checkpoint.value:
             self.markCheckPointStable(ckState.seqNo)
             return True
@@ -1517,6 +1536,11 @@ class Replica(HasActionQueue, MessageProcessor):
                              'is less than the current view {}, so ignoring it'
                              .format(self, view_no, self.viewNo))
                 self.stashedRecvdCheckpoints.pop(view_no)
+
+    def stashed_checkpoints_with_quorum(self):
+        quorum = self.quorums.checkpoint
+        return sum(quorum.is_reached(len(senders))
+                   for senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).values())
 
     def processStashedCheckpoints(self, key):
         self._clear_prev_view_stashed_checkpoints()

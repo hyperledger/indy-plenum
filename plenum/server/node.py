@@ -2122,6 +2122,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def start_catchup(self):
         # Process any already Ordered requests by the replica
+
+        if self.mode == Mode.starting:
+            logger.info('{} does not start the catchup procedure '
+                        'because it is already in this state'.format(self))
+            return
         self.force_process_ordered()
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
