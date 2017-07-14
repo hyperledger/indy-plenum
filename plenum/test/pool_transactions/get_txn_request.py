@@ -1,5 +1,4 @@
 from plenum.common.messages.node_messages import *
-from plenum.test.helper import send_signed_requests
 from random import randint
 from plenum.test.pool_transactions.helper import sendAddNewClient
 from stp_core.loop.eventually import eventually
@@ -45,7 +44,7 @@ def testSendGetTxnReqForNotExistsSeqNo(looper, steward1, stewardWallet):
                    req.reqId, fValue,
                    retryWait=1, timeout=timeout))
 
-    assert get_txn_response[DATA] == '{}'
+    assert not get_txn_response[DATA]
 
 
 def testSendGetTxnReqSameAsExpected(looper, steward1, stewardWallet):
