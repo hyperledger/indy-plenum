@@ -2,11 +2,10 @@ import types
 from collections import defaultdict
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, TXN_TIME
-from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
-    getNodeSuspicions
+from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.instances.helper import recvd_prepares
 from plenum.test.node_request.test_timestamp.helper import \
-    get_timestamp_suspicion_count
+    get_timestamp_suspicion_count, make_clock_faulty
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -51,11 +50,7 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet, client1,
     # The replica having the bad clock
     confused_npr = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1]
 
-    def ppr_time_is_wrong(self, pp):
-        return False
-
-    confused_npr.is_pre_prepare_time_correct = types.MethodType(
-        ppr_time_is_wrong, confused_npr)
+    make_clock_faulty(confused_npr.node)
 
     old_acceptable_rvs = getAllReturnVals(confused_npr,
                                       confused_npr.is_pre_prepare_time_acceptable)

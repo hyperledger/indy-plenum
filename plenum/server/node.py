@@ -38,7 +38,7 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.messages.node_messages import *
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, OPERATION
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys
+    compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
@@ -375,6 +375,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_change_in_progress.setter
     def view_change_in_progress(self, value):
         self._view_change_in_progress = value
+
+    def utc_epoch(self) -> int:
+        """
+        Returns the UTC epoch according to it's local clock
+        """
+        return get_utc_epoch()
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
