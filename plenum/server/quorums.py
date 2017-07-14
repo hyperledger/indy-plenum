@@ -6,8 +6,8 @@ class Quorum:
     def __init__(self, value: int):
         self.value = value
 
-    def is_reached(self, items: int) -> bool:
-        return items >= self.value
+    def is_reached(self, msg_count: int) -> bool:
+        return msg_count >= self.value
 
 
 class Quorums:
@@ -26,3 +26,4 @@ class Quorums:
         self.consistency_proof = Quorum(f + 1)
         self.ledger_status = Quorum(f + 1)
         self.checkpoint = Quorum(2 * f)
+        self.timestamp = Quorum(f + 1)

@@ -2013,19 +2013,17 @@ class Replica(HasActionQueue, MessageProcessor):
             times = [pr.ppTime for (pr, _) in
                      self.preparesWaitingForPrePrepare[key]]
             most_common_time = mostCommonElement(times)
-            if times.count(most_common_time) > q:
+            if self.quorums.timestamp.is_reached(times.count(most_common_time)):
                 logger.debug('{} found sufficient PREPAREs for the '
                              'PRE-PREPARE{}'.format(self, key))
-                pp, sender, done = self.pre_prepares_stashed_for_incorrect_time[
-                    key]
+                stashed_pp = self.pre_prepares_stashed_for_incorrect_time
+                pp, sender, done = stashed_pp[key]
                 if done:
-                    logger.debug(
-                        '{} already processed PRE-PREPARE{}'.format(self, key))
+                    logger.debug('{} already processed PRE-PREPARE{}'.format(self, key))
                     return True
                 # True is set since that will indicate to `is_pre_prepare_time_acceptable`
                 # that sufficient PREPAREs are received
-                self.pre_prepares_stashed_for_incorrect_time[key] = (
-                pp, sender, True)
+                stashed_pp[key] = (pp, sender, True)
                 self.processPrePrepare(pp, sender)
                 return True
         return False
