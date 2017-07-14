@@ -75,6 +75,8 @@ from stp_core.types import HA
 from stp_zmq.zstack import ZStack
 from plenum.common.constants import openTxns
 from state.state import State
+from plenum.common.messages.node_messages import ViewChangeDone
+
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -241,14 +243,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.poolLedger:
             self.states[POOL_LEDGER_ID] = self.poolManager.state
 
-        nodeRoutes = [(Propagate, self.processPropagate),
-                      (InstanceChange, self.processInstanceChange),
-                      (MessageReq, self.process_message_req),
-                      (MessageRep, self.process_message_rep)]
-
-        nodeRoutes.extend((msgTyp, self.sendToReplica) for msgTyp in
-                          [PrePrepare, Prepare, Commit, Checkpoint,
-                           ThreePCState])
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -277,25 +271,34 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                PrePrepare, Prepare, Checkpoint,
                                Commit, InstanceChange, LedgerStatus,
                                ConsistencyProof, CatchupReq, CatchupRep,
-                               ThreePCState, MessageReq, MessageRep)
+                               ThreePCState, MessageReq, MessageRep, CurrentState)
 
         # Map of request identifier, request id to client name. Used for
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        nodeRoutes.extend([
-            (LedgerStatus, self.ledgerManager.processLedgerStatus),
+        # CurrentState
+        self.nodeMsgRouter = Router(
+            (Propagate,        self.processPropagate),
+            (InstanceChange,   self.processInstanceChange),
+            (MessageReq,       self.process_message_req),
+            (MessageRep,       self.process_message_rep),
+            (PrePrepare,       self.sendToReplica),
+            (Prepare,          self.sendToReplica),
+            (Commit,           self.sendToReplica),
+            (Checkpoint,       self.sendToReplica),
+            (ThreePCState,     self.sendToReplica),
+            (LedgerStatus,     self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
-            (CatchupRep, self.ledgerManager.processCatchupRep)
-        ])
-
-        self.nodeMsgRouter = Router(*nodeRoutes)
+            (CatchupReq,       self.ledgerManager.processCatchupReq),
+            (CatchupRep,       self.ledgerManager.processCatchupRep),
+            (CurrentState,     self.process_current_state_message)
+        )
 
         self.clientMsgRouter = Router(
-            (Request, self.processRequest),
+            (Request,      self.processRequest),
             (LedgerStatus, self.ledgerManager.processLedgerStatus),
-            (CatchupReq, self.ledgerManager.processCatchupReq),
+            (CatchupReq,   self.ledgerManager.processCatchupReq),
         )
 
         # Ordered requests received from replicas while the node was not
@@ -780,14 +783,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.lost_master_primary()
         if self.isReady():
             self.checkInstances()
-
-            for n in joined:
-                msgs = self.elector.get_msgs_for_lagged_nodes()
-                self.sendElectionMsgsToLaggingNode(n, msgs)
-
+            for node in joined:
+                self.send_current_state_to_lagging_node(node)
         # Send ledger status whether ready (connected to enough nodes) or not
-        for n in joined:
-            self.send_ledger_status_to_newly_connected_node(n)
+        for node in joined:
+            self.send_ledger_status_to_newly_connected_node(node)
 
     def _sync_ledger(self, ledger_id):
         """
@@ -849,12 +849,31 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def getClientStackHaOfNode(self, nodeName: str) -> HA:
         return self.cliNodeReg.get(self.getClientStackNameOfNode(nodeName))
 
-    def sendElectionMsgsToLaggingNode(self, nodeName: str, msgs: List[Any]):
+    def send_current_state_to_lagging_node(self, nodeName: str):
         rid = self.nodestack.getRemote(nodeName).uid
-        for msg in msgs:
-            logger.debug("{} sending election message {} to lagged node {}".
-                         format(self, msg, nodeName))
-            self.send(msg, rid)
+        election_messages = self.elector.get_msgs_for_lagged_nodes()
+        message = CurrentState(viewNo=self.viewNo,
+                               primary=election_messages)
+
+        logger.debug("{} sending current state {} to lagged node {}".
+                     format(self, message, nodeName))
+        self.send(message, rid)
+
+    def process_current_state_message(self, msg: CurrentState, frm):
+        logger.debug("{} processing current state {} from {}"
+                     .format(self, msg, frm))
+        try:
+            # TODO: parsing of internal messages should be done with other way
+            # We should consider reimplementing validation so that it can
+            # work with internal messages. It should not only validate them,
+            # but also set parsed as field values
+            messages = [ViewChangeDone(**message) for message in msg.primary]
+            for message in messages:
+                self.sendToElector(message, frm)
+        except TypeError as ex:
+            self.discard(msg,
+                         reason="invalid election messages",
+                         logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1277,6 +1296,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: a node message
         :param frm: the name of the node that sent this `msg`
         """
+        # TODO: why do we unpack batches here? Batching is a feature of
+        # a transport, it should be encapsulated.
+
         if isinstance(msg, Batch):
             logger.debug("{} processing a batch {}".format(self, msg))
             for m in msg.messages:

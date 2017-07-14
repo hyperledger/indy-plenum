@@ -261,7 +261,9 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
                  Node.process_message_rep,
-                 Node.request_propagates
+                 Node.request_propagates,
+                 Node.send_current_state_to_lagging_node,
+                 Node.process_current_state_message,
                  ]
 
 

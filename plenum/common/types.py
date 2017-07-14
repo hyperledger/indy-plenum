@@ -62,6 +62,7 @@ class f:  # provides a namespace for reusable field constants
     CONS_PROOF = Field("consProof", Any)
     MSG_TYPE = Field("msg_type", str)
     PARAMS = Field("params", dict)
+    PRIMARY = Field("primary", dict)
 
 
 OPERATION = 'operation'

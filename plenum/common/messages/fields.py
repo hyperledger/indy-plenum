@@ -238,6 +238,23 @@ class ChooseField(FieldBase):
                    .format(', '.join(map(str, self._possible_values)), val)
 
 
+class MessageField(FieldBase):
+    _base_types = None
+
+    def __init__(self, message_type, **kwargs):
+        self._message_type = message_type
+        super().__init__(**kwargs)
+
+    def _specific_validation(self, val):
+        if isinstance(val, self._message_type):
+            return
+        try:
+            self._message_type(**val)
+        except TypeError as ex:
+            return "value {} cannot be represented as {} due to: {}"\
+                   .format(val, self._message_type.typename, ex)
+
+
 class LedgerIdField(ChooseField):
     _base_types = (int,)
     ledger_ids = (POOL_LEDGER_ID, DOMAIN_LEDGER_ID)
