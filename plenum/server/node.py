@@ -863,6 +863,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} processing current state {} from {}"
                      .format(self, msg, frm))
         try:
+            # TODO: parsing of internal messages should be done with other way
+            # We should consider reimplementing validation so that it can
+            # work with internal messages. It should not only validate them,
+            # but also set parsed as field values
             messages = [ViewChangeDone(**message) for message in msg.primary]
             for message in messages:
                 self.sendToElector(message, frm)
