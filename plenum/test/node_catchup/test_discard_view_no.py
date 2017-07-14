@@ -1,5 +1,6 @@
 import time
 
+from plenum.common.util import get_utc_epoch
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -47,7 +48,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
             0,
             viewNo,
             10,
-            time.time(),
+            get_utc_epoch(),
             [[wallet.defaultId, wallet._getIdData().lastReqId+1]],
             1,
             "random digest",

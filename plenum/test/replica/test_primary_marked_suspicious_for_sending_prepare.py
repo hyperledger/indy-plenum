@@ -31,6 +31,7 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, delay_commits,
         prepare = Prepare(instId,
                           viewNo,
                           ppSeqNo,
+                          ppReq.ppTime,
                           ppReq.digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)

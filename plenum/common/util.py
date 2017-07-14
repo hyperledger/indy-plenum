@@ -14,6 +14,7 @@ import time
 from binascii import unhexlify, hexlify
 from collections import Counter, defaultdict
 from collections import OrderedDict
+from datetime import datetime
 from math import floor
 from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -22,7 +23,6 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 import base58
 import libnacl.secret
 import psutil
-from jsonpickle import encode, decode
 from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 
@@ -422,6 +422,14 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     curTimeRounded = round(time.time() * 1000)
     startTimeRounded = round(startTime * 1000)
     return startTimeRounded + maxCheckForMillis < curTimeRounded
+
+
+def get_utc_epoch() -> int:
+    """
+    Returns epoch in UTC
+    :return:
+    """
+    return int(datetime.utcnow().timestamp())
 
 
 def lxor(a, b):

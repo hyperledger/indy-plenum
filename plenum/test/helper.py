@@ -17,7 +17,7 @@ from plenum.client.client import Client
 from plenum.client.wallet import Wallet
 from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
-    checkIfMoreThanFSameItems, getNoInstances
+    checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
 from plenum.config import poolTransactionsFile, domainTransactionsFile
 from plenum.server.node import Node
@@ -849,7 +849,7 @@ def send_pre_prepare(view_no, pp_seq_no, wallet, nodes, state_root=None, txn_roo
             0,
             view_no,
             pp_seq_no,
-            time.time(),
+            get_utc_epoch(),
             [(wallet.defaultId, last_req_id+1)],
             0,
             "random digest",
@@ -870,6 +870,7 @@ def send_prepare(view_no, pp_seq_no, nodes, state_root=None, txn_root=None):
             0,
             view_no,
             pp_seq_no,
+            get_utc_epoch(),
             "random digest",
             state_root or '0'*44,
             txn_root or '0'*44

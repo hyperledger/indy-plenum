@@ -1,19 +1,20 @@
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    NonEmptyStringField, MerkleRootField
+    NonEmptyStringField, MerkleRootField, TimestampField
 from plenum.common.messages.node_messages import Prepare
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
     ("viewNo", NonNegativeNumberField),
     ("ppSeqNo", NonNegativeNumberField),
+    ("ppTime", TimestampField),
     ("digest", NonEmptyStringField),
     ("stateRootHash", MerkleRootField),
     ("txnRootHash", MerkleRootField),
 ])
 
 
-def test_hash_expected_type():
+def test_has_expected_type():
     assert Prepare.typename == "PREPARE"
 
 

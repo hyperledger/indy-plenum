@@ -38,7 +38,7 @@ from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.messages.node_messages import *
 from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, OPERATION
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys
+    compare_3PC_keys, get_utc_epoch
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
@@ -378,6 +378,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     @view_change_in_progress.setter
     def view_change_in_progress(self, value):
         self._view_change_in_progress = value
+
+    def utc_epoch(self) -> int:
+        """
+        Returns the UTC epoch according to it's local clock
+        """
+        return get_utc_epoch()
 
     def initPoolManager(self, nodeRegistry, ha, cliname, cliha):
         HasPoolManager.__init__(self, nodeRegistry, ha, cliname, cliha)
@@ -1689,20 +1695,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             self.domainDynamicValidation(request)
 
-    def applyReq(self, request: Request):
+    def applyReq(self, request: Request, cons_time: int):
         """
-        Apply request to appropriate ledger and state
+        Apply request to appropriate ledger and state. `cons_time` is the
+        UTC epoch at which consensus was reached.
         """
         if self.ledgerIdForRequest(request) == POOL_LEDGER_ID:
-            return self.poolManager.applyReq(request)
+            return self.poolManager.applyReq(request, cons_time)
         else:
-            return self.domainRequestApplication(request)
+            return self.domainRequestApplication(request, cons_time)
 
     def domainDynamicValidation(self, request: Request):
         self.reqHandler.validate(request, self.config)
 
-    def domainRequestApplication(self, request: Request):
-        return self.reqHandler.apply(request)
+    def domainRequestApplication(self, request: Request, cons_time: int):
+        return self.reqHandler.apply(request, cons_time)
 
     def processRequest(self, request: Request, frm: str):
         """
@@ -2386,7 +2393,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # stashed ordered requests was not processed.
                 for reqKey in msg.reqIdr:
                     req = self.requests[reqKey].finalised
-                    self.applyReq(req)
+                    self.applyReq(req, msg.ppTime)
                 self.processOrdered(msg)
             else:
                 self.processOrdered(msg)

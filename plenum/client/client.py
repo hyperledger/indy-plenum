@@ -634,7 +634,7 @@ class Client(Motor,
         verifier = MerkleVerifier()
         fields = getTxnOrderedFields()
         serializer = CompactSerializer(fields=fields)
-        ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name, TXN_TIME}
+        ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
             rootHash = Ledger.strToHash(

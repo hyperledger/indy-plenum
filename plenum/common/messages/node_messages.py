@@ -140,6 +140,7 @@ class Prepare(MessageBase):
         (f.INST_ID.nm, NonNegativeNumberField()),
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.PP_SEQ_NO.nm, NonNegativeNumberField()),
+        (f.PP_TIME.nm, TimestampField()),
         (f.DIGEST.nm, NonEmptyStringField()),
         (f.STATE_ROOT.nm, MerkleRootField(nullable=True)),
         (f.TXN_ROOT.nm, MerkleRootField(nullable=True)),
