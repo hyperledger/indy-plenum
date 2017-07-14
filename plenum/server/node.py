@@ -1814,14 +1814,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             f.IDENTIFIER.nm: request.identifier,
             f.REQ_ID.nm: request.reqId,
             TXN_TYPE: request.operation[TXN_TYPE],
-            DATA: {}
+            DATA: None
         }
 
         if txn:
-            result[DATA] = txn.result
+            result[DATA] = json.dumps(txn.result)
             result[f.SEQ_NO.nm] = txn.result[f.SEQ_NO.nm]
-
-        result[DATA] = json.dumps(result[DATA])
 
         self.transmitToClient(Reply(result), frm)
 
