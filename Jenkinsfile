@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('SovrinHelpers') _
+@Library('SovrinHelpersTest') _
 
 def name = 'indy-plenum'
 
@@ -206,5 +206,25 @@ def stateTestWindowsNoDocker = {
     }
 }
 
+def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
+    def volumeName = "indy-plenum-deb-u1604"
+    sh "docker volume rm -f $volumeName"
+    dir('build-scripts/ubuntu-1604') {
+        sh "./build-indy-plenum-docker.sh $sourcePath"
+    }
+    return "$volumeName"
+}
+
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
+options.skip([
+    StagesEnum.IS_TESTED,
+    StagesEnum.TEST,
+    StagesEnum.AUTOMERGE,
+    StagesEnum.PYPI_RELEASE,
+    StagesEnum.PACK_RELEASE_DEPS,
+    StagesEnum.GITHUB_RELEASE,
+    StagesEnum.BUILD_RESULT_NOTIF
+])
+options.setPublishableBranches(['master'])
+
+testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
