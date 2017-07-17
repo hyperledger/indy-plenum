@@ -2,7 +2,8 @@ from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sendRandomRequests, \
-    waitForSufficientRepliesForRequests
+    waitForSufficientRepliesForRequests, \
+    send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import getPrimaryReplica, getNonPrimaryReplicas
 
@@ -41,10 +42,8 @@ def testPrePrepareProcessedInOrder(tconf, looper, txnPoolNodeSet, wallet1,
                      format(node))
         node.nodeIbStasher.delay(specificPrePrepares)
 
-    reqs = sendRandomRequests(wallet1, client,
-                              (ppsToDelay+1)*tconf.Max3PCBatchSize)
-
-    waitForSufficientRepliesForRequests(looper, client, requests=reqs)
+    send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client,
+                                              (ppsToDelay+1)*tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     for r in otherR:

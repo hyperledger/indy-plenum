@@ -1,11 +1,11 @@
 import types
 from binascii import hexlify
 
-from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn
 from plenum.common.messages.node_messages import *
-from plenum.test.helper import waitForSufficientRepliesForRequests, send_signed_requests
+from plenum.test.helper import waitForSufficientRepliesForRequests, \
+    send_signed_requests
 
 
 def checkNodesHaveSameRoots(nodes, checkUnCommitted=True,
