@@ -259,7 +259,7 @@ def checkRequest(cli, operation):
     createNewKeyring(cName, cli)
 
     cli.enterCmd("new key {}".format("testkey1"))
-    assert 'Key created in keyring {}'.format(cName) in cli.lastCmdOutput
+    assert 'Key created in wallet {}'.format(cName) in cli.lastCmdOutput
 
     cli.enterCmd('client {} send {}'.format(cName, operation))
     client = cli.clients[cName]
@@ -341,7 +341,7 @@ def newKeyPair(cli: TestCli, alias: str=None):
     checkCmdValid(cli, cmd)
     assert len(cli.activeWallet.idsToSigners.keys()) == len(idrs) + 1
     new_identifer = set(cli.activeWallet.idsToSigners.keys()).difference(idrs).pop()
-    expected = ['Key created in keyring Default']
+    expected = ['Key created in wallet Default']
     if alias:
         idr = cli.activeWallet.aliasesToIds.get(alias)
         verkey = cli.activeWallet.getVerkey(idr)
@@ -611,7 +611,7 @@ def getOldIdentifiersForActiveWallet(cli):
 def createAndAssertNewCreation(do, cli, keyringName):
     oldIdentifiers = getOldIdentifiersForActiveWallet(cli)
     do('new key', within=2,
-       expect=["Key created in keyring {}".format(keyringName)])
+       expect=["Key created in wallet {}".format(keyringName)])
     assert len(cli._activeWallet.identifiers) == oldIdentifiers + 1
 
 
@@ -627,7 +627,7 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
                         ['Active wallet set to "{}"'.format(keyringName)]
-    do('use keyring {}'.format(name),
+    do('use wallet {}'.format(name),
        expect=finalExpectedMsgs
     )
 
@@ -636,7 +636,7 @@ def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
                         ['Active wallet "{}" saved'.format(keyringName)]
-    do('save keyring'.format(name),
+    do('save wallet'.format(name),
        expect=finalExpectedMsgs
     )
 

@@ -16,10 +16,10 @@ def testNewKeyring(cli):
 
 def renameKeyring(oldName, newName, cli):
     if oldName:
-        cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
+        cli.enterCmd("rename wallet {} to {}".format(oldName, newName))
     else:
-        cli.enterCmd("rename keyring to {}".format(newName))
-    assert 'Keyring {} renamed to {}'.format(oldName,
+        cli.enterCmd("rename wallet to {}".format(newName))
+    assert 'Wallet {} renamed to {}'.format(oldName,
                                             newName) in cli.lastCmdOutput
     assert cli._activeWallet.name == newName
     assert len(cli.activeWallet.identifiers) == 0
@@ -27,10 +27,10 @@ def renameKeyring(oldName, newName, cli):
 
 def renameToExistingKeyring(oldName, newName, cli):
     if oldName:
-        cli.enterCmd("rename keyring {} to {}".format(oldName, newName))
+        cli.enterCmd("rename wallet {} to {}".format(oldName, newName))
     else:
-        cli.enterCmd("rename keyring to {}".format(newName))
-    assert '"{}" conflicts with an existing keyring. ' \
+        cli.enterCmd("rename wallet to {}".format(newName))
+    assert '"{}" conflicts with an existing wallet. ' \
            'Please choose a new name'.format(newName) in \
            cli.lastCmdOutput
 
@@ -47,30 +47,30 @@ def testKeyAndKeyRing(cli):
     cli.enterCmd("new wallet {}".format(keyring1))
     assert 'Active wallet set to "{}"'.format(keyring1) in cli.lastCmdOutput
     assert 'New wallet {} created'.format(keyring1) in cli.lastCmdOutput
-    cli.enterCmd("list keyrings")
+    cli.enterCmd("list wallets")
     assert 'testkr1' in cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format(keyring1))
-    assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
+    assert 'Key created in wallet {}'.format(keyring1) in cli.lastCmdOutput
 
     cli.enterCmd("new key {}".format(keyring1))
-    assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
+    assert 'Key created in wallet {}'.format(keyring1) in cli.lastCmdOutput
 
     key1 = "testkey1"
     cli.enterCmd("new key {}".format(key1))
-    assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
+    assert 'Key created in wallet {}'.format(keyring1) in cli.lastCmdOutput
 
     cli.enterCmd("new wallet {}".format(key1))
     assert 'Active wallet set to "{}"'.format(key1) in cli.lastCmdOutput
     assert 'New wallet {} created'.format(key1) in cli.lastCmdOutput
-    cli.enterCmd("list keyrings")
+    cli.enterCmd("list wallets")
     assert 'testkey1' in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
-    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
+    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(keyring1))
-    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
+    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
 
     keyring2 = "testkr2"
     cli.enterCmd("new wallet {}".format(keyring2))
@@ -78,9 +78,9 @@ def testKeyAndKeyRing(cli):
     assert 'New wallet {} created'.format(keyring2) in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
-    assert 'No such identifier found in current keyring' in cli.lastCmdOutput
+    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
 
-    cli.enterCmd("use keyring {}".format(keyring1))
+    cli.enterCmd("use wallet {}".format(keyring1))
     assert 'Active wallet set to "{}"'.format(keyring1) in cli.lastCmdOutput
 
     cli.enterCmd("use identifier {}".format(key1))
