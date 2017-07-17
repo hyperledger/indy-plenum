@@ -3,7 +3,8 @@ from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test.delayers import delay_3pc_messages
+from plenum.test.delayers import delay_3pc_messages, \
+    reset_delays_and_process_delayeds
 from plenum.test.helper import sendRandomRequests, waitForViewChange, \
     send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -46,6 +47,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     check_uncommitteds_equal(txnPoolNodeSet)
 
+    reset_delays_and_process_delayeds(txnPoolNodeSet)
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1,
                                               2*Max3PCBatchSize,
                                               add_delay_to_timeout=delay_3pc)
