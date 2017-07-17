@@ -1428,7 +1428,7 @@ class Cli:
                                self._activeWallet is not None and \
                                self._activeWallet.name.lower() == pwn.lower() \
                             else False
-                        activeKeyringMsg = " [Active keyring, may have some unsaved changes]" \
+                        activeKeyringMsg = " [Active wallet, may have some unsaved changes]" \
                             if isThisActiveWallet else ""
                         activeWalletSign = "*  " if isThisActiveWallet \
                             else "   "
@@ -1451,7 +1451,7 @@ class Cli:
     def _listIdsAction(self, matchedVars):
         if matchedVars.get('list_ids') == 'list ids':
             if self._activeWallet:
-                self.print("Active keyring: {}".
+                self.print("Active wallet: {}".
                            format(self._activeWallet.name), newline=False)
                 if self._activeWallet.defaultId:
                     self.print(" (active identifier: {})\n".
@@ -1764,7 +1764,7 @@ class Cli:
                 self._saveActiveWallet()
 
             self._wallets[wallet.name] = wallet
-            self.print('\nSaved keyring "{}" restored'.
+            self.print('\nSaved wallet "{}" restored'.
                        format(wallet.name), newline=False)
             self.print(" ({})".format(walletFilePath)
                        , Token.Gray)
@@ -1877,7 +1877,7 @@ class Cli:
                 if self._activeWallet.getEnvName else "a different"
             currEnvName = " ({})".format(self.getActiveEnv) \
                 if self.getActiveEnv else ""
-            self.print("Active keyring belongs to '{}' environment and can't "
+            self.print("Active wallet belongs to '{}' environment and can't "
                        "be saved to the current environment{}.".
                        format(walletEnvName, currEnvName),
                        Token.BoldOrange)
@@ -1890,7 +1890,7 @@ class Cli:
                 self._activeWallet,
                 getWalletFilePath(contextDir, self.walletFileName))
             if printMsgs:
-                self.print('Active keyring "{}" saved'.format(
+                self.print('Active wallet "{}" saved'.format(
                     self._activeWallet.name), newline=False)
                 self.print(' ({})'.format(walletFilePath), Token.Gray)
 
