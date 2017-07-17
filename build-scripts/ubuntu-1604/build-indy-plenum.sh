@@ -19,13 +19,13 @@ fpm --input-type "python" \
     --output-type "deb" \
     --architecture "amd64" \
     --verbose \
-    --maintainer "Evernym <dev@evernym.com>" \
     --python-package-name-prefix "python3"\
     --python-bin "/usr/bin/python3" \
     --exclude "usr/local/lib/python3.5/dist-packages/data" \
     --exclude "usr/local/bin" \
     --exclude "*.pyc" \
     --exclude "*.pyo" \
+    --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>" \
     --after-install ${POSTINST_TMP} \
     --before-remove ${PREREM_TMP} \
     --name ${PACKAGE_NAME} \
