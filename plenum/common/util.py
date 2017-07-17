@@ -25,6 +25,7 @@ import libnacl.secret
 import psutil
 from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
+from sortedcontainers import SortedDict as _SortedDict
 
 from ledger.util import F
 from plenum.cli.constants import WALLET_FILE_EXTENSION
@@ -556,7 +557,6 @@ def max_3PC_key(keys) -> Tuple[int, int]:
     return max(keys, key=lambda k: (k[0], k[1]))
 
 
-from sortedcontainers import SortedDict as _SortedDict
 if 'peekitem' in dir(_SortedDict):
     SortedDict = _SortedDict
 else:

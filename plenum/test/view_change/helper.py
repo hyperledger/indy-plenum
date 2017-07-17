@@ -190,9 +190,9 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
 
 
-def restart_node(old_node, looper, tconf, tdirWithPoolTxns, allPluginsPath):
-    nodeHa, nodeCHa = HA(*old_node.nodestack.ha), HA(*old_node.clientstack.ha)
-    restarted_node = TestNode(old_node.name, basedirpath=tdirWithPoolTxns,
+def start_stopped_node(stopped_node, looper, tconf, tdirWithPoolTxns, allPluginsPath):
+    nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*stopped_node.clientstack.ha)
+    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,
                               config=tconf,
                               ha=nodeHa, cliha=nodeCHa,
                               pluginPaths=allPluginsPath)

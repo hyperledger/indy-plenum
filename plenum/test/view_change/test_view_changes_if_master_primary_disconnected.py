@@ -1,7 +1,7 @@
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.spy_helpers import getAllReturnVals
-from plenum.test.view_change.helper import restart_node
+from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -49,8 +49,8 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
     # Check if old primary can join the pool and still functions
-    old_pr_node = restart_node(old_pr_node, looper, tconf,
-                                  tdirWithPoolTxns, allPluginsPath)
+    old_pr_node = start_stopped_node(old_pr_node, looper, tconf,
+                                     tdirWithPoolTxns, allPluginsPath)
 
     txnPoolNodeSet = remaining_nodes + [old_pr_node]
     looper.run(eventually(checkViewNoForNodes,

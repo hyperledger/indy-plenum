@@ -6,7 +6,7 @@ from plenum.test.pool_transactions.helper import \
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
-from plenum.test.view_change.helper import ensure_view_change, restart_node
+from plenum.test.view_change.helper import ensure_view_change, start_stopped_node
 from stp_core.loop.eventually import eventually
 
 from plenum.test.helper import send_reqs_to_nodes_and_verify_all_replies, \
@@ -66,8 +66,8 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
     # Send some requests after view change
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
-    restarted_node = restart_node(node_to_stop, looper, tconf,
-                                  tdirWithPoolTxns, allPluginsPath)
+    restarted_node = start_stopped_node(node_to_stop, looper, tconf,
+                                        tdirWithPoolTxns, allPluginsPath)
     txnPoolNodeSet = remaining_nodes + [restarted_node]
     looper.run(eventually(checkViewNoForNodes,
                           txnPoolNodeSet, old_view_no + 1, timeout=10))
