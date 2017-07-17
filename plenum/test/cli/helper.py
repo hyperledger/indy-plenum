@@ -617,16 +617,16 @@ def createAndAssertNewCreation(do, cli, keyringName):
 
 def createAndAssertNewKeyringCreation(do, name, expectedMsgs=None):
     finalExpectedMsgs = expectedMsgs if expectedMsgs else [
-           'Active keyring set to "{}"'.format(name),
-           'New keyring {} created'.format(name)
+           'Active wallet set to "{}"'.format(name),
+           'New wallet {} created'.format(name)
         ]
-    do('new keyring {}'.format(name), expect=finalExpectedMsgs)
+    do('new wallet {}'.format(name), expect=finalExpectedMsgs)
 
 
 def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-                        ['Active keyring set to "{}"'.format(keyringName)]
+                        ['Active wallet set to "{}"'.format(keyringName)]
     do('use keyring {}'.format(name),
        expect=finalExpectedMsgs
     )
