@@ -23,6 +23,7 @@ function build_from_pypi {
     fpm --input-type "python" \
         --output-type "deb" \
         --architecture "amd64" \
+        --verbose \
         --python-package-name-prefix "python3"\
         --python-bin "/usr/bin/python3" \
         --exclude "*.pyc" \

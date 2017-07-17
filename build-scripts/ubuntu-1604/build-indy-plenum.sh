@@ -18,6 +18,7 @@ sed -i 's/{package_name}/'${PACKAGE_NAME}'/' ${PREREM_TMP}
 fpm --input-type "python" \
     --output-type "deb" \
     --architecture "amd64" \
+    --verbose \
     --python-package-name-prefix "python3"\
     --python-bin "/usr/bin/python3" \
     --exclude "usr/local/lib/python3.5/dist-packages/data" \
