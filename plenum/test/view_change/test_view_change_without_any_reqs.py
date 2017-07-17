@@ -1,3 +1,4 @@
+from plenum.test import waits
 from plenum.test.batching_3pc.helper import check_uncommitteds_equal
 from stp_core.loop.eventually import eventually
 
@@ -37,8 +38,10 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper, wallet1,
         assert master_primary.states[DOMAIN_LEDGER_ID].headHash != s_root
 
     looper.run(eventually(chk1, retryWait=1))
-
-    waitForViewChange(looper, txnPoolNodeSet, old_view_no+1)
+    timeout = tconf.PerfCheckFreq + \
+              waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
+    waitForViewChange(looper, txnPoolNodeSet, old_view_no+1,
+                      customTimeout=timeout)
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     check_uncommitteds_equal(txnPoolNodeSet)
