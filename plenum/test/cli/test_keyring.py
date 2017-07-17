@@ -44,7 +44,7 @@ def testRenameKeyring(cli):
 
 def testKeyAndKeyRing(cli):
     keyring1 = "testkr1"
-    cli.enterCmd("new keyring {}".format(keyring1))
+    cli.enterCmd("new wallet {}".format(keyring1))
     assert 'Active keyring set to "{}"'.format(keyring1) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(keyring1) in cli.lastCmdOutput
     cli.enterCmd("list keyrings")
@@ -60,7 +60,7 @@ def testKeyAndKeyRing(cli):
     cli.enterCmd("new key {}".format(key1))
     assert 'Key created in keyring {}'.format(keyring1) in cli.lastCmdOutput
 
-    cli.enterCmd("new keyring {}".format(key1))
+    cli.enterCmd("new wallet {}".format(key1))
     assert 'Active keyring set to "{}"'.format(key1) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(key1) in cli.lastCmdOutput
     cli.enterCmd("list keyrings")
@@ -73,7 +73,7 @@ def testKeyAndKeyRing(cli):
     assert 'No such identifier found in current keyring' in cli.lastCmdOutput
 
     keyring2 = "testkr2"
-    cli.enterCmd("new keyring {}".format(keyring2))
+    cli.enterCmd("new wallet {}".format(keyring2))
     assert 'Active keyring set to "{}"'.format(keyring2) in cli.lastCmdOutput
     assert 'New keyring {} created'.format(keyring2) in cli.lastCmdOutput
 
