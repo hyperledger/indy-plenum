@@ -211,6 +211,7 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
     sh "docker volume rm -f $volumeName"
     dir('build-scripts/ubuntu-1604') {
         sh "./build-indy-plenum-docker.sh $sourcePath"
+        sh "./build-3rd-parties-docker.sh"
     }
     return "$volumeName"
 }
