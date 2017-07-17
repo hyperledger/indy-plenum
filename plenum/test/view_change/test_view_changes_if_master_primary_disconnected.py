@@ -1,8 +1,11 @@
-import pytest
+from plenum.test.delayers import icDelay
+from stp_core.loop.eventually import eventually
+
+from stp_core.types import HA
+
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
-from plenum.test.test_node import get_master_primary_node, ensure_node_disconnected, ensureElectionsDone
-from stp_core.loop.eventually import eventually
+from plenum.test.test_node import get_master_primary_node, ensure_node_disconnected, TestNode
 from plenum.test.pool_transactions.conftest import clientAndWallet1, \
     client1, wallet1, client1Connected, looper
 from plenum.test.helper import stopNodes, checkViewNoForNodes, \
@@ -11,7 +14,8 @@ from plenum.test.helper import stopNodes, checkViewNoForNodes, \
 
 def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
                                                looper, wallet1, client1,
-                                               client1Connected, tconf):
+                                               client1Connected, tconf,
+                                               tdirWithPoolTxns, allPluginsPath):
     """
     View change occurs when master's primary is disconnected
     """
@@ -19,7 +23,7 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
     # Setup
     nodes = txnPoolNodeSet
 
-    viewNoBefore = checkViewNoForNodes(nodes)
+    old_view_no = checkViewNoForNodes(nodes)
     old_pr_node = get_master_primary_node(nodes)
 
     # Stop primary
@@ -33,10 +37,22 @@ def testViewChangesIfMasterPrimaryDisconnected(txnPoolNodeSet,
 
     # Give some time to detect disconnection and then verify that view has
     # changed and new primary has been elected
-    waitForViewChange(looper, remainingNodes, viewNoBefore + 1)
+    waitForViewChange(looper, remainingNodes, old_view_no + 1)
     ensure_all_nodes_have_same_data(looper, nodes=remainingNodes)
     new_pr_node = get_master_primary_node(remainingNodes)
     assert old_pr_node != new_pr_node
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 5)
 
+    # Check if old primary can join the pool and still functions
+    nodeHa, nodeCHa = HA(*old_pr_node.nodestack.ha), HA(*old_pr_node.clientstack.ha)
+    old_pr_node = TestNode(old_pr_node.name, basedirpath=tdirWithPoolTxns, config=tconf,
+                       ha=nodeHa, cliha=nodeCHa, pluginPaths=allPluginsPath)
+    looper.add(old_pr_node)
+    # Even after disconnection
+    old_pr_node.nodeIbStasher.delay(icDelay(200))
+
+    txnPoolNodeSet = remainingNodes + [old_pr_node]
+    looper.run(eventually(checkViewNoForNodes,
+                          txnPoolNodeSet, old_view_no + 1, timeout=10))
+    ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
