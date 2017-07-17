@@ -18,32 +18,12 @@ from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
-    mostCommonElement
+    mostCommonElement, SortedDict
 from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-
-from sortedcontainers import SortedDict as _SortedDict
-if 'peekitem' in dir(_SortedDict):
-    SortedDict = _SortedDict
-else:
-    # Since older versions of `SortedDict` lack `peekitem`
-    class SortedDict(_SortedDict):
-        def peekitem(self, index=-1):
-            # This method is copied from `SortedDict`'s source code
-            """Return (key, value) item pair at index.
-
-            Unlike ``popitem``, the sorted dictionary is not modified. Index
-            defaults to -1, the last/greatest key in the dictionary. Specify
-            ``index=0`` to lookup the first/least key in the dictiony.
-
-            If index is out of range, raise IndexError.
-
-            """
-            key = self._list[index]
-            return key, self[key]
 
 
 logger = getlogger()

@@ -554,3 +554,24 @@ def min_3PC_key(keys) -> Tuple[int, int]:
 
 def max_3PC_key(keys) -> Tuple[int, int]:
     return max(keys, key=lambda k: (k[0], k[1]))
+
+
+from sortedcontainers import SortedDict as _SortedDict
+if 'peekitem' in dir(_SortedDict):
+    SortedDict = _SortedDict
+else:
+    # Since older versions of `SortedDict` lack `peekitem`
+    class SortedDict(_SortedDict):
+        def peekitem(self, index=-1):
+            # This method is copied from `SortedDict`'s source code
+            """Return (key, value) item pair at index.
+
+            Unlike ``popitem``, the sorted dictionary is not modified. Index
+            defaults to -1, the last/greatest key in the dictionary. Specify
+            ``index=0`` to lookup the first/least key in the dictiony.
+
+            If index is out of range, raise IndexError.
+
+            """
+            key = self._list[index]
+            return key, self[key]

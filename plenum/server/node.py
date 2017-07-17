@@ -36,9 +36,10 @@ from plenum.common.startable import Status, Mode
 from plenum.common.throttler import Throttler
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.messages.node_messages import *
-from plenum.common.types import PLUGIN_TYPE_VERIFICATION, PLUGIN_TYPE_PROCESSING, OPERATION
+from plenum.common.types import PLUGIN_TYPE_VERIFICATION, \
+    PLUGIN_TYPE_PROCESSING, OPERATION
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys, get_utc_epoch
+    compare_3PC_keys, get_utc_epoch, SortedDict
 from plenum.common.verifier import DidVerifier
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 from plenum.persistence.req_id_to_txn import ReqIdrToTxn
@@ -338,6 +339,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
+
+        # Tracks if other nodes are indicating that this node is in lower view
+        # than others. Keeps a map of view no to senders
+        # TODO: Consider if sufficient ViewChangeDone for 2 different (and
+        # higher views) are received, should one view change be interrupted in
+        # between.
+        self._next_view_indications = SortedDict()
 
     @property
     def id(self):
@@ -1201,18 +1209,23 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the node message to validate
         :return:
         """
-        viewNo = getattr(msg, f.VIEW_NO.nm, None)
-        if not self.is_valid_view_or_inst(viewNo):
+        view_no = getattr(msg, f.VIEW_NO.nm, None)
+        if not self.is_valid_view_or_inst(view_no):
             return False
-        if self.viewNo - viewNo > 1:
+        if self.viewNo - view_no > 1:
             self.discard(msg, "un-acceptable viewNo {}"
-                         .format(viewNo), logMethod=logger.info)
-        elif viewNo > self.viewNo:
-            if viewNo not in self.msgsForFutureViews:
-                self.msgsForFutureViews[viewNo] = deque()
+                         .format(view_no), logMethod=logger.info)
+        elif view_no > self.viewNo:
+            if view_no not in self.msgsForFutureViews:
+                self.msgsForFutureViews[view_no] = deque()
             logger.debug('{} stashing a message for a future view: {}'.
                          format(self, msg))
-            self.msgsForFutureViews[viewNo].append((msg, frm))
+            self.msgsForFutureViews[view_no].append((msg, frm))
+            if isinstance(msg, ViewChangeDone):
+                if view_no not in self._next_view_indications:
+                    self._next_view_indications[view_no] = set()
+                self._next_view_indications[view_no].add(frm)
+                self._start_view_change_if_possible(view_no)
         else:
             return True
         return False
@@ -1961,6 +1974,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             logger.debug(whyNot)
         return can
 
+    def _start_view_change_if_possible(self, view_no) -> bool:
+        ind_count = len(self._next_view_indications[view_no])
+        if self.quorums.view_no.is_reached(ind_count):
+            logger.info('{} starting view change for {} after {} view change '
+                        'indications from other nodes'.
+                        format(self, view_no, ind_count))
+            self.startViewChange(view_no)
+            return True
+        return False
+
     def checkPerformance(self):
         """
         Check if master instance is slow and send an instance change request.
@@ -2102,21 +2125,27 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self._schedule(self.propose_view_change,
                        self.config.ToleratePrimaryDisconnection)
 
-    def startViewChange(self, proposedViewNo: int):
+    def startViewChange(self, proposed_view_no: int):
         """
         Trigger the view change process.
 
-        :param proposedViewNo: the new view number after view change.
+        :param proposed_view_no: the new view number after view change.
         """
         # TODO: consider moving this to pool manager
         # TODO: view change is a special case, which can have different
         # implementations - we need to make this logic pluggable
 
+        for view_no in tuple(self._next_view_indications.keys()):
+            if view_no <= proposed_view_no:
+                self._next_view_indications.pop(view_no)
+            else:
+                break
+
         self.view_change_in_progress = True
         self._schedule(action=self._check_view_change_completed,
                        seconds=self._view_change_timeout)
         self.master_replica.on_view_change_start()
-        self.viewNo = proposedViewNo
+        self.viewNo = proposed_view_no
         logger.debug("{} resetting monitor stats after view change".
                      format(self))
         self.monitor.reset()
