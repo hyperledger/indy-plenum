@@ -1,7 +1,5 @@
 import math
 
-import pytest
-
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 
@@ -9,28 +7,17 @@ from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
+from plenum.test.view_change.conftest import perf_chk_patched
 
 
 TestRunningTimeLimitSec = 300
-
+PerfCheckFreq = 30
 
 logger = getlogger()
 
 
-@pytest.fixture(scope="module")
-def tconf(tconf, request):
-    # Delaying perf check as the test sends a lot of requests with delays
-    old_freq = tconf.PerfCheckFreq
-    tconf.PerfCheckFreq = 30
-
-    def reset():
-        tconf.PerfCheckFreq = old_freq
-
-    request.addfinalizer(reset)
-    return tconf
-
-
-def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper,
+def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
+                                                   chkFreqPatched, looper,
                                                    txnPoolNodeSet, client1,
                                                    wallet1, client1Connected,
                                                    reqs_for_logsize):
@@ -41,6 +28,7 @@ def testPrimaryRecvs3PhaseMessageOutsideWatermarks(tconf, chkFreqPatched, looper
     Eventually this primary will send PRE-PREPARE for all requests and those
     requests will complete
     """
+    tconf = perf_chk_patched
     delay = 3
     instId = 1
     reqs_to_send = 2*reqs_for_logsize + 1
