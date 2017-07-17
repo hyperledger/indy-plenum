@@ -19,6 +19,7 @@ fpm --input-type "python" \
     --output-type "deb" \
     --architecture "amd64" \
     --verbose \
+    --maintainer "Evernym <dev@evernym.com>" \
     --python-package-name-prefix "python3"\
     --python-bin "/usr/bin/python3" \
     --exclude "usr/local/lib/python3.5/dist-packages/data" \
