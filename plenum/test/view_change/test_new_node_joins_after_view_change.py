@@ -42,6 +42,9 @@ def new_node_in_correct_view(all_nodes_view_change, looper, txnPoolNodeSet,
 
 
 def test_new_node_has_same_view_as_others(new_node_in_correct_view):
+    """
+    A node joins after view change.
+    """
     pass
 
 
@@ -50,6 +53,10 @@ def test_old_non_primary_restart_after_view_change(new_node_in_correct_view,
                                                    tdirWithPoolTxns,
                                                    allPluginsPath, tconf,
                                                    wallet1, client1):
+    """
+    An existing non-primary node crashes and then view change happens,
+    the crashed node comes back up after view change
+    """
     node_to_stop = getNonPrimaryReplicas(txnPoolNodeSet, 0)[-1].node
     old_view_no = node_to_stop.viewNo
 

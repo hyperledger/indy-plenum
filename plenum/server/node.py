@@ -2136,11 +2136,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # implementations - we need to make this logic pluggable
 
         for view_no in tuple(self._next_view_indications.keys()):
-            if view_no <= proposed_view_no:
-                self._next_view_indications.pop(view_no)
-            else:
+            if view_no > proposed_view_no:
                 break
-
+            self._next_view_indications.pop(view_no)
+            
         self.view_change_in_progress = True
         self._schedule(action=self._check_view_change_completed,
                        seconds=self._view_change_timeout)
