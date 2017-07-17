@@ -594,7 +594,7 @@ def checkPermissions(path, mode):
 def checkWalletRestored(cli, expectedWalletKeyName,
                        expectedIdentifiers):
 
-    cli.lastCmdOutput == "Saved keyring {} restored".format(
+    cli.lastCmdOutput == "Saved wallet {} restored".format(
         expectedWalletKeyName)
     assert cli._activeWallet.name == expectedWalletKeyName
     assert len(cli._activeWallet.identifiers) == \
@@ -635,7 +635,7 @@ def useAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
 def saveAndAssertKeyring(do, name, expectedName=None, expectedMsgs=None):
     keyringName = expectedName or name
     finalExpectedMsgs = expectedMsgs or \
-                        ['Active keyring "{}" saved'.format(keyringName)]
+                        ['Active wallet "{}" saved'.format(keyringName)]
     do('save keyring'.format(name),
        expect=finalExpectedMsgs
     )
@@ -650,8 +650,8 @@ def exitFromCli(do):
 def restartCliAndAssert(cli, do, expectedRestoredWalletName,
                expectedIdentifiers):
     do(None, expect=[
-        'Saved keyring "{}" restored'.format(expectedRestoredWalletName),
-        'Active keyring set to "{}"'.format(expectedRestoredWalletName)
+        'Saved wallet "{}" restored'.format(expectedRestoredWalletName),
+        'Active wallet set to "{}"'.format(expectedRestoredWalletName)
     ], within=5)
     assert cli._activeWallet is not None
     assert len(cli._activeWallet.identifiers) == expectedIdentifiers
