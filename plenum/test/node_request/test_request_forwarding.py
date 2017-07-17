@@ -9,14 +9,16 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
+from plenum.test.view_change.conftest import perf_chk_patched
 
 
-def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
-                                        wallet1, client1Connected, tconf):
+def test_all_replicas_hold_request_keys(perf_chk_patched, looper, txnPoolNodeSet,
+                                        client1, wallet1, client1Connected):
     """
     All replicas whether primary or non primary hold request keys of forwarded
     requests. Once requests are ordered, they request keys are removed from replica.
     """
+    tconf = perf_chk_patched
     delay_3pc = 2
     delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
     delay_3pc_messages(txnPoolNodeSet, 1, delay_3pc)
