@@ -4,6 +4,7 @@ from binascii import hexlify
 from plenum.common.startable import Mode
 from plenum.common.txn_util import reqToTxn
 from plenum.common.messages.node_messages import *
+from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.helper import waitForSufficientRepliesForRequests, \
     send_signed_requests
 
@@ -129,3 +130,11 @@ def fail_on_execute_batch_on_master(node):
             raise Exception('Should not process Ordered at this point')
 
     node.processOrdered = types.MethodType(fail_process_ordered, node)
+
+
+def check_uncommitteds_equal(nodes):
+    t_roots = [node.domainLedger.uncommittedRootHash for node in nodes]
+    s_roots = [node.states[DOMAIN_LEDGER_ID].headHash for node in nodes]
+    assert check_if_all_equal_in_list(t_roots)
+    assert check_if_all_equal_in_list(s_roots)
+    return t_roots[0], s_roots[0]
