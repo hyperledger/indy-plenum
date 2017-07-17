@@ -80,10 +80,10 @@ def testListKeyringsCommandRegEx(grammar):
 
 
 def testNewKeyRingCommandRegEx(grammar):
-    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1")
-    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
-    matchedVars = getMatchedVariables(grammar, "new keyring MyKey1 ")
-    assertCliTokens(matchedVars, {"new_keyring": "new keyring", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new wallet MyKey1")
+    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
+    matchedVars = getMatchedVariables(grammar, "new wallet MyKey1 ")
+    assertCliTokens(matchedVars, {"new_wallet": "new wallet", "name": "MyKey1"})
 
 
 def testRenameKeyRingCommandRegEx(grammar):
