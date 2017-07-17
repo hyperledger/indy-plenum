@@ -471,7 +471,7 @@ class Cli:
             return True
 
     def _newKeyring(self, matchedVars):
-        if matchedVars.get('new_keyring'):
+        if matchedVars.get('new_wallet'):
             name = matchedVars.get('name')
             conflictFound = self._checkIfIdentifierConflicts(
                 name, checkInAliases=False, checkInSigners=False)

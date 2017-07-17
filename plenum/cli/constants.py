@@ -59,7 +59,7 @@ CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = \
     "\s*) "
 
 CLIENT_GRAMS_NEW_KEYRING_REG_EX = \
-    "(\s* (?P<new_keyring>new\skeyring) \s+ (?P<name>[a-zA-Z0-9]+))\s*"
+    "(\s* (?P<new_wallet>new\swallet) \s+ (?P<name>[a-zA-Z0-9]+))\s*"
 
 CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
     "(\s*(?P<rename_keyring>rename\s+keyring)" \
