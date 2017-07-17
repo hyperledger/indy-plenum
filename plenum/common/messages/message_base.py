@@ -40,8 +40,7 @@ class MessageValidator(FieldValidator):
                 if validation_error:
                     self._raise_invalid_fields(k, v, validation_error)
 
-    @staticmethod
-    def _validate_message(dct):
+    def _validate_message(self, dct):
         return None
 
     def _raise_invalid_type(self, dct):

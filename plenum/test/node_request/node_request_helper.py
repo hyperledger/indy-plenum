@@ -4,7 +4,7 @@ from functools import partial
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.types import OPERATION, f
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.server.node import Node
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
@@ -81,7 +81,7 @@ def checkPrePrepared(looper,
                     instId,
                     primary.viewNo,
                     primary.lastPrePrepareSeqNo,
-                    time.time(),
+                    get_utc_epoch(),
                     [[propagated1.identifier, propagated1.reqId]],
                     1,
                     Replica.batchDigest([propagated1,]),

@@ -1,14 +1,11 @@
 import time
 from collections import deque, OrderedDict
-from enum import IntEnum
-from enum import unique
 from typing import Dict, List, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
 from hashlib import sha256
 
-import base58
 from orderedset import OrderedSet
 from sortedcontainers import SortedList
 
@@ -91,6 +88,8 @@ class Stats:
 
 
 class Replica(HasActionQueue, MessageProcessor):
+    STASHED_CHECKPOINTS_BEFORE_CATCHUP = 1
+
     def __init__(self, node: 'plenum.server.node.Node', instId: int,
                  isMaster: bool = False):
         """
@@ -227,8 +226,12 @@ class Replica(HasActionQueue, MessageProcessor):
 
         self.checkpoints = SortedDict(lambda k: k[1])
 
-        self.stashedRecvdCheckpoints = {}   # type: Dict[Tuple,
-        # Dict[str, Checkpoint]]
+        # Stashed checkpoints for each view. The key of the outermost
+        # dictionary is the view_no, value being a dictionary with key as the
+        # range of the checkpoint and its value again being a mapping between
+        # senders and their sent checkpoint
+        self.stashedRecvdCheckpoints = {}   # type: Dict[int, Dict[Tuple,
+        # Dict[str, Checkpoint]]]
 
         self.stashingWhileOutsideWaterMarks = deque()
 
@@ -265,6 +268,20 @@ class Replica(HasActionQueue, MessageProcessor):
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
         self.requested_pre_prepares = {}    # type: Dict[Tuple[int, int], Tuple[str, str, str]]
+
+        # Time of the last PRE-PREPARE which satisfied all validation rules
+        # (time, digest, roots were all correct). This time is not to be
+        # reverted even if the PRE-PREPAREs are not ordered. This implies that
+        # the next primary would have seen all accepted PRE-PREPAREs or another
+        # view change will happen
+        self.last_accepted_pre_prepare_time = None
+
+        # Keeps a map of PRE-PREPAREs which did not satisfy timestamp
+        # criteria, they can be accepted if >f PREPAREs are encountered.
+        # This is emptied on view change. With each PRE-PREPARE, a flag is
+        # stored which indicates whether there are sufficient acceptable
+        # PREPAREs or not
+        self.pre_prepares_stashed_for_incorrect_time = OrderedDict()
 
     def ledger_uncommitted_size(self, ledgerId):
         if not self.isMaster:
@@ -331,6 +348,10 @@ class Replica(HasActionQueue, MessageProcessor):
     def quorums(self):
         return self.node.quorums
 
+    @property
+    def utc_epoch(self):
+        return self.node.utc_epoch()
+
     @staticmethod
     def generateName(nodeName: str, instId: int):
         """
@@ -380,6 +401,9 @@ class Replica(HasActionQueue, MessageProcessor):
             self._primaryName = value
             logger.debug("{} setting primaryName for view no {} to: {}".
                          format(self, self.viewNo, value))
+            if value is None:
+                # Since the GC needs to happen after a primary has been decided.
+                return
             self._gc_before_new_view()
             self._reset_watermarks_before_new_view()
             self._stateChanged()
@@ -407,7 +431,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 ledger.reset_uncommitted()
 
         self.primaryName = primaryName
-        self.set_last_ordered_for_non_master()
+        self._setup_for_non_master()
 
     def shouldParticipate(self, viewNo: int, ppSeqNo: int) -> bool:
         """
@@ -453,7 +477,13 @@ class Replica(HasActionQueue, MessageProcessor):
                 return n
         return None
 
-    def set_last_ordered_for_non_master(self):
+    def _setup_for_non_master(self):
+        """
+        Since last ordered view_no and pp_seq_no are only communicated for
+        master instance, `last_ordered_3pc` if backup instance and clear
+        last view messages
+        :return:
+        """
         if not self.isMaster:
             # If not master instance choose last ordered seq no to be 1 less
             # the lowest prepared certificate in this view
@@ -464,6 +494,15 @@ class Replica(HasActionQueue, MessageProcessor):
             lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
             self.last_ordered_3pc = (self.viewNo, lowest_ordered)
+            logger.debug('Setting last ordered for non-master {} as {}'.
+                         format(self, self.last_ordered_3pc))
+            self._clear_last_view_message_for_non_master(self.viewNo)
+
+    def _clear_last_view_message_for_non_master(self, current_view):
+        assert not self.isMaster
+        for v in list(self.stashed_out_of_order_commits.keys()):
+            if v < current_view:
+                self.stashed_out_of_order_commits.pop(v)
 
     def is_primary_in_view(self, viewNo: int) -> Optional[bool]:
         """
@@ -581,7 +620,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def batchDigest(reqs):
         return sha256(b''.join([r.digest.encode() for r in reqs])).hexdigest()
 
-    def processReqDuringBatch(self, req: Request, validReqs: List,
+    def processReqDuringBatch(self, req: Request, cons_time: int, validReqs: List,
                               inValidReqs: List, rejects: List):
         """
         This method will do dynamic validation and apply requests, also it
@@ -590,7 +629,7 @@ class Replica(HasActionQueue, MessageProcessor):
         try:
             if self.isMaster:
                 self.node.doDynamicValidation(req)
-                self.node.applyReq(req)
+                self.node.applyReq(req, cons_time)
         except (InvalidClientMessageException, UnknownIdentifier) as ex:
             logger.warning('{} encountered exception {} while processing {}, '
                             'will reject'.format(self, ex, req))
@@ -604,7 +643,8 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.info("{} creating batch {} for ledger {} with state root {}".
                     format(self, ppSeqNo, ledger_id,
                            self.stateRootHash(ledger_id, to_str=False)))
-        tm = time.time() * 1000
+        tm = self.utc_epoch
+
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -612,11 +652,11 @@ class Replica(HasActionQueue, MessageProcessor):
                 and self.requestQueues[ledger_id]:
             key = self.requestQueues[ledger_id].pop(0)  # Remove the first element
             fin_req = self.requests[key].finalised
-            self.processReqDuringBatch(fin_req, validReqs, inValidReqs, rejects)
+            self.processReqDuringBatch(fin_req, tm, validReqs, inValidReqs, rejects)
 
         reqs = validReqs+inValidReqs
         digest = self.batchDigest(reqs)
-        prePrepareReq = PrePrepare(self.instId,
+        pre_prepare = PrePrepare(self.instId,
                                    self.viewNo,
                                    ppSeqNo,
                                    tm,
@@ -630,11 +670,12 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.display('{} created a PRE-PREPARE with {} requests for ledger {}'
                      .format(self, len(validReqs), ledger_id))
         self.lastPrePrepareSeqNo = ppSeqNo
+        self.last_accepted_pre_prepare_time = tm
         if self.isMaster:
             self.outBox.extend(rejects)
             self.node.onBatchCreated(ledger_id,
                                      self.stateRootHash(ledger_id, to_str=False))
-        return prePrepareReq
+        return pre_prepare
 
     def sendPrePrepare(self, ppReq: PrePrepare):
         self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
@@ -749,20 +790,23 @@ class Replica(HasActionQueue, MessageProcessor):
         pp = updateNamedTuple(pp, **{f.REQ_IDR.nm: [(i, r)
                                                     for i, r in pp.reqIdr]})
         oldStateRoot = self.stateRootHash(pp.ledgerId, to_str=False)
-        if self.canProcessPrePrepare(pp, sender):
-            self.addToPrePrepares(pp)
-            if not self.node.isParticipating:
-                self.stashingWhileCatchingUp.add(key)
-                logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
-                return
+        try:
+            if self.canProcessPrePrepare(pp, sender):
+                self.addToPrePrepares(pp)
+                if not self.node.isParticipating:
+                    self.stashingWhileCatchingUp.add(key)
+                    logger.debug('{} stashing PRE-PREPARE{}'.format(self, key))
+                    return
 
-            if self.isMaster:
-                self.node.onBatchCreated(pp.ledgerId,
-                                         self.stateRootHash(pp.ledgerId,
-                                                            to_str=False))
-            self.trackBatches(pp, oldStateRoot)
-            logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
-                         extra={"tags": ["processing"]})
+                if self.isMaster:
+                    self.node.onBatchCreated(pp.ledgerId,
+                                             self.stateRootHash(pp.ledgerId,
+                                                                to_str=False))
+                self.trackBatches(pp, oldStateRoot)
+                logger.debug("{} processed incoming PRE-PREPARE{}".format(self, key),
+                             extra={"tags": ["processing"]})
+        except SuspiciousNode as ex:
+            self.node.reportSuspiciousNodeEx(ex)
 
     def tryPrepare(self, pp: PrePrepare):
         """
@@ -858,6 +902,7 @@ class Replica(HasActionQueue, MessageProcessor):
         prepare = Prepare(self.instId,
                           pp.viewNo,
                           pp.ppSeqNo,
+                          pp.ppTime,
                           pp.digest,
                           pp.stateRootHash,
                           pp.txnRootHash
@@ -904,7 +949,7 @@ class Replica(HasActionQueue, MessageProcessor):
             logger.debug('{} missing PRE-PREPAREs between {} and {}'.
                          format(self, pp_seq_no, last_pp_seq_no))
             # TODO: think of a better way, urgently
-            self.set_last_ordered_for_non_master()
+            self._setup_for_non_master()
             return False
 
         return True
@@ -939,6 +984,10 @@ class Replica(HasActionQueue, MessageProcessor):
         and state. It will not commit though (the ledger on disk will not
         change, neither the committed state root hash will change)
         """
+        if not self.is_pre_prepare_time_acceptable(pp):
+            self.pre_prepares_stashed_for_incorrect_time[pp.viewNo, pp.ppSeqNo] = (pp, sender, False)
+            raise SuspiciousNode(sender, Suspicions.PPR_TIME_WRONG, pp)
+
         validReqs = []
         inValidReqs = []
         rejects = []
@@ -952,7 +1001,8 @@ class Replica(HasActionQueue, MessageProcessor):
 
         for reqKey in pp.reqIdr:
             req = self.requests[reqKey].finalised
-            self.processReqDuringBatch(req, validReqs, inValidReqs, rejects)
+            self.processReqDuringBatch(req, pp.ppTime, validReqs, inValidReqs,
+                                       rejects)
 
         if len(validReqs) != pp.discarded:
             if self.isMaster:
@@ -1030,8 +1080,8 @@ class Replica(HasActionQueue, MessageProcessor):
             self.node.request_propagates(non_fin_reqs)
             return False
 
-        non_next_upstream_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
-        if non_next_upstream_pp:
+        non_next_pp = not self.__is_next_pre_prepare(pp.viewNo, pp.ppSeqNo)
+        if non_next_pp:
             self.enqueue_pre_prepare(pp, sender)
             return False
 
@@ -1048,6 +1098,7 @@ class Replica(HasActionQueue, MessageProcessor):
         key = (pp.viewNo, pp.ppSeqNo)
         self.prePrepares[key] = pp
         self.lastPrePrepareSeqNo = pp.ppSeqNo
+        self.last_accepted_pre_prepare_time = pp.ppTime
         self.dequeuePrepares(*key)
         self.dequeueCommits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
@@ -1364,7 +1415,7 @@ class Replica(HasActionQueue, MessageProcessor):
                              'catchup process'.format(self, pp.ppSeqNo))
                 for reqKey in pp.reqIdr[:pp.discarded]:
                     req = self.requests[reqKey].finalised
-                    self.node.applyReq(req)
+                    self.node.applyReq(req, pp.ppTime)
             self.stashingWhileCatchingUp.remove(key)
 
         for k in pp.reqIdr:
@@ -1402,10 +1453,13 @@ class Replica(HasActionQueue, MessageProcessor):
 
         if key not in self.checkpoints or not self.checkpoints[key].digest:
             self.stashCheckpoint(msg, sender)
+            self.__start_catchup_if_needed()
             return False
 
         checkpoint_state = self.checkpoints[key]
-        if checkpoint_state.digest != msg.digest:
+        # Raise the error only if master since only master's last
+        # ordered 3PC is communicated during view change
+        if self.isMaster and checkpoint_state.digest != msg.digest:
             logger.error("{} received an incorrect digest {} for "
                          "checkpoint {} from {}".format(self,
                                                         msg.digest,
@@ -1416,6 +1470,15 @@ class Replica(HasActionQueue, MessageProcessor):
         checkpoint_state.receivedDigests[sender] = msg.digest
         self.checkIfCheckpointStable(key)
         return True
+
+    def __start_catchup_if_needed(self):
+        stashed_chks_with_quorum = self.stashed_checkpoints_with_quorum()
+        is_stashed_enough = stashed_chks_with_quorum > self.STASHED_CHECKPOINTS_BEFORE_CATCHUP
+        is_non_primary_master = self.isMaster and not self.isPrimary
+        if is_stashed_enough and is_non_primary_master:
+            logger.info('{} has stashed {} checkpoints with quorum '
+                        'so the catchup procedure starts'.format(self, stashed_chks_with_quorum))
+            self.node.start_catchup()
 
     def _newCheckpointState(self, ppSeqNo, digest) -> CheckpointState:
         s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
@@ -1438,6 +1501,9 @@ class Replica(HasActionQueue, MessageProcessor):
             s, e = ppSeqNo, ppSeqNo + self.config.CHK_FREQ - 1
 
         if len(state.digests) == self.config.CHK_FREQ:
+            # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+            # 1. check if updateNamedTuple works for the new message type
+            # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
                                          serialize(state.digests).encode()
@@ -1452,6 +1518,9 @@ class Replica(HasActionQueue, MessageProcessor):
         previousCheckpoints = []
         for (s, e), state in self.checkpoints.items():
             if e == seqNo:
+                # TODO CheckpointState/Checkpoint is not a namedtuple anymore
+                # 1. check if updateNamedTuple works for the new message type
+                # 2. choose another name
                 state = updateNamedTuple(state, isStable=True)
                 self.checkpoints[s, e] = state
                 break
@@ -1471,6 +1540,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
     def checkIfCheckpointStable(self, key: Tuple[int, int]):
         ckState = self.checkpoints[key]
+        # TODO: what if len(ckState.receivedDigests) > 2 * f?
         if len(ckState.receivedDigests) == self.quorums.checkpoint.value:
             self.markCheckPointStable(ckState.seqNo)
             return True
@@ -1480,31 +1550,61 @@ class Replica(HasActionQueue, MessageProcessor):
             return False
 
     def stashCheckpoint(self, ck: Checkpoint, sender: str):
+        logger.debug('{} stashing {} from {}'.format(self, ck, sender))
         seqNoStart, seqNoEnd = ck.seqNoStart, ck.seqNoEnd
-        if (seqNoStart, seqNoEnd) not in self.stashedRecvdCheckpoints:
-            self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd] = {}
-        self.stashedRecvdCheckpoints[seqNoStart, seqNoEnd][sender] = ck
+        if ck.viewNo not in self.stashedRecvdCheckpoints:
+            self.stashedRecvdCheckpoints[ck.viewNo] = {}
+        stashed_for_view = self.stashedRecvdCheckpoints[ck.viewNo]
+        if (seqNoStart, seqNoEnd) not in stashed_for_view:
+            stashed_for_view[seqNoStart, seqNoEnd] = {}
+        stashed_for_view[seqNoStart, seqNoEnd][sender] = ck
+
+    def _clear_prev_view_pre_prepares(self):
+        to_remove = []
+        for idx, (pp, _, _) in enumerate(self.prePreparesPendingFinReqs):
+            if pp.viewNo < self.viewNo:
+                to_remove.insert(0, idx)
+        for idx in to_remove:
+            self.prePreparesPendingFinReqs.pop(idx)
+
+        for (v, p) in list(self.prePreparesPendingPrevPP.keys()):
+            if v < self.viewNo:
+                self.prePreparesPendingPrevPP.pop((v, p))
+
+    def _clear_prev_view_stashed_checkpoints(self):
+        for view_no in list(self.stashedRecvdCheckpoints.keys()):
+            if view_no < self.viewNo:
+                logger.debug('{} found stashed checkpoints for view {} which '
+                             'is less than the current view {}, so ignoring it'
+                             .format(self, view_no, self.viewNo))
+                self.stashedRecvdCheckpoints.pop(view_no)
+
+    def stashed_checkpoints_with_quorum(self):
+        quorum = self.quorums.checkpoint
+        return sum(quorum.is_reached(len(senders))
+                   for senders in self.stashedRecvdCheckpoints.get(self.viewNo, {}).values())
 
     def processStashedCheckpoints(self, key):
+        self._clear_prev_view_stashed_checkpoints()
 
-        if key not in self.stashedRecvdCheckpoints:
+        if key not in self.stashedRecvdCheckpoints.get(self.viewNo, {}):
             logger.debug("{} have no stashed checkpoints for {}")
             return 0
 
+        stashed = self.stashedRecvdCheckpoints[self.viewNo][key]
         total_processed = 0
         senders_of_completed_checkpoints = []
 
-        for sender, checkpoint in self.stashedRecvdCheckpoints[key].items():
+        for sender, checkpoint in stashed.items():
             if self.processCheckpoint(checkpoint, sender):
                 senders_of_completed_checkpoints.append(sender)
             total_processed += 1
 
         for sender in senders_of_completed_checkpoints:
             # unstash checkpoint
-            del self.stashedRecvdCheckpoints[key][sender]
-            if len(self.stashedRecvdCheckpoints[key]) == 0:
-                del self.stashedRecvdCheckpoints[key]
-
+            del stashed[sender]
+        if len(stashed) == 0:
+            del self.stashedRecvdCheckpoints[self.viewNo][key]
 
         restashed_num = total_processed - len(senders_of_completed_checkpoints)
         logger.debug('{} processed {} stashed checkpoints for {}, '
@@ -1533,13 +1633,18 @@ class Replica(HasActionQueue, MessageProcessor):
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
 
+        to_clean_up = (
+            self.sentPrePrepares,
+            self.prePrepares,
+            self.prepares,
+            self.commits,
+            self.batches,
+            self.requested_pre_prepares,
+            self.pre_prepares_stashed_for_incorrect_time,
+        )
         for k in tpcKeys:
-            self.sentPrePrepares.pop(k, None)
-            self.prePrepares.pop(k, None)
-            self.prepares.pop(k, None)
-            self.commits.pop(k, None)
-            self.batches.pop(k, None)
-            self.requested_pre_prepares.pop(k, None)
+            for coll in to_clean_up:
+                coll.pop(k, None)
 
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
@@ -1555,6 +1660,8 @@ class Replica(HasActionQueue, MessageProcessor):
         # Clear any checkpoints, since they are valid only in a view
         self._gc(self.last_ordered_3pc[1])
         self.checkpoints.clear()
+        self._clear_prev_view_stashed_checkpoints()
+        self._clear_prev_view_pre_prepares()
 
     def _reset_watermarks_before_new_view(self):
         # Reset any previous view watermarks since for view change to
@@ -1646,7 +1753,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # pre-prepare and over-write the correct one?
             logger.debug(
                 "Queueing pre-prepares due to unavailability of previous "
-                "pre-prepares. PrePrepare {} from {}".format(ppMsg, sender))
+                "pre-prepares. {} from {}".format(ppMsg, sender))
             self.prePreparesPendingPrevPP[ppMsg.viewNo, ppMsg.ppSeqNo] = (ppMsg, sender)
 
     def dequeuePrePrepares(self):
@@ -1686,13 +1793,16 @@ class Replica(HasActionQueue, MessageProcessor):
         return r
 
     def enqueue_prepare(self, pMsg: Prepare, sender: str):
-        logger.debug("Queueing prepare due to unavailability of PRE-PREPARE. "
-                     "Prepare {} from {}".format(pMsg, sender))
+        logger.debug("{} queueing prepare due to unavailability of PRE-PREPARE. "
+                     "Prepare {} from {}".format(self, pMsg, sender))
         key = (pMsg.viewNo, pMsg.ppSeqNo)
         if key not in self.preparesWaitingForPrePrepare:
             self.preparesWaitingForPrePrepare[key] = deque()
         self.preparesWaitingForPrePrepare[key].append((pMsg, sender))
-        self._request_pre_prepare_if_possible(key)
+        if key not in self.pre_prepares_stashed_for_incorrect_time:
+            self._request_pre_prepare_if_possible(key)
+        else:
+            self._process_stashed_pre_prepare_for_time_if_possible(key)
 
     def dequeuePrepares(self, viewNo: int, ppSeqNo: int):
         key = (viewNo, ppSeqNo)
@@ -1859,6 +1969,64 @@ class Replica(HasActionQueue, MessageProcessor):
             self.discard(pp, reason='does not have expected state({} {} {})'.
                          format(digest, state_root, txn_root),
                          logMethod=logger.warning)
+
+    def is_pre_prepare_time_correct(self, pp: PrePrepare) -> bool:
+        """
+        Check if this PRE-PREPARE is not older than (not checking for greater
+        than since batches maybe sent in less than 1 second) last PRE-PREPARE
+        and in a sufficient range of local clock's UTC time.
+        :param pp:
+        :return:
+        """
+        return (self.last_accepted_pre_prepare_time is None or
+                pp.ppTime >= self.last_accepted_pre_prepare_time) and \
+               abs(pp.ppTime - self.utc_epoch) <= self.config.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
+
+    def is_pre_prepare_time_acceptable(self, pp: PrePrepare) -> bool:
+        """
+        Returns True or False depending on the whether the time in PRE-PREPARE
+        is acceptable. Can return True if time is not acceptable but sufficient
+        PREPAREs are found to support the PRE-PREPARE
+        :param pp:
+        :return:
+        """
+        correct = self.is_pre_prepare_time_correct(pp)
+        if not correct:
+            logger.error('{} found {} to have incorrect time.'.format(self, pp))
+            key = (pp.viewNo, pp.ppSeqNo)
+            if key in self.pre_prepares_stashed_for_incorrect_time and \
+                    self.pre_prepares_stashed_for_incorrect_time[key][-1]:
+                logger.info('{} marking time as correct for {}'.format(self, pp))
+                correct = True
+        return correct
+
+    def _process_stashed_pre_prepare_for_time_if_possible(self,
+                                                          key: Tuple[int, int]):
+        """
+        Check if any PRE-PREPAREs that were stashed since their time was not
+        acceptable, can now be accepted since enough PREPAREs are received
+        """
+        logger.debug('{} going to process stashed PRE-PREPAREs with '
+                     'incorrect times'.format(self))
+        q = self.quorums.f
+        if len(self.preparesWaitingForPrePrepare[key]) > q:
+            times = [pr.ppTime for (pr, _) in
+                     self.preparesWaitingForPrePrepare[key]]
+            most_common_time = mostCommonElement(times)
+            if self.quorums.timestamp.is_reached(times.count(most_common_time)):
+                logger.debug('{} found sufficient PREPAREs for the '
+                             'PRE-PREPARE{}'.format(self, key))
+                stashed_pp = self.pre_prepares_stashed_for_incorrect_time
+                pp, sender, done = stashed_pp[key]
+                if done:
+                    logger.debug('{} already processed PRE-PREPARE{}'.format(self, key))
+                    return True
+                # True is set since that will indicate to `is_pre_prepare_time_acceptable`
+                # that sufficient PREPAREs are received
+                stashed_pp[key] = (pp, sender, True)
+                self.processPrePrepare(pp, sender)
+                return True
+        return False
 
     # @property
     # def threePhaseState(self):

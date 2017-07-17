@@ -82,3 +82,20 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
         assert max(getAllReturnVals(newNode,
                                     newNode.num_txns_caught_up_in_last_catchup)) > 0
     return newNode
+
+
+@pytest.yield_fixture("module")
+def poolAfterSomeTxns(looper, txnPoolNodesLooper, txnPoolNodeSet, tdirWithPoolTxns,
+                      poolTxnStewardData, tconf, allPluginsPath, request):
+    client, wallet = buildPoolClientAndWallet(poolTxnStewardData,
+                                              tdirWithPoolTxns,
+                                              clientClass=TestClient)
+    looper.run(checkNodesConnected(txnPoolNodeSet))
+    looper.add(client)
+    looper.run(client.ensureConnectedToNodes())
+    txnCount = getValueFromModule(request, "txnCount", 5)
+    sendReqsToNodesAndVerifySuffReplies(txnPoolNodesLooper,
+                                        wallet,
+                                        client,
+                                        txnCount)
+    yield looper, client, wallet

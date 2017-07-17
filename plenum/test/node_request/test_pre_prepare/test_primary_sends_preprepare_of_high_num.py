@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from plenum.common.util import get_utc_epoch
 from stp_core.loop.eventually import eventually
 from plenum.common.request import ReqDigest
 from plenum.common.messages.node_messages import PrePrepare
@@ -44,7 +45,7 @@ def testPrePrepareWithHighSeqNo(looper, nodeSet, propagated1):
                                         primary.viewNo,
                                         primary.lastPrePrepareSeqNo + 2,
                                         *newReqDigest,
-                                        time.time())
+                                        get_utc_epoch())
     primary.send(incorrectPrePrepareReq, TPCStat.PrePrepareSent)
 
     timeout = waits.expectedPrePrepareTime(len(nodeSet))

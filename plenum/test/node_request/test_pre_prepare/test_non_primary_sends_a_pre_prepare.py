@@ -7,13 +7,12 @@ from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.request import ReqDigest
 from plenum.common.types import f
-from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import compareNamedTuple
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
 from plenum.test import waits
-from plenum.test.instances.helper import recvdPrePrepare
+from plenum.test.instances.helper import recvd_pre_prepares
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 logger = getlogger()
@@ -52,9 +51,9 @@ def testNonPrimarySendsAPrePrepare(looper, nodeSet, setup, propagated1):
 
     def chk():
         for r in remainingNpr:
-            recvdPps = recvdPrePrepare(r)
+            recvdPps = recvd_pre_prepares(r)
             assert len(recvdPps) == 1
-            assert compareNamedTuple(recvdPps[0]['pp'], ppr,
+            assert compareNamedTuple(recvdPps[0], ppr,
                                      f.DIGEST.nm, f.STATE_ROOT.nm,
                                      f.TXN_ROOT.nm)
             nodeSuspicions = len(getNodeSuspicions(

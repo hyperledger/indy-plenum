@@ -261,7 +261,9 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.num_txns_caught_up_in_last_catchup,
                  Node.process_message_req,
                  Node.process_message_rep,
-                 Node.request_propagates
+                 Node.request_propagates,
+                 Node.send_current_state_to_lagging_node,
+                 Node.process_current_state_message,
                  ]
 
 
@@ -339,7 +341,10 @@ replica_spyables = [
     replica.Replica.can_process_since_view_change_in_progress,
     replica.Replica.processThreePhaseMsg,
     replica.Replica.process_requested_pre_prepare,
-    replica.Replica._request_pre_prepare_if_possible
+    replica.Replica._request_pre_prepare_if_possible,
+    replica.Replica.is_pre_prepare_time_correct,
+    replica.Replica.is_pre_prepare_time_acceptable,
+    replica.Replica._process_stashed_pre_prepare_for_time_if_possible,
 ]
 
 

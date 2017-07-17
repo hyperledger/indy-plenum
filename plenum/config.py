@@ -190,3 +190,8 @@ MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 # permissions for keyring dirs/files
 KEYRING_DIR_MODE = 0o700  # drwx------ 
 KEYRING_FILE_MODE = 0o600  # -rw-------
+
+# This timeout is high enough so that even if some PRE-PREPAREs are stashed
+# because of being delivered out of order or being out of watermarks or not
+# having finalised requests.
+ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 100  # seconds

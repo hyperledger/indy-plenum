@@ -330,8 +330,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def doDynamicValidation(self, request: Request):
         self.reqHandler.validate(request)
 
-    def applyReq(self, request: Request):
-        return self.reqHandler.apply(request)
+    def applyReq(self, request: Request, cons_time: int):
+        return self.reqHandler.apply(request, cons_time)
 
     @property
     def merkleRootHash(self) -> str:
