@@ -1,10 +1,14 @@
 import types
 
-from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds
+from stp_core.types import HA
+
+from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, reset_delays_and_process_delayeds, \
+    icDelay
 from plenum.test.helper import checkViewNoForNodes, sendRandomRequests, \
     sendReqsToNodesAndVerifySuffReplies, send_reqs_to_nodes_and_verify_all_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.test_node import get_master_primary_node, ensureElectionsDone
+from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
+    TestNode
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -184,3 +188,18 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
     reset_delays_and_process_delayeds(slow_nodes)
 
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 10)
+
+
+def start_stopped_node(stopped_node, looper, tconf, tdirWithPoolTxns, allPluginsPath):
+    nodeHa, nodeCHa = HA(*stopped_node.nodestack.ha), HA(*stopped_node.clientstack.ha)
+    restarted_node = TestNode(stopped_node.name, basedirpath=tdirWithPoolTxns,
+                              config=tconf,
+                              ha=nodeHa, cliha=nodeCHa,
+                              pluginPaths=allPluginsPath)
+    looper.add(restarted_node)
+
+    # Even after reconnection INSTANCE_CHANGE messages are received,
+    # delay them enough to simulate real disconnection. This needs to fixed
+    # soon when simulating a disconnection drains the transport queues
+    restarted_node.nodeIbStasher.delay(icDelay(200))
+    return restarted_node
