@@ -117,16 +117,16 @@ newKeyCmd = Command(
 
 listIdsCmd = Command(
     id="list ids",
-    title="Lists all identifiers of active wallet",
+    title="Lists all DIDs of active wallet",
     usage="list ids [with verkeys]",
     examples=["list ids", "list ids with verkeys"])
 
 useIdCmd = Command(
-    id="use identifier",
-    title="Marks given identifier active/default",
-    usage="use identifier <identifier>",
-    note="Note: To see all identifiers in active wallet, use 'list ids' command",
-    examples="use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
+    id="use DID",
+    title="Marks given DID active/default",
+    usage="use DID <identifier>",
+    note="Note: To see all DIDs in active wallet, use 'list ids' command",
+    examples="use DID 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
 
 addGenesisTxnCmd = Command(
     id="add genesis transaction",

@@ -66,22 +66,22 @@ def testKeyAndKeyRing(cli):
     cli.enterCmd("list wallets")
     assert 'testkey1' in cli.lastCmdOutput
 
-    cli.enterCmd("use identifier {}".format(key1))
-    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
+    cli.enterCmd("use DID {}".format(key1))
+    assert 'No such DID found in current wallet' in cli.lastCmdOutput
 
-    cli.enterCmd("use identifier {}".format(keyring1))
-    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
+    cli.enterCmd("use DID {}".format(keyring1))
+    assert 'No such DID found in current wallet' in cli.lastCmdOutput
 
     keyring2 = "testkr2"
     cli.enterCmd("new wallet {}".format(keyring2))
     assert 'Active wallet set to "{}"'.format(keyring2) in cli.lastCmdOutput
     assert 'New wallet {} created'.format(keyring2) in cli.lastCmdOutput
 
-    cli.enterCmd("use identifier {}".format(key1))
-    assert 'No such identifier found in current wallet' in cli.lastCmdOutput
+    cli.enterCmd("use DID {}".format(key1))
+    assert 'No such DID found in current wallet' in cli.lastCmdOutput
 
     cli.enterCmd("use wallet {}".format(keyring1))
     assert 'Active wallet set to "{}"'.format(keyring1) in cli.lastCmdOutput
 
-    cli.enterCmd("use identifier {}".format(key1))
-    assert 'Current identifier set to {}'.format(key1) in cli.lastCmdOutput
+    cli.enterCmd("use DID {}".format(key1))
+    assert 'Current DID set to {}'.format(key1) in cli.lastCmdOutput
