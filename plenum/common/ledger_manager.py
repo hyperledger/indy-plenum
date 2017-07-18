@@ -302,9 +302,9 @@ class LedgerManager(HasActionQueue):
                 #  also the majority of the pool), then set the last ordered
                 # 3PC key
                 key = (ledgerStatus.viewNo, ledgerStatus.ppSeqNo)
+                self.do_pre_catchup(ledgerId)
                 if self.isLedgerSame(ledgerStatus) and key != (None, None):
                     # Any state cleaup that is part of pre-catchup should be done
-                    self.do_pre_catchup(ledgerId)
                     self.catchupCompleted(ledgerId, key)
                 else:
                     self.catchupCompleted(ledgerId)
