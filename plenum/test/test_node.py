@@ -811,7 +811,9 @@ def instances(nodes: Sequence[Node],
     numInstances = (getRequiredInstances(len(nodes))
                     if numInstances is None else numInstances)
     for n in nodes:
-        assert len(n.replicas) == numInstances
+        numReplicas = len(n.replicas)
+        assert numReplicas == numInstances, "{} == {}"\
+            .format(numReplicas, numInstances)
     return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
 
 
