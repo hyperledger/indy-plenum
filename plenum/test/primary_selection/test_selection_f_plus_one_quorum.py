@@ -39,6 +39,7 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
     ensure_all_nodes_have_same_data(looper, nodes=non_lagging_nodes)
 
     # Stop two more of active nodes
+    # (but not primary, which is Beta (because of round robin selection))
     stopped_nodes = [alpha, gamma]
     stopNodes(stopped_nodes, looper)
     looper.removeProdable(*stopped_nodes)
