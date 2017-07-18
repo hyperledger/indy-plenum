@@ -369,7 +369,6 @@ def newKeyPair(cli: TestCli, alias: str=None):
     assert needle in cli.lastCmdOutput
     return new_identifer
 
-
 pluginLoadedPat = re.compile("plugin [A-Za-z0-9_]+ successfully loaded from module")
 
 
