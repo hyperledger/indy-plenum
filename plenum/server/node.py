@@ -1930,37 +1930,38 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param instChg: the instance change request
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} received instance change request: {} from {}".
-                     format(self, instChg, frm))
+        logger.debug("{} received instance change request: {} from {}"
+                     .format(self, instChg, frm))
 
-        # TODO: add sender to blacklist?
-        if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".
-                         format(type(instChg.viewNo)))
-        elif instChg.viewNo <= self.viewNo:
+        if instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
                          "which is not more than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
-        else:
-            # Record instance changes for views but send instance change
-            # only when found master to be degraded. if quorum of view changes
-            #  found then change view even if master not degraded
-            if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self._record_inst_change_msg(instChg, frm)
+            return
 
-            if self.monitor.isMasterDegraded() and not \
-                    self.instanceChanges.hasInstChngFrom(instChg.viewNo,
-                                                         self.name):
-                logger.info(
-                    "{} found master degraded after receiving instance change "
-                    "message from {}".format(self, frm))
-                self.sendInstanceChange(instChg.viewNo)
-            else:
-                logger.debug(
-                    "{} received instance change message {} but did not "
-                    "find the master to be slow or has already sent an instance"
-                    " change message".format(self, instChg))
+        # Record instance changes for views but send own instance change
+        # only when found master to be degraded. If quorum of view changes
+        # found then change view even if master not degraded
+        if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
+            self._record_inst_change_msg(instChg, frm)
+
+        if not self.monitor.isMasterDegraded():
+            logger.debug("{} received instance change message {} but "
+                         "did not find the master to be slow"
+                         .format(self, instChg))
+            return
+
+        if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
+            logger.debug("{} received instance change message {} but "
+                         "has already sent an instance change message"
+                         .format(self, instChg))
+            return
+
+        logger.info("{} found master degraded after receiving "
+                    "instance change message from {}"
+                    .format(self, frm))
+        self.sendInstanceChange(instChg.viewNo)
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
