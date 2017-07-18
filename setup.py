@@ -46,7 +46,7 @@ setup(
     download_url='https://github.com/hyperledger/indy-plenum/tarball/{}'.
         format(__version__),
     author=__author__,
-    author_email='dev@evernym.us',
+    author_email='repo@sovrin.org',
     license=__license__,
     keywords='Byzantine Fault Tolerant Plenum',
     packages=find_packages(exclude=['test', 'test.*', 'docs', 'docs*']) + [
