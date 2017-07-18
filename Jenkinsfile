@@ -217,15 +217,4 @@ def buildDebUbuntu = { repoName, releaseVersion, sourcePath ->
 }
 
 def options = new TestAndPublishOptions()
-options.skip([
-    StagesEnum.IS_TESTED,
-    StagesEnum.TEST,
-    StagesEnum.AUTOMERGE,
-    StagesEnum.PYPI_RELEASE,
-    StagesEnum.PACK_RELEASE_DEPS,
-    StagesEnum.GITHUB_RELEASE,
-    StagesEnum.BUILD_RESULT_NOTIF
-])
-options.setPublishableBranches(['master'])
-
 testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options, [ubuntu: buildDebUbuntu])
