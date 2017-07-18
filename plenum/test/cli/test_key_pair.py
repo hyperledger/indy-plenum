@@ -14,7 +14,7 @@ def testKeyPair(cli, pubKey):
 
 
 def testUseKeyPair(cli, pubKey):
-    cli.enterCmd('use identifier {}'.format("test"))
+    cli.enterCmd('use DID {}'.format("test"))
     assert cli.activeAlias == "test"
 
 

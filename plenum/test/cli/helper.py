@@ -345,16 +345,16 @@ def newKeyPair(cli: TestCli, alias: str=None):
     if alias:
         idr = cli.activeWallet.aliasesToIds.get(alias)
         verkey = cli.activeWallet.getVerkey(idr)
-        expected.append('Identifier for key is {}'.
+        expected.append('DID for key is {}'.
                         format(idr))
         expected.append('Verification key is {}'.format(verkey))
-        expected.append('Alias for identifier is {}'.format(alias))
+        expected.append('Alias for DID is {}'.format(alias))
     else:
-        expected.append('Identifier for key is {}'.format(new_identifer))
+        expected.append('DID for key is {}'.format(new_identifer))
         verkey = cli.activeWallet.getVerkey(new_identifer)
         expected.append('Verification key is {}'.format(verkey))
 
-    expected.append('Current identifier set to {}'.format(alias or new_identifer))
+    expected.append('Current DID set to {}'.format(alias or new_identifer))
 
     # TODO: Reconsider this
     # Using `in` rather than `=` so as to take care of the fact that this might

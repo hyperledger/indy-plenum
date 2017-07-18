@@ -384,12 +384,12 @@ class Cli:
                 'add_key': PhraseWordCompleter('add key'),
                 'for_client': PhraseWordCompleter('for client'),
                 'new_key': PhraseWordCompleter('new key'),
-                'new_wallet': PhraseWordCompleter('new keyring'),
+                'new_wallet': PhraseWordCompleter('new wallet'),
                 'rename_wallet': PhraseWordCompleter('rename wallet'),
                 'list_ids': PhraseWordCompleter('list ids'),
                 'list_wallet': PhraseWordCompleter('list wallets'),
                 'become': WordCompleter(['become']),
-                'use_id': PhraseWordCompleter('use identifier'),
+                'use_id': PhraseWordCompleter('use DID'),
                 'use_wallet': PhraseWordCompleter('use wallet'),
                 'save_wallet': PhraseWordCompleter('save wallet'),
                 'add_gen_txn': PhraseWordCompleter('add genesis transaction'),
@@ -416,7 +416,7 @@ class Cli:
                 'add_key',
                 'verkey',
                 'for_client',
-                'identifier',
+                'DID',
                 'new_key',
                 'list_ids',
                 'list_wallets',
@@ -988,7 +988,7 @@ class Cli:
             if self.activeWallet and self.activeWallet.defaultId:
                 wallet = self.activeWallet
                 idr = wallet.defaultId
-                self.print("    Identifier: {}".format(idr))
+                self.print("    DID: {}".format(idr))
                 self.print(
                     "    Verification key: {}".format(wallet.getVerkey(idr)))
 
@@ -1065,7 +1065,7 @@ class Cli:
     @staticmethod
     def bootstrapKey(wallet, node, identifier=None):
         identifier = identifier or wallet.defaultId
-        assert identifier, "Client has no identifier"
+        assert identifier, "Client has no DID"
         node.clientAuthNr.addIdr(identifier, wallet.getVerkey(identifier))
 
     def clientExists(self, clientName):
@@ -1291,7 +1291,7 @@ class Cli:
             # TODO make verkey case insensitive
             identifier = matchedVars.get('identifier')
             if identifier in self.externalClientKeys:
-                self.print("identifier already added", Token.Error)
+                self.print("DID already added", Token.Error)
                 return
             self.externalClientKeys[identifier] = verkey
             for n in self.nodes.values():
@@ -1316,10 +1316,10 @@ class Cli:
 
         signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
         self._addSignerToGivenWallet(signer, wallet, showMsg=True)
-        self.print("Identifier for key is {}".format(signer.identifier))
+        self.print("DID for key is {}".format(signer.identifier))
         self.print("Verification key is {}".format(signer.verkey))
         if alias:
-            self.print("Alias for identifier is {}".format(signer.alias))
+            self.print("Alias for DID is {}".format(signer.alias))
         self._setActiveIdentifier(signer.identifier)
         self.bootstrapClientKeys(signer.identifier, signer.verkey,
                                  self.nodes.values())
@@ -1455,10 +1455,10 @@ class Cli:
                 self.print("Active wallet: {}".
                            format(self._activeWallet.name), newline=False)
                 if self._activeWallet.defaultId:
-                    self.print(" (active identifier: {})\n".
+                    self.print(" (active DID: {})\n".
                            format(self._activeWallet.defaultId), Token.Gray)
                 if len(self._activeWallet.listIds()) > 0:
-                    self.print("Identifiers:")
+                    self.print("DIDs:")
                     withVerkeys = matchedVars.get('with_verkeys') == 'with verkeys'
                     for id in self._activeWallet.listIds():
                         verKey = ""
@@ -1470,7 +1470,7 @@ class Cli:
 
                         self.print("  {}{}".format(id, verKey))
                 else:
-                    self.print("\nNo identifiers")
+                    self.print("\nNo DIDs")
 
             else:
                 self.print("No active wallet found.")
@@ -1512,7 +1512,7 @@ class Cli:
                 if name in allAliases:
                     return True, 'alias'
                 if name in allSigners:
-                    return True, 'identifier'
+                    return True, 'DID'
 
                 if checkPersistedFile:
                     toBeWalletFilePath = self.checkIfPersistentWalletExists(origName)
@@ -1675,17 +1675,17 @@ class Cli:
                 self.activeAlias = alias[0] if alias else None
                 self.activeIdentifier = idrOrAlias
             wallet.defaultId = self.activeIdentifier
-            self.print("Current identifier set to {}".
+            self.print("Current DID set to {}".
                        format(self.activeAlias or self.activeIdentifier))
             return True
         return False
 
     def _useIdentifierAction(self, matchedVars):
-        if matchedVars.get('use_id') == 'use identifier':
-            nymOrAlias = matchedVars.get('identifier')
+        if matchedVars.get('use_id') == 'use DID':
+            nymOrAlias = matchedVars.get('DID')
             found = self._setActiveIdentifier(nymOrAlias)
             if not found:
-                self.print("No such identifier found in current wallet")
+                self.print("No such DID found in current wallet")
             return True
 
     def _setPrompt(self, promptText):
