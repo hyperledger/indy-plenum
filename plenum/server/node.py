@@ -1248,12 +1248,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if (isinstance(msg, ViewChangeDone) or
-                self.msgHasAcceptableInstId(msg, frm)) and \
-                self.msgHasAcceptableViewNo(msg, frm):
-            logger.debug("{} sending message to elector: {}".
-                         format(self, (msg, frm)))
-            self.msgsToElector.append((msg, frm))
+        if isinstance(msg, ViewChangeDone) and \
+           self.msgHasAcceptableInstId(msg, frm) and \
+           self.msgHasAcceptableViewNo(msg, frm):
+                logger.debug("{} sending message to elector: {}"
+                             .format(self, (msg, frm)))
+                self.msgsToElector.append((msg, frm))
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
