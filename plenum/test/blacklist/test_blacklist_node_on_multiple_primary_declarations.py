@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Primary
+from plenum.common.messages.node_messages import Primary
 from plenum.test import waits
 
 whitelist = ['got primary declaration',

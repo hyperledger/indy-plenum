@@ -1,13 +1,15 @@
 import time
+import types
 
 import pytest
 
-from plenum.test.spy_helpers import getAllArgs, getAllReturnVals
+from plenum.server.replica import TPCStat
+from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import PrePrepare
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.common.util import getMaxFailures
+from plenum.common.util import getMaxFailures, updateNamedTuple, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
@@ -34,15 +36,40 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     """
     numOfNodes = 4
     fValue = getMaxFailures(numOfNodes)
-    request1 = sendRandomRequest(wallet1, client1)
-    timeout = waits.expectedReqAckQuorumTime()
-    result1 = looper.run(
-        eventually(checkSufficientRepliesReceived, client1.inBox,
-                   request1.reqId, fValue,
-                   retryWait=1, timeout=timeout))
-    logger.debug("request {} gives result {}".format(request1, result1))
-    primaryRepl = getPrimaryReplica(nodeSet)
+    primaryRepl = getPrimaryReplica(nodeSet, 1)
     logger.debug("Primary Replica: {}".format(primaryRepl))
+    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet, 1)
+    logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
+
+    # Delay COMMITs so request is not ordered and checks can be made
+    c_delay = 10
+    for node in nodeSet:
+        node.nodeIbStasher.delay(cDelay(delay=c_delay, instId=1))
+
+    request1 = sendRandomRequest(wallet1, client1)
+    for npr in nonPrimaryReplicas:
+        looper.run(eventually(checkPrepareReqSent,
+                              npr,
+                              request1.identifier,
+                              request1.reqId,
+                              primaryRepl.viewNo,
+                              retryWait=1))
+    prePrepareReq = primaryRepl.sentPrePrepares[primaryRepl.viewNo,
+                                                primaryRepl.lastPrePrepareSeqNo]
+    looper.run(eventually(checkPrePrepareReqRecvd,
+                          nonPrimaryReplicas,
+                          prePrepareReq,
+                          retryWait=1))
+
+    # logger.debug("Patching the primary replica's pre-prepare sending method ")
+    # orig_method = primaryRepl.sendPrePrepare
+
+    # def patched(self, ppReq):
+    #     self.sentPrePrepares[ppReq.viewNo, ppReq.ppSeqNo] = ppReq
+    #     ppReq = updateNamedTuple(ppReq, **{f.PP_SEQ_NO.nm: 1})
+    #     self.send(ppReq, TPCStat.PrePrepareSent)
+    #
+    # primaryRepl.sendPrePrepare = types.MethodType(patched, primaryRepl)
     logger.debug(
         "Decrementing the primary replica's pre-prepare sequence number by "
         "one...")
@@ -53,14 +80,17 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
                           retryWait=1, timeout=timeout))
 
-    nonPrimaryReplicas = getNonPrimaryReplicas(nodeSet)
-    logger.debug("Non Primary Replicas: " + str(nonPrimaryReplicas))
+    # Since the node is malicious, it will not be able to process requests due
+    # to conflicts in PRE-PREPARE
+    primaryRepl.node.stop()
+    looper.removeProdable(primaryRepl.node)
+
     reqIdr = [(request2.identifier, request2.reqId)]
     prePrepareReq = PrePrepare(
         primaryRepl.instId,
         primaryRepl.viewNo,
         primaryRepl.lastPrePrepareSeqNo,
-        time.time(),
+        get_utc_epoch(),
         reqIdr,
         1,
         primaryRepl.batchDigest([request2]),
@@ -93,3 +123,10 @@ def testReplicasRejectSamePrePrepareMsg(looper, nodeSet, client1, wallet1):
                                   view_no,
                                   retryWait=1,
                                   timeout=timeout))
+
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet)) + c_delay
+    result1 = looper.run(
+        eventually(checkSufficientRepliesReceived, client1.inBox,
+                   request1.reqId, fValue,
+                   retryWait=1, timeout=timeout))
+    logger.debug("request {} gives result {}".format(request1, result1))

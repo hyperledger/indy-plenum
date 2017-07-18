@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Primary
+from plenum.common.messages.node_messages import Primary
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test import waits
 from plenum.test.primary_election.helpers import primaryByNode
@@ -40,6 +40,7 @@ def case4Setup(keySharedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase4(case4Setup, looper):
     """
     Case 4 - A node making multiple primary declarations for a particular node.

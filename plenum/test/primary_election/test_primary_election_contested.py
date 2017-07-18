@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.common.types import Nomination
+from plenum.common.messages.node_messages import Nomination
 from plenum.test.delayers import delayerMsgTuple
 from plenum.test.primary_election.helpers import checkNomination
 from plenum.test.test_node import TestNodeSet, checkPoolReady, \
@@ -32,6 +32,7 @@ def electContFixture(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionContested(electContFixture, looper, keySharedNodes):
     """
     Primary selection (Rainy Day)

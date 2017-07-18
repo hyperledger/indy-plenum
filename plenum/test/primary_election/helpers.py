@@ -1,4 +1,4 @@
-from plenum.common.types import Nomination, Primary
+from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.server.replica import Replica
 from plenum.test.test_node import TestNode
 
@@ -28,9 +28,9 @@ def getSelfNominationByNode(node: TestNode) -> int:
 
 def nominationByNode(name: str, byNode: TestNode, instId: int):
     return Nomination(name, instId, byNode.viewNo,
-                      byNode.replicas[instId].lastOrderedPPSeqNo)
+                      byNode.replicas[instId].lastOrderedPPSeqNo[1])
 
 
 def primaryByNode(name: str, byNode: TestNode, instId: int):
     return Primary(name, instId, byNode.viewNo,
-                   byNode.replicas[instId].lastOrderedPPSeqNo)
+                   byNode.replicas[instId].lastOrderedPPSeqNo[1])

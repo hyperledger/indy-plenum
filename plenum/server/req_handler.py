@@ -1,5 +1,6 @@
-from binascii import unhexlify
 from typing import List
+
+import base58
 
 from plenum.common.ledger import Ledger
 from plenum.common.request import Request
@@ -24,11 +25,11 @@ class RequestHandler:
 
     def validate(self, req: Request, config=None):
         """
-        Validates request. Raises exception if requiest is invalid.  
+        Validates request. Raises exception if request is invalid.
         """
         pass
 
-    def apply(self, req: Request):
+    def apply(self, req: Request, cons_time: int):
         """
         Applies request
         """
@@ -53,8 +54,7 @@ class RequestHandler:
 
         (seqNoStart, seqNoEnd), committedTxns = \
             self.ledger.commitTxns(txnCount)
-        stateRoot = unhexlify(stateRoot.encode())
-        txnRoot = self.ledger.hashToStr(unhexlify(txnRoot.encode()))
+        stateRoot = base58.b58decode(stateRoot.encode())
         # Probably the following assertion fail should trigger catchup
         assert self.ledger.root_hash == txnRoot, '{} {}'.format(
             self.ledger.root_hash, txnRoot)

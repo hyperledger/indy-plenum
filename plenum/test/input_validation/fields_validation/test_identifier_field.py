@@ -1,29 +1,24 @@
 import pytest
+import base58
 from plenum.common.messages.fields import IdentifierField
+
+from plenum.test.input_validation.utils import b58_by_len
 
 validator = IdentifierField()
 
-valid_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-
-MIN_LENGTH_SHORT = 15
-MAX_LENGTH_SHORT = 25
-MIN_LENGTH_LONG = 43
-MAX_LENGTH_LONG = 45
 
 
-def test_valid_identifiers():
-    all_valid_length = \
-        list(range(MIN_LENGTH_SHORT, MAX_LENGTH_SHORT + 1)) + \
-        list(range(MIN_LENGTH_LONG, MAX_LENGTH_LONG + 1))
-    for length in all_valid_length:
-        assert not validator.validate(valid_chars[:length])
+def test_identifiers():
+    for byte_len in range(1, 33):
+        val = b58_by_len(byte_len)
+        if byte_len in (16, 32):
+            assert not validator.validate(val)
+        else:
+            assert validator.validate(val)
 
 
 def test_invalid_char():
-    invalid_identifier = valid_chars[:MIN_LENGTH_SHORT - 1] + "0"
-    assert validator.validate(invalid_identifier)
-
-
-def test_invalid_length():
-    invalid_identifier = valid_chars[:MIN_LENGTH_SHORT - 1]
-    assert validator.validate(invalid_identifier)
+    res = validator.validate(b58_by_len(16)[:-1] + '+')
+    assert res
+    assert (res == "should not contain the following chars {}".
+            format(sorted(set('+'))))

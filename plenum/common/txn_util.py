@@ -18,7 +18,7 @@ def getTxnOrderedFields():
         (f.IDENTIFIER.nm, (str, str)),
         (f.REQ_ID.nm, (str, int)),
         (f.SIG.nm, (str, str)),
-        (TXN_TIME, (str, float)),
+        (TXN_TIME, (str, int)),
         (TXN_TYPE, (str, str)),
         (TARGET_NYM, (str, str)),
         (VERKEY, (str, str)),
@@ -50,18 +50,50 @@ def createGenesisTxnFile(genesisTxns, targetDir, fileName, fieldOrdering,
     ledger.stop()
 
 
-def reqToTxn(req: Request):
+def reqToTxn(req: Request, cons_time=None):
     """
     Transform a client request such that it can be stored in the ledger.
     Also this is what will be returned to the client in the reply
     :param req:
+    :param cons_time: UTC epoch at which consensus was reached
     :return:
     """
-    data = req.signingState
+    # TODO: we should not reformat transaction this way
+    # When refactor keep in mind thought about back compatibility
+
+    # data = req.signingState
+    # res = {
+    #     f.IDENTIFIER.nm: req.identifier,
+    #     f.REQ_ID.nm: req.reqId,
+    #     f.SIG.nm: req.signature
+    # }
+    # res.update(data[OPERATION])
+    # return res
+    
+    if isinstance(req, dict):
+        if TXN_TYPE in req:
+            return req
+        data = req
+    else :
+        data = req.as_dict
+
     res = {
-        f.IDENTIFIER.nm: req.identifier,
-        f.REQ_ID.nm: req.reqId,
-        f.SIG.nm: req.signature
+        f.IDENTIFIER.nm: data[f.IDENTIFIER.nm],
+        f.REQ_ID.nm: data[f.REQ_ID.nm],
+        f.SIG.nm: data[f.SIG.nm],
+        TXN_TIME: cons_time or data.get(TXN_TIME)
     }
     res.update(data[OPERATION])
     return res
+
+
+def txnToReq(txn):
+    """
+    Transforms transactions to request form (not to Request)  
+    """
+    txn = txn.copy()
+    request = {}
+    for field_name in [f.IDENTIFIER.nm, f.REQ_ID.nm, f.SIG.nm]:
+        request[field_name] = txn.pop(field_name, None)
+    request[OPERATION] = txn
+    return request

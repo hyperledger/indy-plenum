@@ -38,16 +38,16 @@ class DomainRequestHandler(RequestHandler):
                                                 req.reqId,
                                                 error)
 
-    def _reqToTxn(self, req: Request):
-        txn = reqToTxn(req)
+    def _reqToTxn(self, req: Request, cons_time: int):
+        txn = reqToTxn(req, cons_time)
         for processor in self.reqProcessors:
             res = processor.process(req)
             txn.update(res)
 
         return txn
 
-    def apply(self, req: Request):
-        txn = self._reqToTxn(req)
+    def apply(self, req: Request, cons_time: int):
+        txn = self._reqToTxn(req, cons_time)
         (start, end), _ = self.ledger.appendTxns([self.transform_txn_for_ledger(txn)])
         self.updateState(txnsWithSeqNo(start, end, [txn]))
         return txn
@@ -79,10 +79,9 @@ class DomainRequestHandler(RequestHandler):
         Note: This is inefficient, a production use case of this function
         should require an efficient storage mechanism
         """
-        # TODO: do not load all transactions!!!
-        allTxns = self.ledger.getAllTxn().values()
-        return sum(1 for txn in allTxns if (txn[TXN_TYPE] == NYM) and
-                   (txn.get(ROLE) == STEWARD))
+        # THIS SHOULD NOT BE DONE FOR PRODUCTION
+        return sum(1 for _, txn in self.ledger.getAllTxn() if
+                   (txn[TXN_TYPE] == NYM) and (txn.get(ROLE) == STEWARD))
 
     def stewardThresholdExceeded(self, config) -> bool:
         """We allow at most `stewardThreshold` number of  stewards to be added

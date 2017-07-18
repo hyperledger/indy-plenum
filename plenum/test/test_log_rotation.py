@@ -6,15 +6,8 @@ from stp_core.common.logging.TimeAndSizeRotatingFileHandler \
     import TimeAndSizeRotatingFileHandler
 
 
-def cleanFolder(path):
-    if os.path.exists(path):
-        shutil.rmtree(path, ignore_errors=True)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def test_time_log_rotation():
-    logDirPath = cleanFolder("/tmp/plenum/test_time_log_rotation")
+def test_time_log_rotation(tdir_for_func):
+    logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
     logger = logging.getLogger('test_time_log_rotation-logger')
 
@@ -27,8 +20,8 @@ def test_time_log_rotation():
     assert len(os.listdir(logDirPath)) == 4 # initial + 3 new
 
 
-def test_size_log_rotation():
-    logDirPath = cleanFolder("/tmp/plenum/test_size_log_rotation")
+def test_size_log_rotation(tdir_for_func):
+    logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
     logger = logging.getLogger('test_time_log_rotation-logger')
 
@@ -43,8 +36,8 @@ def test_size_log_rotation():
     assert len(os.listdir(logDirPath)) == 5
 
 
-def test_time_and_size_log_rotation():
-    logDirPath = cleanFolder("/tmp/plenum/test_time_and_size_log_rotation")
+def test_time_and_size_log_rotation(tdir_for_func):
+    logDirPath = tdir_for_func
     logFile = os.path.join(logDirPath, "log")
     logger = logging.getLogger('test_time_and_size_log_rotation-logger')
 

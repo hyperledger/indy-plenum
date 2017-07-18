@@ -1,10 +1,11 @@
+import types
 from functools import partial
 
 import pytest
 
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Commit
-from plenum.common.util import adict
+from plenum.common.messages.node_messages import Commit
+from stp_core.common.util import adict
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions, whitelistNode
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, \
@@ -33,6 +34,12 @@ def setup(nodeSet, up):
     whitelistNode(faultyRep.node.name,
                   [node for node in nodeSet if node != faultyRep.node],
                   Suspicions.DUPLICATE_CM_SENT.code)
+
+    # If the request is ordered then COMMIT will be rejected much earlier
+    for r in [primaryRep, *nonPrimaryReps]:
+        def do_nothing(self, commit):
+            pass
+        r.doOrder = types.MethodType(do_nothing, r)
 
     return adict(primaryRep=primaryRep, nonPrimaryReps=nonPrimaryReps,
                  faultyRep=faultyRep)

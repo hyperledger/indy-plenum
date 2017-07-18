@@ -18,6 +18,7 @@ def tconf(tconf, request):
     request.addfinalizer(reset)
     return tconf
 
+
 def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, client,
                             wallet1):
     reqs = signed_random_requests(wallet1, tconf.Max3PCBatchSize)

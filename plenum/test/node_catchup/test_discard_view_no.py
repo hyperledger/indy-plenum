@@ -1,11 +1,8 @@
 import time
-from functools import partial
 
-import pytest
-
+from plenum.common.util import get_utc_epoch
 from stp_core.loop.eventually import eventually
-from plenum.common.types import Nomination, PrePrepare
-from plenum.common.util import randomString
+from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.helper import checkDiscardMsg
 from plenum.test.view_change.helper import ensure_view_change
@@ -18,12 +15,13 @@ from plenum.test import waits
 
 whitelist = ['found legacy entry']  # warnings
 
+
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           nodeSetWithNodeAddedAfterSomeTxns,
                                           newNodeCaughtUp, tdirWithPoolTxns,
                                           tconf, allPluginsPath):
     """
-    Node discards 3-phase and election messages from view nos that it does not
+    Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)
     :return:
     """
@@ -34,31 +32,23 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     # at least two less than node's. Current protocol implementation
     # needs to hold messages from the previous view as well as
     # from the current view.
-    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
-    ensure_view_change(looper, txnPoolNodeSet, client, wallet)
+    for i in range(2):
+        ensure_view_change(looper, txnPoolNodeSet)
+        waitNodeDataEquality(looper, nodeX, *txnPoolNodeSet[:-1])
+        checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
-    newStewardName = "testClientSteward" + randomString(3)
-    nodeName = "Theta"
-    _, _, nodeTheta = addNewStewardAndNode(looper, client,
-                                           wallet,
-                                           newStewardName,
-                                           nodeName,
-                                           tdirWithPoolTxns, tconf,
-                                           allPluginsPath)
-    txnPoolNodeSet.append(nodeTheta)
-    looper.run(checkNodesConnected(txnPoolNodeSet))
-    looper.run(client.ensureConnectedToNodes())
-    waitNodeDataEquality(looper, nodeTheta, *txnPoolNodeSet[:-1])
-    checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
-    electMsg = Nomination(nodeX.name, 0, viewNo,
-                          nodeX.replicas[0].lastOrderedPPSeqNo)
 
+    sender = txnPoolNodeSet[0]
+    rid_x_node = sender.nodestack.getRemote(nodeX.name).uid
+    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
+
+    # 3 pc msg (PrePrepare) needs to be discarded
     primaryRepl = getPrimaryReplica(txnPoolNodeSet)
-    threePMsg = PrePrepare(
+    three_pc = PrePrepare(
             0,
             viewNo,
             10,
-            time.time(),
+            get_utc_epoch(),
             [[wallet.defaultId, wallet._getIdData().lastReqId+1]],
             1,
             "random digest",
@@ -66,14 +56,14 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
             primaryRepl.stateRootHash(DOMAIN_LEDGER_ID),
             primaryRepl.txnRootHash(DOMAIN_LEDGER_ID),
             )
-    ridTheta = nodeX.nodestack.getRemote(nodeTheta.name).uid
-    nodeX.send(electMsg, ridTheta)
+    sender.send(three_pc, rid_x_node)
+    looper.run(eventually(checkDiscardMsg, [nodeX, ], three_pc,
+                          'un-acceptable viewNo',
+                          retryWait=1, timeout=messageTimeout))
 
-    messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
-    looper.run(eventually(checkDiscardMsg, [nodeTheta, ], electMsg,
-                          'un-acceptable viewNo',
-                          retryWait=1, timeout=messageTimeout))
-    nodeX.send(threePMsg, ridTheta)
-    looper.run(eventually(checkDiscardMsg, [nodeTheta, ], threePMsg,
-                          'un-acceptable viewNo',
-                          retryWait=1, timeout=messageTimeout))
+    # TODO: the same check for ViewChangeDone
+
+
+
+
+

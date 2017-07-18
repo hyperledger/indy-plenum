@@ -1,5 +1,5 @@
 import pytest
-from plenum.common.util import adict
+from stp_core.common.util import adict
 
 from plenum.test.malicious_behaviors_node import makeNodeFaulty, changesRequest
 
@@ -41,12 +41,13 @@ whitelist = ['doing nothing for now',
 
 @pytest.fixture(scope="module")
 def setup(startedNodes):
-    A = startedNodes.Alpha
-    B = startedNodes.Beta
-    for node in A, B:
+    # Making nodes faulty such that no primary is chosen
+    G = startedNodes.Gamma
+    Z = startedNodes.Zeta
+    for node in G, Z:
         makeNodeFaulty(node, changesRequest)
-        node.delaySelfNomination(10)
-    return adict(faulties=(A, B))
+        # node.delaySelfNomination(10)
+    return adict(faulties=(G, Z))
 
 
 @pytest.fixture(scope="module")

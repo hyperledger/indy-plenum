@@ -5,8 +5,8 @@ from plenum.test.pool_transactions.conftest import looper, clientAndWallet1, \
 from plenum.test.spy_helpers import getAllReturnVals
 
 
-def test_all_replicas_hold_request_keys(looper, txnPoolNodeSet, client1,
-                                        wallet1, client1Connected):
+def test_already_processed_requests(looper, txnPoolNodeSet, client1,
+                                    wallet1, client1Connected):
     """
     Client re-sending request and checking that nodes picked the reply from
     ledger and did not process the request again

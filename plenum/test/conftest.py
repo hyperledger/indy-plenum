@@ -161,7 +161,7 @@ overriddenConfigValues = {
     "DefaultPluginPath": {
         PLUGIN_BASE_DIR_PATH: testPluginBaseDirPath,
         PLUGIN_TYPE_STATS_CONSUMER: "stats_consumer"
-    },
+    }
 }
 
 
@@ -212,7 +212,9 @@ def logcapture(request, whitelist, concerningLogLevels):
                      'discarding message (NOMINATE|PRIMARY)',
                      '.+ rid .+ has been removed',
                      'last try...',
-                     'has uninitialised socket'
+                     'has uninitialised socket',
+                     'to have incorrect time',
+                     'time not acceptable'
                      ]
     wlfunc = inspect.isfunction(whitelist)
 
@@ -322,7 +324,6 @@ def ensureView(nodeSet, looper, up):
     """
     Ensure that all the nodes in the nodeSet are in the same view.
     """
-
     return waitForViewChange(looper, nodeSet)
 
 
