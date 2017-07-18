@@ -12,7 +12,7 @@ def test_view_change_n_minus_f_quorum(nodeSet, up, looper):
     """
 
     # Quorum for view change is expected to be f + 1
-    # So, switching two of four nodes off
+    # So, switching one node off
     assert len(nodeSet) == 4
 
     # Stopping one node
