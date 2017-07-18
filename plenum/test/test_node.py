@@ -25,7 +25,7 @@ from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
-from plenum.common.util import Seconds, getMaxFailures
+from plenum.common.util import Seconds, getMaxFailures, SortedDict
 from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -379,7 +379,7 @@ class TestNodeSet(ExitStack):
         self.pluginPaths = pluginPaths
 
         self.testNodeClass = testNodeClass
-        self.nodes = OrderedDict()  # type: Dict[str, TestNode]
+        self.nodes = SortedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
         # it simple a the cost of extra memory and its test code so not a big
@@ -444,10 +444,9 @@ class TestNodeSet(ExitStack):
     def __getitem__(self, key) -> Optional[TestNode]:
         if key in self.nodes:
             return self.nodes[key]
-        elif isinstance(key, int):
+        if isinstance(key, int):
             return list(self.nodes.values())[key]
-        else:
-            return None
+        return None
 
     def __len__(self):
         return self.nodes.__len__()
