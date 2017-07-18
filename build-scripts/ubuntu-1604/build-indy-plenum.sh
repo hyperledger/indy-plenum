@@ -25,7 +25,7 @@ fpm --input-type "python" \
     --exclude "usr/local/bin" \
     --exclude "*.pyc" \
     --exclude "*.pyo" \
-    --maintainer "Hyperledger <hyperledger-indy@lists.hyperledger.org>" \
+    --maintainer "Sovrin Foundation <repo@sovrin.org>" \
     --after-install ${POSTINST_TMP} \
     --before-remove ${PREREM_TMP} \
     --name ${PACKAGE_NAME} \
