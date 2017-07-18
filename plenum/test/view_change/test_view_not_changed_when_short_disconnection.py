@@ -9,7 +9,6 @@ from plenum.test.helper import checkViewNoForNodes, \
 from plenum.test.test_node import get_master_primary_node
 
 
-@pytest.mark.skip(reason='SOV-1020')
 def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper,
                                                    wallet1, client1,
                                                    client1Connected, tconf):

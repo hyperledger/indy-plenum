@@ -42,8 +42,8 @@ class SimpleSigner(Signer):
 
         # this is the public key used to verify signatures (securely shared
         # before-hand with recipient)
-
-        self.verkey = hexToFriendly(hexlify(self.naclSigner.verraw))
+        hex_verkey = hexlify(self.naclSigner.verraw)
+        self.verkey = hexToFriendly(hex_verkey)
 
         self._identifier = identifier or self.verkey
 

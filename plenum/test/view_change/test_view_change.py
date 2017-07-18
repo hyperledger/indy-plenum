@@ -1,74 +1,56 @@
-import types
-
-import pytest
-
-from plenum.server.node import Node
-from plenum.test.delayers import delayNonPrimaries
-from plenum.test.helper import waitForViewChange, \
-    sendReqsToNodesAndVerifySuffReplies
-from plenum.test.test_node import get_master_primary_node, getPrimaryReplica, \
-    ensureElectionsDone
+from plenum.test.helper import sendReqsToNodesAndVerifySuffReplies
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.spy_helpers import get_count
+from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change.helper import ensure_view_change
 
 nodeCount = 7
 
 
-@pytest.fixture()
-def viewChangeDone(simulate_slow_master):
-    primary_node = simulate_slow_master()
-    assert primary_node.old.name != primary_node.new.name
+# noinspection PyIncorrectDocstring
+def test_view_change_on_empty_ledger(nodeSet, up, looper):
+
+    """
+    Check that view change is done when no txns in the ldegr
+    """
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
 
 
 # noinspection PyIncorrectDocstring
-def testViewChange(viewChangeDone):
+def test_view_change_after_some_txns(looper, nodeSet, up, viewNo,
+                   wallet1, client1):
     """
-    Test that a view change is done when the performance of master goes down
-    Send multiple requests from the client and delay some requests by master
-    instance so that there is a view change. All nodes will agree that master
-    performance degraded
+    Check that view change is done after processing some of txns
     """
-    pass
-
-
-def testViewChangeCase1(nodeSet, looper, up, wallet1, client1, viewNo):
-    """
-    Node will change view even though it does not find the master to be degraded
-    when a quorum of nodes agree that master performance degraded
-    """
-
-    m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-
-    # Delay processing of PRE-PREPARE from all non primary replicas of master
-    # so master's performance falls and view changes
-    delayNonPrimaries(nodeSet, 0, 10)
-
-    pr = getPrimaryReplica(nodeSet, 0)
-    relucatantNode = pr.node
-
-    # Count sent instance changes of all nodes
-    sentInstChanges = {}
-    instChngMethodName = Node.sendInstanceChange.__name__
-    for n in nodeSet:
-        sentInstChanges[n.name] = n.spylog.count(instChngMethodName)
-
-    # Node reluctant to change view, never says master is degraded
-    relucatantNode.monitor.isMasterDegraded = types.MethodType(
-        lambda x: False, relucatantNode.monitor)
-
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
 
-    # Check that view change happened for all nodes
-    waitForViewChange(looper, nodeSet, expectedViewNo=viewNo+1)
-
-    # All nodes except the reluctant node should have sent a view change and
-    # thus must have called `sendInstanceChange`
-    for n in nodeSet:
-        if n.name != relucatantNode.name:
-            assert n.spylog.count(instChngMethodName) > \
-                   sentInstChanges.get(n.name, 0)
-        else:
-            assert n.spylog.count(instChngMethodName) == \
-                   sentInstChanges.get(n.name, 0)
-
+    ensure_view_change(looper, nodeSet)
     ensureElectionsDone(looper=looper, nodes=nodeSet)
-    new_m_primary_node = get_master_primary_node(list(nodeSet.nodes.values()))
-    assert m_primary_node.name != new_m_primary_node.name
+    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+
+
+# noinspection PyIncorrectDocstring
+def test_send_more_after_view_change(looper, nodeSet, up,
+                   wallet1, client1):
+    """
+    Check that we can send more requests after view change
+    """
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 4)
+
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 10)
+
+
+def test_node_notified_about_primary_election_result(nodeSet, looper, up):
+    old_counts = {node.name: get_count(node, node.primary_selected) for node in nodeSet}
+    ensure_view_change(looper, nodeSet)
+    ensureElectionsDone(looper=looper, nodes=nodeSet)
+    ensure_all_nodes_have_same_data(looper, nodes=nodeSet)
+
+    for node in nodeSet:
+        assert get_count(node, node.primary_selected) > old_counts[node.name]

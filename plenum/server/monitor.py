@@ -355,13 +355,13 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
 
         masterThrp = self.getThroughput(masterInstId)
         totalReqs, totalTm = self.getInstanceMetrics(forAllExcept=masterInstId)
+        backupThrp = totalReqs / totalTm if totalTm else None
         if masterThrp == 0:
             if self.numOrderedRequests[masterInstId] == (0, 0):
                 avgReqsPerInst = totalReqs / self.instances.count
                 if avgReqsPerInst <= 1:
                     # too early to tell if we need an instance change
                     masterThrp = None
-        backupThrp = totalReqs / totalTm if totalTm else None
         return masterThrp, backupThrp
 
     def getThroughput(self, instId: int) -> float:
@@ -376,7 +376,7 @@ class Monitor(HasActionQueue, PluginLoaderHelper):
         if instId >= self.instances.count:
             return None
         reqs, tm = self.numOrderedRequests[instId]
-        return reqs / tm if tm else None
+        return reqs / tm if tm else 0
 
     def getInstanceMetrics(self, forAllExcept: int) -> Tuple[Optional[int], Optional[float]]:
         """

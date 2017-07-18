@@ -2,8 +2,8 @@ import pytest
 
 from collections import OrderedDict
 from plenum.common.messages.fields import NonNegativeNumberField, \
-    LedgerIdField, IterableField, TimestampField, HexField
-from plenum.common.types import Ordered
+    LedgerIdField, IterableField, TimestampField, HexField, MerkleRootField, AnyValueField
+from plenum.common.messages.node_messages import Ordered
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("instId", NonNegativeNumberField),
@@ -12,8 +12,8 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("ppSeqNo", NonNegativeNumberField),
     ("ppTime", TimestampField),
     ("ledgerId", LedgerIdField),
-    ("stateRootHash", HexField),
-    ("txnRootHash", HexField),
+    ("stateRootHash", MerkleRootField),
+    ("txnRootHash", MerkleRootField),
 ])
 
 
@@ -23,7 +23,7 @@ def test_hash_expected_type():
 
 def test_has_expected_fields():
     actual_field_names = OrderedDict(Ordered.schema).keys()
-    assert actual_field_names == EXPECTED_ORDERED_FIELDS.keys()
+    assert list(actual_field_names) == list(EXPECTED_ORDERED_FIELDS.keys())
 
 
 def test_has_expected_validators():

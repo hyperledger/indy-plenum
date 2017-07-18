@@ -48,8 +48,18 @@ class Mode(IntEnum):
     """
     Mode a node can be in
     """
-    starting = 1
-    discovering = 2     # catching up on pool txn ledger
-    discovered = 3      # caught up with pool txn ledger
-    syncing = 4         # catching up on domain txn ledger
-    participating = 5   # caught up with domain txn ledger
+    # TODO: This assumes Pool ledger is the first ledger and Domain ledger
+    starting = 100
+    discovering = 200     # catching up on pool txn ledger
+    discovered = 300      # caught up with pool txn ledger
+    syncing = 400         # catching up on domain txn ledger
+    synced = 410          # caught up with domain txn ledger
+    participating = 500   # caught up completely and chosen primary
+
+    @classmethod
+    def is_done_discovering(cls, mode):
+        return mode >= cls.discovered
+
+    @classmethod
+    def is_done_syncing(cls, mode):
+        return mode >= cls.synced

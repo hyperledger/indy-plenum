@@ -5,8 +5,9 @@ from functools import partial
 import time
 
 import plenum.common.error
-from plenum.common.types import Propagate, PrePrepare, Prepare, ThreePhaseMsg, \
-    Commit, Reply, f
+from plenum.common.types import f
+
+from plenum.common.messages.node_messages import *
 from plenum.common.request import Request, ReqDigest
 
 from plenum.common import util
@@ -16,7 +17,7 @@ from plenum.server.replica import TPCStat
 from plenum.test.helper import TestReplica
 from plenum.test.test_node import TestNode, TestReplica, getPrimaryReplica, \
     getNonPrimaryReplicas
-from plenum.test.delayers import ppDelay
+from plenum.test.delayers import ppDelay, cDelay
 
 logger = getlogger()
 
@@ -45,28 +46,30 @@ def delaysPrePrepareProcessing(node, delay: float=30, instId: int=None):
     node.nodeIbStasher.delay(ppDelay(delay=delay, instId=instId))
 
 
+def delaysCommitProcessing(node, delay: float=30, instId: int=None):
+    node.nodeIbStasher.delay(cDelay(delay=delay, instId=instId))
+
+
 # Could have this method directly take a replica rather than a node and an
 # instance id but this looks more useful as a complete node can be malicious
 def sendDuplicate3PhaseMsg(node: TestNode, msgType: ThreePhaseMsg, count: int=2,
                            instId=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, tm, *reqDigest)
         logger.debug("EVIL: Sending duplicate pre-prepare message: {}".
                      format(ppReq))
         self.sentPrePrepares[self.viewNo, self.lastPrePrepareSeqNo] = ppReq
         sendDup(self, ppReq, TPCStat.PrePrepareSent, count)
 
-    def evilSendPrepare(self, request):
+    def evilSendPrepare(self, ppReq: PrePrepare):
         prepare = Prepare(self.instId,
-                          request.viewNo,
-                          request.ppSeqNo,
-                          request.digest,
-                          request.stateRootHash,
-                          request.txnRootHash)
+                          ppReq.viewNo,
+                          ppReq.ppSeqNo,
+                          ppReq.ppTime,
+                          ppReq.digest,
+                          ppReq.stateRootHash,
+                          ppReq.txnRootHash)
         logger.debug("EVIL: Creating prepare message for request {}: {}".
-                     format(request, prepare))
+                     format(ppReq, prepare))
         self.addToPrepares(prepare, self.name)
         sendDup(self, prepare, TPCStat.PrepareSent, count)
 
@@ -123,10 +126,6 @@ def malignInstancesOfNode(node: TestNode, malignMethod, instId: int=None):
 def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
                                      instId: int=None):
     def evilSendPrePrepareRequest(self, ppReq: PrePrepare):
-        # reqDigest = ReqDigest(reqDigest.identifier, reqDigest.reqId, "random")
-        # tm = time.time()
-        # prePrepare = PrePrepare(self.instId, self.viewNo,
-        #                         self.lastPrePrepareSeqNo+1, *reqDigest, tm)
         logger.debug("EVIL: Creating pre-prepare message for request : {}".
                      format(ppReq))
         ppReq = updateNamedTuple(ppReq, digest=ppReq.digest+'random')
@@ -138,6 +137,7 @@ def send3PhaseMsgWithIncorrectDigest(node: TestNode, msgType: ThreePhaseMsg,
         prepare = Prepare(self.instId,
                           ppReq.viewNo,
                           ppReq.ppSeqNo,
+                          ppReq.ppTime,
                           digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)

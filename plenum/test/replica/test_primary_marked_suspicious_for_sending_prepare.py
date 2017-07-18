@@ -1,8 +1,11 @@
 import time
 
+import pytest
+
+from plenum.test.delayers import cDelay
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import SuspiciousNode
-from plenum.common.types import Prepare
+from plenum.common.messages.node_messages import Prepare
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.helper import getNodeSuspicions
 from plenum.test.spy_helpers import getAllArgs
@@ -12,7 +15,15 @@ from plenum.test.test_node import TestNode, getNonPrimaryReplicas, \
 nodeCount = 7
 
 
-def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, preprepared1):
+@pytest.fixture(scope="module")
+def delay_commits(nodeSet):
+    # Delay COMMITs so that ordering is delayed and checks can be made
+    for n in nodeSet:
+        n.nodeIbStasher.delay(cDelay(5))
+
+
+def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, delay_commits,
+                                                preprepared1):
     def sendPrepareFromPrimary(instId):
         primary = getPrimaryReplica(nodeSet, instId)
         viewNo, ppSeqNo = next(iter(primary.sentPrePrepares.keys()))
@@ -20,6 +31,7 @@ def testPrimarySendsAPrepareAndMarkedSuspicious(looper, nodeSet, preprepared1):
         prepare = Prepare(instId,
                           viewNo,
                           ppSeqNo,
+                          ppReq.ppTime,
                           ppReq.digest,
                           ppReq.stateRootHash,
                           ppReq.txnRootHash)

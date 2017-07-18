@@ -20,8 +20,10 @@ from plenum.common.constants import OP_FIELD_NAME
 
 logger = getlogger()
 
+client_spyables = [Client.handleOneNodeMsg, Client.resendRequests]
 
-@spyable(methods=[Client.handleOneNodeMsg, Client.resendRequests])
+
+@spyable(methods=client_spyables)
 class TestClient(Client, StackedTester):
     def __init__(self, *args, **kwargs):
         self.NodeStackClass = nodeStackClass

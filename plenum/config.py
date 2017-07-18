@@ -116,9 +116,6 @@ ConsistencyProofsTimeout = 5
 # Timeout factor after which a node starts requesting transactions
 CatchupTransactionsTimeout = 5
 
-# Timeout after which the view change is performed
-ViewChangeTimeout = 10
-
 
 # Log configuration
 logRotationWhen = 'D'
@@ -176,7 +173,7 @@ MaxStateProofTime = 3
 
 
 # After ordering every `CHK_FREQ` batches, replica sends a CHECKPOINT
-CHK_FREQ = 10000
+CHK_FREQ = 100
 
 # Difference between low water mark and high water mark
 LOG_SIZE = 3*CHK_FREQ
@@ -186,3 +183,15 @@ CLIENT_REQACK_TIMEOUT = 5
 CLIENT_REPLY_TIMEOUT = 15
 CLIENT_MAX_RETRY_ACK = 5
 CLIENT_MAX_RETRY_REPLY = 5
+
+VIEW_CHANGE_TIMEOUT = 60  # seconds
+MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
+
+# permissions for keyring dirs/files
+KEYRING_DIR_MODE = 0o700  # drwx------ 
+KEYRING_FILE_MODE = 0o600  # -rw-------
+
+# This timeout is high enough so that even if some PRE-PREPAREs are stashed
+# because of being delivered out of order or being out of watermarks or not
+# having finalised requests.
+ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 100  # seconds

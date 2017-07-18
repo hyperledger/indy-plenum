@@ -1,19 +1,20 @@
 import asyncio
 import collections
+import functools
 import glob
 import inspect
 import ipaddress
 import itertools
 import json
 import logging
+import math
 import os
 import random
-import string
 import time
-import math
 from binascii import unhexlify, hexlify
-from collections import Counter
+from collections import Counter, defaultdict
 from collections import OrderedDict
+from datetime import datetime
 from math import floor
 from os.path import basename
 from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
@@ -21,9 +22,8 @@ from typing import TypeVar, Iterable, Mapping, Set, Sequence, Any, Dict, \
 
 import base58
 import libnacl.secret
-from libnacl import randombytes, randombytes_uniform
 import psutil
-from jsonpickle import encode, decode
+from libnacl import randombytes, randombytes_uniform
 from six import iteritems, string_types
 
 from ledger.util import F
@@ -31,9 +31,10 @@ from plenum.cli.constants import WALLET_FILE_EXTENSION
 from plenum.common.error import error
 from stp_core.crypto.util import isHexKey, isHex
 from stp_core.network.exceptions import \
-    MissingEndpoint, \
     InvalidEndpointIpAddress, InvalidEndpointPort
-import functools
+
+# Do not remove the next import until imports in sovrin are fixed
+from stp_core.common.util import adict
 
 
 T = TypeVar('T')
@@ -42,12 +43,13 @@ Seconds = TypeVar("Seconds", int, float)
 
 def randomString(size: int = 20) -> str:
     """
-    Generate a random string of the specified size,
-    DONOT use python provided random class its a Pseudo Random Number Generator
+    Generate a random string in hex of the specified size
+
+    DO NOT use python provided random class its a Pseudo Random Number Generator
     and not secure enough for our needs
 
     :param size: size of the random string to generate
-    :return: the random string generated
+    :return: the hexadecimal random string
     """
 
     def randomStr(size):
@@ -176,31 +178,9 @@ def getMaxFailures(nodeCount: int) -> int:
     :return: maximum permissible Byzantine failures in the system
     """
     if nodeCount >= 4:
-        return floor((nodeCount - 1) / 3)
+        return int(floor((nodeCount - 1) / 3))
     else:
         return 0
-
-
-def get_strong_quorum(nodeCount: int = None, f: int = None) -> int:
-    r"""
-    Return the minimum number of nodes where the number of correct nodes is
-    greater than the number of faulty nodes.
-    Calculated as :math:`2*f + 1`
-
-    :param nodeCount: the number of nodes in the system
-    :param f: the max. number of failures
-    """
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return 2 * f + 1
-
-
-def get_weak_quorum(nodeCount: int = None, f: int = None) -> int:
-    if nodeCount is not None:
-        f = getMaxFailures(nodeCount)
-    if f is not None:
-        return f + 1
 
 
 def getNoInstances(nodeCount: int) -> int:
@@ -238,37 +218,6 @@ def prime_gen() -> int:
             while x in D:
                 x += p
             D[x] = p
-
-
-class adict(dict):
-    """Dict with attr access to keys."""
-    marker = object()
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        for key in kwargs:
-            self.__setitem__(key, kwargs[key])
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict) and not isinstance(value, adict):
-            value = adict(**value)
-        super(adict, self).__setitem__(key, value)
-
-    def __getitem__(self, key):
-        found = self.get(key, adict.marker)
-        if found is adict.marker:
-            found = adict()
-            super(adict, self).__setitem__(key, found)
-        return found
-
-    def copy(self):
-        return self.__copy__()
-
-    def __copy__(self):
-        return adict(**self)
-
-    __setattr__ = __setitem__
-    __getattr__ = __getitem__
 
 
 async def untilTrue(condition, *args, timeout=5) -> bool:
@@ -346,10 +295,10 @@ def runWithLoop(loop, callback, *args, **kwargs):
 
 
 def checkIfMoreThanFSameItems(items, maxF):
-    jsonifiedItems = [json.dumps(item, sort_keys=True) for item in items]
-    counts = {}
-    for jItem in jsonifiedItems:
-        counts[jItem] = counts.get(jItem, 0) + 1
+    jsonified_items = [json.dumps(item, sort_keys=True) for item in items]
+    counts = defaultdict(int)
+    for j_item in jsonified_items:
+        counts[j_item] += 1
     if counts and counts[max(counts, key=counts.get)] > maxF:
         return json.loads(max(counts, key=counts.get))
     else:
@@ -475,6 +424,14 @@ def isMaxCheckTimeExpired(startTime, maxCheckForMillis):
     return startTimeRounded + maxCheckForMillis < curTimeRounded
 
 
+def get_utc_epoch() -> int:
+    """
+    Returns epoch in UTC
+    :return:
+    """
+    return int(datetime.utcnow().timestamp())
+
+
 def lxor(a, b):
     # Logical xor of 2 items, return true when one of them is truthy and
     # one of them falsy
@@ -557,23 +514,8 @@ def getWalletFilePath(basedir, walletFileName):
     return os.path.join(basedir, walletFileName)
 
 
-def saveGivenWallet(wallet, fileName, contextDir):
-    createDirIfNotExists(contextDir)
-    walletFilePath = getWalletFilePath(
-        contextDir, fileName)
-    with open(walletFilePath, "w+") as walletFile:
-        encodedWallet = encode(wallet, keys=True)
-        walletFile.write(encodedWallet)
-    return walletFilePath
-
-
-def getWalletByPath(walletFilePath):
-    with open(walletFilePath) as walletFile:
-        wallet = decode(walletFile.read(), keys=True)
-        return wallet
-
-
 def getLastSavedWalletFileName(dir):
+    # TODO move that to WalletStorageHelper
     def getLastModifiedTime(file):
         return os.stat(file).st_mtime_ns
 
@@ -590,3 +532,25 @@ def pop_keys(mapping: Dict, cond: Callable):
             rem.append(k)
     for i in rem:
         mapping.pop(i)
+
+
+def check_if_all_equal_in_list(lst):
+    return lst.count(lst[0]) == len(lst)
+
+
+def compare_3PC_keys(key1, key2) -> int:
+    """
+    Return >0 if key2 is greater than key1, <0 if lesser, 0 otherwise
+    """
+    if key1[0] == key2[0]:
+        return key2[1] - key1[1]
+    else:
+        return key2[0] - key1[0]
+
+
+def min_3PC_key(keys) -> Tuple[int, int]:
+    return min(keys, key=lambda k: (k[0], k[1]))
+
+
+def max_3PC_key(keys) -> Tuple[int, int]:
+    return max(keys, key=lambda k: (k[0], k[1]))

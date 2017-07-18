@@ -6,12 +6,17 @@ from collections import OrderedDict
 from plenum.common.constants import OP_FIELD_NAME
 from plenum.common.messages.fields import FieldValidator
 
+
 class MessageValidator(FieldValidator):
 
     # the schema has to be an ordered iterable because the message class
     # can be create with positional arguments __init__(*args)
+
     schema = ()
     optional = False
+
+    def __init__(self, schema_is_strict=True):
+        self.schema_is_strict = schema_is_strict
 
     def validate(self, dct):
         self._validate_fields_with_schema(dct, self.schema)
@@ -28,33 +33,41 @@ class MessageValidator(FieldValidator):
             self._raise_missed_fields(*missed_required_fields)
         for k, v in dct.items():
             if k not in schema_dct:
-                self._raise_unknown_fields(k, v)
-            validation_error = schema_dct[k].validate(v)
-            if validation_error:
-                self._raise_invalid_fields(k, v, validation_error)
-
-
-    def _raise_invalid_type(self, dct):
-        raise TypeError("validation error: invalid type {}, dict expected"
-                        .format(type(dct)))
+                if self.schema_is_strict:
+                    self._raise_unknown_fields(k, v)
+            else:
+                validation_error = schema_dct[k].validate(v)
+                if validation_error:
+                    self._raise_invalid_fields(k, v, validation_error)
 
     def _validate_message(self, dct):
         return None
 
+    def _raise_invalid_type(self, dct):
+        raise TypeError("{} invalid type {}, dict expected"
+                        .format(self.__error_msg_prefix, type(dct)))
+
     def _raise_missed_fields(self, *fields):
-        raise TypeError("validation error: missed fields "
-                        "{}".format(', '.join(map(str, fields))))
+        raise TypeError("{} missed fields - {}"
+                        .format(self.__error_msg_prefix,
+                                ', '.join(map(str, fields))))
 
     def _raise_unknown_fields(self, field, value):
-        raise TypeError("validation error: unknown field "
-                        "({}={})".format(field, value))
+        raise TypeError("{} unknown field - "
+                        "{}={}".format(self.__error_msg_prefix,
+                                       field, value))
 
     def _raise_invalid_fields(self, field, value, reason):
-        raise TypeError("validation error: {} "
-                        "({}={})".format(reason, field, value))
+        raise TypeError("{} {} "
+                        "({}={})".format(self.__error_msg_prefix, reason,
+                                         field, value))
 
     def _raise_invalid_message(self, reason):
-        raise TypeError("validation error: {}".format(reason))
+        raise TypeError("{} {}".format(self.__error_msg_prefix, reason))
+
+    @property
+    def __error_msg_prefix(self):
+        return 'validation error [{}]:'.format(self.__class__.__name__)
 
 
 class MessageBase(Mapping, MessageValidator):
@@ -95,9 +108,6 @@ class MessageBase(Mapping, MessageValidator):
         raise TypeError("Invalid argument type.")
 
     def _asdict(self):
-        """
-        Legacy form TaggedTuple
-        """
         return self.__dict__
 
     @property
@@ -132,7 +142,19 @@ class MessageBase(Mapping, MessageValidator):
     def __str__(self):
         return "{}{}".format(self.typename, dict(self.items()))
 
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         if not issubclass(other.__class__, self.__class__):
             return False
         return self._asdict() == other._asdict()
+
+    def __hash__(self):
+        h = 1
+        for index, value in enumerate(list(self.__iter__())):
+            h = h * (index + 1) * (hash(value) + 1)
+        return h
+
+    def __dir__(self):
+        return self.keys()

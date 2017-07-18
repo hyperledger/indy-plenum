@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.common.util import adict
+from stp_core.common.util import adict
 from plenum.test.helper import sendRandomRequests, waitForSufficientRepliesForRequests
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -17,7 +17,7 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
          
     """
     replica = getNonPrimaryReplicas(nodeSet, instId=0)[0]
-    replica.lastOrderedPPSeqNo = 10
+    replica.last_ordered_3pc = (replica.viewNo, 10)
 
     requests = sendRandomRequests(wallet1, client1, 1)
     waitForSufficientRepliesForRequests(looper, client1,

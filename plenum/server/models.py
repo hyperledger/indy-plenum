@@ -3,7 +3,7 @@ Some model objects used in Plenum protocol.
 """
 from typing import NamedTuple, Set, Tuple, Dict
 
-from plenum.common.types import Commit, Prepare
+from plenum.common.messages.node_messages import Prepare, Commit
 
 ThreePhaseVotes = NamedTuple("ThreePhaseVotes", [
     ("voters", Set[str])])
@@ -75,8 +75,8 @@ class Prepares(TrackedMsgs):
     def hasPrepareFrom(self, prepare: Prepare, voter: str) -> bool:
         return super().hasVote(prepare, voter)
 
-    def hasQuorum(self, prepare: Prepare, f: int) -> bool:
-        return self.hasEnoughVotes(prepare, 2 * f)
+    def hasQuorum(self, prepare: Prepare, quorum: int) -> bool:
+        return self.hasEnoughVotes(prepare, quorum)
 
 
 class Commits(TrackedMsgs):
@@ -112,8 +112,8 @@ class Commits(TrackedMsgs):
     def hasCommitFrom(self, commit: Commit, voter: str) -> bool:
         return super().hasVote(commit, voter)
 
-    def hasQuorum(self, commit: Commit, f: int) -> bool:
-        return self.hasEnoughVotes(commit, 2 * f + 1)
+    def hasQuorum(self, commit: Commit, quorum: int) -> bool:
+        return self.hasEnoughVotes(commit, quorum)
 
 
 class InstanceChanges(TrackedMsgs):
@@ -144,5 +144,5 @@ class InstanceChanges(TrackedMsgs):
     def hasInstChngFrom(self, viewNo: int, voter: str) -> bool:
         return super().hasVote(viewNo, voter)
 
-    def hasQuorum(self, viewNo: int, f: int) -> bool:
-        return self.hasEnoughVotes(viewNo, 2 * f + 1)
+    def hasQuorum(self, viewNo: int, quorum: int) -> bool:
+        return self.hasEnoughVotes(viewNo, quorum)

@@ -4,8 +4,9 @@ from typing import Mapping, NamedTuple
 from stp_core.types import Identifier
 
 from plenum.common.signing import serializeMsg
-from plenum.common.constants import REQDIGEST, REQKEY
-from plenum.common.types import f, OPERATION, ClientMessageValidator
+from plenum.common.constants import REQDIGEST, REQKEY, FORCE
+from plenum.common.types import f, OPERATION
+from plenum.common.messages.client_request import ClientMessageValidator
 
 
 class Request:
@@ -69,6 +70,13 @@ class Request:
 
     def serialized(self):
         return serializeMsg(self.__getstate__())
+
+    def isForced(self):
+        force = self.operation.get(FORCE)
+        return str(force) == 'True'
+
+    def __hash__(self):
+        return hash(self.serialized())
 
 
 class ReqDigest(NamedTuple(REQDIGEST, [f.IDENTIFIER,

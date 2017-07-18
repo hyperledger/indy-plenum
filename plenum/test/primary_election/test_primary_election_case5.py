@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from plenum.common.types import Primary, Nomination
+from plenum.common.messages.node_messages import Nomination, Primary
 from plenum.test import waits
 from stp_core.common.log import getlogger
 
@@ -58,6 +58,7 @@ def case5Setup(startedNodes: TestNodeSet):
 
 
 # noinspection PyIncorrectDocstring
+@pytest.mark.skip('Nodes use round robin primary selection')
 def testPrimaryElectionCase5(case5Setup, looper, keySharedNodes):
     """
     Case 5 - A node making primary declarations for a multiple other nodes.

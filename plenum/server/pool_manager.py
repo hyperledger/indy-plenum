@@ -1,8 +1,11 @@
 import ipaddress
 
 import os
+from abc import abstractmethod
+from collections import OrderedDict
+
 import base58
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 from functools import lru_cache
 
 from copy import deepcopy
@@ -17,7 +20,7 @@ from plenum.common.request import Request
 from plenum.common.stack_manager import TxnStackManager
 from plenum.common.types import NodeDetail
 from plenum.persistence.storage import initKeyValueStorage
-from plenum.persistence.util import txnsWithMerkleInfo, pop_merkle_info
+from plenum.persistence.util import pop_merkle_info
 from plenum.server.pool_req_handler import PoolRequestHandler
 from plenum.server.suspicion_codes import Suspicions
 from state.pruning_state import PruningState
@@ -30,20 +33,58 @@ logger = getlogger()
 
 
 class PoolManager:
+    @abstractmethod
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         """
         Returns a tuple(nodestack, clientstack, nodeReg)
         """
-        raise NotImplementedError
 
     @property
-    def merkleRootHash(self):
-        raise NotImplementedError
+    @abstractmethod
+    def merkleRootHash(self) -> str:
+        """
+        """
 
     @property
-    def txnSeqNo(self):
-        raise NotImplementedError
+    @abstractmethod
+    def txnSeqNo(self) -> int:
+        """
+        """
+
+    @staticmethod
+    def _get_rank(needle_id: str, haystack_ids: List[str]):
+        # Return the rank of the node where rank is defined by the order in
+        # which node was added to the pool or on the alphabetical order of name
+        # if using RegistryPoolManager
+        return haystack_ids.index(needle_id)
+
+    @property
+    @abstractmethod
+    def id(self):
+        """
+        """
+
+    @abstractmethod
+    def get_rank_of(self, node_id) -> int:
+        """
+        """
+
+    @property
+    def rank(self) -> Optional[int]:
+        # Nodes have a total order defined in them, rank is the node's
+        # position in that order
+        if self._rank is None:
+            self._rank = self.get_rank_of(self.id)
+        return self._rank
+
+    @abstractmethod
+    def get_name_by_rank(self, rank):
+        # Needed for communicating primary name to others and also nodeReg
+        # uses node names (alias) and not ids
+        # TODO: Should move to using node ids and not node names (alias)
+        """
+        """
 
 
 class HasPoolManager:
@@ -66,6 +107,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.config = node.config
         self.basedirpath = node.basedirpath
         self._ledger = None
+        self._id = None
+        self._rank = None
         TxnStackManager.__init__(self, self.name, self.basedirpath, isNode=True)
         self.state = self.loadState()
         self.reqHandler = self.getPoolReqHandler()
@@ -203,7 +246,7 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self.node.newNodeJoined(txn)
 
     def node_about_to_be_disconnected(self, nodeName):
-        if self.node.master_primary == nodeName:
+        if self.node.master_primary_name == nodeName:
             self.node.sendInstanceChange(self.node.viewNo + 1,
                                          Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED)
 
@@ -282,39 +325,28 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         return nodeTxn[DATA][ALIAS]
 
     def doStaticValidation(self, identifier, reqId, operation):
-        if operation[TXN_TYPE] == NODE:
-            if not (DATA in operation and isinstance(operation[DATA], dict)):
-                error = "'{}' is missed or not a dict".format(DATA)
-                raise InvalidClientRequest(identifier, reqId, error)
-            # VerKey must be base58
-            if len(set(operation[TARGET_NYM]) - set(base58.alphabet)) != 0:
-                error = "'{}' is not a base58 string".format(TARGET_NYM)
-                raise InvalidClientRequest(identifier, reqId, error)
-
-            data = operation[DATA]
-            for fn, validator in self._dataFieldsValidators:
-                if fn in data and not validator(data[fn]):
-                    error = "'{}' ('{}') is invalid".format(fn, data[fn])
-                    raise InvalidClientRequest(identifier, reqId, error)
+        pass
 
     def doDynamicValidation(self, request: Request):
         self.reqHandler.validate(request)
 
-    def applyReq(self, request: Request):
-        return self.reqHandler.apply(request)
+    def applyReq(self, request: Request, cons_time: int):
+        return self.reqHandler.apply(request, cons_time)
 
     @property
-    def merkleRootHash(self):
+    def merkleRootHash(self) -> str:
         return self.ledger.root_hash
 
     @property
-    def txnSeqNo(self):
+    def txnSeqNo(self) -> int:
         return self.ledger.seqNo
 
     def getNodeData(self, nym):
         _, nodeTxn = self.getNodeInfoFromLedger(nym)
         return nodeTxn[DATA]
 
+    # Question: Why are `_isIpAddressValid` and `_isPortValid` part of
+    # pool_manager?
     @staticmethod
     def _isIpAddressValid(ipAddress):
         try:
@@ -328,12 +360,41 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def _isPortValid(port):
         return isinstance(port, int) and 0 < port <= 65535
 
+    @property
+    def id(self):
+        if not self._id:
+            for _, txn in self.ledger.getAllTxn():
+                if self.name == txn[DATA][ALIAS]:
+                    self._id = txn[TARGET_NYM]
+        return self._id
+
+    @property
+    def node_ids_in_ordered_by_rank(self) -> List:
+        ids = OrderedDict()
+        for _, txn in self.ledger.getAllTxn():
+            ids[txn[TARGET_NYM]] = True
+        return list(ids.keys())
+
+    def get_rank_of(self, node_id) -> Optional[int]:
+        if self.id is None:
+            # This can happen if a non-genesis node starts
+            return None
+        return self._get_rank(node_id, self.node_ids_in_ordered_by_rank)
+
+    def get_name_by_rank(self, rank):
+        # This is expensive but only required while start or view change
+        id = self.node_ids_in_ordered_by_rank[rank]
+        # We don't allow changing ALIAS
+        for _, txn in self.ledger.getAllTxn():
+            if txn[TARGET_NYM] == id and DATA in txn and ALIAS in txn[DATA]:
+                return txn[DATA][ALIAS]
+
 
 class RegistryPoolManager(PoolManager):
     # This is the old way of managing the pool nodes information and
     # should be deprecated.
     def __init__(self, name, basedirpath, nodeRegistry, ha, cliname, cliha):
-
+        self._rank = None
         self.nstack, self.cstack, self.nodeReg, self.cliNodeReg = \
             self.getStackParamsAndNodeReg(name=name, basedirpath=basedirpath,
                                           nodeRegistry=nodeRegistry, ha=ha,
@@ -420,3 +481,17 @@ class RegistryPoolManager(PoolManager):
     @property
     def txnSeqNo(self):
         raise UnsupportedOperation
+
+    @property
+    def id(self):
+        return self.nstack['name']
+
+    @property
+    def node_names_ordered_by_rank(self) -> List:
+        return sorted(self.nodeReg.keys())
+
+    def get_rank_of(self, node_id) -> int:
+        return self._get_rank(node_id, self.node_names_ordered_by_rank)
+
+    def get_name_by_rank(self, rank):
+        return self.node_names_ordered_by_rank[rank]

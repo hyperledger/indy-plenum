@@ -14,7 +14,9 @@ from plenum.common.member.steward import Steward
 
 from plenum.common.keygen_utils import initLocalKeys
 from plenum.common.constants import STEWARD, CLIENT_STACK_SUFFIX, TRUSTEE
-from plenum.common.util import hexToFriendly, adict
+from plenum.common.util import hexToFriendly
+from plenum.common.signer_did import DidSigner
+from stp_core.common.util import adict
 
 
 class TestNetworkSetup:
@@ -70,11 +72,11 @@ class TestNetworkSetup:
         domainLedger = cls.init_domain_ledger(appendToLedgers, baseDir, config,
                                               envName, domainTxnFieldOrder)
 
-        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, role=TRUSTEE)
+        trustee_txn = Member.nym_txn(trustee_def.nym, trustee_def.name, verkey=trustee_def.verkey, role=TRUSTEE)
         domainLedger.add(trustee_txn)
 
         for sd in steward_defs:
-            nym_txn = Member.nym_txn(sd.nym, sd.name, role=STEWARD,
+            nym_txn = Member.nym_txn(sd.nym, sd.name, verkey=sd.verkey, role=STEWARD,
                                      creator=trustee_def.nym)
             domainLedger.add(nym_txn)
 
@@ -107,7 +109,7 @@ class TestNetworkSetup:
             poolLedger.add(node_txn)
 
         for cd in client_defs:
-            txn = Member.nym_txn(cd.nym, cd.name, creator=trustee_def.nym)
+            txn = Member.nym_txn(cd.nym, cd.name, verkey=cd.verkey, creator=trustee_def.nym)
             domainLedger.add(txn)
 
         poolLedger.stop()
@@ -257,9 +259,10 @@ class TestNetworkSetup:
         for i in range(1, nodeCount + 1):
             d = adict()
             d.name = "Steward" + str(i)
-            s_sigseed = cls.getSigningSeed(d.name)
-            s_verkey = Signer(s_sigseed).verhex
-            d.nym = cls.getNymFromVerkey(s_verkey)
+            d.sigseed = cls.getSigningSeed(d.name)
+            s_signer = DidSigner(seed=d.sigseed)
+            d.nym = s_signer.identifier
+            d.verkey = s_signer.verkey
             steward_defs.append(d)
 
             name = "Node" + str(i)
@@ -280,8 +283,9 @@ class TestNetworkSetup:
         d = adict()
         d.name = "Client" + str(idx)
         d.sigseed = cls.getSigningSeed(d.name)
-        d.verkey = Signer(d.sigseed).verhex
-        d.nym = cls.getNymFromVerkey(d.verkey)
+        c_signer = DidSigner(seed=d.sigseed)
+        d.nym = c_signer.identifier
+        d.verkey = c_signer.verkey
         return d
 
     @classmethod
@@ -293,8 +297,9 @@ class TestNetworkSetup:
         d = adict()
         d.name = 'Trustee' + str(idx)
         d.sigseed = cls.getSigningSeed(d.name)
-        d.verkey = Signer(d.sigseed).verhex
-        d.nym = cls.getNymFromVerkey(d.verkey)
+        t_signer = DidSigner(seed=d.sigseed)
+        d.nym = t_signer.identifier
+        d.verkey = t_signer.verkey
         return d
 
 

@@ -32,10 +32,13 @@ def testOldCheckpointDeleted(chkFreqPatched, looper, txnPoolNodeSet, client1,
     Send requests more than twice of `CHK_FREQ`, there should be one new stable
     checkpoint on each replica. The old stable checkpoint should be removed
     """
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 2*reqs_for_checkpoint,
-                                        1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
+                                        numReqs=2*reqs_for_checkpoint,
+                                        fVal=1)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, 1, 1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1,
+                                        numReqs=1,
+                                        fVal=1)
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.run(eventually(chkChkpoints, txnPoolNodeSet, 2, 0, retryWait=1, timeout=timeout))

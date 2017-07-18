@@ -80,7 +80,7 @@ be able to monitor the master instance. For that purpose, each
 node runs a monitoring module that computes the throughput
 of the f +1 protocol instances.
 
-If 2f +1 nodes observe that the
+If n-f nodes observe that the
 ratio between the performance of the master instance and the
 best backup instance is lower than a given threshold, then the
 primary of the master instance is considered to be malicious,
@@ -223,14 +223,14 @@ only to him, in order to boost the performance of the protocol
 instance of the malicious primary at the expense of the other
 protocol instances.
 
-Following the reception of 2f matching
+Following the reception of n-f-1 matching
 PREPARE messages from distinct replicas of the same protocol
 instance that are consistent with a PRE-PREPARE message,
 a replica r sends a commit message <COMMIT, v, n, d, r>~µr
 that is authenticated with a MAC authenticator (Step 5 in
 the figure).
 
-After the reception of 2f + 1 matching COMMIT
+After the reception of n-f matching COMMIT
 messages from distinct replicas of the same protocol instance,
 a replica gives back the ordered request to the node it is
 running on.
@@ -259,7 +259,7 @@ monitoring mechanism works as follows. Each node keeps
 a counter nbreqs-i for each protocol instance i, which cor-
 responds to the number of requests that have been ordered
 by the replica of the corresponding instance (i.e. for which
-2f + 1 COMMIT messages have been collected).
+n-f COMMIT messages have been collected).
 
 Periodically,
 the node uses these counters to compute the throughput of
@@ -339,7 +339,7 @@ an INSTANCE CHANGE message. It does so only if it also
 observes too much difference between the performance of the
 replicas.
 
-Upon the reception of 2f + 1 valid and matching
+Upon the reception of n-f valid and matching
 INSTANCE CHANGE messages, the node increments cpi and
 initiates a view change on every protocol instance that runs
 locally.

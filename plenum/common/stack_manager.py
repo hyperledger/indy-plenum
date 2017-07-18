@@ -2,6 +2,7 @@ import os
 import shutil
 from abc import abstractmethod
 from collections import OrderedDict
+from typing import List
 
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.signer_did import DidIdentity
@@ -75,7 +76,7 @@ class TxnStackManager:
         cliNodeReg = OrderedDict()
         nodeKeys = {}
         activeValidators = set()
-        for _, txn in ledger.getAllTxn().items():
+        for _, txn in ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE:
                 nodeName = txn[DATA][ALIAS]
                 clientStackName = nodeName + CLIENT_STACK_SUFFIX
@@ -89,8 +90,13 @@ class TxnStackManager:
                     nodeReg[nodeName] = HA(*nHa)
                 if cHa:
                     cliNodeReg[clientStackName] = HA(*cHa)
-                # TODO: Need to handle abbreviated verkey
-                verkey = cryptonymToHex(txn[TARGET_NYM])
+
+                try:
+                    # TODO: Need to handle abbreviated verkey
+                    verkey = cryptonymToHex(txn[TARGET_NYM])
+                except ValueError as ex:
+                    raise ValueError("Invalid verkey. Rebuild pool transactions.")
+
                 nodeKeys[nodeName] = verkey
 
                 services = txn[DATA].get(SERVICES)
@@ -172,13 +178,9 @@ class TxnStackManager:
         else:
             verkey = cryptonymToHex(txn[VERKEY])
 
-        try:
-            # Override any keys found
-            initRemoteKeys(self.name, remoteName, self.basedirpath,
-                                   verkey, override=True)
-        except Exception as ex:
-            logger.error("Exception while initializing keep for remote {}".
-                         format(ex))
+        # Override any keys found
+        initRemoteKeys(self.name, remoteName, self.basedirpath,
+                               verkey, override=True)
 
         # Attempt connection with the new keys
         nodeOrClientObj.nodestack.maintainConnections(force=True)
@@ -216,15 +218,18 @@ class TxnStackManager:
                              format(ex))
 
     def nodeExistsInLedger(self, nym):
-        for txn in self.ledger.getAllTxn().values():
+        # Since PoolLedger is going to be small so using
+        # `getAllTxn` is fine
+        for _, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE and \
                             txn[TARGET_NYM] == nym:
                 return True
         return False
 
+    # TODO: Consider removing `nodeIds` and using `node_ids_in_order`
     @property
     def nodeIds(self) -> set:
-        return {txn[TARGET_NYM] for txn in self.ledger.getAllTxn().values()}
+        return {txn[TARGET_NYM] for _, txn in self.ledger.getAllTxn()}
 
     def getNodeInfoFromLedger(self, nym, excludeLast=True):
         # Returns the info of the node from the ledger with transaction
@@ -233,7 +238,7 @@ class TxnStackManager:
         #  it is used after update to the ledger has already been made
         txns = []
         nodeTxnSeqNos = []
-        for seqNo, txn in self.ledger.getAllTxn().items():
+        for seqNo, txn in self.ledger.getAllTxn():
             if txn[TXN_TYPE] == NODE and txn[TARGET_NYM] == nym:
                 txns.append(txn)
                 nodeTxnSeqNos.append(seqNo)
