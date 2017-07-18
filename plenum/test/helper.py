@@ -650,8 +650,14 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     assert len(viewNos) == 1
     vNo, = viewNos
     if expectedViewNo:
-        assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
-            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
+        if vNo != expectedViewNo:
+            ratio = ['{} -> Ratio: {}'
+                     .format(node.name, node.monitor.masterThroughputRatio())
+                     for node in nodes]
+            error_message = "{} == {}, {}"\
+                .format(vNo, expectedViewNo, ','.join(ratio))
+            assert vNo == expectedViewNo, error_message
+
     return vNo
 
 
