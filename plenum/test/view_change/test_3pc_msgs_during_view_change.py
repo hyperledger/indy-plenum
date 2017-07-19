@@ -1,9 +1,11 @@
 import pytest
 from plenum.test.delayers import ppgDelay
-from plenum.test.helper import sendRandomRequests, waitRejectFromPoolWithReason, send_pre_prepare, send_prepare, \
-    send_commit, waitForSufficientRepliesForRequests
+from plenum.test.helper import send_pre_prepare, send_prepare, send_commit, \
+    sendRandomRequests, waitRejectFromPoolWithReason, \
+    waitForSufficientRepliesForRequests
 from plenum.test.test_node import getPrimaryReplica
-from plenum.test.view_change.helper import check_replica_queue_empty, check_all_replica_queue_empty
+from plenum.test.view_change.helper import check_replica_queue_empty, \
+    check_all_replica_queue_empty
 
 
 @pytest.mark.skip('Currently we stash client requests during view change')
