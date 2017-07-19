@@ -876,18 +876,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def process_current_state_message(self, msg: CurrentState, frm):
         logger.debug("{} processing current state {} from {}"
                      .format(self, msg, frm))
-        try:
-            # TODO: parsing of internal messages should be done with other way
-            # We should consider reimplementing validation so that it can
-            # work with internal messages. It should not only validate them,
-            # but also set parsed as field values
-            messages = [ViewChangeDone(**message) for message in msg.primary]
-            for message in messages:
-                self.sendToElector(message, frm)
-        except TypeError as ex:
-            self.discard(msg,
-                         reason="invalid election messages",
-                         logMethod=logger.warning)
+        self.sendToElector(msg, frm)
+        # try:
+        #     # TODO: parsing of internal messages should be done with other way
+        #     # We should consider reimplementing validation so that it can
+        #     # work with internal messages. It should not only validate them,
+        #     # but also set parsed as field values
+        #     messages = [ViewChangeDone(**message) for message in msg.primary]
+        #     for message in messages:
+        #         self.sendToElector(message, frm)
+        # except TypeError as ex:
+        #     self.discard(msg,
+        #                  reason="invalid election messages",
+        #                  logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1254,6 +1255,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 logger.debug("{} sending message to elector: {}"
                              .format(self, (msg, frm)))
                 self.msgsToElector.append((msg, frm))
+        elif isinstance(msg, CurrentState):
+            logger.debug("{} sending CurrentState message to elector: {}"
+                         .format(self, (msg, frm)))
+            self.msgsToElector.append((msg, frm))
 
     def handleOneNodeMsg(self, wrappedMsg):
         """
