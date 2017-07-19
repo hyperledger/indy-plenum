@@ -63,9 +63,9 @@ def test_time_and_size_log_rotation1(tdir_for_func):
     logger = logging.getLogger('test_time_and_size_log_rotation-logger1')
 
     logger.setLevel(logging.DEBUG)
-    record_count = 100
+    record_count = 50
     record_per_file = 4
-    backup_count = 10
+    backup_count = 5
     cir_buffer = collections.deque(maxlen=(backup_count+1)*record_per_file)
     record_text = 'line'
     record_length = len(record_text)+len(str(record_count))

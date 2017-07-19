@@ -39,14 +39,14 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
     def _file_index(file_name):
         split = file_name.split(".")
         try:
-            return int(split[-1] if len(split) > 0 else 0)
+            return int(split[-1])
         except ValueError:
             return 0
 
     def getFilesToDelete(self):
         """
         Determine the files to delete when rolling over.
-        
+
         Note: This is copied from `TimedRotatingFileHandler`. The reason for
         copying is to allow sorting in a custom way (by modified time).
         Also minor optimisation to sort only when needed (>self.backupCount)
