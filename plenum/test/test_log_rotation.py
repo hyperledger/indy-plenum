@@ -63,7 +63,7 @@ def test_time_and_size_log_rotation1(tdir_for_func):
     logger = logging.getLogger('test_time_and_size_log_rotation-logger1')
 
     logger.setLevel(logging.DEBUG)
-    record_count = 1000
+    record_count = 100
     record_per_file = 4
     backup_count = 10
     cir_buffer = collections.deque(maxlen=(backup_count+1)*record_per_file)
@@ -81,12 +81,14 @@ def test_time_and_size_log_rotation1(tdir_for_func):
         line = '{}{}{}'.format(record_text, '0' * pad_length, str(i))
         logger.debug(line)
         cir_buffer.append(line)
+        if i % record_per_file == 0:
+            # waiting since last modified time cannot offer good enough precision
+            time.sleep(.5)
 
     circ_buffer_set = set(cir_buffer)
     assert len(cir_buffer) == len(circ_buffer_set)
     assert len(os.listdir(log_dir_path)) == (backup_count + 1)
-    # TODO: There is a problem where sometimes not the oldest log file is
-    # overwritten
-    # for file_name in os.listdir(log_dir_path):
-    #     for line in open(os.path.join(log_dir_path, file_name)).readlines():
-    #         assert line.strip() in circ_buffer_set
+    for file_name in os.listdir(log_dir_path):
+        with open(os.path.join(log_dir_path, file_name)) as file:
+            for line in file.readlines():
+                assert line.strip() in circ_buffer_set
