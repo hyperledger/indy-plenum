@@ -4,14 +4,13 @@ from collections import namedtuple
 from typing import Any, List, Dict
 
 from plenum.common.constants import REQACK, REQNACK, REPLY, REJECT
-
-from ledger.stores.directory_store import DirectoryStore
 from plenum.common.has_file_storage import HasFileStorage
+from plenum.common.request import Request
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
-from plenum.common.request import Request
 from plenum.common.util import updateFieldsWithSeqNo
 from plenum.persistence.client_req_rep_store import ClientReqRepStore
+from storage.directory_store import DirectoryStore
 
 
 class ClientReqRepStoreFile(ClientReqRepStore, HasFileStorage):

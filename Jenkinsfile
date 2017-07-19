@@ -39,30 +39,11 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
-            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-legder.${NODE_NAME}.xml"])
-        }
-    }
-    finally {
-        echo 'Ubuntu Test: Cleanup'
-        step([$class: 'WsCleanup'])
-    }
-}
-
-def stateTestUbuntu = {
-    try {
-        echo 'Ubuntu Test: Checkout csm'
-        checkout scm
-
-        echo 'Ubuntu Test: Build docker image'
-        def testEnv = dockerHelpers.build(name)
-
-        testEnv.inside {
-            echo 'Ubuntu Test: Install dependencies'
-            testHelpers.install()
-
-            echo 'Ubuntu Test: Test'
+            testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
+            testHelpers.testJUnit([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml"])
         }
+
     }
     finally {
         echo 'Ubuntu Test: Cleanup'
@@ -207,4 +188,4 @@ def stateTestWindowsNoDocker = {
 }
 
 def options = new TestAndPublishOptions()
-testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, state: stateTestUbuntu, stp: stpTestUbuntu]], true, options)
+testAndPublish(name, [ubuntu: [plenum: plenumTestUbuntu, ledger: ledgerTestUbuntu, stp: stpTestUbuntu]], true, options)

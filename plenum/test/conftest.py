@@ -12,12 +12,15 @@ from functools import partial
 
 import time
 from typing import Dict, Any
+
+from ledger.serializers.json_serializer import JsonSerializer
 from plenum.test import waits
 
 import gc
 import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
+from storage.text_file_store import TextFileStore
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
@@ -536,9 +539,16 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     import getpass
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
+    store = TextFileStore(tdir,
+                          tconf.domainTransactionsFile,
+                          isLineNoKey=True,
+                          storeContentHash=False,
+                          ensureDurability=False)
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
-                    fileName=tconf.poolTransactionsFile)
+                    serializer=JsonSerializer(),
+                    fileName=tconf.poolTransactionsFile,
+                    transactionLogStore=store)
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
@@ -553,10 +563,16 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
+    store = TextFileStore(tdir,
+                          tconf.domainTransactionsFile,
+                          isLineNoKey=True,
+                          storeContentHash=False,
+                          ensureDurability=False)
     ledger = Ledger(CompactMerkleTree(),
                     dataDir=tdir,
-                    serializer=CompactSerializer(fields=domainTxnOrderedFields),
-                    fileName=tconf.domainTransactionsFile)
+                    serializer=JsonSerializer(),
+                    fileName=tconf.domainTransactionsFile,
+                    transactionLogStore=store)
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)

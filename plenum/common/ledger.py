@@ -2,29 +2,13 @@ from copy import copy
 from typing import List, Tuple
 
 import base58
-
-from ledger.stores.chunked_file_store import ChunkedFileStore
-from ledger.stores.file_store import FileStore
-
 from ledger.ledger import Ledger as _Ledger
 from stp_core.common.log import getlogger
-
 
 logger = getlogger()
 
 
 class Ledger(_Ledger):
-    @staticmethod
-    def _defaultStore(dataDir,
-                      logName,
-                      ensureDurability,
-                      defaultFile=None) -> FileStore:
-        return ChunkedFileStore(dataDir,
-                                logName,
-                                isLineNoKey=True,
-                                storeContentHash=False,
-                                ensureDurability=ensureDurability,
-                                defaultFile=defaultFile)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

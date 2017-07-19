@@ -1,4 +1,4 @@
-from ledger.stores.hash_store import HashStore
+from ledger.hash_stores.hash_store import HashStore
 
 
 class MemoryHashStore(HashStore):

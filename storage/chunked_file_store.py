@@ -1,12 +1,11 @@
 import os
 import shutil
-from itertools import chain
-from typing import List, Generator
-from ledger.stores.file_store import FileStore
-from ledger.stores.text_file_store import TextFileStore
+
+from storage.kv_store_file import KeyValueStorageFile
+from storage.text_file_store import TextFileStore
 
 
-class ChunkedFileStore(FileStore):
+class ChunkedFileStore(KeyValueStorageFile):
     """
     Implements a FileStore with chunking behavior.
 
@@ -26,7 +25,7 @@ class ChunkedFileStore(FileStore):
     @staticmethod
     def _fileNameToChunkIndex(fileName):
         try:
-            return int(fileName)
+            return int(os.path.splitext(fileName)[0])
         except:
             return None
 
@@ -34,6 +33,8 @@ class ChunkedFileStore(FileStore):
     def _chunkIndexToFileName(index):
         return str(index)
 
+
+    # TODO: re-factor arguments, since they should be used depending on the chunk type
     def __init__(self,
                  dbDir,
                  dbName,
@@ -41,58 +42,48 @@ class ChunkedFileStore(FileStore):
                  storeContentHash: bool=True,
                  chunkSize: int=1000,
                  ensureDurability: bool=True,
-                 chunkStoreConstructor=TextFileStore,
-                 defaultFile=None):
+                 chunk_creator=None,
+                 open=True):
         """
         
         :param chunkSize: number of items in one chunk. Cannot be lower then number of items in defaultFile 
         :param chunkStoreConstructor: constructor of store for single chunk
         """
 
-        assert chunkStoreConstructor is not None
-
         super().__init__(dbDir,
                          dbName,
                          isLineNoKey,
                          storeContentHash,
                          ensureDurability,
-                         defaultFile=defaultFile)
+                         open=False)
 
         self.chunkSize = chunkSize
         self.itemNum = 1  # chunk size counter
         self.dataDir = os.path.join(dbDir, dbName)  # chunk files destination
-        self.currentChunk = None  # type: FileStore
+        self.currentChunk = None  # type: KeyValueStorageFile
         self.currentChunkIndex = None  # type: int
 
-        self._chunkCreator = lambda name: \
-            chunkStoreConstructor(self.dataDir,
+        # TODO: fix chunk_creator support
+        default_chunk_creator = lambda name: \
+            TextFileStore(self.dataDir,
                                   name,
                                   isLineNoKey,
                                   storeContentHash,
                                   ensureDurability)
 
-        self._initDB(dbDir, dbName)
+        self._chunkCreator = chunk_creator or default_chunk_creator
+        if open:
+            self.open()
 
-    def _prepareFiles(self, dbDir, dbName, defaultFile):
+    def _init_db_path(self, dbDir, dbName):
+        return os.path.join(os.path.expanduser(dbDir), dbName)
 
-        def getFileSize(file):
-            with self._chunkCreator(file) as chunk:
-                return chunk.numKeys
-
-        path = os.path.join(dbDir, dbName)
-        os.mkdir(path)
-        if defaultFile:
-            if self.chunkSize < getFileSize(defaultFile):
-                raise ValueError("Default file is larger than chunk size")
-            firstChunk = os.path.join(path, str(self.firstChunkIndex))
-            shutil.copy(defaultFile, firstChunk)
-
-    def _initDB(self, dataDir, dbName) -> None:
-        super()._initDB(dataDir, dbName)
-        path = os.path.join(dataDir, dbName)
-        if not os.path.isdir(path):
+    def _init_db_file(self):
+        if not os.path.exists(self.db_path):
+            os.makedirs(self.db_path)
+        if not os.path.isdir(self.db_path):
             raise ValueError("Transactions file {} is not directory"
-                             .format(path))
+                             .format(self.db_path))
         self._useLatestChunk()
 
     def _useLatestChunk(self) -> None:
@@ -135,9 +126,9 @@ class ChunkedFileStore(FileStore):
 
         self.currentChunk = self._openChunk(index)
         self.currentChunkIndex = index
-        self.itemNum = self.currentChunk.numKeys + 1
+        self.itemNum = self.currentChunk.size + 1
 
-    def _openChunk(self, index) -> FileStore:
+    def _openChunk(self, index) -> KeyValueStorageFile:
         """
         Load chunk from file
 
@@ -163,12 +154,12 @@ class ChunkedFileStore(FileStore):
         offset = remainder or self.chunkSize
         return chunk_no, offset
 
-    def put(self, value, key=None) -> None:
+    def put(self, key, value) -> None:
         if self.itemNum > self.chunkSize:
             self._startNextChunk()
             self.itemNum = 1
         self.itemNum += 1
-        self.currentChunk.put(value, key)
+        self.currentChunk.put(key, value)
 
     def get(self, key) -> str:
         """
@@ -191,6 +182,9 @@ class ChunkedFileStore(FileStore):
             os.remove(os.path.join(self.dataDir, f))
         self._useLatestChunk()
 
+    def drop(self):
+        self.reset()
+
     def _lines(self):
         """
         Lines in a store (all chunks)
@@ -203,8 +197,10 @@ class ChunkedFileStore(FileStore):
             with self._openChunk(chunkIndex) as chunk:
                 yield from chunk._lines()
 
-    def open(self) -> None:
-        self._useLatestChunk()
+    def _parse_line(self, line, prefix=None, returnKey: bool=True,
+                    returnValue: bool=True, key=None):
+        # TODO: fix this
+        return self.currentChunk._parse_line(line, prefix, returnKey, returnValue, key)
 
     def close(self):
         if self.currentChunk is not None:
@@ -226,27 +222,29 @@ class ChunkedFileStore(FileStore):
                 chunks.append(index)
         return sorted(chunks)
 
-    def iterator(self, includeKey=True, includeValue=True, prefix=None):
+    def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         """
         Store iterator
 
         :return: Iterator for data in all chunks
         """
-
-        if not (includeKey or includeValue):
+        if not (include_key or include_value):
             raise ValueError("At least one of includeKey or includeValue "
                              "should be true")
+        if start or end:
+            return self._get_range(start, end)
+
         lines = self._lines()
-        if includeKey and includeValue:
-            return self._keyValueIterator(lines, prefix=prefix)
-        if includeValue:
-            return self._valueIterator(lines, prefix=prefix)
-        return self._keyIterator(lines, prefix=prefix)
+        if include_key and include_value:
+            return self._keyValueIterator(lines, start=start, end=end, prefix=prefix)
+        if include_value:
+            return self._valueIterator(lines, start=start, end=end, prefix=prefix)
+        return self._keyIterator(lines, start=start, end=end, prefix=prefix)
 
-    def get_range(self, start=None, end=None):
-        self.is_valid_range(start, end)
+    def _get_range(self, start=None, end=None):
+        self._is_valid_range(start, end)
 
-        if not self.numKeys:
+        if not self.size:
             return
 
         if start and end and start == end:
@@ -257,7 +255,7 @@ class ChunkedFileStore(FileStore):
             if start is None:
                 start = 1
             if end is None:
-                end = self.numKeys
+                end = self.size
             start_chunk_no, start_offset = self._get_key_location(start)
             end_chunk_no, end_offset = self._get_key_location(end)
 
@@ -266,29 +264,29 @@ class ChunkedFileStore(FileStore):
                 assert end_offset >= start_offset
                 with self._openChunk(start_chunk_no) as chunk:
                     yield from zip(range(start, end+1),
-                                   (l for _, l in chunk.get_range(start_offset,
-                                                                  end_offset)))
+                                   (l for _, l in chunk.iterator(start=start_offset,
+                                                                  end=end_offset)))
             else:
                 current_chunk_no = start_chunk_no
                 while current_chunk_no <= end_chunk_no:
                     with self._openChunk(current_chunk_no) as chunk:
                         if current_chunk_no == start_chunk_no:
-                            yield from ((current_chunk_no + k - 1, l) for k, l in
-                                        chunk.get_range(start=start_offset))
+                            yield from ((str(current_chunk_no + int(k) - 1), l) for k, l in
+                                        chunk.iterator(start=start_offset))
                         elif current_chunk_no == end_chunk_no:
-                            yield from ((current_chunk_no + k - 1, l)
-                                        for k, l in chunk.get_range(end=end_offset))
+                            yield from ((str(current_chunk_no + int(k) - 1), l)
+                                        for k, l in chunk.iterator(end=end_offset))
                         else:
-                            yield from ((current_chunk_no + k - 1, l)
-                                        for k, l in chunk.get_range(1, self.chunkSize))
+                            yield from ((str(current_chunk_no + int(k) - 1), l)
+                                        for k, l in chunk.iterator(start=1, end=self.chunkSize))
                     current_chunk_no += self.chunkSize
 
-    def appendNewLineIfReq(self):
+    def _append_new_line_if_req(self):
         self._useLatestChunk()
-        self.currentChunk.appendNewLineIfReq()
+        self.currentChunk._append_new_line_if_req()
 
     @property
-    def numKeys(self) -> int:
+    def size(self) -> int:
         """
         This will iterate only over the last chunk since the name of the last
         chunk indicates how many lines in total exist in all other chunks

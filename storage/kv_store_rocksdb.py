@@ -1,5 +1,7 @@
 from typing import Iterable, Tuple
-from state.kv.kv_store import KeyValueStorage
+
+from storage.kv_store import KeyValueStorage
+
 
 # TODO: WIP below
 class KeyValueStorageRocksdb(KeyValueStorage):

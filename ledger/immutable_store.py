@@ -1,8 +1,8 @@
 class ImmutableStore:
     """
-    Interface for immutable stores.
+    Interface for immutable hash_stores.
     An immutable store is any storage system (database, flatfile, in-memory,
-    etc.). It stores the transaction data and the relevant info from the
+    etc.). It hash_stores the transaction data and the relevant info from the
     Merkle Tree.
     """
 

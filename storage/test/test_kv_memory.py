@@ -1,6 +1,6 @@
 import pytest
-from state.kv.kv_in_memory import KeyValueStorageInMemory
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_in_memory import KeyValueStorageInMemory
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 
 @pytest.yield_fixture(scope="function")

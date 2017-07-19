@@ -1,13 +1,14 @@
 import os
+
 import pytest
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 i = 0
 
 @pytest.yield_fixture(scope="function")
 def kv(tempdir) -> KeyValueStorageLeveldb:
     global i
-    kv = KeyValueStorageLeveldb(os.path.join(tempdir, 'kv{}'.format(i)))
+    kv = KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i))
     i += 1
     yield kv
     kv.close()

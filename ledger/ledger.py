@@ -3,14 +3,16 @@ import logging
 import time
 
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.tree_hasher import TreeHasher
+from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
+from ledger.immutable_store import ImmutableStore
 from ledger.merkle_tree import MerkleTree
 from ledger.serializers.mapping_serializer import MappingSerializer
-from ledger.serializers.json_serializer import JsonSerializer
-from ledger.stores.file_store import FileStore
-from ledger.stores.text_file_store import TextFileStore
-from ledger.immutable_store import ImmutableStore
+from ledger.serializers.msgpack_serializer import MsgPackSerializer
+from ledger.tree_hasher import TreeHasher
 from ledger.util import F, ConsistencyVerificationFailed
+from storage.kv_store import KeyValueStorage
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
+from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 
 
 class Ledger(ImmutableStore):
@@ -19,46 +21,41 @@ class Ledger(ImmutableStore):
     def _defaultStore(dataDir,
                       logName,
                       ensureDurability,
-                      defaultFile) -> FileStore:
-
-        return TextFileStore(dataDir,
-                             logName,
-                             isLineNoKey=True,
-                             storeContentHash=False,
-                             ensureDurability=ensureDurability,
-                             defaultFile=defaultFile)
+                      open=True) -> KeyValueStorage:
+        return KeyValueStorageLeveldbIntKeys(dataDir, logName, open)
 
     def __init__(self,
                  tree: MerkleTree,
                  dataDir: str,
-                 serializer: MappingSerializer=None,
+                 serializer: MappingSerializer=MsgPackSerializer(),
                  fileName: str=None,
                  ensureDurability: bool=True,
-                 transactionLogStore: FileStore=None,
-                 defaultFile=None):
+                 transactionLogStore: KeyValueStorage=None,
+                 genesis_txn_initiator: GenesisTxnInitiator=None):
         """
         :param tree: an implementation of MerkleTree
         :param dataDir: the directory where the transaction log is stored
         :param serializer: an object that can serialize the data before hashing
         it and storing it in the MerkleTree
         :param fileName: the name of the transaction log file
-        :param defaultFile: file or dir to use for initialization of transaction log store
+        :param genesis_txn_initiator: file or dir to use for initialization of transaction log store
         """
-        assert not transactionLogStore or not defaultFile
-        self.defaultFile = defaultFile
+        # assert not transactionLogStore or not genesis_txn_initiator
+        self.genesis_txn_initiator = genesis_txn_initiator
 
         self.dataDir = dataDir
         self.tree = tree
-        self.leafSerializer = serializer or \
-            JsonSerializer()  # type: MappingSerializer
+        self.leafSerializer = serializer # type: MappingSerializer
         self.hasher = TreeHasher()
-        self._transactionLog = None  # type: FileStore
+        self._transactionLog = None  # type: KeyValueStorage
         self._transactionLogName = fileName or "transactions"
         self.ensureDurability = ensureDurability
         self._customTransactionLogStore = transactionLogStore
-        self.start()
         self.seqNo = 0
+        self.start()
         self.recoverTree()
+        if self.genesis_txn_initiator and self.size == 0:
+            self.genesis_txn_initiator.init_ledger_from_genesis_txn(self)
 
     def recoverTree(self):
         # TODO: Should probably have 2 classes of hash store,
@@ -96,8 +93,14 @@ class Ledger(ImmutableStore):
         # This must be fixed!
         self.tree.hashStore.reset()
         for key, entry in self._transactionLog.iterator():
+            # if isinstance(key, bytearray):
+            #     key = bytes(key)
+            # if isinstance(entry, bytearray):
+            #     entry = bytes(entry)
             if isinstance(entry, str):
                 entry = entry.encode()
+            if not isinstance(entry, (bytearray, bytes)):
+                entry = self.serializeLeaf(entry)
             self._addToTreeSerialized(entry)
 
     def recoverTreeFromHashStore(self):
@@ -106,7 +109,7 @@ class Ledger(ImmutableStore):
         hashes = list(reversed(self.tree.inclusion_proof(treeSize,
                                                          treeSize + 1)))
         self.tree._update(self.tree.leafCount, hashes)
-        self.tree.verify_consistency(self._transactionLog.numKeys)
+        self.tree.verify_consistency(self._transactionLog.size)
 
     def add(self, leaf):
         self._addToStore(leaf)
@@ -159,10 +162,6 @@ class Ledger(ImmutableStore):
     def __getitem__(self, seqNo):
         return self.getBySeqNo(seqNo)
 
-    def lastCount(self):
-        key = self._transactionLog.lastKey
-        return 0 if key is None else int(key)
-
     def serializeLeaf(self, leafData):
         return self.leafSerializer.serialize(leafData)
 
@@ -197,9 +196,9 @@ class Ledger(ImmutableStore):
                 self._customTransactionLogStore or \
                 self._defaultStore(self.dataDir,
                                    self._transactionLogName,
-                                   ensureDurability,
-                                   self.defaultFile)
-            self._transactionLog.appendNewLineIfReq()
+                                   ensureDurability)
+            if self._transactionLog.closed:
+                self._transactionLog.open()
 
     def stop(self):
         self._transactionLog.close()
@@ -209,8 +208,8 @@ class Ledger(ImmutableStore):
         self._transactionLog.reset()
 
     def getAllTxn(self, frm: int=None, to: int=None):
-        yield from ((seq_no, self.leafSerializer.deserialize(txn))
-                    for seq_no, txn in self._transactionLog.get_range(frm, to))
+        yield from ((int(seq_no), self.leafSerializer.deserialize(txn))
+                    for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
 
     @staticmethod
     def hashToStr(h):

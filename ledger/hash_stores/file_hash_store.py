@@ -1,5 +1,6 @@
-from ledger.stores.binary_file_store import BinaryFileStore
-from ledger.stores.hash_store import HashStore
+from ledger.hash_stores.hash_store import HashStore
+from storage.binary_file_store import BinaryFileStore
+from storage.kv_store_file import KeyValueStorageFile
 
 
 class FileHashStore(HashStore):
@@ -39,12 +40,12 @@ class FileHashStore(HashStore):
         if dataSize != size:
             raise ValueError("Data size not allowed. Size of the data should be "
                              "{} but instead was {}".format(size, dataSize))
-        store.put(value=data)
+        store.put(key=None, value=data)
 
     @staticmethod
-    def read(store, entryNo, size):
-        store.dbFile.seek((entryNo-1) * size)
-        return store.dbFile.read(size)
+    def read(store: KeyValueStorageFile, entryNo, size):
+        store.db_file.seek((entryNo-1) * size)
+        return store.db_file.read(size)
 
     @staticmethod
     def dataGen(dataFactory, startpos, endpos):
@@ -93,15 +94,15 @@ class FileHashStore(HashStore):
 
     @property
     def leafCount(self) -> int:
-        return self.leavesFile.dbFile.seek(0,2) // self.leafSize
+        return self.leavesFile.db_file.seek(0,2) // self.leafSize
 
     @property
     def nodeCount(self) -> int:
-        return self.nodesFile.dbFile.seek(0, 2) // self.nodeSize
+        return self.nodesFile.db_file.seek(0, 2) // self.nodeSize
 
     @property
     def closed(self):
-        return self.nodesFile.dbFile.closed and self.leavesFile.dbFile.closed
+        return self.nodesFile.db_file.closed and self.leavesFile.db_file.closed
 
     def close(self):
         self.nodesFile.close()

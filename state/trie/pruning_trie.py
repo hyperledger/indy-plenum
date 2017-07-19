@@ -6,9 +6,9 @@ import sys
 import rlp
 from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
-from state.kv.kv_in_memory import KeyValueStorageInMemory
 from state.util.fast_rlp import encode_optimized
 from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
+from storage.kv_in_memory import KeyValueStorageInMemory
 
 rlp_encode = encode_optimized
 

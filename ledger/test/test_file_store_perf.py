@@ -1,8 +1,8 @@
 import time
 from binascii import hexlify
 
-from ledger.stores.text_file_store import TextFileStore
 from ledger.test.test_file_hash_store import generateHashes
+from storage.text_file_store import TextFileStore
 
 
 def testMeasureWriteTime(tempdir):
@@ -11,13 +11,13 @@ def testMeasureWriteTime(tempdir):
     hashes = [hexlify(h).decode() for h in generateHashes(1000)]
     start = time.time()
     for h in hashes:
-        store.put(value=h)
+        store.put(key=None, value=h)
     timeTakenWithSync = time.time() - start
     store = TextFileStore(tempdir, 'benchWithoutSync', isLineNoKey=True,
                           storeContentHash=False, ensureDurability=False)
     start = time.time()
     for h in hashes:
-        store.put(value=h)
+        store.put(key=None, value=h)
     timeTakenWithoutSync = time.time() - start
     print("Time taken to write {} entries to file with fsync is {} "
           "seconds".format(len(hashes), timeTakenWithSync))

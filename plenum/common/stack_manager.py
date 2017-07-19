@@ -4,13 +4,14 @@ from abc import abstractmethod
 from collections import OrderedDict
 from typing import List
 
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.signer_did import DidIdentity
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
@@ -60,7 +61,7 @@ class TxnStackManager:
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
                                   ensureDurability=self.config.EnsureLedgerDurability,
-                                  defaultFile=defaultTxnFile)
+                                  genesis_txn_initiator = GenesisTxnInitiatorFromFile(defaultTxnFile))
         return self._ledger
 
     @staticmethod

@@ -1,8 +1,9 @@
+import os
+import shutil
 from typing import Iterable, Tuple
 
-import shutil
-from state.kv.kv_store import KeyValueStorage
 from state.util.utils import removeLockFiles
+from storage.kv_store import KeyValueStorage
 
 try:
     import leveldb
@@ -10,19 +11,19 @@ except ImportError:
     print('Cannot import leveldb, please install')
 
 
-class KeyValueStorageLeveldb(KeyValueStorage):
-    def __init__(self, dbPath, open=True):
+class KeyValueStorageLeveldbNumKeysSupport(KeyValueStorage):
+    def __init__(self, db_dir, db_name, open=True):
         if 'leveldb' not in globals():
             raise RuntimeError('Leveldb is needed to use this class')
-        self._dbPath = dbPath
+        self.db_path = os.path.join(db_dir, db_name)
         self._db = None
         if open:
             self.open()
 
     def __repr__(self):
-        return self._dbPath
+        return self.db_path
 
-    def iter(self, start=None, end=None, include_value=True):
+    def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         return self._db.RangeIter(key_from=start, key_to=end, include_value=include_value)
 
     def put(self, key, value):
@@ -30,6 +31,12 @@ class KeyValueStorageLeveldb(KeyValueStorage):
             key = key.encode()
         if isinstance(value, str):
             value = value.encode()
+
+        b = leveldb.WriteBatch()
+        b.Put(key, value)
+        b.Put(key, value)
+        self._db.Write(b, sync=False)
+
         self._db.Put(key, value)
 
     def get(self, key):
@@ -50,16 +57,28 @@ class KeyValueStorageLeveldb(KeyValueStorage):
             if isinstance(value, str):
                 value = value.encode()
             b.Put(key, value)
+            b.Put(key, value)
         self._db.Write(b, sync=False)
 
     def open(self):
-        self._db = leveldb.LevelDB(self._dbPath)
+        self._db = leveldb.LevelDB(self.db_path)
 
     def close(self):
-        removeLockFiles(self._dbPath)
+        removeLockFiles(self.db_path)
         del self._db
         self._db = None
 
     def drop(self):
         self.close()
-        shutil.rmtree(self._dbPath)
+        shutil.rmtree(self.db_path)
+
+    def reset(self):
+        self.drop()
+        self.open()
+
+    @property
+    def closed(self):
+        return self._db is None
+
+    def __repr__(self):
+        return self.db_path

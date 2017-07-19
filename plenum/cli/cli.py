@@ -9,8 +9,9 @@ from typing import Dict, Iterable
 from jsonpickle import json
 
 from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from ledger.ledger import Ledger
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 from plenum import config
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
@@ -488,9 +489,8 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            ledger = Ledger(CompactMerkleTree(),
-                            dataDir=self.basedirpath,
-                            fileName=self.config.poolTransactionsFile)
+            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFile)
+            ledger = initiator.create_initiator_ledger()
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)

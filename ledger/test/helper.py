@@ -1,8 +1,16 @@
 import os
 import types
 
-from ledger.util import STH
+from ledger.compact_merkle_tree import CompactMerkleTree
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
+from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.ledger import Ledger
+from ledger.serializers.msgpack_serializer import MsgPackSerializer
+from ledger.util import STH
+from storage.binary_serializer_based_file_store import BinarySerializerBasedFileStore
+from storage.chunked_file_store import ChunkedFileStore
+from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
+from storage.text_file_store import TextFileStore
 
 
 def checkLeafInclusion(verifier, leafData, leafIndex, proof, treeHead):
@@ -43,3 +51,80 @@ def check_ledger_generator(ledger):
 class NoTransactionRecoveryLedger(Ledger):
     def recoverTreeFromTxnLog(self):
         pass
+
+
+def create_ledger(request, serializer, tempdir, init_genesis_txn_file=None):
+    if request.param == 'TextFileStorage':
+        return create_ledger_text_file_storage(serializer, tempdir, init_genesis_txn_file)
+    elif request.param == 'ChunkedFileStorage':
+        return create_ledger_chunked_file_storage(serializer, tempdir, init_genesis_txn_file)
+    elif request.param == 'LeveldbStorage':
+        return create_ledger_leveldb_file_storage(serializer, tempdir, init_genesis_txn_file)
+
+def create_ledger_text_file_storage(serializer, tempdir, init_genesis_txn_file=None):
+    if isinstance(serializer, MsgPackSerializer):
+        # MsgPack is a binary one, not compatible with TextFileStorage
+        store = BinarySerializerBasedFileStore(serializer,
+                                               tempdir,
+                                               'transactions',
+                                               isLineNoKey=True,
+                                               storeContentHash=False,
+                                               ensureDurability=False)
+    else:
+        store = TextFileStore(tempdir,
+                              'transactions',
+                              isLineNoKey=True,
+                              storeContentHash=False,
+                              ensureDurability=False)
+
+    return __create_ledger(store, serializer, tempdir, init_genesis_txn_file)
+
+
+def create_ledger_leveldb_file_storage(serializer, tempdir, init_genesis_txn_file=None):
+    store = KeyValueStorageLeveldbIntKeys(tempdir,
+                                          'transactions')
+    genesis_txn_initiator = GenesisTxnInitiatorFromFile(tempdir,
+                                                        init_genesis_txn_file) if init_genesis_txn_file else None
+    return __create_ledger(store, serializer, tempdir, init_genesis_txn_file)
+
+
+def create_ledger_chunked_file_storage(serializer, tempdir, init_genesis_txn_file=None):
+    chunk_creator = None
+    db_name = 'transactions'
+    if isinstance(serializer, MsgPackSerializer):
+        # TODO: fix chunk_creator support
+        chunk_creator = lambda name: \
+            BinarySerializerBasedFileStore(serializer,
+                                           os.path.join(tempdir, db_name),
+                                           name,
+                                           isLineNoKey=True,
+                                           storeContentHash=False,
+                                           ensureDurability=False)
+    store = ChunkedFileStore(tempdir,
+                             db_name,
+                             isLineNoKey=True,
+                             chunkSize=5,
+                             chunk_creator=chunk_creator,
+                             storeContentHash=False,
+                             ensureDurability=False)
+    return __create_ledger(store, serializer, tempdir, init_genesis_txn_file)
+
+
+def __create_ledger(store, serializer, tempdir, init_genesis_txn_file=None):
+    genesis_txn_initiator = GenesisTxnInitiatorFromFile(tempdir,
+                                                        init_genesis_txn_file) if init_genesis_txn_file else None
+    ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
+                    dataDir=tempdir,
+                    transactionLogStore=store,
+                    serializer=serializer,
+                    genesis_txn_initiator=genesis_txn_initiator)
+    return ledger
+
+
+def create_default_ledger(tempdir, init_genesis_txn_file=None):
+    genesis_txn_initiator = GenesisTxnInitiatorFromFile(tempdir,
+                                                        init_genesis_txn_file) if init_genesis_txn_file else None
+    ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
+                    dataDir=tempdir,
+                    genesis_txn_initiator=genesis_txn_initiator)
+    return ledger
