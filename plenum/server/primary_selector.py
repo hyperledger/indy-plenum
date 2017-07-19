@@ -220,13 +220,16 @@ class PrimarySelector(PrimaryDecider):
             votes = self._view_change_done.values()
             votes = [(nm, tuple(tuple(i) for i in info)) for nm, info in votes]
             new_primary, ledger_info = mostCommonElement(votes)
-            if votes.count((new_primary, ledger_info)) >= self.quorum:
+            vote_count = votes.count((new_primary, ledger_info))
+            if vote_count >= self.quorum:
                 logger.debug('{} found acceptable primary {} and ledger info {}'.
                              format(self, new_primary, ledger_info))
                 self._accepted_view_change_done_message = (new_primary,
                                                            ledger_info)
             else:
-                logger.debug('{} does not have acceptable primary'.format(self))
+                logger.debug('{} does not have acceptable primary, only {} '
+                             'votes for {}'.format(self, vote_count,
+                                                   (new_primary, ledger_info)))
 
         return self._accepted_view_change_done_message
 

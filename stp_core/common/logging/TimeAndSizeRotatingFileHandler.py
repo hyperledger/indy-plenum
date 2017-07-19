@@ -12,9 +12,6 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
         TimedRotatingFileHandler.__init__(self, filename, when, interval,
                                           backupCount, encoding, delay,
                                           utc, atTime)
-        # RotatingFileHandler.__init__(self, filename, maxBytes=maxBytes,
-        #                              backupCount=backupCount,
-        #                              encoding=encoding, delay=delay)
         self.maxBytes = maxBytes
 
     def shouldRollover(self, record):
@@ -33,11 +30,38 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
         maxIndex = -1
         for fileName in fileNames:
             if fileName.startswith(defaultFileName):
-                split = fileName.split(".")
-                try:
-                    index = int(split[-1] if len(split) > 0 else 0)
-                except ValueError:
-                    index = 0
+                index = self._file_index(fileName)
                 if index > maxIndex:
                     maxIndex = index
         return "{}.{}".format(default_name, maxIndex + 1)
+
+    @staticmethod
+    def _file_index(file_name):
+        split = file_name.split(".")
+        try:
+            return int(split[-1] if len(split) > 0 else 0)
+        except ValueError:
+            return 0
+
+    def getFilesToDelete(self):
+        """
+        Determine the files to delete when rolling over.
+
+        More specific than the earlier method, which just used glob.glob().
+        """
+        dirName, baseName = os.path.split(self.baseFilename)
+        fileNames = os.listdir(dirName)
+        result = []
+        prefix = baseName + "."
+        plen = len(prefix)
+        for fileName in fileNames:
+            if fileName[:plen] == prefix:
+                suffix = fileName[plen:]
+                if self.extMatch.match(suffix):
+                    result.append(os.path.join(dirName, fileName))
+        if len(result) <= self.backupCount:
+            result = []
+        else:
+            result.sort(key=os.path.getmtime)
+            result = result[:len(result) - self.backupCount]
+        return result
