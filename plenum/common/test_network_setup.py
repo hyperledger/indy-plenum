@@ -4,13 +4,9 @@ import os
 from collections import namedtuple
 
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.ledger import Ledger
 
-from ledger.serializers.compact_serializer import CompactSerializer
-from storage.text_file_store import TextFileStore
 from stp_core.crypto.nacl_wrappers import Signer
 
-from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 

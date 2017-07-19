@@ -94,7 +94,7 @@ class DomainRequestHandler(RequestHandler):
         newData = {}
         if not existingData:
             # New nym being added to state, set the TrustAnchor
-            newData[f.IDENTIFIER.nm] = txn[f.IDENTIFIER.nm]
+            newData[f.IDENTIFIER.nm] = txn.get(f.IDENTIFIER.nm, None)
             # New nym being added to state, set the role and verkey to None, this makes
             # the state data always have a value for `role` and `verkey` since we allow
             # clients to omit specifying `role` and `verkey` in the request consider a

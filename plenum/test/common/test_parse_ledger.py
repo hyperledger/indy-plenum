@@ -10,7 +10,6 @@ whitelist = ['substring not found']
 
 @pytest.fixture(scope="module")
 def tdirWithLedger(tdir):
-    tree = CompactMerkleTree()
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir)
     for d in range(3):
         txn = { TXN_TYPE: '0',
@@ -30,9 +29,9 @@ def tdirWithLedger(tdir):
 Test that invalid base58 TARGET_NYM in pool_transaction raises the proper exception (INDY-150)
 """
 
-def test_parse_non_base58_txn_type_field_raises_descriptive_error(tdirWithLedger,tdir):
+def test_parse_non_base58_txn_type_field_raises_descriptive_error(tdirWithLedger, tdir):
     with pytest.raises(ValueError) as excinfo:
-        ledger = Ledger(CompactMerkleTree(), dataDir=tdir)
+        ledger = tdirWithLedger
         _, _, nodeKeys = TxnStackManager.parseLedgerForHaAndKeys(ledger)
     assert("verkey" in str(excinfo.value))
     ledger.stop()

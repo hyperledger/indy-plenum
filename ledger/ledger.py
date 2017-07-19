@@ -18,6 +18,10 @@ from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 class Ledger(ImmutableStore):
 
     @staticmethod
+    def default_serializer() -> MappingSerializer:
+        return MsgPackSerializer()
+
+    @staticmethod
     def _defaultStore(dataDir,
                       logName,
                       ensureDurability,
@@ -27,7 +31,7 @@ class Ledger(ImmutableStore):
     def __init__(self,
                  tree: MerkleTree,
                  dataDir: str,
-                 serializer: MappingSerializer=MsgPackSerializer(),
+                 serializer: MappingSerializer=None,
                  fileName: str=None,
                  ensureDurability: bool=True,
                  transactionLogStore: KeyValueStorage=None,
@@ -45,7 +49,7 @@ class Ledger(ImmutableStore):
 
         self.dataDir = dataDir
         self.tree = tree
-        self.leafSerializer = serializer # type: MappingSerializer
+        self.leafSerializer = serializer or Ledger.default_serializer() # type: MappingSerializer
         self.hasher = TreeHasher()
         self._transactionLog = None  # type: KeyValueStorage
         self._transactionLogName = fileName or "transactions"

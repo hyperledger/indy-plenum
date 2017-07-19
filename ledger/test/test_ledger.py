@@ -1,14 +1,12 @@
 import base64
+import itertools
 import random
 import string
 from binascii import hexlify
 from collections import OrderedDict
 
-import itertools
 import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.hash_stores.file_hash_store import FileHashStore
-from ledger.ledger import Ledger
 from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.test.conftest import orderedFields
@@ -146,9 +144,7 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 
 
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
-    fhs = FileHashStore(tempdir)
-    tree = CompactMerkleTree(hashStore=fhs)
-    ledger = Ledger(tree=tree, dataDir=tempdir, serializer=CompactSerializer(orderedFields))
+    ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), tempdir)
     for d in range(10):
         ledger.add({"identifier": "i{}".format(d), "reqId": d, "op": "operation"})
     updatedTree = ledger.tree
@@ -160,10 +156,8 @@ def test_recover_ledger_new_fields_to_txns_added(tempdir):
         ("op", (str, str)),
         ("newField", (str, str))
     ])
-    newLedgerSerializer = CompactSerializer(newOrderedFields)
+    restartedLedger = create_ledger_text_file_storage(CompactSerializer(newOrderedFields), tempdir)
 
-    tree = CompactMerkleTree(hashStore=fhs)
-    restartedLedger = Ledger(tree=tree, dataDir=tempdir, serializer=newLedgerSerializer)
     assert restartedLedger.size == ledger.size
     assert restartedLedger.root_hash == ledger.root_hash
     assert restartedLedger.tree.hashes == updatedTree.hashes
@@ -225,9 +219,7 @@ def test_start_ledger_without_new_line_appended_to_last_record(tempdir, serializ
                           isLineNoKey=True,
                           storeContentHash=False,
                           ensureDurability=False)
-    ledger = Ledger(CompactMerkleTree(hashStore=FileHashStore(dataDir=tempdir)),
-                    dataDir=tempdir, serializer=serializer,
-                    transactionLogStore=store)
+    ledger = create_ledger_text_file_storage(serializer, tempdir)
 
     txnStr = '{"data":{"alias":"Node1","client_ip":"127.0.0.1","client_port":9702,"node_ip":"127.0.0.1",' \
              '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \

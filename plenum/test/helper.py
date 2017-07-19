@@ -747,8 +747,8 @@ def checkStateEquality(state1, state2):
 def check_seqno_db_equality(db1, db2):
     assert db1.size == db2.size,\
         "{} != {}".format(db1.size, db2.size)
-    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
-           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
+    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
+           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
 def check_last_ordered_3pc(node1, node2):

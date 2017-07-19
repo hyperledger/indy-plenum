@@ -47,13 +47,14 @@ class TxnStackManager:
     @property
     def ledger(self):
         if self._ledger is None:
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
             defaultTxnFile = os.path.join(self.basedirpath,
                                           self.ledgerFile)
             if not os.path.exists(defaultTxnFile):
                 logger.debug("Not using default initialization file for "
                              "pool ledger, since it does not exist: {}"
                              .format(defaultTxnFile))
-                defaultTxnFile = None
+                genesis_txn_initiator = None
 
             dataDir = self.ledgerLocation
             self.hashStore = FileHashStore(dataDir=dataDir)
@@ -61,7 +62,7 @@ class TxnStackManager:
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
                                   ensureDurability=self.config.EnsureLedgerDurability,
-                                  genesis_txn_initiator = GenesisTxnInitiatorFromFile(defaultTxnFile))
+                                  genesis_txn_initiator = genesis_txn_initiator)
         return self._ledger
 
     @staticmethod

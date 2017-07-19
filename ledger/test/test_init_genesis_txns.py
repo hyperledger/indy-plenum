@@ -1,9 +1,5 @@
 import os
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.hash_stores.file_hash_store import FileHashStore
-from ledger.ledger import Ledger
 from ledger.serializers.json_serializer import JsonSerializer
 from ledger.test.helper import create_default_ledger
 from ledger.util import F
@@ -42,6 +38,7 @@ def test_merkle_tree_for_genesis_txns(ledger_with_genesis, genesis_txns):
     assert ledger_with_genesis.tree.root_hash is not None
     assert ledger_with_genesis.tree.tree_size == len(genesis_txns)
 
+
 def test_init_twice_with_initiator(tempdir, genesis_txns, init_genesis_txn_file):
     ledger = create_default_ledger(tempdir, init_genesis_txn_file)
     size_before = ledger.size
@@ -61,6 +58,7 @@ def test_init_twice_with_initiator(tempdir, genesis_txns, init_genesis_txn_file)
     assert tree_size_before == ledger.tree.tree_size
     assert root_hash_before == ledger.root_hash
 
+
 def test_init_twice_without_initiator(tempdir, genesis_txns, init_genesis_txn_file):
     ledger = create_default_ledger(tempdir, init_genesis_txn_file)
     size_before = ledger.size
@@ -78,6 +76,3 @@ def test_init_twice_without_initiator(tempdir, genesis_txns, init_genesis_txn_fi
     assert tree_root_hash_before == ledger.tree.root_hash
     assert tree_size_before == ledger.tree.tree_size
     assert root_hash_before == ledger.root_hash
-
-
-

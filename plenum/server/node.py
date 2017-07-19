@@ -9,7 +9,6 @@ from intervaltree import IntervalTree
 
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.hash_stores.file_hash_store import FileHashStore
 from ledger.hash_stores.hash_store import HashStore
 from ledger.hash_stores.memory_hash_store import MemoryHashStore
@@ -482,21 +481,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         This is usually an implementation of Ledger
         """
         if self.config.primaryStorage is None:
-            fields = getTxnOrderedFields()
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
+                                                                self.config.domainTransactionsFile)
             defaultTxnFile = os.path.join(self.config.baseDir,
                                        self.config.domainTransactionsFile)
             if not os.path.exists(defaultTxnFile):
                 logger.debug("Not using default initialization file for "
                              "domain ledger, since it does not exist: {}"
                              .format(defaultTxnFile))
-                defaultTxnFile = None
+                genesis_txn_initiator = None
 
             return Ledger(CompactMerkleTree(hashStore=self.hashStore),
                           dataDir=self.dataLocation,
-                          serializer=CompactSerializer(fields=fields),
                           fileName=self.config.domainTransactionsFile,
                           ensureDurability=self.config.EnsureLedgerDurability,
-                          genesis_txn_initiator=GenesisTxnInitiatorFromFile(defaultTxnFile))
+                          genesis_txn_initiator=genesis_txn_initiator)
         else:
             # TODO: we need to rethink this functionality
             return initStorage(self.config.primaryStorage,

@@ -1,6 +1,6 @@
 import os
 
-from ledger.serializers.compact_serializer import CompactSerializer
+from ledger.ledger import Ledger
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.util import updateFieldsWithSeqNo
@@ -22,7 +22,7 @@ class ClientTxnLog(HasFileStorage):
             os.makedirs(self.clientDataLocation)
         self.transactionLog = TextFileStore(self.clientDataLocation,
                                             "transactions")
-        self.serializer = CompactSerializer(fields=self.txnFieldOrdering)
+        self.serializer = Ledger.default_serializer()
 
     def close(self):
         self.transactionLog.close()

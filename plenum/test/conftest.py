@@ -13,25 +13,21 @@ from functools import partial
 import time
 from typing import Dict, Any
 
-from ledger.serializers.json_serializer import JsonSerializer
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.test import waits
 
 import gc
 import pip
 import pytest
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
-from storage.text_file_store import TextFileStore
 from stp_core.common.logging.handlers import TestingHandler
 from stp_core.crypto.util import randomSeed
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from _pytest.recwarn import WarningsRecorder
 
-from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.ledger import Ledger
-from ledger.serializers.compact_serializer import CompactSerializer
 from plenum.common.config_util import getConfig
-from stp_core.loop.eventually import eventually, eventuallyAll
+from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import BlowUp
 from stp_core.common.log import getlogger, Logger
 from stp_core.loop.looper import Looper, Prodable
@@ -39,7 +35,7 @@ from plenum.common.constants import TXN_TYPE, DATA, NODE, ALIAS, CLIENT_PORT, \
     CLIENT_IP, NODE_PORT, NYM, CLIENT_STACK_SUFFIX, PLUGIN_BASE_DIR_PATH
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import PLUGIN_TYPE_STATS_CONSUMER
-from plenum.common.util import getNoInstances, getMaxFailures
+from plenum.common.util import getNoInstances
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import randomOperation, \
     checkReqAck, checkLastClientReqForNode, waitForSufficientRepliesForRequests, \
@@ -539,16 +535,10 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     import getpass
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
-    store = TextFileStore(tdir,
-                          tconf.domainTransactionsFile,
-                          isLineNoKey=True,
-                          storeContentHash=False,
-                          ensureDurability=False)
-    ledger = Ledger(CompactMerkleTree(),
-                    dataDir=tdir,
-                    serializer=JsonSerializer(),
-                    fileName=tconf.poolTransactionsFile,
-                    transactionLogStore=store)
+
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.poolTransactionsFile)
+    ledger = initiator.create_initiator_ledger()
+
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NODE:
             ledger.add(item)
@@ -563,16 +553,9 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    store = TextFileStore(tdir,
-                          tconf.domainTransactionsFile,
-                          isLineNoKey=True,
-                          storeContentHash=False,
-                          ensureDurability=False)
-    ledger = Ledger(CompactMerkleTree(),
-                    dataDir=tdir,
-                    serializer=JsonSerializer(),
-                    fileName=tconf.domainTransactionsFile,
-                    transactionLogStore=store)
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.domainTransactionsFile)
+    ledger = initiator.create_initiator_ledger()
+
     for item in poolTxnData["txns"]:
         if item.get(TXN_TYPE) == NYM:
             ledger.add(item)

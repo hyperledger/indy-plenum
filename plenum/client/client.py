@@ -12,6 +12,7 @@ from functools import partial
 from typing import List, Union, Dict, Optional, Tuple, Set, Any, \
     Iterable
 
+from ledger.serializers.msgpack_serializer import MsgPackSerializer
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_message_factory import node_message_factory
 from plenum.common.stacks import nodeStackClass
@@ -22,11 +23,9 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_core.types import HA
 
 from ledger.merkle_verifier import MerkleVerifier
-from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
-from plenum.common.exceptions import MissingNodeOp
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
@@ -632,8 +631,7 @@ class Client(Motor,
         :return: True
         """
         verifier = MerkleVerifier()
-        fields = getTxnOrderedFields()
-        serializer = CompactSerializer(fields=fields)
+        serializer = Ledger.default_serializer()
         ignored = {F.auditPath.name, F.seqNo.name, F.rootHash.name}
         for r in replies:
             seqNo = r[f.RESULT.nm][F.seqNo.name]
