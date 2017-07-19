@@ -524,26 +524,7 @@ def dirName():
 @pytest.fixture(scope="module")
 def poolTxnData(request):
     nodeCount = getValueFromModule(request, "nodeCount", 4)
-    # Below is some static data that is needed for some CLI tests
-    data = {'txns': [
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ", "type": "1",
-         "alias": "Alice"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB", "type": "1",
-         "alias": "Jason"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG", "type": "1",
-         "alias": "John"},
-        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
-         "dest": "4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru", "type": "1",
-         "alias": "Les"}
-    ], 'seeds': {
-        "Alice": "99999999999999999999999999999999",
-        "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "John": "dddddddddddddddddddddddddddddddd",
-        "Les": "ffffffffffffffffffffffffffffffff"
-    }}
+    data = {'txns': [], 'seeds': {}}
     for i, node_name in zip(range(1, nodeCount+1), genNodeNames(nodeCount)):
         data['seeds'][node_name] = node_name+'0'*(32-len(node_name))
         steward_name = 'Steward'+str(i)
@@ -569,6 +550,34 @@ def poolTxnData(request):
                 CLIENT_PORT: genHa()[1]
             }
         })
+
+    # Below is some static data that is needed for some CLI tests
+    more_data = {'txns': [
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "4AdS22kC7xzb4bcqg9JATuCfAMNcQYcZa1u5eWzs6cSJ",
+         "type": "1",
+         "alias": "Alice"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "46Kq4hASUdvUbwR7s7Pie3x8f4HRB3NLay7Z9jh9eZsB",
+         "type": "1",
+         "alias": "Jason"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "3wpYnGqceZ8DzN3guiTd9rrYkWTwTHCChBSuo6cvkXTG",
+         "type": "1",
+         "alias": "John"},
+        {"identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC",
+         "dest": "4Yk9HoDSfJv9QcmJbLcXdWVgS7nfvdUqiVcvbSu8VBru",
+         "type": "1",
+         "alias": "Les"}
+    ], 'seeds': {
+        "Alice": "99999999999999999999999999999999",
+        "Jason": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "John": "dddddddddddddddddddddddddddddddd",
+        "Les": "ffffffffffffffffffffffffffffffff"
+    }}
+
+    data['txns'].extend(more_data['txns'])
+    data['seeds'].update(more_data['seeds'])
     return data
 
 

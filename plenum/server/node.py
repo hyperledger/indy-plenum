@@ -1545,13 +1545,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug('{} reverted {} batches before starting catch up for '
                      'ledger {}'.format(self, r, ledger_id))
 
-    def postTxnFromCatchupAddedToLedger(self, ledgerId: int, txn: Any):
-        rh = self.postRecvTxnFromCatchup(ledgerId, txn)
+    def postTxnFromCatchupAddedToLedger(self, ledger_id: int, txn: Any):
+        rh = self.postRecvTxnFromCatchup(ledger_id, txn)
         if rh:
             rh.updateState([txn], isCommitted=True)
-            state = self.getState(ledgerId)
+            state = self.getState(ledger_id)
             state.commit(rootHash=state.headHash)
         self.updateSeqNoMap([txn])
+        self._clear_req_key_for_txn(ledger_id, txn)
+
+    def _clear_req_key_for_txn(self, ledger_id, txn):
+        if f.IDENTIFIER.nm in txn and f.REQ_ID.nm in txn:
+            self.master_replica.discard_req_key(ledger_id,
+                                                (txn[f.IDENTIFIER.nm], txn[f.REQ_ID.nm]))
 
     def postRecvTxnFromCatchup(self, ledgerId: int, txn: Any):
         rh = None
