@@ -15,7 +15,7 @@ def test_genesis_txn_file_initiator(tempdir, init_genesis_txn_file, genesis_txns
     serializer = JsonSerializer()
     with open(genesis_file) as f:
         for line in store_utils.cleanLines(f.readlines()):
-            assert sorted(serializer.deserialize(line)) == sorted(genesis_txns[i])
+            assert sorted(serializer.deserialize(line).items()) == sorted(genesis_txns[i].items())
             i += 1
 
 
@@ -31,7 +31,7 @@ def test_ledger_with_genesis_txns(ledger_with_genesis, genesis_txns):
 
         expected_txn = genesis_txns[i]
         expected_txn[F.seqNo.name] = seq_no
-        assert sorted(expected_txn) == sorted(ledger_with_genesis.getBySeqNo(seq_no))
+        assert sorted(expected_txn.items()) == sorted(ledger_with_genesis.getBySeqNo(seq_no).items())
 
 
 def test_merkle_tree_for_genesis_txns(ledger_with_genesis, genesis_txns):

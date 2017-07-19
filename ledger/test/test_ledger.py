@@ -50,10 +50,10 @@ def test_add_txn(ledger, genesis_txns, genesis_txn_file):
     assert ledger.size == 2 + offset
 
     # Check that the data is appended to the immutable store
-    txn1[F.seqNo.name] = 1
-    txn2[F.seqNo.name] = 2
-    assert sorted(txn1) == sorted(ledger[1])
-    assert sorted(txn2) == sorted(ledger[2])
+    txn1[F.seqNo.name] = 1 + offset
+    txn2[F.seqNo.name] = 2 + offset
+    assert sorted(txn1.items()) == sorted(ledger[1 + offset].items())
+    assert sorted(txn2.items()) == sorted(ledger[2 + offset].items())
     check_ledger_generator(ledger)
 
 
@@ -71,10 +71,9 @@ def test_query_merkle_info(ledger, genesis_txns, genesis_txn_file):
         seqNo = mi.pop(F.seqNo.name)
         assert i + 1 + offset == seqNo
         merkleInfo[seqNo] = mi
-        print(mi)
 
     for i in range(100):
-        assert sorted(merkleInfo[i + 1 + offset]) == sorted(ledger.merkleInfo(i + 1 + offset))
+        assert sorted(merkleInfo[i + 1 + offset].items()) == sorted(ledger.merkleInfo(i + 1 + offset).items())
 
 
 """

@@ -28,8 +28,8 @@ orderedFields = OrderedDict([
 @pytest.fixture(scope="function")
 def genesis_txns():
     return [{"reqId": 1, "identifier": "5rArie7XKukPCaEwq5XGQJnM9Fc5aZE3M9HAPVfMU2xC", "op": "op1"},
-            {"reqId": 2, "identifier": "2btLJAAb1S3x6hZYdVyAePjqtQYi2ZBSRGy4569RZu8h", "op": ""},
-            {"reqId": 3, "identifier": "CECeGXDi6EHuhpwz19uyjjEnsRGNXodFYqCRgdLmLRkt"}
+            {"reqId": 2, "identifier": "2btLJAAb1S3x6hZYdVyAePjqtQYi2ZBSRGy4569RZu8h", "op": "op2"},
+            {"reqId": 3, "identifier": "CECeGXDi6EHuhpwz19uyjjEnsRGNXodFYqCRgdLmLRkt", "op": "op3"}
             ]
 
 
