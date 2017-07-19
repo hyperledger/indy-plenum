@@ -107,7 +107,7 @@ clientShowCmd = Command(
 
 newKeyCmd = Command(
     id="new key",
-    title="Adds new key to active keyring",
+    title="Adds new key to active wallet",
     usage="new key [with seed <32 character seed>] [[as] <alias>]",
     examples=[
         "new key",
