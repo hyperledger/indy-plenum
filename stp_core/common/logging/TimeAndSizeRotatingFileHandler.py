@@ -46,8 +46,10 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
     def getFilesToDelete(self):
         """
         Determine the files to delete when rolling over.
-
-        More specific than the earlier method, which just used glob.glob().
+        
+        Note: This is copied from `TimedRotatingFileHandler`. The reason for
+        copying is to allow sorting in a custom way (by modified time).
+        Also minor optimisation to sort only when needed (>self.backupCount)
         """
         dirName, baseName = os.path.split(self.baseFilename)
         fileNames = os.listdir(dirName)
@@ -62,6 +64,14 @@ class TimeAndSizeRotatingFileHandler(TimedRotatingFileHandler, RotatingFileHandl
         if len(result) <= self.backupCount:
             result = []
         else:
-            result.sort(key=os.path.getmtime)
+            self._sort_for_removal(result)
             result = result[:len(result) - self.backupCount]
         return result
+
+    @staticmethod
+    def _sort_for_removal(result):
+        """
+        Sort files in the order they should be removed.
+        Currently using last modification time but this method can be overridden
+        """
+        result.sort(key=os.path.getmtime)
