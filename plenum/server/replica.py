@@ -1398,18 +1398,24 @@ class Replica(HasActionQueue, MessageProcessor):
                     self.node.applyReq(req, pp.ppTime)
             self.stashingWhileCatchingUp.remove(key)
 
+        self._discard_ordered_req_keys(pp)
+
+        self.send(ordered, TPCStat.OrderSent)
+        logger.debug("{} ordered request {}".format(self, key))
+        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
+        return True
+
+    def _discard_ordered_req_keys(self, pp: PrePrepare):
         for k in pp.reqIdr:
             # Using discard since the key may not be present as in case of
             # primary, the key was popped out while creating PRE-PREPARE.
             # Or in case of node catching up, it will not validate
             # PRE-PREPAREs or PREPAREs but will only validate number of COMMITs
             #  and their consistency with PRE-PREPARE of PREPAREs
-            self.requestQueues[pp.ledgerId].discard(k)
+            self.discard_req_key(pp.ledgerId, k)
 
-        self.send(ordered, TPCStat.OrderSent)
-        logger.debug("{} ordered request {}".format(self, key))
-        self.addToCheckpoint(pp.ppSeqNo, pp.digest)
-        return True
+    def discard_req_key(self, ledger_id, req_key):
+        self.requestQueues[ledger_id].discard(req_key)
 
     def processCheckpoint(self, msg: Checkpoint, sender: str) -> bool:
         """
@@ -2055,20 +2061,28 @@ class Replica(HasActionQueue, MessageProcessor):
         self._remove_ordered_from_queue(last_caught_up_3PC)
 
     def _remove_till_caught_up_3pc(self, last_caught_up_3PC):
-        outdated_pre_prepares = set()
+        """
+        Remove any 3 phase messages till the last ordered key and also remove
+        any corresponding request keys
+        """
+        outdated_pre_prepares = {}
         for key, pp in self.prePrepares.items():
-            if compare_3PC_keys(key, last_caught_up_3PC) > 0:
-                outdated_pre_prepares.add(key)
+            if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
+                outdated_pre_prepares[key] = pp
+        for key, pp in self.sentPrePrepares.items():
+            if compare_3PC_keys(key, last_caught_up_3PC) >= 0:
+                outdated_pre_prepares[key] = pp
 
         logger.debug('{} going to remove messages for {} 3PC keys'.
                      format(self, len(outdated_pre_prepares)))
 
-        for key in outdated_pre_prepares:
+        for key, pp in outdated_pre_prepares.items():
             self.batches.pop(key, None)
             self.sentPrePrepares.pop(key, None)
             self.prePrepares.pop(key, None)
             self.prepares.pop(key, None)
             self.commits.pop(key, None)
+            self._discard_ordered_req_keys(pp)
 
     def _remove_ordered_from_queue(self, last_caught_up_3PC=None):
         """
