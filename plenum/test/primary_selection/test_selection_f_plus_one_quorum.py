@@ -35,7 +35,7 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
 
     # Make nodes to perform view change
     ensure_view_change(looper, non_lagging_nodes)
-    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes)
+    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes, numInstances=2)
     ensure_all_nodes_have_same_data(looper, nodes=non_lagging_nodes)
 
     # Stop two more of active nodes
