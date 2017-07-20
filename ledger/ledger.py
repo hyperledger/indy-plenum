@@ -120,13 +120,13 @@ class Ledger(ImmutableStore):
         Add the leaf (transaction) to the log and the merkle tree.
 
         Note: Currently data is serialised same way for inserting it in the
-        log as well as the merkle tree, only difference is the tree needs
-        binary data to the textual (utf-8) representation is converted to bytes.
+        log as well as the merkle tree
         """
         # Serializing here to avoid serialisation in `_addToStore` and `_addToTree`
         serz_leaf = self.leafSerializer.serialize(leaf, toBytes=False)
         self._addToStore(serz_leaf, serialized=True)
-        merkle_info = self._addToTree(serz_leaf.encode(), serialized=True)
+        serz_leaf_for_tree = serz_leaf.encode() if isinstance(serz_leaf, str) else serz_leaf
+        merkle_info = self._addToTree(serz_leaf_for_tree, serialized=True)
         return merkle_info
 
     def _addToTree(self, leafData, serialized=False):
