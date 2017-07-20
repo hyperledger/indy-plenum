@@ -58,9 +58,9 @@ class PrimarySelector(PrimaryDecider):
         # then one of the node might not have an accepted
         # ViewChangeDone message
         messages = []
-        accpeted = self._accepted_view_change_done_message
-        if accpeted:
-            messages.append(ViewChangeDone(self.viewNo, *accpeted))
+        accepted = self._accepted_view_change_done_message
+        if accepted:
+            messages.append(ViewChangeDone(self.viewNo, *accepted))
         elif self.name in self._view_change_done:
                 messages.append(ViewChangeDone(self.viewNo,
                                                *self._view_change_done[self.name]))
