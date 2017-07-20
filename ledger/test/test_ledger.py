@@ -44,7 +44,7 @@ def ledger(tempdir):
     return ledger
 
 
-def testAddTxn(tempdir, ledger):
+def testAddTxn(ledger):
     txn1 = {
         'identifier': 'cli1',
         'reqId': 1,
@@ -70,7 +70,7 @@ def testAddTxn(tempdir, ledger):
     check_ledger_generator(ledger)
 
 
-def testQueryMerkleInfo(tempdir, ledger):
+def testQueryMerkleInfo(ledger):
     merkleInfo = {}
     for i in range(100):
         txn = {
