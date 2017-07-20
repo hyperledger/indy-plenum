@@ -107,7 +107,7 @@ clientShowCmd = Command(
 
 newKeyCmd = Command(
     id="new key",
-    title="Adds new key to active keyring",
+    title="Adds new key to active wallet",
     usage="new key [with seed <32 character seed>] [[as] <alias>]",
     examples=[
         "new key",
@@ -117,16 +117,16 @@ newKeyCmd = Command(
 
 listIdsCmd = Command(
     id="list ids",
-    title="Lists all identifiers of active keyring",
+    title="Lists all DIDs of active wallet",
     usage="list ids [with verkeys]",
     examples=["list ids", "list ids with verkeys"])
 
 useIdCmd = Command(
-    id="use identifier",
-    title="Marks given identifier active/default",
-    usage="use identifier <identifier>",
-    note="Note: To see all identifiers in active keyring, use 'list ids' command",
-    examples="use identifier 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
+    id="use DID",
+    title="Marks given DID active/default",
+    usage="use DID <identifier>",
+    note="Note: To see all DIDs in active wallet, use 'list ids' command",
+    examples="use DID 5pJcAEAQqW7B8aGSxDArGaeXvb1G1MQwwqLMLmG2fAy9")
 
 addGenesisTxnCmd = Command(
     id="add genesis transaction",
@@ -153,30 +153,30 @@ changePromptCmd = Command(
     examples="prompt Alice")
 
 newKeyringCmd = Command(
-    id="new keyring",
-    title="Creates new keyring",
-    usage="new keyring <name>",
-    examples="new keyring mykeyring")
+    id="new wallet",
+    title="Creates new wallet",
+    usage="new wallet <name>",
+    examples="new wallet mywallet")
 
 useKeyringCmd = Command(
-    id="use keyring",
-    title="Loads given keyring and marks it active/default",
-    usage="use keyring <name|absolute-wallet-file-path>",
-    examples=["use keyring mykeyring", "use keyring /home/ubuntu/.sovrin/keyrings/test/mykeyring.wallet"])
+    id="use wallet",
+    title="Loads given wallet and marks it active/default",
+    usage="use wallet <name|absolute-wallet-file-path>",
+    examples=["use wallet mywallet", "use wallet /home/ubuntu/.sovrin/keyrings/test/mywallet.wallet"])
 
 saveKeyringCmd = Command(
-    id="save keyring",
-    title="Saves active keyring",
-    usage="save keyring [<active-keyring-name>]",
-    examples=["save keyring", "save keyring mykeyring"])
+    id="save wallet",
+    title="Saves active wallet",
+    usage="save wallet [<active-keyring-name>]",
+    examples=["save wallet", "save wallet mywallet"])
 
 renameKeyringCmd = Command(
-    id="rename keyring",
-    title="Renames given keyring",
-    usage="rename keyring <old-name> to <new-name>",
-    examples="rename keyring mykeyring to yourkeyring")
+    id="rename wallet",
+    title="Renames given wallet",
+    usage="rename wallet <old-name> to <new-name>",
+    examples="rename wallet mywallet to yourwallet")
 
 listKeyringCmd = Command(
-    id="list keyrings",
-    title="Lists all keyrings",
-    usage="list keyrings")
+    id="list wallets",
+    title="Lists all wallets",
+    usage="list wallets")
