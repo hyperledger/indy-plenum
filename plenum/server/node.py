@@ -877,18 +877,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         logger.debug("{} processing current state {} from {}"
                      .format(self, msg, frm))
         self.sendToElector(msg, frm)
-        # try:
-        #     # TODO: parsing of internal messages should be done with other way
-        #     # We should consider reimplementing validation so that it can
-        #     # work with internal messages. It should not only validate them,
-        #     # but also set parsed as field values
-        #     messages = [ViewChangeDone(**message) for message in msg.primary]
-        #     for message in messages:
-        #         self.sendToElector(message, frm)
-        # except TypeError as ex:
-        #     self.discard(msg,
-        #                  reason="invalid election messages",
-        #                  logMethod=logger.warning)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -2087,9 +2075,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
-
-        if self.view_change_in_progress and self.all_instances_have_primary:
-            self.on_view_change_complete(self.viewNo)
+        if self.all_instances_have_primary:
+            # Doing this for CurrentState message
+            # This problem is faced because viewNo is set on view change start
+            view_no = self.viewNo
+            if self.primaryDecider:
+                view_no = self.primaryDecider.viewNo
+            if self.view_change_in_progress:
+                self.on_view_change_complete(view_no)
 
     @property
     def all_instances_have_primary(self):
