@@ -27,7 +27,7 @@ def test_state_regenerated_from_ledger(looper, txnPoolNodeSet,
     node_to_stop = txnPoolNodeSet[-1]
     node_state = node_to_stop.states[DOMAIN_LEDGER_ID]
     assert not node_state.isEmpty
-    state_db_path = node_state._kv._db_path
+    state_db_path = node_state._kv.db_path
     nodeHa, nodeCHa = HA(*node_to_stop.nodestack.ha), HA(*node_to_stop.clientstack.ha)
 
     node_to_stop.stop()

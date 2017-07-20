@@ -13,7 +13,8 @@ def decode_to_sorted(obj):
 class MsgPackSerializer(MappingSerializer, StreamSerializer):
 
     def serialize(self, data: Dict, fields=None, toBytes=True):
-        data = collections.OrderedDict(sorted(data.items()))
+        if isinstance(data, Dict):
+            data = collections.OrderedDict(sorted(data.items()))
         return msgpack.packb(data, use_bin_type=True)
 
     def deserialize(self, data, fields=None):

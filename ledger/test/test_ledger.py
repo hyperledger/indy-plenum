@@ -85,15 +85,18 @@ creation of Signed Tree Heads? I think I don't really understand what STHs are.)
 
 def test_recover_merkle_tree_from_txn_log_text_file(tempdir, serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_text_file_storage,
-                                                     tempdir, serializer, genesis_txn_file)
+                                           tempdir, serializer, genesis_txn_file)
+
 
 def test_recover_merkle_tree_from_txn_log_chunked_file(tempdir, serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_chunked_file_storage,
-                                                     tempdir, serializer, genesis_txn_file)
+                                           tempdir, serializer, genesis_txn_file)
+
 
 def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_leveldb_file_storage,
-                                                     tempdir, serializer, genesis_txn_file)
+                                           tempdir, serializer, genesis_txn_file)
+
 
 def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, serializer, genesis_txn_file):
     ledger = create_ledger_func(serializer, tempdir, genesis_txn_file)
@@ -126,7 +129,12 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, serializ
 def test_recover_merkle_tree_from_hash_store(tempdir):
     ledger = create_default_ledger(tempdir)
     for d in range(100):
-        ledger.add(str(d).encode())
+        txn = {
+            'identifier': 'cli' + str(d),
+            'reqId': d + 1,
+            'op': 'do something'
+        }
+        ledger.add(txn)
     ledger.stop()
     size_before = ledger.size
     tree_root_hash_before = ledger.tree.root_hash
@@ -144,8 +152,13 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
     ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), tempdir)
-    for d in range(10):
-        ledger.add({"identifier": "i{}".format(d), "reqId": d, "op": "operation"})
+    for d in range(100):
+        txn = {
+            'identifier': 'cli' + str(d),
+            'reqId': d + 1,
+            'op': 'do something'
+        }
+        ledger.add(txn)
     updatedTree = ledger.tree
     ledger.stop()
 
@@ -170,7 +183,12 @@ def test_consistency_verification_on_startup_case_1(tempdir):
     ledger = create_default_ledger(tempdir)
     tranzNum = 10
     for d in range(tranzNum):
-        ledger.add(str(d).encode())
+        txn = {
+            'identifier': 'cli' + str(d),
+            'reqId': d + 1,
+            'op': 'do something'
+        }
+        ledger.add(txn)
     ledger.stop()
 
     # Writing one more node without adding of it to leaf and transaction logs
@@ -191,10 +209,19 @@ def test_consistency_verification_on_startup_case_2(tempdir):
     ledger = create_default_ledger(tempdir)
     tranzNum = 10
     for d in range(tranzNum):
-        ledger.add(str(d).encode())
+        txn = {
+            'identifier': 'cli' + str(d),
+            'reqId': d + 1,
+            'op': 'do something'
+        }
+        ledger.add(txn)
 
     # Adding one more entry to transaction log without adding it to merkle tree
-    badData = 'X' * 32
+    badData = {
+            'identifier': 'cli' + str(d),
+            'reqId': d + 1,
+            'op': 'do something'
+        }
     value = ledger.leafSerializer.serialize(badData, toBytes=False)
     key = str(tranzNum + 1)
     ledger._transactionLog.put(key=key, value=value)
@@ -264,28 +291,28 @@ def test_add_get_txns(ledger_no_genesis):
     check_ledger_generator(ledger)
 
     for s, t in ledger.getAllTxn(frm=1, to=20):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3, to=8):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=5, to=17):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=6, to=10):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3, to=3):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(frm=3):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn(to=10):
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     for s, t in ledger.getAllTxn():
-        assert txns[s-1] == t
+        assert txns[s - 1] == t
 
     # with pytest.raises(AssertionError):
     #     list(ledger.getAllTxn(frm=3, to=1))
@@ -293,4 +320,4 @@ def test_add_get_txns(ledger_no_genesis):
     for frm, to in [(i, j) for i, j in itertools.permutations(range(1, 21),
                                                               2) if i <= j]:
         for s, t in ledger.getAllTxn(frm=frm, to=to):
-            assert txns[s-1] == t
+            assert txns[s - 1] == t
