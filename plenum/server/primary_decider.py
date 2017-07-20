@@ -29,6 +29,8 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         self.outBox = deque()
         self.inBoxRouter = Router(*self.routes)
 
+        self.strict_viewno_messages = {}
+
         # Need to keep track of who was primary for the master protocol
         # instance for previous view, this variable only matters between
         # elections, the elector will set it before doing triggering new
@@ -74,13 +76,14 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
         while wrappedMsgs:
             wrappedMsg = wrappedMsgs.popleft()
             msg, sender = wrappedMsg
-            if hasattr(msg, f.VIEW_NO.nm):
+            if hasattr(msg, f.VIEW_NO.nm) and \
+               type(msg) in self.strict_viewno_messages:
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
                 if reqViewNo == self.viewNo:
                     filtered.append(wrappedMsg)
                 else:
                     self.discard(wrappedMsg,
-                                 "its view no {} is less than the elector's {}"
+                                 "its view no {} does not match elector's {}"
                                  .format(reqViewNo, self.viewNo),
                                  logger.debug)
             else:
