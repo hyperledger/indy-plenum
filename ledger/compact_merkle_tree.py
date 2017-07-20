@@ -278,7 +278,6 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
         number of nodes are also as expected
         """
         if expected_leaf_count != self.leafCount:
-            a = self.leafCount
             raise ConsistencyVerificationFailed()
         if self.get_expected_node_count(self.leafCount) != self.nodeCount:
             raise ConsistencyVerificationFailed()

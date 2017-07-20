@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import TXN_TYPE, NODE, TARGET_NYM, DATA, ALIAS, NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, \
     SERVICES
 from plenum.common.exceptions import UnauthorizedClientRequest

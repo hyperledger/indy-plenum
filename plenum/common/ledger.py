@@ -92,7 +92,7 @@ class Ledger(_Ledger):
         # number of leaves (no. of txns)
         tempTree = copy(currentTree)
         for txn in txns:
-            tempTree.append(self.serializeLeaf(txn))
+            tempTree.append(self.serialize_for_tree(txn))
         return tempTree
 
     def reset_uncommitted(self):

@@ -1,8 +1,8 @@
+import collections
 from typing import Dict
 
-import collections
 import msgpack
-from ledger.serializers.mapping_serializer import MappingSerializer
+from common.serializers.mapping_serializer import MappingSerializer
 from storage.stream_serializer import StreamSerializer
 
 

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 import pytest
-from ledger.serializers.compact_serializer import CompactSerializer
+from common.serializers.compact_serializer import CompactSerializer
 
 fields = OrderedDict([
     ("f1", (str, str)),

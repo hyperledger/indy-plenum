@@ -39,6 +39,7 @@ def ledgerTestUbuntu = {
             testHelpers.install()
 
             echo 'Ubuntu Test: Test'
+            testHelpers.testJUnit([testDir: 'common', resFile: "test-result-common.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'ledger', resFile: "test-result-ledger.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'state', resFile: "test-result-state.${NODE_NAME}.xml"])
             testHelpers.testJUnit([testDir: 'storage', resFile: "test-result-storage.${NODE_NAME}.xml"])

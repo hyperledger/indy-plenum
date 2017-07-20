@@ -1,5 +1,5 @@
 import pytest
-from ledger.serializers.field import Field
+from common.serializers.field import Field
 
 
 def testCorrectField():

@@ -75,6 +75,10 @@ class ChunkedFileStore(KeyValueStorageFile):
         if open:
             self.open()
 
+    @property
+    def is_byte(self) -> bool:
+        return self.currentChunk.is_byte
+
     def _init_db_path(self, dbDir, dbName):
         return os.path.join(os.path.expanduser(dbDir), dbName)
 

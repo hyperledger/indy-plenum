@@ -4,8 +4,7 @@
 import base64
 from typing import Dict
 
-from ledger.serializers.mapping_serializer import MappingSerializer
-
+from common.serializers.mapping_serializer import MappingSerializer
 
 try:
     import ujson as json

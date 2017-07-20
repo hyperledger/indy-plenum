@@ -1,4 +1,4 @@
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.json_serializer import JsonSerializer
 
 
 def testJsonSerializer():

@@ -1,10 +1,6 @@
 import pytest
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
-from ledger.test.test_file_hash_store import nodesLeaves, \
-    generateHashes
-
 from plenum.persistence.leveldb_hash_store import LevelDbHashStore
 
 

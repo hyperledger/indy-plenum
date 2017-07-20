@@ -1,7 +1,7 @@
 from abc import abstractmethod, abstractproperty
 from typing import Any, Sequence
 
-from ledger.ledger import Ledger
+from common.serializers.serialization import ledger_txn_serializer
 from plenum.common.request import Request
 
 
@@ -73,4 +73,4 @@ class ClientReqRepStore:
     # noinspection PyAttributeOutsideInit
     @property
     def txnSerializer(self):
-        return Ledger.default_serializer()
+        return ledger_txn_serializer

@@ -1,6 +1,5 @@
-import pytest
 import base58
-
+import pytest
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.ledger import Ledger
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NAME, ALIAS, SERVICES, VALIDATOR

@@ -1,6 +1,6 @@
 import json
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.json_serializer import JsonSerializer
 from ledger.util import F
 from plenum.common.constants import TXN_TYPE, NYM, ROLE, STEWARD, TARGET_NYM, VERKEY
 from plenum.common.exceptions import UnauthorizedClientRequest

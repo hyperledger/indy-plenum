@@ -6,9 +6,9 @@ from binascii import hexlify
 from collections import OrderedDict
 
 import pytest
+from common.serializers.compact_serializer import CompactSerializer
+from common.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.serializers.compact_serializer import CompactSerializer
-from ledger.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.test.conftest import orderedFields
 from ledger.test.helper import NoTransactionRecoveryLedger, \
     check_ledger_generator, create_ledger_text_file_storage, create_ledger_chunked_file_storage, \
@@ -83,23 +83,23 @@ creation of Signed Tree Heads? I think I don't really understand what STHs are.)
 """
 
 
-def test_recover_merkle_tree_from_txn_log_text_file(tempdir, serializer, genesis_txn_file):
+def test_recover_merkle_tree_from_txn_log_text_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_text_file_storage,
-                                           tempdir, serializer, genesis_txn_file)
+                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
 
 
-def test_recover_merkle_tree_from_txn_log_chunked_file(tempdir, serializer, genesis_txn_file):
+def test_recover_merkle_tree_from_txn_log_chunked_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_chunked_file_storage,
-                                           tempdir, serializer, genesis_txn_file)
+                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
 
 
-def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, serializer, genesis_txn_file):
+def test_recover_merkle_tree_from_txn_log_leveldb_file(tempdir, txn_serializer, hash_serializer, genesis_txn_file):
     check_recover_merkle_tree_from_txn_log(create_ledger_leveldb_file_storage,
-                                           tempdir, serializer, genesis_txn_file)
+                                           tempdir, txn_serializer, hash_serializer, genesis_txn_file)
 
 
-def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, serializer, genesis_txn_file):
-    ledger = create_ledger_func(serializer, tempdir, genesis_txn_file)
+def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, txn_serializer, hash_serializer, genesis_txn_file):
+    ledger = create_ledger_func(txn_serializer, hash_serializer, tempdir, genesis_txn_file)
     for d in range(100):
         txn = {
             'identifier': 'cli' + str(d),
@@ -117,7 +117,7 @@ def check_recover_merkle_tree_from_txn_log(create_ledger_func, tempdir, serializ
     root_hash_before = ledger.root_hash
     hashes_before = ledger.tree.hashes
 
-    restartedLedger = create_ledger_func(serializer, tempdir, genesis_txn_file)
+    restartedLedger = create_ledger_func(txn_serializer, hash_serializer, tempdir, genesis_txn_file)
 
     assert size_before == restartedLedger.size
     assert root_hash_before == restartedLedger.root_hash
@@ -151,7 +151,7 @@ def test_recover_merkle_tree_from_hash_store(tempdir):
 
 
 def test_recover_ledger_new_fields_to_txns_added(tempdir):
-    ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), tempdir)
+    ledger = create_ledger_text_file_storage(CompactSerializer(orderedFields), None, tempdir)
     for d in range(100):
         txn = {
             'identifier': 'cli' + str(d),
@@ -168,7 +168,7 @@ def test_recover_ledger_new_fields_to_txns_added(tempdir):
         ("op", (str, str)),
         ("newField", (str, str))
     ])
-    restartedLedger = create_ledger_text_file_storage(CompactSerializer(newOrderedFields), tempdir)
+    restartedLedger = create_ledger_text_file_storage(CompactSerializer(newOrderedFields), None, tempdir)
 
     assert restartedLedger.size == ledger.size
     assert restartedLedger.root_hash == ledger.root_hash
@@ -222,7 +222,7 @@ def test_consistency_verification_on_startup_case_2(tempdir):
             'reqId': d + 1,
             'op': 'do something'
         }
-    value = ledger.leafSerializer.serialize(badData, toBytes=False)
+    value = ledger.serialize_for_txn_log(badData)
     key = str(tranzNum + 1)
     ledger._transactionLog.put(key=key, value=value)
 
@@ -235,8 +235,8 @@ def test_consistency_verification_on_startup_case_2(tempdir):
     ledger.stop()
 
 
-def test_start_ledger_without_new_line_appended_to_last_record(tempdir, serializer):
-    if isinstance(serializer, MsgPackSerializer):
+def test_start_ledger_without_new_line_appended_to_last_record(tempdir, txn_serializer):
+    if isinstance(txn_serializer, MsgPackSerializer):
         # MsgPack is a binary one, not compatible with TextFileStorage
         return
 
@@ -245,7 +245,7 @@ def test_start_ledger_without_new_line_appended_to_last_record(tempdir, serializ
                           isLineNoKey=True,
                           storeContentHash=False,
                           ensureDurability=False)
-    ledger = create_ledger_text_file_storage(serializer, tempdir)
+    ledger = create_ledger_text_file_storage(txn_serializer, None, tempdir)
 
     txnStr = '{"data":{"alias":"Node1","client_ip":"127.0.0.1","client_port":9702,"node_ip":"127.0.0.1",' \
              '"node_port":9701,"services":["VALIDATOR"]},"dest":"Gw6pDLhcBcoQesN72qfotTgFa7cbuqZpkX3Xo6pLhPhv",' \

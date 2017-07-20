@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from typing import Dict
 
-from ledger.serializers.mapping_serializer import MappingSerializer
+from common.serializers.mapping_serializer import MappingSerializer
 
 
 class CompactSerializer(MappingSerializer):

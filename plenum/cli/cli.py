@@ -2,17 +2,14 @@ from __future__ import unicode_literals
 
 import glob
 import shutil
-from hashlib import sha256
 from os.path import basename, dirname
 from typing import Dict, Iterable
 
 from jsonpickle import json
-
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
-from ledger.ledger import Ledger
 from ledger.hash_stores.file_hash_store import FileHashStore
-from plenum import config
+from ledger.ledger import Ledger
 from plenum.cli.command import helpCmd, statusNodeCmd, statusClientCmd, \
     loadPluginsCmd, clientSendCmd, clientShowCmd, newKeyCmd, \
     newKeyringCmd, renameKeyringCmd, useKeyringCmd, saveKeyringCmd, \
@@ -28,21 +25,20 @@ from plenum.cli.helper import getUtilGrams, getNodeGrams, getClientGrams, \
     getAllGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.client.wallet import Wallet, WalletStorageHelper
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
+    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
+    CLIENT_STACK_SUFFIX
 from plenum.common.exceptions import NameAlreadyExists, KeysNotFoundException
 from plenum.common.keygen_utils import learnKeysFromOthers, tellKeysToOthers, areKeysSetup
 from plenum.common.plugin_helper import loadPlugins
 from plenum.common.signer_did import DidSigner
-from stp_core.crypto.util import cleanSeed, seedFromHex
-from stp_raet.util import getLocalEstateData
-from plenum.common.signer_simple import SimpleSigner
 from plenum.common.stack_manager import TxnStackManager
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, IDENTIFIER, \
-    NODE, ALIAS, NODE_IP, NODE_PORT, CLIENT_PORT, CLIENT_IP, VERKEY, BY, \
-    CLIENT_STACK_SUFFIX
 from plenum.common.transactions import PlenumTransactions
 from prompt_toolkit.utils import is_windows, is_conemu_ansi
+from stp_core.crypto.util import cleanSeed, seedFromHex
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
+from stp_raet.util import getLocalEstateData
 
 if is_windows():
     from prompt_toolkit.terminal.win32_output import Win32Output
@@ -61,7 +57,6 @@ from functools import reduce, partial
 import sys
 
 from prompt_toolkit.history import FileHistory
-from ioflo.aid.consoling import Console
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
@@ -80,7 +75,7 @@ from plenum.common.util import getMaxFailures, \
     normalizedWalletFileName, getWalletFilePath, \
     getLastSavedWalletFileName
 from stp_core.common.log import \
-    getlogger, Logger, getRAETLogFilePath, getRAETLogLevelFromConfig
+    getlogger, Logger
 from plenum.server.node import Node
 from plenum.common.types import NodeDetail
 from plenum.server.plugin_loader import PluginLoader

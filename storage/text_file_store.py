@@ -23,6 +23,10 @@ class TextFileStore(SingleFileStore):
                          ensureDurability=ensureDurability,
                          open=open)
 
+    @property
+    def is_byte(self) -> bool:
+        return False
+
     def _init_db_path(self, dbDir, dbName):
         return os.path.join(os.path.expanduser(dbDir), dbName)
 

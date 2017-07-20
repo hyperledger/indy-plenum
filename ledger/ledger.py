@@ -2,25 +2,19 @@ import base64
 import logging
 import time
 
+from common.serializers.mapping_serializer import MappingSerializer
+from common.serializers.serialization import ledger_txn_serializer, ledger_hash_serializer
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
 from ledger.immutable_store import ImmutableStore
 from ledger.merkle_tree import MerkleTree
-from ledger.serializers.mapping_serializer import MappingSerializer
-from ledger.serializers.msgpack_serializer import MsgPackSerializer
 from ledger.tree_hasher import TreeHasher
 from ledger.util import F, ConsistencyVerificationFailed
 from storage.kv_store import KeyValueStorage
-from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 
 
 class Ledger(ImmutableStore):
-
-    @staticmethod
-    def default_serializer() -> MappingSerializer:
-        return MsgPackSerializer()
-
     @staticmethod
     def _defaultStore(dataDir,
                       logName,
@@ -31,11 +25,12 @@ class Ledger(ImmutableStore):
     def __init__(self,
                  tree: MerkleTree,
                  dataDir: str,
-                 serializer: MappingSerializer=None,
-                 fileName: str=None,
-                 ensureDurability: bool=True,
-                 transactionLogStore: KeyValueStorage=None,
-                 genesis_txn_initiator: GenesisTxnInitiator=None):
+                 txn_serializer: MappingSerializer = None,
+                 hash_serializer: MappingSerializer = None,
+                 fileName: str = None,
+                 ensureDurability: bool = True,
+                 transactionLogStore: KeyValueStorage = None,
+                 genesis_txn_initiator: GenesisTxnInitiator = None):
         """
         :param tree: an implementation of MerkleTree
         :param dataDir: the directory where the transaction log is stored
@@ -49,7 +44,8 @@ class Ledger(ImmutableStore):
 
         self.dataDir = dataDir
         self.tree = tree
-        self.leafSerializer = serializer or Ledger.default_serializer() # type: MappingSerializer
+        self.txn_serializer = txn_serializer or ledger_txn_serializer  # type: MappingSerializer
+        self.hash_serializer = hash_serializer or ledger_hash_serializer  # type: MappingSerializer
         self.hasher = TreeHasher()
         self._transactionLog = None  # type: KeyValueStorage
         self._transactionLogName = fileName or "transactions"
@@ -97,14 +93,10 @@ class Ledger(ImmutableStore):
         # This must be fixed!
         self.tree.hashStore.reset()
         for key, entry in self._transactionLog.iterator():
-            # if isinstance(key, bytearray):
-            #     key = bytes(key)
-            # if isinstance(entry, bytearray):
-            #     entry = bytes(entry)
+            if self.txn_serializer != self.hash_serializer:
+                entry = self.serialize_for_tree(self.txn_serializer.deserialize(entry))
             if isinstance(entry, str):
                 entry = entry.encode()
-            if not isinstance(entry, (bytearray, bytes)):
-                entry = self.serializeLeaf(entry)
             self._addToTreeSerialized(entry)
 
     def recoverTreeFromHashStore(self):
@@ -123,21 +115,22 @@ class Ledger(ImmutableStore):
         log as well as the merkle tree
         """
         # Serializing here to avoid serialisation in `_addToStore` and `_addToTree`
-        serz_leaf = self.leafSerializer.serialize(leaf, toBytes=False)
+        serz_leaf = self.serialize_for_txn_log(leaf)
         self._addToStore(serz_leaf, serialized=True)
-        serz_leaf_for_tree = serz_leaf.encode() if isinstance(serz_leaf, str) else serz_leaf
+
+        serz_leaf_for_tree = self.serialize_for_tree(leaf)
         merkle_info = self._addToTree(serz_leaf_for_tree, serialized=True)
+
         return merkle_info
 
     def _addToTree(self, leafData, serialized=False):
-        serializedLeafData = self.serializeLeaf(leafData) if \
+        serializedLeafData = self.serialize_for_tree(leafData) if \
             not serialized else leafData
         return self._addToTreeSerialized(serializedLeafData)
 
     def _addToStore(self, data, serialized=False):
         key = str(self.seqNo + 1)
-        value = self.leafSerializer.serialize(data, toBytes=False) if \
-            not serialized else data
+        value = self.serialize_for_txn_log(data) if not serialized else data
         self._transactionLog.put(key=key, value=value)
 
     def _addToTreeSerialized(self, serializedLeafData):
@@ -155,9 +148,10 @@ class Ledger(ImmutableStore):
     def append(self, txn):
         return self.add(txn)
 
+    # TODO: add tests for this
     def get(self, **kwargs):
         for seqNo, value in self._transactionLog.iterator():
-            data = self.leafSerializer.deserialize(value)
+            data = self.txn_serializer.deserialize(value)
             # If `kwargs` is a subset of `data`
             if set(kwargs.values()) == {data.get(k) for k in kwargs.keys()}:
                 data[F.seqNo.name] = int(seqNo)
@@ -167,7 +161,7 @@ class Ledger(ImmutableStore):
         key = str(seqNo)
         value = self._transactionLog.get(key)
         if value:
-            data = self.leafSerializer.deserialize(value)
+            data = self.txn_serializer.deserialize(value)
             data[F.seqNo.name] = int(seqNo)
             return data
         else:
@@ -176,8 +170,11 @@ class Ledger(ImmutableStore):
     def __getitem__(self, seqNo):
         return self.getBySeqNo(seqNo)
 
-    def serializeLeaf(self, leafData):
-        return self.leafSerializer.serialize(leafData)
+    def serialize_for_txn_log(self, leafData):
+        return self.txn_serializer.serialize(leafData, toBytes=self._transactionLog.is_byte)
+
+    def serialize_for_tree(self, leafData):
+        return self.hash_serializer.serialize(leafData, toBytes=True)
 
     @property
     def size(self) -> int:
@@ -194,7 +191,7 @@ class Ledger(ImmutableStore):
         seqNo = int(seqNo)
         assert seqNo > 0
         rootHash = self.tree.merkle_tree_hash(0, seqNo)
-        auditPath = self.tree.inclusion_proof(seqNo-1, seqNo)
+        auditPath = self.tree.inclusion_proof(seqNo - 1, seqNo)
         return {
             F.rootHash.name: self.hashToStr(rootHash),
             F.auditPath.name: [self.hashToStr(h) for h in auditPath]
@@ -221,8 +218,8 @@ class Ledger(ImmutableStore):
         # THIS IS A DESTRUCTIVE ACTION
         self._transactionLog.reset()
 
-    def getAllTxn(self, frm: int=None, to: int=None):
-        yield from ((int(seq_no), self.leafSerializer.deserialize(txn))
+    def getAllTxn(self, frm: int = None, to: int = None):
+        yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
                     for seq_no, txn in self._transactionLog.iterator(start=frm, end=to))
 
     @staticmethod

@@ -44,6 +44,11 @@ class KeyValueStorage(metaclass=ABCMeta):
     def closed(self):
         pass
 
+    @abstractproperty
+    def is_byte(self) -> bool:
+        pass
+
+
     @property
     def size(self):
         c = 0

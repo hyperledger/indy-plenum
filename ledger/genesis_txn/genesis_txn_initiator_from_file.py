@@ -1,10 +1,10 @@
 import logging
 import os
 
+from common.serializers.json_serializer import JsonSerializer
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.genesis_txn.genesis_txn_initiator import GenesisTxnInitiator
 from ledger.ledger import Ledger
-from ledger.serializers.json_serializer import JsonSerializer
 from storage import store_utils
 from storage.text_file_store import TextFileStore
 
@@ -40,6 +40,6 @@ class GenesisTxnInitiatorFromFile(GenesisTxnInitiator):
                               ensureDurability=False)
         return Ledger(CompactMerkleTree(),
                         dataDir=self.__data_dir,
-                        serializer=self.__serializer,
+                        txn_serializer=self.__serializer,
                         fileName=self.__db_name,
                         transactionLogStore=store)

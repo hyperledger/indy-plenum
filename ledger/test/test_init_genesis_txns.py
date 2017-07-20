@@ -1,6 +1,6 @@
 import os
 
-from ledger.serializers.json_serializer import JsonSerializer
+from common.serializers.json_serializer import JsonSerializer
 from ledger.test.helper import create_default_ledger
 from ledger.util import F
 from storage import store_utils

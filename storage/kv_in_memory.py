@@ -70,10 +70,13 @@ class KeyValueStorageInMemory(KeyValueStorage):
             return self._dict.keys()
         if include_value:
             if start or end:
-                return (v for k,v in self._dict.items() if filter(k, start, end))
+                return (v for k, v in self._dict.items() if filter(k, start, end))
             return self._dict.values()
 
     def closed(self):
+        return False
+
+    def is_byte(self):
         return False
 
     def __eq__(self, other):

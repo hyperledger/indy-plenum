@@ -25,6 +25,10 @@ class BinaryFileStore(SingleFileStore):
                          ensureDurability=ensureDurability,
                          open=open)
 
+    @property
+    def is_byte(self) -> bool:
+        return True
+
     @staticmethod
     def _isBytes(arg):
         return isinstance(arg, (bytes, bytearray))
