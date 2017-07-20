@@ -81,7 +81,7 @@ class SigningSerializer:
         else:
             res = str(obj)
 
-        logger.trace("serialized msg {} into {}".format(obj, res))
+        # logger.trace("serialized msg {} into {}".format(obj, res))
 
         if not toBytes:
             return res

@@ -30,8 +30,12 @@ nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
 walletDir = 'wallet'
 
-poolTransactionsFile = 'pool_transactions_sandbox'
-domainTransactionsFile = 'transactions_sandbox'
+poolTransactionsFile = 'pool_transactions'
+domainTransactionsFile = 'domain_transactions'
+
+poolTransactionsFileGenesis = 'pool_transactions_genesis'
+domainTransactionsFileGenesis = 'domain_transactions_genesis'
+
 
 poolStateDbName = 'pool_state'
 domainStateDbName = 'domain_state'

@@ -19,7 +19,7 @@ from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
-from plenum.config import poolTransactionsFile, domainTransactionsFile
+from plenum.config import poolTransactionsFileGenesis, domainTransactionsFileGenesis
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -782,11 +782,11 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFile),
-                 os.path.join(dirName, tconf.poolTransactionsFile))
+        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFileGenesis),
+                 os.path.join(dirName, tconf.poolTransactionsFileGenesis))
     if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
-                 os.path.join(dirName, tconf.domainTransactionsFile))
+        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFileGenesis),
+                 os.path.join(dirName, tconf.domainTransactionsFileGenesis))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):

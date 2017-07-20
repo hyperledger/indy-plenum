@@ -1490,7 +1490,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
-                                         serialize_msg_for_signing(state.digests).encode()
+                                         serialize_msg_for_signing(state.digests)
                                      ).hexdigest(),
                                      digests=[])
             self.checkpoints[s, e] = state

@@ -125,28 +125,8 @@ class Cli:
         Logger().enableCliLogging(self.out,
                                   override_tags=override_tags)
         self.looper = looper
-        self.nodeRegLoadedFromFile = False
-        if not (useNodeReg and nodeReg and len(nodeReg) and cliNodeReg
-                and len(cliNodeReg)):
-            self.nodeRegLoadedFromFile = True
-            dataDir = self.basedirpath
-            fileHashStore = FileHashStore(dataDir=dataDir)
-            ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
-                dataDir=dataDir,
-                fileName=self.config.poolTransactionsFile)
-            nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
-                ledger)
-            ledger.stop()
-            fileHashStore.close()
-
         self.withNode = withNode
-        self.nodeReg = nodeReg
-        self.cliNodeReg = cliNodeReg
-        self.nodeRegistry = {}
-        for nStkNm, nha in self.nodeReg.items():
-            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
-            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
-                                                   HA(*self.cliNodeReg[cStkNm]))
+        self.__init_registry(useNodeReg, nodeReg, cliNodeReg)
         # Used to store created clients
         self.clients = {}  # clientName -> Client
         # To store the created requests
@@ -280,6 +260,45 @@ class Cli:
         self.restoreLastActiveWallet()
 
         self.checkIfCmdHandlerAndCmdMappingExists()
+
+
+    def __init_registry(self, useNodeReg=False, nodeReg=None, cliNodeReg=None):
+        self.nodeRegLoadedFromFile = False
+        if not (useNodeReg and nodeReg and len(nodeReg)
+                and cliNodeReg and len(cliNodeReg)):
+            self.__init_registry_from_ledger()
+        else:
+            self.nodeReg = nodeReg
+            self.cliNodeReg = cliNodeReg
+
+        self.nodeRegistry = {}
+        for nStkNm, nha in self.nodeReg.items():
+            cStkNm = nStkNm + CLIENT_STACK_SUFFIX
+            self.nodeRegistry[nStkNm] = NodeDetail(HA(*nha), cStkNm,
+                                                   HA(*self.cliNodeReg[cStkNm]))
+
+    def __init_registry_from_ledger(self):
+        self.nodeRegLoadedFromFile = True
+        dataDir = self.basedirpath
+        fileHashStore = FileHashStore(dataDir=dataDir)
+
+        genesis_txn_initiator = GenesisTxnInitiatorFromFile(dataDir, self.config.poolTransactionsFileGenesis)
+        defaultTxnFile = os.path.join(dataDir,
+                                      self.config.poolTransactionsFileGenesis)
+        if not os.path.exists(defaultTxnFile):
+            genesis_txn_initiator = None
+
+        ledger = Ledger(CompactMerkleTree(hashStore=fileHashStore),
+                        dataDir=dataDir,
+                        fileName=self.config.poolTransactionsFile,
+                        genesis_txn_initiator=genesis_txn_initiator)
+        nodeReg, cliNodeReg, _ = TxnStackManager.parseLedgerForHaAndKeys(
+            ledger)
+        ledger.stop()
+        fileHashStore.close()
+
+        self.nodeReg = nodeReg
+        self.cliNodeReg = cliNodeReg
 
     def close(self):
         """
@@ -484,13 +503,13 @@ class Cli:
 
     def _createGenTxnFileAction(self, matchedVars):
         if matchedVars.get('create_gen_txn_file'):
-            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFile)
+            initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.config.poolTransactionsFileGenesis)
             ledger = initiator.create_initiator_ledger()
             ledger.reset()
             for item in self.genesisTransactions:
                 ledger.add(item)
             self.print('Genesis transaction file created at {} '
-                       .format(ledger._transactionLog.dbPath))
+                       .format(ledger._transactionLog.db_path))
             ledger.stop()
             return True
 

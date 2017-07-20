@@ -153,6 +153,10 @@ class TxnPoolManager(PoolManager, TxnStackManager):
     def ledgerFile(self):
         return self.config.poolTransactionsFile
 
+    @property
+    def ledgerGenesisFile(self)-> str:
+        return self.config.poolTransactionsFileGenesis
+
     def getStackParamsAndNodeReg(self, name, basedirpath, nodeRegistry=None,
                                  ha=None, cliname=None, cliha=None):
         nodeReg, cliNodeReg, nodeKeys = self.parseLedgerForHaAndKeys(self.ledger)

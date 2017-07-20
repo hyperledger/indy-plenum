@@ -490,9 +490,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if self.config.primaryStorage is None:
             genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.config.baseDir,
-                                                                self.config.domainTransactionsFile)
+                                                                self.config.domainTransactionsFileGenesis)
             defaultTxnFile = os.path.join(self.config.baseDir,
-                                       self.config.domainTransactionsFile)
+                                       self.config.domainTransactionsFileGenesis)
             if not os.path.exists(defaultTxnFile):
                 logger.debug("Not using default initialization file for "
                              "domain ledger, since it does not exist: {}"

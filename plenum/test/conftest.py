@@ -585,7 +585,7 @@ def tdirWithPoolTxns(poolTxnData, tdir, tconf):
     logging.debug("current user when creating new pool txn file: {}".
                   format(getpass.getuser()))
 
-    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.poolTransactionsFile)
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.poolTransactionsFileGenesis)
     ledger = initiator.create_initiator_ledger()
 
     for item in poolTxnData["txns"]:
@@ -602,7 +602,7 @@ def domainTxnOrderedFields():
 
 @pytest.fixture(scope="module")
 def tdirWithDomainTxns(poolTxnData, tdir, tconf, domainTxnOrderedFields):
-    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.domainTransactionsFile)
+    initiator = GenesisTxnInitiatorFromFile(tdir, tconf.domainTransactionsFileGenesis)
     ledger = initiator.create_initiator_ledger()
 
     for item in poolTxnData["txns"]:

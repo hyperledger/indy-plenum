@@ -1,6 +1,6 @@
 import os
 import shutil
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
 from typing import List
 
@@ -21,7 +21,7 @@ from plenum.common.ledger import Ledger
 logger = getlogger()
 
 
-class TxnStackManager:
+class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
@@ -43,13 +43,18 @@ class TxnStackManager:
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def ledgerGenesisFile(self)-> str:
+        raise NotImplementedError
+
     # noinspection PyTypeChecker
     @property
     def ledger(self):
         if self._ledger is None:
-            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerFile)
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerGenesisFile)
             defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.ledgerFile)
+                                          self.ledgerGenesisFile)
             if not os.path.exists(defaultTxnFile):
                 logger.debug("Not using default initialization file for "
                              "pool ledger, since it does not exist: {}"
