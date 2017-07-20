@@ -24,8 +24,6 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
     all_nodes = list(nodeSet)
     alpha, beta, delta, gamma = all_nodes
 
-    print_debug("1", all_nodes)
-
     # Make one node lagging by switching it off for some time
     lagging_node = gamma
     non_lagging_nodes = [alpha, beta, delta]
@@ -35,14 +33,10 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
                                             stopNode=True)
     looper.removeProdable(lagging_node)
 
-    print_debug("2", all_nodes)
-
     # Make nodes to perform view change
     ensure_view_change(looper, non_lagging_nodes)
-    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes, numInstances=2)
+    ensureElectionsDone(looper=looper, nodes=non_lagging_nodes)
     ensure_all_nodes_have_same_data(looper, nodes=non_lagging_nodes)
-
-    print_debug("3", all_nodes)
 
     # Stop two more of active nodes
     # (but not primary, which is Beta (because of round robin selection))
@@ -50,21 +44,11 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
     stopNodes(stopped_nodes, looper)
     looper.removeProdable(*stopped_nodes)
 
-    print_debug("4", all_nodes)
-
     # Start lagging node back
     active_nodes = [beta, delta, lagging_node]
     looper.add(lagging_node)
-    print("\r\nSTARTING\r\n", lagging_node)
     reconnect_node_and_ensure_connected(looper, active_nodes, lagging_node)
     looper.runFor(5)
 
-    print_debug("5", all_nodes)
-
     # Check that primary selected
-    ensureElectionsDone(looper=looper, nodes=active_nodes)
-
-
-def print_debug(identifier, all_nodes):
-    data = [node.viewNo for node in all_nodes]
-    print("=========== {}: {}".format(identifier, data))
+    ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2)
