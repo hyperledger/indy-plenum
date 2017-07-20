@@ -1250,7 +1250,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param frm: the name of the node which sent this `msg`
         """
         if isinstance(msg, ViewChangeDone) and \
-           self.msgHasAcceptableInstId(msg, frm) and \
            self.msgHasAcceptableViewNo(msg, frm):
                 logger.debug("{} sending message to elector: {}"
                              .format(self, (msg, frm)))
