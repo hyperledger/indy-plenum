@@ -19,7 +19,7 @@ from plenum.common.request import Request
 from plenum.common.util import getMaxFailures, \
     checkIfMoreThanFSameItems, getNoInstances, get_utc_epoch
 from plenum.common.messages.node_messages import *
-from plenum.config import poolTransactionsFile, domainTransactionsFile
+from plenum.config import poolTransactionsFileGenesis, domainTransactionsFileGenesis
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.msgs import randomMsg
@@ -747,8 +747,8 @@ def checkStateEquality(state1, state2):
 def check_seqno_db_equality(db1, db2):
     assert db1.size == db2.size,\
         "{} != {}".format(db1.size, db2.size)
-    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iter()} == \
-           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iter()}
+    assert {bytes(k): bytes(v) for k, v in db1._keyValueStorage.iterator()} == \
+           {bytes(k): bytes(v) for k, v in db2._keyValueStorage.iterator()}
 
 
 def check_last_ordered_3pc(node1, node2):
@@ -782,11 +782,11 @@ def initDirWithGenesisTxns(dirName, tconf, tdirWithPoolTxns=None,
                            tdirWithDomainTxns=None):
     os.makedirs(dirName, exist_ok=True)
     if tdirWithPoolTxns:
-        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFile),
-                 os.path.join(dirName, tconf.poolTransactionsFile))
+        copyfile(os.path.join(tdirWithPoolTxns, poolTransactionsFileGenesis),
+                 os.path.join(dirName, tconf.poolTransactionsFileGenesis))
     if tdirWithDomainTxns:
-        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFile),
-                 os.path.join(dirName, tconf.domainTransactionsFile))
+        copyfile(os.path.join(tdirWithDomainTxns, domainTransactionsFileGenesis),
+                 os.path.join(dirName, tconf.domainTransactionsFileGenesis))
 
 
 def stopNodes(nodes: List[TestNode], looper=None, ensurePortsFreedUp=True):

@@ -3,12 +3,10 @@ import ipaddress
 import os
 from collections import namedtuple
 
-from ledger.ledger import Ledger
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 
-from ledger.serializers.compact_serializer import CompactSerializer
 from stp_core.crypto.nacl_wrappers import Signer
 
-from ledger.compact_merkle_tree import CompactMerkleTree
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 
@@ -118,8 +116,8 @@ class TestNetworkSetup:
     @classmethod
     def init_pool_ledger(cls, appendToLedgers, baseDir, config, envName):
         poolTxnFile = cls.pool_ledger_file_name(config, envName)
-        pool_ledger = Ledger(CompactMerkleTree(), dataDir=baseDir,
-                             fileName=poolTxnFile)
+        initiator = GenesisTxnInitiatorFromFile(baseDir, poolTxnFile)
+        pool_ledger = initiator.create_initiator_ledger()
         if not appendToLedgers:
             pool_ledger.reset()
         return pool_ledger
@@ -128,9 +126,8 @@ class TestNetworkSetup:
     def init_domain_ledger(cls, appendToLedgers, baseDir, config, envName,
                            domainTxnFieldOrder):
         domainTxnFile = cls.domain_ledger_file_name(config, envName)
-        ser = CompactSerializer(fields=domainTxnFieldOrder)
-        domain_ledger = Ledger(CompactMerkleTree(), serializer=ser,
-                               dataDir=baseDir, fileName=domainTxnFile)
+        initiator = GenesisTxnInitiatorFromFile(baseDir, domainTxnFile)
+        domain_ledger = initiator.create_initiator_ledger()
         if not appendToLedgers:
             domain_ledger.reset()
         return domain_ledger

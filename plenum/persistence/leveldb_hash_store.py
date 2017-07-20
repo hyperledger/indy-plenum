@@ -1,7 +1,7 @@
 import os
 
-from ledger.stores.hash_store import HashStore
-from state.kv.kv_store_leveldb import KeyValueStorageLeveldb
+from ledger.hash_stores.hash_store import HashStore
+from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from stp_core.common.log import getlogger
 
 
@@ -11,8 +11,6 @@ logger = getlogger()
 class LevelDbHashStore(HashStore):
     def __init__(self, dataDir):
         self.dataDir = dataDir
-        self.nodesDbPath = os.path.join(self.dataDir, '_merkleNodes')
-        self.leavesDbPath = os.path.join(self.dataDir, '_merkleLeaves')
         self.nodesDb = None
         self.leavesDb = None
         self.open()
@@ -76,22 +74,15 @@ class LevelDbHashStore(HashStore):
         return self.nodesDb is None and self.leavesDb is None
 
     def open(self):
-        self.nodesDb = KeyValueStorageLeveldb(self.nodesDbPath)
-        self.leavesDb = KeyValueStorageLeveldb(self.leavesDbPath)
+        self.nodesDb = KeyValueStorageLeveldb(self.dataDir, '_merkleNodes')
+        self.leavesDb = KeyValueStorageLeveldb(self.dataDir, '_merkleLeaves')
 
     def close(self):
         self.nodesDb.close()
         self.leavesDb.close()
 
     def reset(self) -> bool:
-        self.nodesDb.close()
-        self.nodesDb.drop()
-        self.nodesDb.open()
-
-        self.leavesDb.close()
-        self.leavesDb.drop()
-        self.leavesDb.open()
-
+        self.nodesDb.reset()
+        self.leavesDb.reset()
         self.leafCount = 0
-
         return True

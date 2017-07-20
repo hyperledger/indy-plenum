@@ -1,30 +1,28 @@
 import time
 from collections import deque, OrderedDict
+from hashlib import sha256
 from typing import Dict, List, Union
 from typing import Optional, Any
 from typing import Set
 from typing import Tuple
-from hashlib import sha256
-
-from orderedset import OrderedSet
-from sortedcontainers import SortedList
 
 import plenum.server.node
+from common.serializers.serialization import serialize_msg_for_signing
+from orderedset import OrderedSet
 from plenum.common.config_util import getConfig
 from plenum.common.exceptions import SuspiciousNode, \
     InvalidClientMessageException, UnknownIdentifier
-from plenum.common.signing import serialize
+from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.node_messages import *
 from plenum.common.request import ReqDigest, Request, ReqKey
-from plenum.common.message_processor import MessageProcessor
 from plenum.common.util import updateNamedTuple, compare_3PC_keys, max_3PC_key, \
     mostCommonElement, SortedDict
-from stp_core.common.log import getlogger
 from plenum.server.has_action_queue import HasActionQueue
 from plenum.server.models import Commits, Prepares
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
-
+from sortedcontainers import SortedList
+from stp_core.common.log import getlogger
 
 logger = getlogger()
 
@@ -150,7 +148,7 @@ class Replica(HasActionQueue, MessageProcessor):
         self.prePreparesPendingPrevPP = SortedDict(lambda k: (k[0], k[1]))
 
         # PREPAREs that are stored by non primary replica for which it has not
-        #  got any PRE-PREPARE. Dictionary that stores a tuple of view no and
+        #  got any PRE-PREPARE. Dictionary that hash_stores a tuple of view no and
         #  prepare sequence number as key and a deque of PREPAREs as value.
         # This deque is attempted to be flushed on receiving every
         # PRE-PREPARE request.
@@ -1492,7 +1490,7 @@ class Replica(HasActionQueue, MessageProcessor):
             # 2. choose another name
             state = updateNamedTuple(state,
                                      digest=sha256(
-                                         serialize(state.digests).encode()
+                                         serialize_msg_for_signing(state.digests)
                                      ).hexdigest(),
                                      digests=[])
             self.checkpoints[s, e] = state

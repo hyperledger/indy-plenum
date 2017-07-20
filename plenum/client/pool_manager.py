@@ -145,6 +145,11 @@ class HasPoolManager(TxnStackManager):
             self._ledgerFile = self.config.poolTransactionsFile
         return self._ledgerFile
 
+    # noinspection PyUnresolvedReferences
+    @property
+    def ledgerGenesisFile(self):
+        return self.config.poolTransactionsFileGenesis
+
     def addToLedger(self, txn):
         logger.debug("{} adding txn {} to pool ledger".format(self, txn))
         self.ledger.append(txn)

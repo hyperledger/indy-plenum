@@ -1,9 +1,8 @@
+from abc import abstractmethod
 from typing import Dict
 
-from abc import abstractmethod
-
 from base58 import b58decode, b58encode
-from plenum.common.signing import serializeMsg
+from common.serializers.serialization import serialize_msg_for_signing
 from plenum.common.exceptions import InvalidKey
 from stp_core.crypto.nacl_wrappers import Verifier as NaclVerifier
 
@@ -14,7 +13,7 @@ class Verifier:
         pass
 
     def verifyMsg(self, sig, msg: Dict):
-        ser = serializeMsg(msg)
+        ser = serialize_msg_for_signing(msg)
         return self.verify(sig, ser)
 
 

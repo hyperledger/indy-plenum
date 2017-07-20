@@ -3,8 +3,8 @@ from binascii import hexlify
 from typing import List, Tuple, Sequence
 
 import ledger.merkle_tree as merkle_tree
-from ledger.stores.hash_store import HashStore
-from ledger.stores.memory_hash_store import MemoryHashStore
+from ledger.hash_stores.hash_store import HashStore
+from ledger.hash_stores.memory_hash_store import MemoryHashStore
 from ledger.tree_hasher import TreeHasher
 from ledger.util import count_bits_set, lowest_bit_set
 from ledger.util import ConsistencyVerificationFailed

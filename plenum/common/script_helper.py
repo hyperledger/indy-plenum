@@ -1,20 +1,19 @@
 import os
 
 from jsonpickle import json
-from ledger.stores.text_file_store import TextFileStore
+from plenum.client.client import Client
+from plenum.client.wallet import Wallet
+from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
+from plenum.common.roles import Roles
+from plenum.common.signer_simple import SimpleSigner
+from plenum.common.transactions import PlenumTransactions
+from plenum.test import waits
+from storage.text_file_store import TextFileStore
 from stp_core.loop.eventually import eventually
 from stp_core.network.port_dispenser import genHa
 from stp_core.types import HA
 from stp_raet.util import getLocalVerKey, getLocalPubKey
-
-from plenum.client.client import Client
-from plenum.client.wallet import Wallet
-from plenum.common.transactions import PlenumTransactions
-from plenum.common.roles import Roles
-from plenum.common.signer_simple import SimpleSigner
-from plenum.common.constants import TXN_TYPE, TARGET_NYM, DATA, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, NODE, CLIENT_STACK_SUFFIX, SERVICES, VALIDATOR
-from plenum.test import waits
 
 NodeInfoFile = "node-info"
 GenTxnFile = "genesis_txn"
@@ -84,8 +83,8 @@ def storeNodeInfo(baseDir, nodeName, steward, nodeip, nodeport, clientip,
                     storeHash=False, isLineNoKey=False)
     elif not storedJsonData == newJsonData:
         newRec = []
-        for key, jsonValue in ledger.iterator(includeKey=True,
-                                              includeValue=True):
+        for key, jsonValue in ledger.iterator(include_key=True,
+                                              include_value=True):
             if key != nodeName:
                 newRec.append((key, jsonValue))
         newRec.append((nodeName, newJsonData))

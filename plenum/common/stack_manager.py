@@ -1,16 +1,17 @@
 import os
 import shutil
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from collections import OrderedDict
 from typing import List
 
+from ledger.genesis_txn.genesis_txn_initiator_from_file import GenesisTxnInitiatorFromFile
 from plenum.common.keygen_utils import initRemoteKeys
 from plenum.common.signer_did import DidIdentity
 from stp_core.types import HA
 from stp_core.network.exceptions import RemoteNotFound
 from stp_core.common.log import getlogger
 from ledger.compact_merkle_tree import CompactMerkleTree
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
     CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
@@ -20,7 +21,7 @@ from plenum.common.ledger import Ledger
 logger = getlogger()
 
 
-class TxnStackManager:
+class TxnStackManager(metaclass=ABCMeta):
     def __init__(self, name, basedirpath, isNode=True):
         self.name = name
         self.basedirpath = basedirpath
@@ -42,17 +43,23 @@ class TxnStackManager:
     def ledgerFile(self) -> str:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def ledgerGenesisFile(self)-> str:
+        raise NotImplementedError
+
     # noinspection PyTypeChecker
     @property
     def ledger(self):
         if self._ledger is None:
+            genesis_txn_initiator = GenesisTxnInitiatorFromFile(self.basedirpath, self.ledgerGenesisFile)
             defaultTxnFile = os.path.join(self.basedirpath,
-                                          self.ledgerFile)
+                                          self.ledgerGenesisFile)
             if not os.path.exists(defaultTxnFile):
                 logger.debug("Not using default initialization file for "
                              "pool ledger, since it does not exist: {}"
                              .format(defaultTxnFile))
-                defaultTxnFile = None
+                genesis_txn_initiator = None
 
             dataDir = self.ledgerLocation
             self.hashStore = FileHashStore(dataDir=dataDir)
@@ -60,7 +67,7 @@ class TxnStackManager:
                                   dataDir=dataDir,
                                   fileName=self.ledgerFile,
                                   ensureDurability=self.config.EnsureLedgerDurability,
-                                  defaultFile=defaultTxnFile)
+                                  genesis_txn_initiator = genesis_txn_initiator)
         return self._ledger
 
     @staticmethod

@@ -4,7 +4,7 @@ from random import choice, randint
 
 import pytest
 
-from ledger.stores.file_hash_store import FileHashStore
+from ledger.hash_stores.file_hash_store import FileHashStore
 
 
 @pytest.fixture(scope="module")
