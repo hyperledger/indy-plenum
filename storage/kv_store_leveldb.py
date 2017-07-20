@@ -27,6 +27,9 @@ class KeyValueStorageLeveldb(KeyValueStorage):
     def is_byte(self) -> bool:
         return True
 
+    def db_path(self) -> str:
+        return self.db_path
+
     def iterator(self, start=None, end=None, include_key=True, include_value=True, prefix=None):
         if start and isinstance(start, int):
             start = str(start)

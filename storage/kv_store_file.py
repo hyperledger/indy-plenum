@@ -47,6 +47,9 @@ class KeyValueStorageFile(KeyValueStorage):
         self.db_path = self._init_db_path(dbDir, dbName)
         self.db_file = self._init_db_file()
 
+    def db_path(self) -> str:
+        return self.db_path
+
     @abstractmethod
     def _init_db_path(self, dbDir, dbName):
         pass

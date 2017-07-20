@@ -48,6 +48,9 @@ class KeyValueStorage(metaclass=ABCMeta):
     def is_byte(self) -> bool:
         pass
 
+    @abstractproperty
+    def db_path(self) -> str:
+        pass
 
     @property
     def size(self):

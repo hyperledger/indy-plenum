@@ -79,6 +79,9 @@ class KeyValueStorageInMemory(KeyValueStorage):
     def is_byte(self):
         return False
 
+    def db_path(self) -> str:
+        return ""
+
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self._dict == other._dict
 
