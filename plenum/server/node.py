@@ -276,7 +276,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        # CurrentState
+        # Configuring routes for node and client messages
+        # NOTE: routes can be updated on setup of elector and
+        # other node components. Make sure that your route
+        # is not replaced there!
         self.nodeMsgRouter = Router(
             (Propagate,        self.processPropagate),
             (InstanceChange,   self.processInstanceChange),
@@ -290,8 +293,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (LedgerStatus,     self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq,       self.ledgerManager.processCatchupReq),
-            (CatchupRep,       self.ledgerManager.processCatchupRep),
-            (CurrentState,     self.process_current_state_message)
+            (CatchupRep,       self.ledgerManager.processCatchupRep)
         )
 
         self.clientMsgRouter = Router(
@@ -367,15 +369,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @elector.setter
     def elector(self, value):
-        # clear old routes
+        # Adding messages that should be processed by elector to router
         if self._elector:
+            # clear old routes
             self.nodeMsgRouter.remove(self._elector.supported_msg_types)
         self._elector = value
-        # set up new routes
         if self._elector:
+            # set up new routes
             self.nodeMsgRouter.extend(
-                (msgTyp, self.sendToElector) for msgTyp in
-                self._elector.supported_msg_types)
+                ((msgTyp, self.sendToElector) for msgTyp in
+                 self._elector.supported_msg_types))
 
     @property
     def view_change_in_progress(self):

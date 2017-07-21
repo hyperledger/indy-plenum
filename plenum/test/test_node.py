@@ -128,8 +128,7 @@ class TestNodeCore(StackedTester):
         return TestReplica(self, instNo, isMaster)
 
     def newPrimaryDecider(self):
-        pdCls = self._proposed_primary_decider or TestPrimarySelector
-        return pdCls(self)
+        return self._proposed_primary_decider or TestPrimarySelector(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -262,8 +261,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.process_message_rep,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
-                 Node.process_current_state_message,
-                 Node._start_view_change_if_possible
+                 Node._start_view_change_if_possible,
                  ]
 
 
@@ -299,7 +297,7 @@ class TestNode(TestNodeCore, Node):
 elector_spyables = [
         PrimaryElector.discard,
         PrimaryElector.processPrimary,
-        PrimaryElector.sendPrimary
+        PrimaryElector.sendPrimary,
     ]
 
 
@@ -316,7 +314,10 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-selector_spyables = [PrimarySelector.decidePrimaries]
+selector_spyables = [
+    PrimarySelector.decidePrimaries,
+    PrimarySelector._processCurrentStateMessage,
+]
 
 
 @spyable(methods=selector_spyables)
