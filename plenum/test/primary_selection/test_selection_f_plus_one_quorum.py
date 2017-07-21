@@ -3,14 +3,15 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import ensureElectionsDone
-from plenum.test.helper import stopNodes
+from plenum.test.helper import stopNodes, waitForViewChange
 from plenum.test.view_change.helper import ensure_view_change
+from plenum.test.view_change.helper import start_stopped_node
 
 # Do not remove these imports
 from plenum.test.conftest import nodeSet, up, looper
 
 
-def test_selection_f_plus_one_quorum(nodeSet, up, looper):
+def test_selection_f_plus_one_quorum(nodeSet, up, looper, tconf, tdirWithPoolTxns, allPluginsPath):
     """
     Check that quorum f + 1 is used for primary selection 
     when initiated by CurrentState messages.
@@ -31,7 +32,9 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
                                             all_nodes,
                                             lagging_node,
                                             stopNode=True)
+    stopNodes([lagging_node], looper)
     looper.removeProdable(lagging_node)
+
 
     # Make nodes to perform view change
     ensure_view_change(looper, non_lagging_nodes)
@@ -46,9 +49,11 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper):
 
     # Start lagging node back
     active_nodes = [beta, delta, lagging_node]
+    # start_stopped_node(lagging_node, looper, tconf, tdirWithPoolTxns, allPluginsPath)
     looper.add(lagging_node)
     reconnect_node_and_ensure_connected(looper, active_nodes, lagging_node)
     looper.runFor(5)
 
     # Check that primary selected
     ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2)
+    waitForViewChange(looper, active_nodes, expectedViewNo=1)
