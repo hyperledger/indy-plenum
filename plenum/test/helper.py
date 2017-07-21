@@ -10,7 +10,7 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
-    List, Any, Sequence
+    List, Any, Sequence, Sized
 from typing import Union
 
 from plenum.client.client import Client
@@ -236,10 +236,9 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
             isinstance(item[0], requestType)]
 
 
-def assertLength(collection: Iterable[Any], expectedLength: int):
-    assert len(
-        collection) == expectedLength, "Observed length was {} but " \
-                                       "expected length was {}". \
+def assertLength(collection: Sized, expectedLength: int):
+    assert len(collection) == expectedLength, \
+        "Observed length was {} but expected length was {}".\
         format(len(collection), expectedLength)
 
 
