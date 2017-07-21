@@ -3,7 +3,6 @@ A client in an RBFT system.
 Client sends requests to each of the nodes,
 and receives result of the request execution from nodes.
 """
-import base64
 import copy
 import os
 import time
@@ -26,7 +25,6 @@ from ledger.serializers.compact_serializer import CompactSerializer
 from ledger.util import F, STH
 from plenum.client.pool_manager import HasPoolManager
 from plenum.common.config_util import getConfig
-from plenum.common.exceptions import MissingNodeOp
 from stp_core.network.exceptions import RemoteNotFound
 from plenum.common.has_file_storage import HasFileStorage
 from plenum.common.ledger_manager import LedgerManager
@@ -36,8 +34,8 @@ from plenum.common.plugin_helper import loadPlugins
 from plenum.common.request import Request
 from plenum.common.startable import Status, Mode
 from plenum.common.constants import REPLY, POOL_LEDGER_TXNS, \
-    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, OP_FIELD_NAME, \
-    POOL_LEDGER_ID, TXN_TIME, LedgerState
+    LEDGER_STATUS, CONSISTENCY_PROOF, CATCHUP_REP, REQACK, REQNACK, REJECT, \
+    OP_FIELD_NAME, POOL_LEDGER_ID, LedgerState
 from plenum.common.txn_util import getTxnOrderedFields
 from plenum.common.types import f
 from plenum.common.messages.node_messages import Reply, LedgerStatus

@@ -1854,7 +1854,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Only the request ordered by master protocol instance are executed by
         # the client
-        r = None
         if inst_id == self.instances.masterId:
             reqs = [self.requests[i, r].finalised for (i, r) in req_idrs
                     if (i, r) in self.requests and self.requests[i, r].finalised]
