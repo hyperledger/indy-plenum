@@ -239,7 +239,7 @@ class Replica(HasActionQueue, MessageProcessor):
 
         # self.lastOrderedPPSeqNo = 0
         # Three phase key for the last ordered batch
-        self.last_ordered_3pc = (0, 0)
+        self._last_ordered_3pc = (0, 0)
 
         # 3 phase key for the last prepared certificate before view change
         # started, applicable only to master instance
@@ -298,6 +298,16 @@ class Replica(HasActionQueue, MessageProcessor):
         self._h = n
         self.H = self._h + self.config.LOG_SIZE
         logger.debug('{} set watermarks as {} {}'.format(self, self.h, self.H))
+
+    @property
+    def last_ordered_3pc(self) -> tuple:
+        return self._last_ordered_3pc
+
+    @last_ordered_3pc.setter
+    def last_ordered_3pc(self, key3PC):
+        self._last_ordered_3pc = key3PC
+        logger.debug('{} set last ordered as {}'.
+                     format(self, self._last_ordered_3pc))
 
     @property
     def lastPrePrepareSeqNo(self):
@@ -473,9 +483,9 @@ class Replica(HasActionQueue, MessageProcessor):
             # view change is completely implemented
             lowest_ordered = 0 if lowest_prepared is None \
                 else lowest_prepared - 1
-            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
-            logger.debug('Setting last ordered for non-master {} as {}'.
+            logger.debug('{} Setting last ordered for non-master as {}'.
                          format(self, self.last_ordered_3pc))
+            self.last_ordered_3pc = (self.viewNo, lowest_ordered)
             self._clear_last_view_message_for_non_master(self.viewNo)
 
     def _clear_last_view_message_for_non_master(self, current_view):
@@ -1520,7 +1530,7 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in previousCheckpoints:
             logger.debug("{} removing previous checkpoint {}".format(self, k))
             self.checkpoints.pop(k)
-        self._gc(seqNo)
+        self._gc((self.viewNo, seqNo))
         logger.debug("{} marked stable checkpoint {}".format(self, (s, e)))
         self.processStashedMsgsForNewWaterMarks()
 
@@ -1599,22 +1609,22 @@ class Replica(HasActionQueue, MessageProcessor):
 
         return total_processed
 
-    def _gc(self, tillSeqNo):
-        logger.debug("{} cleaning up till {}".format(self, tillSeqNo))
+    def _gc(self, till3PCKey):
+        logger.debug("{} cleaning up till {}".format(self, till3PCKey))
         tpcKeys = set()
         reqKeys = set()
-        for (v, p), pp in self.sentPrePrepares.items():
-            if p <= tillSeqNo:
-                tpcKeys.add((v, p))
+        for key3PC, pp in self.sentPrePrepares.items():
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+                tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
-        for (v, p), pp in self.prePrepares.items():
-            if p <= tillSeqNo:
-                tpcKeys.add((v, p))
+        for key3PC, pp in self.prePrepares.items():
+            if compare_3PC_keys(till3PCKey, key3PC) <= 0:
+                tpcKeys.add(key3PC)
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
 
-        logger.debug("{} found {} 3 phase keys to clean".
+        logger.debug("{} found {} 3-phase keys to clean".
                      format(self, len(tpcKeys)))
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
@@ -1635,8 +1645,8 @@ class Replica(HasActionQueue, MessageProcessor):
         for k in reqKeys:
             self.requests[k].forwardedTo -= 1
             if self.requests[k].forwardedTo == 0:
-                logger.debug('{} clearing requests {} from previous checkpoints'.
-                             format(self, len(reqKeys)))
+                logger.debug('{} clearing request {} from previous checkpoints'.
+                             format(self, k))
                 self.requests.pop(k)
 
         self.compact_ordered()
@@ -1644,7 +1654,7 @@ class Replica(HasActionQueue, MessageProcessor):
     def _gc_before_new_view(self):
         # Trigger GC for all batches of old view
         # Clear any checkpoints, since they are valid only in a view
-        self._gc(self.last_ordered_3pc[1])
+        self._gc(self.last_ordered_3pc)
         self.checkpoints.clear()
         self._clear_prev_view_stashed_checkpoints()
         self._clear_prev_view_pre_prepares()
