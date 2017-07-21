@@ -601,15 +601,17 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
 def checkRejectWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "") \
-                and sdr == sender:
-            found = True
-            break
+        if sdr == sender:
+            if msg[OP_FIELD_NAME] == REJECT:
+                real_reason = msg.get(f.REASON.nm, "")
+                if reason in real_reason:
+                    found=True
+                    break
     assert found
 
 
 def waitRejectWithReason(looper, client, reason: str, sender: str):
-    timeout = waits.expectedReqRejectQuorumTime()
+    timeout = 1.5 * waits.expectedReqRejectQuorumTime()
     return wait_negative_resp(looper, client, reason, sender, timeout,
                               checkRejectWithReason)
 
