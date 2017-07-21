@@ -1,5 +1,6 @@
 from collections import Counter
 
+
 def decons(some_list):
     """
     [a, b, c, d] => (a, [b, c, d])
