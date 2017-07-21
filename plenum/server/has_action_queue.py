@@ -1,8 +1,10 @@
 import time
 from collections import deque
+from functools import wraps
 from typing import Callable
 
 from stp_core.common.log import getlogger
+from stp_core.common.util import get_func_name
 
 logger = getlogger()
 
@@ -27,12 +29,13 @@ class HasActionQueue:
             nxt = time.perf_counter() + seconds
             if nxt < self.aqNextCheck:
                 self.aqNextCheck = nxt
-            logger.debug("{} scheduling action {} with id {} to run in {} "
-                         "seconds".format(self, action, self.aid, seconds))
+            logger.trace("{} scheduling action {} with id {} to run in {} "
+                         "seconds".format(self, get_func_name(action),
+                                          self.aid, seconds))
             self.aqStash.append((nxt, (action, self.aid)))
         else:
-            logger.debug("{} scheduling action {} with id {} to run now".
-                         format(self, action, self.aid))
+            logger.trace("{} scheduling action {} with id {} to run now".
+                         format(self, get_func_name(action), self.aid))
             self.actionQueue.append((action, self.aid))
         return self.aid
 
@@ -57,12 +60,13 @@ class HasActionQueue:
         count = len(self.actionQueue)
         while self.actionQueue:
             action, aid = self.actionQueue.popleft()
-            logger.debug("{} running action {} with id {}".
-                         format(self, action, aid))
+            logger.trace("{} running action {} with id {}".
+                         format(self, get_func_name(action), aid))
             action()
         return count
 
     def startRepeating(self, action: Callable, seconds: int):
+        @wraps(action)
         def wrapper():
             if action in self.repeatingActions:
                 action()
@@ -70,18 +74,18 @@ class HasActionQueue:
 
         if action not in self.repeatingActions:
             logger.debug('{} will be repeating every {} seconds'.
-                         format(action, seconds))
+                         format(get_func_name(action), seconds))
             self.repeatingActions.add(action)
             self._schedule(wrapper, seconds)
         else:
-            logger.debug('{} is already repeating'.format(action))
+            logger.debug('{} is already repeating'.format(get_func_name(action)))
 
     def stopRepeating(self, action: Callable, strict=True):
         try:
             self.repeatingActions.remove(action)
-            logger.debug('{} will not be repeating'.format(action))
+            logger.debug('{} will not be repeating'.format(get_func_name(action)))
         except KeyError:
-            msg = '{} not found in repeating actions'.format(action)
+            msg = '{} not found in repeating actions'.format(get_func_name(action))
             if strict:
                 raise KeyError(msg)
             else:
