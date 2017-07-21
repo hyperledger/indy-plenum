@@ -810,10 +810,13 @@ def instances(nodes: Sequence[Node],
               numInstances: int = None) -> Dict[int, List[replica.Replica]]:
     numInstances = (getRequiredInstances(len(nodes))
                     if numInstances is None else numInstances)
+
+    # Importing it here because import on top fails in runtime
+    # TODO: investigate why and fix
+    from plenum.test.helper import assertLength
     for n in nodes:
-        numReplicas = len(n.replicas)
-        assert numReplicas == numInstances, "{} == {}"\
-            .format(numReplicas, numInstances)
+        assertLength(n.replicas, numInstances)
+
     return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
 
 
