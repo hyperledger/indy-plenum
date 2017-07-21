@@ -33,9 +33,9 @@ def check_nodes_requests_size(nodes, size):
 def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
         looper, txnPoolNodeSet, wallet1, client):
     """
-    Test that garbage compares the whole 3PC key (viewNo, ppSeqNo) and
-    do not remove messages node's queues that have higher viewNo than
-    last ordered one even if their ppSeqNo are less or equal
+    Test that garbage collector compares the whole 3PC key (viewNo, ppSeqNo)
+    and does not remove messages from node's queues that have higher
+    viewNo than last ordered one even if their ppSeqNo are less or equal
     """
 
     numNodes = len(client.nodeReg)
