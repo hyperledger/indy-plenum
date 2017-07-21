@@ -204,7 +204,8 @@ class Propagator:
         :param request: the REQUEST to propagate
         """
         key = request.key
-        logger.debug('{} forwarding request {} to replicas'.format(self, key))
+        logger.debug('{} forwarding request {} to {} replicas'.format(
+            self, key, len(self.msgsToReplicas)))
         for q in self.msgsToReplicas:
             q.append(ReqKey(*key))
 
