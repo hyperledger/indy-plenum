@@ -25,10 +25,10 @@ cliNodeReg = OrderedDict([
 ])
 
 baseDir = '~/.plenum/'
-keyringsDir = 'keyrings'
+walletsDir = 'wallets'
 nodeDataDir = 'data/nodes'
 clientDataDir = 'data/clients'
-walletDir = 'wallet'
+#walletDir = 'wallet'
 
 poolTransactionsFile = 'pool_transactions_sandbox'
 domainTransactionsFile = 'transactions_sandbox'
@@ -188,8 +188,8 @@ VIEW_CHANGE_TIMEOUT = 60  # seconds
 MAX_CATCHUPS_DONE_DURING_VIEW_CHANGE = 5
 
 # permissions for keyring dirs/files
-KEYRING_DIR_MODE = 0o700  # drwx------ 
-KEYRING_FILE_MODE = 0o600  # -rw-------
+WALLET_DIR_MODE = 0o700  # drwx------
+WALLET_FILE_MODE = 0o600  # -rw-------
 
 # This timeout is high enough so that even if some PRE-PREPAREs are stashed
 # because of being delivered out of order or being out of watermarks or not
