@@ -1,13 +1,14 @@
 from collections import Counter
 
 
-def decons(some_list):
+def split_at(some_list, num):
     """
-    [a, b, c, d] => (a, [b, c, d])
+    [a, b, c, d], num=1 => ([a], [b, c, d])
+    [a, b, c, d], num=2 => ([a, b], [c, d])
     """
-    if len(some_list) < 2:
-        return None
-    return some_list[0], some_list[1:]
+    head = some_list[:num]
+    tail = some_list[num:]
+    return head, tail
 
 
 def count(some_list):
