@@ -1,9 +1,6 @@
-import os
-
 from ledger.hash_stores.hash_store import HashStore
 from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from stp_core.common.log import getlogger
-
 
 logger = getlogger()
 
@@ -55,7 +52,7 @@ class LevelDbHashStore(HashStore):
          """
         self._validatePos(start, end)
         # Converting any bytearray to bytes
-        return [bytes(db.get(str(pos))) for pos in range(start, end+1)]
+        return [bytes(db.get(str(pos))) for pos in range(start, end + 1)]
 
     @property
     def leafCount(self) -> int:
@@ -71,7 +68,9 @@ class LevelDbHashStore(HashStore):
 
     @property
     def closed(self):
-        return self.nodesDb is None and self.leavesDb is None
+        return (self.nodesDb is None and self.leavesDb is None) \
+               or \
+               (self.nodesDb.closed and self.leavesDb.closed)
 
     def open(self):
         self.nodesDb = KeyValueStorageLeveldb(self.dataDir, '_merkleNodes')

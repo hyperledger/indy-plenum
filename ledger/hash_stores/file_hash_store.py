@@ -102,7 +102,7 @@ class FileHashStore(HashStore):
 
     @property
     def closed(self):
-        return self.nodesFile.db_file.closed and self.leavesFile.db_file.closed
+        return self.nodesFile.closed and self.leavesFile.closed
 
     def open(self):
         self.nodesFile.open()
