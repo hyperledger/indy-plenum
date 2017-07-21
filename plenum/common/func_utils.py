@@ -1,3 +1,4 @@
+from collections import Counter
 
 def decons(some_list):
     """
@@ -12,7 +13,6 @@ def count(some_list):
     """
     [a, b, c, a, b, b] => {b: 3, a: 2, c: 1}
     """
-    counters = {}
-    for item in some_list:
-        counters[item] = 1 if item not in counters else counters[item] + 1
-    return sorted(counters.items(), key=lambda item: item[1], reverse=True)
+
+    # using Counter since it has optimizations
+    return Counter(some_list).most_common()
