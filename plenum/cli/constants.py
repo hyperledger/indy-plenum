@@ -58,10 +58,10 @@ CLIENT_GRAMS_NEW_KEYPAIR_REG_EX = \
     "\s? ((as)?\s+(?P<alias>[a-zA-Z0-9-]+))?" \
     "\s*) "
 
-CLIENT_GRAMS_NEW_KEYRING_REG_EX = \
+CLIENT_GRAMS_NEW_WALLET_REG_EX = \
     "(\s* (?P<new_wallet>new\swallet) \s+ (?P<name>[a-zA-Z0-9]+))\s*"
 
-CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
+CLIENT_GRAMS_RENAME_WALLET_REG_EX = \
     "(\s*(?P<rename_wallet>rename\s+wallet)" \
     "\s? (\s+(?P<from>[A-Za-z0-9+=/]*))?" \
     "\s+ (to\s+(?P<to>[A-Za-z0-9+=/]*))" \
@@ -70,7 +70,7 @@ CLIENT_GRAMS_RENAME_KEYRING_REG_EX = \
 CLIENT_GRAMS_LIST_IDS_REG_EX = "(\s* (?P<list_ids>list\sids) " \
                                "\s?(?P<with_verkeys>with\s+verkeys)? \s*) "
 
-CLIENT_GRAMS_LIST_KEYRINGS_REG_EX = "(\s* (?P<list_wallets>list\swallets) \s*) "
+CLIENT_GRAMS_LIST_WALLETS_REG_EX = "(\s* (?P<list_wallets>list\swallets) \s*) "
 
 CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) " \
                              "\s+ (?P<id>[a-zA-Z0-9]+) \s*) "
@@ -78,14 +78,14 @@ CLIENT_GRAMS_BECOME_REG_EX = "(\s* (?P<become>become) " \
 CLIENT_GRAMS_USE_KEYPAIR_REG_EX = "(\s* (?P<use_id>use\s+DID) " \
                                   "\s+ (?P<DID>[A-Za-z0-9+=/]*) \s*) "
 
-CLIENT_GRAMS_USE_KEYRING_REG_EX = "(\s* (?P<use_wallet>use\s+wallet) " \
+CLIENT_GRAMS_USE_WALLET_REG_EX = "(\s* (?P<use_wallet>use\s+wallet) " \
                                   "\s+ (?P<wallet>[A-Za-z0-9+-_=/]*) \s*" \
                                   "\s? ((?P<copy_as>copy\sas)\s" \
                                   "(?P<copy_as_name>[A-Za-z0-9+-_=/]+)?)? \s*" \
                                   "\s? (?P<override>override)? " \
                                   "\s*)"
 
-CLIENT_GRAMS_SAVE_KEYRING_REG_EX = "(\s* (?P<save_wallet>save\s+wallet)" \
+CLIENT_GRAMS_SAVE_WALLET_REG_EX = "(\s* (?P<save_wallet>save\s+wallet)" \
                                   "\s? (?P<wallet>[A-Za-z0-9+-_=/]+)? \s*)"
 
 CLIENT_GRAMS_ADD_GENESIS_TXN_REG_EX = \
@@ -133,14 +133,14 @@ CLIENT_GRAMS_ADD_KEY_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_ADD_KEY_REG_EX)
 CLIENT_GRAMS_NEW_KEYPAIR_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_NEW_KEYPAIR_REG_EX)
-CLIENT_GRAMS_NEW_KEYRING_FORMATTED_REG_EX = \
-    getPipedRegEx(CLIENT_GRAMS_NEW_KEYRING_REG_EX)
-CLIENT_GRAMS_RENAME_KEYRING_FORMATTED_REG_EX = \
-    getPipedRegEx(CLIENT_GRAMS_RENAME_KEYRING_REG_EX)
+CLIENT_GRAMS_NEW_WALLET_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_NEW_WALLET_REG_EX)
+CLIENT_GRAMS_RENAME_WALLET_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_RENAME_WALLET_REG_EX)
 CLIENT_GRAMS_LIST_IDS_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_LIST_IDS_REG_EX)
-CLIENT_GRAMS_LIST_KEYRINGS_FORMATTED_REG_EX = \
-    getPipedRegEx(CLIENT_GRAMS_LIST_KEYRINGS_REG_EX)
+CLIENT_GRAMS_LIST_WALLETS_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_LIST_WALLETS_REG_EX)
 CLIENT_GRAMS_BECOME_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_BECOME_REG_EX)
 CLIENT_GRAMS_ADD_GENESIS_TXN_FORMATTED_REG_EX = \
@@ -149,7 +149,7 @@ CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_CREATE_GENESIS_TXN_FILE_REG_EX)
 CLIENT_GRAMS_USE_KEYPAIR_FORMATTED_REG_EX = \
     getPipedRegEx(CLIENT_GRAMS_USE_KEYPAIR_REG_EX)
-CLIENT_GRAMS_USE_KEYRING_FORMATTED_REG_EX = \
-    getPipedRegEx(CLIENT_GRAMS_USE_KEYRING_REG_EX)
-CLIENT_GRAMS_SAVE_KEYRING_FORMATTED_REG_EX = \
-    getPipedRegEx(CLIENT_GRAMS_SAVE_KEYRING_REG_EX)
+CLIENT_GRAMS_USE_WALLET_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_USE_WALLET_REG_EX)
+CLIENT_GRAMS_SAVE_WALLET_FORMATTED_REG_EX = \
+    getPipedRegEx(CLIENT_GRAMS_SAVE_WALLET_REG_EX)

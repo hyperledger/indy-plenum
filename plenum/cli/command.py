@@ -152,31 +152,31 @@ changePromptCmd = Command(
     usage="prompt <principal-name>",
     examples="prompt Alice")
 
-newKeyringCmd = Command(
+newWalletCmd = Command(
     id="new wallet",
     title="Creates new wallet",
     usage="new wallet <name>",
     examples="new wallet mywallet")
 
-useKeyringCmd = Command(
+useWalletCmd = Command(
     id="use wallet",
     title="Loads given wallet and marks it active/default",
     usage="use wallet <name|absolute-wallet-file-path>",
-    examples=["use wallet mywallet", "use wallet /home/ubuntu/.sovrin/keyrings/test/mywallet.wallet"])
+    examples=["use wallet mywallet", "use wallet /home/ubuntu/.sovrin/wallets/test/mywallet.wallet"])
 
-saveKeyringCmd = Command(
+saveWalletCmd = Command(
     id="save wallet",
     title="Saves active wallet",
-    usage="save wallet [<active-keyring-name>]",
+    usage="save wallet [<active-wallet-name>]",
     examples=["save wallet", "save wallet mywallet"])
 
-renameKeyringCmd = Command(
+renameWalletCmd = Command(
     id="rename wallet",
     title="Renames given wallet",
     usage="rename wallet <old-name> to <new-name>",
     examples="rename wallet mywallet to yourwallet")
 
-listKeyringCmd = Command(
+listWalletCmd = Command(
     id="list wallets",
     title="Lists all wallets",
     usage="list wallets")
