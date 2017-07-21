@@ -84,7 +84,7 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         if self.node.is_synced and self.master_replica.isPrimary is None:
             self._send_view_change_done_message()
-        self._startSelection()
+        self._start_selection()
 
     # Question: Master is always 0, until we change that rule why incur cost
     # of a method call, also name is confusing
@@ -130,7 +130,7 @@ class PrimarySelector(PrimaryDecider):
         self._track_current_state_message(sender,
                                           view_no,
                                           the_only_view_change_done)
-        self._startCurrentStateSelection(view_no)
+        self._start_current_state_selection(view_no)
         return True
 
     def _track_current_state_message(self, sender, view_no, view_change_done):
@@ -199,7 +199,7 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return False
 
-        self._startSelection()
+        self._start_selection()
 
     def _verify_view_change(self):
         if not self.has_acceptable_view_change_quorum:
@@ -342,7 +342,7 @@ class PrimarySelector(PrimaryDecider):
                 return True
         return False
 
-    def _startCurrentStateSelection(self, view_no):
+    def _start_current_state_selection(self, view_no):
         if not self._has_state_quorum(view_no):
             logger.debug('{} cannot update current state because '
                          'there are no enough CurrentState messages'
@@ -389,7 +389,7 @@ class PrimarySelector(PrimaryDecider):
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
-    def _startSelection(self):
+    def _start_selection(self):
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '

@@ -132,7 +132,7 @@ def testProcessViewChangeDone():
 
     selector._processViewChangeDoneMessage(msg, 'Node3')
     assert selector._verify_primary(msg.name, msg.ledgerInfo)
-    selector._startSelection()
+    selector._start_selection()
     assert selector._view_change_done
     # Since the FakeNode does not have setting of mode
     # assert node.is_primary_found()
