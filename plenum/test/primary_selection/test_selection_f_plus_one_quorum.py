@@ -3,7 +3,8 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
     reconnect_node_and_ensure_connected
 from plenum.test.test_node import ensureElectionsDone
-from plenum.test.helper import stopNodes, waitForViewChange
+from plenum.test.helper import stopNodes, waitForViewChange, \
+    sendReqsToNodesAndVerifySuffReplies
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change.helper import start_stopped_node
 
@@ -11,7 +12,14 @@ from plenum.test.view_change.helper import start_stopped_node
 from plenum.test.conftest import nodeSet, up, looper
 
 
-def test_selection_f_plus_one_quorum(nodeSet, up, looper, tconf, tdirWithPoolTxns, allPluginsPath):
+def test_selection_f_plus_one_quorum(looper,
+                                     nodeSet,
+                                     up,
+                                     tconf,
+                                     tdirWithPoolTxns,
+                                     allPluginsPath,
+                                     wallet1,
+                                     client1):
     """
     Check that quorum f + 1 is used for primary selection 
     when initiated by CurrentState messages.
@@ -19,9 +27,7 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper, tconf, tdirWithPoolTxn
     Assumes that view change quorum is n - f.
     Assumes that primaries selection in round robin fashion.
     """
-
     # Ensure that we have 4 nodes in total
-    assert len(nodeSet) == 4
     all_nodes = list(nodeSet)
     alpha, beta, delta, gamma = all_nodes
 
@@ -34,7 +40,6 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper, tconf, tdirWithPoolTxn
                                             stopNode=True)
     stopNodes([lagging_node], looper)
     looper.removeProdable(lagging_node)
-
 
     # Make nodes to perform view change
     ensure_view_change(looper, non_lagging_nodes)
@@ -57,3 +62,5 @@ def test_selection_f_plus_one_quorum(nodeSet, up, looper, tconf, tdirWithPoolTxn
     # Check that primary selected
     ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2)
     waitForViewChange(looper, active_nodes, expectedViewNo=1)
+
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)
