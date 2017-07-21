@@ -2073,9 +2073,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.all_instances_have_primary:
             # Doing this for CurrentState message
             # This problem is faced because viewNo is set on view change start
-            view_no = self.elector.viewNo
-            if self.view_change_in_progress:
-                self.on_view_change_complete(view_no)
+            self.on_view_change_complete(self.elector.viewNo)
 
     @property
     def all_instances_have_primary(self):
@@ -2167,8 +2165,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqno and state and txn root for previous view
         """
+        self.viewNo = view_no
         self.view_change_in_progress = False
-        self.instanceChanges.pop(view_no-1, None)
+        self.instanceChanges.pop(view_no - 1, None)
         self.master_replica.on_view_change_done()
         self.catchup_rounds_without_txns = 0
 
@@ -2229,9 +2228,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def isSignatureVerificationNeeded(self, msg: Any):
         op = msg.get(OPERATION)
-        if op:
-            if op.get(TXN_TYPE) in openTxns:
-                return False
+        if op and op.get(TXN_TYPE) in openTxns:
+            return False
         return True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):
