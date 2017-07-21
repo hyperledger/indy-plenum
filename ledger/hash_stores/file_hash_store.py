@@ -104,6 +104,10 @@ class FileHashStore(HashStore):
     def closed(self):
         return self.nodesFile.db_file.closed and self.leavesFile.db_file.closed
 
+    def open(self):
+        self.nodesFile.open()
+        self.leavesFile.open()
+
     def close(self):
         self.nodesFile.close()
         self.leavesFile.close()

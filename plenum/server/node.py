@@ -570,11 +570,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         format(self, self.status.name))
         else:
             super().start(loop)
-            self.primaryStorage.start(loop,
-                                      ensureDurability=
-                                      self.config.EnsureLedgerDurability)
-            if self.hashStore.closed:
-                self.hashStore = self.getHashStore(self.name)
+
+            # Start the ledgers
+            for ledger in self.ledgers:
+                ledger.start(loop)
 
             self.nodestack.start()
             self.clientstack.start()
@@ -622,6 +621,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         return len(self.nodestack.conns) + 1
 
+    @property
+    def ledgers(self):
+        ledgers = [self.domainLedger]
+        if self.poolLedger:
+            ledgers.append(self.poolLedger)
+        return ledgers
+
     def onStopping(self):
         """
         Actions to be performed on stopping the node.
@@ -634,33 +640,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.reset()
 
         # Stop the ledgers
-        ledgers = [self.domainLedger]
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-
-        for ledger in ledgers:
+        for ledger in self.ledgers:
             try:
                 ledger.stop()
             except Exception as ex:
                 logger.warning('{} got exception while stopping ledger: {}'.
-                               format(self, ex))
-
-        # Stop the hash hash_stores
-        hashStores = [self.hashStore]
-        if self.poolLedger:
-            ledgers.append(self.poolLedger)
-        if self.hashStore:
-            hashStores.append(self.hashStore)
-        if isinstance(self.poolManager, TxnPoolManager) and self.poolManager.hashStore:
-            hashStores.append(self.poolManager.hashStore)
-        hashStores = [hs for hs in hashStores if
-                      isinstance(hs, (FileHashStore, LevelDbHashStore))
-                      and not hs.closed]
-        for hs in hashStores:
-            try:
-                hs.close()
-            except Exception as ex:
-                logger.warning('{} got exception while closing hash store: {}'.
                                format(self, ex))
 
         self.nodestack.stop()

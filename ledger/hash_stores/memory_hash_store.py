@@ -4,7 +4,7 @@ from ledger.hash_stores.hash_store import HashStore
 class MemoryHashStore(HashStore):
     def __init__(self):
         self.reset()
-        self._closed = False
+        self.open()
 
     @property
     def is_persistent(self) -> bool:
@@ -40,6 +40,9 @@ class MemoryHashStore(HashStore):
         self._nodes = []
         self._leafs = []
         return True
+
+    def open(self):
+        self._closed = False
 
     def close(self):
         self._closed = True

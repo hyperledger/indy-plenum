@@ -158,6 +158,10 @@ class HashStore:
                 "seqNo starts from 1, index requested: {}".format(start))
 
     @abstractmethod
+    def open(self):
+        pass
+
+    @abstractmethod
     def close(self):
         pass
 

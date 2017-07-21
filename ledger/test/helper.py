@@ -13,6 +13,14 @@ from storage.kv_store_leveldb_int_keys import KeyValueStorageLeveldbIntKeys
 from storage.text_file_store import TextFileStore
 
 
+def txn(i: int):
+    return {
+        'identifier': 'cli' + str(i),
+        'reqId': i,
+        'op': 'do something' + str(i)
+    }
+
+
 def checkLeafInclusion(verifier, leafData, leafIndex, proof, treeHead):
     assert verifier.verify_leaf_inclusion(
         leaf=leafData,

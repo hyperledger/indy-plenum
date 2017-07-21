@@ -24,9 +24,13 @@ class CompactMerkleTree(merkle_tree.MerkleTree):
 
         # These two queues should be written to two simple position-accessible
         # arrays (files, database tables, etc.)
-        self.hashStore = hashStore or MemoryHashStore()  # type: HashStore
+        self.__hashStore = hashStore or MemoryHashStore()  # type: HashStore
         self.__hasher = hasher
         self._update(tree_size, hashes)
+
+    @property
+    def hashStore(self):
+        return self.__hashStore
 
     def _update(self, tree_size: int, hashes: Sequence[bytes]):
         bits_set = count_bits_set(tree_size)

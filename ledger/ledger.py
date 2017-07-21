@@ -61,11 +61,6 @@ class Ledger(ImmutableStore):
         # TODO: Should probably have 2 classes of hash store,
         # persistent and non persistent
 
-        # TODO: this definitely should be done in a more generic way:
-        if not isinstance(self.tree, CompactMerkleTree):
-            logging.error("Do not know how to recover {}".format(self.tree))
-            raise TypeError("Merkle tree type {} is not supported"
-                            .format(type(self.tree)))
         start = time.perf_counter()
         if not self.tree.hashStore \
                 or not self.tree.hashStore.is_persistent \
@@ -89,8 +84,6 @@ class Ledger(ImmutableStore):
 
     def recoverTreeFromTxnLog(self):
         # TODO: in this and some other lines specific fields of
-        # CompactMerkleTree are used, but type of self.tree is MerkleTree
-        # This must be fixed!
         self.tree.hashStore.reset()
         for key, entry in self._transactionLog.iterator():
             if self.txn_serializer != self.hash_serializer:
@@ -210,13 +203,17 @@ class Ledger(ImmutableStore):
                                    ensureDurability)
             if self._transactionLog.closed:
                 self._transactionLog.open()
+            if self.tree.hashStore.closed:
+                self.tree.hashStore.open()
 
     def stop(self):
         self._transactionLog.close()
+        self.tree.hashStore.close()
 
     def reset(self):
         # THIS IS A DESTRUCTIVE ACTION
         self._transactionLog.reset()
+        self.tree.hashStore.reset()
 
     def getAllTxn(self, frm: int = None, to: int = None):
         yield from ((int(seq_no), self.txn_serializer.deserialize(txn))
