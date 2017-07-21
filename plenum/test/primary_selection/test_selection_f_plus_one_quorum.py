@@ -58,8 +58,7 @@ def test_selection_f_plus_one_quorum(looper,
 
     # Start lagging node back
     active_nodes = [beta, delta, lagging_node]
-    # start_stopped_node(lagging_node, looper, tconf, tdirWithPoolTxns, allPluginsPath)
-    looper.add(lagging_node)
+    start_stopped_node(lagging_node, looper, tconf, tdirWithPoolTxns, allPluginsPath)
     reconnect_node_and_ensure_connected(looper, active_nodes, lagging_node)
     looper.runFor(5)
 
