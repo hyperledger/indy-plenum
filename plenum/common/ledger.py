@@ -115,11 +115,3 @@ class Ledger(_Ledger):
         self.uncommittedTxns = []
         self.uncommittedRootHash = None
         self.uncommittedTree = None
-
-    @staticmethod
-    def hashToStr(h):
-        return base58.b58encode(h)
-
-    @staticmethod
-    def strToHash(s):
-        return base58.b58decode(s)

@@ -140,9 +140,9 @@ class Propagator:
             self.requests.addPropagate(request, self.name)
             propagate = self.createPropagate(request, clientName)
             logger.info("{} propagating {} request {} from client {}".
-                           format(self, request.identifier, request.reqId,
-                                  clientName),
-                           extra={"cli": True, "tags": ["node-propagate"]})
+                        format(self, request.identifier, request.reqId,
+                               clientName),
+                        extra={"cli": True, "tags": ["node-propagate"]})
             self.send(propagate)
 
     @staticmethod
@@ -156,7 +156,7 @@ class Propagator:
         if not isinstance(request, (Request, dict)):
             logger.error("Request not formatted properly to create propagate")
             return
-        logger.debug("Creating PROPAGATE for REQUEST {}".format(request))
+        logger.trace("Creating PROPAGATE for REQUEST {}".format(request))
         request = request.as_dict if isinstance(request, Request) else \
             request
         if isinstance(client_name, bytes):
