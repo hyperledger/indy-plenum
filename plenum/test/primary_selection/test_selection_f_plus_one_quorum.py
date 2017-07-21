@@ -29,7 +29,7 @@ def test_selection_f_plus_one_quorum(looper,
     Assumes that view change quorum is n - f.
     Assumes that primaries selection in round robin fashion.
     """
-    return None
+
     # Ensure that we have 4 nodes in total
     all_nodes = list(nodeSet)
     alpha, beta, delta, gamma = all_nodes
