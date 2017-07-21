@@ -342,6 +342,46 @@ class PrimarySelector(PrimaryDecider):
                 return True
         return False
 
+    def _declare_selection_completed(self,
+                                     replica,
+                                     instance_id,
+                                     new_primary_name,
+                                     basis):
+
+        logger.display("{} selected primary {} for instance {} (view {}) "
+                       "on the basis of {}"
+                       .format(replica,
+                               new_primary_name,
+                               instance_id,
+                               self.viewNo,
+                               basis),
+                       extra={"cli": "ANNOUNCE",
+                              "tags": ["node-election"]})
+
+        if instance_id == 0:
+            self.previous_master_primary = None
+            # The node needs to be set in participating mode since when
+            # the replica is made aware of the primary, it will start
+            # processing stashed requests and hence the node needs to be
+            # participating.
+            self.node.start_participating()
+
+        replica.primaryChanged(new_primary_name)
+        self.node.primary_selected(instance_id)
+
+        logger.display("{} declares election for view {} as completed for "
+                       "instance {} on the basis of {}, "
+                       "primary is {}, "
+                       "ledger info is {}"
+                       .format(replica,
+                               self.viewNo,
+                               instance_id,
+                               basis,
+                               new_primary_name,
+                               self.ledger_summary),
+                       extra={"cli": "ANNOUNCE",
+                              "tags": ["node-election"]})
+
     def _start_current_state_selection(self, view_no):
         if not self._has_state_quorum(view_no):
             logger.debug('{} cannot update current state because '
@@ -352,42 +392,16 @@ class PrimarySelector(PrimaryDecider):
             logger.info('{} cannot start primary selection since mode is {}'
                         .format(self, self.node.mode))
             return
+
         logger.debug("{} starting selection of state".format(self))
         self.view_change_started(view_no)
         for instance_id, replica in enumerate(self.replicas):
             new_primary_name = self.primary_replica_name_for_view(instance_id,
                                                                   view_no)
-            logger.display("{} selected primary {} for instance {} (view {}) "
-                           "on the basis of CurrentState messages"
-                           .format(replica,
-                                   new_primary_name,
-                                   instance_id,
-                                   self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-            if instance_id == 0:
-                self.previous_master_primary = None
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.node.start_participating()
-
-            replica.primaryChanged(new_primary_name)
-            self.node.primary_selected(instance_id)
-
-            logger.display("{} declares view change {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(replica,
-                                   self.viewNo,
-                                   instance_id,
-                                   new_primary_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
+            self._declare_selection_completed(replica,
+                                              instance_id,
+                                              new_primary_name,
+                                                "CurrentState")
 
     def _start_selection(self):
         if not self._verify_view_change():
@@ -413,36 +427,10 @@ class PrimarySelector(PrimaryDecider):
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_name = self.next_primary_replica_name(instance_id)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(replica,
-                                   new_primary_name,
-                                   instance_id,
-                                   self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-            if instance_id == 0:
-                self.previous_master_primary = None
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.node.start_participating()
-
-            replica.primaryChanged(new_primary_name)
-            self.node.primary_selected(instance_id)
-
-            logger.display("{} declares view change {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(replica,
-                                   self.viewNo,
-                                   instance_id,
-                                   new_primary_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
+            self._declare_selection_completed(replica,
+                                              instance_id,
+                                              new_primary_name,
+                                                "ViewChangeDone")
 
     def _get_primary_id(self, view_no, instance_id):
         return (view_no + instance_id) % self.node.totalNodes
