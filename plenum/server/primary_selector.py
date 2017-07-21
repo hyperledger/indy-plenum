@@ -133,10 +133,10 @@ class PrimarySelector(PrimaryDecider):
         self._startCurrentStateSelection(view_no)
         return True
 
-    def _track_current_state_message(self, sender, view_no, view_change_dones):
+    def _track_current_state_message(self, sender, view_no, view_change_done):
         if view_no not in self._current_state_messages:
             self._current_state_messages[view_no] = {}
-        self._current_state_messages[view_no][sender] = view_change_dones
+        self._current_state_messages[view_no][sender] = view_change_done
 
     def _extract_view_change_dones(self, msg: CurrentState):
         # TODO: parsing of internal messages should be done with other way
