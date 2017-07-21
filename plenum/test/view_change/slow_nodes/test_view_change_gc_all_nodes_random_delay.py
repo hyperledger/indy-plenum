@@ -15,9 +15,6 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
         client1, wallet1, client1Connected, looper
 
 
-TestRunningTimeLimitSec = 300
-
-
 def check_nodes_last_ordered_3pc(nodes, last_ordered_3pc):
     for n1, n2 in combinations(nodes, 2):
         lst_3pc = check_last_ordered_3pc(n1, n2)
