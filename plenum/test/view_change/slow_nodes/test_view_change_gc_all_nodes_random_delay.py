@@ -18,14 +18,14 @@ from plenum.test.pool_transactions.conftest import clientAndWallet1, \
 TestRunningTimeLimitSec = 300
 
 
-def ensure_nodes_last_ordered_3pc(nodes, last_ordered_3pc):
+def check_nodes_last_ordered_3pc(nodes, last_ordered_3pc):
     for n1, n2 in combinations(nodes, 2):
         lst_3pc = check_last_ordered_3pc(n1, n2)
 
     assert lst_3pc == last_ordered_3pc
 
 
-def ensure_nodes_requests_size(nodes, size):
+def check_nodes_requests_size(nodes, size):
     for node in nodes:
         assert len(node.requests) == size
 
@@ -52,8 +52,8 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client, 1)
 
     last_ordered_3pc = (viewNo, 2)
-    ensure_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    ensure_nodes_requests_size(txnPoolNodeSet, 2)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_requests_size(txnPoolNodeSet, 2)
 
     # 2 do view change
     #    -> GC should remove it from nodes' queues
@@ -61,8 +61,8 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
     ensure_view_change_complete(looper, txnPoolNodeSet)
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
-    ensure_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    ensure_nodes_requests_size(txnPoolNodeSet, 0)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_requests_size(txnPoolNodeSet, 0)
 
     # 3 slow processing 3PC messages for all nodes (all replica instances)
     #   randomly and send one more message
@@ -100,8 +100,8 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
     # another view change could happen because of slow nodes
     assert viewNoNew - viewNo in (1, 2)
     viewNo = viewNoNew
-    ensure_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    ensure_nodes_requests_size(txnPoolNodeSet, 1)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_requests_size(txnPoolNodeSet, 1)
 
     # 5 reset delays and wait for replies
     #    -> new primaries should send new 3pc for last message
@@ -115,13 +115,13 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
 
     checkViewNoForNodes(txnPoolNodeSet, viewNo)
     last_ordered_3pc = (viewNo, 1)
-    ensure_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    ensure_nodes_requests_size(txnPoolNodeSet, 1)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_requests_size(txnPoolNodeSet, 1)
 
     # 6 do view change
     #    -> GC should remove them
     ensure_view_change_complete(looper, txnPoolNodeSet)
 
     viewNo = checkViewNoForNodes(txnPoolNodeSet, viewNo + 1)
-    ensure_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
-    ensure_nodes_requests_size(txnPoolNodeSet, 0)
+    check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
+    check_nodes_requests_size(txnPoolNodeSet, 0)
