@@ -2188,6 +2188,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'because it is already in this state'.format(self))
             return
         self.force_process_ordered()
+
+        # # revert uncommitted txns and state for unordered requests
+        r = self.master_replica.revert_unordered_batches()
+        logger.debug('{} reverted {} batches before starting '
+                     'catch up'.format(self, r))
+
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
         ledger_id = DOMAIN_LEDGER_ID

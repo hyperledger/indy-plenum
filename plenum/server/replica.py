@@ -1619,7 +1619,7 @@ class Replica(HasActionQueue, MessageProcessor):
                 for reqKey in pp.reqIdr:
                     reqKeys.add(reqKey)
 
-        logger.debug("{} found {} 3 phase keys to clean".
+        logger.debug("{} found {} 3-phase keys to clean".
                      format(self, len(tpcKeys)))
         logger.debug("{} found {} request keys to clean".
                      format(self, len(reqKeys)))
@@ -2051,10 +2051,15 @@ class Replica(HasActionQueue, MessageProcessor):
         self.outBox.append(msg)
 
     def revert_unordered_batches(self):
+        """
+        Revert changes to ledger (uncommitted) and state made by any requests
+        that have not been ordered.
+        """
         i = 0
         for key in sorted(self.batches.keys(), reverse=True):
             if compare_3PC_keys(self.last_ordered_3pc, key) > 0:
                 ledger_id, count, _, prevStateRoot = self.batches.pop(key)
+                logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self.revert(ledger_id, prevStateRoot, count)
                 i += 1
             else:
