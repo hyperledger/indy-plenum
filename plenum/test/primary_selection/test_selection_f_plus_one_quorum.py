@@ -13,6 +13,7 @@ from plenum.test.conftest import nodeSet, up, looper
 
 # from plenum.test.pool_transactions.conftest import client1, wallet1
 
+
 def test_selection_f_plus_one_quorum(looper,
                                      nodeSet,
                                      up,
