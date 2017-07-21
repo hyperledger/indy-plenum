@@ -128,8 +128,7 @@ class TestNodeCore(StackedTester):
         return TestReplica(self, instNo, isMaster)
 
     def newPrimaryDecider(self):
-        pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimarySelector
+        pdCls = self._proposed_primary_decider or TestPrimarySelector
         return pdCls(self)
 
     def delaySelfNomination(self, delay: Seconds):

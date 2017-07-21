@@ -124,7 +124,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = self.config.nodeDataDir or "data/nodes"
-
+        self._proposed_primary_decider = primaryDecider
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
@@ -184,8 +184,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Propagator.__init__(self)
 
         MessageReqProcessor.__init__(self)
-
-        self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -608,10 +606,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.poolManager.get_name_by_rank(rank)
 
     def newPrimaryDecider(self):
-        if self.primaryDecider:
-            return self.primaryDecider
-        else:
-            return PrimarySelector(self)
+        return self._proposed_primary_decider or PrimarySelector(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -2078,9 +2073,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if self.all_instances_have_primary:
             # Doing this for CurrentState message
             # This problem is faced because viewNo is set on view change start
-            view_no = self.viewNo
-            if self.primaryDecider:
-                view_no = self.primaryDecider.viewNo
+            view_no = self.elector.viewNo
             if self.view_change_in_progress:
                 self.on_view_change_complete(view_no)
 
