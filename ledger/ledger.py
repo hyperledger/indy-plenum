@@ -2,6 +2,8 @@ import base64
 import logging
 import time
 
+import base58
+
 from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.tree_hasher import TreeHasher
 from ledger.merkle_tree import MerkleTree
@@ -224,8 +226,8 @@ class Ledger(ImmutableStore):
 
     @staticmethod
     def hashToStr(h):
-        return base64.b64encode(h).decode()
+        return base58.b58encode(h)
 
     @staticmethod
     def strToHash(s):
-        return base64.b64decode(s).encode()
+        return base58.b58decode(s)
