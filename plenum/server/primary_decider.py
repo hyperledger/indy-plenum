@@ -76,7 +76,7 @@ class PrimaryDecider(HasActionQueue, MessageProcessor, metaclass=ABCMeta):
             msg, sender = wrappedMsg
             if hasattr(msg, f.VIEW_NO.nm):
                 reqViewNo = getattr(msg, f.VIEW_NO.nm)
-                if reqViewNo == self.viewNo:
+                if reqViewNo >= self.viewNo:
                     filtered.append(wrappedMsg)
                 else:
                     self.discard(wrappedMsg,

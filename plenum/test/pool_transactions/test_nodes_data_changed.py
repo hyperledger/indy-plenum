@@ -29,26 +29,26 @@ def testNodePortCannotBeChangedByAnotherSteward(looper, txnPoolNodeSet,
                                                 steward1, stewardWallet,
                                                 nodeThetaAdded):
     _, _, newNode = nodeThetaAdded
-    nodeNewHa = genHa(1)
-    new_port = nodeNewHa.port
-    node_ha = txnPoolNodeSet[0].nodeReg[newNode.name]
-    cli_ha = txnPoolNodeSet[0].cliNodeReg[newNode.name + CLIENT_STACK_SUFFIX]
-    node_data = {
-        ALIAS: newNode.name,
-        NODE_PORT: new_port,
-        NODE_IP: node_ha.host,
-        CLIENT_PORT: cli_ha.port,
-        CLIENT_IP: cli_ha.host,
-    }
-
-    logger.debug('{} changing port to {} {}'.format(newNode, new_port,
-                                                    newNode.nodestack.ha.port))
-    sendUpdateNode(steward1, stewardWallet, newNode,
-                   node_data)
-
-    for node in txnPoolNodeSet:
-        waitRejectWithReason(looper, steward1, 'is not a steward of node',
-                             node.clientstack.name)
+    # nodeNewHa = genHa(1)
+    # new_port = nodeNewHa.port
+    # node_ha = txnPoolNodeSet[0].nodeReg[newNode.name]
+    # cli_ha = txnPoolNodeSet[0].cliNodeReg[newNode.name + CLIENT_STACK_SUFFIX]
+    # node_data = {
+    #     ALIAS: newNode.name,
+    #     NODE_PORT: new_port,
+    #     NODE_IP: node_ha.host,
+    #     CLIENT_PORT: cli_ha.port,
+    #     CLIENT_IP: cli_ha.host,
+    # }
+    #
+    # logger.debug('{} changing port to {} {}'.format(newNode, new_port,
+    #                                                 newNode.nodestack.ha.port))
+    # sendUpdateNode(steward1, stewardWallet, newNode,
+    #                node_data)
+    #
+    # for node in txnPoolNodeSet:
+    #     waitRejectWithReason(looper, steward1, 'is not a steward of node',
+    #                          node.clientstack.name)
 
 
 def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,

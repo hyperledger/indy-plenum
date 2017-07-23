@@ -40,6 +40,10 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
+        if not self.node.view_change_in_progress:
+            return self.node.quorums.propagate_primary.value
+        if self.node.propagate_primary:
+            return self.node.quorums.propagate_primary.value
         return self.node.quorums.view_change_done.value
 
     @property
@@ -99,7 +103,7 @@ class PrimarySelector(PrimaryDecider):
 
         view_no = msg.viewNo
 
-        if self.viewNo != view_no:
+        if self.viewNo > view_no:
             self.discard(msg,
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
