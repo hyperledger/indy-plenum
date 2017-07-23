@@ -614,7 +614,7 @@ def checkRejectWithReason(client, reason: str, sender: str):
 
 
 def waitRejectWithReason(looper, client, reason: str, sender: str):
-    timeout = 1.5 * waits.expectedReqRejectQuorumTime()
+    timeout = waits.expectedReqRejectQuorumTime()
     return wait_negative_resp(looper, client, reason, sender, timeout,
                               checkRejectWithReason)
 
