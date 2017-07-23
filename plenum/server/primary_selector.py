@@ -40,6 +40,7 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def quorum(self) -> int:
+        # TODO: re-factor this, separate this two states (selection of a new primary and propagation of existing one)
         if not self.node.view_change_in_progress:
             return self.node.quorums.propagate_primary.value
         if self.node.propagate_primary:
