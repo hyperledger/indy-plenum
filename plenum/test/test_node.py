@@ -638,14 +638,6 @@ def checkIfSameReplicaIPrimary(looper: Looper,
 
     def checkPrisAreSame():
         pris = {r.primaryName for r in replicas}
-        if len(pris) != 1:
-            print("cccc")
-            print(replicas[0].primaryName)
-            print(replicas[0])
-            print(replicas[1].primaryName)
-            print(replicas[1])
-            print(replicas[2].primaryName)
-            print(replicas[2])
         assert len(pris) == 1, "Primary should be same for all, but were {} " \
                                "for protocol no {}" \
             .format(pris, replicas[0].instId)
