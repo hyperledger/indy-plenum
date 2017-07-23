@@ -7,6 +7,7 @@ from stp_core.common.logging.TimeAndSizeRotatingFileHandler import TimeAndSizeRo
 from stp_core.common.util import Singleton
 from stp_core.common.logging.handlers import CliHandler
 from stp_core.common.config.util import getConfig
+from logging import Logger as PythonLogger
 
 TRACE_LOG_LEVEL = 5
 DISPLAY_LOG_LEVEL = 25
@@ -22,7 +23,7 @@ class CustomAdapter(logging.LoggerAdapter):
         self.log(DISPLAY_LOG_LEVEL, msg, *args, **kwargs)
 
 
-def getlogger(name: object = None) -> object:
+def getlogger(name: object = None) -> PythonLogger:
     return Logger().getlogger(name)
 
 

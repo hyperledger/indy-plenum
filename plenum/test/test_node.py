@@ -25,7 +25,7 @@ from plenum.common.startable import Status
 from plenum.common.types import NodeDetail, f
 from plenum.common.constants import CLIENT_STACK_SUFFIX, TXN_TYPE, \
     DOMAIN_LEDGER_ID
-from plenum.common.util import Seconds, getMaxFailures
+from plenum.common.util import Seconds, getMaxFailures, SortedDict
 from stp_core.common.util import adict
 from plenum.server import replica
 from plenum.server.instances import Instances
@@ -128,9 +128,7 @@ class TestNodeCore(StackedTester):
         return TestReplica(self, instNo, isMaster)
 
     def newPrimaryDecider(self):
-        pdCls = self.primaryDecider if self.primaryDecider else \
-            TestPrimarySelector
-        return pdCls(self)
+        return self._proposed_primary_decider or TestPrimarySelector(self)
 
     def delaySelfNomination(self, delay: Seconds):
         if isinstance(self.primaryDecider, PrimaryElector):
@@ -263,8 +261,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.process_message_rep,
                  Node.request_propagates,
                  Node.send_current_state_to_lagging_node,
-                 Node.process_current_state_message,
-                 Node._start_view_change_if_possible
+                 Node._start_view_change_if_possible,
                  ]
 
 
@@ -300,7 +297,7 @@ class TestNode(TestNodeCore, Node):
 elector_spyables = [
         PrimaryElector.discard,
         PrimaryElector.processPrimary,
-        PrimaryElector.sendPrimary
+        PrimaryElector.sendPrimary,
     ]
 
 
@@ -317,7 +314,10 @@ class TestPrimaryElector(PrimaryElector):
         return super()._serviceActions()
 
 
-selector_spyables = [PrimarySelector.decidePrimaries]
+selector_spyables = [
+    PrimarySelector.decidePrimaries,
+    PrimarySelector._processCurrentStateMessage,
+]
 
 
 @spyable(methods=selector_spyables)
@@ -379,7 +379,7 @@ class TestNodeSet(ExitStack):
         self.pluginPaths = pluginPaths
 
         self.testNodeClass = testNodeClass
-        self.nodes = OrderedDict()  # type: Dict[str, TestNode]
+        self.nodes = SortedDict()  # type: Dict[str, TestNode]
         # Can use just self.nodes rather than maintaining a separate dictionary
         # but then have to pluck attributes from the `self.nodes` so keeping
         # it simple a the cost of extra memory and its test code so not a big
@@ -444,10 +444,9 @@ class TestNodeSet(ExitStack):
     def __getitem__(self, key) -> Optional[TestNode]:
         if key in self.nodes:
             return self.nodes[key]
-        elif isinstance(key, int):
+        if isinstance(key, int):
             return list(self.nodes.values())[key]
-        else:
-            return None
+        return None
 
     def __len__(self):
         return self.nodes.__len__()
@@ -811,8 +810,13 @@ def instances(nodes: Sequence[Node],
               numInstances: int = None) -> Dict[int, List[replica.Replica]]:
     numInstances = (getRequiredInstances(len(nodes))
                     if numInstances is None else numInstances)
+
+    # Importing it here because import on top fails in runtime
+    # TODO: investigate why and fix
+    from plenum.test.helper import assertLength
     for n in nodes:
-        assert len(n.replicas) == numInstances
+        assertLength(n.replicas, numInstances)
+
     return {i: [n.replicas[i] for n in nodes] for i in range(numInstances)}
 
 

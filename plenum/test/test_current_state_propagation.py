@@ -1,3 +1,4 @@
+from plenum.server.primary_selector import PrimarySelector
 from plenum.test.node_catchup.conftest import *
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
@@ -38,5 +39,6 @@ def test_current_state_propagation(newNodeCaughtUp,
     looper.runFor(5)
 
     # 5. Check that it received CurrentState messages
-    received_times = lagging_node.spylog.count(lagging_node.process_current_state_message.__name__)
+
+    received_times = lagging_node.elector.spylog.count(lagging_node.elector._processCurrentStateMessage)
     assert received_times != 0

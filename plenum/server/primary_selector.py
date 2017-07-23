@@ -1,11 +1,13 @@
 from typing import Iterable, List, Optional, Tuple
 
-from plenum.common.messages.node_messages import ViewChangeDone
+from plenum.common.messages.node_messages import ViewChangeDone, CurrentState
 from plenum.server.router import Route
 from stp_core.common.log import getlogger
 from plenum.server.primary_decider import PrimaryDecider
 from plenum.server.replica import Replica
 from plenum.common.util import mostCommonElement
+from plenum.common.func_utils import count
+
 
 logger = getlogger()
 
@@ -21,12 +23,12 @@ class PrimarySelector(PrimaryDecider):
         super().__init__(node)
         self.previous_master_primary = None
         self._ledger_manager = self.node.ledgerManager
-
         self.set_defaults()
 
     def set_defaults(self):
         # Tracks view change done message
         self._view_change_done = {}  # replica name -> data
+        self._current_state_messages = {}  # replica name -> data
 
         # Set when an appropriate view change quorum is found which has
         # sufficient same ViewChangeDone messages
@@ -38,13 +40,22 @@ class PrimarySelector(PrimaryDecider):
 
         self._accepted_view_change_done_message = None
 
+        self.strict_viewno_messages = {ViewChangeDone}
+
     @property
     def quorum(self) -> int:
         return self.node.quorums.view_change_done.value
 
     @property
+    def state_quorum(self) -> int:
+        return self.node.quorums.current_state.value
+
+    @property
     def routes(self) -> Iterable[Route]:
-        return [(ViewChangeDone, self._processViewChangeDoneMessage)]
+        return [
+            (ViewChangeDone, self._processViewChangeDoneMessage),
+            (CurrentState, self._processCurrentStateMessage),
+        ]
 
     # overridden method of PrimaryDecider
     def get_msgs_for_lagged_nodes(self) -> List[ViewChangeDone]:
@@ -73,7 +84,7 @@ class PrimarySelector(PrimaryDecider):
     def decidePrimaries(self):
         if self.node.is_synced and self.master_replica.isPrimary is None:
             self._send_view_change_done_message()
-        self._startSelection()
+        self._start_selection()
 
     # Question: Master is always 0, until we change that rule why incur cost
     # of a method call, also name is confusing
@@ -82,15 +93,73 @@ class PrimarySelector(PrimaryDecider):
         # Instance 0 is always master
         return instance_id == 0
 
+    def _processCurrentStateMessage(self,
+                                    msg: CurrentState,
+                                    sender: str) -> bool:
+        """
+        Processes CurrentState messages. Once f+1 messages received
+        decides on a primary for specific replica.
+
+        It is a special case of primary selection in which current node
+        does not take part, but notified about.
+
+        :param msg: CurrentState message
+        :param sender: the name of the node which this message came from
+        """
+        logger.debug("{}'s primary selector started processing of "
+                     "CurrentState msg from {} : {}"
+                     .format(self.name, sender, msg))
+
+        view_no = msg.viewNo
+        if self.viewNo > view_no:
+            self.discard(msg,
+                         '{} got CurrentState from {} for view no {} '
+                         'whereas current view no is {}'
+                         .format(self, sender, view_no, self.viewNo),
+                         logMethod=logger.warning)
+            return False
+
+        view_change_dones = self._extract_view_change_dones(msg)
+        if len(view_change_dones) == 0:
+            logger.debug("{} ignoring CurrentState from {} since it "
+                         "brought no ViewChangeDone messages"
+                         .format(self, sender))
+            return False
+
+        the_only_view_change_done = view_change_dones[0]
+        self._track_current_state_message(sender,
+                                          view_no,
+                                          the_only_view_change_done)
+        self._start_current_state_selection(view_no)
+        return True
+
+    def _track_current_state_message(self, sender, view_no, view_change_done):
+        if view_no not in self._current_state_messages:
+            self._current_state_messages[view_no] = {}
+        self._current_state_messages[view_no][sender] = view_change_done
+
+    def _extract_view_change_dones(self, msg: CurrentState):
+        # TODO: parsing of internal messages should be done with other way
+        try:
+            # We should consider reimplementing validation so that it can
+            # work with internal messages. It should not only validate them,
+            # but also set parsed as field values
+            return [ViewChangeDone(**message) for message in msg.primary]
+        except TypeError as ex:
+            self.discard(msg,
+                         reason="invalid election messages",
+                         logMethod=logger.warning)
+            return []
+
     def _processViewChangeDoneMessage(self,
                                       msg: ViewChangeDone,
                                       sender: str) -> bool:
         """
-        Processes ViewChangeDone messages. Once n-f messages have been
-        received, decides on a primary for specific replica. 
+        Processes ViewChangeDone messages. Once n-f messages received
+        decides on a primary for specific replica.
 
         :param msg: ViewChangeDone message
-        :param sender: the name of the node from which this message was sent
+        :param sender: the name of the node which this message came from
         """
 
         logger.debug("{}'s primary selector started processing of "
@@ -101,7 +170,7 @@ class PrimarySelector(PrimaryDecider):
 
         if self.viewNo != view_no:
             self.discard(msg,
-                         '{} got Primary from {} for view no {} '
+                         '{} got ViewChangeDone from {} for view no {} '
                          'whereas current view no is {}'
                          .format(self, sender, view_no, self.viewNo),
                          logMethod=logger.warning)
@@ -130,17 +199,17 @@ class PrimarySelector(PrimaryDecider):
                          logger.debug)
             return False
 
-        self._startSelection()
+        self._start_selection()
 
     def _verify_view_change(self):
         if not self.has_acceptable_view_change_quorum:
             return False
 
-        rv = self.has_sufficient_same_view_change_done_messages
-        if rv is None:
+        has = self.has_sufficient_same_view_change_done_messages
+        if has is None:
             return False
 
-        if not self._verify_primary(*rv):
+        if not self._verify_primary(*has):
             return False
 
         return True
@@ -163,7 +232,9 @@ class PrimarySelector(PrimaryDecider):
         return True
         # TODO: check if ledger status is expected
 
-    def _track_view_change_done(self, sender_name, new_primary_name,
+    def _track_view_change_done(self,
+                                sender_name,
+                                new_primary_name,
                                 ledger_summary):
         data = (new_primary_name, ledger_summary)
         self._view_change_done[sender_name] = data
@@ -178,13 +249,36 @@ class PrimarySelector(PrimaryDecider):
         num_of_ready_nodes = len(self._view_change_done)
         diff = self.quorum - num_of_ready_nodes
         if diff > 0:
-            logger.debug('{} needs {} ViewChangeDone messages'.format(self, diff))
+            logger.debug('{} needs {} ViewChangeDone messages'
+                         .format(self, diff))
             return False
 
         logger.info("{} got view change quorum ({} >= {})"
-                     .format(self.name,
-                             num_of_ready_nodes,
-                             self.quorum))
+                    .format(self.name,
+                            num_of_ready_nodes,
+                            self.quorum))
+        return True
+
+    def _has_state_quorum(self, view_no):
+        """
+        Check quorum of CurrentState messages for specific view
+        """
+        if view_no not in self._current_state_messages:
+            return False
+        dones = self._current_state_messages[view_no].values()
+        names = count([done.name for done in dones])
+        name, popularity = names[0]
+
+        diff = self.state_quorum - popularity
+        if diff > 0:
+            logger.debug('{} needs {} more CurrentState '
+                         'messages to change state'
+                         .format(self, diff))
+            return False
+        logger.info("{} got quorum of CurrentState messages ({} >= {})"
+                    .format(self.name,
+                            popularity,
+                            self.quorum))
         return True
 
     @property
@@ -213,6 +307,8 @@ class PrimarySelector(PrimaryDecider):
 
     @property
     def has_sufficient_same_view_change_done_messages(self) -> Optional[Tuple]:
+        # TODO: Why does it returns tuple, but has name starting with 'has_'?
+
         # Returns whether has a quorum of ViewChangeDone messages that are same
         # TODO: Does not look like optimal implementation.
         if self._accepted_view_change_done_message is None and \
@@ -246,7 +342,68 @@ class PrimarySelector(PrimaryDecider):
                 return True
         return False
 
-    def _startSelection(self):
+    def _declare_selection_completed(self,
+                                     replica,
+                                     instance_id,
+                                     new_primary_name,
+                                     basis):
+
+        logger.display("{} selected primary {} for instance {} (view {}) "
+                       "on the basis of {}"
+                       .format(replica,
+                               new_primary_name,
+                               instance_id,
+                               self.viewNo,
+                               basis),
+                       extra={"cli": "ANNOUNCE",
+                              "tags": ["node-election"]})
+
+        if instance_id == 0:
+            self.previous_master_primary = None
+            # The node needs to be set in participating mode since when
+            # the replica is made aware of the primary, it will start
+            # processing stashed requests and hence the node needs to be
+            # participating.
+            self.node.start_participating()
+
+        replica.primaryChanged(new_primary_name)
+        self.node.primary_selected(instance_id)
+
+        logger.display("{} declares election for view {} as completed for "
+                       "instance {} on the basis of {}, "
+                       "primary is {}, "
+                       "ledger info is {}"
+                       .format(replica,
+                               self.viewNo,
+                               instance_id,
+                               basis,
+                               new_primary_name,
+                               self.ledger_summary),
+                       extra={"cli": "ANNOUNCE",
+                              "tags": ["node-election"]})
+
+    def _start_current_state_selection(self, view_no):
+        if not self._has_state_quorum(view_no):
+            logger.debug('{} cannot update current state because '
+                         'there are no enough CurrentState messages'
+                         'from other nodes'.format(self))
+            return
+        if not self.node.is_synced:
+            logger.info('{} cannot start primary selection since mode is {}'
+                        .format(self, self.node.mode))
+            return
+
+        logger.debug("{} starting selection of state".format(self))
+        self.view_change_started(view_no)
+        for instance_id, replica in enumerate(self.replicas):
+            new_primary_name = self.primary_replica_name_for_view(instance_id,
+                                                                  view_no)
+            self._declare_selection_completed(replica,
+                                              instance_id,
+                                              new_primary_name,
+                                                "CurrentState")
+
+    def _start_selection(self):
         if not self._verify_view_change():
             logger.debug('{} cannot start primary selection found failure in '
                          'primary verification. This can happen due to lack '
@@ -270,52 +427,32 @@ class PrimarySelector(PrimaryDecider):
                 logger.debug('{} already has a primary'.format(replica))
                 continue
             new_primary_name = self.next_primary_replica_name(instance_id)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(replica,
-                                   new_primary_name,
-                                   instance_id,
-                                   self.viewNo),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
-            if instance_id == 0:
-                self.previous_master_primary = None
-                # The node needs to be set in participating mode since when
-                # the replica is made aware of the primary, it will start
-                # processing stashed requests and hence the node needs to be
-                # participating.
-                self.node.start_participating()
-
-            replica.primaryChanged(new_primary_name)
-            self.node.primary_selected(instance_id)
-
-            logger.display("{} declares view change {} as completed for "
-                           "instance {}, "
-                           "new primary is {}, "
-                           "ledger info is {}"
-                           .format(replica,
-                                   self.viewNo,
-                                   instance_id,
-                                   new_primary_name,
-                                   self.ledger_summary),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
+            self._declare_selection_completed(replica,
+                                              instance_id,
+                                              new_primary_name,
+                                                "ViewChangeDone")
 
     def _get_primary_id(self, view_no, instance_id):
         return (view_no + instance_id) % self.node.totalNodes
 
+    def primary_node_name_for_view(self, instance_id, view_no):
+        return self.node.get_name_by_rank(
+            self._get_primary_id(view_no, instance_id))
+
+    def primary_replica_name_for_view(self, instance_id, view_no):
+        return Replica.generateName(
+            nodeName=self.primary_node_name_for_view(instance_id, view_no),
+            instId=instance_id)
+
     def next_primary_node_name(self, instance_id):
-        return self.node.get_name_by_rank(self._get_primary_id(
-                self.viewNo, instance_id))
+        return self.primary_node_name_for_view(instance_id, self.viewNo)
 
     def next_primary_replica_name(self, instance_id):
         """
         Returns name of the next node which is supposed to be a new Primary
         in round-robin fashion
         """
-        return Replica.generateName(
-            nodeName=self.next_primary_node_name(instance_id),
-            instId=instance_id)
+        return self.primary_replica_name_for_view(instance_id, self.viewNo)
 
     def _send_view_change_done_message(self):
         """

@@ -124,7 +124,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.config = config or getConfig()
         self.basedirpath = basedirpath or config.baseDir
         self.dataDir = self.config.nodeDataDir or "data/nodes"
-
+        self._proposed_primary_decider = primaryDecider
         self._view_change_timeout = self.config.VIEW_CHANGE_TIMEOUT
 
         HasFileStorage.__init__(self, name, baseDir=self.basedirpath,
@@ -184,8 +184,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         Propagator.__init__(self)
 
         MessageReqProcessor.__init__(self)
-
-        self.primaryDecider = primaryDecider
 
         self.nodeInBox = deque()
         self.clientInBox = deque()
@@ -278,7 +276,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # dispatching the processed requests to the correct client remote
         self.requestSender = {}     # Dict[Tuple[str, int], str]
 
-        # CurrentState
+        # Configuring routes for node and client messages
+        # NOTE: routes can be updated on setup of elector and
+        # other node components. Make sure that your route
+        # is not replaced there!
         self.nodeMsgRouter = Router(
             (Propagate,        self.processPropagate),
             (InstanceChange,   self.processInstanceChange),
@@ -292,8 +293,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             (LedgerStatus,     self.ledgerManager.processLedgerStatus),
             (ConsistencyProof, self.ledgerManager.processConsistencyProof),
             (CatchupReq,       self.ledgerManager.processCatchupReq),
-            (CatchupRep,       self.ledgerManager.processCatchupRep),
-            (CurrentState,     self.process_current_state_message)
+            (CatchupRep,       self.ledgerManager.processCatchupRep)
         )
 
         self.clientMsgRouter = Router(
@@ -369,15 +369,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @elector.setter
     def elector(self, value):
-        # clear old routes
+        # Adding messages that should be processed by elector to router
         if self._elector:
+            # clear old routes
             self.nodeMsgRouter.remove(self._elector.supported_msg_types)
         self._elector = value
-        # set up new routes
         if self._elector:
+            # set up new routes
             self.nodeMsgRouter.extend(
-                (msgTyp, self.sendToElector) for msgTyp in
-                self._elector.supported_msg_types)
+                ((msgTyp, self.sendToElector) for msgTyp in
+                 self._elector.supported_msg_types))
 
     @property
     def view_change_in_progress(self):
@@ -608,10 +609,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         return self.poolManager.get_name_by_rank(rank)
 
     def newPrimaryDecider(self):
-        if self.primaryDecider:
-            return self.primaryDecider
-        else:
-            return PrimarySelector(self)
+        return self._proposed_primary_decider or PrimarySelector(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -876,18 +874,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def process_current_state_message(self, msg: CurrentState, frm):
         logger.debug("{} processing current state {} from {}"
                      .format(self, msg, frm))
-        try:
-            # TODO: parsing of internal messages should be done with other way
-            # We should consider reimplementing validation so that it can
-            # work with internal messages. It should not only validate them,
-            # but also set parsed as field values
-            messages = [ViewChangeDone(**message) for message in msg.primary]
-            for message in messages:
-                self.sendToElector(message, frm)
-        except TypeError as ex:
-            self.discard(msg,
-                         reason="invalid election messages",
-                         logMethod=logger.warning)
+        self.sendToElector(msg, frm)
 
     def _statusChanged(self, old: Status, new: Status) -> None:
         """
@@ -1248,11 +1235,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param msg: the message to send
         :param frm: the name of the node which sent this `msg`
         """
-        if (isinstance(msg, ViewChangeDone) or
-                self.msgHasAcceptableInstId(msg, frm)) and \
-                self.msgHasAcceptableViewNo(msg, frm):
-            logger.debug("{} sending message to elector: {}".
-                         format(self, (msg, frm)))
+        if isinstance(msg, ViewChangeDone) and \
+           self.msgHasAcceptableViewNo(msg, frm):
+                logger.debug("{} sending message to elector: {}"
+                             .format(self, (msg, frm)))
+                self.msgsToElector.append((msg, frm))
+        elif isinstance(msg, CurrentState):
+            logger.debug("{} sending CurrentState message to elector: {}"
+                         .format(self, (msg, frm)))
             self.msgsToElector.append((msg, frm))
 
     def handleOneNodeMsg(self, wrappedMsg):
@@ -1935,37 +1925,38 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param instChg: the instance change request
         :param frm: the name of the node that sent this `msg`
         """
-        logger.debug("{} received instance change request: {} from {}".
-                     format(self, instChg, frm))
+        logger.debug("{} received instance change request: {} from {}"
+                     .format(self, instChg, frm))
 
-        # TODO: add sender to blacklist?
-        if not isinstance(instChg.viewNo, int):
-            self.discard(instChg, "field viewNo has incorrect type: {}".
-                         format(type(instChg.viewNo)))
-        elif instChg.viewNo <= self.viewNo:
+        if instChg.viewNo <= self.viewNo:
             self.discard(instChg,
                          "Received instance change request with view no {} "
                          "which is not more than its view no {}".
                          format(instChg.viewNo, self.viewNo), logger.debug)
-        else:
-            # Record instance changes for views but send instance change
-            # only when found master to be degraded. if quorum of view changes
-            #  found then change view even if master not degraded
-            if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
-                self._record_inst_change_msg(instChg, frm)
+            return
 
-            if self.monitor.isMasterDegraded() and not \
-                    self.instanceChanges.hasInstChngFrom(instChg.viewNo,
-                                                         self.name):
-                logger.info(
-                    "{} found master degraded after receiving instance change "
-                    "message from {}".format(self, frm))
-                self.sendInstanceChange(instChg.viewNo)
-            else:
-                logger.debug(
-                    "{} received instance change message {} but did not "
-                    "find the master to be slow or has already sent an instance"
-                    " change message".format(self, instChg))
+        # Record instance changes for views but send own instance change
+        # only when found master to be degraded. If quorum of view changes
+        # found then change view even if master not degraded
+        if not self.instanceChanges.hasInstChngFrom(instChg.viewNo, frm):
+            self._record_inst_change_msg(instChg, frm)
+
+        if not self.monitor.isMasterDegraded():
+            logger.debug("{} received instance change message {} but "
+                         "did not find the master to be slow"
+                         .format(self, instChg))
+            return
+
+        if self.instanceChanges.hasInstChngFrom(instChg.viewNo, self.name):
+            logger.debug("{} received instance change message {} but "
+                         "has already sent an instance change message"
+                         .format(self, instChg))
+            return
+
+        logger.info("{} found master degraded after receiving "
+                    "instance change message from {}"
+                    .format(self, frm))
+        self.sendInstanceChange(instChg.viewNo)
 
     def do_view_change_if_possible(self, view_no):
         # TODO: Need to handle skewed distributions which can arise due to
@@ -2081,9 +2072,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if instance_id == 0:
             # TODO: 0 should be replaced with configurable constant
             self.monitor.hasMasterPrimary = self.primaryReplicaNo == 0
-
-        if self.view_change_in_progress and self.all_instances_have_primary:
-            self.on_view_change_complete(self.viewNo)
+        if self.all_instances_have_primary:
+            # Doing this for CurrentState message
+            # This problem is faced because viewNo is set on view change start
+            self.on_view_change_complete(self.elector.viewNo)
 
     @property
     def all_instances_have_primary(self):
@@ -2175,8 +2167,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         View change completes for a replica when it has been decided which was
         the last ppSeqno and state and txn root for previous view
         """
+        self.viewNo = view_no
         self.view_change_in_progress = False
-        self.instanceChanges.pop(view_no-1, None)
+        self.instanceChanges.pop(view_no - 1, None)
         self.master_replica.on_view_change_done()
         self.catchup_rounds_without_txns = 0
 
@@ -2243,9 +2236,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def isSignatureVerificationNeeded(self, msg: Any):
         op = msg.get(OPERATION)
-        if op:
-            if op.get(TXN_TYPE) in openTxns:
-                return False
+        if op and op.get(TXN_TYPE) in openTxns:
+            return False
         return True
 
     def three_phase_key_for_txn_seq_no(self, ledger_id, seq_no):

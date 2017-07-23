@@ -10,7 +10,7 @@ from shutil import copyfile
 from sys import executable
 from time import sleep
 from typing import Tuple, Iterable, Dict, Optional, NamedTuple, \
-    List, Any, Sequence
+    List, Any, Sequence, Sized
 from typing import Union
 
 from plenum.client.client import Client
@@ -239,10 +239,9 @@ def getPendingRequestsForReplica(replica: TestReplica, requestType: Any):
             isinstance(item[0], requestType)]
 
 
-def assertLength(collection: Iterable[Any], expectedLength: int):
-    assert len(
-        collection) == expectedLength, "Observed length was {} but " \
-                                       "expected length was {}". \
+def assertLength(collection: Sized, expectedLength: int):
+    assert len(collection) == expectedLength, \
+        "Observed length was {} but expected length was {}".\
         format(len(collection), expectedLength)
 
 
@@ -605,10 +604,12 @@ def waitReqNackWithReason(looper, client, reason: str, sender: str):
 def checkRejectWithReason(client, reason: str, sender: str):
     found = False
     for msg, sdr in client.inBox:
-        if msg[OP_FIELD_NAME] == REJECT and reason in msg.get(f.REASON.nm, "") \
-                and sdr == sender:
-            found = True
-            break
+        if sdr == sender:
+            if msg[OP_FIELD_NAME] == REJECT:
+                real_reason = msg.get(f.REASON.nm, "")
+                if reason in real_reason:
+                    found=True
+                    break
     assert found
 
 
@@ -650,11 +651,17 @@ def checkViewNoForNodes(nodes: Iterable[TestNode], expectedViewNo: int = None):
     for node in nodes:
         logger.debug("{}'s view no is {}".format(node, node.viewNo))
         viewNos.add(node.viewNo)
-    assert len(viewNos) == 1
+    assertLength(viewNos, 1)
     vNo, = viewNos
     if expectedViewNo:
-        assert vNo == expectedViewNo, ','.join(['{} -> Ratio: {}'.format(
-            node.name, node.monitor.masterThroughputRatio()) for node in nodes])
+        if vNo != expectedViewNo:
+            ratio = ['{} -> Ratio: {}'
+                     .format(node.name, node.monitor.masterThroughputRatio())
+                     for node in nodes]
+            error_message = "{} == {}, {}"\
+                .format(vNo, expectedViewNo, ','.join(ratio))
+            assert vNo == expectedViewNo, error_message
+
     return vNo
 
 

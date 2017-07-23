@@ -30,3 +30,4 @@ class Quorums:
         self.ledger_status = Quorum(n - f - 1)
         self.checkpoint = Quorum(2 * f)
         self.timestamp = Quorum(f + 1)
+        self.current_state = Quorum(f + 1)
