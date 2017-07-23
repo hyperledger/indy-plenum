@@ -51,7 +51,6 @@ def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath, tco
     # Start lagging node back
     restarted_node = start_stopped_node(lagging_node, looper, tconf, lagging_node.basedirpath, allPluginsPath)
     active_nodes = [beta, delta, restarted_node]
-    looper.runFor(5)
 
     # Check that primary selected
     expected_view_no = initial_view_no + 1

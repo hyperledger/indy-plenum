@@ -49,6 +49,8 @@ class FakeNode():
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
+        self.view_change_in_progress = True
+        self.propagate_primary = False
 
     def get_name_by_rank(self, name):
         # This is used only for getting name of next primary, so
@@ -75,10 +77,12 @@ class FakeNode():
     def is_synced(self):
         return self.mode >= Mode.synced
 
-
-def testHasViewChangeQuorum():
+def test_has_view_change_quorum_number():
     """
-    Checks method _hasViewChangeQuorum of SimpleSelector 
+    Checks method _hasViewChangeQuorum of SimpleSelector
+    It must have n-f ViewChangeDone
+
+    Check it for a case of view change (view_change_in_progress = True, propagate_primary = False)
     """
 
     ledgerInfo = (
@@ -86,7 +90,50 @@ def testHasViewChangeQuorum():
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
         (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
     )
-    selector = PrimarySelector(FakeNode())
+
+    node = FakeNode()
+    node.view_change_in_progress = True
+    node.propagate_primary = False
+    selector = PrimarySelector(node)
+
+    assert not selector._hasViewChangeQuorum
+
+    # Accessing _view_change_done directly to avoid influence of methods
+    selector._view_change_done = {}
+
+    def declare(replica_name):
+        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+
+    # Declare the Primary first and check that n-f are required
+    declare('Node2')
+    assert selector.has_view_change_from_primary
+    assert not selector._hasViewChangeQuorum
+    declare('Node1')
+    assert selector.has_view_change_from_primary
+    assert not selector._hasViewChangeQuorum
+    declare('Node3')
+    assert selector.has_view_change_from_primary
+    assert selector._hasViewChangeQuorum
+
+
+def test_has_view_change_quorum_must_contain_primary():
+    """
+    Checks method _hasViewChangeQuorum of SimpleSelector
+    It must have n-f ViewChangeDone including a VCD from the next Primary
+
+    Check it for a case of view change (view_change_in_progress = True, propagate_primary = False)
+    """
+
+    ledgerInfo = (
+        # ledger id, ledger length, merkle root
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
+    )
+
+    node = FakeNode()
+    node.view_change_in_progress = True
+    node.propagate_primary = False
+    selector = PrimarySelector(node)
 
     assert not selector._hasViewChangeQuorum
 
@@ -97,19 +144,99 @@ def testHasViewChangeQuorum():
         selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
 
     declare('Node1')
+    assert not selector._hasViewChangeQuorum
+    assert not selector.has_view_change_from_primary
     declare('Node3')
+    assert not selector._hasViewChangeQuorum
+    assert not selector.has_view_change_from_primary
     declare('Node4')
-
-    # Three nodes is enough for quorum, but there is no Node2:0 which is
-    # expected to be next primary, so no quorum should be achieved
     assert selector._hasViewChangeQuorum
     assert not selector.has_view_change_from_primary
 
+    # Three nodes is enough for quorum, but there is no Node2:0 which is
+    # expected to be next primary, so no quorum should be achieved
     declare('Node2')
+    assert selector._hasViewChangeQuorum
     assert selector.has_view_change_from_primary
 
 
-def testProcessViewChangeDone():
+def test_has_view_change_quorum_number_propagate_primary():
+    """
+    Checks method _hasViewChangeQuorum of SimpleSelector
+    It must have f+1 ViewChangeDone in the case of PrimaryPropagation
+
+    Check it for a case of view change (view_change_in_progress = True, propagate_primary = True)
+    """
+
+    ledgerInfo = (
+        # ledger id, ledger length, merkle root
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
+    )
+
+    node = FakeNode()
+    node.view_change_in_progress = True
+    node.propagate_primary = True
+    selector = PrimarySelector(node)
+
+    assert not selector._hasViewChangeQuorum
+
+    # Accessing _view_change_done directly to avoid influence of methods
+    selector._view_change_done = {}
+
+    def declare(replica_name):
+        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+
+    # Declare the Primary first and check that f+1 are required
+    declare('Node2')
+    assert selector.has_view_change_from_primary
+    assert not selector._hasViewChangeQuorum
+    declare('Node1')
+    assert selector._hasViewChangeQuorum
+    assert selector.has_view_change_from_primary
+
+
+def test_has_view_change_quorum_number_must_contain_primary_propagate_primary():
+    """
+    Checks method _hasViewChangeQuorum of SimpleSelector
+    It must have f+1 ViewChangeDone and contain a VCD from the next Primary in the case of PrimaryPropagation
+
+    Check it for a case of view change (view_change_in_progress = True, propagate_primary = True)
+    """
+
+    ledgerInfo = (
+        # ledger id, ledger length, merkle root
+        (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
+        (1, 5, 'Hs9n4M3CrmrkWGVviGq48vSbMpCrk6WgSBZ7sZAWbJy3')
+    )
+
+    node = FakeNode()
+    node.view_change_in_progress = True
+    node.propagate_primary = True
+    selector = PrimarySelector(node)
+
+    assert not selector._hasViewChangeQuorum
+
+    # Accessing _view_change_done directly to avoid influence of methods
+    selector._view_change_done = {}
+
+    def declare(replica_name):
+        selector._view_change_done[replica_name] = ('Node2', ledgerInfo)
+
+    # Declare the Primary first and check that f+1 are required
+    declare('Node1')
+    assert not selector.has_view_change_from_primary
+    assert not selector._hasViewChangeQuorum
+    declare('Node3')
+    assert not selector.has_view_change_from_primary
+    assert selector._hasViewChangeQuorum
+
+    declare('Node2')
+    assert selector.has_view_change_from_primary
+    assert selector._hasViewChangeQuorum
+
+
+def test_process_view_change_done():
     ledgerInfo = (
         # ledger id, ledger length, merkle root
         (0, 10, '7toTJZHzaxQ7cGZv18MR4PMBfuUecdEQ1JRqJVeJBvmd'),
