@@ -231,17 +231,19 @@ class LedgerManager(HasActionQueue):
     def processLedgerStatus(self, status: LedgerStatus, frm: str):
         logger.debug("{} received ledger status: {} from {}".
                      format(self, status, frm))
-        # Nodes might not be using pool txn ledger, might be using simple node
-        # registries (old approach)
-        ledgerStatus = LedgerStatus(*status) if status else None
-        if ledgerStatus.txnSeqNo < 0:
-            self.discard(status, reason="Received negative sequence number "
-                         "from {}".format(frm),
-                         logMethod=logger.warning)
         if not status:
             logger.debug("{} found ledger status to be null from {}".
                          format(self, frm))
             return
+
+        # Nodes might not be using pool txn ledger, might be using simple node
+        # registries (old approach)
+        ledgerStatus = LedgerStatus(*status)
+        if ledgerStatus.txnSeqNo < 0:
+            self.discard(status, reason="Received negative sequence number "
+                         "from {}".format(frm),
+                         logMethod=logger.warning)
+
         ledgerId = getattr(status, f.LEDGER_ID.nm)
 
         # If this is a node's ledger manager and sender of this ledger status
@@ -290,8 +292,7 @@ class LedgerManager(HasActionQueue):
         # post sending this ledger status
         ledgerInfo.recvdConsistencyProofs[frm] = None
         ledgerInfo.ledgerStatusOk.add(frm)
-        quorum = Quorums(self.owner.totalNodes).ledger_status.value
-        if len(ledgerInfo.ledgerStatusOk) == quorum:
+        if self.has_ledger_status_quorum(len(ledgerInfo.ledgerStatusOk), self.owner.totalNodes):
             logger.debug("{} found out from {} that its "
                          "ledger of type {} is latest".
                          format(self, ledgerInfo.ledgerStatusOk, ledgerId))
@@ -308,6 +309,11 @@ class LedgerManager(HasActionQueue):
                     self.catchupCompleted(ledgerId, key)
                 else:
                     self.catchupCompleted(ledgerId)
+
+    @staticmethod
+    def has_ledger_status_quorum(leger_status_num, total_nodes):
+        quorum = Quorums(total_nodes).ledger_status
+        return quorum.is_reached(leger_status_num)
 
     def processConsistencyProof(self, proof: ConsistencyProof, frm: str):
         logger.debug("{} received consistency proof: {} from {}".

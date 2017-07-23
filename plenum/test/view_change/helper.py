@@ -154,6 +154,14 @@ def check_all_replica_queue_empty(nodes):
         check_replica_queue_empty(node)
 
 
+def ensure_view_change_complete(looper, nodes, exclude_from_check=None,
+                                customTimeout=None):
+    ensure_view_change(looper, nodes)
+    ensureElectionsDone(looper=looper, nodes=nodes,
+                        customTimeout=customTimeout)
+    ensure_all_nodes_have_same_data(looper, nodes, customTimeout)
+
+
 def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
                                slow_delay=1, wait=None):
     send_reqs_to_nodes_and_verify_all_replies(looper, wallet, client, 4)
@@ -163,9 +171,7 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes, wallet, client,
     if wait:
         looper.runFor(wait)
 
-    ensure_view_change(looper, nodes)
-    ensureElectionsDone(looper=looper, nodes=nodes, customTimeout=60)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_view_change_complete(looper, nodes, customTimeout=60)
 
     reset_delays_and_process_delayeds(slow_nodes)
 
@@ -181,9 +187,7 @@ def view_change_in_between_3pc_random_delays(looper, nodes, slow_nodes, wallet, 
 
     sendRandomRequests(wallet, client, 10)
 
-    ensure_view_change(looper, nodes)
-    ensureElectionsDone(looper=looper, nodes=nodes)
-    ensure_all_nodes_have_same_data(looper, nodes=nodes)
+    ensure_view_change_complete(looper, nodes)
 
     reset_delays_and_process_delayeds(slow_nodes)
 

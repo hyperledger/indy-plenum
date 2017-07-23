@@ -27,7 +27,7 @@ class Quorums:
         self.view_no = Quorum(n - f - 1)
         self.same_consistency_proof = Quorum(f + 1)
         self.consistency_proof = Quorum(f + 1)
-        self.ledger_status = Quorum(f + 1)
+        self.ledger_status = Quorum(n - f - 1)
         self.checkpoint = Quorum(2 * f)
         self.timestamp = Quorum(f + 1)
         self.current_state = Quorum(f + 1)
