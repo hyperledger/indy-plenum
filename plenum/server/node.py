@@ -337,6 +337,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
         self._view_change_in_progress = False
 
+        # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
+        # or just propagating viewNo and Primary from `CurrentState` messages sent to a newly joined Node.
+        # TODO: separate real view change and Propagation of Primary
+        # TODO: separate catch-up, view-change and primary selection so that they are really independent.
+        self.propagate_primary = False
+
         # Number of rounds of catchup done during a view change.
         self.catchup_rounds_without_txns = 0
 
@@ -1867,7 +1873,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # Only the request ordered by master protocol instance are executed by
         # the client
-        r = None
         if inst_id == self.instances.masterId:
             reqs = [self.requests[i, r].finalised for (i, r) in req_idrs
                     if (i, r) in self.requests and self.requests[i, r].finalised]
@@ -1975,6 +1980,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if can:
             logger.info("{} initiating a view change to {} from {}".
                         format(self, view_no, self.viewNo))
+            self.propagate_primary = False
             self.startViewChange(view_no)
         else:
             logger.debug(whyNot)
@@ -1982,10 +1988,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def _start_view_change_if_possible(self, view_no) -> bool:
         ind_count = len(self._next_view_indications[view_no])
-        if self.quorums.view_no.is_reached(ind_count):
+        if self.quorums.propagate_primary.is_reached(ind_count):
             logger.info('{} starting view change for {} after {} view change '
                         'indications from other nodes'.
                         format(self, view_no, ind_count))
+            self.propagate_primary = True
             self.startViewChange(view_no)
             return True
         return False
@@ -2177,6 +2184,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         the last ppSeqno and state and txn root for previous view
         """
         self.view_change_in_progress = False
+        self.propagate_primary = False
         self.instanceChanges.pop(view_no-1, None)
         self.master_replica.on_view_change_done()
         self.catchup_rounds_without_txns = 0
@@ -2189,6 +2197,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         'because it is already in this state'.format(self))
             return
         self.force_process_ordered()
+
+        # # revert uncommitted txns and state for unordered requests
+        r = self.master_replica.revert_unordered_batches()
+        logger.debug('{} reverted {} batches before starting '
+                     'catch up'.format(self, r))
+
         self.mode = Mode.starting
         self.ledgerManager.prepare_ledgers_for_sync()
         ledger_id = DOMAIN_LEDGER_ID
