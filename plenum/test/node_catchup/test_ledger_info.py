@@ -7,7 +7,10 @@ from plenum.common.ledger_manager import LedgerManager
 from plenum.common.messages.node_messages import ConsistencyProof
 
 
-def test_missing(ledger):
+def test_missing_txn_request(ledger):
+    """
+    Testing LedgerManager's `_missing_txns`
+    """
     for i in range(20):
         txn = random_txn(i)
         ledger.add(txn)
