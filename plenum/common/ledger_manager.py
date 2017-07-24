@@ -112,24 +112,35 @@ class LedgerManager(HasActionQueue):
         ledgerInfo.consistencyProofsTimer = None
         ledgerInfo.recvdCatchupRepliesFrm = {}
 
+    @staticmethod
+    def _missing_txns(ledger_info) -> Tuple[bool, int]:
+        ledger = ledger_info.ledger
+        if ledger_info.catchupReplyTimer is None:
+            return False, 0
+
+        end = getattr(ledger_info.catchUpTill, f.SEQ_NO_END.nm)
+
+        catchUpReplies = ledger_info.receivedCatchUpReplies
+        total_missing = (end - ledger.size) - len(catchUpReplies)
+        return total_missing > 0, total_missing
+
     def request_txns_if_needed(self, ledgerId):
         ledgerInfo = self.ledgerRegistry.get(ledgerId)
-        ledger = ledgerInfo.ledger
-        if ledgerInfo.catchupReplyTimer is None:
+        missing, num_missing = self._missing_txns(ledgerInfo)
+        if not missing:
+            # `catchupReplyTimer` might not be None
+            ledgerInfo.catchupReplyTimer = None
+            logger.debug('{} not missing any transactions for ledger {}'.
+                         format(self, ledgerId))
             return
 
+        ledger = ledgerInfo.ledger
         start = getattr(ledgerInfo.catchUpTill, f.SEQ_NO_START.nm)
         end = getattr(ledgerInfo.catchUpTill, f.SEQ_NO_END.nm)
-
         catchUpReplies = ledgerInfo.receivedCatchUpReplies
-        totalMissing = (end - ledger.size) - len(catchUpReplies)
-
-        if totalMissing == 0:
-            ledgerInfo.catchupReplyTimer = None
-            return
 
         logger.debug("{} requesting {} missing transactions "
-                     "after timeout".format(self, totalMissing))
+                     "after timeout".format(self, num_missing))
         # eligibleNodes = list(self.nodestack.conns -
         #                      self.blacklistedNodes)
         eligibleNodes = self.nodes_to_request_txns_from
@@ -149,10 +160,10 @@ class LedgerManager(HasActionQueue):
         # does not reply at all.
         # TODO: Need some way to detect nodes that are not responding.
         shuffle(eligibleNodes)
-        batchSize = math.ceil(totalMissing/len(eligibleNodes))
+        batchSize = math.ceil(num_missing/len(eligibleNodes))
         cReqs = []
         lastSeenSeqNo = ledger.size
-        leftMissing = totalMissing
+        leftMissing = num_missing
 
         def addReqsForMissing(frm, to):
             # Add Catchup requests for missing transactions.
