@@ -24,3 +24,21 @@ def test_view_change_n_minus_f_quorum(nodeSet, up, looper):
     ensure_view_change(looper, active)
     ensureElectionsDone(looper=looper, nodes=active, numInstances=2, customTimeout=60)
     ensure_all_nodes_have_same_data(looper, nodes=active)
+
+    # Switching another node off to make sure that this time the quorum is not reaches.
+    stopped = [active[-1]]
+    active = list(active)[:-1]
+    stopNodes(stopped, looper)
+    looper.removeProdable(*stopped)
+
+    # Check that view does not changes
+    current_view_no = active[0].viewNo
+    with pytest.raises(AssertionError,
+                       message="{} == {}, "
+                               "Alpha -> Ratio: None,"
+                               "Beta -> Ratio: None,"
+                               "Delta -> Ratio: None"
+                               .format(current_view_no,
+                                       current_view_no + 1)) as exc_info:
+
+        ensure_view_change(looper, active)

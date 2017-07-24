@@ -104,7 +104,7 @@ class PrimarySelector(PrimaryDecider):
 
         view_no = msg.viewNo
 
-        if self.viewNo > view_no:
+        if self.viewNo != view_no:
             self.discard(msg,
                          '{} got Primary from {} for view no {} '
                          'whereas current view no is {}'
