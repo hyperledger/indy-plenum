@@ -58,5 +58,6 @@ def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, c
     # Check that primary selected
     ensureElectionsDone(looper=looper, nodes=active_nodes, numInstances=2, customTimeout=30)
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
+    ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)
