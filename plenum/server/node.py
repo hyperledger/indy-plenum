@@ -336,6 +336,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # of `1:101`
         self.txn_seq_range_to_3phase_key = {}  # type: Dict[int, IntervalTree]
         self._view_change_in_progress = False
+
+        # The quorum of `ViewChangeDone` msgs is different depending on whether we're doing a real view change,
+        # or just propagating viewNo and Primary from `CurrentState` messages sent to a newly joined Node.
+        # TODO: separate real view change and Propagation of Primary
+        # TODO: separate catch-up, view-change and primary selection so that they are really independent.
         self.propagate_primary = False
 
         # Number of rounds of catchup done during a view change.
