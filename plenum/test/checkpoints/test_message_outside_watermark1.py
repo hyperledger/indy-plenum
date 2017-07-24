@@ -15,6 +15,8 @@ PerfCheckFreq = 30
 
 logger = getlogger()
 
+whitelist = ['received an incorrect digest']
+
 
 def testPrimaryRecvs3PhaseMessageOutsideWatermarks(perf_chk_patched,
                                                    chkFreqPatched, looper,
