@@ -23,6 +23,7 @@ def test_selection_f_plus_one_quorum(looper, txnPoolNodeSet, allPluginsPath, tco
 
     # Ensure that we have 4 nodes in total
     all_nodes = list(txnPoolNodeSet)
+    assert 4 == len(all_nodes)
     alpha, beta, delta, gamma = all_nodes
     initial_view_no = alpha.viewNo
 

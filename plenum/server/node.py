@@ -2184,9 +2184,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         the last ppSeqno and state and txn root for previous view
         """
         self.view_change_in_progress = False
-        self.propagate_primary = False
         self.instanceChanges.pop(view_no-1, None)
         self.master_replica.on_view_change_done()
+        if self.propagate_primary:
+            self.master_replica.on_propagate_primary_done()
+        self.propagate_primary = False
         self.catchup_rounds_without_txns = 0
 
     def start_catchup(self):

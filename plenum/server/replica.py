@@ -440,6 +440,11 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         assert self.isMaster
         self.last_prepared_before_view_change = None
+
+    def on_propagate_primary_done(self):
+        assert self.isMaster
+        # if this is a Primary that is re-connected (that is view change is not actually changed,
+        # we just propagate it, then make sure that we don;t break the sequence of ppSeqNo
         if self.isPrimary:
             self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
 

@@ -31,8 +31,8 @@ def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, c
     - send txns
     """
 
-    # Ensure that we have 4 nodes in total
     active_nodes = list(txnPoolNodeSet)
+    assert 4 == len(active_nodes)
     initial_view_no = active_nodes[0].viewNo
 
     # Stop first node (current Primary)
@@ -45,7 +45,7 @@ def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, c
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     # send request
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     # Stop second node (current Primary)
@@ -60,4 +60,5 @@ def test_recover_stop_primaries(looper, txnPoolNodeSet, allPluginsPath, tconf, c
     waitForViewChange(looper, active_nodes, expectedViewNo=expected_view_no)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
-    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=1)
+    sendReqsToNodesAndVerifySuffReplies(looper, wallet1, client1, numReqs=10)
+    ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
