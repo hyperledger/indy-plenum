@@ -27,7 +27,7 @@ def check_nodes_requests_size(nodes, size):
         assert len(node.requests) == size
 
 
-def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
+def test_view_change_gc_in_between_3pc_all_nodes_delays(
         looper, txnPoolNodeSet, wallet1, client):
     """
     Test that garbage collector compares the whole 3PC key (viewNo, ppSeqNo)
@@ -70,12 +70,10 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
     propagationTimeout = waits.expectedClientRequestPropagationTime(numNodes)
     delay_3pc_messages(txnPoolNodeSet,
                        0,
-                       min_delay=propagationTimeout,
-                       max_delay=propagationTimeout + 2)
+                       delay=propagationTimeout * 2)
     delay_3pc_messages(txnPoolNodeSet,
                        1,
-                       min_delay=propagationTimeout,
-                       max_delay=propagationTimeout + 2)
+                       delay=propagationTimeout * 2)
     requests = sendRandomRequests(wallet1, client, 1)
 
     def checkPrePrepareSentAtLeastByPrimary():
@@ -85,7 +83,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_random_delays(
                     assert len(replica.sentPrePrepares)
 
     looper.run(eventually(checkPrePrepareSentAtLeastByPrimary,
-                          retryWait=1,
+                          retryWait=0.1,
                           timeout=propagationTimeout))
     # 4 do view change
     #    -> GC shouldn't remove anything because
