@@ -81,6 +81,11 @@ def newNodeCaughtUp(txnPoolNodeSet, nodeSetWithNodeAddedAfterSomeTxns):
 
         assert max(getAllReturnVals(newNode,
                                     newNode.num_txns_caught_up_in_last_catchup)) > 0
+
+    for li in newNode.ledgerManager.ledgerRegistry.values():
+        assert not li.receivedCatchUpReplies
+        assert not li.recvdCatchupRepliesFrm
+
     return newNode
 
 
