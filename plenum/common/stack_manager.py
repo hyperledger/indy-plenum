@@ -13,9 +13,10 @@ from ledger.compact_merkle_tree import CompactMerkleTree
 from ledger.stores.file_hash_store import FileHashStore
 
 from plenum.common.constants import DATA, ALIAS, TARGET_NYM, NODE_IP, CLIENT_IP, \
-    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX
+    CLIENT_PORT, NODE_PORT, VERKEY, TXN_TYPE, NODE, SERVICES, VALIDATOR, CLIENT_STACK_SUFFIX, IDENTIFIER
 from plenum.common.util import cryptonymToHex, updateNestedDict
 from plenum.common.ledger import Ledger
+from json.decoder import JSONDecodeError
 
 logger = getlogger()
 
@@ -76,35 +77,43 @@ class TxnStackManager:
         cliNodeReg = OrderedDict()
         nodeKeys = {}
         activeValidators = set()
-        for _, txn in ledger.getAllTxn():
-            if txn[TXN_TYPE] == NODE:
-                nodeName = txn[DATA][ALIAS]
-                clientStackName = nodeName + CLIENT_STACK_SUFFIX
-                nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
-                    if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
-                    else None
-                cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
-                    if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
-                    else None
-                if nHa:
-                    nodeReg[nodeName] = HA(*nHa)
-                if cHa:
-                    cliNodeReg[clientStackName] = HA(*cHa)
+        try:
+            for _, txn in ledger.getAllTxn():
+                if txn[TXN_TYPE] == NODE:
+                    nodeName = txn[DATA][ALIAS]
+                    clientStackName = nodeName + CLIENT_STACK_SUFFIX
+                    nHa = (txn[DATA][NODE_IP], txn[DATA][NODE_PORT]) \
+                        if (NODE_IP in txn[DATA] and NODE_PORT in txn[DATA]) \
+                        else None
+                    cHa = (txn[DATA][CLIENT_IP], txn[DATA][CLIENT_PORT]) \
+                        if (CLIENT_IP in txn[DATA] and CLIENT_PORT in txn[DATA]) \
+                        else None
+                    if nHa:
+                        nodeReg[nodeName] = HA(*nHa)
+                    if cHa:
+                        cliNodeReg[clientStackName] = HA(*cHa)
 
-                try:
-                    # TODO: Need to handle abbreviated verkey
-                    verkey = cryptonymToHex(txn[TARGET_NYM])
-                except ValueError as ex:
-                    raise ValueError("Invalid verkey. Rebuild pool transactions.")
+                    try:
+                        # TODO: Need to handle abbreviated verkey
+                        key_type = 'verkey'
+                        verkey = cryptonymToHex(txn[TARGET_NYM])
+                        key_type = 'identifier'
+                        cryptonymToHex(txn[IDENTIFIER])
+                    except ValueError as ex:
+                        logger.error('Invalid {}. Rebuild pool transactions.'.format(key_type))
+                        raise ValueError
 
-                nodeKeys[nodeName] = verkey
+                    nodeKeys[nodeName] = verkey
 
-                services = txn[DATA].get(SERVICES)
-                if isinstance(services, list):
-                    if VALIDATOR in services:
-                        activeValidators.add(nodeName)
-                    else:
-                        activeValidators.discard(nodeName)
+                    services = txn[DATA].get(SERVICES)
+                    if isinstance(services, list):
+                        if VALIDATOR in services:
+                            activeValidators.add(nodeName)
+                        else:
+                            activeValidators.discard(nodeName)
+        except JSONDecodeError as exc:
+            logger.error('Transaction file corrupted. Rebuild pool transactions.')
+            raise JSONDecodeError
 
         if returnActive:
             allNodes = tuple(nodeReg.keys())
