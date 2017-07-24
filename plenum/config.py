@@ -198,4 +198,4 @@ KEYRING_FILE_MODE = 0o600  # -rw-------
 # This timeout is high enough so that even if some PRE-PREPAREs are stashed
 # because of being delivered out of order or being out of watermarks or not
 # having finalised requests.
-ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 500  # seconds
+ACCEPTABLE_DEVIATION_PREPREPARE_SECS = 600  # seconds

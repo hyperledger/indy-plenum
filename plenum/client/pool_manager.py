@@ -34,6 +34,7 @@ class HasPoolManager(TxnStackManager):
         self.tempNodeTxns = {}  # type: Dict[int, Dict[str, Dict]]
 
     def poolTxnReceived(self, msg: PoolLedgerTxns, frm):
+        global t
         logger.debug("{} received pool txn {} from {}".format(self, msg, frm))
         txn = getattr(msg, t)
         seqNo = txn.pop(F.seqNo.name)
@@ -48,8 +49,8 @@ class HasPoolManager(TxnStackManager):
                 # TODO: Shouldnt this use `checkIfMoreThanFSameItems`
                 txns = [item for item, count in
                         collections.Counter(
-                            [json.dumps(t, sort_keys=True)
-                             for t in self.tempNodeTxns[seqNo].values()]
+                            [json.dumps(_t, sort_keys=True)
+                             for _t in self.tempNodeTxns[seqNo].values()]
                         ).items() if count > f]
                 if len(txns) > 0:
                     txn = json.loads(txns[0])

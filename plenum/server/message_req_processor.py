@@ -6,7 +6,6 @@ from plenum.common.constants import LEDGER_STATUS, PREPREPARE, CONSISTENCY_PROOF
 from plenum.common.messages.fields import RequestIdentifierField
 from plenum.common.messages.node_messages import MessageReq, MessageRep, \
     LedgerStatus, PrePrepare, ConsistencyProof, Propagate
-from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.server import replica
 from stp_core.common.log import getlogger

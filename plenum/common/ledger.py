@@ -48,6 +48,8 @@ class Ledger(_Ledger):
             txn.update(self.append(txn))
             committedTxns.append(txn)
         self.uncommittedTxns = self.uncommittedTxns[count:]
+        logger.debug('Committed {} txns, {} are uncommitted'.
+                     format(len(committedTxns), len(self.uncommittedTxns)))
         if not self.uncommittedTxns:
             self.uncommittedTree = None
             self.uncommittedRootHash = None
@@ -69,6 +71,8 @@ class Ledger(_Ledger):
         :param count:
         :return:
         """
+        # TODO: This can be optimised if multiple discards are combined
+        # together since merkle root computation will be done only once.
         old_hash = self.uncommittedRootHash
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
@@ -78,7 +82,9 @@ class Ledger(_Ledger):
             self.uncommittedTree = self.treeWithAppliedTxns(self.uncommittedTxns)
             self.uncommittedRootHash = self.uncommittedTree.root_hash
         logger.debug('Discarding {} txns and root hash {} and new root hash '
-                     'is {}'.format(count, old_hash, self.uncommittedRootHash))
+                     'is {}. {} are still uncommitted'.
+                     format(count, old_hash, self.uncommittedRootHash,
+                            len(self.uncommittedTxns)))
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """
@@ -99,11 +105,3 @@ class Ledger(_Ledger):
         self.uncommittedTxns = []
         self.uncommittedRootHash = None
         self.uncommittedTree = None
-
-    @staticmethod
-    def hashToStr(h):
-        return base58.b58encode(h)
-
-    @staticmethod
-    def strToHash(s):
-        return base58.b58decode(s)

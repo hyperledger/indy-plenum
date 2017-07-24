@@ -72,9 +72,12 @@ def checkSufficientRepliesReceived(receivedMsgs: Iterable,
         format(len(receivedReplies), fValue + 1, reqId)
     result = checkIfMoreThanFSameItems([reply[f.RESULT.nm] for reply in
                                         receivedReplies], fValue)
-    assert result
+    assert result, "reqId {}: found less than in {} same replies".format(
+                reqId, fValue)
 
-    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies])
+    assert all([r[f.RESULT.nm][f.REQ_ID.nm] == reqId for r in receivedReplies]), \
+            "not all replies have got reqId {}".format(reqId)
+
     return result
     # TODO add test case for what happens when replies don't have the same data
 
