@@ -440,6 +440,8 @@ class Replica(HasActionQueue, MessageProcessor):
     def on_view_change_done(self):
         assert self.isMaster
         self.last_prepared_before_view_change = None
+        if self.isPrimary:
+            self.lastPrePrepareSeqNo = self.last_ordered_3pc[1]
 
     def get_lowest_probable_prepared_certificate_in_view(self, view_no) -> Optional[int]:
         """
