@@ -1,4 +1,6 @@
 import os
+import random
+import string
 import types
 
 from common.serializers.msgpack_serializer import MsgPackSerializer
@@ -16,10 +18,10 @@ from storage.text_file_store import TextFileStore
 def txn(i: int):
     return {
         'identifier': 'cli' + str(i),
-        'reqId': i,
-        'op': 'do something' + str(i)
+        'reqId': i + 1,
+        'op': ''.join([random.choice(string.ascii_letters) for _ in range(
+            random.randint(i + 1, 100))])
     }
-
 
 def checkLeafInclusion(verifier, leafData, leafIndex, proof, treeHead):
     assert verifier.verify_leaf_inclusion(

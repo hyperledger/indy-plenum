@@ -195,7 +195,7 @@ def test_consistency_verification_on_startup_case_2(tempdir):
         ledger.add(txn(d))
 
     # Adding one more entry to transaction log without adding it to merkle tree
-    badData = txn(100)
+    badData = txn(50)
     value = ledger.serialize_for_txn_log(badData)
     key = str(tranzNum + 1)
     ledger._transactionLog.put(key=key, value=value)
