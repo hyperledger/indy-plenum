@@ -5,18 +5,20 @@ from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import stopNodes
 
+from plenum.test.pool_transactions.conftest import clientAndWallet1, \
+    client1, wallet1, client1Connected, looper
 
-def test_view_change_n_minus_f_quorum(nodeSet, up, looper):
+def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
     """
     Check that quorum n - f is used for view change
     """
 
-    assert len(nodeSet) == 4
+    assert len(txnPoolNodeSet) == 4
 
     # Quorum for view change is expected to be n - f
     # So, switching one node off
-    stopped = [nodeSet[-1]]
-    active = list(nodeSet)[:-1]
+    stopped = [txnPoolNodeSet[-1]]
+    active = list(txnPoolNodeSet)[:-1]
     stopNodes(stopped, looper)
     looper.removeProdable(*stopped)
 
