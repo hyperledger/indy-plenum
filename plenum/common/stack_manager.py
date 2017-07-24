@@ -101,7 +101,7 @@ class TxnStackManager:
                         cryptonymToHex(txn[IDENTIFIER])
                     except ValueError as ex:
                         logger.error('Invalid {}. Rebuild pool transactions.'.format(key_type))
-                        raise ValueError
+                        raise ValueError('Invalid {}. Rebuild pool transactions.'.format(key_type))
 
                     nodeKeys[nodeName] = verkey
 
@@ -113,7 +113,7 @@ class TxnStackManager:
                             activeValidators.discard(nodeName)
         except JSONDecodeError as exc:
             logger.error('Transaction file corrupted. Rebuild pool transactions.')
-            raise JSONDecodeError
+            raise JSONDecodeError('Transaction file corrupted. Rebuild pool transactions.')
 
         if returnActive:
             allNodes = tuple(nodeReg.keys())
