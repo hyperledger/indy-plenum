@@ -17,14 +17,6 @@ whitelist = ['discarding message']
 
 logger = getlogger()
 
-@pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime():
-    return 200
-
-@pytest.fixture(scope="function", autouse=True)
-def limitTestRunningTime():
-    return 200
-
 
 @pytest.fixture(scope="function", autouse=True)
 def limitTestRunningTime():
